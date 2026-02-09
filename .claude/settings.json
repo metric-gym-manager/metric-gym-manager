@@ -1,0 +1,32 @@
+{
+    "$schema": "https://json.schemastore.org/claude-code-settings.json",
+    "permissions": {
+      "allow": [
+        "Bash(dir:*)"
+      ]
+    },
+    "hooks": {
+      "PostToolUse": [
+        {
+          "matcher": "Edit|Write|Bash",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "npm run lint && npm run type-check"
+            }
+          ]
+        }
+      ],
+      "Stop": [
+        {
+          "matcher": "*",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "npm test"
+            }
+          ]
+        }
+      ]
+    }
+  }
