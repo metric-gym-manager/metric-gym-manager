@@ -1,12 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
-    serverActions: true,
-  },
-  env: {
-    DATABASE_URL: process.env.DATABASE_URL,
-  },
+  // serverActions are stable in Next.js 16, no longer experimental
 }
 
 module.exports = nextConfig
