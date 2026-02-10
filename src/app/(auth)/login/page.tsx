@@ -37,19 +37,19 @@ export default function LoginPage() {
       }
 
       // Fetch user profile for role-based redirect
+      type UserProfile = { role: string }
       const { data: profile, error: profileError } = await supabase
         .from('users')
         .select('role')
         .eq('id', data.user.id)
-        .single()
+        .single<UserProfile>()
 
-      if (profileError) {
+      if (profileError || !profile) {
         throw new Error('Failed to fetch user profile')
       }
 
       // Redirect based on role
-      const userRole = (profile as any)?.role
-      if (userRole === 'gym_owner' || userRole === 'admin') {
+      if (profile.role === 'gym_owner' || profile.role === 'admin') {
         router.push('/dashboard/admin')
       } else {
         router.push('/dashboard/member')
