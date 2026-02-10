@@ -1,4 +1,4 @@
-import { query, transaction, setUserContext } from '@/lib/db/client'
+import { createClient } from '@/lib/supabase/server'
 import {
   CreateMemberInput,
   UpdateMemberInput,
@@ -8,6 +8,65 @@ import {
 } from '../schemas/members.schemas'
 import { Member, EmergencyContact } from '../types'
 
+// Type definitions for Supabase queries
+type MemberRow = {
+  id: string
+  gym_id: string
+  email: string
+  first_name: string
+  last_name: string
+  phone: string | null
+  date_of_birth: string | null
+  gender: string | null
+  address: any | null
+  photo_url: string | null
+  status: string
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+type EmergencyContactRow = {
+  id: string
+  member_id: string
+  name: string
+  relationship: string
+  phone: string
+  email: string | null
+  is_primary: boolean
+  created_at: string
+  updated_at: string
+}
+
+type MedicalWaiverRow = {
+  id: string
+  member_id: string
+  conditions: string | null
+  medications: string | null
+  allergies: string | null
+  signature_data: string
+  signed_at: string
+  created_at: string
+  updated_at: string
+}
+
+// Custom error classes
+export class ConflictError extends Error {
+  statusCode = 409
+  constructor(message: string) {
+    super(message)
+    this.name = 'ConflictError'
+  }
+}
+
+export class NotFoundError extends Error {
+  statusCode = 404
+  constructor(message: string) {
+    super(message)
+    this.name = 'NotFoundError'
+  }
+}
+
 /**
  * Create a new member
  */
@@ -16,66 +75,91 @@ export async function createMember(
   userId: string,
   input: CreateMemberInput
 ): Promise<Member> {
-  return transaction(async (client) => {
-    // Set RLS context
-    await setUserContext(client, userId)
+  const supabase = await createClient()
 
-    // Check if email already exists in this gym
-    const existing = await client.query(
-      'SELECT id FROM members WHERE gym_id = $1 AND email = $2',
-      [gymId, input.email]
-    )
+  // Check for duplicate email
+  const { data: existing } = await supabase
+    .from('members')
+    .select('id')
+    .eq('gym_id', gymId)
+    .eq('email', input.email)
+    .maybeSingle<Pick<MemberRow, 'id'>>()
 
-    if (existing.rowCount && existing.rowCount > 0) {
-      throw new Error('Member with this email already exists in this gym')
-    }
+  if (existing) {
+    throw new ConflictError('Member with this email already exists in this gym')
+  }
 
-    // Insert member
-    const result = await client.query<Member>(
-      `INSERT INTO members (
-        gym_id, email, first_name, last_name, phone, date_of_birth,
-        gender, address, photo_url, notes, status
-      )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending')
-       RETURNING
-         id, gym_id as "gymId", email, first_name as "firstName",
-         last_name as "lastName", phone, date_of_birth as "dateOfBirth",
-         gender, address, photo_url as "photoUrl", status, notes,
-         created_at as "createdAt", updated_at as "updatedAt"`,
-      [
-        gymId,
-        input.email,
-        input.firstName,
-        input.lastName,
-        input.phone || null,
-        input.dateOfBirth || null,
-        input.gender || null,
-        input.address ? JSON.stringify(input.address) : null,
-        input.photoUrl || null,
-        input.notes || null,
-      ]
-    )
+  // Insert member
+  const { data: member, error } = await supabase
+    .from('members')
+    .insert({
+      gym_id: gymId,
+      email: input.email,
+      first_name: input.firstName,
+      last_name: input.lastName,
+      phone: input.phone || null,
+      date_of_birth: input.dateOfBirth || null,
+      gender: input.gender || null,
+      address: (input.address as any) || null,
+      photo_url: input.photoUrl || null,
+      notes: input.notes || null,
+      status: 'pending' as const,
+    } as any)
+    .select()
+    .single<MemberRow>()
 
-    return result.rows[0]
-  })
+  if (error) throw error
+  if (!member) throw new Error('Failed to create member')
+
+  return {
+    id: member.id,
+    gymId: member.gym_id,
+    email: member.email,
+    firstName: member.first_name,
+    lastName: member.last_name,
+    phone: member.phone || undefined,
+    dateOfBirth: member.date_of_birth ? new Date(member.date_of_birth) : undefined,
+    gender: member.gender || undefined,
+    address: member.address as any,
+    photoUrl: member.photo_url || undefined,
+    status: member.status as Member['status'],
+    notes: member.notes || undefined,
+    createdAt: new Date(member.created_at),
+    updatedAt: new Date(member.updated_at),
+  }
 }
 
 /**
  * Get member by ID
  */
-export async function getMemberById(memberId: string, userId: string): Promise<Member | null> {
-  const result = await query<Member>(
-    `SELECT
-       id, gym_id as "gymId", email, first_name as "firstName",
-       last_name as "lastName", phone, date_of_birth as "dateOfBirth",
-       gender, address, photo_url as "photoUrl", status, notes,
-       created_at as "createdAt", updated_at as "updatedAt"
-     FROM members
-     WHERE id = $1`,
-    [memberId]
-  )
+export async function getMemberById(memberId: string): Promise<Member | null> {
+  const supabase = await createClient()
 
-  return result.rowCount && result.rowCount > 0 ? result.rows[0] : null
+  const { data: member, error } = await supabase
+    .from('members')
+    .select('*')
+    .eq('id', memberId)
+    .maybeSingle<MemberRow>()
+
+  if (error) throw error
+  if (!member) return null
+
+  return {
+    id: member.id,
+    gymId: member.gym_id,
+    email: member.email,
+    firstName: member.first_name,
+    lastName: member.last_name,
+    phone: member.phone || undefined,
+    dateOfBirth: member.date_of_birth ? new Date(member.date_of_birth) : undefined,
+    gender: member.gender || undefined,
+    address: member.address as any,
+    photoUrl: member.photo_url || undefined,
+    status: member.status as Member['status'],
+    notes: member.notes || undefined,
+    createdAt: new Date(member.created_at),
+    updatedAt: new Date(member.updated_at),
+  }
 }
 
 /**
@@ -83,7 +167,6 @@ export async function getMemberById(memberId: string, userId: string): Promise<M
  */
 export async function listMembers(
   gymId: string,
-  userId: string,
   filters?: {
     status?: MemberStatus
     search?: string
@@ -91,61 +174,60 @@ export async function listMembers(
     offset?: number
   }
 ): Promise<{ members: Member[]; total: number }> {
-  let queryText = `
-    SELECT
-      id, gym_id as "gymId", email, first_name as "firstName",
-      last_name as "lastName", phone, date_of_birth as "dateOfBirth",
-      gender, address, photo_url as "photoUrl", status, notes,
-      created_at as "createdAt", updated_at as "updatedAt"
-    FROM members
-    WHERE gym_id = $1
-  `
+  const supabase = await createClient()
 
-  const params: any[] = [gymId]
-  let paramIndex = 2
+  // Build query with filters
+  let query = supabase
+    .from('members')
+    .select('*', { count: 'exact' })
+    .eq('gym_id', gymId)
 
+  // Apply filters dynamically
   if (filters?.status) {
-    queryText += ` AND status = $${paramIndex}`
-    params.push(filters.status)
-    paramIndex++
+    query = query.eq('status', filters.status)
   }
 
   if (filters?.search) {
-    queryText += ` AND (
-      first_name ILIKE $${paramIndex} OR
-      last_name ILIKE $${paramIndex} OR
-      email ILIKE $${paramIndex}
-    )`
-    params.push(`%${filters.search}%`)
-    paramIndex++
+    query = query.or(
+      `first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%`
+    )
   }
 
-  // Get total count
-  const countResult = await query(
-    `SELECT COUNT(*) as count FROM (${queryText}) as subquery`,
-    params
-  )
-  const total = parseInt(countResult.rows[0].count)
+  // Order by created_at DESC
+  query = query.order('created_at', { ascending: false })
 
-  // Add pagination
-  queryText += ` ORDER BY created_at DESC`
-
-  if (filters?.limit) {
-    queryText += ` LIMIT $${paramIndex}`
-    params.push(filters.limit)
-    paramIndex++
+  // Pagination
+  if (filters?.limit && filters?.offset) {
+    const limit = filters.limit
+    query = query.range(filters.offset, filters.offset + limit - 1)
+  } else if (filters?.limit) {
+    query = query.limit(filters.limit)
   }
 
-  if (filters?.offset) {
-    queryText += ` OFFSET $${paramIndex}`
-    params.push(filters.offset)
-  }
+  const { data, error, count } = await query.returns<MemberRow[]>()
 
-  const result = await query<Member>(queryText, params)
+  if (error) throw error
+
+  const members = (data || []).map((m: any) => ({
+    id: m.id,
+    gymId: m.gym_id,
+    email: m.email,
+    firstName: m.first_name,
+    lastName: m.last_name,
+    phone: m.phone || undefined,
+    dateOfBirth: m.date_of_birth ? new Date(m.date_of_birth) : undefined,
+    gender: m.gender || undefined,
+    address: m.address as any,
+    photoUrl: m.photo_url || undefined,
+    status: m.status as Member['status'],
+    notes: m.notes || undefined,
+    createdAt: new Date(m.created_at),
+    updatedAt: new Date(m.updated_at),
+  }))
 
   return {
-    members: result.rows,
-    total,
+    members,
+    total: count || 0,
   }
 }
 
@@ -154,91 +236,56 @@ export async function listMembers(
  */
 export async function updateMember(
   memberId: string,
-  userId: string,
   input: UpdateMemberInput
 ): Promise<Member> {
-  const updates: string[] = []
-  const params: any[] = []
-  let paramIndex = 1
+  const supabase = await createClient()
 
-  // Build dynamic update query
-  if (input.email !== undefined) {
-    updates.push(`email = $${paramIndex}`)
-    params.push(input.email)
-    paramIndex++
-  }
+  // Build update object with only provided fields
+  const updates: any = {}
+  if (input.email !== undefined) updates.email = input.email
+  if (input.firstName !== undefined) updates.first_name = input.firstName
+  if (input.lastName !== undefined) updates.last_name = input.lastName
+  if (input.phone !== undefined) updates.phone = input.phone
+  if (input.dateOfBirth !== undefined) updates.date_of_birth = input.dateOfBirth
+  if (input.gender !== undefined) updates.gender = input.gender
+  if (input.address !== undefined) updates.address = input.address as any
+  if (input.photoUrl !== undefined) updates.photo_url = input.photoUrl
+  if (input.notes !== undefined) updates.notes = input.notes
 
-  if (input.firstName !== undefined) {
-    updates.push(`first_name = $${paramIndex}`)
-    params.push(input.firstName)
-    paramIndex++
-  }
-
-  if (input.lastName !== undefined) {
-    updates.push(`last_name = $${paramIndex}`)
-    params.push(input.lastName)
-    paramIndex++
-  }
-
-  if (input.phone !== undefined) {
-    updates.push(`phone = $${paramIndex}`)
-    params.push(input.phone)
-    paramIndex++
-  }
-
-  if (input.dateOfBirth !== undefined) {
-    updates.push(`date_of_birth = $${paramIndex}`)
-    params.push(input.dateOfBirth)
-    paramIndex++
-  }
-
-  if (input.gender !== undefined) {
-    updates.push(`gender = $${paramIndex}`)
-    params.push(input.gender)
-    paramIndex++
-  }
-
-  if (input.address !== undefined) {
-    updates.push(`address = $${paramIndex}`)
-    params.push(JSON.stringify(input.address))
-    paramIndex++
-  }
-
-  if (input.photoUrl !== undefined) {
-    updates.push(`photo_url = $${paramIndex}`)
-    params.push(input.photoUrl)
-    paramIndex++
-  }
-
-  if (input.notes !== undefined) {
-    updates.push(`notes = $${paramIndex}`)
-    params.push(input.notes)
-    paramIndex++
-  }
-
-  if (updates.length === 0) {
+  if (Object.keys(updates).length === 0) {
     throw new Error('No fields to update')
   }
 
-  params.push(memberId)
+  const { data: member, error } = await supabase
+    .from('members')
+    .update(updates)
+    .eq('id', memberId)
+    .select()
+    .single<MemberRow>()
 
-  const result = await query<Member>(
-    `UPDATE members
-     SET ${updates.join(', ')}
-     WHERE id = $${paramIndex}
-     RETURNING
-       id, gym_id as "gymId", email, first_name as "firstName",
-       last_name as "lastName", phone, date_of_birth as "dateOfBirth",
-       gender, address, photo_url as "photoUrl", status, notes,
-       created_at as "createdAt", updated_at as "updatedAt"`,
-    params
-  )
-
-  if (result.rowCount === 0) {
-    throw new Error('Member not found')
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new NotFoundError('Member not found')
+    }
+    throw error
   }
 
-  return result.rows[0]
+  return {
+    id: member.id,
+    gymId: member.gym_id,
+    email: member.email,
+    firstName: member.first_name,
+    lastName: member.last_name,
+    phone: member.phone || undefined,
+    dateOfBirth: member.date_of_birth ? new Date(member.date_of_birth) : undefined,
+    gender: member.gender || undefined,
+    address: member.address as any,
+    photoUrl: member.photo_url || undefined,
+    status: member.status as Member['status'],
+    notes: member.notes || undefined,
+    createdAt: new Date(member.created_at),
+    updatedAt: new Date(member.updated_at),
+  }
 }
 
 /**
@@ -246,26 +293,40 @@ export async function updateMember(
  */
 export async function updateMemberStatus(
   memberId: string,
-  userId: string,
   status: MemberStatus
 ): Promise<Member> {
-  const result = await query<Member>(
-    `UPDATE members
-     SET status = $1
-     WHERE id = $2
-     RETURNING
-       id, gym_id as "gymId", email, first_name as "firstName",
-       last_name as "lastName", phone, date_of_birth as "dateOfBirth",
-       gender, address, photo_url as "photoUrl", status, notes,
-       created_at as "createdAt", updated_at as "updatedAt"`,
-    [status, memberId]
-  )
+  const supabase = await createClient()
 
-  if (result.rowCount === 0) {
-    throw new Error('Member not found')
+  const { data: member, error } = await supabase
+    .from('members')
+    .update({ status })
+    .eq('id', memberId)
+    .select()
+    .single<MemberRow>()
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      throw new NotFoundError('Member not found')
+    }
+    throw error
   }
 
-  return result.rows[0]
+  return {
+    id: member.id,
+    gymId: member.gym_id,
+    email: member.email,
+    firstName: member.first_name,
+    lastName: member.last_name,
+    phone: member.phone || undefined,
+    dateOfBirth: member.date_of_birth ? new Date(member.date_of_birth) : undefined,
+    gender: member.gender || undefined,
+    address: member.address as any,
+    photoUrl: member.photo_url || undefined,
+    status: member.status as Member['status'],
+    notes: member.notes || undefined,
+    createdAt: new Date(member.created_at),
+    updatedAt: new Date(member.updated_at),
+  }
 }
 
 /**
@@ -273,50 +334,76 @@ export async function updateMemberStatus(
  */
 export async function addEmergencyContact(
   memberId: string,
-  userId: string,
   input: EmergencyContactInput
 ): Promise<EmergencyContact> {
-  return transaction(async (client) => {
-    const isPrimary = input.isPrimary ?? false
+  const supabase = await createClient()
+  const isPrimary = input.isPrimary ?? false
 
-    // If this is marked as primary, unset other primary contacts
-    if (isPrimary) {
-      await client.query('UPDATE emergency_contacts SET is_primary = false WHERE member_id = $1', [
-        memberId,
-      ])
-    }
+  // If this is marked as primary, unset other primary contacts
+  if (isPrimary) {
+    await supabase
+      .from('emergency_contacts')
+      .update({ is_primary: false })
+      .eq('member_id', memberId)
+  }
 
-    const result = await client.query<EmergencyContact>(
-      `INSERT INTO emergency_contacts (member_id, name, relationship, phone, email, is_primary)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING
-         id, member_id as "memberId", name, relationship, phone, email,
-         is_primary as "isPrimary", created_at as "createdAt", updated_at as "updatedAt"`,
-      [memberId, input.name, input.relationship, input.phone, input.email || null, isPrimary]
-    )
+  const { data: contact, error } = await supabase
+    .from('emergency_contacts')
+    .insert({
+      member_id: memberId,
+      name: input.name,
+      relationship: input.relationship,
+      phone: input.phone,
+      email: input.email || null,
+      is_primary: isPrimary,
+    } as any)
+    .select()
+    .single<EmergencyContactRow>()
 
-    return result.rows[0]
-  })
+  if (error) throw error
+
+  return {
+    id: contact.id,
+    memberId: contact.member_id,
+    name: contact.name,
+    relationship: contact.relationship,
+    phone: contact.phone,
+    email: contact.email || undefined,
+    isPrimary: contact.is_primary,
+    createdAt: new Date(contact.created_at),
+    updatedAt: new Date(contact.updated_at),
+  }
 }
 
 /**
  * Get emergency contacts for member
  */
 export async function getEmergencyContacts(
-  memberId: string,
-  userId: string
+  memberId: string
 ): Promise<EmergencyContact[]> {
-  const result = await query<EmergencyContact>(
-    `SELECT
-       id, member_id as "memberId", name, relationship, phone, email,
-       is_primary as "isPrimary", created_at as "createdAt", updated_at as "updatedAt"
-     FROM emergency_contacts
-     WHERE member_id = $1
-     ORDER BY is_primary DESC, created_at ASC`,
-    [memberId]
-  )
+  const supabase = await createClient()
 
-  return result.rows
+  const { data: contacts, error } = await supabase
+    .from('emergency_contacts')
+    .select('*')
+    .eq('member_id', memberId)
+    .order('is_primary', { ascending: false })
+    .order('created_at', { ascending: true })
+    .returns<EmergencyContactRow[]>()
+
+  if (error) throw error
+
+  return (contacts || []).map((c: any) => ({
+    id: c.id,
+    memberId: c.member_id,
+    name: c.name,
+    relationship: c.relationship,
+    phone: c.phone,
+    email: c.email || undefined,
+    isPrimary: c.is_primary,
+    createdAt: new Date(c.created_at),
+    updatedAt: new Date(c.updated_at),
+  }))
 }
 
 /**
@@ -324,18 +411,18 @@ export async function getEmergencyContacts(
  */
 export async function signMedicalWaiver(
   memberId: string,
-  userId: string,
   input: MedicalWaiverInput
 ): Promise<void> {
-  await query(
-    `INSERT INTO medical_waivers (member_id, conditions, medications, allergies, signature_data, signed_at)
-     VALUES ($1, $2, $3, $4, $5, NOW())`,
-    [
-      memberId,
-      input.conditions || null,
-      input.medications || null,
-      input.allergies || null,
-      input.signatureData,
-    ]
-  )
+  const supabase = await createClient()
+
+  const { error } = await supabase.from('medical_waivers').insert({
+    member_id: memberId,
+    conditions: input.conditions || null,
+    medications: input.medications || null,
+    allergies: input.allergies || null,
+    signature_data: input.signatureData,
+    signed_at: new Date().toISOString(),
+  } as any)
+
+  if (error) throw error
 }

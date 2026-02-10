@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50
     const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0
 
-    const result = await listMembers(user.gymId, user.userId, {
+    const result = await listMembers(user.gymId, {
       status,
       search,
       limit,

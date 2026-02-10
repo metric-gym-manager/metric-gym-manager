@@ -1,235 +1,288 @@
-import { query, transaction, setUserContext } from '@/lib/db/client'
+import { createClient } from '@/lib/supabase/server'
 import { processMockPayment } from './mockPaymentProcessor.service'
 import { CreatePaymentInput } from '../schemas/payments.schemas'
 import { Payment } from '../types'
 
+// Type definitions for Supabase queries
+type PaymentRow = {
+  id: string
+  gym_id: string
+  member_id: string
+  membership_id: string | null
+  payment_method_id: string | null
+  amount: string
+  currency: string
+  status: string
+  type: string
+  description: string | null
+  mock_processor_id: string | null
+  mock_data: any
+  processed_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Custom error classes
+export class NotFoundError extends Error {
+  statusCode = 404
+  constructor(message: string) {
+    super(message)
+    this.name = 'NotFoundError'
+  }
+}
+
+export class BadRequestError extends Error {
+  statusCode = 400
+  constructor(message: string) {
+    super(message)
+    this.name = 'BadRequestError'
+  }
+}
+
 /**
- * Create a payment record
+ * Create a payment record using Supabase
  */
 export async function createPaymentRecord(
   gymId: string,
-  userId: string,
-  input: CreatePaymentInput
+  memberId: string,
+  membershipId: string | null,
+  paymentMethodId: string | null,
+  amount: number,
+  type: 'membership' | 'setup_fee' | 'class_pack' | 'drop_in' | 'other',
+  description?: string
 ): Promise<Payment> {
-  return transaction(async (client) => {
-    // Set RLS context
-    await setUserContext(client, userId)
+  const supabase = await createClient()
 
-    const result = await client.query<Payment>(
-      `INSERT INTO payments (
-        gym_id, member_id, membership_id, payment_method_id, amount, type, description, status
-      )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
-       RETURNING
-         id, gym_id as "gymId", member_id as "memberId",
-         membership_id as "membershipId", payment_method_id as "paymentMethodId",
-         amount, currency, status, type, description,
-         mock_processor_id as "mockProcessorId", mock_data as "mockData",
-         processed_at as "processedAt", created_at as "createdAt", updated_at as "updatedAt"`,
-      [
-        gymId,
-        input.memberId,
-        input.membershipId || null,
-        input.paymentMethodId || null,
-        input.amount,
-        input.type,
-        input.description || null,
-      ]
-    )
+  const { data: payment, error } = await supabase
+    .from('payments')
+    .insert({
+      gym_id: gymId,
+      member_id: memberId,
+      membership_id: membershipId,
+      payment_method_id: paymentMethodId,
+      amount,
+      currency: 'USD',
+      status: 'pending',
+      type,
+      description: description || null,
+    })
+    .select()
+    .single<PaymentRow>()
 
-    return result.rows[0]
-  })
+  if (error) throw error
+
+  return {
+    id: payment.id,
+    gymId: payment.gym_id,
+    memberId: payment.member_id,
+    membershipId: payment.membership_id || undefined,
+    paymentMethodId: payment.payment_method_id || undefined,
+    amount: parseFloat(payment.amount),
+    currency: payment.currency,
+    status: payment.status as Payment['status'],
+    type: payment.type as Payment['type'],
+    description: payment.description || undefined,
+    mockProcessorId: payment.mock_processor_id || undefined,
+    mockData: payment.mock_data || {},
+    processedAt: payment.processed_at ? new Date(payment.processed_at) : undefined,
+    createdAt: new Date(payment.created_at),
+    updatedAt: new Date(payment.updated_at),
+  }
 }
 
 /**
- * Process payment using mock processor
+ * Process payment using Supabase (sequential operations with existing trigger)
  */
-export async function processPayment(
-  paymentId: string,
-  userId: string,
-  paymentMethodId?: string,
-  forceOutcome?: 'success' | 'failure'
-): Promise<Payment> {
-  return transaction(async (client) => {
-    // Set RLS context
-    await setUserContext(client, userId)
+export async function processPayment(paymentId: string): Promise<Payment> {
+  const supabase = await createClient()
 
-    // Get payment record
-    const paymentResult = await client.query(
-      'SELECT * FROM payments WHERE id = $1',
-      [paymentId]
+  // 1. Get payment record
+  const { data: payment, error: fetchError } = await supabase
+    .from('payments')
+    .select('*')
+    .eq('id', paymentId)
+    .single<PaymentRow>()
+
+  if (fetchError || !payment) throw new NotFoundError('Payment not found')
+
+  if (payment.status !== 'pending') {
+    throw new BadRequestError(`Payment cannot be processed in ${payment.status} status`)
+  }
+
+  // 2. Update status to processing
+  await supabase
+    .from('payments')
+    .update({ status: 'processing' })
+    .eq('id', paymentId)
+
+  try {
+    // 3. Process with mock processor (keep existing logic)
+    const mockResult = await processMockPayment(
+      payment.amount,
+      payment.payment_method_id || undefined,
+      {
+        paymentId,
+        memberId: payment.member_id,
+        membershipId: payment.membership_id,
+      }
     )
 
-    if (paymentResult.rowCount === 0) {
-      throw new Error('Payment not found')
+    // 4. Update payment status
+    const { data: updatedPayment, error: updateError } = await supabase
+      .from('payments')
+      .update({
+        status: mockResult.success ? 'succeeded' : 'failed',
+        mock_processor_id: mockResult.transactionId,
+        mock_data: mockResult.processorData,
+        processed_at: new Date().toISOString(),
+      })
+      .eq('id', paymentId)
+      .select()
+      .single<PaymentRow>()
+
+    if (updateError) throw updateError
+
+    // 5. Database trigger will automatically:
+    //    - Update member status to 'active' if payment succeeded
+    //    - Update membership status to 'active' if payment succeeded
+    //    (See migration: 20240209000003_triggers_and_functions.sql)
+
+    return {
+      id: updatedPayment.id,
+      gymId: updatedPayment.gym_id,
+      memberId: updatedPayment.member_id,
+      membershipId: updatedPayment.membership_id || undefined,
+      paymentMethodId: updatedPayment.payment_method_id || undefined,
+      amount: parseFloat(updatedPayment.amount),
+      currency: updatedPayment.currency,
+      status: updatedPayment.status as Payment['status'],
+      type: updatedPayment.type as Payment['type'],
+      description: updatedPayment.description || undefined,
+      mockProcessorId: updatedPayment.mock_processor_id || undefined,
+      mockData: updatedPayment.mock_data || {},
+      processedAt: updatedPayment.processed_at ? new Date(updatedPayment.processed_at) : undefined,
+      createdAt: new Date(updatedPayment.created_at),
+      updatedAt: new Date(updatedPayment.updated_at),
     }
+  } catch (error) {
+    // Mark payment as failed if processing throws an error
+    await supabase
+      .from('payments')
+      .update({
+        status: 'failed',
+        mock_data: { error: (error as Error).message },
+      })
+      .eq('id', paymentId)
 
-    const payment = paymentResult.rows[0]
-
-    if (payment.status !== 'pending') {
-      throw new Error(`Payment cannot be processed in ${payment.status} status`)
-    }
-
-    // Update status to processing
-    await client.query('UPDATE payments SET status = $1 WHERE id = $2', ['processing', paymentId])
-
-    try {
-      // Call mock payment processor
-      const mockResult = await processMockPayment(
-        payment.amount,
-        paymentMethodId,
-        {
-          paymentId,
-          memberId: payment.member_id,
-          membershipId: payment.membership_id,
-        },
-        forceOutcome
-      )
-
-      // Update payment record with result
-      const updatedPayment = await client.query<Payment>(
-        `UPDATE payments
-         SET status = $1, mock_processor_id = $2, mock_data = $3, processed_at = NOW()
-         WHERE id = $4
-         RETURNING
-           id, gym_id as "gymId", member_id as "memberId",
-           membership_id as "membershipId", payment_method_id as "paymentMethodId",
-           amount, currency, status, type, description,
-           mock_processor_id as "mockProcessorId", mock_data as "mockData",
-           processed_at as "processedAt", created_at as "createdAt", updated_at as "updatedAt"`,
-        [
-          mockResult.success ? 'succeeded' : 'failed',
-          mockResult.transactionId,
-          JSON.stringify(mockResult.processorData),
-          paymentId,
-        ]
-      )
-
-      // Note: Member and membership status updates are handled by database trigger
-      // (update_member_status_from_payment function in migrations/helper-functions.js)
-
-      return updatedPayment.rows[0]
-    } catch (error) {
-      // Mark payment as failed if processing throws an error
-      await client.query(
-        `UPDATE payments
-         SET status = 'failed', mock_data = $1
-         WHERE id = $2`,
-        [JSON.stringify({ error: (error as Error).message }), paymentId]
-      )
-
-      throw error
-    }
-  })
+    throw error
+  }
 }
 
 /**
- * Get payment history for a member
+ * Get payment history using Supabase (supports filtering by gym or member)
  */
 export async function getPaymentHistory(
-  memberId: string,
-  userId: string,
+  gymId: string,
   filters?: {
+    memberId?: string
     status?: string
     type?: string
     limit?: number
     offset?: number
   }
 ): Promise<{ payments: Payment[]; total: number }> {
-  let queryText = `
-    SELECT
-      id, gym_id as "gymId", member_id as "memberId",
-      membership_id as "membershipId", payment_method_id as "paymentMethodId",
-      amount, currency, status, type, description,
-      mock_processor_id as "mockProcessorId", mock_data as "mockData",
-      processed_at as "processedAt", created_at as "createdAt", updated_at as "updatedAt"
-    FROM payments
-    WHERE member_id = $1
-  `
+  const supabase = await createClient()
 
-  const params: any[] = [memberId]
-  let paramIndex = 2
+  let query = supabase
+    .from('payments')
+    .select('*', { count: 'exact' })
+    .eq('gym_id', gymId)
+
+  if (filters?.memberId) {
+    query = query.eq('member_id', filters.memberId)
+  }
 
   if (filters?.status) {
-    queryText += ` AND status = $${paramIndex}`
-    params.push(filters.status)
-    paramIndex++
+    query = query.eq('status', filters.status)
   }
 
   if (filters?.type) {
-    queryText += ` AND type = $${paramIndex}`
-    params.push(filters.type)
-    paramIndex++
+    query = query.eq('type', filters.type)
   }
 
-  // Get total count
-  const countResult = await query(`SELECT COUNT(*) as count FROM (${queryText}) as subquery`, params)
-  const total = parseInt(countResult.rows[0].count)
-
-  // Add pagination
-  queryText += ` ORDER BY created_at DESC`
-
   if (filters?.limit) {
-    queryText += ` LIMIT $${paramIndex}`
-    params.push(filters.limit)
-    paramIndex++
+    query = query.limit(filters.limit)
   }
 
   if (filters?.offset) {
-    queryText += ` OFFSET $${paramIndex}`
-    params.push(filters.offset)
+    const limit = filters.limit || 10
+    query = query.range(filters.offset, filters.offset + limit - 1)
   }
 
-  const result = await query<Payment>(queryText, params)
+  // Order by most recent first
+  query = query.order('created_at', { ascending: false })
+
+  const { data, error, count } = await query.returns<PaymentRow[]>()
+
+  if (error) throw error
+
+  const payments = (data || []).map((p) => ({
+    id: p.id,
+    gymId: p.gym_id,
+    memberId: p.member_id,
+    membershipId: p.membership_id || undefined,
+    paymentMethodId: p.payment_method_id || undefined,
+    amount: parseFloat(p.amount),
+    currency: p.currency,
+    status: p.status as Payment['status'],
+    type: p.type as Payment['type'],
+    description: p.description || undefined,
+    mockProcessorId: p.mock_processor_id || undefined,
+    mockData: p.mock_data || {},
+    processedAt: p.processed_at ? new Date(p.processed_at) : undefined,
+    createdAt: new Date(p.created_at),
+    updatedAt: new Date(p.updated_at),
+  }))
 
   return {
-    payments: result.rows,
-    total,
+    payments,
+    total: count || 0,
   }
 }
 
 /**
- * Retry a failed payment
+ * Retry a failed payment using Supabase
  */
-export async function retryFailedPayment(
-  paymentId: string,
-  userId: string
-): Promise<Payment> {
-  return transaction(async (client) => {
-    // Set RLS context
-    await setUserContext(client, userId)
+export async function retryFailedPayment(paymentId: string): Promise<Payment> {
+  const supabase = await createClient()
 
-    // Get payment record
-    const paymentResult = await client.query(
-      'SELECT * FROM payments WHERE id = $1',
-      [paymentId]
-    )
+  const { data: payment, error } = await supabase
+    .from('payments')
+    .select('*')
+    .eq('id', paymentId)
+    .single<PaymentRow>()
 
-    if (paymentResult.rowCount === 0) {
-      throw new Error('Payment not found')
-    }
+  if (error || !payment) throw new NotFoundError('Payment not found')
 
-    const payment = paymentResult.rows[0]
+  if (payment.status !== 'failed') {
+    throw new BadRequestError('Can only retry failed payments')
+  }
 
-    if (payment.status !== 'failed') {
-      throw new Error('Only failed payments can be retried')
-    }
+  // Check retry count in mock_data
+  const retryCount = (payment.mock_data as any)?.retryCount || 0
+  if (retryCount >= 3) {
+    throw new BadRequestError('Maximum retry attempts exceeded')
+  }
 
-    // Check retry count in mock_data
-    const mockData = payment.mock_data || {}
-    const retryCount = (mockData.retryCount || 0) + 1
+  // Update retry count and reset to pending status
+  await supabase
+    .from('payments')
+    .update({
+      mock_data: { ...(payment.mock_data as any), retryCount: retryCount + 1 },
+      status: 'pending',
+    })
+    .eq('id', paymentId)
 
-    if (retryCount > 3) {
-      throw new Error('Maximum retry attempts (3) exceeded')
-    }
-
-    // Update retry count
-    await client.query(
-      'UPDATE payments SET mock_data = $1, status = $2 WHERE id = $3',
-      [JSON.stringify({ ...mockData, retryCount }), 'pending', paymentId]
-    )
-
-    // Process payment again
-    return processPayment(paymentId, userId)
-  })
+  // Process payment again
+  return processPayment(paymentId)
 }

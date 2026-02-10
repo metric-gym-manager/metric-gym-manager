@@ -24,11 +24,8 @@ export default function PlansPage() {
   }, [])
 
   const fetchPlans = async () => {
-    const token = localStorage.getItem('accessToken')
     try {
-      const response = await fetch('/api/memberships/plans', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const response = await fetch('/api/memberships/plans')
       const data = await response.json()
       if (data.success) {
         setPlans(data.data)
@@ -42,14 +39,12 @@ export default function PlansPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const token = localStorage.getItem('accessToken')
 
     try {
       const response = await fetch('/api/memberships/plans', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           ...formData,

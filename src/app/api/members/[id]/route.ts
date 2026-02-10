@@ -15,7 +15,7 @@ import { handleError } from '@/lib/middleware/error-handler'
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const user = await authenticate(request)
-    const member = await getMemberById(params.id, user.userId)
+    const member = await getMemberById(params.id)
 
     if (!member) {
       return NextResponse.json(
@@ -45,7 +45,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const body = await request.json()
     if (body.status && Object.keys(body).length === 1) {
       const { status } = UpdateMemberStatusSchema.parse(body)
-      const member = await updateMemberStatus(params.id, user.userId, status)
+      const member = await updateMemberStatus(params.id, status)
 
       return NextResponse.json({
         success: true,
@@ -55,7 +55,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
     // Regular update
     const input = UpdateMemberSchema.parse(body)
-    const member = await updateMember(params.id, user.userId, input)
+    const member = await updateMember(params.id, input)
 
     return NextResponse.json({
       success: true,

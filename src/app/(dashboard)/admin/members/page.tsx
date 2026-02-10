@@ -22,11 +22,8 @@ export default function MembersPage() {
   }, [])
 
   const fetchMembers = async () => {
-    const token = localStorage.getItem('accessToken')
     try {
-      const response = await fetch('/api/members', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const response = await fetch('/api/members')
       const data = await response.json()
       if (data.success) {
         setMembers(data.data.members)
@@ -40,14 +37,12 @@ export default function MembersPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const token = localStorage.getItem('accessToken')
 
     try {
       const response = await fetch('/api/members', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(formData),
       })

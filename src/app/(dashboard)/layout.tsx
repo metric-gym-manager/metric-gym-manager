@@ -2,28 +2,54 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
+  const supabase = createClient()
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user')
-    const token = localStorage.getItem('accessToken')
+    const getUser = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    if (!storedUser || !token) {
-      router.push('/login')
-      return
+      if (!authUser) {
+        router.push('/login')
+        return
+      }
+
+      // Fetch profile from users table
+      const { data: profile, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
+
+      if (error || !profile) {
+        router.push('/login')
+        return
+      }
+
+      setUser({ ...authUser, ...(profile as any) })
     }
 
-    setUser(JSON.parse(storedUser))
-  }, [router])
+    getUser()
 
-  const handleLogout = () => {
-    localStorage.removeItem('accessToken')
-    localStorage.removeItem('refreshToken')
-    localStorage.removeItem('user')
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_OUT') {
+          router.push('/login')
+        }
+      }
+    )
+
+    return () => subscription.unsubscribe()
+  }, [router, supabase])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
     router.push('/login')
   }
 

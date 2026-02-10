@@ -7,12 +7,14 @@ import { handleError } from '@/lib/middleware/error-handler'
 export async function POST(request: NextRequest) {
   try {
     const input = await validateBody(request, RegisterUserSchema)
-    const user = await registerUser(input)
+    const result = await registerUser(input)
 
     return NextResponse.json(
       {
         success: true,
-        data: user,
+        data: {
+          user: result.user
+        },
       },
       { status: 201 }
     )

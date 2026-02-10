@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const supabase = createClient()
   const [formData, setFormData] = useState({
     gymId: '',
     email: '',
@@ -30,6 +32,7 @@ export default function RegisterPage() {
     setLoading(true)
 
     try {
+      // Create user via API (which will use Supabase Auth and create profile)
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

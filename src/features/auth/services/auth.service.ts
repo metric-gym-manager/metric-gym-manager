@@ -1,190 +1,316 @@
-import { query, transaction, setUserContext } from '@/lib/db/client'
-import { generateTokenPair, hashToken, TokenPair } from '@/lib/jwt/service'
-import { hashPassword, verifyPassword } from './password.service'
 import { RegisterUserInput, LoginInput } from '../schemas/auth.schemas'
-import { User } from '../types'
+import { User, SupabaseAuthResponse, SupabaseSession, SupabaseUser } from '../types'
+import { createClient } from '@/lib/supabase/server'
 
 /**
- * Register a new user
+ * Register a new user using Supabase Auth
+ * Creates both an auth user and a profile in the users table
+ *
+ * @param input - User registration data including email, password, and profile info
+ * @returns Combined auth user and profile data with session tokens
+ * @throws Error if email already exists or registration fails
+ *
+ * @example
+ * const result = await registerUser({
+ *   gymId: '123e4567-...',
+ *   email: 'user@example.com',
+ *   password: 'SecurePass123',
+ *   firstName: 'John',
+ *   lastName: 'Doe',
+ *   role: 'trainer'
+ * });
  */
-export async function registerUser(input: RegisterUserInput): Promise<User> {
-  return transaction(async (client) => {
-    // Check if email already exists in this gym
-    const existingUser = await client.query(
-      'SELECT id FROM users WHERE gym_id = $1 AND email = $2',
-      [input.gymId, input.email]
-    )
+export async function registerUser(
+  input: RegisterUserInput
+): Promise<SupabaseAuthResponse> {
+  const supabase = await createClient()
 
-    if (existingUser.rowCount && existingUser.rowCount > 0) {
-      throw new Error('Email already registered in this gym')
-    }
-
-    // Hash password
-    const passwordHash = await hashPassword(input.password)
-
-    // Insert user
-    const result = await client.query<User>(
-      `INSERT INTO users (gym_id, email, password_hash, first_name, last_name, role)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, gym_id as "gymId", email, first_name as "firstName",
-                 last_name as "lastName", role, is_active as "isActive",
-                 created_at as "createdAt", updated_at as "updatedAt"`,
-      [input.gymId, input.email, passwordHash, input.firstName, input.lastName, input.role]
-    )
-
-    return result.rows[0]
+  // 1. Create auth user
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email: input.email,
+    password: input.password,
+    options: {
+      data: {
+        gym_id: input.gymId,
+        first_name: input.firstName,
+        last_name: input.lastName,
+        role: input.role,
+      },
+    },
   })
+
+  if (authError) {
+    throw new Error(`Authentication error: ${authError.message}`)
+  }
+
+  if (!authData.user) {
+    throw new Error('User creation failed: No user returned from auth')
+  }
+
+  // 2. Create profile in users table
+  type UserProfile = {
+    id: string
+    gym_id: string
+    email: string
+    first_name: string
+    last_name: string
+    role: 'gym_owner' | 'admin' | 'trainer' | 'front_desk'
+    is_active: boolean
+    created_at: string
+    updated_at: string
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .insert({
+      id: authData.user.id, // Same ID as auth.users
+      gym_id: input.gymId,
+      email: input.email,
+      first_name: input.firstName,
+      last_name: input.lastName,
+      role: input.role,
+    } as any)
+    .select()
+    .single<UserProfile>()
+
+  if (profileError) {
+    // If profile creation fails, we should clean up the auth user
+    // Note: In production, consider using a database trigger or transaction
+    throw new Error(`Profile creation error: ${profileError.message}`)
+  }
+
+  // 3. Combine auth user with profile data
+  const supabaseUser: SupabaseUser = {
+    id: profile.id,
+    authId: authData.user.id,
+    gymId: profile.gym_id,
+    email: profile.email,
+    firstName: profile.first_name,
+    lastName: profile.last_name,
+    role: profile.role,
+    isActive: profile.is_active,
+    createdAt: new Date(profile.created_at),
+    updatedAt: new Date(profile.updated_at),
+  }
+
+  return {
+    user: supabaseUser,
+    session: authData.session
+      ? {
+          access_token: authData.session.access_token,
+          refresh_token: authData.session.refresh_token,
+          expires_at: authData.session.expires_at || 0,
+          expires_in: authData.session.expires_in,
+          token_type: authData.session.token_type,
+        }
+      : null,
+  }
 }
 
 /**
- * Login user and generate tokens
+ * Login user using Supabase Auth
+ * Authenticates user and retrieves profile data from users table
+ *
+ * @param input - Login credentials (email and password)
+ * @returns Combined auth user and profile data with session tokens
+ * @throws Error if credentials are invalid or user is inactive
+ *
+ * @example
+ * const result = await loginUser({
+ *   email: 'user@example.com',
+ *   password: 'SecurePass123'
+ * });
  */
-export async function loginUser(input: LoginInput): Promise<{
-  user: User
-  tokens: TokenPair
-}> {
-  return transaction(async (client) => {
-    // Find user by email
-    const result = await client.query<User & { password_hash: string }>(
-      `SELECT id, gym_id as "gymId", email, password_hash, first_name as "firstName",
-              last_name as "lastName", role, is_active as "isActive",
-              created_at as "createdAt", updated_at as "updatedAt"
-       FROM users
-       WHERE email = $1`,
-      [input.email]
-    )
+export async function loginUser(input: LoginInput): Promise<SupabaseAuthResponse> {
+  const supabase = await createClient()
 
-    if (result.rowCount === 0) {
-      throw new Error('Invalid email or password')
-    }
-
-    const user = result.rows[0]
-
-    // Verify password
-    const isValidPassword = await verifyPassword(input.password, user.password_hash)
-    if (!isValidPassword) {
-      throw new Error('Invalid email or password')
-    }
-
-    // Check if user is active
-    if (!user.isActive) {
-      throw new Error('Account is deactivated')
-    }
-
-    // Generate tokens
-    const tokens = generateTokenPair({
-      userId: user.id,
-      gymId: user.gymId,
-      role: user.role,
-      email: user.email,
-    })
-
-    // Store refresh token
-    await client.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [user.id, hashToken(tokens.refreshToken), tokens.refreshTokenExpiresAt]
-    )
-
-    // Update last login
-    await client.query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [user.id])
-
-    // Remove password_hash from response
-    const { password_hash, ...userWithoutPassword } = user
-
-    return {
-      user: userWithoutPassword,
-      tokens,
-    }
+  // 1. Authenticate with Supabase
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    email: input.email,
+    password: input.password,
   })
+
+  if (authError) {
+    throw new Error(`Authentication error: ${authError.message}`)
+  }
+
+  if (!authData.user) {
+    throw new Error('Login failed: No user returned from auth')
+  }
+
+  // 2. Fetch user profile from users table
+  type UserProfile = {
+    id: string
+    gym_id: string
+    email: string
+    first_name: string
+    last_name: string
+    role: 'gym_owner' | 'admin' | 'trainer' | 'front_desk'
+    is_active: boolean
+    created_at: string
+    updated_at: string
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', authData.user.id)
+    .single<UserProfile>()
+
+  if (profileError) {
+    throw new Error(`Profile fetch error: ${profileError.message}`)
+  }
+
+  // 3. Check if user is active
+  if (!profile.is_active) {
+    throw new Error('Account is deactivated')
+  }
+
+  // 4. Combine auth user with profile data
+  const supabaseUser: SupabaseUser = {
+    id: profile.id,
+    authId: authData.user.id,
+    gymId: profile.gym_id,
+    email: profile.email,
+    firstName: profile.first_name,
+    lastName: profile.last_name,
+    role: profile.role,
+    isActive: profile.is_active,
+    createdAt: new Date(profile.created_at),
+    updatedAt: new Date(profile.updated_at),
+  }
+
+  return {
+    user: supabaseUser,
+    session: authData.session
+      ? {
+          access_token: authData.session.access_token,
+          refresh_token: authData.session.refresh_token,
+          expires_at: authData.session.expires_at || 0,
+          expires_in: authData.session.expires_in,
+          token_type: authData.session.token_type,
+        }
+      : null,
+  }
 }
 
 /**
- * Refresh access token using refresh token
+ * Refresh the current Supabase session
+ * Generates new access and refresh tokens
+ *
+ * @returns New session with updated tokens
+ * @throws Error if session refresh fails
+ *
+ * @example
+ * const newSession = await refreshSession();
  */
-export async function refreshAccessToken(refreshToken: string): Promise<TokenPair> {
-  return transaction(async (client) => {
-    const tokenHash = hashToken(refreshToken)
+export async function refreshSession(): Promise<SupabaseSession> {
+  const supabase = await createClient()
 
-    // Find refresh token
-    const result = await client.query(
-      `SELECT rt.id, rt.user_id, rt.expires_at, rt.revoked_at,
-              u.gym_id, u.role, u.email, u.is_active
-       FROM refresh_tokens rt
-       JOIN users u ON u.id = rt.user_id
-       WHERE rt.token_hash = $1`,
-      [tokenHash]
-    )
+  const { data, error } = await supabase.auth.refreshSession()
 
-    if (result.rowCount === 0) {
-      throw new Error('Invalid refresh token')
-    }
+  if (error) {
+    throw new Error(`Session refresh error: ${error.message}`)
+  }
 
-    const tokenData = result.rows[0]
+  if (!data.session) {
+    throw new Error('Session refresh failed: No session returned')
+  }
 
-    // Check if token is expired
-    if (new Date(tokenData.expires_at) < new Date()) {
-      throw new Error('Refresh token expired')
-    }
-
-    // Check if token is revoked
-    if (tokenData.revoked_at) {
-      throw new Error('Refresh token has been revoked')
-    }
-
-    // Check if user is active
-    if (!tokenData.is_active) {
-      throw new Error('Account is deactivated')
-    }
-
-    // Generate new token pair
-    const tokens = generateTokenPair({
-      userId: tokenData.user_id,
-      gymId: tokenData.gym_id,
-      role: tokenData.role,
-      email: tokenData.email,
-    })
-
-    // Revoke old refresh token
-    await client.query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1', [
-      tokenData.id,
-    ])
-
-    // Store new refresh token
-    await client.query(
-      `INSERT INTO refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3)`,
-      [tokenData.user_id, hashToken(tokens.refreshToken), tokens.refreshTokenExpiresAt]
-    )
-
-    return tokens
-  })
+  return {
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+    expires_at: data.session.expires_at || 0,
+    expires_in: data.session.expires_in,
+    token_type: data.session.token_type,
+  }
 }
 
 /**
- * Logout user by revoking refresh token
+ * Logout user using Supabase Auth
+ * Signs out the current user and invalidates the session
+ *
+ * @throws Error if logout fails
+ *
+ * @example
+ * await logoutUser();
  */
-export async function logoutUser(refreshToken: string): Promise<void> {
-  const tokenHash = hashToken(refreshToken)
+export async function logoutUser(): Promise<void> {
+  const supabase = await createClient()
 
-  await query(
-    'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1 AND revoked_at IS NULL',
-    [tokenHash]
-  )
+  const { error } = await supabase.auth.signOut()
+
+  if (error) {
+    throw new Error(`Logout error: ${error.message}`)
+  }
 }
 
 /**
- * Get user by ID
+ * Get the currently authenticated user with profile data
+ * Retrieves session and joins with users table for full profile
+ *
+ * @returns Combined auth user and profile data, or null if not authenticated
+ * @throws Error if profile fetch fails
+ *
+ * @example
+ * const currentUser = await getUser();
+ * if (currentUser) {
+ *   console.log(`Welcome, ${currentUser.firstName}!`);
+ * }
  */
-export async function getUserById(userId: string): Promise<User | null> {
-  const result = await query<User>(
-    `SELECT id, gym_id as "gymId", email, first_name as "firstName",
-            last_name as "lastName", role, is_active as "isActive",
-            created_at as "createdAt", updated_at as "updatedAt"
-     FROM users
-     WHERE id = $1`,
-    [userId]
-  )
+export async function getUser(): Promise<SupabaseUser | null> {
+  const supabase = await createClient()
 
-  return result.rowCount && result.rowCount > 0 ? result.rows[0] : null
+  // 1. Get current session
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession()
+
+  if (sessionError) {
+    throw new Error(`Session error: ${sessionError.message}`)
+  }
+
+  if (!session || !session.user) {
+    return null
+  }
+
+  // 2. Fetch user profile from users table
+  type UserProfile = {
+    id: string
+    gym_id: string
+    email: string
+    first_name: string
+    last_name: string
+    role: 'gym_owner' | 'admin' | 'trainer' | 'front_desk'
+    is_active: boolean
+    created_at: string
+    updated_at: string
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', session.user.id)
+    .single<UserProfile>()
+
+  if (profileError) {
+    throw new Error(`Profile fetch error: ${profileError.message}`)
+  }
+
+  // 3. Combine auth user with profile data
+  const supabaseUser: SupabaseUser = {
+    id: profile.id,
+    authId: session.user.id,
+    gymId: profile.gym_id,
+    email: profile.email,
+    firstName: profile.first_name,
+    lastName: profile.last_name,
+    role: profile.role,
+    isActive: profile.is_active,
+    createdAt: new Date(profile.created_at),
+    updatedAt: new Date(profile.updated_at),
+  }
+
+  return supabaseUser
 }

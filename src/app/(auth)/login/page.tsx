@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 
 export default function LoginPage() {
   const router = useRouter()
+  const supabase = createClient()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -20,25 +22,34 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      // Sign in with Supabase Auth
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Login failed')
+      if (signInError) {
+        throw new Error(signInError.message)
       }
 
-      // Store tokens
-      localStorage.setItem('accessToken', data.data.tokens.accessToken)
-      localStorage.setItem('refreshToken', data.data.tokens.refreshToken)
-      localStorage.setItem('user', JSON.stringify(data.data.user))
+      if (!data.user) {
+        throw new Error('Login failed')
+      }
+
+      // Fetch user profile for role-based redirect
+      const { data: profile, error: profileError } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', data.user.id)
+        .single()
+
+      if (profileError) {
+        throw new Error('Failed to fetch user profile')
+      }
 
       // Redirect based on role
-      if (data.data.user.role === 'gym_owner' || data.data.user.role === 'admin') {
+      const userRole = (profile as any)?.role
+      if (userRole === 'gym_owner' || userRole === 'admin') {
         router.push('/dashboard/admin')
       } else {
         router.push('/dashboard/member')

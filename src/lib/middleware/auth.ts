@@ -1,34 +1,89 @@
 import { NextRequest } from 'next/server'
-import { verifyAccessToken, extractBearerToken, TokenPayload } from '@/lib/jwt/service'
-
-export interface AuthenticatedRequest extends NextRequest {
-  user: TokenPayload
-}
+import { createClient } from '@/lib/supabase/server'
 
 /**
- * Authentication middleware for API routes
+ * Authentication payload returned by Supabase auth
  */
-export async function authenticate(request: NextRequest): Promise<TokenPayload> {
-  const authHeader = request.headers.get('authorization')
-  const token = extractBearerToken(authHeader || '')
+export interface AuthPayload {
+  userId: string
+  gymId: string
+  role: 'gym_owner' | 'admin' | 'trainer' | 'front_desk'
+  email: string
+}
 
-  if (!token) {
-    throw new UnauthorizedError('No authentication token provided')
+/**
+ * Supabase authentication middleware for API routes
+ * Authenticates user via Supabase session and fetches their profile
+ *
+ * @param request - Next.js request object
+ * @returns AuthPayload with user details (userId, gymId, role, email)
+ * @throws UnauthorizedError if user is not authenticated or profile not found
+ *
+ * @example
+ * ```typescript
+ * export async function GET(request: NextRequest) {
+ *   const user = await authenticate(request)
+ *   // user.userId, user.gymId, user.role, user.email
+ * }
+ * ```
+ */
+export async function authenticate(request: NextRequest): Promise<AuthPayload> {
+  const supabase = await createClient()
+
+  const { data: { user }, error } = await supabase.auth.getUser()
+
+  if (error || !user) {
+    throw new UnauthorizedError('Not authenticated')
   }
 
-  try {
-    const payload = verifyAccessToken(token)
-    return payload
-  } catch (error) {
-    throw new UnauthorizedError('Invalid or expired token')
+  // Fetch user profile from users table
+  type UserProfile = {
+    id: string
+    gym_id: string
+    email: string
+    first_name: string
+    last_name: string
+    role: 'gym_owner' | 'admin' | 'trainer' | 'front_desk'
+    is_active: boolean
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from('users')
+    .select('id, gym_id, email, first_name, last_name, role, is_active')
+    .eq('id', user.id)
+    .single<UserProfile>()
+
+  if (profileError || !profile) {
+    throw new UnauthorizedError('User profile not found')
+  }
+
+  return {
+    userId: user.id,
+    gymId: profile.gym_id,
+    role: profile.role,
+    email: user.email || profile.email,
   }
 }
 
 /**
- * Role-based authorization middleware
+ * Role-based authorization middleware for Supabase auth
+ * Returns a function that checks if the user has one of the allowed roles
+ *
+ * @param allowedRoles - Array of allowed role strings
+ * @returns Async function that validates user role
+ * @throws ForbiddenError if user doesn't have required role
+ *
+ * @example
+ * ```typescript
+ * export async function POST(request: NextRequest) {
+ *   const user = await authenticate(request)
+ *   await requireRole(['gym_owner', 'admin'])(user)
+ *   // Proceed with protected logic
+ * }
+ * ```
  */
 export function requireRole(allowedRoles: string[]) {
-  return async (user: TokenPayload): Promise<void> => {
+  return async (user: AuthPayload): Promise<void> => {
     if (!allowedRoles.includes(user.role)) {
       throw new ForbiddenError(`Access denied. Required roles: ${allowedRoles.join(', ')}`)
     }
@@ -36,11 +91,30 @@ export function requireRole(allowedRoles: string[]) {
 }
 
 /**
- * Tenant isolation middleware
+ * Tenant isolation middleware for Supabase auth
+ * Verifies that the authenticated user belongs to the requested gym
+ *
+ * @param gymId - The gym ID being accessed
+ * @returns Async function that validates user's gym context
+ * @throws ForbiddenError if user's gymId doesn't match requested gymId
+ *
+ * @example
+ * ```typescript
+ * export async function GET(
+ *   request: NextRequest,
+ *   { params }: { params: { gymId: string } }
+ * ) {
+ *   const user = await authenticate(request)
+ *   await requireGymContext(params.gymId)(user)
+ *   // Proceed with gym-specific logic
+ * }
+ * ```
  */
-export async function requireGymContext(user: TokenPayload, gymId: string): Promise<void> {
-  if (user.gymId !== gymId) {
-    throw new ForbiddenError('Access denied to this gym resource')
+export function requireGymContext(gymId: string) {
+  return async (user: AuthPayload): Promise<void> => {
+    if (user.gymId !== gymId) {
+      throw new ForbiddenError('Access denied to this gym resource')
+    }
   }
 }
 

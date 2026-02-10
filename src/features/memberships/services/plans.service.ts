@@ -1,70 +1,107 @@
-import { query, transaction, setUserContext } from '@/lib/db/client'
+import { createClient } from '@/lib/supabase/server'
 import { CreatePlanInput, UpdatePlanInput } from '../schemas/memberships.schemas'
 import { MembershipPlan } from '../types'
+
+// Type definitions for Supabase queries
+type PlanRow = {
+  id: string
+  gym_id: string
+  name: string
+  description: string | null
+  plan_type: string
+  price_amount: string
+  billing_frequency: string
+  trial_days: number
+  access_level: string
+  class_credits: number | null
+  contract_length_months: number | null
+  setup_fee: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
 
 /**
  * Create a new membership plan
  */
 export async function createPlan(
   gymId: string,
-  userId: string,
   input: CreatePlanInput
 ): Promise<MembershipPlan> {
-  return transaction(async (client) => {
-    // Set RLS context
-    await setUserContext(client, userId)
+  const supabase = await createClient()
 
-    const result = await client.query<MembershipPlan>(
-      `INSERT INTO membership_plans (
-        gym_id, name, description, plan_type, price_amount, billing_frequency,
-        trial_days, access_level, class_credits, contract_length_months, setup_fee, is_active
-      )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING
-         id, gym_id as "gymId", name, description, plan_type as "planType",
-         price_amount as "priceAmount", billing_frequency as "billingFrequency",
-         trial_days as "trialDays", access_level as "accessLevel",
-         class_credits as "classCredits", contract_length_months as "contractLengthMonths",
-         setup_fee as "setupFee", is_active as "isActive",
-         created_at as "createdAt", updated_at as "updatedAt"`,
-      [
-        gymId,
-        input.name,
-        input.description || null,
-        input.planType,
-        input.priceAmount,
-        input.billingFrequency,
-        input.trialDays ?? 0,
-        input.accessLevel ?? 'business_hours',
-        input.classCredits || null,
-        input.contractLengthMonths || null,
-        input.setupFee ?? 0,
-        input.isActive ?? true,
-      ]
-    )
+  const { data: plan, error } = await supabase
+    .from('membership_plans')
+    .insert({
+      gym_id: gymId,
+      name: input.name,
+      description: input.description || null,
+      plan_type: input.planType,
+      price_amount: input.priceAmount,
+      billing_frequency: input.billingFrequency,
+      trial_days: input.trialDays ?? 0,
+      access_level: input.accessLevel ?? 'business_hours',
+      class_credits: input.classCredits || null,
+      contract_length_months: input.contractLengthMonths || null,
+      setup_fee: input.setupFee ?? 0,
+      is_active: input.isActive ?? true,
+    })
+    .select()
+    .single<PlanRow>()
 
-    return result.rows[0]
-  })
+  if (error) throw error
+
+  return {
+    id: plan.id,
+    gymId: plan.gym_id,
+    name: plan.name,
+    description: plan.description || undefined,
+    planType: plan.plan_type as MembershipPlan['planType'],
+    priceAmount: parseFloat(plan.price_amount),
+    billingFrequency: plan.billing_frequency as MembershipPlan['billingFrequency'],
+    trialDays: plan.trial_days,
+    accessLevel: plan.access_level,
+    classCredits: plan.class_credits || undefined,
+    contractLengthMonths: plan.contract_length_months || undefined,
+    setupFee: parseFloat(plan.setup_fee),
+    isActive: plan.is_active,
+    createdAt: new Date(plan.created_at),
+    updatedAt: new Date(plan.updated_at),
+  }
 }
 
 /**
  * Get plan by ID
  */
-export async function getPlanById(planId: string, userId: string): Promise<MembershipPlan | null> {
-  const result = await query<MembershipPlan>(
-    `SELECT
-       id, gym_id as "gymId", name, description, plan_type as "planType",
-       price_amount as "priceAmount", billing_frequency as "billingFrequency",
-       trial_days as "trialDays", access_level as "accessLevel",
-       class_credits as "classCredits", contract_length_months as "contractLengthMonths",
-       setup_fee as "setupFee", is_active as "isActive",
-       created_at as "createdAt", updated_at as "updatedAt"
-     FROM membership_plans
-     WHERE id = $1`,
-    [planId]
-  )
+export async function getPlanById(planId: string): Promise<MembershipPlan | null> {
+  const supabase = await createClient()
 
-  return result.rowCount && result.rowCount > 0 ? result.rows[0] : null
+  const { data: plan, error } = await supabase
+    .from('membership_plans')
+    .select('*')
+    .eq('id', planId)
+    .maybeSingle<PlanRow>()
+
+  if (error) throw error
+  if (!plan) return null
+
+  return {
+    id: plan.id,
+    gymId: plan.gym_id,
+    name: plan.name,
+    description: plan.description || undefined,
+    planType: plan.plan_type as MembershipPlan['planType'],
+    priceAmount: parseFloat(plan.price_amount),
+    billingFrequency: plan.billing_frequency as MembershipPlan['billingFrequency'],
+    trialDays: plan.trial_days,
+    accessLevel: plan.access_level,
+    classCredits: plan.class_credits || undefined,
+    contractLengthMonths: plan.contract_length_months || undefined,
+    setupFee: parseFloat(plan.setup_fee),
+    isActive: plan.is_active,
+    createdAt: new Date(plan.created_at),
+    updatedAt: new Date(plan.updated_at),
+  }
 }
 
 /**
@@ -72,44 +109,49 @@ export async function getPlanById(planId: string, userId: string): Promise<Membe
  */
 export async function listPlans(
   gymId: string,
-  userId: string,
   filters?: {
     planType?: string
     isActive?: boolean
   }
 ): Promise<MembershipPlan[]> {
-  let queryText = `
-    SELECT
-      id, gym_id as "gymId", name, description, plan_type as "planType",
-      price_amount as "priceAmount", billing_frequency as "billingFrequency",
-      trial_days as "trialDays", access_level as "accessLevel",
-      class_credits as "classCredits", contract_length_months as "contractLengthMonths",
-      setup_fee as "setupFee", is_active as "isActive",
-      created_at as "createdAt", updated_at as "updatedAt"
-    FROM membership_plans
-    WHERE gym_id = $1
-  `
+  const supabase = await createClient()
 
-  const params: any[] = [gymId]
-  let paramIndex = 2
-
-  if (filters?.planType) {
-    queryText += ` AND plan_type = $${paramIndex}`
-    params.push(filters.planType)
-    paramIndex++
-  }
+  let query = supabase
+    .from('membership_plans')
+    .select('*')
+    .eq('gym_id', gymId)
 
   if (filters?.isActive !== undefined) {
-    queryText += ` AND is_active = $${paramIndex}`
-    params.push(filters.isActive)
-    paramIndex++
+    query = query.eq('is_active', filters.isActive)
   }
 
-  queryText += ` ORDER BY created_at DESC`
+  if (filters?.planType) {
+    query = query.eq('plan_type', filters.planType)
+  }
 
-  const result = await query<MembershipPlan>(queryText, params)
+  query = query.order('created_at', { ascending: false })
 
-  return result.rows
+  const { data: plans, error } = await query.returns<PlanRow[]>()
+
+  if (error) throw error
+
+  return plans.map((plan) => ({
+    id: plan.id,
+    gymId: plan.gym_id,
+    name: plan.name,
+    description: plan.description || undefined,
+    planType: plan.plan_type as MembershipPlan['planType'],
+    priceAmount: parseFloat(plan.price_amount),
+    billingFrequency: plan.billing_frequency as MembershipPlan['billingFrequency'],
+    trialDays: plan.trial_days,
+    accessLevel: plan.access_level,
+    classCredits: plan.class_credits || undefined,
+    contractLengthMonths: plan.contract_length_months || undefined,
+    setupFee: parseFloat(plan.setup_fee),
+    isActive: plan.is_active,
+    createdAt: new Date(plan.created_at),
+    updatedAt: new Date(plan.updated_at),
+  }))
 }
 
 /**
@@ -117,127 +159,120 @@ export async function listPlans(
  */
 export async function updatePlan(
   planId: string,
-  userId: string,
   input: UpdatePlanInput
 ): Promise<MembershipPlan> {
-  const updates: string[] = []
-  const params: any[] = []
-  let paramIndex = 1
+  const supabase = await createClient()
+
+  const updateData: Record<string, any> = {}
 
   if (input.name !== undefined) {
-    updates.push(`name = $${paramIndex}`)
-    params.push(input.name)
-    paramIndex++
+    updateData.name = input.name
   }
 
   if (input.description !== undefined) {
-    updates.push(`description = $${paramIndex}`)
-    params.push(input.description)
-    paramIndex++
+    updateData.description = input.description
   }
 
   if (input.planType !== undefined) {
-    updates.push(`plan_type = $${paramIndex}`)
-    params.push(input.planType)
-    paramIndex++
+    updateData.plan_type = input.planType
   }
 
   if (input.priceAmount !== undefined) {
-    updates.push(`price_amount = $${paramIndex}`)
-    params.push(input.priceAmount)
-    paramIndex++
+    updateData.price_amount = input.priceAmount
   }
 
   if (input.billingFrequency !== undefined) {
-    updates.push(`billing_frequency = $${paramIndex}`)
-    params.push(input.billingFrequency)
-    paramIndex++
+    updateData.billing_frequency = input.billingFrequency
   }
 
   if (input.trialDays !== undefined) {
-    updates.push(`trial_days = $${paramIndex}`)
-    params.push(input.trialDays)
-    paramIndex++
+    updateData.trial_days = input.trialDays
   }
 
   if (input.accessLevel !== undefined) {
-    updates.push(`access_level = $${paramIndex}`)
-    params.push(input.accessLevel)
-    paramIndex++
+    updateData.access_level = input.accessLevel
   }
 
   if (input.classCredits !== undefined) {
-    updates.push(`class_credits = $${paramIndex}`)
-    params.push(input.classCredits)
-    paramIndex++
+    updateData.class_credits = input.classCredits
   }
 
   if (input.contractLengthMonths !== undefined) {
-    updates.push(`contract_length_months = $${paramIndex}`)
-    params.push(input.contractLengthMonths)
-    paramIndex++
+    updateData.contract_length_months = input.contractLengthMonths
   }
 
   if (input.setupFee !== undefined) {
-    updates.push(`setup_fee = $${paramIndex}`)
-    params.push(input.setupFee)
-    paramIndex++
+    updateData.setup_fee = input.setupFee
   }
 
   if (input.isActive !== undefined) {
-    updates.push(`is_active = $${paramIndex}`)
-    params.push(input.isActive)
-    paramIndex++
+    updateData.is_active = input.isActive
   }
 
-  if (updates.length === 0) {
+  if (Object.keys(updateData).length === 0) {
     throw new Error('No fields to update')
   }
 
-  params.push(planId)
+  const { data: plan, error } = await supabase
+    .from('membership_plans')
+    .update(updateData)
+    .eq('id', planId)
+    .select()
+    .single<PlanRow>()
 
-  const result = await query<MembershipPlan>(
-    `UPDATE membership_plans
-     SET ${updates.join(', ')}
-     WHERE id = $${paramIndex}
-     RETURNING
-       id, gym_id as "gymId", name, description, plan_type as "planType",
-       price_amount as "priceAmount", billing_frequency as "billingFrequency",
-       trial_days as "trialDays", access_level as "accessLevel",
-       class_credits as "classCredits", contract_length_months as "contractLengthMonths",
-       setup_fee as "setupFee", is_active as "isActive",
-       created_at as "createdAt", updated_at as "updatedAt"`,
-    params
-  )
+  if (error) throw error
+  if (!plan) throw new Error('Plan not found')
 
-  if (result.rowCount === 0) {
-    throw new Error('Plan not found')
+  return {
+    id: plan.id,
+    gymId: plan.gym_id,
+    name: plan.name,
+    description: plan.description || undefined,
+    planType: plan.plan_type as MembershipPlan['planType'],
+    priceAmount: parseFloat(plan.price_amount),
+    billingFrequency: plan.billing_frequency as MembershipPlan['billingFrequency'],
+    trialDays: plan.trial_days,
+    accessLevel: plan.access_level,
+    classCredits: plan.class_credits || undefined,
+    contractLengthMonths: plan.contract_length_months || undefined,
+    setupFee: parseFloat(plan.setup_fee),
+    isActive: plan.is_active,
+    createdAt: new Date(plan.created_at),
+    updatedAt: new Date(plan.updated_at),
   }
-
-  return result.rows[0]
 }
 
 /**
  * Deactivate plan
  */
-export async function deactivatePlan(planId: string, userId: string): Promise<MembershipPlan> {
-  const result = await query<MembershipPlan>(
-    `UPDATE membership_plans
-     SET is_active = false
-     WHERE id = $1
-     RETURNING
-       id, gym_id as "gymId", name, description, plan_type as "planType",
-       price_amount as "priceAmount", billing_frequency as "billingFrequency",
-       trial_days as "trialDays", access_level as "accessLevel",
-       class_credits as "classCredits", contract_length_months as "contractLengthMonths",
-       setup_fee as "setupFee", is_active as "isActive",
-       created_at as "createdAt", updated_at as "updatedAt"`,
-    [planId]
-  )
+export async function deactivatePlan(planId: string): Promise<MembershipPlan> {
+  const supabase = await createClient()
 
-  if (result.rowCount === 0) {
-    throw new Error('Plan not found')
+  const { data: plan, error } = await supabase
+    .from('membership_plans')
+    .update({ is_active: false })
+    .eq('id', planId)
+    .select()
+    .single<PlanRow>()
+
+  if (error) throw error
+  if (!plan) throw new Error('Plan not found')
+
+  return {
+    id: plan.id,
+    gymId: plan.gym_id,
+    name: plan.name,
+    description: plan.description || undefined,
+    planType: plan.plan_type as MembershipPlan['planType'],
+    priceAmount: parseFloat(plan.price_amount),
+    billingFrequency: plan.billing_frequency as MembershipPlan['billingFrequency'],
+    trialDays: plan.trial_days,
+    accessLevel: plan.access_level,
+    classCredits: plan.class_credits || undefined,
+    contractLengthMonths: plan.contract_length_months || undefined,
+    setupFee: parseFloat(plan.setup_fee),
+    isActive: plan.is_active,
+    createdAt: new Date(plan.created_at),
+    updatedAt: new Date(plan.updated_at),
   }
-
-  return result.rows[0]
 }

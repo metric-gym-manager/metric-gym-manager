@@ -14,7 +14,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     await requireRole(['gym_owner', 'admin', 'front_desk'])(user)
 
     const input = await validateBody(request, EmergencyContactSchema)
-    const contact = await addEmergencyContact(params.id, user.userId, input)
+    const contact = await addEmergencyContact(params.id, input)
 
     return NextResponse.json(
       {
@@ -31,7 +31,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const user = await authenticate(request)
-    const contacts = await getEmergencyContacts(params.id, user.userId)
+    const contacts = await getEmergencyContacts(params.id)
 
     return NextResponse.json({
       success: true,

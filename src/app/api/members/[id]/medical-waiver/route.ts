@@ -11,7 +11,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     await requireRole(['gym_owner', 'admin', 'front_desk'])(user)
 
     const input = await validateBody(request, MedicalWaiverSchema)
-    await signMedicalWaiver(params.id, user.userId, input)
+    await signMedicalWaiver(params.id, input)
 
     return NextResponse.json(
       {

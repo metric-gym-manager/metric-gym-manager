@@ -21,14 +21,11 @@ export default function PaymentsPage() {
     setLoading(true)
     setResult(null)
 
-    const token = localStorage.getItem('accessToken')
-
     try {
       const response = await fetch('/api/payments/mock', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           memberId: formData.memberId,

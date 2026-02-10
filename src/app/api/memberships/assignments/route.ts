@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     await requireRole(['gym_owner', 'admin', 'front_desk'])(user)
 
     const input = await validateBody(request, AssignPlanSchema)
-    const membership = await assignPlanToMember(user.userId, input)
+    const membership = await assignPlanToMember(input.memberId, input.planId, new Date(input.startDate))
 
     return NextResponse.json(
       {
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const history = await getMemberMembershipHistory(memberId, user.userId)
+    const history = await getMemberMembershipHistory(memberId)
 
     return NextResponse.json({
       success: true,
