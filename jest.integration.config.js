@@ -1,8 +1,16 @@
-const baseConfig = require('./jest.config')
+const nextJest = require('next/jest')
 
-module.exports = {
-  ...baseConfig,
-  testMatch: ['**/tests/integration/**/*.test.ts'],
-  setupFilesAfterEnv: ['<rootDir>/tests/integration/setup.ts'],
+const createJestConfig = nextJest({
+  dir: './',
+})
+
+const customJestConfig = {
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   testEnvironment: 'node',
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1',
+  },
+  testMatch: ['<rootDir>/tests/integration/**/*.test.{js,jsx,ts,tsx}'],
 }
+
+module.exports = createJestConfig(customJestConfig)

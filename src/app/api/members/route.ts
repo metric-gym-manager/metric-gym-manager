@@ -1,17 +1,71 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createMember, listMembers } from '@/features/members/services/members.service'
-import { CreateMemberSchema } from '@/features/members/schemas/members.schemas'
-import { authenticate, requireRole } from '@/lib/middleware/auth'
-import { validateBody } from '@/lib/middleware/validation'
-import { handleError } from '@/lib/middleware/error-handler'
+import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentGymProfile } from '@/lib/middleware/auth';
+import { addMemberSchema, memberFiltersSchema } from '@/features/members/schemas/member.schemas';
+import { getMembersList, createMember } from '@/features/members/services/member.service';
+
+// ============================================================
+// GET /api/members - Get members list
+// ============================================================
+
+export async function GET(request: NextRequest) {
+  try {
+    const gymProfile = await getCurrentGymProfile();
+
+    // Parse query parameters
+    const searchParams = request.nextUrl.searchParams;
+    const filters = {
+      search: searchParams.get('search') || undefined,
+      status: searchParams.get('status') || undefined,
+      planType: searchParams.get('planType') || undefined,
+      sortBy: searchParams.get('sortBy') || undefined,
+      page: parseInt(searchParams.get('page') || '1'),
+      limit: parseInt(searchParams.get('limit') || '20'),
+    };
+
+    // Validate filters
+    const validatedFilters = memberFiltersSchema.parse(filters);
+
+    // Get members
+    const result = await getMembersList(gymProfile.id, validatedFilters);
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: result,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Get members API error:', error);
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch members' },
+      { status: 500 }
+    );
+  }
+}
+
+// ============================================================
+// POST /api/members - Create new member
+// ============================================================
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await authenticate(request)
-    await requireRole(['gym_owner', 'admin', 'front_desk'])(user)
+    const gymProfile = await getCurrentGymProfile();
+    const body = await request.json();
 
-    const input = await validateBody(request, CreateMemberSchema)
-    const member = await createMember(user.gymId, user.userId, input)
+    // Validate input
+    const validatedData = addMemberSchema.parse(body);
+
+    // Create member
+    const member = await createMember(gymProfile.id, validatedData);
 
     return NextResponse.json(
       {
@@ -19,34 +73,27 @@ export async function POST(request: NextRequest) {
         data: member,
       },
       { status: 201 }
-    )
+    );
   } catch (error) {
-    return handleError(error)
-  }
-}
+    console.error('Create member API error:', error);
 
-export async function GET(request: NextRequest) {
-  try {
-    const user = await authenticate(request)
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
-    const { searchParams } = new URL(request.url)
-    const status = searchParams.get('status') as any
-    const search = searchParams.get('search') || undefined
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 50
-    const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0
+    if (error instanceof Error && error.name === 'ZodError') {
+      return NextResponse.json(
+        { success: false, error: 'Invalid input data' },
+        { status: 400 }
+      );
+    }
 
-    const result = await listMembers(user.gymId, {
-      status,
-      search,
-      limit,
-      offset,
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: result,
-    })
-  } catch (error) {
-    return handleError(error)
+    return NextResponse.json(
+      { success: false, error: 'Failed to create member' },
+      { status: 500 }
+    );
   }
 }

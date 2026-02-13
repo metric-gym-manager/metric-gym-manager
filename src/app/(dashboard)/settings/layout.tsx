@@ -1,0 +1,54 @@
+'use client';
+
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { cn } from '@/lib/utils';
+
+const settingsNavigation = [
+  { name: 'Gym Information', href: '/dashboard/settings/gym' },
+  { name: 'Plan Types', href: '/dashboard/settings/plans' },
+  { name: 'Discounts', href: '/dashboard/settings/discounts' },
+  { name: 'Account Security', href: '/dashboard/settings/security' },
+];
+
+export default function SettingsLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="text-sm text-gray-600 mt-1">
+          Manage your gym settings and preferences
+        </p>
+      </div>
+
+      {/* Sub-navigation */}
+      <div className="border-b">
+        <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Settings">
+          {settingsNavigation.map((item) => {
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={cn(
+                  'whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium',
+                  isActive
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                )}
+              >
+                {item.name}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Content */}
+      <div>{children}</div>
+    </div>
+  );
+}

@@ -1,67 +1,148 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentGymProfile } from '@/lib/middleware/auth';
+import { updateMemberSchema } from '@/features/members/schemas/member.schemas';
 import {
   getMemberById,
   updateMember,
-  updateMemberStatus,
-} from '@/features/members/services/members.service'
-import {
-  UpdateMemberSchema,
-  UpdateMemberStatusSchema,
-} from '@/features/members/schemas/members.schemas'
-import { authenticate, requireRole } from '@/lib/middleware/auth'
-import { validateBody } from '@/lib/middleware/validation'
-import { handleError } from '@/lib/middleware/error-handler'
+  deleteMember,
+} from '@/features/members/services/member.service';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+// ============================================================
+// GET /api/members/[id] - Get member by ID
+// ============================================================
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const user = await authenticate(request)
-    const member = await getMemberById(params.id)
+    const { id } = await params;
+    const gymProfile = await getCurrentGymProfile();
 
-    if (!member) {
+    const result = await getMemberById(id, gymProfile.id);
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: result,
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Get member API error:', error);
+
+    if (error instanceof Error && error.message === 'Member not found') {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'Member not found',
-        },
+        { success: false, error: 'Member not found' },
         { status: 404 }
-      )
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      data: member,
-    })
-  } catch (error) {
-    return handleError(error)
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch member' },
+      { status: 500 }
+    );
   }
 }
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+// ============================================================
+// PATCH /api/members/[id] - Update member
+// ============================================================
+
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
-    const user = await authenticate(request)
-    await requireRole(['gym_owner', 'admin', 'front_desk'])(user)
+    const { id } = await params;
+    const gymProfile = await getCurrentGymProfile();
+    const body = await request.json();
 
-    // Check if this is a status update
-    const body = await request.json()
-    if (body.status && Object.keys(body).length === 1) {
-      const { status } = UpdateMemberStatusSchema.parse(body)
-      const member = await updateMemberStatus(params.id, status)
+    // Validate input
+    const validatedData = updateMemberSchema.parse(body);
 
-      return NextResponse.json({
+    // Update member
+    const member = await updateMember(id, gymProfile.id, validatedData);
+
+    return NextResponse.json(
+      {
         success: true,
         data: member,
-      })
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Update member API error:', error);
+
+    if (error instanceof Error && error.message === 'Member not found') {
+      return NextResponse.json(
+        { success: false, error: 'Member not found' },
+        { status: 404 }
+      );
     }
 
-    // Regular update
-    const input = UpdateMemberSchema.parse(body)
-    const member = await updateMember(params.id, input)
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
 
-    return NextResponse.json({
-      success: true,
-      data: member,
-    })
+    if (error instanceof Error && error.name === 'ZodError') {
+      return NextResponse.json(
+        { success: false, error: 'Invalid input data' },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Failed to update member' },
+      { status: 500 }
+    );
+  }
+}
+
+// ============================================================
+// DELETE /api/members/[id] - Delete member
+// ============================================================
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const gymProfile = await getCurrentGymProfile();
+
+    await deleteMember(id, gymProfile.id);
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Member deleted successfully',
+      },
+      { status: 200 }
+    );
   } catch (error) {
-    return handleError(error)
+    console.error('Delete member API error:', error);
+
+    if (error instanceof Error && error.message === 'Unauthorized') {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
+    return NextResponse.json(
+      { success: false, error: 'Failed to delete member' },
+      { status: 500 }
+    );
   }
 }

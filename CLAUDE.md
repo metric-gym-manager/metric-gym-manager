@@ -3,7 +3,7 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Identity
-A production-grade, multi-tenant SaaS platform for gym and fitness center management. Built with Next.js 14 (App Router), PostgreSQL, TypeScript, Stripe, and Redis.
+A production-grade, multi-tenant SaaS platform for gym and fitness center management. Built with Next.js 16 (App Router), Supabase (PostgreSQL + Auth), TypeScript, and React 19.
 
 ## Core Commands
 
@@ -28,24 +28,22 @@ A production-grade, multi-tenant SaaS platform for gym and fitness center manage
 - `npm run format:check` - Check code formatting
 
 ### Database
-- `npm run db:migrate` - Run pending migrations
-- `npm run db:migrate:down` - Rollback last migration
-- `npm run db:migrate:create <name>` - Create new migration file
-- `npm run db:seed` - Seed database with sample data
-- `npm run db:reset` - Reset database (down, up, seed)
-
-**Note**: Uses `node-pg-migrate` for database migrations (not Supabase).
+Supabase provides migration management through the Supabase CLI or Dashboard:
+- Migrations are stored in `supabase/migrations/`
+- Use Supabase Studio or CLI to create and apply migrations
+- Row Level Security (RLS) policies enforce multi-tenant data isolation
 
 ## Architecture Overview
 
 ### Tech Stack
-- **Frontend**: Next.js 14 with App Router, React 18, TypeScript
-- **Database**: PostgreSQL with node-pg-migrate
-- **Caching**: Redis (ioredis)
-- **Authentication**: JWT (jsonwebtoken + bcrypt)
-- **Payments**: Stripe
+- **Frontend**: Next.js 16 with App Router, React 19, TypeScript
+- **Database**: PostgreSQL via Supabase
+- **Authentication**: Supabase Auth with Row Level Security (RLS)
+- **Realtime**: Supabase Realtime (optional)
+- **Storage**: Supabase Storage (for file uploads)
 - **State Management**: @tanstack/react-query
 - **Validation**: Zod schemas
+- **Styling**: Tailwind CSS
 
 ### Feature-First Architecture
 Code is organized by **domain features**, not by technical layers. Each feature in `src/features/` should be self-contained and deletable without breaking other features.
@@ -69,13 +67,10 @@ src/features/
 The `instructions.md` file contains comprehensive business requirements including:
 - Member lifecycle (registration, active, frozen, expired, cancelled)
 - Membership plans (drop-in, class packs, monthly, annual, custom)
-- Class management (scheduling, booking, waitlists, cancellation policies)
-- Staff roles (owner, admin, trainer, front desk)
-- Billing & payments (Stripe integration, recurring billing, failed payment retry)
-- Access control (QR code, RFID, check-in validation)
-- Multi-tenant isolation (each gym operates independently)
+- Multi-tenant isolation (each gym operates independently via RLS)
+- Authentication and authorization (Supabase Auth + RLS policies)
 
-**Always reference `instructions.md` when implementing member/class/billing features.**
+**Always reference `instructions.md` when implementing features.**
 
 ## Engineering Standards
 
@@ -107,16 +102,19 @@ Pre-commit hooks (via husky + lint-staged) automatically:
 - Run tests on changed files
 
 ## Environment Setup
-Copy `.env.example` to `.env` and configure:
-- Database connection (PostgreSQL, not Supabase)
-- Redis connection
-- JWT secrets (generate with `openssl rand -base64 32`)
-- Stripe API keys
-- Email service (SendGrid)
-- AWS S3 for file uploads (optional)
+Copy `.env.example` to `.env.local` and configure:
+- Supabase URL and keys (get from Supabase project settings)
+- Application settings (NODE_ENV, etc.)
+- Feature flags as needed
+
+**Required variables:**
+- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon/public key
+- `SUPABASE_SERVICE_ROLE_KEY` - Your Supabase service role key (server-side only)
 
 ## Key Constraints
 - Node >= 18.0.0, npm >= 9.0.0
-- Multi-tenant: Each gym has isolated data (members, classes, billing)
-- Payment retry logic: 3 attempts over 7 days for failed payments
-- Access control: Members must have `active` status to check in
+- Multi-tenant: Each gym has isolated data enforced by Supabase RLS
+- Row Level Security (RLS): All tables must have RLS enabled with appropriate policies
+- Authentication: Use Supabase Auth for user management
+- Server/Client Components: Respect Next.js 16 App Router patterns

@@ -1,7 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // serverActions are stable in Next.js 16, no longer experimental
+  poweredByHeader: false,
+  compress: true,
+  images: {
+    remotePatterns: [],
+  },
+  experimental: {
+    optimizePackageImports: ['@supabase/supabase-js'],
+  },
 }
 
 module.exports = nextConfig

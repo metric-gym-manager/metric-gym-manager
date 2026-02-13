@@ -1,32 +1,32 @@
-import js from "@eslint/js";
-import tseslint from "typescript-eslint";
-import prettierConfig from "eslint-config-prettier";
+import nextPlugin from "eslint-config-next";
+import tsPlugin from "@typescript-eslint/eslint-plugin";
+import tsParser from "@typescript-eslint/parser";
 
-export default [
+const eslintConfig = [
   {
     ignores: [
-      ".next/**",
       "node_modules/**",
+      ".next/**",
       "out/**",
-      "public/**",
-      "*.config.js",
-      "*.config.mjs",
+      "playwright-report/**",
+      "test-results/**",
       "coverage/**",
-      "migrations/**",
+      "*.config.js",
+      "next-env.d.ts",
     ],
   },
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  prettierConfig,
+  ...nextPlugin,
   {
-    files: ["**/*.{ts,tsx}"],
+    files: ["**/*.ts", "**/*.tsx"],
     languageOptions: {
-      ecmaVersion: "latest",
-      sourceType: "module",
-      parser: tseslint.parser,
+      parser: tsParser,
       parserOptions: {
-        project: "./tsconfig.json",
+        ecmaVersion: "latest",
+        sourceType: "module",
       },
+    },
+    plugins: {
+      "@typescript-eslint": tsPlugin,
     },
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
@@ -37,9 +37,8 @@ export default [
           varsIgnorePattern: "^_",
         },
       ],
-      "@typescript-eslint/explicit-function-return-type": "off",
-      "@typescript-eslint/explicit-module-boundary-types": "off",
-      "@typescript-eslint/no-require-imports": "off",
     },
   },
 ];
+
+export default eslintConfig;

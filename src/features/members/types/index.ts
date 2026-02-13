@@ -1,46 +1,72 @@
+import type { MemberPlanType, MemberStatus } from '../schemas/member.schemas';
+
+// ============================================================
+// MEMBER TYPES
+// ============================================================
+
 export interface Member {
-  id: string
-  gymId: string
-  email: string
-  firstName: string
-  lastName: string
-  phone?: string
-  dateOfBirth?: Date
-  gender?: string
-  address?: {
-    street?: string
-    city?: string
-    state?: string
-    zipCode?: string
-    country?: string
-  }
-  photoUrl?: string
-  status: 'active' | 'pending' | 'frozen' | 'expired' | 'cancelled'
-  notes?: string
-  createdAt: Date
-  updatedAt: Date
+  id: string;
+  gym_id: string;
+  name: string;
+  phone_number: string;
+  emergency_contact_name: string | null;
+  emergency_contact_phone: string | null;
+  plan_type: MemberPlanType;
+  plan_amount: number;
+  discount_id: string | null;
+  recurring_discount: boolean;
+  status: MemberStatus;
+  registered_date: string;
+  membership_start_date: string;
+  next_due_date: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface EmergencyContact {
-  id: string
-  memberId: string
-  name: string
-  relationship: string
-  phone: string
-  email?: string
-  isPrimary: boolean
-  createdAt: Date
-  updatedAt: Date
+export interface MemberWithDiscount extends Member {
+  discount?: {
+    id: string;
+    discount_name: string;
+    discount_percentage: number;
+  } | null;
 }
 
-export interface MedicalWaiver {
-  id: string
-  memberId: string
-  conditions?: string
-  medications?: string
-  allergies?: string
-  signedAt: Date
-  signatureData: string
-  createdAt: Date
-  updatedAt: Date
+export interface OverdueMember extends MemberWithDiscount {
+  days_overdue: number;
+}
+
+// ============================================================
+// PAYMENT TYPES
+// ============================================================
+
+export interface Payment {
+  id: string;
+  member_id: string;
+  payment_date: string;
+  amount_paid: number;
+  discount_applied: string | null;
+  discount_percentage: number | null;
+  next_due_date_calculated: string;
+  created_at: string;
+}
+
+export interface PaymentWithMember extends Payment {
+  member: Member;
+}
+
+// ============================================================
+// RESPONSE TYPES
+// ============================================================
+
+export interface MembersListResponse {
+  members: MemberWithDiscount[];
+  overdueMembers: OverdueMember[];
+  totalCount: number;
+  page: number;
+  totalPages: number;
+}
+
+export interface MemberDetailResponse {
+  member: MemberWithDiscount;
+  payments: Payment[];
 }
