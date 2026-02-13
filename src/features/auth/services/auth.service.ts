@@ -1,6 +1,4 @@
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import crypto from 'crypto';
 import type {
   AuthResponse,
   AuthUser,
@@ -16,7 +14,6 @@ import type {
   UpdatePasswordInput,
 } from '../schemas/auth.schemas';
 import { SESSION_DURATION } from '../types';
-import { logEmailConfirmationSent } from './email-confirmation.service';
 
 // ============================================================
 // REGISTRATION
@@ -485,26 +482,3 @@ export async function updateEmail(
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
-
-async function initializeDefaultPlanTypes(userId: string): Promise<void> {
-  // Use admin client during registration to bypass RLS
-  const adminClient = createAdminClient();
-
-  // Get gym_id from user_id
-  const { data: gym } = await adminClient
-    .from('gyms')
-    .select('id')
-    .eq('user_id', userId)
-    .single();
-
-  if (!gym) return;
-
-  // Create default plan types
-  const defaultPlans = [
-    { gym_id: gym.id, plan_type: 'monthly', default_amount: 5000.0 },
-    { gym_id: gym.id, plan_type: 'daily', default_amount: 300.0 },
-    { gym_id: gym.id, plan_type: 'annual', default_amount: 50000.0 },
-  ];
-
-  await adminClient.from('plan_types').insert(defaultPlans);
-}

@@ -226,9 +226,15 @@ export async function verifyOtpAndLogin(
     }
 
     // Set the session using properly generated tokens
+    // Type assertion needed as GenerateLinkProperties doesn't expose token types
+    const properties = linkData.properties as unknown as {
+      access_token: string;
+      refresh_token: string;
+    };
+
     const { error: sessionError } = await supabase.auth.setSession({
-      access_token: linkData.properties.access_token,
-      refresh_token: linkData.properties.refresh_token,
+      access_token: properties.access_token,
+      refresh_token: properties.refresh_token,
     });
 
     if (sessionError) {

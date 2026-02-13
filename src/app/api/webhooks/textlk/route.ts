@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     // Parse webhook payload
     const payload = JSON.parse(body);
-    const { message_id, status, timestamp, recipient } = payload;
+    const { message_id, status, timestamp: _timestamp, recipient: _recipient } = payload;
 
     if (!message_id || !status) {
       console.error('text.lk webhook: Missing required fields', payload);

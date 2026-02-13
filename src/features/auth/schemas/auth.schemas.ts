@@ -63,16 +63,23 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.infer<typeof loginSchema>;
 
+// Base schema for normalized phone numbers (reusable)
+const normalizedPhoneSchema = z
+  .string()
+  .transform(normalizePhoneNumber)
+  .refine((val) => val !== null, 'Invalid phone number format')
+  .transform((val) => val as string) // Type assertion after refine validates non-null
+  .refine(
+    isValidSriLankanPhone,
+    'Phone number must be a valid Sri Lankan number (e.g., 0771234567 or +94771234567)'
+  );
+
 // Phone OTP - Request OTP (with automatic normalization)
 export const phoneOtpRequestSchema = z.object({
   phoneNumber: z
     .string()
     .min(1, 'Phone number is required')
-    .transform(normalizePhoneNumber)
-    .refine(
-      (val) => val !== null && isValidSriLankanPhone(val),
-      'Phone number must be a valid Sri Lankan number (e.g., 0771234567 or +94771234567)'
-    ),
+    .pipe(normalizedPhoneSchema),
 });
 
 export type PhoneOtpRequestInput = z.infer<typeof phoneOtpRequestSchema>;
@@ -82,11 +89,7 @@ export const phoneOtpVerifySchema = z.object({
   phoneNumber: z
     .string()
     .min(1, 'Phone number is required')
-    .transform(normalizePhoneNumber)
-    .refine(
-      (val) => val !== null && isValidSriLankanPhone(val),
-      'Phone number must be a valid Sri Lankan number'
-    ),
+    .pipe(normalizedPhoneSchema),
   otpCode: z
     .string()
     .length(6, 'OTP must be exactly 6 digits')
@@ -181,11 +184,7 @@ export const updatePhoneNumberSchema = z.object({
   phoneNumber: z
     .string()
     .min(1, 'Phone number is required')
-    .transform(normalizePhoneNumber)
-    .refine(
-      (val) => val !== null && isValidSriLankanPhone(val),
-      'Phone number must be a valid Sri Lankan number'
-    ),
+    .pipe(normalizedPhoneSchema),
   otpCode: z
     .string()
     .length(6, 'OTP must be exactly 6 digits')

@@ -41,7 +41,10 @@
       "Bash(tail:*)",
       "Bash(wc:*)",
       "Bash(if exist .next rmdir /s /q .next)",
-      "Bash(git reset:*)"
+      "Bash(git reset:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "mcp__supabase__search_docs"
     ]
   },
   "enableAllProjectMcpServers": true,
