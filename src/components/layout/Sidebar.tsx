@@ -7,22 +7,22 @@ import { cn } from '@/lib/utils';
 const navigation = [
   {
     name: 'Members',
-    href: '/dashboard/members',
+    href: '/members',
     icon: '👥',
   },
   {
     name: 'Revenue',
-    href: '/dashboard/revenue',
+    href: '/revenue',
     icon: '💰',
   },
   {
     name: 'Payment Collection',
-    href: '/dashboard/payment-collection',
+    href: '/payment-collection',
     icon: '💳',
   },
   {
     name: 'Settings',
-    href: '/dashboard/settings',
+    href: '/settings',
     icon: '⚙️',
   },
 ];
