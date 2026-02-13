@@ -102,7 +102,7 @@ function LoginContent() {
       }
 
       // Redirect to dashboard
-      router.push('/dashboard/members');
+      router.push('/members');
     } catch (err) {
       if (err instanceof z.ZodError) {
         const errors: Record<string, string> = {};
@@ -188,7 +188,7 @@ function LoginContent() {
       }
 
       // Redirect to dashboard
-      router.push('/dashboard/members');
+      router.push('/members');
     } catch (err) {
       if (err instanceof z.ZodError) {
         const errors: Record<string, string> = {};

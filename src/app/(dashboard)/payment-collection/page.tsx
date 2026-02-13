@@ -8,7 +8,7 @@ export default function PaymentCollectionPage() {
 
   const handleMemberClick = (memberId: string) => {
     // Navigate to members page with member detail
-    router.push(`/dashboard/members?memberId=${memberId}`);
+    router.push(`/members?memberId=${memberId}`);
   };
 
   return (

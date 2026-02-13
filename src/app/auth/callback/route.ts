@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
   const token_hash = requestUrl.searchParams.get('token_hash');
   const type = requestUrl.searchParams.get('type') as EmailOtpType | null;
-  const next = requestUrl.searchParams.get('next') || '/dashboard/members';
+  const next = requestUrl.searchParams.get('next') || '/members';
 
   // No token_hash provided - redirect to login with error
   if (!token_hash || !type) {

@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const settingsNavigation = [
-  { name: 'Gym Information', href: '/dashboard/settings/gym' },
-  { name: 'Plan Types', href: '/dashboard/settings/plans' },
-  { name: 'Discounts', href: '/dashboard/settings/discounts' },
-  { name: 'Account Security', href: '/dashboard/settings/security' },
+  { name: 'Gym Information', href: '/settings/gym' },
+  { name: 'Plan Types', href: '/settings/plans' },
+  { name: 'Discounts', href: '/settings/discounts' },
+  { name: 'Account Security', href: '/settings/security' },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

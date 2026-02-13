@@ -47,7 +47,7 @@ export async function authMiddleware(request: NextRequest) {
 
   // Redirect authenticated users away from auth pages
   if (isAuthenticated && isAuthRoute) {
-    return NextResponse.redirect(new URL('/dashboard/members', request.url));
+    return NextResponse.redirect(new URL('/members', request.url));
   }
 
   // Redirect unauthenticated users to login for protected routes
