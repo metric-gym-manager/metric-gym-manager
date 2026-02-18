@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Payment, Member } from '../types';
 import type { CollectPaymentInput } from '../schemas/member.schemas';
+import { sendSMS, formatReceiptSMS } from '@/features/sms/services/sms.service';
 
 // ============================================================
 // COLLECT PAYMENT
@@ -104,7 +105,33 @@ export async function collectPayment(
     throw new Error(`Failed to update member: ${updateError?.message}`);
   }
 
-  // TODO: Send SMS receipt
+  // Send SMS receipt
+  try {
+    // Get gym name for the SMS
+    const { data: gym } = await supabase
+      .from('gyms')
+      .select('gym_name')
+      .eq('id', gymId)
+      .single();
+
+    if (gym) {
+      const receiptMessage = formatReceiptSMS(
+        updatedMember.name,
+        gym.gym_name,
+        input.paymentAmount,
+        nextDueDateStr,
+        discountName,
+        discountPercentage
+      );
+
+      // Send SMS receipt
+      await sendSMS(gymId, input.memberId, 'receipt', receiptMessage);
+      console.log(`✓ Payment receipt SMS sent to ${updatedMember.name}`);
+    }
+  } catch (smsError) {
+    // Don't fail the payment if SMS fails, just log the error
+    console.error('Failed to send payment receipt SMS:', smsError);
+  }
 
   return {
     payment: payment as Payment,

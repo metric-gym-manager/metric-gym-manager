@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -24,6 +24,12 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { addMemberSchema, type AddMemberInput } from '@/features/members/schemas/member.schemas';
 
+interface Discount {
+  id: string;
+  discount_name: string;
+  discount_percentage: number;
+}
+
 interface AddMemberModalProps {
   open: boolean;
   onClose: () => void;
@@ -31,9 +37,7 @@ interface AddMemberModalProps {
 
 export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
   const queryClient = useQueryClient();
-  const [planAmount, setPlanAmount] = useState<number>(0);
   const [discountPercentage, setDiscountPercentage] = useState<number>(0);
-  const [paymentAmount, setPaymentAmount] = useState<number>(0);
 
   const {
     register,
@@ -46,8 +50,20 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     resolver: zodResolver(addMemberSchema),
     defaultValues: {
       membershipStartDate: new Date().toISOString().split('T')[0],
-      recurringDiscount: false,
       planType: 'monthly',
+      discountId: null,
+      recurringDiscount: false,
+    },
+  });
+
+  // Fetch discounts from API
+  const { data: discountsData } = useQuery({
+    queryKey: ['discounts'],
+    queryFn: async () => {
+      const response = await fetch('/api/discounts');
+      if (!response.ok) throw new Error('Failed to fetch discounts');
+      const result = await response.json();
+      return result.data as Discount[];
     },
   });
 
@@ -67,7 +83,6 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
   useEffect(() => {
     if (watchPlanType) {
       const amount = defaultPlanAmounts[watchPlanType as keyof typeof defaultPlanAmounts];
-      setPlanAmount(amount);
       setValue('planAmount', amount);
     }
   }, [watchPlanType, setValue]);
@@ -75,10 +90,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
   // Calculate payment amount when plan amount or discount changes
   useEffect(() => {
     if (watchPlanAmount) {
-      const amount = watchPlanAmount;
-      const discount = discountPercentage;
-      const finalAmount = amount - (amount * discount) / 100;
-      setPaymentAmount(finalAmount);
+      const finalAmount = watchPlanAmount - (watchPlanAmount * discountPercentage) / 100;
       setValue('paymentAmount', finalAmount);
     }
   }, [watchPlanAmount, discountPercentage, setValue]);
@@ -108,27 +120,6 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
 
   const onSubmit = (data: AddMemberInput) => {
     createMemberMutation.mutate(data);
-  };
-
-  // Format phone number as user types
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-
-    // Add +94 prefix if not present
-    if (!value.startsWith('94')) {
-      if (value.startsWith('0')) {
-        value = '94' + value.slice(1);
-      } else {
-        value = '94' + value;
-      }
-    }
-
-    // Limit to 11 digits (94 + 9 digits)
-    value = value.slice(0, 11);
-
-    // Add + prefix
-    const formatted = '+' + value;
-    setValue(field as keyof AddMemberInput, formatted as never);
   };
 
   return (
@@ -163,8 +154,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
               <Input
                 id="phoneNumber"
                 {...register('phoneNumber')}
-                placeholder="+94XXXXXXXXX"
-                onChange={(e) => handlePhoneChange(e, 'phoneNumber')}
+                placeholder="0771234567"
               />
               {errors.phoneNumber && (
                 <p className="text-sm text-red-600 mt-1">{errors.phoneNumber.message}</p>
@@ -185,8 +175,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
               <Input
                 id="emergencyContactPhone"
                 {...register('emergencyContactPhone')}
-                placeholder="+94XXXXXXXXX"
-                onChange={(e) => handlePhoneChange(e, 'emergencyContactPhone')}
+                placeholder="0771234567"
               />
               {errors.emergencyContactPhone && (
                 <p className="text-sm text-red-600 mt-1">{errors.emergencyContactPhone.message}</p>
@@ -232,7 +221,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             </div>
 
             <div>
-              <Label htmlFor="discountId">Discount</Label>
+              <Label htmlFor="discountId">Discount (Optional)</Label>
               <Select
                 value={watchDiscountId || 'none'}
                 onValueChange={(value) => {
@@ -241,11 +230,8 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                     setDiscountPercentage(0);
                   } else {
                     setValue('discountId', value);
-                    // TODO: Fetch discount percentage from API
-                    // For now, hardcode some example discounts
-                    if (value === 'student') setDiscountPercentage(10);
-                    else if (value === 'senior') setDiscountPercentage(15);
-                    else if (value === 'family') setDiscountPercentage(20);
+                    const selectedDiscount = discountsData?.find(d => d.id === value);
+                    setDiscountPercentage(selectedDiscount?.discount_percentage || 0);
                   }
                 }}
               >
@@ -254,9 +240,11 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Discount</SelectItem>
-                  <SelectItem value="student">Student Discount (10%)</SelectItem>
-                  <SelectItem value="senior">Senior Discount (15%)</SelectItem>
-                  <SelectItem value="family">Family Discount (20%)</SelectItem>
+                  {discountsData?.map((discount) => (
+                    <SelectItem key={discount.id} value={discount.id}>
+                      {discount.discount_name} ({discount.discount_percentage}%)
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -292,17 +280,21 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             <div className="rounded-lg border bg-gray-50 p-4 space-y-2">
               <div className="flex justify-between text-sm">
                 <span>Plan Amount:</span>
-                <span className="font-medium">LKR {planAmount.toFixed(2)}</span>
+                <span className="font-medium">LKR {(watchPlanAmount || 0).toFixed(2)}</span>
               </div>
               {discountPercentage > 0 && (
                 <div className="flex justify-between text-sm text-green-600">
                   <span>Discount ({discountPercentage}%):</span>
-                  <span className="font-medium">- LKR {((planAmount * discountPercentage) / 100).toFixed(2)}</span>
+                  <span className="font-medium">
+                    - LKR {((watchPlanAmount || 0) * discountPercentage / 100).toFixed(2)}
+                  </span>
                 </div>
               )}
               <div className="flex justify-between text-base font-semibold pt-2 border-t">
                 <span>Payment Amount:</span>
-                <span>LKR {paymentAmount.toFixed(2)}</span>
+                <span>
+                  LKR {((watchPlanAmount || 0) - ((watchPlanAmount || 0) * discountPercentage / 100)).toFixed(2)}
+                </span>
               </div>
             </div>
 

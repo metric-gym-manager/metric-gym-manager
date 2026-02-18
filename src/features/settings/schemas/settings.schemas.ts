@@ -11,17 +11,20 @@ export const updateGymInfoSchema = z.object({
     .max(100, 'Gym name must not exceed 100 characters'),
 
   gym_address: z
-    .string()
-    .min(5, 'Address must be at least 5 characters')
-    .max(200, 'Address must not exceed 200 characters')
-    .nullable()
-    .optional(),
+    .union([
+      z.string().min(5, 'Address must be at least 5 characters').max(200, 'Address must not exceed 200 characters'),
+      z.literal(''),
+    ])
+    .optional()
+    .nullable(),
 
   gym_website: z
-    .string()
-    .url('Invalid website URL')
-    .nullable()
-    .optional(),
+    .union([
+      z.string().url('Invalid website URL'),
+      z.literal(''),
+    ])
+    .optional()
+    .nullable(),
 });
 
 export type UpdateGymInfoInput = z.infer<typeof updateGymInfoSchema>;
@@ -107,7 +110,15 @@ export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
 export const updatePhoneSchema = z.object({
   phone_number: z
     .string()
-    .regex(/^\+94[0-9]{9}$/, 'Phone number must be in +94XXXXXXXXX format'),
+    .min(1, 'Phone number is required')
+    .refine(
+      (val) => {
+        // Allow both local format (0771234567) and international format (+94771234567)
+        const phoneRegex = /^(\+?94|0)?[0-9]{9}$/;
+        return phoneRegex.test(val.replace(/\s/g, ''));
+      },
+      'Invalid phone number format. Use format: 0771234567'
+    ),
   otp_code: z.string().length(6, 'OTP must be 6 digits'),
 });
 

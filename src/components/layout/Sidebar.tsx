@@ -3,27 +3,28 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { Users, DollarSign, CreditCard, Settings } from 'lucide-react';
 
 const navigation = [
   {
     name: 'Members',
     href: '/members',
-    icon: '👥',
+    icon: Users,
   },
   {
     name: 'Revenue',
     href: '/revenue',
-    icon: '💰',
+    icon: DollarSign,
   },
   {
     name: 'Payment Collection',
     href: '/payment-collection',
-    icon: '💳',
+    icon: CreditCard,
   },
   {
     name: 'Settings',
     href: '/settings',
-    icon: '⚙️',
+    icon: Settings,
   },
 ];
 
@@ -49,6 +50,7 @@ export default function Sidebar() {
                 <ul role="list" className="-mx-2 space-y-1">
                   {navigation.map((item) => {
                     const isActive = pathname.startsWith(item.href);
+                    const Icon = item.icon;
                     return (
                       <li key={item.name}>
                         <Link
@@ -60,7 +62,7 @@ export default function Sidebar() {
                             'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
                           )}
                         >
-                          <span className="text-xl">{item.icon}</span>
+                          <Icon className="h-5 w-5 text-blue-600" strokeWidth={2} />
                           {item.name}
                         </Link>
                       </li>
@@ -79,6 +81,7 @@ export default function Sidebar() {
           <nav className="flex justify-around">
             {navigation.map((item) => {
               const isActive = pathname.startsWith(item.href);
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.name}
@@ -90,7 +93,7 @@ export default function Sidebar() {
                     'flex flex-col items-center py-2 px-3 text-xs'
                   )}
                 >
-                  <span className="text-2xl mb-1">{item.icon}</span>
+                  <Icon className="h-6 w-6 text-blue-600 mb-1" strokeWidth={2} />
                   <span className="font-medium">{item.name}</span>
                 </Link>
               );

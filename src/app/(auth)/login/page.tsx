@@ -361,7 +361,7 @@ function LoginContent() {
                     setError(null);
                     setSuccess(null);
                   }}
-                  placeholder="+94XXXXXXXXX"
+                  placeholder="0771234567"
                   className={fieldErrors.phoneNumber ? 'border-red-500' : ''}
                   disabled={otpSent}
                 />
@@ -369,7 +369,7 @@ function LoginContent() {
                   <p className="text-sm text-red-500">{fieldErrors.phoneNumber}</p>
                 )}
                 <p className="text-xs text-gray-500">
-                  Format: +94 followed by 9 digits
+                  Enter your Sri Lankan mobile number
                 </p>
               </div>
 

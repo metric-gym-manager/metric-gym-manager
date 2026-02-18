@@ -130,27 +130,6 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
     updateMemberMutation.mutate(data);
   };
 
-  // Format phone number as user types
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
-    let value = e.target.value.replace(/\D/g, ''); // Remove non-digits
-
-    // Add +94 prefix if not present
-    if (!value.startsWith('94')) {
-      if (value.startsWith('0')) {
-        value = '94' + value.slice(1);
-      } else {
-        value = '94' + value;
-      }
-    }
-
-    // Limit to 11 digits (94 + 9 digits)
-    value = value.slice(0, 11);
-
-    // Add + prefix
-    const formatted = '+' + value;
-    setValue(field as keyof UpdateMemberInput, formatted as never);
-  };
-
   if (!member) return null;
 
   return (
@@ -185,8 +164,7 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
               <Input
                 id="phoneNumber"
                 {...register('phoneNumber')}
-                placeholder="+94XXXXXXXXX"
-                onChange={(e) => handlePhoneChange(e, 'phoneNumber')}
+                placeholder="0771234567"
               />
               {errors.phoneNumber && (
                 <p className="text-sm text-red-600 mt-1">{errors.phoneNumber.message}</p>
@@ -210,8 +188,7 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
               <Input
                 id="emergencyContactPhone"
                 {...register('emergencyContactPhone')}
-                placeholder="+94XXXXXXXXX"
-                onChange={(e) => handlePhoneChange(e, 'emergencyContactPhone')}
+                placeholder="0771234567"
               />
               {errors.emergencyContactPhone && (
                 <p className="text-sm text-red-600 mt-1">{errors.emergencyContactPhone.message}</p>

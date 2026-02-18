@@ -18,6 +18,7 @@ export interface TextLkResponse {
   error?: string;
   balance?: number;
   cost?: number;
+  data?: any; // For text.lk v3 API response data
 }
 
 /**
@@ -84,43 +85,62 @@ export async function sendSmsViaTextLk(
       );
     }
 
-    // text.lk API endpoint
-    const apiUrl = 'https://www.text.lk/api/send';
+    // Remove '+' from phone number (text.lk expects format: 94XXXXXXXXX)
+    const cleanPhone = params.to.replace(/^\+/, '');
+
+    // text.lk v3 API endpoint
+    const apiUrl = 'https://app.text.lk/api/v3/sms/send';
 
     // Make API request
     const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         Authorization: `Bearer ${process.env.TEXT_LK_API_KEY}`,
       },
       body: JSON.stringify({
-        recipient: params.to,
-        message: params.message,
+        recipient: cleanPhone,
         sender_id: process.env.TEXT_LK_SENDER_ID || 'GymSaaS',
+        type: 'plain',
+        message: params.message,
       }),
     });
 
     // Handle non-200 responses
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error('text.lk API error:', response.status, errorData);
+      const errorText = await response.text();
+      console.error('text.lk API error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText,
+      });
 
       return {
         success: false,
-        error: errorData.message || `HTTP ${response.status}: Failed to send SMS`,
+        error: `HTTP ${response.status}: Failed to send SMS`,
       };
     }
 
     // Parse successful response
     const data = await response.json();
 
-    return {
-      success: true,
-      message_id: data.message_id,
-      balance: data.balance,
-      cost: data.cost,
-    };
+    // Check if text.lk returned success status
+    if (data.status === 'success') {
+      console.log('✓ SMS sent successfully via text.lk');
+      return {
+        success: true,
+        message_id: data.data?.uid || data.message_id,
+        balance: data.data?.balance || data.balance,
+        cost: data.data?.cost || data.cost,
+      };
+    } else {
+      console.error('text.lk API returned error:', data.message);
+      return {
+        success: false,
+        error: data.message || 'SMS sending failed',
+      };
+    }
   } catch (error) {
     console.error('text.lk API exception:', error);
 
@@ -159,12 +179,14 @@ export async function getSmsDeliveryStatus(
       return 'failed';
     }
 
-    // text.lk API endpoint for status check
-    const apiUrl = `https://www.text.lk/api/status/${messageId}`;
+    // text.lk v3 API endpoint for viewing SMS
+    const apiUrl = `https://app.text.lk/api/v3/sms/${messageId}`;
 
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.TEXT_LK_API_KEY}`,
       },
     });
@@ -221,11 +243,13 @@ export async function getTextLkBalance(): Promise<number | null> {
       return null;
     }
 
-    const apiUrl = 'https://www.text.lk/api/balance';
+    const apiUrl = 'https://app.text.lk/api/v3/balance';
 
     const response = await fetch(apiUrl, {
       method: 'GET',
       headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.TEXT_LK_API_KEY}`,
       },
     });

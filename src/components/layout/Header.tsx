@@ -1,15 +1,25 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import type { GymProfile } from '@/features/auth/types';
 
-interface HeaderProps {
-  gymProfile: GymProfile;
-}
-
-export default function Header({ gymProfile }: HeaderProps) {
+export default function Header() {
   const router = useRouter();
+
+  // Fetch gym profile using React Query for real-time updates
+  const { data: gymProfile } = useQuery<GymProfile>({
+    queryKey: ['gym-profile'],
+    queryFn: async () => {
+      const response = await fetch('/api/auth/profile');
+      if (!response.ok) throw new Error('Failed to fetch profile');
+      const result = await response.json();
+      return result.data;
+    },
+    staleTime: 30000, // Consider data fresh for 30 seconds
+    refetchOnWindowFocus: true, // Refetch when window regains focus
+  });
 
   const handleLogout = async () => {
     try {
@@ -24,6 +34,18 @@ export default function Header({ gymProfile }: HeaderProps) {
       console.error('Logout error:', error);
     }
   };
+
+  // Show loading state while fetching
+  if (!gymProfile) {
+    return (
+      <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
+        <div className="flex h-16 items-center justify-between px-4 lg:px-8">
+          <div className="h-6 w-32 bg-gray-200 animate-pulse rounded" />
+          <div className="h-10 w-20 bg-gray-200 animate-pulse rounded" />
+        </div>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-200">

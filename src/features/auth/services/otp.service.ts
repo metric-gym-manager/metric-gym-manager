@@ -290,16 +290,49 @@ export async function updatePhoneNumber(
   try {
     const supabase = await createClient();
 
+    // Normalize phone number to +94XXXXXXXXX format
+    let normalizedPhone = phoneNumber.trim().replace(/\s/g, '');
+
+    // Convert local format (0783607777) to international (+94783607777)
+    if (normalizedPhone.startsWith('0')) {
+      normalizedPhone = '+94' + normalizedPhone.substring(1);
+    } else if (!normalizedPhone.startsWith('+')) {
+      normalizedPhone = '+94' + normalizedPhone;
+    }
+
+    console.log('🔍 updatePhoneNumber Debug:', {
+      userId,
+      inputPhone: phoneNumber,
+      normalizedPhone: normalizedPhone,
+      otpCode,
+      otpCodeLength: otpCode.length,
+      currentTime: new Date().toISOString(),
+    });
+
     // Verify OTP - fetch all valid tokens to compare hashes
     const { data: otpTokens, error: otpError } = await supabase
       .from('otp_tokens')
       .select('*')
-      .eq('phone_number', phoneNumber)
+      .eq('phone_number', normalizedPhone)
       .eq('used', false)
       .gte('expires_at', new Date().toISOString())
       .order('created_at', { ascending: false });
 
+    console.log('📋 OTP Tokens Found:', {
+      count: otpTokens?.length || 0,
+      error: otpError,
+      tokens: otpTokens?.map(t => ({
+        id: t.id,
+        phone: t.phone_number,
+        hashedLength: t.otp_code.length,
+        expiresAt: t.expires_at,
+        used: t.used,
+        createdAt: t.created_at,
+      })),
+    });
+
     if (otpError || !otpTokens || otpTokens.length === 0) {
+      console.error('❌ No valid OTP tokens found');
       return {
         success: false,
         error: 'Invalid or expired OTP',
@@ -309,14 +342,18 @@ export async function updatePhoneNumber(
     // Find matching OTP by comparing hashed values
     let matchedToken = null;
     for (const token of otpTokens) {
+      console.log(`🔑 Comparing OTP for token ${token.id}...`);
       const isMatch = await bcrypt.compare(otpCode, token.otp_code);
+      console.log(`🔑 Token ${token.id} match result: ${isMatch}`);
       if (isMatch) {
         matchedToken = token;
+        console.log(`✅ Match found! Token ID: ${token.id}`);
         break;
       }
     }
 
     if (!matchedToken) {
+      console.error('❌ No matching OTP token found after checking all');
       return {
         success: false,
         error: 'Invalid or expired OTP',
@@ -329,31 +366,40 @@ export async function updatePhoneNumber(
       .update({ used: true })
       .eq('id', matchedToken.id);
 
-    // Check if phone number is already in use
+    console.log('✅ OTP verified and marked as used');
+
+    // Check if phone number is already in use by another gym
     const { data: existingGym } = await supabase
       .from('gyms')
       .select('id')
-      .eq('phone_number', phoneNumber)
+      .eq('phone_number', normalizedPhone)
       .neq('user_id', userId)
       .single();
 
     if (existingGym) {
+      console.error('❌ Phone number already in use by another gym');
       return {
         success: false,
         error: 'Phone number already in use',
       };
     }
 
-    // Update phone number
+    // Update phone number in gym profile
     const { data: updatedProfile, error: updateError } = await supabase
       .from('gyms')
       .update({
-        phone_number: phoneNumber,
+        phone_number: normalizedPhone,
         updated_at: new Date().toISOString(),
       })
       .eq('user_id', userId)
       .select()
       .single();
+
+    console.log('📝 Phone number update result:', {
+      success: !!updatedProfile,
+      error: updateError,
+      updatedPhone: normalizedPhone,
+    });
 
     if (updateError || !updatedProfile) {
       return {

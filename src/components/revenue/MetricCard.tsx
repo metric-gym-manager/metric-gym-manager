@@ -11,9 +11,10 @@ interface MetricCardProps {
     value: number;
     isPositive: boolean;
   };
+  valueClassName?: string;
 }
 
-export default function MetricCard({ title, value, subtitle, icon, trend }: MetricCardProps) {
+export default function MetricCard({ title, value, subtitle, icon, trend, valueClassName }: MetricCardProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -21,7 +22,7 @@ export default function MetricCard({ title, value, subtitle, icon, trend }: Metr
         {icon && <div className="text-gray-500">{icon}</div>}
       </CardHeader>
       <CardContent>
-        <div className="text-2xl font-bold">{value}</div>
+        <div className={`text-2xl font-bold ${valueClassName || ''}`}>{value}</div>
         {subtitle && <p className="text-xs text-gray-600 mt-1">{subtitle}</p>}
         {trend && (
           <div

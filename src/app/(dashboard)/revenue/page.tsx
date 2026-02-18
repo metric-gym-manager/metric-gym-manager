@@ -155,8 +155,8 @@ export default function RevenuePage() {
             <MetricCard
               title={
                 viewType === 'monthly'
-                  ? 'Current Month Collected Revenue'
-                  : 'Current Year Collected Revenue'
+                  ? 'Fees Collected in the Current Month'
+                  : 'Fees Collected in the Current Year'
               }
               value={formatCurrency(
                 viewType === 'monthly'
@@ -169,15 +169,35 @@ export default function RevenuePage() {
             <MetricCard
               title={
                 viewType === 'monthly'
-                  ? 'Current Month Projected Revenue'
-                  : 'Current Year Projected Revenue'
+                  ? 'Outstanding Fees for the Current Month'
+                  : 'Outstanding Fees for the Current Year'
               }
-              value={formatCurrency(
-                viewType === 'monthly'
-                  ? monthlyData?.currentMonth.projectedRevenue || 0
-                  : yearlyData?.currentYear.projectedRevenue || 0
-              )}
-              subtitle="Expected from active members"
+              value={(() => {
+                const outstanding = viewType === 'monthly'
+                  ? (monthlyData?.currentMonth.projectedRevenue || 0) - (monthlyData?.currentMonth.collectedRevenue || 0)
+                  : (yearlyData?.currentYear.projectedRevenue || 0) - (yearlyData?.currentYear.collectedRevenue || 0);
+
+                if (outstanding <= 0) {
+                  return viewType === 'monthly'
+                    ? '✓ All fees collected for this month'
+                    : '✓ All fees collected for this year';
+                }
+                return formatCurrency(outstanding);
+              })()}
+              valueClassName={(() => {
+                const outstanding = viewType === 'monthly'
+                  ? (monthlyData?.currentMonth.projectedRevenue || 0) - (monthlyData?.currentMonth.collectedRevenue || 0)
+                  : (yearlyData?.currentYear.projectedRevenue || 0) - (yearlyData?.currentYear.collectedRevenue || 0);
+                return outstanding <= 0 ? 'text-green-600' : '';
+              })()}
+              subtitle={(() => {
+                const outstanding = viewType === 'monthly'
+                  ? (monthlyData?.currentMonth.projectedRevenue || 0) - (monthlyData?.currentMonth.collectedRevenue || 0)
+                  : (yearlyData?.currentYear.projectedRevenue || 0) - (yearlyData?.currentYear.collectedRevenue || 0);
+                return outstanding <= 0
+                  ? 'No outstanding payments'
+                  : 'Outstanding amount from active members';
+              })()}
               icon={<span className="text-2xl">📊</span>}
             />
           </div>

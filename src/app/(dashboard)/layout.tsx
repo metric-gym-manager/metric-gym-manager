@@ -8,10 +8,9 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  let gymProfile;
-
+  // Verify authentication
   try {
-    gymProfile = await getCurrentGymProfile();
+    await getCurrentGymProfile();
   } catch (error) {
     redirect('/login');
   }
@@ -23,8 +22,8 @@ export default async function DashboardLayout({
 
       {/* Main content area */}
       <div className="lg:pl-64">
-        {/* Header */}
-        <Header gymProfile={gymProfile} />
+        {/* Header - Fetches gym profile via React Query for real-time updates */}
+        <Header />
 
         {/* Page content */}
         <main className="px-4 py-6 lg:px-8">

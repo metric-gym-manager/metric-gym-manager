@@ -15,30 +15,82 @@ function VerifyEmailContent() {
   const [resendMessage, setResendMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    const type = searchParams.get('type');
-    const emailParam = searchParams.get('email');
+    const verifyEmail = async () => {
+      const token = searchParams.get('token');
+      const type = searchParams.get('type');
+      const emailParam = searchParams.get('email');
 
-    // Set email from URL if provided
-    if (emailParam) {
-      setEmail(emailParam);
-    }
+      // Set email from URL if provided
+      if (emailParam) {
+        setEmail(emailParam);
+      }
 
-    if (type === 'signup') {
-      // Handle email verification from Supabase
-      // This will be handled by Supabase's email confirmation
-      setStatus('success');
-      setMessage(
-        'Email verification successful! You can now log in to your account.'
-      );
-    } else if (!token) {
-      // No token, show instructions
-      setStatus('pending');
-      setMessage(
-        'Please check your email for a verification link. Click the link in the email to verify your account.'
-      );
-    }
-  }, [searchParams]);
+      if (type === 'signup') {
+        // Handle email verification from Supabase
+        // This will be handled by Supabase's email confirmation
+        setStatus('success');
+        setMessage(
+          'Email verification successful! You can now log in to your account.'
+        );
+        return;
+      }
+
+      // Handle email change verification
+      if (type === 'email_change' || type === 'email') {
+        // Get token_hash from URL (Supabase sends this)
+        const tokenHash = searchParams.get('token_hash') || token;
+
+        if (!tokenHash) {
+          setStatus('error');
+          setMessage('Invalid verification link. No token provided.');
+          return;
+        }
+
+        try {
+          setStatus('pending');
+          setMessage('Verifying your email address...');
+
+          const response = await fetch('/api/auth/verify-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: tokenHash }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            setStatus('success');
+            setMessage('Email verified successfully! Please log in with your new email address.');
+
+            // Log out the user so they can log in with new email
+            await fetch('/api/auth/logout', { method: 'POST' });
+
+            // Auto-redirect to login after 5 seconds
+            setTimeout(() => {
+              router.push('/login');
+            }, 5000);
+          } else {
+            setStatus('error');
+            setMessage(data.error || 'Failed to verify email. The link may be expired or invalid.');
+          }
+        } catch (error) {
+          setStatus('error');
+          setMessage('An unexpected error occurred while verifying your email.');
+        }
+        return;
+      }
+
+      // No specific type or token, show instructions
+      if (!token) {
+        setStatus('pending');
+        setMessage(
+          'Please check your email for a verification link. Click the link in the email to verify your account.'
+        );
+      }
+    };
+
+    verifyEmail();
+  }, [searchParams, router]);
 
   const handleResendEmail = async () => {
     if (!email) {
@@ -92,8 +144,17 @@ function VerifyEmailContent() {
 
           {status === 'success' && (
             <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-              <p className="font-medium mb-2">Verification Successful!</p>
-              <p className="text-sm">{message}</p>
+              <p className="font-medium mb-2">Email verified successfully!</p>
+              <p className="text-sm">
+                Please{' '}
+                <button
+                  onClick={() => router.push('/login')}
+                  className="underline font-medium hover:text-green-800"
+                >
+                  log in
+                </button>{' '}
+                with your new email address.
+              </p>
             </div>
           )}
 
@@ -104,14 +165,22 @@ function VerifyEmailContent() {
             </div>
           )}
 
-          <div className="space-y-2 text-sm text-gray-600">
-            <p className="font-medium">What to do next:</p>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Check your email inbox (including spam/junk folder)</li>
-              <li>Click the verification link in the email</li>
-              <li>Return to this page or log in</li>
-            </ul>
-          </div>
+          {status === 'success' && (
+            <p className="text-xs text-gray-500 text-center">
+              You will be redirected to the login page automatically in 5 seconds...
+            </p>
+          )}
+
+          {status === 'pending' && (
+            <div className="space-y-2 text-sm text-gray-600">
+              <p className="font-medium">What to do next:</p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Check your email inbox (including spam/junk folder)</li>
+                <li>Click the verification link in the email</li>
+                <li>Return to this page or log in</li>
+              </ul>
+            </div>
+          )}
 
           {status === 'pending' && (
             <div className="border-t pt-4">

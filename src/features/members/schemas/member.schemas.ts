@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { normalizePhoneNumber, isValidSriLankanPhone } from '@/lib/utils/phone';
 
 // ============================================================
 // MEMBER ENUMS
@@ -11,6 +12,33 @@ export const MemberStatus = z.enum(['active', 'expired', 'suspended', 'cancelled
 export type MemberStatus = z.infer<typeof MemberStatus>;
 
 // ============================================================
+// PHONE NUMBER VALIDATION SCHEMAS
+// ============================================================
+
+// Accepts local format (0771234567) or international format (+94771234567)
+// Transforms to +94XXXXXXXXX format
+const phoneNumberSchema = z
+  .string()
+  .min(1, 'Phone number is required')
+  .refine(
+    (val) => isValidSriLankanPhone(val),
+    'Invalid Sri Lankan phone number. Use format: 0771234567'
+  )
+  .transform((val) => `+${normalizePhoneNumber(val)}`);
+
+const optionalPhoneNumberSchema = z
+  .string()
+  .optional()
+  .refine(
+    (val) => !val || val.trim() === '' || isValidSriLankanPhone(val),
+    'Invalid Sri Lankan phone number. Use format: 0771234567'
+  )
+  .transform((val) => {
+    if (!val || val.trim() === '') return undefined;
+    return `+${normalizePhoneNumber(val)}`;
+  });
+
+// ============================================================
 // ADD MEMBER SCHEMA
 // ============================================================
 
@@ -20,9 +48,7 @@ export const addMemberSchema = z.object({
     .min(2, 'Name must be at least 2 characters')
     .max(100, 'Name must not exceed 100 characters'),
 
-  phoneNumber: z
-    .string()
-    .regex(/^\+94[0-9]{9}$/, 'Phone number must be in +94XXXXXXXXX format'),
+  phoneNumber: phoneNumberSchema,
 
   emergencyContactName: z
     .string()
@@ -30,10 +56,7 @@ export const addMemberSchema = z.object({
     .max(100, 'Name must not exceed 100 characters')
     .optional(),
 
-  emergencyContactPhone: z
-    .string()
-    .regex(/^\+94[0-9]{9}$/, 'Phone number must be in +94XXXXXXXXX format')
-    .optional(),
+  emergencyContactPhone: optionalPhoneNumberSchema,
 
   planType: MemberPlanType,
 
@@ -69,10 +92,7 @@ export const updateMemberSchema = z.object({
     .max(100, 'Name must not exceed 100 characters')
     .optional(),
 
-  phoneNumber: z
-    .string()
-    .regex(/^\+94[0-9]{9}$/, 'Phone number must be in +94XXXXXXXXX format')
-    .optional(),
+  phoneNumber: optionalPhoneNumberSchema,
 
   emergencyContactName: z
     .string()
@@ -81,11 +101,7 @@ export const updateMemberSchema = z.object({
     .nullable()
     .optional(),
 
-  emergencyContactPhone: z
-    .string()
-    .regex(/^\+94[0-9]{9}$/, 'Phone number must be in +94XXXXXXXXX format')
-    .nullable()
-    .optional(),
+  emergencyContactPhone: optionalPhoneNumberSchema,
 
   planType: MemberPlanType.optional(),
 

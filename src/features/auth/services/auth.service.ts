@@ -450,19 +450,39 @@ export async function updateEmail(
     }
 
     // Update email in Supabase Auth (triggers verification email)
-    const { error: updateError } = await supabase.auth.updateUser({
-      email: newEmail,
-    });
+    const { error: updateError } = await supabase.auth.updateUser(
+      {
+        email: newEmail,
+      },
+      {
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/verify-email`,
+      }
+    );
 
     if (updateError) {
+      // Handle rate limiting error
+      if (updateError.message?.includes('email') && updateError.status === 429) {
+        return {
+          success: false,
+          error: 'Too many email update attempts. Please wait a few minutes before trying again.',
+        };
+      }
+
       return {
         success: false,
         error: 'Failed to update email',
       };
     }
 
-    // Note: Email in gyms table will be updated after verification
-    // This happens automatically via Supabase Auth's email verification flow
+    // Update email in gyms table and mark as unverified
+    await supabase
+      .from('gyms')
+      .update({
+        email: newEmail,
+        email_verified: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('user_id', user.id);
 
     return {
       success: true,
