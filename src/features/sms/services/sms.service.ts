@@ -137,9 +137,13 @@ export async function getReminderStatus(
     dueDate.setHours(0, 0, 0, 0);
     const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    // Get last SMS log
-    const smsLogs = member.sms_logs || [];
-    const lastLog = smsLogs.length > 0 ? smsLogs[smsLogs.length - 1] : null;
+    // Only consider reminder-type SMS logs — receipt and welcome are transactional
+    // and must not affect the auto-status indicator or the "Sent Xm ago" label.
+    const REMINDER_TYPES = ['reminder_7day', 'reminder_3day', 'due_today', 'overdue'];
+    const reminderLogs = (member.sms_logs || []).filter(
+      (log: { sms_type: string }) => REMINDER_TYPES.includes(log.sms_type)
+    );
+    const lastLog = reminderLogs.length > 0 ? reminderLogs[reminderLogs.length - 1] : null;
 
     return {
       id: member.id,

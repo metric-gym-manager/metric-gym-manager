@@ -57,16 +57,17 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
   const watchDiscountId = watch('discountId');
 
   // Fetch discounts
-  const { data: discountsData } = useQuery<{ success: boolean; data: Discount[] }>({
+  const { data: discountsData } = useQuery<Discount[]>({
     queryKey: ['discounts'],
     queryFn: async () => {
       const response = await fetch('/api/settings/discounts');
       if (!response.ok) throw new Error('Failed to fetch discounts');
-      return response.json();
+      const result = await response.json();
+      return result.data as Discount[];
     },
   });
 
-  const discounts = discountsData?.data || [];
+  const discounts = discountsData || [];
 
   // Default plan amounts
   const defaultPlanAmounts = {
