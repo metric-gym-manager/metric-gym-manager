@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -104,8 +105,14 @@ export default function PaymentCollectionModal({ open, onClose, member }: Paymen
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['regular-payments'] });
+      queryClient.invalidateQueries({ queryKey: ['sms-reminders'] });
+      toast.success('Payment collected — receipt SMS sent');
       reset();
       onClose();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to collect payment');
     },
   });
 
@@ -337,7 +344,11 @@ export default function PaymentCollectionModal({ open, onClose, member }: Paymen
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={collectPaymentMutation.isPending}>
+            <Button
+              type="submit"
+              disabled={collectPaymentMutation.isPending}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
               {collectPaymentMutation.isPending ? 'Processing...' : 'Collect Payment'}
             </Button>
           </div>

@@ -106,7 +106,9 @@ export default function MemberDetailModal({
     },
   });
 
-  // Live installments — re-fetch when member changes so Mark Paid reflects immediately
+  // Live installments — uses initialData from context (already fetched).
+  // staleTime: Infinity prevents a spurious background re-fetch on mount;
+  // invalidateQueries after Mark Paid still forces a fresh fetch when needed.
   const { data: liveInstallments } = useQuery<MemberInstallment[]>({
     queryKey: ['member-installments', member?.id],
     queryFn: async () => {
@@ -117,6 +119,7 @@ export default function MemberDetailModal({
     },
     enabled: !!member,
     initialData: initialInstallments,
+    staleTime: Infinity,
   });
 
   const installments = liveInstallments ?? initialInstallments;

@@ -50,10 +50,15 @@ export function MemberModalProvider({ children }: { children: ReactNode }) {
     setDetailOpen(true);
   }, []);
 
-  const { data: memberData } = useQuery<{ member: MemberWithDiscount; payments: Payment[] } | null>({
-    queryKey: ['member', memberId],
+  // Single request: member + payments + installments in parallel on the server
+  const { data: detailData } = useQuery<{
+    member: MemberWithDiscount;
+    payments: Payment[];
+    installments: MemberInstallment[];
+  } | null>({
+    queryKey: ['member-detail', memberId],
     queryFn: async () => {
-      const res = await fetch(`/api/members/${memberId}`);
+      const res = await fetch(`/api/members/${memberId}/detail`);
       if (!res.ok) return null;
       const r = await res.json();
       return r.data;
@@ -61,23 +66,15 @@ export function MemberModalProvider({ children }: { children: ReactNode }) {
     enabled: !!memberId && detailOpen,
   });
 
-  const { data: installmentsData } = useQuery<MemberInstallment[]>({
-    queryKey: ['member-installments', memberId],
-    queryFn: async () => {
-      const res = await fetch(`/api/members/${memberId}/installments`);
-      if (!res.ok) return [];
-      const r = await res.json();
-      return r.data ?? [];
-    },
-    enabled: !!memberId && detailOpen,
-  });
+  const memberData = detailData ? { member: detailData.member, payments: detailData.payments } : undefined;
+  const installmentsData = detailData?.installments;
 
   const handleDetailClose = useCallback(() => {
     setDetailOpen(false);
     setMemberId(null);
-    // Invalidate so stale data doesn't appear on next open
+    // Remove stale data so skeleton shows fresh on next open
     if (memberId) {
-      queryClient.removeQueries({ queryKey: ['member', memberId] });
+      queryClient.removeQueries({ queryKey: ['member-detail', memberId] });
     }
   }, [memberId, queryClient]);
 
