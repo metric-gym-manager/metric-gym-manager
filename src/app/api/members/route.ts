@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { addMemberSchema, memberFiltersSchema } from '@/features/members/schemas/member.schemas';
 import { getMembersList, createMember } from '@/features/members/services/member.service';
+import { sendSMS } from '@/features/sms/services/sms.service';
 
 // ============================================================
 // GET /api/members - Get members list
@@ -66,6 +67,11 @@ export async function POST(request: NextRequest) {
 
     // Create member
     const member = await createMember(gymProfile.id, validatedData);
+
+    // Send welcome SMS — fire and forget (SMS failure must not fail registration)
+    sendSMS(gymProfile.id, member.id, 'welcome').catch((err) =>
+      console.error('Welcome SMS failed:', err)
+    );
 
     return NextResponse.json(
       {

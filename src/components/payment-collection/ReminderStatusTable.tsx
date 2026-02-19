@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   Table,
   TableBody,
@@ -19,7 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import type { ReminderStatusResponse } from '@/features/sms/types';
+import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
+import type { ReminderStatusResponse, MemberReminderStatus } from '@/features/sms/types';
 
 interface ReminderStatusTableProps {
   onMemberClick?: (memberId: string) => void;
@@ -29,6 +31,7 @@ export default function ReminderStatusTable({ onMemberClick }: ReminderStatusTab
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('due_date_asc');
+  const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
 
   // Fetch reminder status
   const { data, isLoading, error } = useQuery<ReminderStatusResponse>({
@@ -51,10 +54,7 @@ export default function ReminderStatusTable({ onMemberClick }: ReminderStatusTab
       const response = await fetch('/api/sms/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          memberId,
-          smsType,
-        }),
+        body: JSON.stringify({ memberId, smsType }),
       });
 
       if (!response.ok) {
@@ -64,23 +64,19 @@ export default function ReminderStatusTable({ onMemberClick }: ReminderStatusTab
 
       return response.json();
     },
+    onMutate: ({ memberId }) => {
+      setPendingMemberId(memberId);
+    },
     onSuccess: () => {
+      setPendingMemberId(null);
       queryClient.invalidateQueries({ queryKey: ['sms-reminders'] });
+      toast.success('Reminder sent successfully');
+    },
+    onError: (error) => {
+      setPendingMemberId(null);
+      toast.error(error instanceof Error ? error.message : 'Failed to send reminder');
     },
   });
-
-  // Format date to DD/MM/YYYY HH:MM
-  const formatDateTime = (dateString: string | null) => {
-    if (!dateString) return '-';
-    const date = new Date(dateString);
-    return date.toLocaleString('en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
 
   // Format due date to DD/MM/YYYY
   const formatDate = (dateString: string) => {
@@ -103,51 +99,53 @@ export default function ReminderStatusTable({ onMemberClick }: ReminderStatusTab
     }
   };
 
-  // Get reminder type label
-  const getReminderTypeLabel = (smsType: string | null) => {
-    if (!smsType) return '-';
-    switch (smsType) {
-      case 'reminder_7day':
-        return '7-Day Notice';
-      case 'reminder_3day':
-        return '3-Day Notice';
-      case 'due_today':
-        return 'Due Today';
-      case 'overdue':
-        return 'Overdue';
-      case 'receipt':
-        return 'Receipt';
-      default:
-        return smsType;
+  // Automated reminder status: did the cron already send for this member's current interval?
+  const getAutoStatus = (reminder: MemberReminderStatus) => {
+    const { days_until_due, last_reminder_type } = reminder;
+
+    let expectedType: string | null = null;
+    if (days_until_due === 7) expectedType = 'reminder_7day';
+    else if (days_until_due === 3) expectedType = 'reminder_3day';
+    else if (days_until_due === 0) expectedType = 'due_today';
+    else if (days_until_due < 0) expectedType = 'overdue';
+
+    if (!expectedType) {
+      return <span className="text-xs text-gray-400">—</span>;
     }
+
+    if (last_reminder_type === expectedType) {
+      return (
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          Auto sent
+        </span>
+      );
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-600">
+        <AlertCircle className="h-3.5 w-3.5" />
+        Not sent
+      </span>
+    );
   };
 
-  // Get delivery status badge
-  const getDeliveryStatusBadge = (status: string | null) => {
-    if (!status) return <Badge variant="outline">Not Sent</Badge>;
-    switch (status) {
-      case 'sent':
-        return <Badge variant="secondary">Sent</Badge>;
-      case 'delivered':
-        return <Badge variant="default">Delivered</Badge>;
-      case 'failed':
-        return <Badge variant="destructive">Failed</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
+  // Recently-sent indicator: was a reminder sent in the last 24 hours?
+  const getRecentlySentLabel = (lastSent: string | null): string | null => {
+    if (!lastSent) return null;
+    const minutesAgo = Math.floor((Date.now() - new Date(lastSent).getTime()) / 60000);
+    if (minutesAgo > 1440) return null; // older than 24h — no indicator
+    if (minutesAgo < 60) return `Sent ${minutesAgo}m ago`;
+    return `Sent ${Math.floor(minutesAgo / 60)}h ago`;
   };
 
-  // Get plan type badge variant
-  const getPlanVariant = (planType: string): 'default' | 'secondary' | 'outline' => {
+// Get plan type badge className for distinct colors
+  const getPlanClassName = (planType: string): string => {
     switch (planType) {
-      case 'monthly':
-        return 'default';
-      case 'daily':
-        return 'secondary';
-      case 'annual':
-        return 'outline';
-      default:
-        return 'default';
+      case 'monthly': return 'border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100';
+      case 'daily':   return 'border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100';
+      case 'annual':  return 'border-transparent bg-purple-100 text-purple-800 hover:bg-purple-100';
+      default:        return 'border-transparent bg-blue-100 text-blue-800';
     }
   };
 
@@ -225,9 +223,7 @@ export default function ReminderStatusTable({ onMemberClick }: ReminderStatusTab
                 <TableHead>Plan Type</TableHead>
                 <TableHead>Next Due Date</TableHead>
                 <TableHead>Due In</TableHead>
-                <TableHead>Last Reminder Sent</TableHead>
-                <TableHead>Reminder Type</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Auto Status</TableHead>
                 <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
@@ -248,35 +244,35 @@ export default function ReminderStatusTable({ onMemberClick }: ReminderStatusTab
                   </TableCell>
                   <TableCell>{reminder.phone_number}</TableCell>
                   <TableCell>
-                    <Badge variant={getPlanVariant(reminder.plan_type)}>
+                    <Badge className={getPlanClassName(reminder.plan_type)}>
                       {reminder.plan_type}
                     </Badge>
                   </TableCell>
                   <TableCell>{formatDate(reminder.next_due_date)}</TableCell>
                   <TableCell>{getDueInText(reminder.days_until_due)}</TableCell>
-                  <TableCell className="text-sm">
-                    {formatDateTime(reminder.last_reminder_sent)}
-                  </TableCell>
+                  <TableCell>{getAutoStatus(reminder)}</TableCell>
                   <TableCell>
-                    {getReminderTypeLabel(reminder.last_reminder_type)}
-                  </TableCell>
-                  <TableCell>
-                    {getDeliveryStatusBadge(reminder.last_delivery_status)}
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      size="sm"
-                      variant={reminder.last_delivery_status === 'failed' ? 'destructive' : 'outline'}
-                      onClick={() =>
-                        resendMutation.mutate({
-                          memberId: reminder.id,
-                          smsType: getResendSMSType(reminder.days_until_due),
-                        })
-                      }
-                      disabled={resendMutation.isPending}
-                    >
-                      {resendMutation.isPending ? 'Sending...' : 'Send Reminder'}
-                    </Button>
+                    <div className="flex flex-col items-start gap-1">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          resendMutation.mutate({
+                            memberId: reminder.id,
+                            smsType: getResendSMSType(reminder.days_until_due),
+                          })
+                        }
+                        disabled={pendingMemberId === reminder.id}
+                      >
+                        {pendingMemberId === reminder.id ? 'Sending...' : 'Send Reminder'}
+                      </Button>
+                      {getRecentlySentLabel(reminder.last_reminder_sent) && (
+                        <span className="inline-flex items-center gap-1 text-xs text-amber-600">
+                          <Clock className="h-3 w-3" />
+                          {getRecentlySentLabel(reminder.last_reminder_sent)}
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
@@ -292,16 +288,6 @@ export default function ReminderStatusTable({ onMemberClick }: ReminderStatusTab
         )}
       </div>
 
-      {/* Error Display */}
-      {resendMutation.isError && (
-        <div className="rounded-md bg-red-50 p-4">
-          <p className="text-sm text-red-800">
-            {resendMutation.error instanceof Error
-              ? resendMutation.error.message
-              : 'Failed to send reminder'}
-          </p>
-        </div>
-      )}
     </div>
   );
 }

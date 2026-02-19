@@ -13,50 +13,46 @@ export async function collectPayment(
 ): Promise<{ payment: Payment; member: Member }> {
   const supabase = await createClient();
 
-  // Get member details
-  const { data: member, error: memberError } = await supabase
+  // Single query: member + discount + gym in one round-trip.
+  // Using the members->gyms join avoids a separate gyms SELECT that can be
+  // blocked by RLS when querying the gyms table directly.
+  const { data: memberRow, error: memberError } = await supabase
     .from('members')
-    .select('*')
+    .select(`
+      *,
+      discount:discounts(discount_name, discount_percentage),
+      gym:gyms!inner(gym_name)
+    `)
     .eq('id', input.memberId)
     .eq('gym_id', gymId)
     .single();
 
-  if (memberError || !member) {
+  if (memberError || !memberRow) {
     throw new Error('Member not found');
   }
 
-  // Get discount info if applicable
-  let discountName: string | null = null;
-  let discountPercentage: number | null = null;
+  // Extract joined discount info
+  const discountRow = (memberRow as unknown as {
+    discount: { discount_name: string; discount_percentage: number } | null;
+  }).discount;
 
-  if (input.discountId) {
-    const { data: discount } = await supabase
-      .from('discounts')
-      .select('discount_name, discount_percentage')
-      .eq('id', input.discountId)
-      .eq('gym_id', gymId)
-      .single();
+  const discountName: string | null =
+    input.discountId && discountRow ? discountRow.discount_name : null;
+  const discountPercentage: number | null =
+    input.discountId && discountRow ? discountRow.discount_percentage : null;
 
-    if (discount) {
-      discountName = discount.discount_name;
-      discountPercentage = discount.discount_percentage;
-    }
-  }
+  // Extract gym name (used for receipt SMS)
+  const gymName =
+    ((memberRow as unknown as { gym: { gym_name: string } | null }).gym?.gym_name) ?? '';
 
   // Calculate next due date
-  let nextDueDate: Date;
   const paymentDate = new Date(input.paymentDate);
+  const nextDueDate =
+    (input.deductOverduePeriod ?? true)
+      ? new Date(paymentDate)
+      : new Date(memberRow.next_due_date);
 
-  if (input.deductOverduePeriod ?? true) {
-    // Start from payment date
-    nextDueDate = new Date(paymentDate);
-  } else {
-    // Start from original due date
-    nextDueDate = new Date(member.next_due_date);
-  }
-
-  // Add plan duration
-  switch (member.plan_type) {
+  switch (memberRow.plan_type) {
     case 'daily':
       nextDueDate.setDate(nextDueDate.getDate() + 1);
       break;
@@ -70,72 +66,59 @@ export async function collectPayment(
 
   const nextDueDateStr = nextDueDate.toISOString().split('T')[0];
 
-  // Record payment
-  const { data: payment, error: paymentError } = await supabase
-    .from('payments')
-    .insert({
-      member_id: input.memberId,
-      payment_date: input.paymentDate,
-      amount_paid: input.paymentAmount,
-      discount_applied: discountName,
-      discount_percentage: discountPercentage,
-      next_due_date_calculated: nextDueDateStr,
-    })
-    .select()
-    .single();
+  // Parallel writes: insert payment record AND update member status/due date
+  const [paymentResult, memberUpdateResult] = await Promise.all([
+    supabase
+      .from('payments')
+      .insert({
+        member_id: input.memberId,
+        payment_date: input.paymentDate,
+        amount_paid: input.paymentAmount,
+        discount_applied: discountName,
+        discount_percentage: discountPercentage,
+        next_due_date_calculated: nextDueDateStr,
+      })
+      .select()
+      .single(),
+    supabase
+      .from('members')
+      .update({
+        status: 'active',
+        next_due_date: nextDueDateStr,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', input.memberId)
+      .eq('gym_id', gymId)
+      .select()
+      .single(),
+  ]);
 
-  if (paymentError || !payment) {
-    throw new Error(`Failed to record payment: ${paymentError?.message}`);
+  if (paymentResult.error || !paymentResult.data) {
+    throw new Error(`Failed to record payment: ${paymentResult.error?.message}`);
   }
 
-  // Update member status and next due date
-  const { data: updatedMember, error: updateError } = await supabase
-    .from('members')
-    .update({
-      status: 'active',
-      next_due_date: nextDueDateStr,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', input.memberId)
-    .eq('gym_id', gymId)
-    .select()
-    .single();
-
-  if (updateError || !updatedMember) {
-    throw new Error(`Failed to update member: ${updateError?.message}`);
+  if (memberUpdateResult.error || !memberUpdateResult.data) {
+    throw new Error(`Failed to update member: ${memberUpdateResult.error?.message}`);
   }
 
-  // Send SMS receipt
-  try {
-    // Get gym name for the SMS
-    const { data: gym } = await supabase
-      .from('gyms')
-      .select('gym_name')
-      .eq('id', gymId)
-      .single();
+  // Fire-and-forget receipt SMS so it never blocks the API response.
+  // gymName comes from the already-fetched joined query, not a separate gyms SELECT.
+  const receiptMessage = formatReceiptSMS(
+    memberUpdateResult.data.name,
+    gymName,
+    input.paymentAmount,
+    nextDueDateStr,
+    discountName,
+    discountPercentage
+  );
 
-    if (gym) {
-      const receiptMessage = formatReceiptSMS(
-        updatedMember.name,
-        gym.gym_name,
-        input.paymentAmount,
-        nextDueDateStr,
-        discountName,
-        discountPercentage
-      );
-
-      // Send SMS receipt
-      await sendSMS(gymId, input.memberId, 'receipt', receiptMessage);
-      console.log(`✓ Payment receipt SMS sent to ${updatedMember.name}`);
-    }
-  } catch (smsError) {
-    // Don't fail the payment if SMS fails, just log the error
-    console.error('Failed to send payment receipt SMS:', smsError);
-  }
+  sendSMS(gymId, input.memberId, 'receipt', receiptMessage).catch((smsError) =>
+    console.error('Failed to send payment receipt SMS:', smsError)
+  );
 
   return {
-    payment: payment as Payment,
-    member: updatedMember as Member,
+    payment: paymentResult.data as Payment,
+    member: memberUpdateResult.data as Member,
   };
 }
 

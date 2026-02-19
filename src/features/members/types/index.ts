@@ -29,6 +29,7 @@ export interface MemberWithDiscount extends Member {
     discount_name: string;
     discount_percentage: number;
   } | null;
+  has_installment?: boolean;
 }
 
 export interface OverdueMember extends MemberWithDiscount {

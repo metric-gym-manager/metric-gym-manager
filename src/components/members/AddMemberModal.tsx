@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import {
   Dialog,
   DialogContent,
@@ -30,14 +31,38 @@ interface Discount {
   discount_percentage: number;
 }
 
+interface InstallmentTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  installment_count: number;
+  interval_months: number;
+  is_active: boolean;
+}
+
 interface AddMemberModalProps {
   open: boolean;
   onClose: () => void;
 }
 
+// Captured at submit time so onSuccess can read stable values
+interface SubmitContext {
+  discountedAmount: number;
+  template: InstallmentTemplate | null;
+  startDate: string;
+}
+
 export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
   const queryClient = useQueryClient();
   const [discountPercentage, setDiscountPercentage] = useState<number>(0);
+  const [paymentMode, setPaymentMode] = useState<'standard' | 'installment'>('standard');
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
+  const [installmentStartDate, setInstallmentStartDate] = useState(
+    new Date().toISOString().split('T')[0]
+  );
+
+  // Stable reference for values needed in onSuccess
+  const submitContextRef = useRef<SubmitContext | null>(null);
 
   const {
     register,
@@ -56,7 +81,6 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     },
   });
 
-  // Fetch discounts from API
   const { data: discountsData } = useQuery({
     queryKey: ['discounts'],
     queryFn: async () => {
@@ -67,19 +91,26 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     },
   });
 
-  // Watch form values for calculations
+  const { data: templatesData } = useQuery<InstallmentTemplate[]>({
+    queryKey: ['installment-templates'],
+    queryFn: async () => {
+      const response = await fetch('/api/installment-templates');
+      if (!response.ok) throw new Error('Failed to fetch templates');
+      const result = await response.json();
+      return (result.data as InstallmentTemplate[]).filter((t) => t.is_active);
+    },
+  });
+
   const watchPlanType = watch('planType');
   const watchPlanAmount = watch('planAmount');
   const watchDiscountId = watch('discountId');
 
-  // Default plan amounts
   const defaultPlanAmounts = {
     monthly: 5000,
     daily: 200,
     annual: 50000,
   };
 
-  // Set default plan amount when plan type changes
   useEffect(() => {
     if (watchPlanType) {
       const amount = defaultPlanAmounts[watchPlanType as keyof typeof defaultPlanAmounts];
@@ -87,7 +118,6 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     }
   }, [watchPlanType, setValue]);
 
-  // Calculate payment amount when plan amount or discount changes
   useEffect(() => {
     if (watchPlanAmount) {
       const finalAmount = watchPlanAmount - (watchPlanAmount * discountPercentage) / 100;
@@ -95,7 +125,15 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     }
   }, [watchPlanAmount, discountPercentage, setValue]);
 
-  // Create member mutation
+  // Derived values — single source of truth
+  const planAmount = watchPlanAmount || 0;
+  const discountedAmount = Math.round(planAmount * (1 - discountPercentage / 100) * 100) / 100;
+  const selectedTemplate = templatesData?.find((t) => t.id === selectedTemplateId) ?? null;
+  const amountPerInstallment =
+    selectedTemplate && discountedAmount > 0
+      ? Math.round((discountedAmount / selectedTemplate.installment_count) * 100) / 100
+      : 0;
+
   const createMemberMutation = useMutation({
     mutationFn: async (data: AddMemberInput) => {
       const response = await fetch('/api/members', {
@@ -111,19 +149,56 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: async (result) => {
+      const ctx = submitContextRef.current;
+
+      if (paymentMode === 'installment' && ctx?.template && ctx.discountedAmount > 0) {
+        const memberId = result.data.id;
+        await fetch(`/api/members/${memberId}/installments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            template_id: ctx.template.id,
+            template_name: ctx.template.name,
+            total_amount: ctx.discountedAmount,
+            installment_count: ctx.template.installment_count,
+            interval_months: ctx.template.interval_months,
+            start_date: ctx.startDate,
+          }),
+        });
+      }
+
       queryClient.invalidateQueries({ queryKey: ['members'] });
-      reset();
-      onClose();
+      toast.success('Member registered successfully');
+      handleClose();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to create member');
     },
   });
 
   const onSubmit = (data: AddMemberInput) => {
+    // Capture stable context before async mutation
+    submitContextRef.current = {
+      discountedAmount,
+      template: selectedTemplate,
+      startDate: installmentStartDate,
+    };
     createMemberMutation.mutate(data);
   };
 
+  const handleClose = () => {
+    reset();
+    setPaymentMode('standard');
+    setSelectedTemplateId('');
+    setDiscountPercentage(0);
+    setInstallmentStartDate(new Date().toISOString().split('T')[0]);
+    submitContextRef.current = null;
+    onClose();
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Member</DialogTitle>
@@ -139,11 +214,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
 
             <div>
               <Label htmlFor="name">Name *</Label>
-              <Input
-                id="name"
-                {...register('name')}
-                placeholder="Enter member name"
-              />
+              <Input id="name" {...register('name')} placeholder="Enter member name" />
               {errors.name && (
                 <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
               )}
@@ -151,11 +222,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
 
             <div>
               <Label htmlFor="phoneNumber">Phone Number *</Label>
-              <Input
-                id="phoneNumber"
-                {...register('phoneNumber')}
-                placeholder="0771234567"
-              />
+              <Input id="phoneNumber" {...register('phoneNumber')} placeholder="0771234567" />
               {errors.phoneNumber && (
                 <p className="text-sm text-red-600 mt-1">{errors.phoneNumber.message}</p>
               )}
@@ -191,7 +258,9 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
               <Label htmlFor="planType">Plan Type *</Label>
               <Select
                 value={watchPlanType}
-                onValueChange={(value) => setValue('planType', value as 'monthly' | 'daily' | 'annual')}
+                onValueChange={(value) =>
+                  setValue('planType', value as 'monthly' | 'daily' | 'annual')
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select plan type" />
@@ -230,8 +299,8 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                     setDiscountPercentage(0);
                   } else {
                     setValue('discountId', value);
-                    const selectedDiscount = discountsData?.find(d => d.id === value);
-                    setDiscountPercentage(selectedDiscount?.discount_percentage || 0);
+                    const selected = discountsData?.find((d) => d.id === value);
+                    setDiscountPercentage(selected?.discount_percentage || 0);
                   }
                 }}
               >
@@ -273,61 +342,158 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             </div>
           </div>
 
-          {/* Payment Information */}
+          {/* Payment Mode */}
           <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Initial Payment</h3>
+            <h3 className="text-sm font-semibold">Payment Method</h3>
 
-            <div className="rounded-lg border bg-gray-50 p-4 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>Plan Amount:</span>
-                <span className="font-medium">LKR {(watchPlanAmount || 0).toFixed(2)}</span>
-              </div>
-              {discountPercentage > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span>Discount ({discountPercentage}%):</span>
-                  <span className="font-medium">
-                    - LKR {((watchPlanAmount || 0) * discountPercentage / 100).toFixed(2)}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between text-base font-semibold pt-2 border-t">
-                <span>Payment Amount:</span>
-                <span>
-                  LKR {((watchPlanAmount || 0) - ((watchPlanAmount || 0) * discountPercentage / 100)).toFixed(2)}
-                </span>
-              </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentMode('standard')}
+                className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                  paymentMode === 'standard'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Standard Payment
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentMode('installment')}
+                disabled={!templatesData || templatesData.length === 0}
+                className={`flex-1 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors ${
+                  paymentMode === 'installment'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                } disabled:opacity-40 disabled:cursor-not-allowed`}
+              >
+                Installment Plan
+                {(!templatesData || templatesData.length === 0) && (
+                  <span className="block text-xs text-gray-400 font-normal">No templates configured</span>
+                )}
+              </button>
             </div>
+
+            {/* Standard payment summary */}
+            {paymentMode === 'standard' && (
+              <div className="rounded-lg border bg-gray-50 p-4 space-y-2">
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Initial Payment
+                </p>
+                <div className="flex justify-between text-sm">
+                  <span>Plan Amount:</span>
+                  <span className="font-medium">LKR {planAmount.toFixed(2)}</span>
+                </div>
+                {discountPercentage > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount ({discountPercentage}%):</span>
+                    <span className="font-medium">
+                      − LKR {(planAmount * discountPercentage / 100).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between text-base font-semibold pt-2 border-t">
+                  <span>Payment Amount:</span>
+                  <span>LKR {discountedAmount.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Installment configuration */}
+            {paymentMode === 'installment' && templatesData && templatesData.length > 0 && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-4">
+                <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">
+                  Installment Configuration
+                </p>
+
+                <div>
+                  <Label htmlFor="installment-template">Installment Template *</Label>
+                  <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder="Select a payment template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {templatesData.map((t) => (
+                        <SelectItem key={t.id} value={t.id}>
+                          {t.name} ({t.installment_count} payments × every {t.interval_months} month
+                          {t.interval_months > 1 ? 's' : ''})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="installment-start">First Payment Date *</Label>
+                  <Input
+                    id="installment-start"
+                    type="date"
+                    value={installmentStartDate}
+                    onChange={(e) => setInstallmentStartDate(e.target.value)}
+                    className="bg-white"
+                  />
+                </div>
+
+                {/* Preview — auto-derived from discounted plan amount */}
+                {selectedTemplate && (
+                  <div className="rounded-lg border bg-white p-3 space-y-1.5">
+                    <p className="text-xs font-medium text-gray-500">Payment Schedule Preview</p>
+                    <div className="flex justify-between text-sm">
+                      <span>Plan Amount:</span>
+                      <span className="font-medium">LKR {planAmount.toFixed(2)}</span>
+                    </div>
+                    {discountPercentage > 0 && (
+                      <div className="flex justify-between text-sm text-green-600">
+                        <span>Discount ({discountPercentage}%):</span>
+                        <span className="font-medium">
+                          − LKR {(planAmount * discountPercentage / 100).toFixed(2)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm pt-1 border-t">
+                      <span>Installment Total:</span>
+                      <span className="font-medium">LKR {discountedAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span>Number of Payments:</span>
+                      <span className="font-medium">{selectedTemplate.installment_count}</span>
+                    </div>
+                    <div className="flex justify-between text-base font-semibold text-blue-700 pt-1 border-t">
+                      <span>Per Installment:</span>
+                      <span>LKR {amountPerInstallment.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {!selectedTemplate && (
+                  <p className="text-xs text-blue-600">
+                    Select a template to see the payment schedule.
+                  </p>
+                )}
+              </div>
+            )}
 
             {errors.paymentAmount && (
               <p className="text-sm text-red-600">{errors.paymentAmount.message}</p>
             )}
           </div>
 
-          {/* Error Message */}
-          {createMemberMutation.isError && (
-            <div className="rounded-md bg-red-50 p-4">
-              <p className="text-sm text-red-800">
-                {createMemberMutation.error instanceof Error
-                  ? createMemberMutation.error.message
-                  : 'Failed to create member'}
-              </p>
-            </div>
-          )}
-
           {/* Actions */}
           <div className="flex justify-end gap-3">
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                reset();
-                onClose();
-              }}
+              onClick={handleClose}
               disabled={createMemberMutation.isPending}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={createMemberMutation.isPending}>
+            <Button
+              type="submit"
+              disabled={createMemberMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
               {createMemberMutation.isPending ? 'Creating...' : 'Create Member'}
             </Button>
           </div>

@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
+import { MemberModalProvider } from '@/contexts/member-modal.context';
 
 export default async function DashboardLayout({
   children,
@@ -27,7 +28,9 @@ export default async function DashboardLayout({
 
         {/* Page content */}
         <main className="px-4 py-6 lg:px-8">
-          {children}
+          <MemberModalProvider>
+            {children}
+          </MemberModalProvider>
         </main>
       </div>
     </div>

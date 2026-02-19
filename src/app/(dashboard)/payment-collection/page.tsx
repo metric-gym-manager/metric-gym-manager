@@ -1,49 +1,78 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ReminderStatusTable from '@/components/payment-collection/ReminderStatusTable';
+import InstallmentPaymentsTable from '@/components/payment-collection/InstallmentPaymentsTable';
+import RegularPaymentTable from '@/components/payment-collection/RegularPaymentTable';
+
+type Tab = 'reminders' | 'installments' | 'regular';
 
 export default function PaymentCollectionPage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<Tab>('reminders');
 
   const handleMemberClick = (memberId: string) => {
-    // Navigate to members page with member detail
     router.push(`/members?memberId=${memberId}`);
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Payment Collection</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Track payment reminders and SMS delivery status
-          </p>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Payment Collection</h1>
+        <p className="text-sm text-gray-600 mt-1">
+          Track payment reminders, SMS delivery status, and installment collection
+        </p>
       </div>
 
-      {/* Info Card */}
-      <div className="rounded-lg border bg-blue-50 p-4">
-        <div className="flex items-start gap-3">
-          <span className="text-2xl">ℹ️</span>
-          <div>
-            <h3 className="font-semibold text-blue-900">SMS Mock Mode Active</h3>
-            <p className="text-sm text-blue-700 mt-1">
-              SMS messages are currently being logged to the console and database instead of
-              being sent via text.lk. This allows you to test the payment reminder workflow
-              without incurring SMS costs.
-            </p>
-            <p className="text-sm text-blue-700 mt-2">
-              To enable real SMS sending, configure your text.lk API credentials and set
-              the <code className="bg-blue-100 px-1 py-0.5 rounded">ENABLE_REAL_SMS=true</code> environment variable.
-            </p>
-          </div>
-        </div>
+      {/* Tab bar */}
+      <div className="flex gap-1 border-b">
+        <button
+          type="button"
+          onClick={() => setActiveTab('reminders')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'reminders'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          SMS Reminders
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('regular')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'regular'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Regular Payments
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('installments')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'installments'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Installment Collection
+        </button>
       </div>
 
-      {/* Reminder Status Table */}
-      <ReminderStatusTable onMemberClick={handleMemberClick} />
+      {/* Tab content */}
+      {activeTab === 'reminders' && (
+        <ReminderStatusTable onMemberClick={handleMemberClick} />
+      )}
+      {activeTab === 'regular' && (
+        <RegularPaymentTable onMemberClick={handleMemberClick} />
+      )}
+      {activeTab === 'installments' && (
+        <InstallmentPaymentsTable onMemberClick={handleMemberClick} />
+      )}
     </div>
   );
 }

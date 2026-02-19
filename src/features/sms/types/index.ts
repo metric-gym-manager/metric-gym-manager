@@ -3,6 +3,7 @@
 // ============================================================
 
 export type SMSType =
+  | 'welcome'
   | 'reminder_7day'
   | 'reminder_3day'
   | 'due_today'

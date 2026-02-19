@@ -8,6 +8,7 @@ const settingsNavigation = [
   { name: 'Gym Information', href: '/settings/gym' },
   { name: 'Plan Types', href: '/settings/plans' },
   { name: 'Discounts', href: '/settings/discounts' },
+  { name: 'Installments', href: '/settings/installments' },
   { name: 'Account Security', href: '/settings/security' },
 ];
 

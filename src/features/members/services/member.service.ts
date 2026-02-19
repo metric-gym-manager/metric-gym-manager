@@ -29,7 +29,8 @@ export async function getMembersList(
     .select(
       `
       *,
-      discount:discounts(id, discount_name, discount_percentage)
+      discount:discounts(id, discount_name, discount_percentage),
+      member_installments(id, status)
     `,
       { count: 'exact' }
     )
@@ -105,8 +106,23 @@ export async function getMembersList(
     } as OverdueMember;
   });
 
+  // Map members and compute has_installment from the joined data
+  type RawMember = typeof members extends (infer T)[] | null ? T : never;
+  const mappedMembers: MemberWithDiscount[] = (members || []).map((m: RawMember) => {
+    const raw = m as Record<string, unknown>;
+    const installments = (raw.member_installments as Array<{ id: string; status: string }> | null) ?? [];
+    const hasInstallment = installments.some((inst) => inst.status === 'active');
+    // Remove the joined field before spreading
+    const { member_installments: _mi, ...memberData } = raw;
+    void _mi;
+    return {
+      ...memberData,
+      has_installment: hasInstallment,
+    } as MemberWithDiscount;
+  });
+
   return {
-    members: (members || []) as MemberWithDiscount[],
+    members: mappedMembers,
     overdueMembers,
     totalCount: count || 0,
     page,

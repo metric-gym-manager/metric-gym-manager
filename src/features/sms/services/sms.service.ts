@@ -15,10 +15,10 @@ export async function sendSMS(
 ): Promise<SMSLog> {
   const supabase = await createClient();
 
-  // Get member details
+  // Get member details including gym name via join
   const { data: member } = await supabase
     .from('members')
-    .select('*, gyms(*)')
+    .select('*, gyms(gym_name)')
     .eq('id', memberId)
     .eq('gym_id', gymId)
     .single();
@@ -27,19 +27,10 @@ export async function sendSMS(
     throw new Error('Member not found');
   }
 
-  // Get gym details
-  const { data: gym } = await supabase
-    .from('gyms')
-    .select('gym_name')
-    .eq('id', gymId)
-    .single();
-
-  if (!gym) {
-    throw new Error('Gym not found');
-  }
+  const gymName = (member.gyms as { gym_name: string } | null)?.gym_name ?? '';
 
   // Format message based on SMS type
-  const messageBody = customMessage || formatSMSMessage(smsType, member, gym.gym_name);
+  const messageBody = customMessage || formatSMSMessage(smsType, member, gymName);
 
   // Check if real SMS is enabled via feature flag
   const useRealSms = process.env.ENABLE_REAL_SMS === 'true';
@@ -210,6 +201,11 @@ function formatSMSMessage(
   const planType = member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1);
 
   switch (smsType) {
+    case 'welcome': {
+      const paid = `Rs.${member.payment_amount.toFixed(2)}`;
+      return `Welcome to ${gymName}, ${member.name}! Your ${planType} membership is now active. Amount paid: ${paid}. Thank you for joining us!`;
+    }
+
     case 'reminder_7day':
     case 'reminder_3day':
     case 'due_today':

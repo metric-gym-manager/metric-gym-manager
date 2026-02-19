@@ -1,50 +1,28 @@
 'use client';
 
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import MembersTable from '@/components/members/MembersTable';
 import AddMemberModal from '@/components/members/AddMemberModal';
-import EditMemberModal from '@/components/members/EditMemberModal';
-import MemberDetailModal from '@/components/members/MemberDetailModal';
+import BulkAddMemberModal from '@/components/members/BulkAddMemberModal';
 import PaymentCollectionModal from '@/components/members/PaymentCollectionModal';
+import { useMemberModal } from '@/contexts/member-modal.context';
 import type { MemberWithDiscount, OverdueMember } from '@/features/members/types';
 
 export default function MembersPage() {
+  const { openMember } = useMemberModal();
   const [addModalOpen, setAddModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
-  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [selectedMember, setSelectedMember] = useState<MemberWithDiscount | null>(null);
   const [selectedOverdueMember, setSelectedOverdueMember] = useState<OverdueMember | null>(null);
 
-  // Fetch member details when detail modal is opened
-  const { data: memberDetails } = useQuery({
-    queryKey: ['member', selectedMember?.id],
-    queryFn: async () => {
-      if (!selectedMember) return null;
-      const response = await fetch(`/api/members/${selectedMember.id}`);
-      if (!response.ok) throw new Error('Failed to fetch member details');
-      const result = await response.json();
-      return result.data;
-    },
-    enabled: !!selectedMember && detailModalOpen,
-  });
-
   const handleMemberClick = (member: MemberWithDiscount) => {
-    setSelectedMember(member);
-    setDetailModalOpen(true);
+    openMember(member.id);
   };
 
   const handlePaymentClick = (member: OverdueMember) => {
     setSelectedOverdueMember(member);
     setPaymentModalOpen(true);
-  };
-
-  const handleEditClick = () => {
-    setDetailModalOpen(false);
-    setEditModalOpen(true);
-    // selectedMember is already set from the detail modal
   };
 
   return (
@@ -57,9 +35,20 @@ export default function MembersPage() {
             Manage your gym members and their memberships
           </p>
         </div>
-        <Button onClick={() => setAddModalOpen(true)}>
-          + Add Member
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setBulkModalOpen(true)}
+          >
+            Bulk Register
+          </Button>
+          <Button
+            onClick={() => setAddModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            + Add Member
+          </Button>
+        </div>
       </div>
 
       {/* Members Table */}
@@ -74,19 +63,13 @@ export default function MembersPage() {
         onClose={() => setAddModalOpen(false)}
       />
 
-      {/* Member Detail Modal */}
-      <MemberDetailModal
-        open={detailModalOpen}
-        onClose={() => {
-          setDetailModalOpen(false);
-          setSelectedMember(null);
-        }}
-        member={selectedMember}
-        payments={memberDetails?.payments || []}
-        onEditClick={handleEditClick}
+      {/* Bulk Add Member Modal */}
+      <BulkAddMemberModal
+        open={bulkModalOpen}
+        onClose={() => setBulkModalOpen(false)}
       />
 
-      {/* Payment Collection Modal */}
+      {/* Payment Collection Modal (overdue quick-pay) */}
       <PaymentCollectionModal
         open={paymentModalOpen}
         onClose={() => {
@@ -94,16 +77,6 @@ export default function MembersPage() {
           setSelectedOverdueMember(null);
         }}
         member={selectedOverdueMember}
-      />
-
-      {/* Edit Member Modal */}
-      <EditMemberModal
-        open={editModalOpen}
-        onClose={() => {
-          setEditModalOpen(false);
-          setSelectedMember(null);
-        }}
-        member={selectedMember}
       />
     </div>
   );

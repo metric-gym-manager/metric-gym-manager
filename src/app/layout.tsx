@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
+import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
   title: 'Gym Management SaaS',
@@ -16,7 +17,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <QueryProvider>{children}</QueryProvider>
+        <QueryProvider>
+          {children}
+          <Toaster position="top-right" richColors />
+        </QueryProvider>
       </body>
     </html>
   )
