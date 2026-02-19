@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useMemberModal } from '@/contexts/member-modal.context';
 import {
   Table,
   TableBody,
@@ -42,11 +43,8 @@ interface RegularPaymentsResponse {
   totalCount: number;
 }
 
-interface RegularPaymentTableProps {
-  onMemberClick?: (memberId: string) => void;
-}
-
-export default function RegularPaymentTable({ onMemberClick }: RegularPaymentTableProps) {
+export default function RegularPaymentTable() {
+  const { openMember } = useMemberModal();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('overdue');
   const [sortBy, setSortBy] = useState('due_date_asc');
@@ -204,19 +202,11 @@ export default function RegularPaymentTable({ onMemberClick }: RegularPaymentTab
               {data.payments.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={row.daysUntilDue < 0 ? 'bg-red-50' : row.daysUntilDue === 0 ? 'bg-orange-50' : ''}
+                  onClick={() => openMember(row.id)}
+                  className={`cursor-pointer ${row.daysUntilDue < 0 ? 'bg-red-50 hover:bg-red-100/70' : row.daysUntilDue === 0 ? 'bg-orange-50 hover:bg-orange-100/70' : 'hover:bg-gray-50'}`}
                 >
                   <TableCell>
-                    {onMemberClick ? (
-                      <button
-                        onClick={() => onMemberClick(row.id)}
-                        className="font-medium text-blue-600 hover:underline text-left"
-                      >
-                        {row.name}
-                      </button>
-                    ) : (
-                      <span className="font-medium">{row.name}</span>
-                    )}
+                    <span className="font-medium">{row.name}</span>
                   </TableCell>
                   <TableCell>{row.phoneNumber}</TableCell>
                   <TableCell>
@@ -242,7 +232,7 @@ export default function RegularPaymentTable({ onMemberClick }: RegularPaymentTab
                   <TableCell>
                     <Button
                       size="sm"
-                      onClick={() => markPaidMutation.mutate(row)}
+                      onClick={(e) => { e.stopPropagation(); markPaidMutation.mutate(row); }}
                       disabled={pendingMemberId === row.id}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >

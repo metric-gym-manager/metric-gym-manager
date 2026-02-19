@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useMemberModal } from '@/contexts/member-modal.context';
 import {
   Table,
   TableBody,
@@ -43,11 +44,8 @@ interface InstallmentPaymentsResponse {
   totalCount: number;
 }
 
-interface InstallmentPaymentsTableProps {
-  onMemberClick?: (memberId: string) => void;
-}
-
-export default function InstallmentPaymentsTable({ onMemberClick }: InstallmentPaymentsTableProps) {
+export default function InstallmentPaymentsTable() {
+  const { openMember } = useMemberModal();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState('pending');
   const [sortBy, setSortBy] = useState('due_date_asc');
@@ -197,19 +195,11 @@ export default function InstallmentPaymentsTable({ onMemberClick }: InstallmentP
               {data.payments.map((row) => (
                 <TableRow
                   key={row.id}
-                  className={row.daysUntilDue < 0 ? 'bg-red-50' : ''}
+                  onClick={() => openMember(row.memberId)}
+                  className={`cursor-pointer ${row.daysUntilDue < 0 ? 'bg-red-50 hover:bg-red-100/70' : 'hover:bg-gray-50'}`}
                 >
                   <TableCell>
-                    {onMemberClick ? (
-                      <button
-                        onClick={() => onMemberClick(row.memberId)}
-                        className="font-medium text-blue-600 hover:underline text-left"
-                      >
-                        {row.memberName}
-                      </button>
-                    ) : (
-                      <span className="font-medium">{row.memberName}</span>
-                    )}
+                    <span className="font-medium">{row.memberName}</span>
                   </TableCell>
                   <TableCell>{row.phoneNumber}</TableCell>
                   <TableCell>
@@ -236,7 +226,7 @@ export default function InstallmentPaymentsTable({ onMemberClick }: InstallmentP
                   <TableCell>
                     <Button
                       size="sm"
-                      onClick={() => markPaidMutation.mutate(row.id)}
+                      onClick={(e) => { e.stopPropagation(); markPaidMutation.mutate(row.id); }}
                       disabled={pendingPaymentId === row.id}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >

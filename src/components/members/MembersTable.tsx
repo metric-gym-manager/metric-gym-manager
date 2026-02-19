@@ -331,16 +331,16 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
               </TableHeader>
               <TableBody>
                 {data.overdueMembers.map((member) => (
-                  <TableRow key={member.id}>
+                  <TableRow
+                    key={member.id}
+                    onClick={() => onMemberClick(member)}
+                    className="cursor-pointer hover:bg-red-100/60"
+                  >
                     <TableCell>
-                      <button
-                        onClick={() => onMemberClick(member)}
-                        className="flex items-center gap-2 font-medium text-blue-600 hover:underline"
-                        title={member.status}
-                      >
+                      <span className="flex items-center gap-2 font-medium" title={member.status}>
                         <span className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`} />
                         {member.name}
-                      </button>
+                      </span>
                     </TableCell>
                     <TableCell>{formatPhone(member.phone_number)}</TableCell>
                     <TableCell>{formatDate(member.registered_date)}</TableCell>
@@ -356,7 +356,7 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
                     <TableCell>
                       <Button
                         size="sm"
-                        onClick={() => onPaymentClick(member)}
+                        onClick={(e) => { e.stopPropagation(); onPaymentClick(member); }}
                         className="bg-green-600 hover:bg-green-700 text-white"
                       >
                         Mark Paid
@@ -393,16 +393,16 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
               </TableHeader>
               <TableBody>
                 {data.members.map((member) => (
-                  <TableRow key={member.id}>
+                  <TableRow
+                    key={member.id}
+                    onClick={() => onMemberClick(member)}
+                    className="cursor-pointer hover:bg-gray-50"
+                  >
                     <TableCell>
-                      <button
-                        onClick={() => onMemberClick(member)}
-                        className="flex items-center gap-2 font-medium text-blue-600 hover:underline"
-                        title={member.status}
-                      >
+                      <span className="flex items-center gap-2 font-medium" title={member.status}>
                         <span className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`} />
                         {member.name}
-                      </button>
+                      </span>
                     </TableCell>
                     <TableCell>{formatPhone(member.phone_number)}</TableCell>
                     <TableCell>{formatDate(member.registered_date)}</TableCell>

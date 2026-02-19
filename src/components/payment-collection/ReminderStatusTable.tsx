@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useMemberModal } from '@/contexts/member-modal.context';
 import {
   Table,
   TableBody,
@@ -23,11 +24,8 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import type { ReminderStatusResponse, MemberReminderStatus } from '@/features/sms/types';
 
-interface ReminderStatusTableProps {
-  onMemberClick?: (memberId: string) => void;
-}
-
-export default function ReminderStatusTable({ onMemberClick }: ReminderStatusTableProps) {
+export default function ReminderStatusTable() {
+  const { openMember } = useMemberModal();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('due_date_asc');
@@ -229,18 +227,13 @@ export default function ReminderStatusTable({ onMemberClick }: ReminderStatusTab
             </TableHeader>
             <TableBody>
               {data.reminders.map((reminder) => (
-                <TableRow key={reminder.id}>
+                <TableRow
+                  key={reminder.id}
+                  onClick={() => openMember(reminder.id)}
+                  className="cursor-pointer hover:bg-gray-50"
+                >
                   <TableCell>
-                    {onMemberClick ? (
-                      <button
-                        onClick={() => onMemberClick(reminder.id)}
-                        className="font-medium text-blue-600 hover:underline"
-                      >
-                        {reminder.name}
-                      </button>
-                    ) : (
-                      <span className="font-medium">{reminder.name}</span>
-                    )}
+                    <span className="font-medium">{reminder.name}</span>
                   </TableCell>
                   <TableCell>{reminder.phone_number}</TableCell>
                   <TableCell>
@@ -256,12 +249,13 @@ export default function ReminderStatusTable({ onMemberClick }: ReminderStatusTab
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() =>
+                        onClick={(e) => {
+                          e.stopPropagation();
                           resendMutation.mutate({
                             memberId: reminder.id,
                             smsType: getResendSMSType(reminder.days_until_due),
-                          })
-                        }
+                          });
+                        }}
                         disabled={pendingMemberId === reminder.id}
                       >
                         {pendingMemberId === reminder.id ? 'Sending...' : 'Send Reminder'}

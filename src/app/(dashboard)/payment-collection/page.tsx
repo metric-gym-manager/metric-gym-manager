@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import ReminderStatusTable from '@/components/payment-collection/ReminderStatusTable';
 import InstallmentPaymentsTable from '@/components/payment-collection/InstallmentPaymentsTable';
 import RegularPaymentTable from '@/components/payment-collection/RegularPaymentTable';
@@ -9,12 +8,7 @@ import RegularPaymentTable from '@/components/payment-collection/RegularPaymentT
 type Tab = 'reminders' | 'installments' | 'regular';
 
 export default function PaymentCollectionPage() {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<Tab>('reminders');
-
-  const handleMemberClick = (memberId: string) => {
-    router.push(`/members?memberId=${memberId}`);
-  };
 
   return (
     <div className="space-y-6">
@@ -64,15 +58,9 @@ export default function PaymentCollectionPage() {
       </div>
 
       {/* Tab content */}
-      {activeTab === 'reminders' && (
-        <ReminderStatusTable onMemberClick={handleMemberClick} />
-      )}
-      {activeTab === 'regular' && (
-        <RegularPaymentTable onMemberClick={handleMemberClick} />
-      )}
-      {activeTab === 'installments' && (
-        <InstallmentPaymentsTable onMemberClick={handleMemberClick} />
-      )}
+      {activeTab === 'reminders' && <ReminderStatusTable />}
+      {activeTab === 'regular' && <RegularPaymentTable />}
+      {activeTab === 'installments' && <InstallmentPaymentsTable />}
     </div>
   );
 }
