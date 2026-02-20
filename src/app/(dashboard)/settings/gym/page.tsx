@@ -4,12 +4,15 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { updateGymInfoSchema, type UpdateGymInfoInput } from '@/features/settings/schemas/settings.schemas';
+import { Plus } from 'lucide-react';
 
 export default function GymInformationPage() {
+  const router = useRouter();
   const queryClient = useQueryClient();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -75,11 +78,22 @@ export default function GymInformationPage() {
     <div className="max-w-2xl">
       <div className="space-y-6">
         {/* Description */}
-        <div>
-          <h2 className="text-lg font-semibold">Gym Information</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Update your gym's basic information. This information will be displayed to members.
-          </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Gym Information</h2>
+            <p className="text-sm text-gray-600 mt-1">
+              Update your gym's basic information. This information will be displayed to members.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.push('/register')}
+            className="flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Register New Gym
+          </Button>
         </div>
 
         {/* Form */}

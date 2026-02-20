@@ -81,14 +81,20 @@ export default function RegularPaymentTable() {
       }
       return res.json();
     },
-    onMutate: (row) => setPendingMemberId(row.id),
+    onMutate: (row) => {
+      setPendingMemberId(row.id);
+      // Show success immediately for better UX
+      toast.success('Payment collected — receipt SMS sent');
+    },
     onSuccess: () => {
       setPendingMemberId(null);
-      // Invalidate all related queries so SMS reminders, member list, and this table stay in sync
-      queryClient.invalidateQueries({ queryKey: ['regular-payments'] });
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['sms-reminders'] });
-      toast.success('Payment collected — receipt SMS sent');
+      // Batch invalidations to reduce refetch overhead
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey[0] === 'regular-payments' ||
+          query.queryKey[0] === 'members' ||
+          query.queryKey[0] === 'sms-reminders'
+      });
     },
     onError: (error) => {
       setPendingMemberId(null);

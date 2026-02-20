@@ -2,6 +2,72 @@ import { createClient } from '@/lib/supabase/server';
 import type { Payment, Member } from '../types';
 import type { CollectPaymentInput } from '../schemas/member.schemas';
 import { sendSMS, formatReceiptSMS } from '@/features/sms/services/sms.service';
+import { sendSmsViaTextLk } from '@/features/sms/services/textlk.service';
+
+// ============================================================
+// OPTIMIZED SMS SENDER (NO REDUNDANT QUERIES)
+// ============================================================
+
+/**
+ * Send SMS without redundant member fetch - optimized for performance
+ * This is used when we already have member data from a previous query
+ */
+async function sendSMSAsync(
+  gymId: string,
+  memberId: string,
+  phoneNumber: string,
+  message: string
+): Promise<void> {
+  try {
+    const supabase = await createClient();
+    const useRealSms = process.env.ENABLE_REAL_SMS === 'true';
+
+    let deliveryStatus: 'sent' | 'delivered' | 'failed' = 'sent';
+    let textLkMessageId: string | null = null;
+
+    if (useRealSms) {
+      console.log('📱 [REAL SMS] Sending receipt via text.lk:');
+      console.log(`   To: ${phoneNumber}`);
+      console.log(`   Message: ${message}`);
+
+      const result = await sendSmsViaTextLk({
+        to: phoneNumber,
+        message: message,
+      });
+
+      if (result.success && result.message_id) {
+        textLkMessageId = result.message_id;
+        deliveryStatus = 'sent';
+        console.log(`   ✓ SMS sent via text.lk (ID: ${result.message_id})`);
+      } else {
+        deliveryStatus = 'failed';
+        console.error(`   ✗ SMS failed: ${result.error}`);
+      }
+    } else {
+      console.log('📱 [MOCK SMS] Sending receipt SMS:');
+      console.log(`   To: ${phoneNumber}`);
+      console.log(`   Message: ${message}`);
+    }
+
+    // Log to database (fire-and-forget, don't await)
+    supabase
+      .from('sms_logs')
+      .insert({
+        member_id: memberId,
+        gym_id: gymId,
+        sms_type: 'receipt',
+        phone_number: phoneNumber,
+        message_body: message,
+        sent_at: new Date().toISOString(),
+        delivery_status: deliveryStatus,
+        text_lk_message_id: textLkMessageId,
+      })
+      .then(() => console.log('   ✓ SMS logged to database'))
+      .catch((err) => console.error('   ✗ Failed to log SMS:', err));
+  } catch (error) {
+    console.error('Failed to send receipt SMS:', error);
+  }
+}
 
 // ============================================================
 // COLLECT PAYMENT
@@ -112,9 +178,18 @@ export async function collectPayment(
     discountPercentage
   );
 
-  sendSMS(gymId, input.memberId, 'receipt', receiptMessage).catch((smsError) =>
-    console.error('Failed to send payment receipt SMS:', smsError)
-  );
+  // Use setImmediate/queueMicrotask to truly defer SMS sending
+  // This ensures it doesn't block the response even in serverless
+  if (typeof setImmediate !== 'undefined') {
+    setImmediate(() => {
+      sendSMSAsync(gymId, input.memberId, memberUpdateResult.data.phone_number, receiptMessage);
+    });
+  } else {
+    // Fallback for environments without setImmediate
+    Promise.resolve().then(() => {
+      sendSMSAsync(gymId, input.memberId, memberUpdateResult.data.phone_number, receiptMessage);
+    });
+  }
 
   return {
     payment: paymentResult.data as Payment,

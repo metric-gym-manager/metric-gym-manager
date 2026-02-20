@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Toaster } from 'sonner'
@@ -16,6 +17,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <Script
+          src="https://t.contentsquare.net/uxa/2337d6ffa89d1.js"
+          strategy="beforeInteractive"
+        />
+      </head>
       <body>
         <QueryProvider>
           {children}

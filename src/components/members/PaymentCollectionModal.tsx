@@ -50,7 +50,7 @@ export default function PaymentCollectionModal({ open, onClose, member }: Paymen
     resolver: zodResolver(collectPaymentSchema.omit({ memberId: true })),
     defaultValues: {
       paymentDate: new Date().toISOString().split('T')[0],
-      deductOverduePeriod: true,
+      deductOverduePeriod: false,
     },
   });
 
@@ -87,7 +87,7 @@ export default function PaymentCollectionModal({ open, onClose, member }: Paymen
     }
   }, [watchPlanAmount, discountPercentage, setValue]);
 
-  // Collect payment mutation
+  // Collect payment mutation with optimistic updates
   const collectPaymentMutation = useMutation({
     mutationFn: async (data: CollectPaymentInput) => {
       const response = await fetch(`/api/members/${data.memberId}/payment`, {
@@ -103,15 +103,23 @@ export default function PaymentCollectionModal({ open, onClose, member }: Paymen
 
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['regular-payments'] });
-      queryClient.invalidateQueries({ queryKey: ['sms-reminders'] });
+    onMutate: () => {
+      // Show success immediately for better UX
       toast.success('Payment collected — receipt SMS sent');
       reset();
       onClose();
     },
+    onSuccess: () => {
+      // Batch invalidations to reduce refetch overhead
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey[0] === 'members' ||
+          query.queryKey[0] === 'regular-payments' ||
+          query.queryKey[0] === 'sms-reminders'
+      });
+    },
     onError: (error) => {
+      // Show error toast if mutation fails after optimistic update
       toast.error(error instanceof Error ? error.message : 'Failed to collect payment');
     },
   });
