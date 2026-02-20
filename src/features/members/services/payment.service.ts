@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import type { Payment, Member } from '../types';
 import type { CollectPaymentInput } from '../schemas/member.schemas';
-import { sendSMS, formatReceiptSMS } from '@/features/sms/services/sms.service';
+import { formatReceiptSMS } from '@/features/sms/services/sms.service';
 import { sendSmsViaTextLk } from '@/features/sms/services/textlk.service';
 
 // ============================================================
@@ -62,8 +62,13 @@ async function sendSMSAsync(
         delivery_status: deliveryStatus,
         text_lk_message_id: textLkMessageId,
       })
-      .then(() => console.log('   ✓ SMS logged to database'))
-      .catch((err) => console.error('   ✗ Failed to log SMS:', err));
+      .then((result) => {
+        if (result.error) {
+          console.error('   ✗ Failed to log SMS:', result.error);
+        } else {
+          console.log('   ✓ SMS logged to database');
+        }
+      });
   } catch (error) {
     console.error('Failed to send receipt SMS:', error);
   }
