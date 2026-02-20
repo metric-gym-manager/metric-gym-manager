@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BarChart3, DollarSign, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -10,8 +11,7 @@ export default function HomePage() {
         <div className="max-w-4xl w-full text-center space-y-8">
           <div className="space-y-4">
             <h1 className="text-5xl md:text-6xl font-bold text-gray-900">
-              Gym Management
-              <span className="block text-blue-600">Made Simple</span>
+              Metric Gym Manager
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 max-w-2xl mx-auto">
               Streamline your gym operations with automated member management,
@@ -37,7 +37,9 @@ export default function HomePage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center space-y-2">
-                  <div className="text-3xl font-bold text-blue-600">📊</div>
+                  <div className="flex justify-center">
+                    <BarChart3 className="h-12 w-12 text-blue-600" strokeWidth={2} />
+                  </div>
                   <h3 className="font-semibold text-lg">Member Management</h3>
                   <p className="text-sm text-gray-600">
                     Track members, plans, and payment history in one place
@@ -49,7 +51,9 @@ export default function HomePage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center space-y-2">
-                  <div className="text-3xl font-bold text-blue-600">💰</div>
+                  <div className="flex justify-center">
+                    <DollarSign className="h-12 w-12 text-blue-600" strokeWidth={2} />
+                  </div>
                   <h3 className="font-semibold text-lg">Revenue Analytics</h3>
                   <p className="text-sm text-gray-600">
                     Monitor collected vs projected revenue with detailed charts
@@ -61,7 +65,9 @@ export default function HomePage() {
             <Card>
               <CardContent className="pt-6">
                 <div className="text-center space-y-2">
-                  <div className="text-3xl font-bold text-blue-600">📱</div>
+                  <div className="flex justify-center">
+                    <Smartphone className="h-12 w-12 text-blue-600" strokeWidth={2} />
+                  </div>
                   <h3 className="font-semibold text-lg">Automated SMS</h3>
                   <p className="text-sm text-gray-600">
                     Never miss a payment with automatic SMS reminders
@@ -77,7 +83,15 @@ export default function HomePage() {
       <footer className="bg-gray-900 text-white py-8">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <p className="text-gray-400">
-            © 2025 Gym Management SaaS. Built for Sri Lankan gyms.
+            © 2026 {' '}
+            <a
+              href="https://holtzmanlabs.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 underline"
+            >
+              Holtzman Labs Software
+            </a>
           </p>
         </div>
       </footer>

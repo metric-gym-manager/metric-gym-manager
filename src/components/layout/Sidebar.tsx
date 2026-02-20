@@ -39,7 +39,7 @@ export default function Sidebar() {
           {/* Logo */}
           <div className="flex h-16 shrink-0 items-center">
             <h1 className="text-xl font-bold text-gray-900">
-              Gym Manager
+              Metric Gym Manager
             </h1>
           </div>
 

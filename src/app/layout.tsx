@@ -4,7 +4,7 @@ import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Toaster } from 'sonner'
 
 export const metadata: Metadata = {
-  title: 'Gym Management SaaS',
+  title: 'Metric Gym Manager',
   description: 'Production-grade gym and fitness center management platform',
   icons: [{ rel: 'icon', url: '/favicon.svg' }],
 }
