@@ -11,7 +11,8 @@ export async function sendSMS(
   gymId: string,
   memberId: string,
   smsType: SMSType,
-  customMessage?: string
+  customMessage?: string,
+  paymentAmount?: number
 ): Promise<SMSLog> {
   const supabase = await createClient();
 
@@ -30,7 +31,7 @@ export async function sendSMS(
   const gymName = (member.gyms as { gym_name: string } | null)?.gym_name ?? '';
 
   // Format message based on SMS type
-  const messageBody = customMessage || formatSMSMessage(smsType, member, gymName);
+  const messageBody = customMessage || formatSMSMessage(smsType, member, gymName, paymentAmount);
 
   // Check if real SMS is enabled via feature flag
   const useRealSms = process.env.ENABLE_REAL_SMS === 'true';
@@ -198,7 +199,8 @@ export async function getReminderStatus(
 function formatSMSMessage(
   smsType: SMSType,
   member: any,
-  gymName: string
+  gymName: string,
+  paymentAmount?: number
 ): string {
   const dueDate = new Date(member.next_due_date).toLocaleDateString('en-GB');
   const amount = `Rs.${member.plan_amount.toFixed(2)}`;
@@ -206,7 +208,7 @@ function formatSMSMessage(
 
   switch (smsType) {
     case 'welcome': {
-      const paid = `Rs.${member.payment_amount.toFixed(2)}`;
+      const paid = paymentAmount ? `Rs.${paymentAmount.toFixed(2)}` : `Rs.${member.plan_amount.toFixed(2)}`;
       return `Welcome to ${gymName}, ${member.name}! Your ${planType} membership is now active. Amount paid: ${paid}. Thank you for joining us!`;
     }
 

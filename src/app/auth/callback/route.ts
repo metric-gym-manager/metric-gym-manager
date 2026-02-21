@@ -59,73 +59,18 @@ export async function GET(request: NextRequest) {
 
         console.log(`✅ Email verified for user ${user.id}`);
       }
-    } else {
-      // Profile doesn't exist - create it from user metadata
-      const metadata = user.user_metadata;
 
-      if (!metadata.username || !metadata.gym_name) {
-        console.error('Missing required metadata:', metadata);
-        return NextResponse.redirect(
-          `${requestUrl.origin}/login?error=incomplete_registration`
-        );
-      }
-
-      // CRITICAL: Check username uniqueness again (prevents race condition)
-      // Between registration and email verification, another user might have taken the username
-      const { data: usernameCheck } = await adminClient
-        .from('gyms')
-        .select('username')
-        .eq('username', metadata.username)
-        .single();
-
-      if (usernameCheck) {
-        console.error(`Username '${metadata.username}' already taken during verification`);
-        // Delete the auth user since they can't complete registration
-        await adminClient.auth.admin.deleteUser(user.id);
-        return NextResponse.redirect(
-          `${requestUrl.origin}/login?error=username_taken`
-        );
-      }
-
-      // Create gym profile
-      const { error: gymError } = await adminClient.from('gyms').insert({
-        user_id: user.id,
-        username: metadata.username,
-        email: user.email!,
-        email_verified: true, // Verified at creation time
-        gym_name: metadata.gym_name,
-        gym_address: metadata.gym_address || null,
-        gym_website: metadata.gym_website || null,
-      });
-
-      if (gymError) {
-        console.error('Failed to create gym profile:', gymError);
-        return NextResponse.redirect(
-          `${requestUrl.origin}/login?error=profile_creation_failed`
-        );
-      }
-
-      // Initialize default plan types
-      const { data: gym } = await adminClient
-        .from('gyms')
-        .select('id')
-        .eq('user_id', user.id)
-        .single();
-
-      if (gym) {
-        const defaultPlans = [
-          { gym_id: gym.id, plan_type: 'monthly', default_amount: 5000.0 },
-          { gym_id: gym.id, plan_type: 'daily', default_amount: 300.0 },
-          { gym_id: gym.id, plan_type: 'annual', default_amount: 50000.0 },
-        ];
-
-        await adminClient.from('plan_types').insert(defaultPlans);
-        console.log(`✅ Created gym profile and plan types for user ${user.id}`);
-      }
+      // Profile already exists, redirect to dashboard
+      return NextResponse.redirect(`${requestUrl.origin}${next}`);
     }
 
-    // Redirect to dashboard (user is now authenticated)
-    return NextResponse.redirect(`${requestUrl.origin}${next}`);
+    // NOTE: Profile creation now happens immediately on registration (not here).
+    // If we reach this point, the profile should already exist but wasn't found.
+    // This is an error state that shouldn't normally occur.
+    console.error(`No gym profile found for user ${user.id} after verification`);
+    return NextResponse.redirect(
+      `${requestUrl.origin}/login?error=profile_not_found`
+    );
   } catch (error) {
     console.error('Unexpected error in auth callback:', error);
     return NextResponse.redirect(

@@ -30,6 +30,7 @@ export interface MonthlyRevenueResponse {
   currentMonth: {
     collectedRevenue: number;
     projectedRevenue: number;
+    hasOverduePayments: boolean;
   };
   historicalData: MonthlyRevenue[];
   metrics: RevenueMetrics;
@@ -39,6 +40,7 @@ export interface YearlyRevenueResponse {
   currentYear: {
     collectedRevenue: number;
     projectedRevenue: number;
+    hasOverduePayments: boolean;
   };
   historicalData: YearlyRevenue[];
   metrics: RevenueMetrics;

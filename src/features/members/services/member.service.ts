@@ -251,9 +251,11 @@ export async function createMember(
     next_due_date_calculated: nextDueDate.toISOString().split('T')[0],
   });
 
-  // TODO: Send welcome SMS receipt
-
-  return member as Member;
+  // Return member with payment amount for SMS
+  return {
+    ...member,
+    payment_amount: input.paymentAmount,
+  } as Member;
 }
 
 // ============================================================

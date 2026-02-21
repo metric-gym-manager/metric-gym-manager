@@ -169,34 +169,36 @@ export default function RevenuePage() {
             <MetricCard
               title={
                 viewType === 'monthly'
-                  ? 'Outstanding Fees for the Current Month'
-                  : 'Outstanding Fees for the Current Year'
+                  ? 'Payment Status for Current Month'
+                  : 'Payment Status for Current Year'
               }
               value={(() => {
-                const outstanding = viewType === 'monthly'
-                  ? (monthlyData?.currentMonth.projectedRevenue || 0) - (monthlyData?.currentMonth.collectedRevenue || 0)
-                  : (yearlyData?.currentYear.projectedRevenue || 0) - (yearlyData?.currentYear.collectedRevenue || 0);
+                const hasOverdue = viewType === 'monthly'
+                  ? monthlyData?.currentMonth.hasOverduePayments
+                  : yearlyData?.currentYear.hasOverduePayments;
 
-                if (outstanding <= 0) {
+                if (!hasOverdue) {
                   return viewType === 'monthly'
                     ? '✓ All fees collected for this month'
                     : '✓ All fees collected for this year';
                 }
-                return formatCurrency(outstanding);
+                return viewType === 'monthly'
+                  ? '⚠ Outstanding payments exist'
+                  : '⚠ Outstanding payments exist';
               })()}
               valueClassName={(() => {
-                const outstanding = viewType === 'monthly'
-                  ? (monthlyData?.currentMonth.projectedRevenue || 0) - (monthlyData?.currentMonth.collectedRevenue || 0)
-                  : (yearlyData?.currentYear.projectedRevenue || 0) - (yearlyData?.currentYear.collectedRevenue || 0);
-                return outstanding <= 0 ? 'text-green-600' : '';
+                const hasOverdue = viewType === 'monthly'
+                  ? monthlyData?.currentMonth.hasOverduePayments
+                  : yearlyData?.currentYear.hasOverduePayments;
+                return hasOverdue ? 'text-orange-600' : 'text-green-600';
               })()}
               subtitle={(() => {
-                const outstanding = viewType === 'monthly'
-                  ? (monthlyData?.currentMonth.projectedRevenue || 0) - (monthlyData?.currentMonth.collectedRevenue || 0)
-                  : (yearlyData?.currentYear.projectedRevenue || 0) - (yearlyData?.currentYear.collectedRevenue || 0);
-                return outstanding <= 0
-                  ? 'No outstanding payments'
-                  : 'Outstanding amount from active members';
+                const hasOverdue = viewType === 'monthly'
+                  ? monthlyData?.currentMonth.hasOverduePayments
+                  : yearlyData?.currentYear.hasOverduePayments;
+                return hasOverdue
+                  ? 'Some members have overdue payments'
+                  : 'No outstanding payments';
               })()}
               icon={<span className="text-2xl">📊</span>}
             />

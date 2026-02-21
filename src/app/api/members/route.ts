@@ -69,9 +69,16 @@ export async function POST(request: NextRequest) {
     const member = await createMember(gymProfile.id, validatedData);
 
     // Send welcome SMS — fire and forget (SMS failure must not fail registration)
-    sendSMS(gymProfile.id, member.id, 'welcome').catch((err) =>
-      console.error('Welcome SMS failed:', err)
-    );
+    console.log(`📧 Sending welcome SMS to new member: ${member.name} (${(member as any).payment_amount})`);
+    sendSMS(
+      gymProfile.id,
+      member.id,
+      'welcome',
+      undefined, // customMessage
+      (member as any).payment_amount // Pass payment amount
+    )
+      .then(() => console.log('✅ Welcome SMS sent successfully'))
+      .catch((err) => console.error('❌ Welcome SMS failed:', err));
 
     return NextResponse.json(
       {

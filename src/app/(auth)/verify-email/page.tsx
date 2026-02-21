@@ -136,8 +136,11 @@ function VerifyEmailContent() {
 
         <CardContent className="space-y-4">
           {status === 'pending' && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded">
-              <p className="font-medium mb-2">Check Your Inbox</p>
+            <div className="bg-yellow-50 border border-yellow-300 text-yellow-900 px-4 py-3 rounded">
+              <p className="font-bold mb-2">⚠️ Verification Required</p>
+              <p className="text-sm font-medium mb-2">
+                You cannot log in without verifying your email address first.
+              </p>
               <p className="text-sm">{message}</p>
             </div>
           )}

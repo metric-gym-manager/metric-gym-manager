@@ -1,6 +1,80 @@
-import { createClient } from '@/lib/supabase/server';
-import { sendSMS } from './sms.service';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { SMSType } from '../types';
+import { sendSmsViaTextLk } from './textlk.service';
+
+// ============================================================
+// HELPER: SEND SMS FOR CRON JOBS (USING ADMIN CLIENT)
+// ============================================================
+
+async function sendReminderSMS(
+  supabase: ReturnType<typeof createAdminClient>,
+  gymId: string,
+  memberId: string,
+  smsType: SMSType,
+  customMessage?: string
+): Promise<void> {
+  // Get member details
+  const { data: member } = await supabase
+    .from('members')
+    .select('*, gyms(gym_name)')
+    .eq('id', memberId)
+    .eq('gym_id', gymId)
+    .single();
+
+  if (!member) {
+    throw new Error('Member not found');
+  }
+
+  const gymName = (member.gyms as { gym_name: string } | null)?.gym_name ?? '';
+  const dueDate = new Date(member.next_due_date).toLocaleDateString('en-GB');
+  const amount = `Rs.${member.plan_amount.toFixed(2)}`;
+  const planType = member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1);
+
+  // Format message if not provided
+  let messageBody = customMessage;
+  if (!messageBody) {
+    if (smsType === 'overdue') {
+      messageBody = `Dear ${member.name}, your ${planType} membership at ${gymName} was due on ${dueDate}. Amount: ${amount}. Please make payment. Thank you.`;
+    } else {
+      messageBody = `Dear ${member.name}, your ${planType} membership at ${gymName} is due on ${dueDate}. Amount: ${amount}. Thank you.`;
+    }
+  }
+
+  // Check if real SMS is enabled
+  const useRealSms = process.env.ENABLE_REAL_SMS === 'true';
+  let deliveryStatus: 'sent' | 'delivered' | 'failed' = 'sent';
+  let textLkMessageId: string | null = null;
+
+  if (useRealSms) {
+    console.log(`📱 [REAL SMS] Sending via text.lk to ${member.phone_number}`);
+    const result = await sendSmsViaTextLk({
+      to: member.phone_number,
+      message: messageBody,
+    });
+
+    if (result.success && result.message_id) {
+      textLkMessageId = result.message_id;
+      deliveryStatus = 'sent';
+    } else {
+      deliveryStatus = 'failed';
+    }
+  } else {
+    console.log(`📱 [MOCK SMS] To: ${member.phone_number}, Type: ${smsType}`);
+    console.log(`   Message: ${messageBody}`);
+  }
+
+  // Log to database
+  await supabase.from('sms_logs').insert({
+    member_id: memberId,
+    gym_id: gymId,
+    sms_type: smsType,
+    phone_number: member.phone_number,
+    message_body: messageBody,
+    sent_at: new Date().toISOString(),
+    delivery_status: deliveryStatus,
+    text_lk_message_id: textLkMessageId,
+  });
+}
 
 // ============================================================
 // SEND AUTOMATED REMINDERS
@@ -11,7 +85,7 @@ export async function sendAutomatedReminders(): Promise<{
   byType: Record<SMSType, number>;
   errors: string[];
 }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const results = {
     totalSent: 0,
@@ -26,10 +100,14 @@ export async function sendAutomatedReminders(): Promise<{
   };
 
   try {
+    console.log('🔍 Fetching all gyms...');
+
     // Get all gyms
     const { data: gyms, error: gymsError } = await supabase
       .from('gyms')
       .select('id, gym_name');
+
+    console.log('Gyms query result:', { count: gyms?.length, error: gymsError?.message });
 
     if (gymsError) {
       results.errors.push(`Failed to fetch gyms: ${gymsError.message}`);
@@ -37,11 +115,13 @@ export async function sendAutomatedReminders(): Promise<{
     }
 
     if (!gyms || gyms.length === 0) {
-      console.log('No gyms found to process');
+      console.log('❌ No gyms found to process');
+      console.log('Query result:', { data: gyms, error: gymsError });
       return results;
     }
 
     console.log(`📅 Processing ${gyms.length} gym(s) for automated reminders...`);
+    console.log('Gyms:', gyms.map(g => ({ id: g.id, name: g.gym_name })));
 
     // Process each gym
     for (const gym of gyms) {
@@ -87,7 +167,7 @@ async function processGymReminders(gymId: string): Promise<{
   totalSent: number;
   byType: Record<SMSType, number>;
 }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const results = {
     totalSent: 0,
@@ -100,10 +180,16 @@ async function processGymReminders(gymId: string): Promise<{
     } as Record<SMSType, number>,
   };
 
-  // Get all active members for this gym
+  // Get all active members for this gym, excluding those with active installment plans
   const { data: members, error } = await supabase
     .from('members')
-    .select('id, name, phone_number, next_due_date')
+    .select(`
+      id,
+      name,
+      phone_number,
+      next_due_date,
+      member_installments(id, status)
+    `)
     .eq('gym_id', gymId)
     .eq('status', 'active');
 
@@ -112,16 +198,138 @@ async function processGymReminders(gymId: string): Promise<{
   }
 
   if (!members || members.length === 0) {
-    console.log(`  No active members for gym ${gymId}`);
+    console.log(`  ❌ No active members for gym ${gymId}`);
+    console.log(`  Query error:`, error);
+    return results;
+  }
+
+  console.log(`  ✓ Found ${members.length} total active members`);
+
+  // Filter out members with active installment plans
+  const regularMembers = members.filter((member: any) => {
+    const installments = member.member_installments || [];
+    const hasActiveInstallment = installments.some((inst: any) => inst.status === 'active');
+    return !hasActiveInstallment;
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  console.log(`  📊 Processing ${regularMembers.length} regular members (${members.length - regularMembers.length} on installment plans)`);
+
+  // Process each regular member (excluding those on installment plans)
+  for (const member of regularMembers) {
+    const dueDate = new Date(member.next_due_date);
+    dueDate.setHours(0, 0, 0, 0);
+
+    const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    console.log(`    Member: ${member.name}, Due: ${member.next_due_date}, Days until due: ${daysUntilDue}`);
+
+    let smsType: SMSType | null = null;
+
+    // Determine SMS type based on days until due
+    if (daysUntilDue === 7) {
+      smsType = 'reminder_7day';
+      console.log(`      → Sending 7-day reminder`);
+    } else if (daysUntilDue === 3) {
+      smsType = 'reminder_3day';
+      console.log(`      → Sending 3-day reminder`);
+    } else if (daysUntilDue === 0) {
+      smsType = 'due_today';
+      console.log(`      → Sending due today reminder`);
+    } else if (daysUntilDue < 0) {
+      smsType = 'overdue';
+      console.log(`      → Sending overdue reminder`);
+    } else {
+      console.log(`      → No reminder needed (${daysUntilDue} days)`);
+    }
+
+    // Send SMS if applicable
+    if (smsType) {
+      try {
+        await sendReminderSMS(supabase, gymId, member.id, smsType);
+        results.totalSent++;
+        results.byType[smsType]++;
+        console.log(`  ✓ Sent ${smsType} to ${member.name} (due in ${daysUntilDue} days)`);
+      } catch (error) {
+        console.error(`  ✗ Failed to send ${smsType} to ${member.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    }
+  }
+
+  // Process installment payment reminders
+  const installmentResults = await processInstallmentReminders(gymId);
+  results.totalSent += installmentResults.totalSent;
+  Object.keys(installmentResults.byType).forEach((type) => {
+    results.byType[type as SMSType] += installmentResults.byType[type as SMSType];
+  });
+
+  return results;
+}
+
+// ============================================================
+// PROCESS INSTALLMENT PAYMENT REMINDERS
+// ============================================================
+
+async function processInstallmentReminders(gymId: string): Promise<{
+  totalSent: number;
+  byType: Record<SMSType, number>;
+}> {
+  const supabase = createAdminClient();
+
+  const results = {
+    totalSent: 0,
+    byType: {
+      reminder_7day: 0,
+      reminder_3day: 0,
+      due_today: 0,
+      overdue: 0,
+      receipt: 0,
+    } as Record<SMSType, number>,
+  };
+
+  // Get all pending/overdue installment payments for this gym
+  const { data: payments, error } = await supabase
+    .from('installment_payments')
+    .select(`
+      id,
+      installment_number,
+      amount,
+      due_date,
+      member_installments!inner (
+        id,
+        template_name,
+        installment_count,
+        members!inner (
+          id,
+          name,
+          phone_number,
+          gym:gyms!inner(gym_name)
+        )
+      )
+    `)
+    .eq('gym_id', gymId)
+    .eq('status', 'pending');
+
+  if (error) {
+    console.error(`  ✗ Failed to fetch installment payments: ${error.message}`);
+    return results;
+  }
+
+  if (!payments || payments.length === 0) {
+    console.log(`  No pending installment payments for gym ${gymId}`);
     return results;
   }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Process each member
-  for (const member of members) {
-    const dueDate = new Date(member.next_due_date);
+  console.log(`  Processing ${payments.length} installment payments`);
+
+  // Process each installment payment
+  for (const payment of payments) {
+    const dueDate = new Date(payment.due_date);
     dueDate.setHours(0, 0, 0, 0);
 
     const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -142,17 +350,63 @@ async function processGymReminders(gymId: string): Promise<{
     // Send SMS if applicable
     if (smsType) {
       try {
-        await sendSMS(gymId, member.id, smsType);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const plan = (payment.member_installments as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const member = plan.members;
+        const gymName: string = member.gym?.gym_name ?? '';
+
+        // Custom installment reminder message
+        const message = formatInstallmentReminderMessage(
+          member.name,
+          payment.installment_number,
+          plan.installment_count,
+          payment.amount,
+          plan.template_name,
+          payment.due_date,
+          gymName,
+          smsType
+        );
+
+        await sendReminderSMS(supabase, gymId, member.id, smsType, message);
         results.totalSent++;
         results.byType[smsType]++;
-        console.log(`  ✓ Sent ${smsType} to ${member.name} (due in ${daysUntilDue} days)`);
+        console.log(`  ✓ Sent ${smsType} for installment #${payment.installment_number} to ${member.name} (due in ${daysUntilDue} days)`);
       } catch (error) {
-        console.error(`  ✗ Failed to send ${smsType} to ${member.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        console.error(`  ✗ Failed to send installment reminder: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     }
   }
 
   return results;
+}
+
+// ============================================================
+// FORMAT INSTALLMENT REMINDER MESSAGE
+// ============================================================
+
+function formatInstallmentReminderMessage(
+  memberName: string,
+  installmentNumber: number,
+  totalInstallments: number,
+  amount: number,
+  templateName: string,
+  dueDate: string,
+  gymName: string,
+  smsType: SMSType
+): string {
+  const formattedDate = new Date(dueDate).toLocaleDateString('en-GB');
+  const formattedAmount = `Rs.${amount.toFixed(2)}`;
+
+  const prefix = smsType === 'overdue'
+    ? 'Reminder'
+    : '';
+
+  if (smsType === 'overdue') {
+    return `${prefix}: Dear ${memberName}, installment #${installmentNumber}/${totalInstallments} (${formattedAmount}) for '${templateName}' was due on ${formattedDate}. Please make payment. - ${gymName}`;
+  }
+
+  return `Dear ${memberName}, installment #${installmentNumber}/${totalInstallments} (${formattedAmount}) for '${templateName}' is due on ${formattedDate}. - ${gymName}`;
 }
 
 // ============================================================
@@ -163,7 +417,7 @@ export async function updateExpiredMemberStatus(): Promise<{
   totalUpdated: number;
   errors: string[];
 }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const results = {
     totalUpdated: 0,
@@ -222,7 +476,7 @@ export async function archiveOldMembers(): Promise<{
   totalArchived: number;
   errors: string[];
 }> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const results = {
     totalArchived: 0,

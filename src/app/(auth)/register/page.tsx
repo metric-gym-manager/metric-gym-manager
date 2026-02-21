@@ -111,7 +111,7 @@ export default function RegisterPage() {
         return;
       }
 
-      // Redirect to email verification page with email parameter
+      // Redirect to verify-email page
       router.push(`/verify-email?email=${encodeURIComponent(validatedData.email)}`);
     } catch (err) {
       if (err instanceof z.ZodError) {

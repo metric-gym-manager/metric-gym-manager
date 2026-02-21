@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type {
   AuthResponse,
   AuthUser,
@@ -40,7 +41,8 @@ export async function registerGym(
     }
 
     // Create auth user with Supabase Auth
-    // Store all registration data in user metadata for lazy profile creation
+    console.log(`📧 Creating new user account for: ${input.email}`);
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: input.email,
       password: input.password,
@@ -56,15 +58,62 @@ export async function registerGym(
     });
 
     if (authError || !authData.user || !authData.user.email) {
+      console.error('❌ User creation failed:', authError?.message);
       return {
         success: false,
         error: authError?.message || 'Failed to create account',
       };
     }
 
-    // NOTE: Gym profile creation deferred to email confirmation callback
-    // This prevents orphaned profiles from abandoned registrations
-    // Profile will be created in /auth/callback after email verification
+    console.log(`✅ User created successfully. Verification email should be sent to: ${input.email}`);
+
+    // Create gym profile immediately (allows login before email verification)
+    // Use admin client to bypass RLS since user is not authenticated in this session yet
+    const adminClient = createAdminClient();
+    const { error: gymError } = await adminClient.from('gyms').insert({
+      user_id: authData.user.id,
+      username: input.username,
+      email: input.email,
+      email_verified: false, // Will be updated when they verify
+      gym_name: input.gymName,
+      gym_address: input.gymAddress || null,
+      gym_website: input.gymWebsite || null,
+    });
+
+    if (gymError) {
+      // If profile creation fails, clean up auth user
+      console.error('❌ Gym profile creation failed:', gymError.message);
+      await adminClient.auth.admin.deleteUser(authData.user.id);
+      return {
+        success: false,
+        error: 'Failed to create gym profile',
+      };
+    }
+
+    // Get the created gym profile to initialize default plans
+    const { data: gymProfile } = await adminClient
+      .from('gyms')
+      .select('id')
+      .eq('user_id', authData.user.id)
+      .single();
+
+    console.log(`✅ Gym profile created successfully for: ${input.gymName}`);
+
+    if (gymProfile) {
+      // Initialize default plan types
+      const defaultPlans = [
+        { gym_id: gymProfile.id, plan_type: 'monthly', default_amount: 5000.0, is_active: true },
+        { gym_id: gymProfile.id, plan_type: 'daily', default_amount: 300.0, is_active: true },
+        { gym_id: gymProfile.id, plan_type: 'annual', default_amount: 50000.0, is_active: true },
+      ];
+
+      const { error: plansError } = await adminClient.from('plan_types').insert(defaultPlans);
+      if (plansError) {
+        console.error('⚠️  Failed to create default plan types:', plansError.message);
+      } else {
+        console.log('✅ Default plan types created');
+      }
+    }
 
     return {
       success: true,

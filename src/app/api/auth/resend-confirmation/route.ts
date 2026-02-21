@@ -22,6 +22,8 @@ export async function POST(request: NextRequest) {
     const validatedData = resendSchema.parse(body);
     const supabase = await createClient();
 
+    console.log(`📧 Attempting to resend verification email to: ${validatedData.email}`);
+
     // Resend confirmation email
     const { error } = await supabase.auth.resend({
       type: 'signup',
@@ -30,6 +32,12 @@ export async function POST(request: NextRequest) {
         emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
       },
     });
+
+    if (error) {
+      console.error('❌ Resend email failed:', error.message);
+    } else {
+      console.log('✅ Verification email resent successfully to:', validatedData.email);
+    }
 
     if (error) {
       // Check for specific error types

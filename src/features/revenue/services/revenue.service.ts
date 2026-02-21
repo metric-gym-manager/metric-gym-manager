@@ -50,6 +50,9 @@ export async function getMonthlyRevenue(
   // Calculate projected revenue for current month
   const projectedRevenue = await calculateMonthlyProjectedRevenue(gymId);
 
+  // Check if there are any overdue payments
+  const hasOverduePayments = await checkHasOverduePayments(gymId);
+
   // Get historical data (all months from gym creation to current)
   const historicalData: MonthlyRevenue[] = [];
   const startYear = gymCreatedDate.getFullYear();
@@ -100,6 +103,7 @@ export async function getMonthlyRevenue(
     currentMonth: {
       collectedRevenue: currentCollected,
       projectedRevenue: projectedRevenue,
+      hasOverduePayments: hasOverduePayments,
     },
     historicalData,
     metrics,
@@ -149,6 +153,9 @@ export async function getYearlyRevenue(
   // Calculate projected revenue for current year
   const projectedRevenue = await calculateYearlyProjectedRevenue(gymId);
 
+  // Check if there are any overdue payments
+  const hasOverduePayments = await checkHasOverduePayments(gymId);
+
   // Get historical data (all years from gym creation to current)
   const historicalData: YearlyRevenue[] = [];
 
@@ -190,6 +197,7 @@ export async function getYearlyRevenue(
     currentYear: {
       collectedRevenue: currentCollected,
       projectedRevenue: projectedRevenue,
+      hasOverduePayments: hasOverduePayments,
     },
     historicalData,
     metrics,
@@ -199,6 +207,43 @@ export async function getYearlyRevenue(
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
+
+async function checkHasOverduePayments(gymId: string): Promise<boolean> {
+  const supabase = await createClient();
+
+  // Get active/expired members excluding those with active installments
+  const { data: members } = await supabase
+    .from('members')
+    .select('id, next_due_date, member_installments(id, status)')
+    .eq('gym_id', gymId)
+    .in('status', ['active', 'expired']);
+
+  if (!members || members.length === 0) {
+    return false;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  // Check if any member (without active installment) has overdue payment
+  for (const member of members) {
+    // Skip members with active installment plans
+    const installments = (member.member_installments as Array<{ id: string; status: string }> | null) ?? [];
+    const hasActiveInstallment = installments.some((inst) => inst.status === 'active');
+    if (hasActiveInstallment) {
+      continue;
+    }
+
+    // Check if payment is overdue
+    const dueDate = new Date(member.next_due_date);
+    dueDate.setHours(0, 0, 0, 0);
+    if (dueDate < today) {
+      return true; // Found at least one overdue payment
+    }
+  }
+
+  return false;
+}
 
 async function calculateMonthlyProjectedRevenue(gymId: string): Promise<number> {
   const supabase = await createClient();
