@@ -40,6 +40,20 @@ export async function registerGym(
       };
     }
 
+    // Check if email already exists
+    const { data: existingEmail } = await supabase
+      .from('gyms')
+      .select('email')
+      .eq('email', input.email)
+      .single();
+
+    if (existingEmail) {
+      return {
+        success: false,
+        error: 'Email already registered',
+      };
+    }
+
     // Create auth user with Supabase Auth
     console.log(`📧 Creating new user account for: ${input.email}`);
 
@@ -59,6 +73,15 @@ export async function registerGym(
 
     if (authError || !authData.user || !authData.user.email) {
       console.error('❌ User creation failed:', authError?.message);
+
+      // Handle specific Supabase Auth errors
+      if (authError?.message?.includes('already registered')) {
+        return {
+          success: false,
+          error: 'Email already registered',
+        };
+      }
+
       return {
         success: false,
         error: authError?.message || 'Failed to create account',
@@ -84,9 +107,26 @@ export async function registerGym(
       // If profile creation fails, clean up auth user
       console.error('❌ Gym profile creation failed:', gymError.message);
       await adminClient.auth.admin.deleteUser(authData.user.id);
+
+      // Check for specific database errors
+      if (gymError.code === '23505') { // PostgreSQL unique violation
+        if (gymError.message.includes('email')) {
+          return {
+            success: false,
+            error: 'Email already registered',
+          };
+        }
+        if (gymError.message.includes('username')) {
+          return {
+            success: false,
+            error: 'Username already taken',
+          };
+        }
+      }
+
       return {
         success: false,
-        error: 'Failed to create gym profile',
+        error: 'Failed to create gym profile. Please try again.',
       };
     }
 
