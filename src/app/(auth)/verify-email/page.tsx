@@ -13,6 +13,17 @@ function VerifyEmailContent() {
   const [email, setEmail] = useState('');
   const [isResending, setIsResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState(15);
+
+  // Cooldown timer for resend button
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => {
+        setResendCooldown(resendCooldown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
 
   useEffect(() => {
     const verifyEmail = async () => {
@@ -93,8 +104,15 @@ function VerifyEmailContent() {
   }, [searchParams, router]);
 
   const handleResendEmail = async () => {
-    if (!email) {
+    if (!email || email.trim() === '') {
       setResendMessage('Please enter your email address');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setResendMessage('Please enter a valid email address');
       return;
     }
 
@@ -105,13 +123,14 @@ function VerifyEmailContent() {
       const response = await fetch('/api/auth/resend-confirmation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: email.trim() }),
       });
 
       const result = await response.json();
 
       if (result.success) {
-        setResendMessage('Verification email sent! Please check your inbox.');
+        setResendMessage('Verification email sent! Please check your inbox and spam folder.');
+        setResendCooldown(15); // Reset cooldown timer
       } else {
         setResendMessage(result.error || 'Failed to resend email');
       }
@@ -137,11 +156,9 @@ function VerifyEmailContent() {
         <CardContent className="space-y-4">
           {status === 'pending' && (
             <div className="bg-yellow-50 border border-yellow-300 text-yellow-900 px-4 py-3 rounded">
-              <p className="font-bold mb-2">⚠️ Verification Required</p>
-              <p className="text-sm font-medium mb-2">
-                You cannot log in without verifying your email address first.
+              <p className="text-sm font-medium">
+                ⚠️ Verify your email to log in — check your inbox (including the spam folder)
               </p>
-              <p className="text-sm">{message}</p>
             </div>
           )}
 
@@ -175,17 +192,6 @@ function VerifyEmailContent() {
           )}
 
           {status === 'pending' && (
-            <div className="space-y-2 text-sm text-gray-600">
-              <p className="font-medium">What to do next:</p>
-              <ul className="list-disc list-inside space-y-1">
-                <li>Check your email inbox (including spam/junk folder)</li>
-                <li>Click the verification link in the email</li>
-                <li>Return to this page or log in</li>
-              </ul>
-            </div>
-          )}
-
-          {status === 'pending' && (
             <div className="border-t pt-4">
               <p className="text-sm font-medium text-gray-700 mb-3">
                 Didn&apos;t receive the email?
@@ -200,11 +206,15 @@ function VerifyEmailContent() {
                 />
                 <Button
                   onClick={handleResendEmail}
-                  disabled={isResending || !email}
+                  disabled={isResending || !email || resendCooldown > 0}
                   variant="outline"
                   className="w-full"
                 >
-                  {isResending ? 'Sending...' : 'Resend Verification Email'}
+                  {isResending
+                    ? 'Sending...'
+                    : resendCooldown > 0
+                    ? `Resend Verification Email (${resendCooldown}s)`
+                    : 'Resend Verification Email'}
                 </Button>
                 {resendMessage && (
                   <p className={`text-sm ${resendMessage.includes('sent') ? 'text-green-600' : 'text-red-600'}`}>

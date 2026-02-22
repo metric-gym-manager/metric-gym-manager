@@ -182,37 +182,24 @@ export async function loginWithPassword(
   try {
     const supabase = await createClient();
 
-    // Determine if input is email or username
-    const isEmail = input.usernameOrEmail.includes('@');
-
-    let email = input.usernameOrEmail;
-
-    // If username, look up email
-    if (!isEmail) {
-      const { data: gymData } = await supabase
-        .from('gyms')
-        .select('email')
-        .eq('username', input.usernameOrEmail)
-        .single();
-
-      if (!gymData) {
-        return {
-          success: false,
-          error: 'Invalid username or password',
-        };
-      }
-
-      email = gymData.email;
-    }
-
-    // Sign in with Supabase Auth
+    // Sign in with Supabase Auth using email
     const { data: authData, error: authError } =
       await supabase.auth.signInWithPassword({
-        email,
+        email: input.email,
         password: input.password,
       });
 
     if (authError || !authData.user || !authData.user.email) {
+      // Check if error is related to email verification
+      if (authError?.message?.toLowerCase().includes('email') &&
+          (authError?.message?.toLowerCase().includes('confirm') ||
+           authError?.message?.toLowerCase().includes('verif'))) {
+        return {
+          success: false,
+          error: 'Please verify your email before logging in. Check your inbox (including spam folder) for the verification link.',
+        };
+      }
+
       return {
         success: false,
         error: 'Invalid username or password',
@@ -333,16 +320,43 @@ export async function sendPasswordResetEmail(
   try {
     const supabase = await createClient();
 
+    console.log(`📧 Sending password reset email to: ${email}`);
+
+    // Redirect to auth/callback which will verify the token and redirect to reset-password
+    const redirectUrl = process.env.NEXT_PUBLIC_APP_URL
+      ? `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
+      : 'http://localhost:3000/auth/callback';
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/reset-password`,
+      redirectTo: redirectUrl,
     });
 
     if (error) {
+      console.error('❌ Password reset email failed:', error.message);
+
+      // Check for rate limit error
+      if (error.message?.toLowerCase().includes('rate limit')) {
+        return {
+          success: false,
+          error: 'Too many password reset requests. Please wait a few minutes before trying again.',
+        };
+      }
+
+      // Check for user not found
+      if (error.message?.toLowerCase().includes('not found')) {
+        return {
+          success: false,
+          error: 'No account found with this email address.',
+        };
+      }
+
       return {
         success: false,
-        error: 'Failed to send password reset email',
+        error: 'Failed to send password reset email. Please try again.',
       };
     }
+
+    console.log(`✅ Password reset email sent to: ${email}`);
 
     return {
       success: true,
@@ -366,16 +380,35 @@ export async function resetPassword(
   try {
     const supabase = await createClient();
 
+    console.log('🔄 Attempting to reset password...');
+
+    // Check if user has an active session (from password reset link)
+    const { data: { user }, error: sessionError } = await supabase.auth.getUser();
+
+    if (sessionError || !user) {
+      console.error('❌ No active session for password reset:', sessionError?.message);
+      return {
+        success: false,
+        error: 'Invalid or expired password reset link. Please request a new one.',
+      };
+    }
+
+    console.log(`✓ User session found: ${user.email}`);
+
+    // Update the password
     const { error } = await supabase.auth.updateUser({
       password: newPassword,
     });
 
     if (error) {
+      console.error('❌ Password update failed:', error.message);
       return {
         success: false,
-        error: 'Failed to reset password',
+        error: 'Failed to reset password. Please try again.',
       };
     }
+
+    console.log('✅ Password reset successfully');
 
     return {
       success: true,
@@ -544,7 +577,7 @@ export async function updateEmail(
         email: newEmail,
       },
       {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/verify-email`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?next=/settings/security`,
       }
     );
 

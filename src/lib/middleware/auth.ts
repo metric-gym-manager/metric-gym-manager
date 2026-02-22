@@ -6,6 +6,9 @@ const publicRoutes = [
   '/',
   '/login',
   '/register',
+  '/verify-email',
+  '/forgot-password',
+  '/reset-password',
   '/auth/verify-email',
   '/auth/forgot-password',
   '/auth/reset-password',
@@ -15,7 +18,11 @@ const publicRoutes = [
 // Auth routes that authenticated users shouldn't access
 const authRoutes = [
   '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
   '/auth/forgot-password',
+  '/auth/reset-password',
 ];
 
 export async function authMiddleware(request: NextRequest) {

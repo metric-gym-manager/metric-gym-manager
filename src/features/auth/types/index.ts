@@ -74,5 +74,5 @@ export interface OtpToken {
 
 export const SESSION_DURATION = {
   DEFAULT: 24 * 60 * 60, // 24 hours in seconds
-  REMEMBER_ME: 30 * 24 * 60 * 60, // 30 days in seconds
+  REMEMBER_ME: 10 * 365 * 24 * 60 * 60, // 10 years in seconds (effectively indefinite)
 } as const;

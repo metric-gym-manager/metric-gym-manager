@@ -74,6 +74,13 @@ export default function GymInformationPage() {
     updateMutation.mutate(data);
   };
 
+  const handleRegisterNewGym = async () => {
+    // Log out current user first
+    await fetch('/api/auth/logout', { method: 'POST' });
+    // Then redirect to registration
+    router.push('/register');
+  };
+
   return (
     <div className="max-w-2xl">
       <div className="space-y-6">
@@ -88,7 +95,7 @@ export default function GymInformationPage() {
           <Button
             type="button"
             variant="outline"
-            onClick={() => router.push('/register')}
+            onClick={handleRegisterNewGym}
             className="flex items-center gap-2"
           >
             <Plus className="h-4 w-4" />

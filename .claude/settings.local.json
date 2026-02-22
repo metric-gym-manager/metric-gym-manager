@@ -47,7 +47,9 @@
       "mcp__supabase__search_docs",
       "Bash(git mv:*)",
       "Bash(mkdir:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(if [ ! -d \"public\" ])",
+      "Bash(then mkdir public)"
     ]
   },
   "enableAllProjectMcpServers": true,

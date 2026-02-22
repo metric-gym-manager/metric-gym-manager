@@ -52,11 +52,9 @@ export type RegistrationInput = z.infer<typeof registrationSchema>;
 // LOGIN SCHEMAS
 // ============================================================
 
-// Username or Email + Password
+// Email + Password
 export const loginSchema = z.object({
-  usernameOrEmail: z
-    .string()
-    .min(3, 'Username or email must be at least 3 characters'),
+  email: z.string().email('Must be a valid email address'),
   password: z.string().min(1, 'Password is required'),
   rememberMe: z.boolean().default(false),
 });

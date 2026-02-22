@@ -6,8 +6,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 /**
  * Auth Callback Handler (PKCE Flow)
  *
- * This route is called when users click email verification links.
- * It verifies the OTP token hash and creates the gym profile.
+ * This route is called when users click email verification or password reset links.
+ * It verifies the OTP token hash and redirects appropriately.
  */
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
@@ -41,6 +41,13 @@ export async function GET(request: NextRequest) {
 
     const user = data.user;
 
+    // Handle password reset
+    if (type === 'recovery') {
+      console.log(`✅ Password reset token verified for: ${user.email}`);
+      // Session is now established, redirect to reset password page
+      return NextResponse.redirect(`${requestUrl.origin}/reset-password`);
+    }
+
     // Check if gym profile already exists (in case of re-confirmation)
     const adminClient = createAdminClient();
     const { data: existingGym } = await adminClient
@@ -50,15 +57,17 @@ export async function GET(request: NextRequest) {
       .single();
 
     if (existingGym) {
-      // Profile exists - just update email_verified status
-      if (!existingGym.email_verified) {
-        await adminClient
-          .from('gyms')
-          .update({ email_verified: true, updated_at: new Date().toISOString() })
-          .eq('user_id', user.id);
+      // Profile exists - update email and email_verified status for email change
+      await adminClient
+        .from('gyms')
+        .update({
+          email: user.email, // Update to the newly verified email
+          email_verified: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
 
-        console.log(`✅ Email verified for user ${user.id}`);
-      }
+      console.log(`✅ Email updated and verified for user ${user.id}: ${user.email}`);
 
       // Profile already exists, redirect to dashboard
       return NextResponse.redirect(`${requestUrl.origin}${next}`);

@@ -13,9 +13,30 @@ export async function POST(request: NextRequest) {
     const result = await loginWithPassword(validatedData);
 
     if (!result.success) {
+      // Check if error is related to email verification
+      const isEmailVerificationError =
+        result.error?.toLowerCase().includes('verify') ||
+        result.error?.toLowerCase().includes('confirm');
+
       return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 401 }
+        {
+          success: false,
+          error: result.error,
+          errorCode: isEmailVerificationError ? 'email_verification_required' : undefined,
+        },
+        { status: isEmailVerificationError ? 403 : 401 }
+      );
+    }
+
+    // Check if email verification is required
+    if (result.data?.requiresEmailVerification) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Please verify your email before logging in. Check your inbox (including spam folder) for the verification link.',
+          errorCode: 'email_verification_required',
+        },
+        { status: 403 }
       );
     }
 

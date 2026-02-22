@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Users, DollarSign, CreditCard, Settings } from 'lucide-react';
@@ -37,7 +38,14 @@ export default function Sidebar() {
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white border-r border-gray-200 px-6 pb-4">
           {/* Logo */}
-          <div className="flex h-16 shrink-0 items-center">
+          <div className="flex h-16 shrink-0 items-center gap-2">
+            <Image
+              src="/logo.svg"
+              alt="Metric Gym Manager Logo"
+              width={24}
+              height={24}
+              className="w-6 h-6"
+            />
             <h1 className="text-xl font-bold text-gray-900">
               Metric Gym Manager
             </h1>
