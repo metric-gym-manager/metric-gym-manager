@@ -88,9 +88,6 @@ export default function GymInformationPage() {
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-lg font-semibold">Gym Information</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Update your gym's basic information. This information will be displayed to members.
-            </p>
           </div>
           <Button
             type="button"

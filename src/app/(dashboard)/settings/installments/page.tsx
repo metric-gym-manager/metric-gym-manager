@@ -107,9 +107,6 @@ export default function InstallmentsSettingsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold">Installment Plans</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            Define reusable installment templates for members who pay over time.
-          </p>
         </div>
         <Button
           onClick={() => { setShowForm(!showForm); setFormError(''); }}

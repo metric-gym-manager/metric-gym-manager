@@ -26,8 +26,8 @@ export default async function DashboardLayout({
         {/* Header - Fetches gym profile via React Query for real-time updates */}
         <Header />
 
-        {/* Page content */}
-        <main className="px-4 py-6 lg:px-8">
+        {/* Page content - Add top padding for mobile header and bottom padding for mobile nav */}
+        <main className="px-4 py-6 lg:px-8 pt-16 lg:pt-6 pb-20 lg:pb-6">
           <MemberModalProvider>
             {children}
           </MemberModalProvider>

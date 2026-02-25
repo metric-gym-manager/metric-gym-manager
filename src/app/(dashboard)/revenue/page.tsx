@@ -6,10 +6,7 @@ export default function RevenuePage() {
       {/* Server-rendered heading — appears in initial HTML for fast LCP */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Revenue</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Track your gym&apos;s financial performance
-          </p>
+          <h1 className="text-xl lg:text-3xl font-bold tracking-tight">Revenue</h1>
         </div>
       </div>
 

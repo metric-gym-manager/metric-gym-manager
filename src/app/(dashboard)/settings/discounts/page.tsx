@@ -137,9 +137,6 @@ export default function DiscountsPage() {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">Discounts</h2>
-            <p className="text-sm text-gray-600 mt-1">
-              Create and manage discount presets for member registrations
-            </p>
           </div>
           <Button onClick={() => setAddModalOpen(true)}>Add Discount</Button>
         </div>

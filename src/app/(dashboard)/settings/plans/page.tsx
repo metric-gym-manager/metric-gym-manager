@@ -102,10 +102,6 @@ export default function PlanTypesPage() {
         {/* Description */}
         <div>
           <h2 className="text-lg font-semibold">Plan Types</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Configure default amounts for each membership plan type. Inactive plans will not be
-            available when adding new members.
-          </p>
         </div>
 
         {/* Plan Types Table */}

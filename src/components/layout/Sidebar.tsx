@@ -2,9 +2,12 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { Users, DollarSign, CreditCard, Settings } from 'lucide-react';
+import { Users, DollarSign, CreditCard, Settings, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import type { GymProfile } from '@/features/auth/types';
 
 const navigation = [
   {
@@ -31,6 +34,34 @@ const navigation = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Fetch gym profile for mobile header
+  const { data: gymProfile } = useQuery<GymProfile>({
+    queryKey: ['gym-profile'],
+    queryFn: async () => {
+      const response = await fetch('/api/auth/profile');
+      if (!response.ok) throw new Error('Failed to fetch profile');
+      const result = await response.json();
+      return result.data;
+    },
+    staleTime: 30000,
+    refetchOnWindowFocus: true,
+  });
+
+  const handleLogout = async () => {
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        router.push('/login');
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   return (
     <>
@@ -83,8 +114,48 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Mobile sidebar - TODO: Add mobile menu button and overlay */}
+      {/* Mobile view */}
       <div className="lg:hidden">
+        {/* Mobile header */}
+        <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
+          <div className="flex items-center justify-between px-4 h-14">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Image
+                src="/logo.svg"
+                alt="Logo"
+                width={24}
+                height={24}
+                className="w-6 h-6 shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                {gymProfile ? (
+                  <>
+                    <h1 className="text-sm font-bold text-gray-900 truncate">
+                      {gymProfile.gym_name}
+                    </h1>
+                    <p className="text-xs text-gray-500">Metric Gym Manager</p>
+                  </>
+                ) : (
+                  <div className="space-y-1">
+                    <div className="h-4 w-32 bg-gray-200 animate-pulse rounded" />
+                    <div className="h-3 w-24 bg-gray-200 animate-pulse rounded" />
+                  </div>
+                )}
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              className="shrink-0"
+              aria-label="Logout"
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Mobile bottom navigation */}
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">
           <nav className="flex justify-around">
             {navigation.map((item) => {

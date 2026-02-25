@@ -6,10 +6,7 @@ export default function MembersPage() {
       {/* Server-rendered heading — appears in initial HTML for fast LCP */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Members</h1>
-          <p className="text-sm text-gray-600 mt-1">
-            Manage your gym members and their memberships
-          </p>
+          <h1 className="text-xl lg:text-3xl font-bold tracking-tight">Members</h1>
         </div>
       </div>
 

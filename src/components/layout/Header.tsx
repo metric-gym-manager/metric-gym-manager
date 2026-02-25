@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
+import { LogOut } from 'lucide-react';
 import type { GymProfile } from '@/features/auth/types';
 
 export default function Header() {
@@ -38,7 +39,7 @@ export default function Header() {
   // Show loading state while fetching
   if (!gymProfile) {
     return (
-      <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
+      <header className="hidden lg:block sticky top-0 z-40 bg-white border-b border-gray-200">
         <div className="flex h-16 items-center justify-between px-4 lg:px-8">
           <div className="h-6 w-32 bg-gray-200 animate-pulse rounded" />
           <div className="h-10 w-20 bg-gray-200 animate-pulse rounded" />
@@ -48,7 +49,7 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-gray-200">
+    <header className="hidden lg:block sticky top-0 z-40 bg-white border-b border-gray-200">
         <div className="flex h-16 items-center justify-between px-4 lg:px-8">
           {/* Gym name */}
           <div className="flex items-center">
@@ -66,8 +67,8 @@ export default function Header() {
               <p className="text-xs text-gray-500">{gymProfile.email}</p>
             </div>
 
-            <Button variant="outline" onClick={handleLogout}>
-              Logout
+            <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Logout">
+              <LogOut className="h-5 w-5" />
             </Button>
           </div>
         </div>

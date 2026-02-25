@@ -19,10 +19,7 @@ export default function SettingsLayout({ children }: { children: React.ReactNode
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-gray-600 mt-1">
-          Manage your gym settings and preferences
-        </p>
+        <h1 className="text-xl lg:text-3xl font-bold tracking-tight">Settings</h1>
       </div>
 
       {/* Sub-navigation */}

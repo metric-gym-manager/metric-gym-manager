@@ -19,9 +19,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import type { MemberWithDiscount, OverdueMember } from '@/features/members/types';
-import { CreditCard, X } from 'lucide-react';
+import { CreditCard, X, Filter } from 'lucide-react';
 
 interface MembersListResponse {
   members: MemberWithDiscount[];
@@ -50,6 +56,7 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
   const [sortBy, setSortBy] = useState<string>('newest');
   const [page, setPage] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Debounce the search input (300ms)
@@ -171,9 +178,9 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
     <div className="space-y-6">
       {/* Filters */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-1 gap-4">
+        <div className="flex flex-1 gap-2">
           {/* Search with type-ahead dropdown */}
-          <div className="relative max-w-sm flex-1" ref={searchContainerRef}>
+          <div className="relative flex-1" ref={searchContainerRef}>
             <Input
               placeholder="Search by name or phone..."
               value={inputValue}
@@ -219,68 +226,194 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
               </div>
             )}
           </div>
-          <Select value={status} onValueChange={(value) => {
-            setStatus(value);
-            setPage(1);
-          }}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Status" />
+
+          {/* Filter button for mobile */}
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setFilterModalOpen(true)}
+            className="lg:hidden shrink-0"
+            aria-label="Open filters"
+          >
+            <Filter className="h-4 w-4" />
+          </Button>
+
+          {/* Desktop filters - hidden on mobile */}
+          <div className="hidden lg:flex gap-4">
+            <Select value={status} onValueChange={(value) => {
+              setStatus(value);
+              setPage(1);
+            }}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="active">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                    Active
+                  </span>
+                </SelectItem>
+                <SelectItem value="expired">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                    Expired
+                  </span>
+                </SelectItem>
+                <SelectItem value="suspended">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+                    Suspended
+                  </span>
+                </SelectItem>
+                <SelectItem value="cancelled">
+                  <span className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-gray-400 shrink-0" />
+                    Cancelled
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={planType} onValueChange={(value) => {
+              setPlanType(value);
+              setPage(1);
+            }}>
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Plan Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Plans</SelectItem>
+                <SelectItem value="monthly">Monthly</SelectItem>
+                <SelectItem value="daily">Daily</SelectItem>
+                <SelectItem value="annual">Annual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        {/* Sort dropdown - hidden on mobile, shown in filter modal instead */}
+        <div className="hidden lg:block">
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
-                  Active
-                </span>
-              </SelectItem>
-              <SelectItem value="expired">
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
-                  Expired
-                </span>
-              </SelectItem>
-              <SelectItem value="suspended">
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
-                  Suspended
-                </span>
-              </SelectItem>
-              <SelectItem value="cancelled">
-                <span className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-gray-400 shrink-0" />
-                  Cancelled
-                </span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={planType} onValueChange={(value) => {
-            setPlanType(value);
-            setPage(1);
-          }}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Plan Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Plans</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="annual">Annual</SelectItem>
+              <SelectItem value="newest">Newest First</SelectItem>
+              <SelectItem value="oldest">Oldest First</SelectItem>
+              <SelectItem value="upcoming_due">Upcoming Payments</SelectItem>
+              <SelectItem value="recently_expired">Recently Expired</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        <Select value={sortBy} onValueChange={setSortBy}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="newest">Newest First</SelectItem>
-            <SelectItem value="oldest">Oldest First</SelectItem>
-            <SelectItem value="upcoming_due">Upcoming Payments</SelectItem>
-            <SelectItem value="recently_expired">Recently Expired</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
+
+      {/* Filter Modal for Mobile */}
+      <Dialog open={filterModalOpen} onOpenChange={setFilterModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Filters & Sorting</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {/* Status Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Status</label>
+              <Select value={status} onValueChange={(value) => {
+                setStatus(value);
+                setPage(1);
+              }}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="active">
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
+                      Active
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="expired">
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                      Expired
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="suspended">
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
+                      Suspended
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="cancelled">
+                    <span className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-gray-400 shrink-0" />
+                      Cancelled
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Plan Type Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Plan Type</label>
+              <Select value={planType} onValueChange={(value) => {
+                setPlanType(value);
+                setPage(1);
+              }}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Plan Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Plans</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="annual">Annual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Sort By */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Sort By</label>
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest First</SelectItem>
+                  <SelectItem value="oldest">Oldest First</SelectItem>
+                  <SelectItem value="upcoming_due">Upcoming Payments</SelectItem>
+                  <SelectItem value="recently_expired">Recently Expired</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-4">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  setStatus('all');
+                  setPlanType('all');
+                  setSortBy('newest');
+                  setPage(1);
+                }}
+              >
+                Reset
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => setFilterModalOpen(false)}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Active search status bar */}
       {debouncedSearch && (
