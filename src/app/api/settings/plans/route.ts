@@ -18,7 +18,12 @@ export async function GET(_request: NextRequest) {
         success: true,
         data: planTypes,
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'private, max-age=300, stale-while-revalidate=600',
+        },
+      }
     );
   } catch (error) {
     console.error('Get plan types API error:', error);

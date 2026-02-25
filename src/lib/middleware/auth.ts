@@ -28,20 +28,6 @@ const authRoutes = [
 export async function authMiddleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Allow API routes to handle their own auth
-  if (pathname.startsWith('/api')) {
-    return NextResponse.next();
-  }
-
-  // Allow public assets
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/static') ||
-    pathname.includes('.')
-  ) {
-    return NextResponse.next();
-  }
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -80,7 +66,7 @@ export async function requireAuth() {
   return user;
 }
 
-// Helper to get current gym profile
+// Helper to get current gym profile (performs full auth check)
 export async function getCurrentGymProfile() {
   const user = await requireAuth();
 
@@ -88,6 +74,33 @@ export async function getCurrentGymProfile() {
   const { data: gymProfile, error } = await supabase
     .from('gyms')
     .select('*')
+    .eq('user_id', user.id)
+    .single();
+
+  if (error || !gymProfile) {
+    throw new Error('Gym profile not found');
+  }
+
+  return gymProfile;
+}
+
+// Lighter helper for dashboard layout — skips redundant getUser() since
+// middleware already verified authentication. Only checks gym profile exists.
+export async function getGymProfileForLayout() {
+  const supabase = await createClient();
+
+  // Use getUser() once (middleware already validated, but we need user.id)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error('Unauthorized');
+  }
+
+  const { data: gymProfile, error } = await supabase
+    .from('gyms')
+    .select('id')
     .eq('user_id', user.id)
     .single();
 

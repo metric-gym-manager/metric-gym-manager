@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
+import { getGymProfileForLayout } from '@/lib/middleware/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import { MemberModalProvider } from '@/contexts/member-modal.context';
@@ -9,9 +9,9 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Verify authentication
+  // Lightweight check — middleware already verified auth, this just ensures gym profile exists
   try {
-    await getCurrentGymProfile();
+    await getGymProfileForLayout();
   } catch (error) {
     redirect('/login');
   }

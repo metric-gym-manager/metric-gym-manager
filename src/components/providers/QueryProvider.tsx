@@ -24,6 +24,8 @@ export function QueryProvider({ children }: { children: React.ReactNode }) {
             retry: 1,
             // Cache data for 5 minutes
             staleTime: 5 * 60 * 1000,
+            // Keep unused cache entries for 10 minutes before garbage collection
+            gcTime: 10 * 60 * 1000,
           },
         },
       })

@@ -24,7 +24,15 @@ export async function GET() {
 
     if (error) throw error;
 
-    return NextResponse.json({ success: true, data: data ?? [] }, { status: 200 });
+    return NextResponse.json(
+      { success: true, data: data ?? [] },
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'private, max-age=300, stale-while-revalidate=600',
+        },
+      }
+    );
   } catch (error) {
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });

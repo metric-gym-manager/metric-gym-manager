@@ -24,6 +24,7 @@
     "test:e2e:ui": "playwright test --ui",
     "dev:clear-limits": "node scripts/clear-rate-limits.js",
     "dev:delete-users": "node scripts/delete-test-users.js",
+    "analyze": "ANALYZE=true next build",
     "prepare": "husky"
   },
   "dependencies": {
@@ -36,9 +37,7 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.6",
     "@tanstack/react-query": "^5.62.7",
-    "@types/bcrypt": "^6.0.0",
     "bcrypt": "^6.0.0",
-    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
@@ -60,7 +59,8 @@
     "@playwright/test": "^1.49.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.1.0",
-    "@types/bcryptjs": "^2.4.6",
+    "@next/bundle-analyzer": "^16.1.6",
+    "@types/bcrypt": "^6.0.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.2",
     "@types/react": "^19.0.6",
@@ -80,6 +80,12 @@
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"
   },
+  "browserslist": [
+    "chrome >= 90",
+    "firefox >= 90",
+    "safari >= 15",
+    "edge >= 90"
+  ],
   "lint-staged": {
     "*.{js,jsx,ts,tsx}": [
       "eslint --fix",

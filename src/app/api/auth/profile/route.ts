@@ -14,7 +14,12 @@ export async function GET() {
         success: true,
         data: gymProfile,
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          'Cache-Control': 'private, max-age=60, stale-while-revalidate=300',
+        },
+      }
     );
   } catch (error) {
     console.error('Get profile API error:', error);

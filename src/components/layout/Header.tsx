@@ -17,8 +17,8 @@ export default function Header() {
       const result = await response.json();
       return result.data;
     },
-    staleTime: 30000, // Consider data fresh for 30 seconds
-    refetchOnWindowFocus: true, // Refetch when window regains focus
+    staleTime: 5 * 60 * 1000, // Gym profile rarely changes mid-session
+    refetchOnWindowFocus: false, // Match global default — no unnecessary refetches
   });
 
   const handleLogout = async () => {

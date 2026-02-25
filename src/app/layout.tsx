@@ -17,17 +17,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <Script
-          src="https://t.contentsquare.net/uxa/2337d6ffa89d1.js"
-          strategy="beforeInteractive"
-        />
-      </head>
       <body>
         <QueryProvider>
           {children}
           <Toaster position="top-right" richColors />
         </QueryProvider>
+        {process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' && (
+          <Script
+            src="https://t.contentsquare.net/uxa/2337d6ffa89d1.js"
+            strategy="lazyOnload"
+          />
+        )}
       </body>
     </html>
   )

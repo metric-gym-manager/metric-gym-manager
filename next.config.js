@@ -1,3 +1,7 @@
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === 'true',
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -7,8 +11,61 @@ const nextConfig = {
     remotePatterns: [],
   },
   experimental: {
-    optimizePackageImports: ['@supabase/supabase-js'],
+    optimizePackageImports: [
+      '@supabase/supabase-js',
+      'lucide-react',
+      'date-fns',
+      'recharts',
+      '@radix-ui/react-dialog',
+      '@radix-ui/react-select',
+      '@radix-ui/react-checkbox',
+      '@radix-ui/react-label',
+      '@radix-ui/react-slot',
+      'react-day-picker',
+    ],
+  },
+  async headers() {
+    return [
+      {
+        // Hashed static assets: aggressive long-term cache (immutable)
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+        ],
+      },
+      {
+        // Public images and icons: cache 1 day, revalidate in background for 7 days
+        source: '/:path(.+\\.(?:svg|png|jpg|jpeg|gif|ico|webp))',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, stale-while-revalidate=604800',
+          },
+        ],
+      },
+      {
+        // All pages: security headers
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+        ],
+      },
+    ];
   },
 }
 
-module.exports = nextConfig
+module.exports = withBundleAnalyzer(nextConfig)

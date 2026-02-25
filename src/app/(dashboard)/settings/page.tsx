@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation';
+import { permanentRedirect } from 'next/navigation';
 
 export default function SettingsPage() {
-  // Redirect to gym information tab by default
-  redirect('/settings/gym');
+  // Permanent redirect — browser caches the 308 response, avoiding server roundtrip on repeat visits
+  permanentRedirect('/settings/gym');
 }

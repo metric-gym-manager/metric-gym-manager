@@ -1,10 +1,18 @@
 'use client';
 
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import MemberDetailModal from '@/components/members/MemberDetailModal';
-import EditMemberModal from '@/components/members/EditMemberModal';
 import type { MemberWithDiscount, Payment } from '@/features/members/types';
+
+const MemberDetailModal = dynamic(
+  () => import('@/components/members/MemberDetailModal'),
+  { ssr: false }
+);
+const EditMemberModal = dynamic(
+  () => import('@/components/members/EditMemberModal'),
+  { ssr: false }
+);
 
 interface InstallmentPayment {
   id: string;
