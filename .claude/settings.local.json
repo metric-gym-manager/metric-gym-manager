@@ -50,7 +50,10 @@
       "Bash(curl:*)",
       "Bash(if [ ! -d \"public\" ])",
       "Bash(then mkdir public)",
-      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" checkout src/components/members/BulkAddMemberModal.tsx)"
+      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" checkout src/components/members/BulkAddMemberModal.tsx)",
+      "Bash(if not exist \"D:\\\\projects\\\\gym-management-saas\\\\public\" mkdir \"D:\\\\projects\\\\gym-management-saas\\\\public\")",
+      "Bash(move:*)",
+      "Bash(mv:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
