@@ -10,15 +10,10 @@ export function WhyChooseSection() {
   const { ref, isVisible } = useIntersectionObserver({ threshold: 0.1 });
 
   const reasons = [
-    "AI-powered attendance insights and churn prediction",
-    "Unlimited member management with cloud-based access",
-    "Smart access control integration (Coming Soon)",
-    "Automated payment reminders branded with your gym name",
-    "Centralized member profiles with progress tracking",
-    "Multi-branch management with role-based staff access",
-    "Branded mobile app with AI fitness assistant",
-    "Real-time analytics and predictive insights",
-    "100% cloud-based with 99.99% uptime guarantee",
+    "Automate payment reminders and reduce late payments by 80%",
+    "Set up in under 5 minutes - no technical knowledge required",
+    "Get paid faster with automated SMS and WhatsApp reminders",
+    "24/7 support in English, Sinhala, and Tamil",
   ];
 
   return (
@@ -33,9 +28,6 @@ export function WhyChooseSection() {
             <h2 className="text-3xl md:text-4xl font-bold text-brand-charcoal mb-4">
               Why Choose Metric Gym Manager?
             </h2>
-            <p className="text-lg text-gray-600 mb-8">
-              Built by gym owners, for gym owners. Everything you need to run a modern fitness business.
-            </p>
 
             <ul className="space-y-4">
               {reasons.map((reason, index) => (

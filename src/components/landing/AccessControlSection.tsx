@@ -36,9 +36,6 @@ export function AccessControlSection() {
           <h2 className="text-3xl md:text-4xl font-bold text-brand-charcoal mb-4">
             Access Control Integration
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Seamlessly integrate with industry-leading access control systems for enhanced security
-          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">

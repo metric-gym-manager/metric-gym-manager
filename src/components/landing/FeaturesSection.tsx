@@ -43,10 +43,6 @@ export function FeaturesSection() {
           <h2 className="text-3xl md:text-4xl font-bold text-brand-charcoal mb-4">
             Everything You Need to Run Your Gym Smarter
           </h2>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">
-            Powerful features designed to streamline operations, boost revenue,
-            and deliver exceptional member experiences
-          </p>
         </div>
 
         {/* Features grid */}

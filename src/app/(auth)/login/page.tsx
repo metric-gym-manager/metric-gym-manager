@@ -3,10 +3,12 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
+import { Mail, Lock, Eye, EyeOff, CheckCircle, Phone, MessageCircle } from 'lucide-react';
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_code: 'Email verification link is invalid. Please try registering again.',
@@ -26,6 +28,7 @@ function LoginContent() {
   const [showResendVerification, setShowResendVerification] = useState(false);
   const [resendEmail, setResendEmail] = useState('');
   const [isResending, setIsResending] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Handle errors from URL parameters (e.g., email verification failures)
   useEffect(() => {
@@ -134,145 +137,252 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Login to Your Account</CardTitle>
-          <CardDescription>
-            Enter your email and password to continue
-          </CardDescription>
-        </CardHeader>
+    <div className="min-h-screen flex">
+      {/* Left Side - Branding & Visual */}
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-accent via-indigo-600 to-purple-700 p-12 flex-col justify-between relative overflow-hidden">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
+        </div>
 
-        <form onSubmit={handleLogin}>
-          <CardContent className="space-y-4">
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-                {error}
-              </div>
-            )}
-            {success && (
-              <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-                {success}
-              </div>
-            )}
+        {/* Logo */}
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-3 bg-white px-4 py-3 rounded-lg shadow-lg">
+            <Image
+              src="/logo.svg"
+              alt="Metric Gym Manager Logo"
+              width={32}
+              height={32}
+              className="w-8 h-8"
+            />
+            <h1 className="text-2xl font-bold text-gray-900">Metric Gym Manager</h1>
+          </div>
+        </div>
 
-            {showResendVerification && (
-              <div className="bg-yellow-50 border border-yellow-300 text-yellow-900 px-4 py-3 rounded space-y-3">
-                <p className="font-bold">⚠️ Email Verification Required</p>
-                <p className="text-sm">
-                  Please enter your email to resend the verification link:
-                </p>
-                <input
-                  type="email"
-                  placeholder="your@email.com"
-                  value={resendEmail}
-                  onChange={(e) => setResendEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-yellow-400 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
-                />
+        {/* Main Content */}
+        <div className="relative z-10 text-white">
+          <h2 className="text-4xl font-bold mb-6 leading-tight">
+            Welcome Back!
+          </h2>
+          <p className="text-xl text-white/90 mb-12">
+            Manage your gym with confidence. All your members, payments, and analytics in one place.
+          </p>
+
+          {/* Trust Indicators */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-6 w-6 text-white" />
+              <span className="text-lg">25+ gyms trust Metric</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-6 w-6 text-white" />
+              <span className="text-lg">2.2K+ active members</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <CheckCircle className="h-6 w-6 text-white" />
+              <span className="text-lg">99.99% uptime guarantee</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="relative z-10 text-white/75 text-sm">
+          <p>© 2026 Metric Gym Manager. Built with ❤️ in Sri Lanka 🇱🇰</p>
+        </div>
+      </div>
+
+      {/* Right Side - Login Form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12 bg-gray-50">
+        <div className="w-full max-w-md">
+          {/* Mobile Logo */}
+          <div className="lg:hidden flex items-center gap-2 justify-center mb-8">
+            <Image
+              src="/logo.svg"
+              alt="Logo"
+              width={24}
+              height={24}
+              className="w-6 h-6"
+            />
+            <h1 className="text-xl font-bold text-gray-900">Metric Gym Manager</h1>
+          </div>
+
+          <Card className="border-none shadow-xl">
+            <CardContent className="pt-8 pb-8">
+              {/* Header */}
+              <div className="mb-8">
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">Sign In</h2>
+                <p className="text-gray-600">Welcome back! Please enter your details.</p>
+              </div>
+
+              {/* Alerts */}
+              {error && (
+                <div className="mb-6 bg-red-50 border-l-4 border-red-500 text-red-700 px-4 py-3 rounded">
+                  <p className="font-medium">{error}</p>
+                </div>
+              )}
+              {success && (
+                <div className="mb-6 bg-green-50 border-l-4 border-green-500 text-green-700 px-4 py-3 rounded">
+                  <p className="font-medium">{success}</p>
+                </div>
+              )}
+
+              {showResendVerification && (
+                <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-500 text-yellow-900 px-4 py-3 rounded space-y-3">
+                  <p className="font-bold">⚠️ Email Verification Required</p>
+                  <p className="text-sm">Please enter your email to resend the verification link:</p>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Input
+                      type="email"
+                      placeholder="your@email.com"
+                      value={resendEmail}
+                      onChange={(e) => setResendEmail(e.target.value)}
+                      className="pl-10 border-yellow-400 focus:ring-yellow-500"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleResendVerification}
+                    disabled={isResending || !resendEmail}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    {isResending ? 'Sending...' : 'Resend Verification Email'}
+                  </Button>
+                </div>
+              )}
+
+              {/* Login Form */}
+              <form onSubmit={handleLogin} className="space-y-5">
+                {/* Email Field */}
+                <div className="space-y-2">
+                  <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={loginForm.email}
+                      onChange={(e) => {
+                        setLoginForm({ ...loginForm, email: e.target.value });
+                        setError(null);
+                      }}
+                      placeholder="your@email.com"
+                      className={`pl-10 ${fieldErrors.email ? 'border-red-500' : ''}`}
+                    />
+                  </div>
+                  {fieldErrors.email && (
+                    <p className="text-sm text-red-500">{fieldErrors.email}</p>
+                  )}
+                </div>
+
+                {/* Password Field */}
+                <div className="space-y-2">
+                  <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                    <Input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={loginForm.password}
+                      onChange={(e) => {
+                        setLoginForm({ ...loginForm, password: e.target.value });
+                        setError(null);
+                      }}
+                      placeholder="Enter your password"
+                      className={`pl-10 pr-10 ${fieldErrors.password ? 'border-red-500' : ''}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                    </button>
+                  </div>
+                  {fieldErrors.password && (
+                    <p className="text-sm text-red-500">{fieldErrors.password}</p>
+                  )}
+                </div>
+
+                {/* Remember Me & Forgot Password */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <input
+                      id="rememberMe"
+                      type="checkbox"
+                      checked={loginForm.rememberMe}
+                      onChange={(e) =>
+                        setLoginForm({ ...loginForm, rememberMe: e.target.checked })
+                      }
+                      className="rounded border-gray-300 text-brand-accent focus:ring-brand-accent"
+                    />
+                    <label htmlFor="rememberMe" className="text-sm text-gray-700">
+                      Remember me
+                    </label>
+                  </div>
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm text-brand-accent hover:text-brand-accent/80 font-medium"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
+
+                {/* Submit Button */}
                 <Button
-                  type="button"
-                  onClick={handleResendVerification}
-                  disabled={isResending || !resendEmail}
-                  variant="outline"
-                  className="w-full"
+                  type="submit"
+                  className="w-full bg-brand-accent hover:bg-brand-accent/90 text-white h-11"
+                  disabled={isLoading}
                 >
-                  {isResending ? 'Sending...' : 'Resend Verification Email'}
+                  {isLoading ? 'Signing in...' : 'Sign In'}
                 </Button>
+
+                {/* Register Link */}
+                <p className="text-sm text-center text-gray-600">
+                  Don't have an account?{' '}
+                  <Link href="/register" className="text-brand-accent hover:text-brand-accent/80 font-medium">
+                    Sign up for free
+                  </Link>
+                </p>
+              </form>
+
+              {/* Support Section */}
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-3">Need help?</p>
+                  <div className="flex justify-center gap-4">
+                    <a
+                      href="tel:0704379967"
+                      className="flex items-center gap-2 text-sm text-gray-700 hover:text-brand-accent transition-colors"
+                    >
+                      <Phone className="h-4 w-4" />
+                      <span>0704379967</span>
+                    </a>
+                    <a
+                      href="https://wa.me/94704379967"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 text-sm text-gray-700 hover:text-brand-accent transition-colors"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
+                  <div className="mt-3 space-y-1">
+                    <p className="text-xs text-gray-500">සහය අවශ්‍යනම්, 0704379967 අමතන්න</p>
+                    <p className="text-xs text-gray-500">ஏதேனும் உதவிக்கு, 0704379967 அழைக்கவும்</p>
+                  </div>
+                </div>
               </div>
-            )}
-
-            <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
-                Email Address
-              </label>
-              <Input
-                id="email"
-                type="email"
-                value={loginForm.email}
-                onChange={(e) => {
-                  setLoginForm({ ...loginForm, email: e.target.value });
-                  setError(null);
-                }}
-                placeholder="your@email.com"
-                className={fieldErrors.email ? 'border-red-500' : ''}
-              />
-              {fieldErrors.email && (
-                <p className="text-sm text-red-500">{fieldErrors.email}</p>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
-                Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                value={loginForm.password}
-                onChange={(e) => {
-                  setLoginForm({ ...loginForm, password: e.target.value });
-                  setError(null);
-                }}
-                placeholder="Enter your password"
-                className={fieldErrors.password ? 'border-red-500' : ''}
-              />
-              {fieldErrors.password && (
-                <p className="text-sm text-red-500">{fieldErrors.password}</p>
-              )}
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                id="rememberMe"
-                type="checkbox"
-                checked={loginForm.rememberMe}
-                onChange={(e) =>
-                  setLoginForm({ ...loginForm, rememberMe: e.target.checked })
-                }
-                className="rounded"
-              />
-              <label htmlFor="rememberMe" className="text-sm">
-                Keep me logged in
-              </label>
-            </div>
-
-            <div className="text-right">
-              <Link
-                href="/forgot-password"
-                className="text-sm text-blue-600 hover:underline"
-              >
-                Forgot Password?
-              </Link>
-            </div>
-          </CardContent>
-
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? 'Logging in...' : 'Login'}
-            </Button>
-
-            <p className="text-sm text-center text-gray-600">
-              Don&apos;t have an account?{' '}
-              <Link href="/register" className="text-blue-600 hover:underline">
-                Register here
-              </Link>
-            </p>
-
-            <SupportMessage />
-          </CardFooter>
-        </form>
-      </Card>
-    </div>
-  );
-}
-
-function SupportMessage() {
-  return (
-    <div className="border-t pt-4 mt-4">
-      <div className="text-center space-y-1">
-        <p className="text-sm text-gray-700">For any assistance, call 0704379967</p>
-        <p className="text-sm text-gray-700">සහය අවශ්‍යනම්, 0704379967 අමතන්න</p>
-        <p className="text-sm text-gray-700">ஏதேனும் உதவிக்கு, 0704379967 என்ற எண்ணை அழைக்கவும்.</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
@@ -284,6 +394,7 @@ export default function LoginPage() {
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
           <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-accent mx-auto mb-4"></div>
             <p className="text-gray-600">Loading...</p>
           </div>
         </div>

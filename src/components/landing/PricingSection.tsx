@@ -72,9 +72,6 @@ export function PricingSection() {
           <h2 className="text-3xl md:text-4xl font-bold text-brand-charcoal mb-4">
             Simple, Transparent Pricing
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Choose the plan that fits your gym. All plans include core features with no hidden fees.
-          </p>
         </div>
 
         {/* Pricing cards */}
