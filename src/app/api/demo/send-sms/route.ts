@@ -221,11 +221,14 @@ export async function POST(request: NextRequest) {
 
       // Step 4: Clean up temporary member record (fire-and-forget - don't wait)
       // Delete member in background (will cascade delete SMS log)
-      supabaseAdmin.from('members').delete().eq('id', memberId).then(() => {
-        console.log(`🗑️ [DEMO] Cleaned up temporary member (ID: ${memberId})`);
-      }).catch((err) => {
-        console.error(`⚠️ [DEMO] Failed to cleanup member:`, err);
-      });
+      void (async () => {
+        try {
+          await supabaseAdmin.from('members').delete().eq('id', memberId);
+          console.log(`🗑️ [DEMO] Cleaned up temporary member (ID: ${memberId})`);
+        } catch (err) {
+          console.error(`⚠️ [DEMO] Failed to cleanup member:`, err);
+        }
+      })();
 
       // Return immediately without waiting for cleanup
       return NextResponse.json({
