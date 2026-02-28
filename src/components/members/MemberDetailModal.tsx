@@ -282,20 +282,6 @@ export default function MemberDetailModal({
                 <Label className="text-sm text-gray-500">Registered Date</Label>
                 <p className="text-sm font-medium">{formatDate(member.registered_date)}</p>
               </div>
-
-              {member.emergency_contact_name && (
-                <div>
-                  <Label className="text-sm text-gray-500">Emergency Contact</Label>
-                  <p className="text-sm font-medium">{member.emergency_contact_name}</p>
-                </div>
-              )}
-
-              {member.emergency_contact_phone && (
-                <div>
-                  <Label className="text-sm text-gray-500">Emergency Phone</Label>
-                  <p className="text-sm font-medium">{member.emergency_contact_phone}</p>
-                </div>
-              )}
             </div>
           </div>
 

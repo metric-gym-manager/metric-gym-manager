@@ -90,8 +90,6 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
       reset({
         name: member.name,
         phoneNumber: member.phone_number,
-        emergencyContactName: member.emergency_contact_name || undefined,
-        emergencyContactPhone: member.emergency_contact_phone || undefined,
         planType: member.plan_type,
         planAmount: member.plan_amount,
         discountId: member.discount_id || undefined,
@@ -169,30 +167,6 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
               />
               {errors.phoneNumber && (
                 <p className="text-sm text-red-600 mt-1">{errors.phoneNumber.message}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="emergencyContactName">Emergency Contact Name</Label>
-              <Input
-                id="emergencyContactName"
-                {...register('emergencyContactName')}
-                placeholder="Enter emergency contact name"
-              />
-              {errors.emergencyContactName && (
-                <p className="text-sm text-red-600 mt-1">{errors.emergencyContactName.message}</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
-              <Input
-                id="emergencyContactPhone"
-                {...register('emergencyContactPhone')}
-                placeholder="0771234567"
-              />
-              {errors.emergencyContactPhone && (
-                <p className="text-sm text-red-600 mt-1">{errors.emergencyContactPhone.message}</p>
               )}
             </div>
           </div>

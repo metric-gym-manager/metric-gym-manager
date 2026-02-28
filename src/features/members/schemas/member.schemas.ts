@@ -50,14 +50,6 @@ export const addMemberSchema = z.object({
 
   phoneNumber: phoneNumberSchema,
 
-  emergencyContactName: z
-    .string()
-    .min(2, 'Emergency contact name must be at least 2 characters')
-    .max(100, 'Name must not exceed 100 characters')
-    .optional(),
-
-  emergencyContactPhone: optionalPhoneNumberSchema,
-
   planType: MemberPlanType,
 
   planAmount: z
@@ -93,15 +85,6 @@ export const updateMemberSchema = z.object({
     .optional(),
 
   phoneNumber: optionalPhoneNumberSchema,
-
-  emergencyContactName: z
-    .string()
-    .min(2, 'Emergency contact name must be at least 2 characters')
-    .max(100, 'Name must not exceed 100 characters')
-    .nullable()
-    .optional(),
-
-  emergencyContactPhone: optionalPhoneNumberSchema,
 
   planType: MemberPlanType.optional(),
 

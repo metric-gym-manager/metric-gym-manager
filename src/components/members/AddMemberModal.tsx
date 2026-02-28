@@ -227,27 +227,6 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                 <p className="text-sm text-red-600 mt-1">{errors.phoneNumber.message}</p>
               )}
             </div>
-
-            <div>
-              <Label htmlFor="emergencyContactName">Emergency Contact Name</Label>
-              <Input
-                id="emergencyContactName"
-                {...register('emergencyContactName')}
-                placeholder="Enter emergency contact name"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
-              <Input
-                id="emergencyContactPhone"
-                {...register('emergencyContactPhone')}
-                placeholder="0771234567"
-              />
-              {errors.emergencyContactPhone && (
-                <p className="text-sm text-red-600 mt-1">{errors.emergencyContactPhone.message}</p>
-              )}
-            </div>
           </div>
 
           {/* Membership Plan */}

@@ -207,8 +207,6 @@ export async function createMember(
       gym_id: gymId,
       name: input.name,
       phone_number: input.phoneNumber,
-      emergency_contact_name: input.emergencyContactName || null,
-      emergency_contact_phone: input.emergencyContactPhone || null,
       plan_type: input.planType,
       plan_amount: input.planAmount,
       discount_id: input.discountId || null,
@@ -274,8 +272,6 @@ export async function updateMember(
     .update({
       ...input,
       phone_number: input.phoneNumber,
-      emergency_contact_name: input.emergencyContactName,
-      emergency_contact_phone: input.emergencyContactPhone,
       plan_type: input.planType,
       plan_amount: input.planAmount,
       discount_id: input.discountId,

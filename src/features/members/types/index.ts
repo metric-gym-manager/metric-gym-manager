@@ -9,8 +9,6 @@ export interface Member {
   gym_id: string;
   name: string;
   phone_number: string;
-  emergency_contact_name: string | null;
-  emergency_contact_phone: string | null;
   plan_type: MemberPlanType;
   plan_amount: number;
   discount_id: string | null;

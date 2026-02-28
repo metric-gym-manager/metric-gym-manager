@@ -7,8 +7,6 @@
 const memberData = {
   name: 'SMS Test Member',
   phoneNumber: '+94783607777',
-  emergencyContactName: 'Emergency Contact',
-  emergencyContactPhone: '+94771234567',
   planType: 'monthly',
   planAmount: 5000,
   paymentAmount: 5000,

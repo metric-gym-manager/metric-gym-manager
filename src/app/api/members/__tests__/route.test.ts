@@ -81,8 +81,6 @@ describe('Members API - POST /api/members', () => {
     const memberInput = {
       name: 'John Doe',
       phoneNumber: '+94771234567',
-      emergencyContactName: 'Jane Doe',
-      emergencyContactPhone: '+94771234568',
       planType: 'monthly',
       planAmount: 5000,
       paymentAmount: 5000,
@@ -120,8 +118,6 @@ describe('Members API - POST /api/members', () => {
     expect(mockCreateMember).toHaveBeenCalledWith('gym_123', {
       name: 'John Doe',
       phoneNumber: '+94771234567',
-      emergencyContactName: 'Jane Doe',
-      emergencyContactPhone: '+94771234568',
       planType: 'monthly',
       planAmount: 5000,
       paymentAmount: 5000,
