@@ -50,12 +50,40 @@ const config: Config = {
   				'3': 'hsl(var(--chart-3))',
   				'4': 'hsl(var(--chart-4))',
   				'5': 'hsl(var(--chart-5))'
+  			},
+  			brand: {
+  				accent: '#1b17ff',
+  				navy: '#1a1f3c',
+  				charcoal: '#1a202c',
+  				gray: '#f8f9fa'
   			}
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
   			md: 'calc(var(--radius) - 2px)',
   			sm: 'calc(var(--radius) - 4px)'
+  		},
+  		fontFamily: {
+  			sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+  		},
+  		animation: {
+  			'scroll-left': 'scroll-left 40s linear infinite',
+  			'fade-in-up': 'fade-in-up 0.6s ease-out forwards',
+  			'pulse-ring': 'pulse-ring 2s ease-out infinite',
+  		},
+  		keyframes: {
+  			'scroll-left': {
+  				'0%': { transform: 'translateX(0)' },
+  				'100%': { transform: 'translateX(-50%)' },
+  			},
+  			'fade-in-up': {
+  				'from': { opacity: '0', transform: 'translateY(30px)' },
+  				'to': { opacity: '1', transform: 'translateY(0)' },
+  			},
+  			'pulse-ring': {
+  				'0%': { boxShadow: '0 0 0 0 rgba(27, 23, 255, 0.4)' },
+  				'100%': { boxShadow: '0 0 0 20px rgba(27, 23, 255, 0)' },
+  			},
   		}
   	}
   },

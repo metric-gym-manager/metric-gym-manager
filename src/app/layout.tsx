@@ -1,8 +1,15 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
+import { Inter } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Toaster } from 'sonner'
+
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'Metric Gym Manager',
@@ -39,8 +46,8 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className={inter.variable}>
+      <body className="font-sans">
         <QueryProvider>
           {children}
           <Toaster position="top-right" richColors />
