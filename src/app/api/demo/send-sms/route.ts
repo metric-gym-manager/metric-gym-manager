@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
-import { sendSMS } from '@/features/sms/services/sms.service';
+import { sendSmsViaTextLk } from '@/features/sms/services/textlk.service';
 
 // Validation schema
 const SendDemoSMSSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   phone: z.string().regex(/^\+94\d{9}$/, 'Phone must be in format +94XXXXXXXXX'),
   gymName: z.string().min(1, 'Gym name is required'),
-  type: z.enum(['welcome', 'due'], { required_error: 'Type must be welcome or due' }),
+  type: z.enum(['welcome', 'due', 'receipt'], { required_error: 'Type must be welcome, due, or receipt' }),
 });
 
 /**
@@ -58,55 +58,71 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Step 1: Create a temporary demo gym (will be deleted after SMS is sent)
-    const demoEmail = `demo+${gymName.toLowerCase().replace(/\s+/g, '-')}+${Date.now()}@gymmanagement.local`;
+    // Step 1: Find or create a persistent demo gym (reused for all demos)
+    const DEMO_GYM_USERNAME = 'demo_sms_dashboard';
 
-    // Create a temporary demo user in auth
-    const authUser = await supabaseAdmin.auth.admin.createUser({
-      email: demoEmail,
-      password: 'demo-password-' + Math.random().toString(36).slice(2),
-      email_confirm: true,
-    });
-
-    if (!authUser?.data?.user) {
-      return NextResponse.json(
-        { error: 'Failed to create demo user' },
-        { status: 500 }
-      );
-    }
-
-    const userId = authUser.data.user.id;
-
-    // Create temporary gym record
-    const newGym = await supabaseAdmin
+    let demoGym = await supabaseAdmin
       .from('gyms')
-      .insert({
-        user_id: userId,
-        username: `demo_${Date.now()}_${gymName.toLowerCase().replace(/\s+/g, '_')}`,
-        email: demoEmail,
-        gym_name: gymName,
-        email_verified: true,
-      })
       .select('id')
+      .eq('username', DEMO_GYM_USERNAME)
       .single();
 
-    if (newGym.error || !newGym.data) {
-      // Clean up auth user if gym creation fails
-      await supabaseAdmin.auth.admin.deleteUser(userId);
-      return NextResponse.json(
-        { error: 'Failed to create demo gym: ' + newGym.error?.message },
-        { status: 500 }
-      );
-    }
+    let gymId: string;
 
-    const gymId = newGym.data.id;
+    if (!demoGym.data) {
+      // Create demo gym only once (first time)
+      const demoEmail = 'demo-sms@gymmanagement.local';
+
+      // Create auth user
+      const authUser = await supabaseAdmin.auth.admin.createUser({
+        email: demoEmail,
+        password: 'demo-password-' + Math.random().toString(36).slice(2),
+        email_confirm: true,
+      });
+
+      if (!authUser?.data?.user) {
+        return NextResponse.json(
+          { error: 'Failed to create demo user' },
+          { status: 500 }
+        );
+      }
+
+      // Create gym record
+      const newGym = await supabaseAdmin
+        .from('gyms')
+        .insert({
+          user_id: authUser.data.user.id,
+          username: DEMO_GYM_USERNAME,
+          email: demoEmail,
+          gym_name: 'Demo Gym',
+          email_verified: true,
+        })
+        .select('id')
+        .single();
+
+      if (newGym.error || !newGym.data) {
+        await supabaseAdmin.auth.admin.deleteUser(authUser.data.user.id);
+        return NextResponse.json(
+          { error: 'Failed to create demo gym: ' + newGym.error?.message },
+          { status: 500 }
+        );
+      }
+
+      gymId = newGym.data.id;
+      console.log(`✓ [DEMO] Created persistent demo gym (ID: ${gymId})`);
+    } else {
+      gymId = demoGym.data.id;
+    }
 
     // Step 2: Create a temporary member with Annual plan at Rs. 50,000
     const nextDueDate = new Date();
     if (type === 'welcome') {
       nextDueDate.setFullYear(nextDueDate.getFullYear() + 1); // 1 year from now for annual
-    } else {
+    } else if (type === 'due') {
       nextDueDate.setDate(nextDueDate.getDate() + 7); // 7 days from now for due reminder
+    } else {
+      // For receipt, set next due date to 1 year from now (annual plan)
+      nextDueDate.setFullYear(nextDueDate.getFullYear() + 1);
     }
 
     const memberData = {
@@ -135,50 +151,93 @@ export async function POST(request: NextRequest) {
 
     const memberId = newMember.data.id;
 
-    // Step 3: Send SMS using the ACTUAL production sendSMS function
+    // Step 3: Send SMS using production text.lk service
     try {
-      const smsType = type === 'welcome' ? 'welcome' : 'due_today';
-      const paymentAmount = type === 'welcome' ? 50000 : undefined;
-
       console.log(`📱 [DEMO] Sending production ${type} SMS to ${phone} (${name})`);
 
-      const smsLog = await sendSMS(
-        gymId,
-        memberId,
-        smsType,
-        undefined, // Use default message formatting
-        paymentAmount
-      );
+      // Format message based on type
+      let messageBody: string;
+      const dueDate = new Date(nextDueDate.toISOString().split('T')[0]).toLocaleDateString('en-GB');
 
-      console.log(`✓ [DEMO] SMS sent successfully (ID: ${smsLog.id})`);
+      if (type === 'welcome') {
+        messageBody = `Welcome to ${gymName}, ${name}! Your Annual membership is now active. Amount paid: Rs.50000.00. Thank you for joining us!`;
+      } else if (type === 'due') {
+        messageBody = `Dear ${name}, your Annual membership at ${gymName} is due on ${dueDate}. Amount: Rs.50000.00. Thank you.`;
+      } else {
+        // Receipt SMS (regular payment without discount)
+        messageBody = `Dear ${name}, payment of Rs.50000.00 received. Next due date: ${dueDate}. Thank you - ${gymName}`;
+      }
 
-      // Step 4: Clean up temporary records (member, gym, and auth user)
-      console.log(`🗑️ [DEMO] Cleaning up temporary records...`);
+      // Check if real SMS is enabled
+      const useRealSms = process.env.ENABLE_REAL_SMS === 'true';
 
-      // Delete member (will cascade delete payments and SMS logs via ON DELETE CASCADE)
-      await supabaseAdmin.from('members').delete().eq('id', memberId);
+      let deliveryStatus: 'sent' | 'delivered' | 'failed' = 'sent';
+      let textLkMessageId: string | null = null;
 
-      // Delete gym (will cascade delete other related records)
-      await supabaseAdmin.from('gyms').delete().eq('id', gymId);
+      if (useRealSms) {
+        // Send real SMS via text.lk
+        console.log('📱 [REAL SMS] Sending via text.lk:');
+        console.log(`   To: ${phone}`);
+        console.log(`   Message: ${messageBody}`);
 
-      // Delete auth user
-      await supabaseAdmin.auth.admin.deleteUser(userId);
+        const result = await sendSmsViaTextLk({
+          to: phone,
+          message: messageBody,
+        });
 
-      console.log(`✓ [DEMO] Cleanup complete - all temporary records removed`);
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to send SMS via text.lk');
+        }
 
+        deliveryStatus = 'sent';
+        textLkMessageId = result.message_id || null;
+
+        console.log(`   ✓ SMS sent via text.lk (ID: ${textLkMessageId})`);
+        console.log(`   Balance: ${result.balance} credits`);
+      } else {
+        // Mock mode - just log to console
+        console.log('📱 [MOCK SMS] Mock SMS (not actually sent):');
+        console.log(`   To: ${phone}`);
+        console.log(`   Message: ${messageBody}`);
+      }
+
+      // Log SMS to database (map to DB enum types)
+      const smsType = type === 'welcome' || type === 'receipt' ? 'receipt' : 'due_today';
+      const { data: smsLog } = await supabaseAdmin
+        .from('sms_logs')
+        .insert({
+          member_id: memberId,
+          gym_id: gymId,
+          sms_type: smsType,
+          phone_number: phone,
+          message_body: messageBody,
+          delivery_status: deliveryStatus,
+          text_lk_message_id: textLkMessageId,
+        })
+        .select('id')
+        .single();
+
+      console.log(`✓ [DEMO] SMS sent successfully (Log ID: ${smsLog?.id || 'N/A'})`);
+
+      // Step 4: Clean up temporary member record (fire-and-forget - don't wait)
+      // Delete member in background (will cascade delete SMS log)
+      supabaseAdmin.from('members').delete().eq('id', memberId).then(() => {
+        console.log(`🗑️ [DEMO] Cleaned up temporary member (ID: ${memberId})`);
+      }).catch((err) => {
+        console.error(`⚠️ [DEMO] Failed to cleanup member:`, err);
+      });
+
+      // Return immediately without waiting for cleanup
       return NextResponse.json({
         success: true,
-        message: 'Production SMS sent successfully (temporary records cleaned up)',
-        smsLogId: smsLog.id,
+        message: 'Production SMS sent successfully',
+        smsLogId: smsLog?.id || null,
         smsType,
       });
 
     } catch (smsError) {
-      // Clean up all temporary records on error
+      // Clean up member on error
       await supabaseAdmin.from('members').delete().eq('id', memberId);
-      await supabaseAdmin.from('gyms').delete().eq('id', gymId);
-      await supabaseAdmin.auth.admin.deleteUser(userId);
-
       throw smsError;
     }
 

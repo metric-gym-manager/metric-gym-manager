@@ -13,7 +13,7 @@ export default function DemoDashboard() {
   const [gymName, setGymName] = useState('');
   const [loading, setLoading] = useState<string | null>(null);
 
-  const handleSendSMS = async (type: 'welcome' | 'due') => {
+  const handleSendSMS = async (type: 'welcome' | 'due' | 'receipt') => {
     if (!name.trim() || !phone.trim() || !gymName.trim()) {
       toast.error('Please enter name, phone number, and gym name');
       return;
@@ -40,7 +40,8 @@ export default function DemoDashboard() {
         throw new Error(data.error || 'Failed to send SMS');
       }
 
-      toast.success(`${type === 'welcome' ? 'Welcome' : 'Due reminder'} SMS sent successfully!`, {
+      const messageType = type === 'welcome' ? 'Welcome' : type === 'due' ? 'Due reminder' : 'Receipt';
+      toast.success(`${messageType} SMS sent successfully!`, {
         description: `Sent to ${phone}`,
       });
     } catch (error) {
@@ -77,7 +78,7 @@ export default function DemoDashboard() {
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">SMS Demo Dashboard</CardTitle>
-            <CardDescription>
+            <CardDescription suppressHydrationWarning>
               Demonstrate the automated messaging system to gym managers during visits (Localhost only)
             </CardDescription>
           </CardHeader>
@@ -122,7 +123,7 @@ export default function DemoDashboard() {
 
             <div className="border-t pt-6 space-y-3">
               <h3 className="font-medium text-sm text-gray-700">Send Test Messages</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-3 gap-3">
                 <Button
                   onClick={() => handleSendSMS('welcome')}
                   disabled={loading !== null}
@@ -137,6 +138,14 @@ export default function DemoDashboard() {
                   className="w-full"
                 >
                   {loading === 'due' ? 'Sending...' : 'Due SMS'}
+                </Button>
+                <Button
+                  onClick={() => handleSendSMS('receipt')}
+                  disabled={loading !== null}
+                  variant="outline"
+                  className="w-full"
+                >
+                  {loading === 'receipt' ? 'Sending...' : 'Receipt SMS'}
                 </Button>
               </div>
             </div>
@@ -163,6 +172,7 @@ export default function DemoDashboard() {
                 <p><strong>Amount:</strong> Rs. 50,000.00</p>
                 <p className="pt-2"><strong>Welcome SMS:</strong> "Welcome to [GymName], [MemberName]! Your Annual membership is now active. Amount paid: Rs.50000.00. Thank you for joining us!"</p>
                 <p className="pt-1"><strong>Due Reminder SMS:</strong> "Dear [MemberName], your Annual membership at [GymName] is due on [Date]. Amount: Rs.50000.00. Thank you."</p>
+                <p className="pt-1"><strong>Receipt SMS:</strong> "Dear [MemberName], payment of Rs.50000.00 received. Next due date: [Date]. Thank you - [GymName]"</p>
               </div>
             </div>
           </CardContent>

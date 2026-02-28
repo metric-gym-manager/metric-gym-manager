@@ -270,9 +270,9 @@ function SupportMessage() {
   return (
     <div className="border-t pt-4 mt-4">
       <div className="text-center space-y-1">
-        <p className="text-xs text-gray-600">For any assistance, call 0704379967</p>
-        <p className="text-xs text-gray-600">සහය අවශ්‍යනම්, 0704379967 අමතන්න</p>
-        <p className="text-xs text-gray-600">ஏதேனும் உதவிக்கு, 0704379967 என்ற எண்ணை அழைக்கவும்.</p>
+        <p className="text-sm text-gray-700">For any assistance, call 0704379967</p>
+        <p className="text-sm text-gray-700">සහය අවශ්‍යනම්, 0704379967 අමතන්න</p>
+        <p className="text-sm text-gray-700">ஏதேனும் உதவிக்கு, 0704379967 என்ற எண்ணை அழைக்கவும்.</p>
       </div>
     </div>
   );
