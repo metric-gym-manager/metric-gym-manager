@@ -18,6 +18,7 @@ export interface GymProfile {
   gym_name: string;
   gym_address: string | null;
   gym_website: string | null;
+  profile_image_url: string | null;
   created_at: string;
   updated_at: string;
 }

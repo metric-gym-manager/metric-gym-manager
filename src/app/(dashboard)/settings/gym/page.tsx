@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { updateGymInfoSchema, type UpdateGymInfoInput } from '@/features/settings/schemas/settings.schemas';
 import { Plus } from 'lucide-react';
+import ProfileImageUpload from '@/components/settings/ProfileImageUpload';
 
 export default function GymInformationPage() {
   const router = useRouter();
@@ -98,6 +99,21 @@ export default function GymInformationPage() {
             <Plus className="h-4 w-4" />
             Register New Gym
           </Button>
+        </div>
+
+        {/* Profile Image Upload */}
+        <div className="rounded-lg border bg-white p-6">
+          {gymProfile ? (
+            <ProfileImageUpload
+              currentImageUrl={gymProfile.profile_image_url}
+              gymName={gymProfile.gym_name}
+            />
+          ) : (
+            <div className="space-y-4">
+              <div className="h-6 w-32 bg-gray-200 animate-pulse rounded" />
+              <div className="h-24 w-24 rounded-full bg-gray-200 animate-pulse" />
+            </div>
+          )}
         </div>
 
         {/* Form */}

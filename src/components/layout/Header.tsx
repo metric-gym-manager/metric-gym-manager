@@ -66,11 +66,33 @@ export default function Header() {
     );
   }
 
+  const getInitials = () => {
+    return gymProfile.gym_name
+      .split(' ')
+      .map((word) => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <header className="hidden lg:block sticky top-0 z-40 bg-white border-b border-gray-200">
         <div className="flex h-16 items-center justify-between px-4 lg:px-8">
-          {/* Gym name */}
-          <div className="flex items-center">
+          {/* Gym name with profile picture */}
+          <div className="flex items-center gap-3">
+            {/* Profile Picture */}
+            <div className="h-10 w-10 rounded-full border-2 border-gray-200 overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shrink-0">
+              {gymProfile.profile_image_url ? (
+                <img
+                  src={gymProfile.profile_image_url}
+                  alt={gymProfile.gym_name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <span className="text-white text-sm font-bold">{getInitials()}</span>
+              )}
+            </div>
+
             <h2 className="text-lg font-semibold text-gray-900">
               {gymProfile.gym_name}
             </h2>
