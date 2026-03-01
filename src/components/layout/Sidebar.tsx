@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { Users, DollarSign, CreditCard, Megaphone, Settings, LogOut, Loader2 } from 'lucide-react';
+import { Users, DollarSign, CreditCard, Megaphone, Settings, LogOut, Loader2, Headset } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { GymProfile } from '@/features/auth/types';
 
@@ -35,6 +35,11 @@ const navigation = [
     name: 'Settings',
     href: '/settings',
     icon: Settings,
+  },
+  {
+    name: 'Support',
+    href: '/support',
+    icon: Headset,
   },
 ];
 
@@ -182,12 +187,14 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* Mobile bottom navigation */}
+        {/* Mobile bottom navigation - Horizontally swipable */}
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">
-          <nav className="flex justify-around">
+          <nav className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory">
             {navigation.map((item) => {
               const isActive = pathname.startsWith(item.href);
               const Icon = item.icon;
+              // Determine if label is long
+              const isLongLabel = item.name.length > 8;
               return (
                 <Link
                   key={item.name}
@@ -196,11 +203,18 @@ export default function Sidebar() {
                     isActive
                       ? 'text-blue-600'
                       : 'text-gray-600',
-                    'flex flex-col items-center py-2 px-3 text-xs'
+                    'flex flex-col items-center py-2 px-3 min-w-[80px] snap-start shrink-0'
                   )}
                 >
                   <Icon className="h-6 w-6 text-blue-600 mb-1" strokeWidth={2} />
-                  <span className="font-medium">{item.name}</span>
+                  <span
+                    className={cn(
+                      'font-medium text-center leading-tight',
+                      isLongLabel ? 'text-[10px]' : 'text-xs'
+                    )}
+                  >
+                    {item.name}
+                  </span>
                 </Link>
               );
             })}

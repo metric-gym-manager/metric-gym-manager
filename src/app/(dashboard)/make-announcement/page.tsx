@@ -82,9 +82,6 @@ export default function MakeAnnouncementPage() {
           <Megaphone className="h-6 w-6 text-blue-600" />
           <div>
             <h2 className="text-lg font-semibold">Make Announcement</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Send bulk SMS announcements to all active and expired members
-            </p>
           </div>
         </div>
 
