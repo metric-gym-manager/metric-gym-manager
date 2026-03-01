@@ -77,16 +77,13 @@ export async function getMembersList(
     throw new Error(`Failed to fetch members: ${error.message}`);
   }
 
-  // Get overdue members (>7 days past due)
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
+  // Get overdue members (expired status members)
+  // Since we auto-expire members when due date passes, all overdue members have 'expired' status
   const { data: overdueData, error: overdueError } = await supabase
     .from('members')
     .select('*')
     .eq('gym_id', gymId)
-    .eq('status', 'active')
-    .lt('next_due_date', sevenDaysAgo.toISOString().split('T')[0])
+    .eq('status', 'expired')
     .order('next_due_date', { ascending: true });
 
   if (overdueError) {

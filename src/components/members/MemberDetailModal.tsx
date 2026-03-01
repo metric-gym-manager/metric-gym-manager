@@ -72,6 +72,7 @@ export default function MemberDetailModal({
   const [showPaymentHistory, setShowPaymentHistory] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
+  const [isMarkingRegularPaid, setIsMarkingRegularPaid] = useState(false);
 
   // Sync selectedStatus when member changes
   useEffect(() => {
@@ -153,6 +154,51 @@ export default function MemberDetailModal({
     onError: (error) => {
       setPendingPaymentId(null);
       toast.error(error instanceof Error ? error.message : 'Failed to mark as paid');
+    },
+  });
+
+  // Mark regular payment as paid
+  const markRegularPaidMutation = useMutation({
+    mutationFn: async () => {
+      if (!member) throw new Error('No member selected');
+
+      // Calculate effective amount after discount
+      let effectiveAmount = member.plan_amount;
+      if (member.discount && member.recurring_discount) {
+        const discountAmount = (member.plan_amount * member.discount.discount_percentage) / 100;
+        effectiveAmount = member.plan_amount - discountAmount;
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const res = await fetch(`/api/members/${member.id}/payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planAmount: member.plan_amount,
+          paymentAmount: effectiveAmount,
+          paymentDate: today,
+          discountId: member.discount?.id ?? undefined,
+          deductOverduePeriod: true,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to collect payment');
+      }
+      return res.json();
+    },
+    onMutate: () => {
+      setIsMarkingRegularPaid(true);
+    },
+    onSuccess: () => {
+      setIsMarkingRegularPaid(false);
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['regular-payments'] });
+      toast.success('Payment collected — receipt SMS sent');
+    },
+    onError: (error) => {
+      setIsMarkingRegularPaid(false);
+      toast.error(error instanceof Error ? error.message : 'Failed to collect payment');
     },
   });
 
@@ -577,6 +623,15 @@ export default function MemberDetailModal({
             <Button variant="outline" onClick={onClose}>
               Close
             </Button>
+            {!installments.some(inst => inst.status === 'active') && (
+              <Button
+                onClick={() => markRegularPaidMutation.mutate()}
+                disabled={isMarkingRegularPaid}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {isMarkingRegularPaid ? 'Processing...' : `Mark Paid (${member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1)})`}
+              </Button>
+            )}
             <Button onClick={onEditClick}>
               Edit Member
             </Button>

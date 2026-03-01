@@ -46,7 +46,7 @@ interface RegularPaymentsResponse {
 export default function RegularPaymentTable() {
   const { openMember } = useMemberModal();
   const queryClient = useQueryClient();
-  const [filter, setFilter] = useState('overdue');
+  const [filter, setFilter] = useState('all');
   const [sortBy, setSortBy] = useState('due_date_asc');
   const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
 

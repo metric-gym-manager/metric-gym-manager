@@ -35,6 +35,8 @@ async function sendReminderSMS(
   if (!messageBody) {
     if (smsType === 'overdue') {
       messageBody = `Dear ${member.name}, your ${planType} membership at ${gymName} was due on ${dueDate}. Amount: ${amount}. Please make payment. Thank you.`;
+    } else if (smsType === 'due_today') {
+      messageBody = `Dear ${member.name}, your ${planType} membership at ${gymName} expires today. Amount: ${amount}. Please make payment. Thank you.`;
     } else {
       messageBody = `Dear ${member.name}, your ${planType} membership at ${gymName} is due on ${dueDate}. Amount: ${amount}. Thank you.`;
     }
@@ -427,12 +429,13 @@ export async function updateExpiredMemberStatus(): Promise<{
   try {
     console.log('🔄 Checking for expired members...');
 
-    // Calculate the date 7 days ago
-    const sevenDaysAgo = new Date();
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const cutoffDate = sevenDaysAgo.toISOString().split('T')[0];
+    // Get today's date (00:00:00)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayDate = today.toISOString().split('T')[0];
 
-    // Update all active members whose next_due_date is more than 7 days in the past
+    // Update all active members whose next_due_date has passed (is less than today)
+    // This means if payment is not made on or before the due date, status changes to expired
     const { data: updatedMembers, error } = await supabase
       .from('members')
       .update({
@@ -440,8 +443,8 @@ export async function updateExpiredMemberStatus(): Promise<{
         updated_at: new Date().toISOString(),
       })
       .eq('status', 'active')
-      .lt('next_due_date', cutoffDate)
-      .select('id, name');
+      .lt('next_due_date', todayDate)
+      .select('id, name, next_due_date');
 
     if (error) {
       results.errors.push(`Failed to update expired members: ${error.message}`);
@@ -454,13 +457,74 @@ export async function updateExpiredMemberStatus(): Promise<{
     if (results.totalUpdated > 0) {
       console.log(`✅ Updated ${results.totalUpdated} member(s) to expired status`);
       updatedMembers?.forEach((member) => {
-        console.log(`  - ${member.name}`);
+        console.log(`  - ${member.name} (was due: ${member.next_due_date})`);
       });
     } else {
       console.log('✓ No members need status update');
     }
   } catch (error) {
     const errorMsg = `Fatal error in updateExpiredMemberStatus: ${error instanceof Error ? error.message : 'Unknown error'}`;
+    results.errors.push(errorMsg);
+    console.error(errorMsg);
+  }
+
+  return results;
+}
+
+// ============================================================
+// CANCEL MEMBERS OVERDUE BY 45+ DAYS
+// ============================================================
+
+export async function cancelOverdueMembers(): Promise<{
+  totalCancelled: number;
+  errors: string[];
+}> {
+  const supabase = createAdminClient();
+
+  const results = {
+    totalCancelled: 0,
+    errors: [] as string[],
+  };
+
+  try {
+    console.log('🔄 Checking for members overdue by 45+ days...');
+
+    // Calculate the date 45 days ago
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const fortyFiveDaysAgo = new Date(today);
+    fortyFiveDaysAgo.setDate(fortyFiveDaysAgo.getDate() - 45);
+    const cutoffDate = fortyFiveDaysAgo.toISOString().split('T')[0];
+
+    // Update expired members whose next_due_date is more than 45 days in the past
+    const { data: cancelledMembers, error } = await supabase
+      .from('members')
+      .update({
+        status: 'cancelled',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('status', 'expired')
+      .lt('next_due_date', cutoffDate)
+      .select('id, name, next_due_date');
+
+    if (error) {
+      results.errors.push(`Failed to cancel overdue members: ${error.message}`);
+      console.error(`✗ ${results.errors[0]}`);
+      return results;
+    }
+
+    results.totalCancelled = cancelledMembers?.length || 0;
+
+    if (results.totalCancelled > 0) {
+      console.log(`✅ Cancelled ${results.totalCancelled} member(s) overdue by 45+ days`);
+      cancelledMembers?.forEach((member) => {
+        console.log(`  - ${member.name} (was due: ${member.next_due_date})`);
+      });
+    } else {
+      console.log('✓ No members need cancellation');
+    }
+  } catch (error) {
+    const errorMsg = `Fatal error in cancelOverdueMembers: ${error instanceof Error ? error.message : 'Unknown error'}`;
     results.errors.push(errorMsg);
     console.error(errorMsg);
   }

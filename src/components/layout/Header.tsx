@@ -21,8 +21,9 @@ export default function Header() {
       const result = await response.json();
       return result.data;
     },
-    staleTime: 5 * 60 * 1000, // Gym profile rarely changes mid-session
-    refetchOnWindowFocus: false, // Match global default — no unnecessary refetches
+    staleTime: 30000, // 30 seconds - consistent with sidebar
+    refetchOnWindowFocus: true, // Refetch on focus to ensure fresh data after login
+    refetchOnMount: true, // Always fetch on mount to prevent stale data after login
   });
 
   const handleLogout = async () => {
