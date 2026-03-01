@@ -147,13 +147,29 @@ export default function Sidebar() {
         <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
           <div className="flex items-center justify-between px-4 h-14">
             <div className="flex items-center gap-2 min-w-0 flex-1">
-              <Image
-                src="/logo.svg"
-                alt="Logo"
-                width={24}
-                height={24}
-                className="w-6 h-6 shrink-0"
-              />
+              {/* Profile Picture Circle */}
+              <div className="h-9 w-9 rounded-full border-2 border-gray-200 overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shrink-0">
+                {gymProfile ? (
+                  gymProfile.profile_image_url ? (
+                    <img
+                      src={gymProfile.profile_image_url}
+                      alt={gymProfile.gym_name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white text-xs font-bold">
+                      {gymProfile.gym_name
+                        .split(' ')
+                        .map((word) => word[0])
+                        .join('')
+                        .toUpperCase()
+                        .slice(0, 2)}
+                    </span>
+                  )
+                ) : (
+                  <div className="h-full w-full bg-gray-200 animate-pulse" />
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 {gymProfile ? (
                   <>
