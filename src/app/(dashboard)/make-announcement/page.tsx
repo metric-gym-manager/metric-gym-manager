@@ -76,12 +76,12 @@ export default function MakeAnnouncementPage() {
 
   return (
     <div className="max-w-4xl">
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         {/* Header */}
-        <div className="flex items-center gap-3">
-          <Megaphone className="h-6 w-6 text-blue-600" />
+        <div className="flex items-center gap-2 md:gap-3">
+          <Megaphone className="h-5 w-5 md:h-6 md:w-6 text-blue-600 shrink-0" />
           <div>
-            <h2 className="text-lg font-semibold">Make Announcement</h2>
+            <h2 className="text-base md:text-lg font-semibold">Make Announcement</h2>
           </div>
         </div>
 
@@ -99,17 +99,18 @@ export default function MakeAnnouncementPage() {
         )}
 
         {/* Message Composer */}
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
           <div className="space-y-4">
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <Label htmlFor="message">Announcement Message</Label>
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <Label htmlFor="message" className="text-sm md:text-base">Announcement Message</Label>
                 <span
-                  className={`text-sm ${
+                  className={`text-xs md:text-sm shrink-0 ${
                     isOverLimit ? 'text-red-600 font-medium' : 'text-gray-500'
                   }`}
                 >
-                  {remainingChars} characters remaining
+                  <span className="hidden sm:inline">{remainingChars} characters remaining</span>
+                  <span className="sm:hidden">{remainingChars} left</span>
                 </span>
               </div>
               <Textarea
@@ -117,32 +118,31 @@ export default function MakeAnnouncementPage() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Type your announcement message here..."
-                className={`min-h-[120px] resize-none ${
+                className={`min-h-[100px] md:min-h-[120px] resize-none text-sm md:text-base ${
                   isOverLimit ? 'border-red-500 focus-visible:ring-red-500' : ''
                 }`}
                 maxLength={MAX_MESSAGE_LENGTH}
               />
-              <p className="text-xs text-gray-500 mt-2">
-                Your message will be sent to all active and expired members in your gym.
-              </p>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
               <Button
                 onClick={handleSendClick}
                 disabled={
                   message.trim().length === 0 || isOverLimit || sendMutation.isPending
                 }
-                className="gap-2"
+                className="gap-2 w-full sm:w-auto"
               >
                 <Send className="h-4 w-4" />
-                {sendMutation.isPending ? 'Sending...' : 'Send Announcement'}
+                <span className="hidden sm:inline">{sendMutation.isPending ? 'Sending...' : 'Send Announcement'}</span>
+                <span className="sm:hidden">{sendMutation.isPending ? 'Sending...' : 'Send'}</span>
               </Button>
               {message.trim().length > 0 && (
                 <Button
                   variant="outline"
                   onClick={() => setMessage('')}
                   disabled={sendMutation.isPending}
+                  className="w-full sm:w-auto"
                 >
                   Clear
                 </Button>
@@ -161,42 +161,47 @@ export default function MakeAnnouncementPage() {
 
         {/* Past Announcements */}
         <div>
-          <h3 className="text-base font-semibold mb-4">Past Announcements</h3>
-          <div className="space-y-3">
+          <h3 className="text-sm md:text-base font-semibold mb-3 md:mb-4">Past Announcements</h3>
+          <div className="space-y-2 md:space-y-3">
             {isLoading ? (
-              <Card className="p-6">
+              <Card className="p-4 md:p-6">
                 <p className="text-sm text-gray-500 text-center">
                   Loading past announcements...
                 </p>
               </Card>
             ) : announcements && announcements.length > 0 ? (
               announcements.map((announcement) => (
-                <Card key={announcement.id} className="p-4">
+                <Card key={announcement.id} className="p-3 md:p-4">
                   <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-4">
-                      <p className="text-sm text-gray-900 flex-1">
+                    <div className="flex items-start gap-2 md:gap-4">
+                      <p className="text-sm text-gray-900 flex-1 leading-snug">
                         {announcement.message}
                       </p>
-                      <div className="text-xs text-gray-500 whitespace-nowrap flex items-center gap-1">
-                        <Clock className="h-3 w-3" />
-                        {new Date(announcement.sent_at).toLocaleDateString('en-GB', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
+                      <div className="text-[10px] md:text-xs text-gray-500 shrink-0 flex flex-col md:flex-row md:items-center gap-0.5 md:gap-1">
+                        <Clock className="h-3 w-3 hidden md:block" />
+                        <span className="whitespace-nowrap">
+                          {new Date(announcement.sent_at).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: 'short',
+                          })}
+                        </span>
+                        <span className="whitespace-nowrap">
+                          {new Date(announcement.sent_at).toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
                       </div>
                     </div>
                     <p className="text-xs text-gray-500">
-                      Sent to {announcement.recipient_count} member
-                      {announcement.recipient_count !== 1 ? 's' : ''}
+                      <span className="hidden sm:inline">Sent to {announcement.recipient_count} member{announcement.recipient_count !== 1 ? 's' : ''}</span>
+                      <span className="sm:hidden">{announcement.recipient_count} recipient{announcement.recipient_count !== 1 ? 's' : ''}</span>
                     </p>
                   </div>
                 </Card>
               ))
             ) : (
-              <Card className="p-6">
+              <Card className="p-4 md:p-6">
                 <p className="text-sm text-gray-500 text-center">
                   No announcements sent yet
                 </p>
@@ -208,34 +213,45 @@ export default function MakeAnnouncementPage() {
 
       {/* Confirmation Dialog */}
       <Dialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Confirm Send Announcement</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to send this announcement to all active and expired
-              members? Messages will be sent in the background.
+            <DialogTitle className="text-base md:text-lg">Confirm Send Announcement</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
+              <span className="hidden sm:inline">
+                Are you sure you want to send this announcement to all active and expired
+                members? Messages will be sent in the background.
+              </span>
+              <span className="sm:hidden">
+                Send to all active & expired members?
+              </span>
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <div className="rounded-md bg-gray-50 p-4">
-              <p className="text-sm text-gray-900 whitespace-pre-wrap">{message}</p>
+          <div className="py-3 md:py-4">
+            <div className="rounded-md bg-gray-50 p-3 md:p-4">
+              <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">{message}</p>
             </div>
             <p className="text-xs text-gray-500 mt-3">
-              This will queue SMS messages to all active and expired members in your gym. Messages will be sent in parallel batches for optimal delivery speed.
+              <span className="hidden sm:inline">
+                This will queue SMS messages to all active and expired members in your gym. Messages will be sent in parallel batches for optimal delivery speed.
+              </span>
+              <span className="sm:hidden">
+                SMS will be sent in parallel batches.
+              </span>
             </p>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-0">
             <Button
               variant="outline"
               onClick={() => setShowConfirmDialog(false)}
               disabled={sendMutation.isPending}
+              className="w-full sm:w-auto"
             >
               Cancel
             </Button>
             <Button
               onClick={handleConfirmSend}
               disabled={sendMutation.isPending}
-              className="gap-2"
+              className="gap-2 w-full sm:w-auto"
             >
               <Send className="h-4 w-4" />
               {sendMutation.isPending ? 'Queuing...' : 'Send Now'}
