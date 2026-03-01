@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Toaster } from 'sonner'
+import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -15,7 +16,14 @@ export const metadata: Metadata = {
   title: 'Metric Gym Manager',
   description: 'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
   metadataBase: new URL('https://metricgymmanager.com'),
-  icons: [{ rel: 'icon', url: '/favicon.svg' }],
+  manifest: '/manifest.json',
+  icons: [
+    { rel: 'icon', url: '/favicon.svg' },
+    { rel: 'apple-touch-icon', url: '/icon-192.png' },
+  ],
+  other: {
+    'theme-color': '#000000',
+  },
   openGraph: {
     title: 'Metric Gym Manager',
     description: 'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
@@ -52,6 +60,7 @@ export default function RootLayout({
           {children}
           <Toaster position="top-right" richColors />
         </QueryProvider>
+        <ServiceWorkerRegistration />
         {process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' && (
           <Script
             src="https://t.contentsquare.net/uxa/2337d6ffa89d1.js"

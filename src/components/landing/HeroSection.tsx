@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { InstallButton } from '@/components/pwa/InstallButton';
 
 export function HeroSection() {
 
@@ -40,6 +41,7 @@ export function HeroSection() {
 
           {/* CTAs - Desktop only */}
           <div className="hidden md:flex gap-4">
+            <InstallButton />
             <Link href="/register">
               <Button size="lg" className="bg-brand-accent hover:bg-brand-accent/90 text-white px-8">
                 Get Started Free
@@ -66,6 +68,9 @@ export function HeroSection() {
         {/* CTA Buttons - Mobile prominent, Desktop secondary */}
         <div className="flex flex-col gap-4 justify-center mb-12 md:mb-20 max-w-md mx-auto md:max-w-none md:flex-row">
           {/* Mobile: Primary CTAs */}
+          <div className="md:hidden w-full">
+            <InstallButton />
+          </div>
           <Link href="/register" className="md:hidden w-full">
             <Button size="lg" className="w-full bg-brand-accent hover:bg-brand-accent/90 text-white py-6 text-lg font-semibold">
               Get Started Free
