@@ -11,7 +11,7 @@ export interface GymSettings {
 export interface PlanType {
   id: string;
   gym_id: string;
-  plan_type: 'monthly' | 'daily' | 'annual';
+  plan_type: 'daily' | 'weekly' | 'monthly' | '3-months' | '6-months' | 'annual';
   default_amount: number;
   is_active: boolean;
   created_at: string;

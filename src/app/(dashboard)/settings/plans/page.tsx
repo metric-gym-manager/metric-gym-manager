@@ -6,13 +6,36 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Plus, Trash2 } from 'lucide-react';
 import type { PlanType } from '@/features/settings/types';
-import type { UpdatePlanTypeInput } from '@/features/settings/schemas/settings.schemas';
+import type { UpdatePlanTypeInput, PlanTypeEnum } from '@/features/settings/schemas/settings.schemas';
+
+// All available plan types
+const ALL_PLAN_TYPES: { value: PlanTypeEnum; label: string }[] = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: '3-months', label: '3 Months' },
+  { value: '6-months', label: '6 Months' },
+  { value: 'annual', label: 'Annual' },
+];
 
 export default function PlanTypesPage() {
   const queryClient = useQueryClient();
   const [editingPlan, setEditingPlan] = useState<string | null>(null);
   const [planValues, setPlanValues] = useState<Record<string, { amount: number; isActive: boolean }>>({});
+
+  // Add new plan state
+  const [isAddingPlan, setIsAddingPlan] = useState(false);
+  const [newPlanType, setNewPlanType] = useState<PlanTypeEnum | ''>('');
+  const [newPlanAmount, setNewPlanAmount] = useState<number>(0);
 
   // Fetch plan types
   const { data: planTypes, isLoading } = useQuery<PlanType[]>({
@@ -22,6 +45,30 @@ export default function PlanTypesPage() {
       if (!response.ok) throw new Error('Failed to fetch plan types');
       const result = await response.json();
       return result.data;
+    },
+  });
+
+  // Create plan type mutation
+  const createMutation = useMutation({
+    mutationFn: async (data: { plan_type: PlanTypeEnum; default_amount: number; is_active: boolean }) => {
+      const response = await fetch('/api/settings/plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create plan type');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan-types'] });
+      setIsAddingPlan(false);
+      setNewPlanType('');
+      setNewPlanAmount(0);
     },
   });
 
@@ -48,6 +95,27 @@ export default function PlanTypesPage() {
     },
   });
 
+  // Delete plan type mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (planType: PlanTypeEnum) => {
+      const response = await fetch('/api/settings/plans', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan_type: planType }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete plan type');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['plan-types'] });
+    },
+  });
+
   const handleEdit = (plan: PlanType) => {
     setEditingPlan(plan.plan_type);
     setPlanValues({
@@ -64,7 +132,7 @@ export default function PlanTypesPage() {
     if (!values) return;
 
     updateMutation.mutate({
-      plan_type: planType as 'monthly' | 'daily' | 'annual',
+      plan_type: planType as PlanTypeEnum,
       default_amount: values.amount,
       is_active: values.isActive,
     });
@@ -75,44 +143,141 @@ export default function PlanTypesPage() {
     setPlanValues({});
   };
 
+  const handleCancelAdd = () => {
+    setIsAddingPlan(false);
+    setNewPlanType('');
+    setNewPlanAmount(0);
+  };
+
+  const handleAddPlan = () => {
+    if (!newPlanType || newPlanAmount <= 0) return;
+
+    createMutation.mutate({
+      plan_type: newPlanType,
+      default_amount: newPlanAmount,
+      is_active: true,
+    });
+  };
+
+  const handleDelete = (planType: PlanTypeEnum) => {
+    if (confirm(`Are you sure you want to delete the ${getPlanLabel(planType)} plan type? This cannot be undone.`)) {
+      deleteMutation.mutate(planType);
+    }
+  };
+
   const toggleActive = (planType: string, currentActive: boolean, currentAmount: number) => {
     updateMutation.mutate({
-      plan_type: planType as 'monthly' | 'daily' | 'annual',
+      plan_type: planType as PlanTypeEnum,
       default_amount: currentAmount,
       is_active: !currentActive,
     });
   };
 
   const getPlanLabel = (planType: string) => {
-    return planType.charAt(0).toUpperCase() + planType.slice(1);
+    const plan = ALL_PLAN_TYPES.find(p => p.value === planType);
+    return plan?.label || planType.charAt(0).toUpperCase() + planType.slice(1);
   };
 
-  // Default plan types
-  const defaultPlans: PlanType[] = [
-    { id: '', gym_id: '', plan_type: 'monthly', default_amount: 5000, is_active: true, created_at: '', updated_at: '' },
-    { id: '', gym_id: '', plan_type: 'daily', default_amount: 200, is_active: true, created_at: '', updated_at: '' },
-    { id: '', gym_id: '', plan_type: 'annual', default_amount: 50000, is_active: true, created_at: '', updated_at: '' },
-  ];
-
-  const displayPlans = planTypes && planTypes.length > 0 ? planTypes : defaultPlans;
+  // Get available plan types (not yet created)
+  const existingPlanTypes = planTypes?.map(p => p.plan_type) || [];
+  const availablePlanTypes = ALL_PLAN_TYPES.filter(
+    p => !existingPlanTypes.includes(p.value)
+  );
 
   return (
     <div className="max-w-3xl">
       <div className="space-y-6">
-        {/* Description */}
-        <div>
-          <h2 className="text-lg font-semibold">Plan Types</h2>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Plan Types</h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Manage membership plan types and their default pricing
+            </p>
+          </div>
+          {!isAddingPlan && availablePlanTypes.length > 0 && (
+            <Button onClick={() => setIsAddingPlan(true)} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Plan Type
+            </Button>
+          )}
         </div>
 
-        {/* Plan Types Table */}
+        {/* Add New Plan Form */}
+        {isAddingPlan && (
+          <div className="rounded-lg border bg-blue-50 border-blue-200 p-6">
+            <h3 className="text-base font-semibold mb-4">Add New Plan Type</h3>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="new-plan-type">Plan Type</Label>
+                <Select
+                  value={newPlanType}
+                  onValueChange={(value) => setNewPlanType(value as PlanTypeEnum)}
+                >
+                  <SelectTrigger id="new-plan-type">
+                    <SelectValue placeholder="Select plan type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availablePlanTypes.map((plan) => (
+                      <SelectItem key={plan.value} value={plan.value}>
+                        {plan.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <Label htmlFor="new-plan-amount">Default Amount (LKR)</Label>
+                <Input
+                  id="new-plan-amount"
+                  type="number"
+                  value={newPlanAmount || ''}
+                  onChange={(e) => setNewPlanAmount(parseFloat(e.target.value) || 0)}
+                  min="0"
+                  step="0.01"
+                  placeholder="Enter default amount"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button
+                  onClick={handleAddPlan}
+                  disabled={!newPlanType || newPlanAmount <= 0 || createMutation.isPending}
+                  size="sm"
+                >
+                  {createMutation.isPending ? 'Adding...' : 'Add Plan Type'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleCancelAdd}
+                  disabled={createMutation.isPending}
+                  size="sm"
+                >
+                  Cancel
+                </Button>
+              </div>
+
+              {createMutation.isError && (
+                <p className="text-sm text-red-600">
+                  {createMutation.error instanceof Error
+                    ? createMutation.error.message
+                    : 'Failed to create plan type'}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Plan Types List */}
         <div className="rounded-lg border bg-white">
           {isLoading ? (
             <div className="flex h-48 items-center justify-center">
               <p className="text-sm text-gray-500">Loading plan types...</p>
             </div>
-          ) : (
+          ) : planTypes && planTypes.length > 0 ? (
             <div className="divide-y">
-              {displayPlans.map((plan) => {
+              {planTypes.map((plan) => {
                 const isEditing = editingPlan === plan.plan_type;
                 const currentValues = planValues[plan.plan_type] || {
                   amount: plan.default_amount,
@@ -224,6 +389,15 @@ export default function PlanTypesPage() {
                           >
                             {plan.is_active ? 'Deactivate' : 'Activate'}
                           </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDelete(plan.plan_type as PlanTypeEnum)}
+                            disabled={deleteMutation.isPending}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -231,16 +405,38 @@ export default function PlanTypesPage() {
                 );
               })}
             </div>
+          ) : (
+            <div className="flex h-48 items-center justify-center">
+              <div className="text-center">
+                <p className="text-sm text-gray-500 mb-4">No plan types configured yet</p>
+                {availablePlanTypes.length > 0 && (
+                  <Button onClick={() => setIsAddingPlan(true)} size="sm">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Your First Plan Type
+                  </Button>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Error Message */}
+        {/* Error Messages */}
         {updateMutation.isError && (
           <div className="rounded-md bg-red-50 p-4">
             <p className="text-sm text-red-800">
               {updateMutation.error instanceof Error
                 ? updateMutation.error.message
                 : 'Failed to update plan type'}
+            </p>
+          </div>
+        )}
+
+        {deleteMutation.isError && (
+          <div className="rounded-md bg-red-50 p-4">
+            <p className="text-sm text-red-800">
+              {deleteMutation.error instanceof Error
+                ? deleteMutation.error.message
+                : 'Failed to delete plan type'}
             </p>
           </div>
         )}

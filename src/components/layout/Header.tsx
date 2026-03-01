@@ -1,13 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, Loader2 } from 'lucide-react';
 import type { GymProfile } from '@/features/auth/types';
 
 export default function Header() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Fetch gym profile using React Query for real-time updates
   const { data: gymProfile } = useQuery<GymProfile>({
@@ -23,16 +26,30 @@ export default function Header() {
   });
 
   const handleLogout = async () => {
+    if (isLoggingOut) return; // Prevent duplicate requests
+
+    setIsLoggingOut(true);
+
     try {
-      const response = await fetch('/api/auth/logout', {
+      // Call logout API (ignore response, always clear cache and redirect)
+      await fetch('/api/auth/logout', {
         method: 'POST',
       });
 
-      if (response.ok) {
-        router.push('/login');
-      }
+      // Clear cache regardless of response status to ensure clean state
+      queryClient.clear();
+
+      // Always redirect to login, even if API call failed
+      // This ensures user can't get stuck in a broken state
+      router.replace('/login');
     } catch (error) {
       console.error('Logout error:', error);
+      // Still clear cache and redirect on error
+      queryClient.clear();
+      router.replace('/login');
+    } finally {
+      // Keep loading state until redirect completes
+      // Don't set to false to prevent re-renders during navigation
     }
   };
 
@@ -67,8 +84,18 @@ export default function Header() {
               <p className="text-xs text-gray-500">{gymProfile.email}</p>
             </div>
 
-            <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Logout">
-              <LogOut className="h-5 w-5" />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              aria-label="Logout"
+            >
+              {isLoggingOut ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <LogOut className="h-5 w-5" />
+              )}
             </Button>
           </div>
         </div>

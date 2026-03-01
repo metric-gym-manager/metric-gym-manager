@@ -5,7 +5,7 @@ import { normalizePhoneNumber, isValidSriLankanPhone } from '@/lib/utils/phone';
 // MEMBER ENUMS
 // ============================================================
 
-export const MemberPlanType = z.enum(['monthly', 'daily', 'annual']);
+export const MemberPlanType = z.enum(['daily', 'weekly', 'monthly', '3-months', '6-months', 'annual']);
 export type MemberPlanType = z.infer<typeof MemberPlanType>;
 
 export const MemberStatus = z.enum(['active', 'expired', 'suspended', 'cancelled']);

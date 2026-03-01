@@ -33,8 +33,19 @@ export type UpdateGymInfoInput = z.infer<typeof updateGymInfoSchema>;
 // PLAN TYPE SCHEMA
 // ============================================================
 
-export const PlanTypeEnum = z.enum(['monthly', 'daily', 'annual']);
+export const PlanTypeEnum = z.enum(['daily', 'weekly', 'monthly', '3-months', '6-months', 'annual']);
 export type PlanTypeEnum = z.infer<typeof PlanTypeEnum>;
+
+export const createPlanTypeSchema = z.object({
+  plan_type: PlanTypeEnum,
+  default_amount: z
+    .number()
+    .positive('Amount must be greater than 0')
+    .max(1000000, 'Amount is too large'),
+  is_active: z.boolean().optional().default(true),
+});
+
+export type CreatePlanTypeInput = z.infer<typeof createPlanTypeSchema>;
 
 export const updatePlanTypeSchema = z.object({
   plan_type: PlanTypeEnum,
@@ -46,6 +57,12 @@ export const updatePlanTypeSchema = z.object({
 });
 
 export type UpdatePlanTypeInput = z.infer<typeof updatePlanTypeSchema>;
+
+export const deletePlanTypeSchema = z.object({
+  plan_type: PlanTypeEnum,
+});
+
+export type DeletePlanTypeInput = z.infer<typeof deletePlanTypeSchema>;
 
 // ============================================================
 // DISCOUNT SCHEMA

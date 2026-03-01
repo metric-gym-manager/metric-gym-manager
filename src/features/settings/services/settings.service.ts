@@ -2,10 +2,12 @@ import { createClient } from '@/lib/supabase/server';
 import type { GymSettings, PlanType, Discount } from '../types';
 import type {
   UpdateGymInfoInput,
+  CreatePlanTypeInput,
   UpdatePlanTypeInput,
   CreateDiscountInput,
   UpdateDiscountInput,
 } from '../schemas/settings.schemas';
+import type { PlanTypeEnum } from '../schemas/settings.schemas';
 
 // ============================================================
 // GYM INFORMATION
@@ -56,6 +58,43 @@ export async function getPlanTypes(gymId: string): Promise<PlanType[]> {
   return (planTypes || []) as PlanType[];
 }
 
+export async function createPlanType(
+  gymId: string,
+  input: CreatePlanTypeInput
+): Promise<PlanType> {
+  const supabase = await createClient();
+
+  // Check if plan type already exists for this gym
+  const { data: existing } = await supabase
+    .from('plan_types')
+    .select('id')
+    .eq('gym_id', gymId)
+    .eq('plan_type', input.plan_type)
+    .single();
+
+  if (existing) {
+    throw new Error('Plan type already exists for this gym');
+  }
+
+  // Create new plan type
+  const { data: created, error } = await supabase
+    .from('plan_types')
+    .insert({
+      gym_id: gymId,
+      plan_type: input.plan_type,
+      default_amount: input.default_amount,
+      is_active: input.is_active ?? true,
+    })
+    .select()
+    .single();
+
+  if (error || !created) {
+    throw new Error(`Failed to create plan type: ${error?.message}`);
+  }
+
+  return created as PlanType;
+}
+
 export async function updatePlanType(
   gymId: string,
   input: UpdatePlanTypeInput
@@ -70,42 +109,56 @@ export async function updatePlanType(
     .eq('plan_type', input.plan_type)
     .single();
 
-  if (existing) {
-    // Update existing
-    const { data: updated, error } = await supabase
-      .from('plan_types')
-      .update({
-        default_amount: input.default_amount,
-        is_active: input.is_active,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', existing.id)
-      .select()
-      .single();
+  if (!existing) {
+    throw new Error('Plan type not found');
+  }
 
-    if (error || !updated) {
-      throw new Error(`Failed to update plan type: ${error?.message}`);
-    }
+  // Update existing
+  const { data: updated, error } = await supabase
+    .from('plan_types')
+    .update({
+      default_amount: input.default_amount,
+      is_active: input.is_active,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', existing.id)
+    .select()
+    .single();
 
-    return updated as PlanType;
-  } else {
-    // Create new
-    const { data: created, error } = await supabase
-      .from('plan_types')
-      .insert({
-        gym_id: gymId,
-        plan_type: input.plan_type,
-        default_amount: input.default_amount,
-        is_active: input.is_active,
-      })
-      .select()
-      .single();
+  if (error || !updated) {
+    throw new Error(`Failed to update plan type: ${error?.message}`);
+  }
 
-    if (error || !created) {
-      throw new Error(`Failed to create plan type: ${error?.message}`);
-    }
+  return updated as PlanType;
+}
 
-    return created as PlanType;
+export async function deletePlanType(
+  gymId: string,
+  planType: PlanTypeEnum
+): Promise<void> {
+  const supabase = await createClient();
+
+  // Check if plan type is in use by any members
+  const { data: membersWithPlan } = await supabase
+    .from('members')
+    .select('id')
+    .eq('gym_id', gymId)
+    .eq('plan_type', planType)
+    .limit(1);
+
+  if (membersWithPlan && membersWithPlan.length > 0) {
+    throw new Error('Cannot delete plan type: it is currently in use by members');
+  }
+
+  // Delete the plan type
+  const { error } = await supabase
+    .from('plan_types')
+    .delete()
+    .eq('gym_id', gymId)
+    .eq('plan_type', planType);
+
+  if (error) {
+    throw new Error(`Failed to delete plan type: ${error.message}`);
   }
 }
 
