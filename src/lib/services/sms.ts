@@ -1,7 +1,7 @@
 /**
- * SMS Service for sending OTP codes via text.lk
+ * SMS Service for sending messages via text.lk
  *
- * In development mode, OTPs are logged to console instead of sent via SMS.
+ * In development mode, messages are logged to console instead of sent via SMS.
  * Set ENABLE_REAL_SMS=true in .env to enable actual SMS sending.
  */
 
@@ -87,16 +87,6 @@ export async function sendSMS(phoneNumber: string, message: string): Promise<boo
     console.error('SMS send error:', error);
     return false;
   }
-}
-
-/**
- * Format OTP message for SMS
- * @param otpCode - 6-digit OTP code
- * @param appName - Application name (optional)
- * @returns Formatted SMS message
- */
-export function formatOTPMessage(otpCode: string, appName: string = 'Gym Management'): string {
-  return `Your ${appName} verification code is: ${otpCode}. Valid for 10 minutes. Do not share this code.`;
 }
 
 /**

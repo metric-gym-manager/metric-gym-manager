@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { normalizePhoneNumber, isValidSriLankanPhone } from '../utils/phone.utils';
 
 // ============================================================
 // REGISTRATION SCHEMA
@@ -60,41 +59,6 @@ export const loginSchema = z.object({
 });
 
 export type LoginInput = z.infer<typeof loginSchema>;
-
-// Base schema for normalized phone numbers (reusable)
-const normalizedPhoneSchema = z
-  .string()
-  .transform(normalizePhoneNumber)
-  .refine((val) => val !== null, 'Invalid phone number format')
-  .transform((val) => val as string) // Type assertion after refine validates non-null
-  .refine(
-    isValidSriLankanPhone,
-    'Phone number must be a valid Sri Lankan number (e.g., 0771234567 or +94771234567)'
-  );
-
-// Phone OTP - Request OTP (with automatic normalization)
-export const phoneOtpRequestSchema = z.object({
-  phoneNumber: z
-    .string()
-    .min(1, 'Phone number is required')
-    .pipe(normalizedPhoneSchema),
-});
-
-export type PhoneOtpRequestInput = z.infer<typeof phoneOtpRequestSchema>;
-
-// Phone OTP - Verify OTP (with automatic normalization)
-export const phoneOtpVerifySchema = z.object({
-  phoneNumber: z
-    .string()
-    .min(1, 'Phone number is required')
-    .pipe(normalizedPhoneSchema),
-  otpCode: z
-    .string()
-    .length(6, 'OTP must be exactly 6 digits')
-    .regex(/^[0-9]+$/, 'OTP must contain only numbers'),
-});
-
-export type PhoneOtpVerifyInput = z.infer<typeof phoneOtpVerifySchema>;
 
 // ============================================================
 // FORGOT PASSWORD SCHEMA
@@ -178,15 +142,3 @@ export const updatePasswordSchema = z
 
 export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
 
-export const updatePhoneNumberSchema = z.object({
-  phoneNumber: z
-    .string()
-    .min(1, 'Phone number is required')
-    .pipe(normalizedPhoneSchema),
-  otpCode: z
-    .string()
-    .length(6, 'OTP must be exactly 6 digits')
-    .regex(/^[0-9]+$/, 'OTP must contain only numbers'),
-});
-
-export type UpdatePhoneNumberInput = z.infer<typeof updatePhoneNumberSchema>;

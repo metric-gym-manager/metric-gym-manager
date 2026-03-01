@@ -1,10 +1,13 @@
 /**
+ * @jest-environment node
+ */
+
+/**
  * Integration Tests for Members API
  *
  * Tests the complete member registration flow including welcome SMS sending.
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { NextRequest } from 'next/server';
 
 // ============================================================================
@@ -13,7 +16,6 @@ import { NextRequest } from 'next/server';
 
 let mockSupabaseClient: any;
 let mockGymProfile: any;
-let mockSendSMS: jest.Mock;
 
 // Mock @/lib/supabase/server
 jest.mock('@/lib/supabase/server', () => ({
@@ -27,25 +29,30 @@ jest.mock('@/lib/middleware/auth', () => ({
 
 // Mock SMS service
 jest.mock('@/features/sms/services/sms.service', () => ({
-  sendSMS: (mockSendSMS = jest.fn(() =>
+  sendSMS: jest.fn(() =>
     Promise.resolve({
       id: 'sms_log_123',
       member_id: 'member_123',
       sms_type: 'welcome',
       delivery_status: 'sent',
     })
-  )),
+  ),
 }));
 
-// Mock member service (we'll spy on it)
-const mockCreateMember = jest.fn();
+// Mock member service
 jest.mock('@/features/members/services/member.service', () => ({
   getMembersList: jest.fn(),
-  createMember: mockCreateMember,
+  createMember: jest.fn(),
 }));
 
 // Import AFTER mocks are defined
 import { POST } from '../route';
+import { sendSMS } from '@/features/sms/services/sms.service';
+import { createMember } from '@/features/members/services/member.service';
+import { getCurrentGymProfile } from '@/lib/middleware/auth';
+
+const mockSendSMS = sendSMS as jest.Mock;
+const mockCreateMember = createMember as jest.Mock;
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -147,7 +154,7 @@ describe('Members API - POST /api/members', () => {
       planAmount: 5000,
       paymentAmount: 4500, // Discounted amount (10% off)
       membershipStartDate: '2024-02-21',
-      discountId: 'discount_123',
+      discountId: '550e8400-e29b-41d4-a716-446655440000',
       recurringDiscount: true,
     };
 
@@ -292,7 +299,6 @@ describe('Members API - POST /api/members', () => {
 
   it('should handle unauthorized access', async () => {
     // Mock unauthorized access
-    const { getCurrentGymProfile } = await import('@/lib/middleware/auth');
     (getCurrentGymProfile as jest.Mock).mockRejectedValue(
       new Error('Unauthorized')
     );

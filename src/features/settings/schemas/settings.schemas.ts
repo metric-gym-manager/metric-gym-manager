@@ -124,23 +124,6 @@ export const updatePasswordSchema = z.object({
 
 export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
 
-export const updatePhoneSchema = z.object({
-  phone_number: z
-    .string()
-    .min(1, 'Phone number is required')
-    .refine(
-      (val) => {
-        // Allow both local format (0771234567) and international format (+94771234567)
-        const phoneRegex = /^(\+?94|0)?[0-9]{9}$/;
-        return phoneRegex.test(val.replace(/\s/g, ''));
-      },
-      'Invalid phone number format. Use format: 0771234567'
-    ),
-  otp_code: z.string().length(6, 'OTP must be 6 digits'),
-});
-
-export type UpdatePhoneInput = z.infer<typeof updatePhoneSchema>;
-
 export const updateEmailSchema = z.object({
   email: z.string().email('Invalid email address'),
 });

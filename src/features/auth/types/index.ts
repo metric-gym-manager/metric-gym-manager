@@ -50,25 +50,6 @@ export interface RegistrationResponse {
   message: string;
 }
 
-export interface OtpResponse {
-  success: boolean;
-  message: string;
-  expiresAt?: string;
-}
-
-// ============================================================
-// OTP TOKEN TYPES
-// ============================================================
-
-export interface OtpToken {
-  id: string;
-  phone_number: string;
-  otp_code: string;
-  expires_at: string;
-  used: boolean;
-  created_at: string;
-}
-
 // ============================================================
 // SESSION DURATION
 // ============================================================

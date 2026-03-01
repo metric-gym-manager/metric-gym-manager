@@ -5,8 +5,6 @@
  * with focus on welcome SMS functionality for new member registration.
  */
 
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-
 // ============================================================================
 // MOCK SETUP - Using Jest Factory Pattern (Properly Hoisted)
 // ============================================================================
@@ -20,20 +18,21 @@ jest.mock('@/lib/supabase/server', () => ({
 }));
 
 // Mock text.lk SMS service
-let mockSendSmsViaTextLk: jest.Mock;
 jest.mock('../textlk.service', () => ({
-  sendSmsViaTextLk: (mockSendSmsViaTextLk = jest.fn(() =>
+  sendSmsViaTextLk: jest.fn(() =>
     Promise.resolve({
       success: true,
       message_id: 'mock_msg_123',
       balance: 100,
     })
-  )),
+  ),
 }));
 
 // Import AFTER mocks are defined
 import { sendSMS, formatReceiptSMS } from '../sms.service';
-import type { SMSType } from '../../types';
+import { sendSmsViaTextLk } from '../textlk.service';
+
+const mockSendSmsViaTextLk = sendSmsViaTextLk as jest.Mock;
 
 // ============================================================================
 // HELPER FUNCTIONS - Build Proper Mock Responses

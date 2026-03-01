@@ -17,7 +17,6 @@ export {
   createDiscountSchema,
   updateDiscountSchema,
   updatePasswordSchema,
-  updatePhoneSchema,
   updateEmailSchema,
   PlanTypeEnum,
 } from './schemas/settings.schemas';
@@ -28,7 +27,6 @@ export type {
   CreateDiscountInput,
   UpdateDiscountInput,
   UpdatePasswordInput,
-  UpdatePhoneInput,
   UpdateEmailInput,
 } from './schemas/settings.schemas';
 
