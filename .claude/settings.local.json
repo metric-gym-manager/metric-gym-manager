@@ -72,7 +72,10 @@
       "Bash(npx jest --passWithNoTests --testPathPattern=\"auth|middleware\")",
       "Bash(npx jest --passWithNoTests)",
       "Bash(node scripts/generate-pwa-assets.js:*)",
-      "Bash(npm run pwa:generate:*)"
+      "Bash(npm run pwa:generate:*)",
+      "Bash(npm run hooks:install:*)",
+      "Bash(node scripts/version-bump.js:*)",
+      "Bash(node scripts/generate-changelog.js:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
