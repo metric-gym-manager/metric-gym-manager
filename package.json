@@ -8,8 +8,9 @@
     "npm": ">=9.0.0"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "pwa:generate": "node scripts/generate-pwa-assets.js",
+    "dev": "npm run pwa:generate && next dev",
+    "build": "npm run pwa:generate && next build",
     "start": "next start",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

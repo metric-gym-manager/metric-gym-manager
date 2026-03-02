@@ -70,7 +70,9 @@
       "Bash(npx jest --no-coverage src/app/api/members/__tests__/route.test.ts)",
       "Bash(npx jest --no-coverage)",
       "Bash(npx jest --passWithNoTests --testPathPattern=\"auth|middleware\")",
-      "Bash(npx jest --passWithNoTests)"
+      "Bash(npx jest --passWithNoTests)",
+      "Bash(node scripts/generate-pwa-assets.js:*)",
+      "Bash(npm run pwa:generate:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -5,6 +5,7 @@ import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Toaster } from 'sonner'
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration'
+import { PWA_VERSION } from '@/lib/pwa-version'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   icons: [
     { rel: 'icon', url: '/favicon.svg' },
-    { rel: 'apple-touch-icon', url: '/icon-192.png' },
+    { rel: 'apple-touch-icon', url: `/icon-192.png?v=${PWA_VERSION}` },
   ],
   other: {
     'theme-color': '#000000',

@@ -34,6 +34,26 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // Service worker: never cache — browsers must always check for updates
+        source: '/service-worker.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, no-cache, must-revalidate',
+          },
+        ],
+      },
+      {
+        // PWA manifest: never cache — must always reflect latest start_url and icons
+        source: '/manifest.json',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, no-cache, must-revalidate',
+          },
+        ],
+      },
+      {
         // Hashed static assets: aggressive long-term cache (immutable)
         source: '/_next/static/:path*',
         headers: [
