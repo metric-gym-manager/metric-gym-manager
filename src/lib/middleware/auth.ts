@@ -5,7 +5,6 @@ import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from '@/lib/auth-config';
 
 // Public routes that don't require authentication
 const publicRoutes = [
-  '/',
   '/login',
   '/register',
   '/verify-email',
