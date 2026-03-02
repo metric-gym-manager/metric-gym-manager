@@ -19,6 +19,7 @@ const publicRoutes = [
 
 // Auth routes that authenticated users shouldn't access
 const authRoutes = [
+  '/',
   '/login',
   '/register',
   '/forgot-password',

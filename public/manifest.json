@@ -1,7 +1,7 @@
 {
   "name": "Metric Gym Manager",
   "short_name": "Metric Gym",
-  "start_url": "/login",
+  "start_url": "/members",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
