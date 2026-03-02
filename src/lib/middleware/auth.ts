@@ -5,6 +5,7 @@ import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from '@/lib/auth-config';
 
 // Public routes that don't require authentication
 const publicRoutes = [
+  '/',
   '/login',
   '/register',
   '/verify-email',
@@ -118,8 +119,8 @@ export async function authMiddleware(request: NextRequest) {
     });
   }
 
-  // Redirect authenticated users away from auth pages and the landing page.
-  if (isAuthenticated && (pathname === '/' || isAuthRoute)) {
+  // Redirect authenticated users away from auth pages.
+  if (isAuthenticated && isAuthRoute) {
     const redirectResponse = NextResponse.redirect(
       new URL('/members', request.url)
     );
