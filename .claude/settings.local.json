@@ -56,7 +56,21 @@
       "Bash(mv:*)",
       "mcp__supabase__get_project_url",
       "mcp__supabase__get_publishable_keys",
-      "mcp__supabase__get_advisors"
+      "mcp__supabase__get_advisors",
+      "Bash(npx jest src/app/api/auth/otp/request/__tests__/route.test.ts src/app/api/members/__tests__/route.test.ts --no-coverage)",
+      "Bash(npx jest src/app/api/auth/otp/request/__tests__/route.test.ts --no-coverage)",
+      "Bash(npx jest --showConfig)",
+      "Bash(npx jest --no-coverage --verbose 2)",
+      "Bash(1 src/features/sms/services/__tests__/sms.service.test.ts)",
+      "Bash(npx jest --no-coverage src/features/sms/services/__tests__/sms.service.test.ts)",
+      "Bash(npx jest --no-coverage src/__tests__/mock_test.test.ts)",
+      "Bash(while read f)",
+      "Bash(do grep -l \"otp\\\\|OTP\" \"$f\")",
+      "Bash(done)",
+      "Bash(npx jest --no-coverage src/app/api/members/__tests__/route.test.ts)",
+      "Bash(npx jest --no-coverage)",
+      "Bash(npx jest --passWithNoTests --testPathPattern=\"auth|middleware\")",
+      "Bash(npx jest --passWithNoTests)"
     ]
   },
   "enableAllProjectMcpServers": true,
