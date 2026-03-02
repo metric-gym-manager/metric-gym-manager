@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { loginSchema } from '@/features/auth/schemas/auth.schemas';
 import { loginWithPassword } from '@/features/auth/services/auth.service';
+import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from '@/lib/auth-config';
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,6 +40,23 @@ export async function POST(request: NextRequest) {
         },
         { status: 403 }
       );
+    }
+
+    // Persist the "remember me" preference as a cookie so the middleware
+    // and server client can set the correct maxAge on auth cookies.
+    const cookieStore = await cookies();
+    if (validatedData.rememberMe) {
+      cookieStore.set(REMEMBER_ME_COOKIE, '1', {
+        path: '/',
+        sameSite: 'lax',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        maxAge: REMEMBER_ME_MAX_AGE,
+      });
+    } else {
+      // Ensure any previous "remember me" cookie is cleared so the
+      // session becomes a session-cookie (expires on browser close).
+      cookieStore.delete(REMEMBER_ME_COOKIE);
     }
 
     return NextResponse.json(

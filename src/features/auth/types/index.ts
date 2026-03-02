@@ -50,11 +50,3 @@ export interface RegistrationResponse {
   message: string;
 }
 
-// ============================================================
-// SESSION DURATION
-// ============================================================
-
-export const SESSION_DURATION = {
-  DEFAULT: 24 * 60 * 60, // 24 hours in seconds
-  REMEMBER_ME: 10 * 365 * 24 * 60 * 60, // 10 years in seconds (effectively indefinite)
-} as const;

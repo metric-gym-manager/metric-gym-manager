@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@/lib/supabase/server';
+import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from '@/lib/auth-config';
 
 // Public routes that don't require authentication
 const publicRoutes = [
@@ -29,14 +30,38 @@ const authRoutes = [
 export async function authMiddleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Create response object to modify cookies
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+  // Read the "remember me" preference set during login.
+  const rememberSession =
+    request.cookies.get(REMEMBER_ME_COOKIE)?.value === '1';
+
+  // Helper: build cookie options that honour the remember-me preference.
+  function cookieOptions(
+    base: Record<string, unknown> = {}
+  ): Record<string, unknown> {
+    const opts: Record<string, unknown> = {
+      ...base,
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    };
+    if (rememberSession) {
+      opts.maxAge = REMEMBER_ME_MAX_AGE;
+    } else {
+      // Session cookie — expires when the browser closes.
+      delete opts.maxAge;
+    }
+    return opts;
+  }
+
+  // IMPORTANT: This variable is reassigned inside setAll() when tokens are
+  // refreshed. Always return this variable — never create a separate response.
+  let supabaseResponse = NextResponse.next({
+    request,
   });
 
-  // Create Supabase client for middleware with cookie handling
+  // Create Supabase client for middleware with cookie handling.
+  // Following the official Supabase pattern: setAll reassigns supabaseResponse
+  // so that refreshed session cookies are preserved on every response path.
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -52,17 +77,32 @@ export async function authMiddleware(request: NextRequest) {
             options: Record<string, unknown>;
           }>
         ) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            request.cookies.set(name, value);
-            response.cookies.set(name, value, options);
+          // Update request cookies so downstream server code sees fresh tokens
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value)
+          );
+
+          // Recreate the response to carry the updated cookies
+          supabaseResponse = NextResponse.next({
+            request,
           });
+
+          // Set each cookie with persistent options that honour "remember me"
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(
+              name,
+              value,
+              cookieOptions(options)
+            )
+          );
         },
       },
     }
   );
 
-  // CRITICAL: Refresh session to update tokens and extend expiry
-  // This ensures sessions persist across deployments
+  // CRITICAL: Refresh session to update tokens and extend expiry.
+  // This ensures sessions persist across deployments.
+  // Do NOT add any logic between creating the client and calling getUser().
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -71,19 +111,33 @@ export async function authMiddleware(request: NextRequest) {
   const isPublicRoute = publicRoutes.some((route) => pathname === route);
   const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
 
-  // Redirect authenticated users away from auth pages
-  if (isAuthenticated && isAuthRoute) {
-    return NextResponse.redirect(new URL('/members', request.url));
+  // Helper: copy refreshed cookies onto a redirect response so they
+  // are not lost when we return a new NextResponse.redirect().
+  function copyAuthCookies(target: NextResponse) {
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      target.cookies.set(cookie.name, cookie.value, cookieOptions());
+    });
   }
 
-  // Redirect unauthenticated users to login for protected routes
+  // Redirect authenticated users away from auth pages.
+  if (isAuthenticated && isAuthRoute) {
+    const redirectResponse = NextResponse.redirect(
+      new URL('/members', request.url)
+    );
+    copyAuthCookies(redirectResponse);
+    return redirectResponse;
+  }
+
+  // Redirect unauthenticated users to login for protected routes.
   if (!isAuthenticated && !isPublicRoute) {
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
-    return NextResponse.redirect(loginUrl);
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    copyAuthCookies(redirectResponse);
+    return redirectResponse;
   }
 
-  return response;
+  return supabaseResponse;
 }
 
 // Helper to get current user in Server Components

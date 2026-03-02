@@ -14,7 +14,6 @@ import type {
   UpdateGymInfoInput,
   UpdatePasswordInput,
 } from '../schemas/auth.schemas';
-import { SESSION_DURATION } from '../types';
 
 // ============================================================
 // REGISTRATION
@@ -180,7 +179,11 @@ export async function loginWithPassword(
   input: LoginInput
 ): Promise<AuthResponse<LoginResponse>> {
   try {
-    const supabase = await createClient();
+    // Pass the rememberMe preference so the server client sets the correct
+    // cookie maxAge (persistent vs session) on the auth tokens.
+    const supabase = await createClient({
+      rememberSession: input.rememberMe,
+    });
 
     // Sign in with Supabase Auth using email
     const { data: authData, error: authError } =
@@ -219,15 +222,6 @@ export async function loginWithPassword(
         error: 'Failed to load gym profile',
       };
     }
-
-    // Update session duration based on "remember me"
-    const sessionDuration = input.rememberMe
-      ? SESSION_DURATION.REMEMBER_ME
-      : SESSION_DURATION.DEFAULT;
-
-    await supabase.auth.updateUser({
-      data: { session_duration: sessionDuration },
-    });
 
     return {
       success: true,
