@@ -19,7 +19,6 @@ const publicRoutes = [
 
 // Auth routes that authenticated users shouldn't access
 const authRoutes = [
-  '/',
   '/login',
   '/register',
   '/forgot-password',
@@ -120,8 +119,8 @@ export async function authMiddleware(request: NextRequest) {
     });
   }
 
-  // Redirect authenticated users away from auth pages.
-  if (isAuthenticated && isAuthRoute) {
+  // Redirect authenticated users away from auth pages and the landing page.
+  if (isAuthenticated && (pathname === '/' || isAuthRoute)) {
     const redirectResponse = NextResponse.redirect(
       new URL('/members', request.url)
     );
