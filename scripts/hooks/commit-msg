@@ -1,0 +1,73 @@
+#!/bin/sh
+
+# commit-msg hook
+# Validates commit messages follow Conventional Commits format
+# This hook is called by "git commit" with one argument:
+# the name of the file that has the commit message
+
+COMMIT_MSG_FILE=$1
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Conventional Commits pattern
+# Format: type(scope): description
+# type: feat, fix, docs, style, refactor, perf, test, chore, ci
+# scope: optional
+# Breaking changes: type! or BREAKING CHANGE: in body
+
+PATTERN="^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?(!)?: .{1,}"
+
+# Check if commit message matches pattern
+if ! echo "$COMMIT_MSG" | head -1 | grep -qE "$PATTERN"; then
+  echo ""
+  echo "❌ Commit message does not follow Conventional Commits format"
+  echo ""
+  echo "Your commit message:"
+  echo "  $COMMIT_MSG"
+  echo ""
+  echo "Expected format:"
+  echo "  <type>[optional scope]: <description>"
+  echo ""
+  echo "Examples:"
+  echo "  feat(members): add CSV export functionality"
+  echo "  fix(payments): resolve rounding error"
+  echo "  docs: update README installation steps"
+  echo "  feat!: redesign authentication flow (breaking)"
+  echo ""
+  echo "Valid types:"
+  echo "  feat     - New feature"
+  echo "  fix      - Bug fix"
+  echo "  docs     - Documentation changes"
+  echo "  style    - Code style changes (formatting)"
+  echo "  refactor - Code refactoring"
+  echo "  perf     - Performance improvements"
+  echo "  test     - Adding or updating tests"
+  echo "  chore    - Maintenance tasks"
+  echo "  ci       - CI/CD changes"
+  echo ""
+  echo "Breaking changes:"
+  echo "  - Add '!' after type: feat!: breaking change"
+  echo "  - Or add 'BREAKING CHANGE:' in commit body"
+  echo ""
+  echo "To bypass this hook (not recommended):"
+  echo "  git commit --no-verify"
+  echo ""
+  exit 1
+fi
+
+# Check description length (should not be too short)
+DESCRIPTION=$(echo "$COMMIT_MSG" | head -1 | sed -E 's/^[a-z]+(\(.+\))?(!)?: //')
+DESC_LENGTH=${#DESCRIPTION}
+
+if [ "$DESC_LENGTH" -lt 10 ]; then
+  echo ""
+  echo "⚠️  Commit description is too short ($DESC_LENGTH characters)"
+  echo ""
+  echo "Please provide a more descriptive commit message (at least 10 characters)"
+  echo ""
+  echo "Your description: $DESCRIPTION"
+  echo ""
+  exit 1
+fi
+
+# All checks passed
+exit 0

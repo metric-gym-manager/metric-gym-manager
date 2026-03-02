@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Version Manager - Gym Management SaaS</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <h1>🏷️ Version Manager</h1>
+      <p>Manage releases and generate changelogs</p>
+    </header>
+
+    <!-- Status Section -->
+    <section class="card">
+      <h2>📊 Current Status</h2>
+      <div id="status-loading" class="loading">Loading...</div>
+      <div id="status-content" style="display: none;">
+        <div class="status-grid">
+          <div class="status-item">
+            <span class="label">Current Version:</span>
+            <span class="value" id="current-version">-</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Last Tag:</span>
+            <span class="value" id="last-tag">-</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Branch:</span>
+            <span class="value" id="branch">-</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Uncommitted Files:</span>
+            <span class="value" id="uncommitted">-</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Commits Since Last Tag:</span>
+            <span class="value" id="commits-count">-</span>
+          </div>
+          <div class="status-item">
+            <span class="label">Suggested Bump:</span>
+            <span class="value badge" id="suggested-bump">-</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Commits Section -->
+    <section class="card">
+      <h2>📝 Commits Since Last Release</h2>
+      <div id="commits-loading" class="loading">Loading...</div>
+      <div id="commits-content" style="display: none;">
+        <div class="commit-stats">
+          <span class="stat breaking">⚠️ Breaking: <strong id="stat-breaking">0</strong></span>
+          <span class="stat features">✨ Features: <strong id="stat-features">0</strong></span>
+          <span class="stat fixes">🐛 Fixes: <strong id="stat-fixes">0</strong></span>
+          <span class="stat other">📦 Other: <strong id="stat-other">0</strong></span>
+        </div>
+        <div id="commits-list" class="commits-list"></div>
+      </div>
+    </section>
+
+    <!-- Release Action Section -->
+    <section class="card">
+      <h2>🚀 Create Release</h2>
+      <div class="release-form">
+        <div class="form-group">
+          <label for="bump-type">Version Bump:</label>
+          <select id="bump-type">
+            <option value="">-- Select --</option>
+            <option value="major">Major (Breaking Changes)</option>
+            <option value="minor">Minor (New Features)</option>
+            <option value="patch">Patch (Bug Fixes)</option>
+          </select>
+          <span class="version-preview" id="version-preview"></span>
+        </div>
+
+        <div class="form-group">
+          <label for="create-tag">
+            <input type="checkbox" id="create-tag" checked>
+            Create Git Tag
+          </label>
+        </div>
+
+        <div class="form-group">
+          <label>Generated Changelog (editable):</label>
+          <textarea id="changelog-edit" rows="15" placeholder="Changelog will be generated here..."></textarea>
+          <button id="regenerate-changelog" class="btn-secondary">🔄 Regenerate from Commits</button>
+        </div>
+
+        <button id="release-btn" class="btn-primary" disabled>
+          Release New Version
+        </button>
+        <div id="release-result" class="result"></div>
+      </div>
+    </section>
+
+    <!-- Version History -->
+    <section class="card">
+      <h2>📜 Version History</h2>
+      <div id="history-loading" class="loading">Loading...</div>
+      <div id="history-content" style="display: none;">
+        <div id="history-list" class="history-list"></div>
+      </div>
+    </section>
+
+    <!-- Changelog Preview -->
+    <section class="card">
+      <h2>📄 Current CHANGELOG.md</h2>
+      <div id="changelog-loading" class="loading">Loading...</div>
+      <div id="changelog-content" style="display: none;">
+        <pre id="changelog-preview"></pre>
+      </div>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

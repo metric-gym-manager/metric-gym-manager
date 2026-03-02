@@ -1,0 +1,52 @@
+#!/bin/sh
+
+# post-merge hook
+# Automatically generates draft changelog from commits after merge to main
+# This hook is called by "git merge"
+
+# Get current branch
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+# Only run on main/master branch
+if [ "$BRANCH" != "main" ] && [ "$BRANCH" != "master" ]; then
+  echo "ℹ️  Skipping changelog generation (not on main/master branch)"
+  exit 0
+fi
+
+echo ""
+echo "📝 Post-merge: Generating draft changelog..."
+echo ""
+
+# Check if there are commits since last tag
+LAST_TAG=$(git tag --sort=-version:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
+
+if [ -z "$LAST_TAG" ]; then
+  COMMITS_COUNT=$(git log --oneline | wc -l)
+else
+  COMMITS_COUNT=$(git log "$LAST_TAG..HEAD" --oneline | wc -l)
+fi
+
+if [ "$COMMITS_COUNT" -eq 0 ]; then
+  echo "ℹ️  No new commits since last release. Skipping changelog generation."
+  exit 0
+fi
+
+# Run changelog generator for unreleased section
+node scripts/generate-changelog.js --unreleased
+
+if [ $? -eq 0 ]; then
+  echo ""
+  echo "✅ Draft changelog generated in 'Unreleased' section"
+  echo ""
+  echo "💡 Next steps:"
+  echo "   1. Review CHANGELOG.md"
+  echo "   2. When ready to release, run: npm run version:gui"
+  echo "   3. Or commit the changelog: git add CHANGELOG.md && git commit"
+  echo ""
+else
+  echo ""
+  echo "⚠️  Changelog generation failed (non-fatal)"
+  echo ""
+fi
+
+exit 0

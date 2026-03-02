@@ -26,7 +26,12 @@
     "dev:clear-limits": "node scripts/clear-rate-limits.js",
     "dev:delete-users": "node scripts/delete-test-users.js",
     "analyze": "ANALYZE=true next build",
-    "prepare": "husky"
+    "prepare": "husky",
+    "version:gui": "node scripts/versioning-gui/server.js",
+    "version:bump": "node scripts/version-bump.js",
+    "changelog:generate": "node scripts/generate-changelog.js",
+    "hooks:install": "node scripts/install-git-hooks.js",
+    "postinstall": "npm run hooks:install"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

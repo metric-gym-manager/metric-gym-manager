@@ -1,0 +1,370 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  background: #f5f5f5;
+  color: #333;
+  line-height: 1.6;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+header h1 {
+  font-size: 2rem;
+  margin-bottom: 5px;
+}
+
+header p {
+  font-size: 0.95rem;
+  opacity: 0.9;
+}
+
+.card {
+  background: white;
+  border-radius: 8px;
+  padding: 25px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.card h2 {
+  font-size: 1.4rem;
+  margin-bottom: 20px;
+  color: #333;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 10px;
+}
+
+/* Status Grid */
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 15px;
+}
+
+.status-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  border-left: 3px solid #667eea;
+}
+
+.status-item .label {
+  font-weight: 500;
+  color: #666;
+}
+
+.status-item .value {
+  font-weight: 600;
+  color: #333;
+  font-family: 'Courier New', monospace;
+}
+
+.badge {
+  background: #667eea;
+  color: white;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+}
+
+.badge.major { background: #e53e3e; }
+.badge.minor { background: #38a169; }
+.badge.patch { background: #3182ce; }
+.badge.none { background: #a0aec0; }
+
+/* Commits */
+.commit-stats {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+.stat.breaking { background: #fff5f5; color: #c53030; border: 1px solid #fc8181; }
+.stat.features { background: #f0fff4; color: #276749; border: 1px solid #9ae6b4; }
+.stat.fixes { background: #ebf8ff; color: #2c5282; border: 1px solid #90cdf4; }
+.stat.other { background: #f7fafc; color: #4a5568; border: 1px solid #cbd5e0; }
+
+.commits-list {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}
+
+.commit-item {
+  padding: 12px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: start;
+  gap: 10px;
+}
+
+.commit-item:last-child {
+  border-bottom: none;
+}
+
+.commit-type {
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.commit-type.feat { background: #c6f6d5; color: #22543d; }
+.commit-type.fix { background: #bee3f8; color: #2a4365; }
+.commit-type.breaking { background: #fed7d7; color: #742a2a; }
+.commit-type.perf { background: #fefcbf; color: #744210; }
+.commit-type.other { background: #e2e8f0; color: #2d3748; }
+
+.commit-message {
+  flex: 1;
+  color: #333;
+}
+
+.commit-scope {
+  font-weight: 600;
+  color: #667eea;
+}
+
+/* Forms */
+.release-form {
+  max-width: 700px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #555;
+}
+
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.form-group textarea {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.version-preview {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 4px 12px;
+  background: #f0f4ff;
+  color: #667eea;
+  border-radius: 4px;
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+/* Buttons */
+button {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-secondary {
+  background: white;
+  color: #667eea;
+  border: 2px solid #667eea;
+  margin-top: 10px;
+}
+
+.btn-secondary:hover {
+  background: #f0f4ff;
+}
+
+/* Result Messages */
+.result {
+  margin-top: 15px;
+  padding: 12px;
+  border-radius: 6px;
+  display: none;
+}
+
+.result.success {
+  display: block;
+  background: #f0fff4;
+  color: #22543d;
+  border: 1px solid #9ae6b4;
+}
+
+.result.error {
+  display: block;
+  background: #fff5f5;
+  color: #742a2a;
+  border: 1px solid #fc8181;
+}
+
+/* Version History */
+.history-list {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.history-item {
+  padding: 15px;
+  border-left: 4px solid #667eea;
+  margin-bottom: 15px;
+  background: #f9f9f9;
+  border-radius: 4px;
+}
+
+.history-item h3 {
+  font-size: 1.1rem;
+  color: #667eea;
+  margin-bottom: 5px;
+  font-family: 'Courier New', monospace;
+}
+
+.history-item .date {
+  font-size: 0.85rem;
+  color: #718096;
+  margin-bottom: 8px;
+}
+
+.history-item .message {
+  font-size: 0.9rem;
+  color: #555;
+  white-space: pre-wrap;
+}
+
+/* Changelog Preview */
+#changelog-preview {
+  background: #f8f8f8;
+  padding: 20px;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+/* Loading State */
+.loading {
+  text-align: center;
+  padding: 30px;
+  color: #a0aec0;
+  font-style: italic;
+}
+
+/* Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    padding: 10px;
+  }
+
+  header {
+    padding: 20px;
+  }
+
+  header h1 {
+    font-size: 1.5rem;
+  }
+
+  .card {
+    padding: 15px;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .commit-stats {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
