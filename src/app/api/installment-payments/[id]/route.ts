@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
+import { getApiGymProfile } from '@/lib/middleware/api-auth';
 import { createClient } from '@/lib/supabase/server';
 import { sendSMS } from '@/features/sms/services/sms.service';
 
@@ -10,7 +10,12 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const gymProfile = await getCurrentGymProfile();
+    const { gymProfile, error: authError } = await getApiGymProfile();
+
+    if (authError) {
+      return authError;
+    }
+
     const { id: paymentId } = await params;
     const supabase = await createClient();
     const today = new Date().toISOString().split('T')[0];
@@ -39,7 +44,7 @@ export async function PATCH(
         )
       `)
       .eq('id', paymentId)
-      .eq('gym_id', gymProfile.id)
+      .eq('gym_id', gymProfile!.id)
       .single();
 
     if (fetchError || !payment) {
@@ -81,7 +86,7 @@ export async function PATCH(
           updated_at: new Date().toISOString(),
         })
         .eq('id', plan.id)
-        .eq('gym_id', gymProfile.id),
+        .eq('gym_id', gymProfile!.id),
     ]);
 
     if (slotResult.error) throw new Error(slotResult.error.message);
@@ -97,7 +102,7 @@ export async function PATCH(
       `for '${plan.template_name}' has been collected.` +
       `${completionNote} Thank you - ${gymName}`;
 
-    sendSMS(gymProfile.id, memberId, 'receipt', receiptMessage).catch((err) =>
+    sendSMS(gymProfile!.id, memberId, 'receipt', receiptMessage).catch((err) =>
       console.error('Installment receipt SMS failed:', err)
     );
 
@@ -115,10 +120,6 @@ export async function PATCH(
     );
   } catch (error) {
     console.error('Mark installment paid error:', error);
-
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
 
     return NextResponse.json(
       { success: false, error: 'Failed to mark installment as paid' },

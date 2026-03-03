@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
+import { getApiGymProfile } from '@/lib/middleware/api-auth';
 import { updateMemberSchema } from '@/features/members/schemas/member.schemas';
 import {
   getMemberById,
@@ -17,9 +17,13 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const gymProfile = await getCurrentGymProfile();
+    const { gymProfile, error: authError } = await getApiGymProfile();
 
-    const result = await getMemberById(id, gymProfile.id);
+    if (authError) {
+      return authError;
+    }
+
+    const result = await getMemberById(id, gymProfile!.id);
 
     return NextResponse.json(
       {
@@ -35,13 +39,6 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: 'Member not found' },
         { status: 404 }
-      );
-    }
-
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
       );
     }
 
@@ -62,14 +59,19 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const gymProfile = await getCurrentGymProfile();
+    const { gymProfile, error: authError } = await getApiGymProfile();
+
+    if (authError) {
+      return authError;
+    }
+
     const body = await request.json();
 
     // Validate input
     const validatedData = updateMemberSchema.parse(body);
 
     // Update member
-    const member = await updateMember(id, gymProfile.id, validatedData);
+    const member = await updateMember(id, gymProfile!.id, validatedData);
 
     return NextResponse.json(
       {
@@ -85,13 +87,6 @@ export async function PATCH(
       return NextResponse.json(
         { success: false, error: 'Member not found' },
         { status: 404 }
-      );
-    }
-
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
       );
     }
 
@@ -119,9 +114,13 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const gymProfile = await getCurrentGymProfile();
+    const { gymProfile, error: authError } = await getApiGymProfile();
 
-    await deleteMember(id, gymProfile.id);
+    if (authError) {
+      return authError;
+    }
+
+    await deleteMember(id, gymProfile!.id);
 
     return NextResponse.json(
       {
@@ -132,13 +131,6 @@ export async function DELETE(
     );
   } catch (error) {
     console.error('Delete member API error:', error);
-
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
 
     return NextResponse.json(
       { success: false, error: 'Failed to delete member' },

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { Trash2, Edit } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -73,6 +84,7 @@ export default function MemberDetailModal({
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
   const [isMarkingRegularPaid, setIsMarkingRegularPaid] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Sync selectedStatus when member changes
   useEffect(() => {
@@ -199,6 +211,29 @@ export default function MemberDetailModal({
     onError: (error) => {
       setIsMarkingRegularPaid(false);
       toast.error(error instanceof Error ? error.message : 'Failed to collect payment');
+    },
+  });
+
+  // Delete member mutation
+  const deleteMemberMutation = useMutation({
+    mutationFn: async (memberId: string) => {
+      const res = await fetch(`/api/members/${memberId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to delete member');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      toast.success('Member deleted successfully');
+      setShowDeleteDialog(false);
+      onClose();
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete member');
     },
   });
 
@@ -619,25 +654,74 @@ export default function MemberDetailModal({
           )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-3 border-t pt-4">
-            <Button variant="outline" onClick={onClose}>
-              Close
-            </Button>
-            {!installments.some(inst => inst.status === 'active') && (
+          <div className="flex justify-between items-center gap-3 border-t pt-4">
+            <div className="flex gap-2">
               <Button
-                onClick={() => markRegularPaidMutation.mutate()}
-                disabled={isMarkingRegularPaid}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                title="Delete member"
               >
-                {isMarkingRegularPaid ? 'Processing...' : `Mark Paid (${member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1)})`}
+                <Trash2 className="h-4 w-4" />
               </Button>
-            )}
-            <Button onClick={onEditClick}>
-              Edit Member
-            </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={onEditClick}
+                title="Edit member"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="flex gap-3">
+              <Button variant="outline" onClick={onClose}>
+                Close
+              </Button>
+              {!installments.some(inst => inst.status === 'active') && (
+                <Button
+                  onClick={() => markRegularPaidMutation.mutate()}
+                  disabled={isMarkingRegularPaid}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {isMarkingRegularPaid ? 'Processing...' : `Mark Paid (${member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1)})`}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </DialogContent>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete <strong>{member.name}</strong> and all associated data including:
+              <ul className="list-disc list-inside mt-2 space-y-1">
+                <li>Payment history ({payments.length} payment{payments.length !== 1 ? 's' : ''})</li>
+                <li>Installment plans ({installments.length} plan{installments.length !== 1 ? 's' : ''})</li>
+                <li>SMS logs</li>
+              </ul>
+              <p className="mt-3 text-red-600 font-semibold">This action cannot be undone.</p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMemberMutation.isPending}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMemberMutation.mutate(member.id)}
+              disabled={deleteMemberMutation.isPending}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {deleteMemberMutation.isPending ? 'Deleting...' : 'Delete Member'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

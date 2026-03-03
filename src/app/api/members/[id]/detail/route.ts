@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
+import { getApiGymProfile } from '@/lib/middleware/api-auth';
 import { createClient } from '@/lib/supabase/server';
 
 // ============================================================
@@ -13,13 +13,15 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const [{ id: memberId }, gymProfile, supabase] = await Promise.all([
-      params,
-      getCurrentGymProfile(),
-      createClient(),
-    ]);
+    const { id: memberId } = await params;
+    const { gymProfile, error: authError } = await getApiGymProfile();
 
-    const gymId = gymProfile.id;
+    if (authError) {
+      return authError;
+    }
+
+    const supabase = await createClient();
+    const gymId = gymProfile!.id;
 
     // Run all three queries in parallel
     const [memberResult, paymentsResult, installmentsResult] = await Promise.all([
@@ -61,9 +63,6 @@ export async function GET(
       { status: 200 }
     );
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
     console.error('Get member detail API error:', error);
     return NextResponse.json({ success: false, error: 'Failed to fetch member details' }, { status: 500 });
   }

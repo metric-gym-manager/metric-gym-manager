@@ -5,8 +5,8 @@ import dynamic from 'next/dynamic';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { MemberWithDiscount, Payment } from '@/features/members/types';
 
-const MemberDetailModal = dynamic(
-  () => import('@/components/members/MemberDetailModal'),
+const MemberDetailModalResponsive = dynamic(
+  () => import('@/components/members/MemberDetailModalResponsive'),
   { ssr: false }
 );
 const EditMemberModal = dynamic(
@@ -100,7 +100,7 @@ export function MemberModalProvider({ children }: { children: ReactNode }) {
     <MemberModalContext.Provider value={{ openMember }}>
       {children}
 
-      <MemberDetailModal
+      <MemberDetailModalResponsive
         open={detailOpen}
         onClose={handleDetailClose}
         member={memberData?.member ?? null}

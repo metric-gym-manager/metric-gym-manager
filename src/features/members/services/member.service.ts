@@ -236,15 +236,22 @@ export async function createMember(
     }
   }
 
-  // Record first payment
-  await supabase.from('payments').insert({
+  // Record first payment (registration payment on the registered date)
+  // Use the member's registered_date from the database (when they actually paid)
+  const { error: paymentError } = await supabase.from('payments').insert({
+    gym_id: gymId,
     member_id: member.id,
-    payment_date: input.membershipStartDate,
+    payment_date: member.registered_date || new Date().toISOString().split('T')[0],
     amount_paid: input.paymentAmount,
     discount_applied: discountName,
     discount_percentage: discountPercentage,
     next_due_date_calculated: nextDueDate.toISOString().split('T')[0],
   });
+
+  if (paymentError) {
+    console.error('Failed to record initial payment:', paymentError);
+    // Don't fail member creation if payment logging fails
+  }
 
   // Return member with payment amount for SMS
   return {
@@ -264,17 +271,23 @@ export async function updateMember(
 ): Promise<Member> {
   const supabase = await createClient();
 
+  // Build update object with only the fields that were provided
+  // Map camelCase to snake_case for database columns
+  const updateData: Record<string, any> = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (input.name !== undefined) updateData.name = input.name;
+  if (input.phoneNumber !== undefined) updateData.phone_number = input.phoneNumber;
+  if (input.planType !== undefined) updateData.plan_type = input.planType;
+  if (input.planAmount !== undefined) updateData.plan_amount = input.planAmount;
+  if (input.discountId !== undefined) updateData.discount_id = input.discountId;
+  if (input.recurringDiscount !== undefined) updateData.recurring_discount = input.recurringDiscount;
+  if (input.status !== undefined) updateData.status = input.status;
+
   const { data: member, error } = await supabase
     .from('members')
-    .update({
-      ...input,
-      phone_number: input.phoneNumber,
-      plan_type: input.planType,
-      plan_amount: input.planAmount,
-      discount_id: input.discountId,
-      recurring_discount: input.recurringDiscount ?? false,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateData)
     .eq('id', memberId)
     .eq('gym_id', gymId)
     .select()

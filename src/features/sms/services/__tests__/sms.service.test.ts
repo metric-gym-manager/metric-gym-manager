@@ -103,7 +103,6 @@ describe('SMS Service - Welcome SMS', () => {
     };
 
     let capturedMessage: string | undefined;
-    let capturedInsertData: any;
 
     mockSupabaseClient = {
       from: jest.fn((table: string) => {
@@ -118,7 +117,6 @@ describe('SMS Service - Welcome SMS', () => {
           return {
             insert: jest.fn((data: any) => {
               capturedMessage = data.message_body;
-              capturedInsertData = data;
               return {
                 select: jest.fn().mockReturnThis(),
                 single: jest.fn().mockResolvedValue({

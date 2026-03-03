@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
+import { getApiGymProfile } from '@/lib/middleware/api-auth';
 import { createClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { addMonths } from 'date-fns';
@@ -16,7 +16,12 @@ const createInstallmentSchema = z.object({
 // GET /api/members/[id]/installments
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const gymProfile = await getCurrentGymProfile();
+    const { gymProfile, error: authError } = await getApiGymProfile();
+
+    if (authError) {
+      return authError;
+    }
+
     const { id: memberId } = await params;
     const supabase = await createClient();
 
@@ -27,16 +32,13 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         installment_payments(*)
       `)
       .eq('member_id', memberId)
-      .eq('gym_id', gymProfile.id)
+      .eq('gym_id', gymProfile!.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
     return NextResponse.json({ success: true, data: data ?? [] }, { status: 200 });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
     return NextResponse.json({ success: false, error: 'Failed to fetch installments' }, { status: 500 });
   }
 }
@@ -44,7 +46,12 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
 // POST /api/members/[id]/installments
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const gymProfile = await getCurrentGymProfile();
+    const { gymProfile, error: authError } = await getApiGymProfile();
+
+    if (authError) {
+      return authError;
+    }
+
     const { id: memberId } = await params;
     const body = await request.json();
     const validated = createInstallmentSchema.parse(body);
@@ -56,7 +63,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const { data: installment, error: installmentError } = await supabase
       .from('member_installments')
       .insert({
-        gym_id: gymProfile.id,
+        gym_id: gymProfile!.id,
         member_id: memberId,
         template_id: validated.template_id,
         template_name: validated.template_name,
@@ -75,7 +82,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const startDate = new Date(validated.start_date);
     const paymentSlots = Array.from({ length: validated.installment_count }, (_, i) => ({
       installment_id: installment.id,
-      gym_id: gymProfile.id,
+      gym_id: gymProfile!.id,
       installment_number: i + 1,
       amount: amountPerInstallment,
       due_date: addMonths(startDate, i * validated.interval_months).toISOString().split('T')[0],
