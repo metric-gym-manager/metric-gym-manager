@@ -110,7 +110,7 @@ export function HeroSection() {
           {/* Members */}
           <div className="text-center">
             <div className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-brand-accent mb-1 md:mb-2">
-              2.2K+
+              7.9K+
             </div>
             <div className="text-gray-300 text-xs sm:text-sm md:text-base font-medium">
               Active Members

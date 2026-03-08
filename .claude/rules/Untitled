@@ -1,0 +1,37 @@
+ GET /api/auth/profile 200 in 1512ms (compile: 4ms, render: 1508ms)
+Get profile API error: Error: Unauthorized
+    at requireAuth (src\lib\middleware\auth.ts:151:11)
+    at async getCurrentGymProfile (src\lib\middleware\auth.ts:159:16)
+    at async GET (src\app\api\auth\profile\route.ts:10:24)
+  149 |
+  150 |   if (!user) {
+> 151 |     throw new Error('Unauthorized');
+      |           ^
+  152 |   }
+  153 |
+  154 |   return user;
+ GET /api/auth/profile 401 in 694ms (compile: 5ms, render: 689ms)
+Get profile API error: Error: Unauthorized
+    at requireAuth (src\lib\middleware\auth.ts:151:11)
+    at async getCurrentGymProfile (src\lib\middleware\auth.ts:159:16)
+    at async GET (src\app\api\auth\profile\route.ts:10:24)
+  149 |
+  150 |   if (!user) {
+> 151 |     throw new Error('Unauthorized');
+      |           ^
+  152 |   }
+  153 |
+  154 |   return user;
+ GET /api/auth/profile 401 in 86ms (compile: 3ms, render: 83ms)
+Update member API error: Error: Unauthorized
+    at requireAuth (src\lib\middleware\auth.ts:151:11)
+    at async getCurrentGymProfile (src\lib\middleware\auth.ts:159:16)
+    at async PATCH (src\app\api\members\[id]\route.ts:65:24)
+  149 |
+  150 |   if (!user) {
+> 151 |     throw new Error('Unauthorized');
+      |           ^
+  152 |   }
+  153 |
+  154 |   return user;
+ PATCH /api/members/d11252f1-b4bd-4f54-91ec-60bfbacc000c 401 in 221ms (compile: 113ms, render: 108ms)

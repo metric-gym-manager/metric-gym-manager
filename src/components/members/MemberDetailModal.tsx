@@ -698,14 +698,16 @@ export default function MemberDetailModal({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete <strong>{member.name}</strong> and all associated data including:
-              <ul className="list-disc list-inside mt-2 space-y-1">
-                <li>Payment history ({payments.length} payment{payments.length !== 1 ? 's' : ''})</li>
-                <li>Installment plans ({installments.length} plan{installments.length !== 1 ? 's' : ''})</li>
-                <li>SMS logs</li>
-              </ul>
-              <p className="mt-3 text-red-600 font-semibold">This action cannot be undone.</p>
+            <AlertDialogDescription asChild>
+              <div className="text-sm text-muted-foreground">
+                This will permanently delete <strong>{member.name}</strong> and all associated data including:
+                <ul className="list-disc list-inside mt-2 space-y-1">
+                  <li>Payment history ({payments.length} payment{payments.length !== 1 ? 's' : ''})</li>
+                  <li>Installment plans ({installments.length} plan{installments.length !== 1 ? 's' : ''})</li>
+                  <li>SMS logs</li>
+                </ul>
+                <p className="mt-3 text-red-600 font-semibold">This action cannot be undone.</p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

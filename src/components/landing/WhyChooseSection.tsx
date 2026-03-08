@@ -50,7 +50,7 @@ export function WhyChooseSection() {
                 </div>
 
                 <div>
-                  <div className="text-5xl font-bold mb-2">3,990</div>
+                  <div className="text-5xl font-bold mb-2">6,500</div>
                   <div className="text-white/90">LKR per month</div>
                 </div>
 

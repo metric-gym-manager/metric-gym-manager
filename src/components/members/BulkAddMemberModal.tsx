@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -28,11 +28,19 @@ interface InstallmentTemplate {
   interval_months: number;
 }
 
+interface PlanType {
+  id: string;
+  gym_id: string;
+  plan_type: 'daily' | 'weekly' | 'monthly' | '3-months' | '6-months' | 'annual';
+  default_amount: number;
+  is_active: boolean;
+}
+
 interface BulkRow {
   id: string;
   name: string;
   phoneNumber: string;
-  planType: 'monthly' | 'daily' | 'annual';
+  planType: 'daily' | 'weekly' | 'monthly' | '3-months' | '6-months' | 'annual';
   planAmount: number;
   membershipStartDate: string;
   discountId: string | null;
@@ -47,12 +55,6 @@ interface BulkAddMemberModalProps {
   onClose: () => void;
 }
 
-const DEFAULT_PLAN_AMOUNTS: Record<string, number> = {
-  monthly: 5000,
-  daily: 200,
-  annual: 50000,
-};
-
 const TODAY = new Date().toISOString().split('T')[0];
 
 function createEmptyRow(): BulkRow {
@@ -61,7 +63,7 @@ function createEmptyRow(): BulkRow {
     name: '',
     phoneNumber: '',
     planType: 'monthly',
-    planAmount: 5000,
+    planAmount: 0, // Will be set when plan types are loaded
     membershipStartDate: TODAY,
     discountId: null,
     recurringDiscount: false,
@@ -81,8 +83,8 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
   const tableEndRef = useRef<HTMLDivElement>(null);
 
   // Apply-to-all: plan
-  const [globalPlanType, setGlobalPlanType] = useState<'monthly' | 'daily' | 'annual'>('monthly');
-  const [globalPlanAmount, setGlobalPlanAmount] = useState<number>(DEFAULT_PLAN_AMOUNTS.monthly);
+  const [globalPlanType, setGlobalPlanType] = useState<BulkRow['planType']>('monthly');
+  const [globalPlanAmount, setGlobalPlanAmount] = useState<number>(0);
   const [globalStartDate, setGlobalStartDate] = useState<string>(TODAY);
 
   // Apply-to-all: discount
@@ -91,6 +93,16 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
 
   // Apply-to-all: installment
   const [globalTemplateId, setGlobalTemplateId] = useState<string>('');
+
+  const { data: planTypesData } = useQuery<PlanType[]>({
+    queryKey: ['plan-types'],
+    queryFn: async () => {
+      const res = await fetch('/api/settings/plans');
+      if (!res.ok) throw new Error('Failed to fetch plan types');
+      const r = await res.json();
+      return r.data;
+    },
+  });
 
   const { data: discountsData } = useQuery<Discount[]>({
     queryKey: ['discounts'],
@@ -111,6 +123,16 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
       return r.data;
     },
   });
+
+  // Auto-fill global plan amount when global plan type changes
+  useEffect(() => {
+    if (globalPlanType && planTypesData) {
+      const planType = planTypesData.find((pt) => pt.plan_type === globalPlanType);
+      if (planType && planType.default_amount > 0) {
+        setGlobalPlanAmount(planType.default_amount);
+      }
+    }
+  }, [globalPlanType, planTypesData]);
 
   // Derive discounted amount + installment preview for a row
   const getRowDiscountPct = (row: BulkRow): number => {
@@ -208,7 +230,8 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
         if (row.id !== id) return row;
         const updated = { ...row, [field]: value, status: 'idle' as const, errorMessage: undefined };
         if (field === 'planType') {
-          updated.planAmount = DEFAULT_PLAN_AMOUNTS[value as string] ?? 5000;
+          const planType = planTypesData?.find((pt) => pt.plan_type === value);
+          updated.planAmount = planType?.default_amount ?? 0;
         }
         return updated;
       })
@@ -307,7 +330,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
     setRows([createEmptyRow(), createEmptyRow(), createEmptyRow()]);
     setSubmitted(false);
     setGlobalPlanType('monthly');
-    setGlobalPlanAmount(DEFAULT_PLAN_AMOUNTS.monthly);
+    setGlobalPlanAmount(0); // Will be auto-filled by useEffect based on selected plan type
     setGlobalStartDate(TODAY);
     setGlobalDiscountId('');
     setGlobalRecurring(false);
@@ -369,16 +392,24 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
               <select
                 value={globalPlanType}
                 onChange={(e) => {
-                  const pt = e.target.value as 'monthly' | 'daily' | 'annual';
-                  setGlobalPlanType(pt);
-                  setGlobalPlanAmount(DEFAULT_PLAN_AMOUNTS[pt]);
+                  setGlobalPlanType(e.target.value as BulkRow['planType']);
                 }}
                 disabled={isPending}
-                className="h-8 rounded-md border border-input bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 w-[110px]"
+                className="h-8 rounded-md border border-input bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 w-[140px]"
               >
-                <option value="monthly">Monthly</option>
-                <option value="daily">Daily</option>
-                <option value="annual">Annual</option>
+                {planTypesData
+                  ?.filter((pt) => pt.is_active)
+                  .map((planType) => (
+                    <option key={planType.id} value={planType.plan_type}>
+                      {planType.plan_type.charAt(0).toUpperCase() + planType.plan_type.slice(1).replace('-', ' ')}
+                      {planType.default_amount > 0 && ` (${planType.default_amount})`}
+                    </option>
+                  ))}
+                {(!planTypesData || planTypesData.filter((pt) => pt.is_active).length === 0) && (
+                  <option value="" disabled>
+                    No plans
+                  </option>
+                )}
               </select>
             </div>
             <div>
@@ -556,9 +587,18 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
                         disabled={row.status === 'success' || isPending}
                         className={selectClass}
                       >
-                        <option value="monthly">Monthly</option>
-                        <option value="daily">Daily</option>
-                        <option value="annual">Annual</option>
+                        {planTypesData
+                          ?.filter((pt) => pt.is_active)
+                          .map((planType) => (
+                            <option key={planType.id} value={planType.plan_type}>
+                              {planType.plan_type.charAt(0).toUpperCase() + planType.plan_type.slice(1).replace('-', ' ')}
+                            </option>
+                          ))}
+                        {(!planTypesData || planTypesData.filter((pt) => pt.is_active).length === 0) && (
+                          <option value="" disabled>
+                            No plans
+                          </option>
+                        )}
                       </select>
                     </td>
 

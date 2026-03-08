@@ -129,30 +129,11 @@ export async function registerGym(
       };
     }
 
-    // Get the created gym profile to initialize default plans
-    const { data: gymProfile } = await adminClient
-      .from('gyms')
-      .select('id')
-      .eq('user_id', authData.user.id)
-      .single();
-
     console.log(`✅ Gym profile created successfully for: ${input.gymName}`);
 
-    if (gymProfile) {
-      // Initialize default plan types
-      const defaultPlans = [
-        { gym_id: gymProfile.id, plan_type: 'monthly', default_amount: 5000.0, is_active: true },
-        { gym_id: gymProfile.id, plan_type: 'daily', default_amount: 300.0, is_active: true },
-        { gym_id: gymProfile.id, plan_type: 'annual', default_amount: 50000.0, is_active: true },
-      ];
-
-      const { error: plansError } = await adminClient.from('plan_types').insert(defaultPlans);
-      if (plansError) {
-        console.error('⚠️  Failed to create default plan types:', plansError.message);
-      } else {
-        console.log('✅ Default plan types created');
-      }
-    }
+    // Note: Plan types are no longer auto-seeded during gym creation.
+    // Gym owners must configure their own plan types via Settings → Plans.
+    // This ensures each gym sets their own pricing instead of using arbitrary defaults.
 
     return {
       success: true,

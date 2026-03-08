@@ -75,7 +75,9 @@
       "Bash(npm run pwa:generate:*)",
       "Bash(npm run hooks:install:*)",
       "Bash(node scripts/version-bump.js:*)",
-      "Bash(node scripts/generate-changelog.js:*)"
+      "Bash(node scripts/generate-changelog.js:*)",
+      "Bash(npx tsx:*)",
+      "Bash(node scripts/apply-gym-id-migration.js:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

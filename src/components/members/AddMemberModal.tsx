@@ -40,6 +40,14 @@ interface InstallmentTemplate {
   is_active: boolean;
 }
 
+interface PlanType {
+  id: string;
+  gym_id: string;
+  plan_type: 'daily' | 'weekly' | 'monthly' | '3-months' | '6-months' | 'annual';
+  default_amount: number;
+  is_active: boolean;
+}
+
 interface AddMemberModalProps {
   open: boolean;
   onClose: () => void;
@@ -81,6 +89,16 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     },
   });
 
+  const { data: planTypesData } = useQuery({
+    queryKey: ['plan-types'],
+    queryFn: async () => {
+      const response = await fetch('/api/settings/plans');
+      if (!response.ok) throw new Error('Failed to fetch plan types');
+      const result = await response.json();
+      return result.data as PlanType[];
+    },
+  });
+
   const { data: discountsData } = useQuery({
     queryKey: ['discounts'],
     queryFn: async () => {
@@ -105,18 +123,15 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
   const watchPlanAmount = watch('planAmount');
   const watchDiscountId = watch('discountId');
 
-  const defaultPlanAmounts = {
-    monthly: 5000,
-    daily: 200,
-    annual: 50000,
-  };
-
+  // Auto-fill plan amount when plan type changes
   useEffect(() => {
-    if (watchPlanType) {
-      const amount = defaultPlanAmounts[watchPlanType as keyof typeof defaultPlanAmounts];
-      setValue('planAmount', amount);
+    if (watchPlanType && planTypesData) {
+      const planType = planTypesData.find((pt) => pt.plan_type === watchPlanType);
+      if (planType && planType.default_amount > 0) {
+        setValue('planAmount', planType.default_amount);
+      }
     }
-  }, [watchPlanType, setValue]);
+  }, [watchPlanType, planTypesData, setValue]);
 
   useEffect(() => {
     if (watchPlanAmount) {
@@ -238,16 +253,26 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
               <Select
                 value={watchPlanType}
                 onValueChange={(value) =>
-                  setValue('planType', value as 'monthly' | 'daily' | 'annual')
+                  setValue('planType', value as AddMemberInput['planType'])
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select plan type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="annual">Annual</SelectItem>
+                  {planTypesData
+                    ?.filter((pt) => pt.is_active)
+                    .map((planType) => (
+                      <SelectItem key={planType.id} value={planType.plan_type}>
+                        {planType.plan_type.charAt(0).toUpperCase() + planType.plan_type.slice(1).replace('-', ' ')}
+                        {planType.default_amount > 0 && ` (LKR ${planType.default_amount.toLocaleString()})`}
+                      </SelectItem>
+                    ))}
+                  {(!planTypesData || planTypesData.filter((pt) => pt.is_active).length === 0) && (
+                    <SelectItem value="" disabled>
+                      No active plan types configured
+                    </SelectItem>
+                  )}
                 </SelectContent>
               </Select>
               {errors.planType && (
