@@ -77,7 +77,6 @@ describe('Members API - POST /api/members', () => {
     mockGymProfile = {
       id: 'gym_123',
       gym_name: 'FitLife Gym',
-      user_id: 'user_123',
     };
 
     // Reset ENABLE_REAL_SMS flag

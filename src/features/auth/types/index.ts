@@ -10,7 +10,6 @@ export interface AuthUser extends SupabaseUser {
 
 export interface GymProfile {
   id: string;
-  user_id: string;
   username: string;
   email: string;
   email_verified: boolean;
@@ -19,8 +18,6 @@ export interface GymProfile {
   gym_address: string | null;
   gym_website: string | null;
   profile_image_url: string | null;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface SessionData {
