@@ -223,7 +223,15 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
   };
 
   const handleClose = () => {
-    reset();
+    const activePlan = planTypesData?.filter((pt) => pt.is_active)?.[0];
+    reset({
+      membershipStartDate: new Date().toISOString().split('T')[0],
+      planType: activePlan?.plan_type ?? 'monthly',
+      planAmount: activePlan?.default_amount ?? 0,
+      paymentAmount: activePlan?.default_amount ?? 0,
+      discountId: null,
+      recurringDiscount: false,
+    });
     setPaymentMode('standard');
     setSelectedTemplateId('');
     setDiscountPercentage(0);
@@ -297,7 +305,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                       </SelectItem>
                     ))}
                   {(!planTypesData || planTypesData.filter((pt) => pt.is_active).length === 0) && (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="__no_plans__" disabled>
                       No active plan types configured
                     </SelectItem>
                   )}

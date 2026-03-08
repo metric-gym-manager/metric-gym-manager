@@ -208,7 +208,7 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
                       </SelectItem>
                     ))}
                   {(!planTypesData || planTypesData.filter((pt) => pt.is_active).length === 0) && (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="__no_plans__" disabled>
                       No active plan types configured
                     </SelectItem>
                   )}
