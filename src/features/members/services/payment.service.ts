@@ -127,11 +127,20 @@ export async function collectPayment(
     case 'daily':
       nextDueDate.setDate(nextDueDate.getDate() + 1);
       break;
+    case 'weekly':
+      nextDueDate.setDate(nextDueDate.getDate() + 7);
+      break;
     case 'monthly':
-      nextDueDate.setDate(nextDueDate.getDate() + 30);
+      nextDueDate.setMonth(nextDueDate.getMonth() + 1);
+      break;
+    case '3-months':
+      nextDueDate.setMonth(nextDueDate.getMonth() + 3);
+      break;
+    case '6-months':
+      nextDueDate.setMonth(nextDueDate.getMonth() + 6);
       break;
     case 'annual':
-      nextDueDate.setDate(nextDueDate.getDate() + 365);
+      nextDueDate.setFullYear(nextDueDate.getFullYear() + 1);
       break;
   }
 

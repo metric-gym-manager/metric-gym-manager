@@ -276,11 +276,20 @@ function calculateProjectedMonthlyFromMembers(
 
   for (const member of members) {
     switch (member.plan_type) {
+      case 'daily':
+        projectedRevenue += member.plan_amount * 30;
+        break;
+      case 'weekly':
+        projectedRevenue += member.plan_amount * 4.33; // ~4.33 weeks per month
+        break;
       case 'monthly':
         projectedRevenue += member.plan_amount;
         break;
-      case 'daily':
-        projectedRevenue += member.plan_amount * 30;
+      case '3-months':
+        projectedRevenue += member.plan_amount / 3;
+        break;
+      case '6-months':
+        projectedRevenue += member.plan_amount / 6;
         break;
       case 'annual':
         projectedRevenue += member.plan_amount / 12;
@@ -298,11 +307,20 @@ function calculateProjectedYearlyFromMembers(
 
   for (const member of members) {
     switch (member.plan_type) {
+      case 'daily':
+        projectedRevenue += member.plan_amount * 365;
+        break;
+      case 'weekly':
+        projectedRevenue += member.plan_amount * 52; // 52 weeks per year
+        break;
       case 'monthly':
         projectedRevenue += member.plan_amount * 12;
         break;
-      case 'daily':
-        projectedRevenue += member.plan_amount * 365;
+      case '3-months':
+        projectedRevenue += member.plan_amount * 4; // 4 quarters per year
+        break;
+      case '6-months':
+        projectedRevenue += member.plan_amount * 2; // 2 half-years per year
         break;
       case 'annual':
         projectedRevenue += member.plan_amount;
