@@ -124,6 +124,27 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
     },
   });
 
+  // Initialize with first available plan type when data loads
+  useEffect(() => {
+    if (planTypesData && planTypesData.length > 0) {
+      const activePlans = planTypesData.filter((pt) => pt.is_active);
+      if (activePlans.length > 0) {
+        const firstPlan = activePlans[0];
+        setGlobalPlanType(firstPlan.plan_type);
+        setGlobalPlanAmount(firstPlan.default_amount);
+
+        // Initialize all rows with first plan
+        setRows((prev) =>
+          prev.map((row) => ({
+            ...row,
+            planType: firstPlan.plan_type,
+            planAmount: firstPlan.default_amount,
+          }))
+        );
+      }
+    }
+  }, [planTypesData]); // Only run when planTypesData first loads
+
   // Auto-fill global plan amount when global plan type changes
   useEffect(() => {
     if (globalPlanType && planTypesData) {
@@ -360,6 +381,14 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
             Use the toolbar to set defaults for all rows at once, then adjust individually as needed.
           </DialogDescription>
         </DialogHeader>
+
+        {planTypesData && planTypesData.filter((pt) => pt.is_active).length === 0 && (
+          <div className="rounded-md bg-yellow-50 border border-yellow-200 p-4">
+            <p className="text-sm text-yellow-800">
+              <strong>No plan types configured.</strong> Please go to Settings → Plans to configure your membership plan types before adding members.
+            </p>
+          </div>
+        )}
 
         {/* Summary bar */}
         {submitted && (
@@ -756,7 +785,9 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
               disabled={
                 !hasAnyFilledRow ||
                 isPending ||
-                (submitted && errorCount === 0 && successCount > 0)
+                (submitted && errorCount === 0 && successCount > 0) ||
+                !planTypesData ||
+                planTypesData.filter((pt) => pt.is_active).length === 0
               }
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >

@@ -84,6 +84,8 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     defaultValues: {
       membershipStartDate: new Date().toISOString().split('T')[0],
       planType: 'monthly',
+      planAmount: 0, // Will be auto-filled when plan types load
+      paymentAmount: 0,
       discountId: null,
       recurringDiscount: false,
     },
@@ -122,6 +124,24 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
   const watchPlanType = watch('planType');
   const watchPlanAmount = watch('planAmount');
   const watchDiscountId = watch('discountId');
+
+  // Initialize with first available plan type when data loads
+  useEffect(() => {
+    if (planTypesData && planTypesData.length > 0) {
+      const activePlans = planTypesData.filter((pt) => pt.is_active);
+      if (activePlans.length > 0) {
+        // Set to first active plan if current selection doesn't exist
+        const currentPlan = activePlans.find((pt) => pt.plan_type === watchPlanType);
+        if (!currentPlan) {
+          setValue('planType', activePlans[0].plan_type);
+          setValue('planAmount', activePlans[0].default_amount);
+        } else if (watchPlanAmount === 0) {
+          // Initialize amount for default plan type
+          setValue('planAmount', currentPlan.default_amount);
+        }
+      }
+    }
+  }, [planTypesData]); // Only run when planTypesData first loads
 
   // Auto-fill plan amount when plan type changes
   useEffect(() => {
@@ -221,6 +241,14 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             Fill in the member details and initial payment information.
           </DialogDescription>
         </DialogHeader>
+
+        {planTypesData && planTypesData.filter((pt) => pt.is_active).length === 0 && (
+          <div className="rounded-md bg-yellow-50 border border-yellow-200 p-4">
+            <p className="text-sm text-yellow-800">
+              <strong>No plan types configured.</strong> Please go to Settings → Plans to configure your membership plan types before adding members.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Member Information */}
@@ -495,7 +523,11 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             </Button>
             <Button
               type="submit"
-              disabled={createMemberMutation.isPending}
+              disabled={
+                createMemberMutation.isPending ||
+                !planTypesData ||
+                planTypesData.filter((pt) => pt.is_active).length === 0
+              }
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {createMemberMutation.isPending ? 'Creating...' : 'Create Member'}
