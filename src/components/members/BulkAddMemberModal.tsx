@@ -308,7 +308,14 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
   };
 
   const handleAddRow = () => {
-    setRows((prev) => [...prev, createEmptyRow()]);
+    const activePlan = planTypesData?.find((pt) => pt.is_active && pt.plan_type === globalPlanType)
+      ?? planTypesData?.find((pt) => pt.is_active);
+    const newRow: BulkRow = {
+      ...createEmptyRow(),
+      planType: activePlan?.plan_type ?? 'monthly',
+      planAmount: activePlan?.default_amount ?? globalPlanAmount,
+    };
+    setRows((prev) => [...prev, newRow]);
     setTimeout(() => tableEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
 
@@ -348,10 +355,20 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
   };
 
   const handleClose = () => {
-    setRows([createEmptyRow(), createEmptyRow(), createEmptyRow()]);
+    const activePlan = planTypesData?.filter((pt) => pt.is_active)?.[0];
+    const defaultPlanType = activePlan?.plan_type ?? 'monthly';
+    const defaultAmount = activePlan?.default_amount ?? 0;
+
+    const freshRows = [createEmptyRow(), createEmptyRow(), createEmptyRow()].map((row) => ({
+      ...row,
+      planType: defaultPlanType,
+      planAmount: defaultAmount,
+    }));
+
+    setRows(freshRows);
     setSubmitted(false);
-    setGlobalPlanType('monthly');
-    setGlobalPlanAmount(0); // Will be auto-filled by useEffect based on selected plan type
+    setGlobalPlanType(defaultPlanType);
+    setGlobalPlanAmount(defaultAmount);
     setGlobalStartDate(TODAY);
     setGlobalDiscountId('');
     setGlobalRecurring(false);
