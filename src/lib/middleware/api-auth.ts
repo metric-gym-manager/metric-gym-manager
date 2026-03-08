@@ -45,7 +45,7 @@ export async function getApiGymProfile() {
   const supabase = await createClient();
   const { data: gymProfile, error } = await supabase
     .from('gyms')
-    .select('*')
+    .select('id, username, email, email_verified, phone_number, gym_name, gym_address, gym_website, profile_image_url')
     .eq('user_id', authResult.user!.id)
     .single();
 
