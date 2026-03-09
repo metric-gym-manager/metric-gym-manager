@@ -207,6 +207,7 @@ export async function createMember(
   }
 
   // Create member
+  // For backdated members, set registered_date to membership_start_date
   const { data: member, error: memberError } = await supabase
     .from('members')
     .insert({
@@ -218,6 +219,7 @@ export async function createMember(
       discount_id: input.discountId || null,
       recurring_discount: input.recurringDiscount ?? false,
       status: 'active',
+      registered_date: input.membershipStartDate, // Use membership start date for backdating
       membership_start_date: input.membershipStartDate,
       next_due_date: nextDueDate.toISOString().split('T')[0],
     })
@@ -245,12 +247,12 @@ export async function createMember(
     }
   }
 
-  // Record first payment (registration payment on the registered date)
-  // Use the member's registered_date from the database (when they actually paid)
+  // Record first payment (registration payment on the membership start date)
+  // Use the membership_start_date to support backdated registrations
   const { error: paymentError } = await supabase.from('payments').insert({
     gym_id: gymId,
     member_id: member.id,
-    payment_date: member.registered_date || new Date().toISOString().split('T')[0],
+    payment_date: input.membershipStartDate,
     amount_paid: input.paymentAmount,
     discount_applied: discountName,
     discount_percentage: discountPercentage,

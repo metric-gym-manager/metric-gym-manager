@@ -77,7 +77,8 @@
       "Bash(node scripts/version-bump.js:*)",
       "Bash(node scripts/generate-changelog.js:*)",
       "Bash(npx tsx:*)",
-      "Bash(node scripts/apply-gym-id-migration.js:*)"
+      "Bash(node scripts/apply-gym-id-migration.js:*)",
+      "Bash(node scripts/identify-gym.js:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
