@@ -156,6 +156,7 @@ export async function collectPayment(
     supabase
       .from('payments')
       .insert({
+        gym_id: gymId,
         member_id: input.memberId,
         payment_date: input.paymentDate,
         amount_paid: input.paymentAmount,
