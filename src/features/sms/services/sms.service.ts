@@ -51,10 +51,10 @@ export async function sendSMS(
       message: messageBody,
     });
 
-    if (result.success && result.message_id) {
-      textLkMessageId = result.message_id;
+    if (result.success) {
+      textLkMessageId = result.message_id ?? null;
       deliveryStatus = 'sent';
-      console.log(`   ✓ SMS sent via text.lk (ID: ${result.message_id})`);
+      console.log(`   ✓ SMS sent via text.lk (ID: ${result.message_id ?? 'N/A'})`);
       if (result.balance !== undefined) {
         console.log(`   Balance: ${result.balance} credits`);
       }
