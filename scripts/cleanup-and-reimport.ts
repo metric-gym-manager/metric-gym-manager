@@ -2,7 +2,6 @@
  * Cleanup incorrectly dated members and re-import with correct dates
  */
 
-import * as fs from 'fs';
 import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { config } from 'dotenv';
