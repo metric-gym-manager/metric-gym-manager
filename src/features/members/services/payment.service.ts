@@ -19,6 +19,11 @@ async function sendSMSAsync(
   message: string
 ): Promise<void> {
   try {
+    if (!phoneNumber || phoneNumber.trim() === '') {
+      console.error(`   ✗ Receipt SMS skipped: phone number is missing for member ${memberId}`);
+      return;
+    }
+
     const supabase = await createClient();
     const useRealSms = process.env.ENABLE_REAL_SMS === 'true';
 
@@ -35,10 +40,10 @@ async function sendSMSAsync(
         message: message,
       });
 
-      if (result.success && result.message_id) {
-        textLkMessageId = result.message_id;
+      if (result.success) {
+        textLkMessageId = result.message_id ?? null;
         deliveryStatus = 'sent';
-        console.log(`   ✓ SMS sent via text.lk (ID: ${result.message_id})`);
+        console.log(`   ✓ SMS sent via text.lk (ID: ${result.message_id ?? 'N/A'})`);
       } else {
         deliveryStatus = 'failed';
         console.error(`   ✗ SMS failed: ${result.error}`);

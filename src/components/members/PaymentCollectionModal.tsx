@@ -103,13 +103,10 @@ export default function PaymentCollectionModal({ open, onClose, member }: Paymen
 
       return response.json();
     },
-    onMutate: () => {
-      // Show success immediately for better UX
+    onSuccess: () => {
       toast.success('Payment collected — receipt SMS sent');
       reset();
       onClose();
-    },
-    onSuccess: () => {
       // Batch invalidations to reduce refetch overhead
       queryClient.invalidateQueries({
         predicate: (query) =>

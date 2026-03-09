@@ -83,11 +83,10 @@ export default function RegularPaymentTable() {
     },
     onMutate: (row) => {
       setPendingMemberId(row.id);
-      // Show success immediately for better UX
-      toast.success('Payment collected — receipt SMS sent');
     },
     onSuccess: () => {
       setPendingMemberId(null);
+      toast.success('Payment collected — receipt SMS sent');
       // Batch invalidations to reduce refetch overhead
       queryClient.invalidateQueries({
         predicate: (query) =>
