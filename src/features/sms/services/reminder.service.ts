@@ -183,12 +183,13 @@ async function processGymReminders(gymId: string): Promise<{
   };
 
   // Get all active members for this gym, excluding those with active installment plans
-  const { data: members, error } = await supabase
+  const { data: members, error} = await supabase
     .from('members')
     .select(`
       id,
       name,
       phone_number,
+      plan_type,
       next_due_date,
       member_installments(id, status)
     `)
@@ -225,13 +226,25 @@ async function processGymReminders(gymId: string): Promise<{
     dueDate.setHours(0, 0, 0, 0);
 
     const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const planType = (member as any).plan_type;
 
-    console.log(`    Member: ${member.name}, Due: ${member.next_due_date}, Days until due: ${daysUntilDue}`);
+    console.log(`    Member: ${member.name}, Plan: ${planType}, Due: ${member.next_due_date}, Days until due: ${daysUntilDue}`);
+
+    // Skip all automatic reminders for daily members
+    if (planType === 'daily') {
+      console.log(`      → Skipped: Daily members don't receive automatic reminders`);
+      continue;
+    }
 
     let smsType: SMSType | null = null;
 
     // Determine SMS type based on days until due
     if (daysUntilDue === 7) {
+      // Skip 7-day reminder for monthly members
+      if (planType === 'monthly') {
+        console.log(`      → Skipped: Monthly members don't receive 7-day reminders`);
+        continue;
+      }
       smsType = 'reminder_7day';
       console.log(`      → Sending 7-day reminder`);
     } else if (daysUntilDue === 3) {

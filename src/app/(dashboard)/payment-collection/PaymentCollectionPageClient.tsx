@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import ReminderStatusTable from '@/components/payment-collection/ReminderStatusTable';
+import PaymentRemindersTable from '@/components/payment-collection/PaymentRemindersTable';
 
 const InstallmentPaymentsTable = dynamic(
   () => import('@/components/payment-collection/InstallmentPaymentsTable'),
@@ -19,7 +20,7 @@ const RegularPaymentTable = dynamic(
   }
 );
 
-type Tab = 'reminders' | 'installments' | 'regular';
+type Tab = 'payment-reminders' | 'reminders' | 'installments' | 'regular';
 
 export default function PaymentCollectionPageClient() {
   const [activeTab, setActiveTab] = useState<Tab>('regular');
@@ -52,6 +53,17 @@ export default function PaymentCollectionPageClient() {
         </button>
         <button
           type="button"
+          onClick={() => setActiveTab('payment-reminders')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'payment-reminders'
+              ? 'border-blue-600 text-blue-700'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Payment Reminders
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab('reminders')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'reminders'
@@ -64,6 +76,7 @@ export default function PaymentCollectionPageClient() {
       </div>
 
       {/* Tab content */}
+      {activeTab === 'payment-reminders' && <PaymentRemindersTable />}
       {activeTab === 'reminders' && <ReminderStatusTable />}
       {activeTab === 'regular' && <RegularPaymentTable />}
       {activeTab === 'installments' && <InstallmentPaymentsTable />}
