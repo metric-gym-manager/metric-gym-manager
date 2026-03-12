@@ -301,7 +301,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                     .map((planType) => (
                       <SelectItem key={planType.id} value={planType.plan_type}>
                         {planType.plan_type.charAt(0).toUpperCase() + planType.plan_type.slice(1).replace('-', ' ')}
-                        {planType.default_amount > 0 && ` (LKR ${planType.default_amount.toLocaleString()})`}
+                        {planType.default_amount > 0 && ` (Rs. ${planType.default_amount.toLocaleString()})`}
                       </SelectItem>
                     ))}
                   {(!planTypesData || planTypesData.filter((pt) => pt.is_active).length === 0) && (
@@ -317,7 +317,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             </div>
 
             <div>
-              <Label htmlFor="planAmount">Plan Amount (LKR) *</Label>
+              <Label htmlFor="planAmount">Plan Amount (Rs.) *</Label>
               <Input
                 id="planAmount"
                 type="number"
@@ -423,19 +423,19 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                 </p>
                 <div className="flex justify-between text-sm">
                   <span>Plan Amount:</span>
-                  <span className="font-medium">LKR {planAmount.toFixed(2)}</span>
+                  <span className="font-medium">Rs. {planAmount.toFixed(2)}</span>
                 </div>
                 {discountPercentage > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Discount ({discountPercentage}%):</span>
                     <span className="font-medium">
-                      − LKR {(planAmount * discountPercentage / 100).toFixed(2)}
+                      − Rs. {(planAmount * discountPercentage / 100).toFixed(2)}
                     </span>
                   </div>
                 )}
                 <div className="flex justify-between text-base font-semibold pt-2 border-t">
                   <span>Payment Amount:</span>
-                  <span>LKR {discountedAmount.toFixed(2)}</span>
+                  <span>Rs. {discountedAmount.toFixed(2)}</span>
                 </div>
               </div>
             )}
@@ -481,19 +481,19 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                     <p className="text-xs font-medium text-gray-500">Payment Schedule Preview</p>
                     <div className="flex justify-between text-sm">
                       <span>Plan Amount:</span>
-                      <span className="font-medium">LKR {planAmount.toFixed(2)}</span>
+                      <span className="font-medium">Rs. {planAmount.toFixed(2)}</span>
                     </div>
                     {discountPercentage > 0 && (
                       <div className="flex justify-between text-sm text-green-600">
                         <span>Discount ({discountPercentage}%):</span>
                         <span className="font-medium">
-                          − LKR {(planAmount * discountPercentage / 100).toFixed(2)}
+                          − Rs. {(planAmount * discountPercentage / 100).toFixed(2)}
                         </span>
                       </div>
                     )}
                     <div className="flex justify-between text-sm pt-1 border-t">
                       <span>Installment Total:</span>
-                      <span className="font-medium">LKR {discountedAmount.toFixed(2)}</span>
+                      <span className="font-medium">Rs. {discountedAmount.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span>Number of Payments:</span>
@@ -501,7 +501,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                     </div>
                     <div className="flex justify-between text-base font-semibold text-blue-700 pt-1 border-t">
                       <span>Per Installment:</span>
-                      <span>LKR {amountPerInstallment.toFixed(2)}</span>
+                      <span>Rs. {amountPerInstallment.toFixed(2)}</span>
                     </div>
                   </div>
                 )}
