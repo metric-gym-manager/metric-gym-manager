@@ -21,6 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { formatDate } from '@/lib/utils/date';
+import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
 
 interface InstallmentPaymentRow {
   id: string;
@@ -50,6 +53,8 @@ export default function InstallmentPaymentsTable() {
   const [filter, setFilter] = useState('pending');
   const [sortBy, setSortBy] = useState('due_date_asc');
   const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState<InstallmentPaymentRow | null>(null);
 
   const { data, isLoading, error } = useQuery<InstallmentPaymentsResponse>({
     queryKey: ['installment-payments', filter, sortBy],
@@ -89,9 +94,6 @@ export default function InstallmentPaymentsTable() {
     },
   });
 
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString('en-GB');
-
   const getDueInText = (daysUntilDue: number) => {
     if (daysUntilDue === 0) {
       return <span className="font-medium text-orange-600">Due today</span>;
@@ -111,12 +113,16 @@ export default function InstallmentPaymentsTable() {
     }
   };
 
-  const getPlanClassName = (planType: string): string => {
-    switch (planType) {
-      case 'monthly': return 'border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100';
-      case 'daily':   return 'border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100';
-      case 'annual':  return 'border-transparent bg-purple-100 text-purple-800 hover:bg-purple-100';
-      default:        return 'border-transparent bg-blue-100 text-blue-800';
+  const handleMarkPaidClick = (row: InstallmentPaymentRow) => {
+    setPendingPayment(row);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmPayment = () => {
+    if (pendingPayment) {
+      markPaidMutation.mutate(pendingPayment.id);
+      setConfirmDialogOpen(false);
+      setPendingPayment(null);
     }
   };
 
@@ -203,7 +209,7 @@ export default function InstallmentPaymentsTable() {
                   </TableCell>
                   <TableCell>{row.phoneNumber}</TableCell>
                   <TableCell>
-                    <Badge className={getPlanClassName(row.planType)}>
+                    <Badge className={getPlanBadgeColor(row.planType)}>
                       {row.planType}
                     </Badge>
                   </TableCell>
@@ -219,14 +225,14 @@ export default function InstallmentPaymentsTable() {
                     #{row.installmentNumber}
                   </TableCell>
                   <TableCell className="font-medium">
-                    LKR {row.amount.toFixed(2)}
+                    Rs. {row.amount.toFixed(2)}
                   </TableCell>
                   <TableCell>{formatDate(row.dueDate)}</TableCell>
                   <TableCell>{getDueInText(row.daysUntilDue)}</TableCell>
                   <TableCell>
                     <Button
                       size="sm"
-                      onClick={(e) => { e.stopPropagation(); markPaidMutation.mutate(row.id); }}
+                      onClick={(e) => { e.stopPropagation(); handleMarkPaidClick(row); }}
                       disabled={pendingPaymentId === row.id}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
@@ -246,6 +252,20 @@ export default function InstallmentPaymentsTable() {
           </div>
         )}
       </div>
+
+      {/* Confirm Payment Dialog */}
+      <ConfirmDialog
+        open={confirmDialogOpen}
+        onOpenChange={setConfirmDialogOpen}
+        title="Confirm Installment Payment"
+        description={
+          pendingPayment
+            ? `Record Rs. ${pendingPayment.amount.toFixed(2)} payment (installment #${pendingPayment.installmentNumber}) for ${pendingPayment.memberName}?`
+            : ''
+        }
+        confirmText="Mark Paid"
+        onConfirm={handleConfirmPayment}
+      />
     </div>
   );
 }
