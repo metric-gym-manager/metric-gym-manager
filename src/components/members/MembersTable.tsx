@@ -28,6 +28,8 @@ import {
 import { Badge } from '@/components/ui/badge';
 import type { MemberWithDiscount, OverdueMember } from '@/features/members/types';
 import { CreditCard, X, Filter } from 'lucide-react';
+import { formatDate } from '@/lib/utils/date';
+import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
 
 interface MembersListResponse {
   members: MemberWithDiscount[];
@@ -128,12 +130,6 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
     setPage(1);
   };
 
-  // Format date to DD/MM/YYYY
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB');
-  };
-
   // Format phone number
   const formatPhone = (phone: string) => {
     return phone;
@@ -147,20 +143,6 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
       case 'suspended': return 'bg-amber-400';
       case 'cancelled': return 'bg-gray-400';
       default:          return 'bg-green-500';
-    }
-  };
-
-  // Get plan type badge className for distinct colors
-  const getPlanClassName = (planType: string): string => {
-    switch (planType) {
-      case 'monthly':
-        return 'border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100';
-      case 'daily':
-        return 'border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100';
-      case 'annual':
-        return 'border-transparent bg-purple-100 text-purple-800 hover:bg-purple-100';
-      default:
-        return 'border-transparent bg-blue-100 text-blue-800';
     }
   };
 
@@ -478,7 +460,7 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
                     <TableCell>{formatPhone(member.phone_number)}</TableCell>
                     <TableCell>{formatDate(member.registered_date)}</TableCell>
                     <TableCell>
-                      <Badge className={getPlanClassName(member.plan_type)}>
+                      <Badge className={getPlanBadgeColor(member.plan_type)}>
                         {member.plan_type}
                       </Badge>
                     </TableCell>
@@ -540,7 +522,7 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
                     <TableCell>{formatPhone(member.phone_number)}</TableCell>
                     <TableCell>{formatDate(member.registered_date)}</TableCell>
                     <TableCell>
-                      <Badge className={getPlanClassName(member.plan_type)}>
+                      <Badge className={getPlanBadgeColor(member.plan_type)}>
                         {member.plan_type}
                       </Badge>
                     </TableCell>
