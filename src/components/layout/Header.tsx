@@ -109,15 +109,20 @@ export default function Header() {
 
             <Button
               variant="ghost"
-              size="icon"
               onClick={handleLogout}
               disabled={isLoggingOut}
-              aria-label="Logout"
+              className="gap-2"
             >
               {isLoggingOut ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Logging out...</span>
+                </>
               ) : (
-                <LogOut className="h-5 w-5" />
+                <>
+                  <LogOut className="h-4 w-4" />
+                  <span>Log Out</span>
+                </>
               )}
             </Button>
           </div>
