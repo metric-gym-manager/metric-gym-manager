@@ -22,12 +22,12 @@ const navigation = [
     icon: DollarSign,
   },
   {
-    name: 'Payment Collection',
+    name: 'Payments',
     href: '/payment-collection',
     icon: CreditCard,
   },
   {
-    name: 'Make Announcement',
+    name: 'Announcements',
     href: '/make-announcement',
     icon: Megaphone,
   },
@@ -125,7 +125,7 @@ export default function Sidebar() {
                             isActive
                               ? 'bg-gray-100 text-gray-900'
                               : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
-                            'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold'
+                            'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors duration-150'
                           )}
                         >
                           <Icon className="h-5 w-5 text-blue-600" strokeWidth={2} />
