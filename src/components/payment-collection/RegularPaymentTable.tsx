@@ -21,6 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
+import { formatDate } from '@/lib/utils/date';
+import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
 
 interface RegularPaymentRow {
   id: string;
@@ -49,6 +52,8 @@ export default function RegularPaymentTable() {
   const [filter, setFilter] = useState('all');
   const [sortBy, setSortBy] = useState('due_date_asc');
   const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingPayment, setPendingPayment] = useState<RegularPaymentRow | null>(null);
 
   const { data, isLoading, error } = useQuery<RegularPaymentsResponse>({
     queryKey: ['regular-payments', filter, sortBy],
@@ -101,9 +106,6 @@ export default function RegularPaymentTable() {
     },
   });
 
-  const formatDate = (dateString: string) =>
-    new Date(dateString).toLocaleDateString('en-GB');
-
   const getDueInText = (daysUntilDue: number) => {
     if (daysUntilDue === 0) {
       return <span className="font-medium text-orange-600">Due today</span>;
@@ -123,12 +125,16 @@ export default function RegularPaymentTable() {
     }
   };
 
-  const getPlanClassName = (planType: string): string => {
-    switch (planType) {
-      case 'monthly': return 'border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100';
-      case 'daily':   return 'border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100';
-      case 'annual':  return 'border-transparent bg-purple-100 text-purple-800 hover:bg-purple-100';
-      default:        return 'border-transparent bg-blue-100 text-blue-800';
+  const handleMarkPaidClick = (row: RegularPaymentRow) => {
+    setPendingPayment(row);
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmPayment = () => {
+    if (pendingPayment) {
+      markPaidMutation.mutate(pendingPayment);
+      setConfirmDialogOpen(false);
+      setPendingPayment(null);
     }
   };
 
@@ -215,11 +221,11 @@ export default function RegularPaymentTable() {
                   </TableCell>
                   <TableCell>{row.phoneNumber}</TableCell>
                   <TableCell>
-                    <Badge className={getPlanClassName(row.planType)}>
+                    <Badge className={getPlanBadgeColor(row.planType)}>
                       {row.planType}
                     </Badge>
                   </TableCell>
-                  <TableCell>LKR {row.planAmount.toFixed(2)}</TableCell>
+                  <TableCell>Rs. {row.planAmount.toFixed(2)}</TableCell>
                   <TableCell>
                     {row.discountName && row.discountPct ? (
                       <span className="text-sm text-green-700">
@@ -230,14 +236,14 @@ export default function RegularPaymentTable() {
                     )}
                   </TableCell>
                   <TableCell className="font-medium">
-                    LKR {row.effectiveAmount.toFixed(2)}
+                    Rs. {row.effectiveAmount.toFixed(2)}
                   </TableCell>
                   <TableCell>{formatDate(row.nextDueDate)}</TableCell>
                   <TableCell>{getDueInText(row.daysUntilDue)}</TableCell>
                   <TableCell>
                     <Button
                       size="sm"
-                      onClick={(e) => { e.stopPropagation(); markPaidMutation.mutate(row); }}
+                      onClick={(e) => { e.stopPropagation(); handleMarkPaidClick(row); }}
                       disabled={pendingMemberId === row.id}
                       className="bg-green-600 hover:bg-green-700 text-white"
                     >
@@ -257,6 +263,20 @@ export default function RegularPaymentTable() {
           </div>
         )}
       </div>
+
+      {/* Confirm Payment Dialog */}
+      <ConfirmDialog
+        open={confirmDialogOpen}
+        onOpenChange={setConfirmDialogOpen}
+        title="Confirm Payment"
+        description={
+          pendingPayment
+            ? `Record Rs. ${pendingPayment.effectiveAmount.toFixed(2)} payment for ${pendingPayment.name}?`
+            : ''
+        }
+        confirmText="Mark Paid"
+        onConfirm={handleConfirmPayment}
+      />
     </div>
   );
 }
