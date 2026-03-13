@@ -30,6 +30,7 @@ import type { MemberWithDiscount, OverdueMember } from '@/features/members/types
 import { CreditCard, X, Filter } from 'lucide-react';
 import { formatDate } from '@/lib/utils/date';
 import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
+import UrgencyBadge from '@/components/common/UrgencyBadge';
 
 interface MembersListResponse {
   members: MemberWithDiscount[];
@@ -465,8 +466,8 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
                       </Badge>
                     </TableCell>
                     <TableCell>{formatDate(member.next_due_date)}</TableCell>
-                    <TableCell className="font-semibold text-red-600">
-                      {member.days_overdue} days
+                    <TableCell>
+                      <UrgencyBadge daysOverdue={member.days_overdue} />
                     </TableCell>
                     <TableCell>
                       <Button
