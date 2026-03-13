@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface MetricCardProps {
@@ -12,11 +13,12 @@ interface MetricCardProps {
     isPositive: boolean;
   };
   valueClassName?: string;
+  href?: string;
 }
 
-export default function MetricCard({ title, value, subtitle, icon, trend, valueClassName }: MetricCardProps) {
-  return (
-    <Card>
+export default function MetricCard({ title, value, subtitle, icon, trend, valueClassName, href }: MetricCardProps) {
+  const content = (
+    <>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
         {icon && <div className="text-gray-500">{icon}</div>}
@@ -34,6 +36,18 @@ export default function MetricCard({ title, value, subtitle, icon, trend, valueC
           </div>
         )}
       </CardContent>
-    </Card>
+    </>
   );
+
+  if (href) {
+    return (
+      <Link href={href} className="block transition-transform hover:scale-[1.02]">
+        <Card className="cursor-pointer hover:shadow-md transition-shadow">
+          {content}
+        </Card>
+      </Link>
+    );
+  }
+
+  return <Card>{content}</Card>;
 }

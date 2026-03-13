@@ -201,6 +201,12 @@ export default function RevenuePageClient() {
                   : 'No outstanding payments';
               })()}
               icon={<span className="text-2xl">📊</span>}
+              href={(() => {
+                const hasOverdue = viewType === 'monthly'
+                  ? monthlyData?.currentMonth.hasOverduePayments
+                  : yearlyData?.currentYear.hasOverduePayments;
+                return hasOverdue ? '/payment-collection?filter=overdue' : undefined;
+              })()}
             />
           </div>
 
