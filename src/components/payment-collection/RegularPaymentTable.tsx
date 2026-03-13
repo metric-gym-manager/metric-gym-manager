@@ -108,19 +108,23 @@ export default function RegularPaymentTable() {
 
   const getDueInText = (daysUntilDue: number) => {
     if (daysUntilDue === 0) {
-      return <span className="font-medium text-orange-600">Due today</span>;
+      return (
+        <Badge className="bg-orange-100 text-orange-800 border-orange-200 font-medium">
+          Due today
+        </Badge>
+      );
     } else if (daysUntilDue > 0) {
       return (
-        <span className="text-gray-600">
-          Due in {daysUntilDue} day{daysUntilDue > 1 ? 's' : ''}
-        </span>
+        <Badge className="bg-green-100 text-green-800 border-green-200 font-medium">
+          {daysUntilDue}d left
+        </Badge>
       );
     } else {
       const days = Math.abs(daysUntilDue);
       return (
-        <span className="font-medium text-red-600">
-          Overdue by {days} day{days > 1 ? 's' : ''}
-        </span>
+        <Badge className="bg-red-100 text-red-800 border-red-200 font-medium">
+          {days}d overdue
+        </Badge>
       );
     }
   };
