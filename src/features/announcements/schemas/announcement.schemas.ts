@@ -8,6 +8,7 @@ export const createAnnouncementSchema = z.object({
     .string()
     .min(1, 'Message cannot be empty')
     .max(MAX_MESSAGE_LENGTH, `Message cannot exceed ${MAX_MESSAGE_LENGTH} characters`),
+  audience: z.enum(['all', 'active', 'expired']).optional().default('all'),
 });
 
 export type CreateAnnouncementInput = z.infer<typeof createAnnouncementSchema>;

@@ -7,6 +7,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -23,6 +30,7 @@ const MAX_MESSAGE_LENGTH = 160;
 export default function MakeAnnouncementPage() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
+  const [audience, setAudience] = useState<'all' | 'active' | 'expired'>('all');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [currentAnnouncementId, setCurrentAnnouncementId] = useState<string | null>(null);
 
@@ -39,11 +47,11 @@ export default function MakeAnnouncementPage() {
 
   // Send announcement mutation
   const sendMutation = useMutation({
-    mutationFn: async (message: string) => {
+    mutationFn: async ({ message, audience }: { message: string; audience: 'all' | 'active' | 'expired' }) => {
       const response = await fetch('/api/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, audience }),
       });
 
       if (!response.ok) {
@@ -68,7 +76,7 @@ export default function MakeAnnouncementPage() {
   };
 
   const handleConfirmSend = () => {
-    sendMutation.mutate(message);
+    sendMutation.mutate({ message, audience });
   };
 
   const remainingChars = MAX_MESSAGE_LENGTH - message.length;
@@ -101,6 +109,20 @@ export default function MakeAnnouncementPage() {
         {/* Message Composer */}
         <Card className="p-4 md:p-6">
           <div className="space-y-4">
+            <div>
+              <Label htmlFor="audience" className="text-sm md:text-base">Send To</Label>
+              <Select value={audience} onValueChange={(value: 'all' | 'active' | 'expired') => setAudience(value)}>
+                <SelectTrigger id="audience" className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All members (Active & Expired)</SelectItem>
+                  <SelectItem value="active">Active members only</SelectItem>
+                  <SelectItem value="expired">Expired members only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <Label htmlFor="message" className="text-sm md:text-base">Announcement Message</Label>
@@ -223,11 +245,18 @@ export default function MakeAnnouncementPage() {
             <DialogTitle className="text-base md:text-lg">Confirm Send Announcement</DialogTitle>
             <DialogDescription className="text-xs md:text-sm">
               <span className="hidden sm:inline">
-                Are you sure you want to send this announcement to all active and expired
-                members? Messages will be sent in the background.
+                Are you sure you want to send this announcement to{' '}
+                {audience === 'all' && 'all active and expired members'}
+                {audience === 'active' && 'active members only'}
+                {audience === 'expired' && 'expired members only'}
+                ? Messages will be sent in the background.
               </span>
               <span className="sm:hidden">
-                Send to all active & expired members?
+                Send to{' '}
+                {audience === 'all' && 'all members'}
+                {audience === 'active' && 'active only'}
+                {audience === 'expired' && 'expired only'}
+                ?
               </span>
             </DialogDescription>
           </DialogHeader>
@@ -237,7 +266,11 @@ export default function MakeAnnouncementPage() {
             </div>
             <p className="text-xs text-gray-500 mt-3">
               <span className="hidden sm:inline">
-                This will queue SMS messages to all active and expired members in your gym. Messages will be sent in parallel batches for optimal delivery speed.
+                This will queue SMS messages to{' '}
+                {audience === 'all' && 'all active and expired members'}
+                {audience === 'active' && 'active members only'}
+                {audience === 'expired' && 'expired members only'}
+                {' '}in your gym. Messages will be sent in parallel batches for optimal delivery speed.
               </span>
               <span className="sm:hidden">
                 SMS will be sent in parallel batches.

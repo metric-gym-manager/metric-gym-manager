@@ -46,12 +46,26 @@ export async function createAndSendAnnouncement(
 
   const gymName = gym?.gym_name || 'your gym';
 
-  // Get all active and expired members for this gym
+  // Get members based on audience targeting
+  let memberStatuses: string[];
+  switch (input.audience) {
+    case 'active':
+      memberStatuses = ['active'];
+      break;
+    case 'expired':
+      memberStatuses = ['expired'];
+      break;
+    case 'all':
+    default:
+      memberStatuses = ['active', 'expired'];
+      break;
+  }
+
   const { data: members, error: membersError } = await supabase
     .from('members')
     .select('id, name, phone_number')
     .eq('gym_id', gymId)
-    .in('status', ['active', 'expired']);
+    .in('status', memberStatuses);
 
   if (membersError) {
     throw new Error(`Failed to fetch members: ${membersError.message}`);
