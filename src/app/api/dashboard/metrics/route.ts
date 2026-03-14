@@ -13,7 +13,7 @@ import { createClient } from '@/lib/supabase/server';
  */
 export async function GET() {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // Get authenticated user
     const {
@@ -65,7 +65,7 @@ export async function GET() {
     });
 
     // Get revenue this month
-    const { data: payments, error: paymentsError } = await supabase
+    const { data: payments } = await supabase
       .from('payments')
       .select('payment_amount')
       .eq('gym_id', gymId)
@@ -84,7 +84,7 @@ export async function GET() {
     );
 
     // Calculate total amount due this week (need to get plan amounts)
-    const { data: plans, error: plansError } = await supabase
+    const { data: plans } = await supabase
       .from('plan_types')
       .select('plan_type, default_amount')
       .eq('gym_id', gymId);

@@ -37,7 +37,6 @@ export default function UrgencyBadge({ daysOverdue }: UrgencyBadgeProps) {
   // Determine urgency level
   const isCritical = days > 14;
   const isWarning = days >= 7 && days <= 14;
-  const isMild = days > 0 && days < 7;
 
   // Base badge classes
   const baseClasses = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold';

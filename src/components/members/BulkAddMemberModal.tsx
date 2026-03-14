@@ -396,10 +396,9 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
           <DialogTitle>Bulk Register Members</DialogTitle>
           <DialogDescription className="flex items-start gap-1.5">
             <span>Use the toolbar to set defaults for all rows at once, then adjust individually as needed.</span>
-            <HelpCircle
-              className="h-4 w-4 text-gray-400 cursor-help flex-shrink-0 mt-0.5"
-              title="Apply to All: Set a value in the toolbar (plan, date, discount, or payment plan), then click 'Apply to All' to fill all rows with that value. You can still modify individual rows afterward."
-            />
+            <span title="Apply to All: Set a value in the toolbar (plan, date, discount, or payment plan), then click 'Apply to All' to fill all rows with that value. You can still modify individual rows afterward.">
+              <HelpCircle className="h-4 w-4 text-gray-400 cursor-help flex-shrink-0 mt-0.5" />
+            </span>
           </DialogDescription>
         </DialogHeader>
 

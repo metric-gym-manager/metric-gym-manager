@@ -1,6 +1,5 @@
 import { AlertCircle } from 'lucide-react';
 import MetricCard from './MetricCard';
-import UrgencyBadge from '../common/UrgencyBadge';
 
 interface OverdueMembersCardProps {
   count: number;
@@ -34,7 +33,7 @@ export default function OverdueMembersCard({
           {critical > 0 && (
             <div className="text-xs">
               <span className="font-semibold text-red-700">{critical}</span>
-              <span className="text-gray-600 ml-1">critical (>14d)</span>
+              <span className="text-gray-600 ml-1">critical ({'>'}14d)</span>
             </div>
           )}
           {warning > 0 && (
@@ -46,7 +45,7 @@ export default function OverdueMembersCard({
           {mild > 0 && (
             <div className="text-xs">
               <span className="font-semibold text-yellow-700">{mild}</span>
-              <span className="text-gray-600 ml-1">mild (<7d)</span>
+              <span className="text-gray-600 ml-1">mild ({'<'}7d)</span>
             </div>
           )}
         </div>

@@ -426,10 +426,9 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
               />
               <Label htmlFor="recurringDiscount" className="text-sm font-normal flex items-center gap-1">
                 Apply discount to all future payments
-                <HelpCircle
-                  className="h-3.5 w-3.5 text-gray-400 cursor-help"
-                  title="If checked, this discount will automatically apply to all recurring payments for this member, not just the initial payment."
-                />
+                <span title="If checked, this discount will automatically apply to all recurring payments for this member, not just the initial payment.">
+                  <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                </span>
               </Label>
             </div>
 
@@ -519,10 +518,9 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                 <div>
                   <Label htmlFor="installment-template" className="flex items-center gap-1">
                     Payment Plan *
-                    <HelpCircle
-                      className="h-3.5 w-3.5 text-gray-400 cursor-help"
-                      title="Split the total fee into smaller payments over several months. The member pays one installment at a time instead of the full amount upfront."
-                    />
+                    <span title="Split the total fee into smaller payments over several months. The member pays one installment at a time instead of the full amount upfront.">
+                      <HelpCircle className="h-3.5 w-3.5 text-gray-400 cursor-help" />
+                    </span>
                   </Label>
                   <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
                     <SelectTrigger className="bg-white">
