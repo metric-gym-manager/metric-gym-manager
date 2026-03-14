@@ -274,9 +274,15 @@ export default function ReminderStatusTable() {
           </Table>
         ) : (
           <div className="flex h-64 items-center justify-center">
-            <div className="text-center">
+            <div className="text-center space-y-2 max-w-md mx-auto px-4">
               <p className="text-sm text-gray-500">No reminders found</p>
-              <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+              {filter !== 'all' ? (
+                <p className="text-xs text-gray-400">Try adjusting your filters</p>
+              ) : (
+                <p className="text-xs text-gray-400">
+                  Payment reminders are sent automatically 7 days, 3 days, and on the due date. Manual reminders can be sent anytime using the "Send Reminder" button.
+                </p>
+              )}
             </div>
           </div>
         )}

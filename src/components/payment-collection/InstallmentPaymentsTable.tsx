@@ -245,9 +245,15 @@ export default function InstallmentPaymentsTable() {
           </Table>
         ) : (
           <div className="flex h-64 items-center justify-center">
-            <div className="text-center">
-              <p className="text-sm text-gray-500">No pending installment payments</p>
-              <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+            <div className="text-center space-y-2 max-w-md mx-auto px-4">
+              <p className="text-sm text-gray-500">No installment payments found</p>
+              {filter !== 'pending' ? (
+                <p className="text-xs text-gray-400">Try adjusting your filters</p>
+              ) : (
+                <p className="text-xs text-gray-400">
+                  No pending installments at the moment. Installment payments will appear here when members are enrolled in payment plans.
+                </p>
+              )}
             </div>
           </div>
         )}

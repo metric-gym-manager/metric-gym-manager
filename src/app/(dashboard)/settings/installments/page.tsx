@@ -187,11 +187,13 @@ export default function InstallmentsSettingsPage() {
 
       {/* Templates List */}
       {isLoading ? (
-        <div className="text-sm text-gray-500">Loading installment templates...</div>
+        <div className="text-sm text-gray-500">Loading payment plans...</div>
       ) : !templates || templates.length === 0 ? (
         <div className="rounded-lg border bg-white p-8 text-center">
-          <p className="text-sm text-gray-500">No installment templates yet.</p>
-          <p className="text-xs text-gray-400 mt-1">Create a template to allow installment payments for members.</p>
+          <p className="text-sm text-gray-500">No payment plans yet.</p>
+          <p className="text-xs text-gray-400 mt-2 max-w-md mx-auto">
+            Create a payment plan to let members split their fees into smaller monthly payments. For example, a "3-Month Plan" breaks a Rs. 15,000 membership into 3 payments of Rs. 5,000 each.
+          </p>
         </div>
       ) : (
         <div className="rounded-lg border bg-white overflow-hidden">

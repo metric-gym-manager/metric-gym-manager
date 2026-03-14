@@ -552,9 +552,15 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
             </Table>
           ) : (
             <div className="flex h-64 items-center justify-center">
-              <div className="text-center">
+              <div className="text-center space-y-2 max-w-md mx-auto px-4">
                 <p className="text-sm text-gray-500">No members found</p>
-                <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+                {(status !== 'all' || planType !== 'all' || debouncedSearch) ? (
+                  <p className="text-xs text-gray-400">Try adjusting your filters or search term</p>
+                ) : (
+                  <p className="text-xs text-gray-400">
+                    Get started by adding your first member using the "+ Add Member" button above, or register multiple members at once with "Bulk Register".
+                  </p>
+                )}
               </div>
             </div>
           )}

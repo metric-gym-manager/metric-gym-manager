@@ -260,9 +260,15 @@ export default function RegularPaymentTable() {
           </Table>
         ) : (
           <div className="flex h-64 items-center justify-center">
-            <div className="text-center">
+            <div className="text-center space-y-2 max-w-md mx-auto px-4">
               <p className="text-sm text-gray-500">No payments found</p>
-              <p className="text-xs text-gray-400 mt-1">Try adjusting your filters</p>
+              {filter !== 'all' ? (
+                <p className="text-xs text-gray-400">Try adjusting your filters</p>
+              ) : (
+                <p className="text-xs text-gray-400">
+                  All members are up to date with their payments. Upcoming payments will appear here as they approach their due date.
+                </p>
+              )}
             </div>
           </div>
         )}

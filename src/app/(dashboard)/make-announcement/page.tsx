@@ -202,9 +202,14 @@ export default function MakeAnnouncementPage() {
               ))
             ) : (
               <Card className="p-4 md:p-6">
-                <p className="text-sm text-gray-500 text-center">
-                  No announcements sent yet
-                </p>
+                <div className="text-center space-y-2">
+                  <p className="text-sm text-gray-500">
+                    No announcements sent yet
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Use announcements to send important updates to all active and expired members at once — perfect for schedule changes, promotions, or facility updates.
+                  </p>
+                </div>
               </Card>
             )}
           </div>
