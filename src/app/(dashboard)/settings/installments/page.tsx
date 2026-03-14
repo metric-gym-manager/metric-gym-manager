@@ -119,7 +119,7 @@ export default function InstallmentsSettingsPage() {
       {/* Add Template Form */}
       {showForm && (
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-5 space-y-4">
-          <h3 className="text-sm font-semibold text-blue-900">New Installment Template</h3>
+          <h3 className="text-sm font-semibold text-blue-900">New Payment Plan</h3>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>

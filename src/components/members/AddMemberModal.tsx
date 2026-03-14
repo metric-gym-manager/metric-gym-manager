@@ -512,7 +512,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                 </p>
 
                 <div>
-                  <Label htmlFor="installment-template">Installment Template *</Label>
+                  <Label htmlFor="installment-template">Payment Plan *</Label>
                   <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
                     <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Select a payment template" />
