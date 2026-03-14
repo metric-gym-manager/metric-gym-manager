@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -27,7 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import type { MemberWithDiscount, OverdueMember } from '@/features/members/types';
-import { CreditCard, X, Filter } from 'lucide-react';
+import { CreditCard, X, Filter, ArrowRight } from 'lucide-react';
 import { formatDate } from '@/lib/utils/date';
 import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
 import UrgencyBadge from '@/components/common/UrgencyBadge';
@@ -48,10 +49,9 @@ interface SearchSuggestion {
 
 interface MembersTableProps {
   onMemberClick: (member: MemberWithDiscount) => void;
-  onPaymentClick: (member: OverdueMember) => void;
 }
 
-export default function MembersTable({ onMemberClick, onPaymentClick }: MembersTableProps) {
+export default function MembersTable({ onMemberClick }: MembersTableProps) {
   const [inputValue, setInputValue] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [status, setStatus] = useState<string>('all');
@@ -470,13 +470,14 @@ export default function MembersTable({ onMemberClick, onPaymentClick }: MembersT
                       <UrgencyBadge daysOverdue={member.days_overdue} />
                     </TableCell>
                     <TableCell>
-                      <Button
-                        size="sm"
-                        onClick={(e) => { e.stopPropagation(); onPaymentClick(member); }}
-                        className="bg-green-600 hover:bg-green-700 text-white"
+                      <Link
+                        href="/payment-collection?filter=overdue"
+                        onClick={(e) => e.stopPropagation()}
+                        className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
                       >
-                        Mark Paid
-                      </Button>
+                        View Payment Details
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}

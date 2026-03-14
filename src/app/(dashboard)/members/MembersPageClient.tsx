@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import MembersTable from '@/components/members/MembersTable';
 import { useMemberModal } from '@/contexts/member-modal.context';
-import type { MemberWithDiscount, OverdueMember } from '@/features/members/types';
+import type { MemberWithDiscount } from '@/features/members/types';
 
 const AddMemberModal = dynamic(
   () => import('@/components/members/AddMemberModal'),
@@ -15,25 +15,14 @@ const BulkAddMemberModal = dynamic(
   () => import('@/components/members/BulkAddMemberModal'),
   { ssr: false }
 );
-const PaymentCollectionModal = dynamic(
-  () => import('@/components/members/PaymentCollectionModal'),
-  { ssr: false }
-);
 
 export default function MembersPageClient() {
   const { openMember } = useMemberModal();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [selectedOverdueMember, setSelectedOverdueMember] = useState<OverdueMember | null>(null);
 
   const handleMemberClick = (member: MemberWithDiscount) => {
     openMember(member.id);
-  };
-
-  const handlePaymentClick = (member: OverdueMember) => {
-    setSelectedOverdueMember(member);
-    setPaymentModalOpen(true);
   };
 
   return (
@@ -57,7 +46,6 @@ export default function MembersPageClient() {
       {/* Members Table */}
       <MembersTable
         onMemberClick={handleMemberClick}
-        onPaymentClick={handlePaymentClick}
       />
 
       {/* Add Member Modal */}
@@ -70,16 +58,6 @@ export default function MembersPageClient() {
       <BulkAddMemberModal
         open={bulkModalOpen}
         onClose={() => setBulkModalOpen(false)}
-      />
-
-      {/* Payment Collection Modal (overdue quick-pay) */}
-      <PaymentCollectionModal
-        open={paymentModalOpen}
-        onClose={() => {
-          setPaymentModalOpen(false);
-          setSelectedOverdueMember(null);
-        }}
-        member={selectedOverdueMember}
       />
     </>
   );
