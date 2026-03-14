@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { HelpCircle } from 'lucide-react';
 import { addMemberSchema, type AddMemberInput } from '@/features/members/schemas/member.schemas';
 
 interface Discount {
@@ -423,8 +424,12 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                 checked={watch('recurringDiscount')}
                 onCheckedChange={(checked) => setValue('recurringDiscount', !!checked)}
               />
-              <Label htmlFor="recurringDiscount" className="text-sm font-normal">
+              <Label htmlFor="recurringDiscount" className="text-sm font-normal flex items-center gap-1">
                 Apply discount to all future payments
+                <HelpCircle
+                  className="h-3.5 w-3.5 text-gray-400 cursor-help"
+                  title="If checked, this discount will automatically apply to all recurring payments for this member, not just the initial payment."
+                />
               </Label>
             </div>
 
@@ -512,7 +517,13 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                 </p>
 
                 <div>
-                  <Label htmlFor="installment-template">Payment Plan *</Label>
+                  <Label htmlFor="installment-template" className="flex items-center gap-1">
+                    Payment Plan *
+                    <HelpCircle
+                      className="h-3.5 w-3.5 text-gray-400 cursor-help"
+                      title="Split the total fee into smaller payments over several months. The member pays one installment at a time instead of the full amount upfront."
+                    />
+                  </Label>
                   <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
                     <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Select a payment template" />

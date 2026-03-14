@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, CheckCircle, XCircle } from 'lucide-react';
+import { Trash2, Plus, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
 
 interface Discount {
   id: string;
@@ -394,8 +394,12 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
       <DialogContent className="max-w-7xl max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>Bulk Register Members</DialogTitle>
-          <DialogDescription>
-            Use the toolbar to set defaults for all rows at once, then adjust individually as needed.
+          <DialogDescription className="flex items-start gap-1.5">
+            <span>Use the toolbar to set defaults for all rows at once, then adjust individually as needed.</span>
+            <HelpCircle
+              className="h-4 w-4 text-gray-400 cursor-help flex-shrink-0 mt-0.5"
+              title="Apply to All: Set a value in the toolbar (plan, date, discount, or payment plan), then click 'Apply to All' to fill all rows with that value. You can still modify individual rows afterward."
+            />
           </DialogDescription>
         </DialogHeader>
 
