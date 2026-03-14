@@ -62,6 +62,7 @@ interface SubmitContext {
 
 export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
   const queryClient = useQueryClient();
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [discountPercentage, setDiscountPercentage] = useState<number>(0);
   const [paymentMode, setPaymentMode] = useState<'standard' | 'installment'>('standard');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
@@ -232,6 +233,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
       discountId: null,
       recurringDiscount: false,
     });
+    setCurrentStep(1);
     setPaymentMode('standard');
     setSelectedTemplateId('');
     setDiscountPercentage(0);
@@ -240,15 +242,69 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     onClose();
   };
 
+  const handleNext = () => {
+    // Validate Step 1 fields before proceeding
+    const name = watch('name');
+    const phoneNumber = watch('phoneNumber');
+    const planAmount = watch('planAmount');
+
+    if (!name || !phoneNumber || !planAmount || planAmount <= 0) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    setCurrentStep(2);
+  };
+
+  const handleBack = () => {
+    setCurrentStep(1);
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Member</DialogTitle>
           <DialogDescription>
-            Fill in the member details and initial payment information.
+            {currentStep === 1
+              ? 'Step 1 of 2: Enter member information and plan details'
+              : 'Step 2 of 2: Configure payment method and complete registration'
+            }
           </DialogDescription>
         </DialogHeader>
+
+        {/* Stepper Progress Indicator */}
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 flex-1">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
+              currentStep === 1
+                ? 'bg-blue-600 text-white'
+                : 'bg-green-500 text-white'
+            }`}>
+              {currentStep === 1 ? '1' : '✓'}
+            </div>
+            <span className={`text-sm font-medium ${currentStep === 1 ? 'text-gray-900' : 'text-gray-500'}`}>
+              Member Info
+            </span>
+          </div>
+          <div className="flex-1 h-0.5 bg-gray-200">
+            <div className={`h-full transition-all duration-300 ${
+              currentStep === 2 ? 'bg-blue-600 w-full' : 'bg-gray-200 w-0'
+            }`} />
+          </div>
+          <div className="flex items-center gap-2 flex-1">
+            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
+              currentStep === 2
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-200 text-gray-500'
+            }`}>
+              2
+            </div>
+            <span className={`text-sm font-medium ${currentStep === 2 ? 'text-gray-900' : 'text-gray-500'}`}>
+              Payment
+            </span>
+          </div>
+        </div>
 
         {planTypesData && planTypesData.filter((pt) => pt.is_active).length === 0 && (
           <div className="rounded-md bg-yellow-50 border border-yellow-200 p-4">
@@ -259,9 +315,12 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
         )}
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Member Information */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Member Information</h3>
+          {/* STEP 1: Member Information & Plan */}
+          {currentStep === 1 && (
+            <>
+              {/* Member Information */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold">Member Information</h3>
 
             <div>
               <Label htmlFor="name">Name *</Label>
@@ -381,10 +440,15 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
               )}
             </div>
           </div>
+            </>
+          )}
 
-          {/* Payment Mode */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold">Payment Method</h3>
+          {/* STEP 2: Payment Configuration */}
+          {currentStep === 2 && (
+            <>
+              {/* Payment Mode */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold">Payment Method</h3>
 
             <div className="flex gap-2">
               <button
@@ -517,29 +581,59 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             {errors.paymentAmount && (
               <p className="text-sm text-red-600">{errors.paymentAmount.message}</p>
             )}
-          </div>
+              </div>
+            </>
+          )}
 
           {/* Actions */}
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={createMemberMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={
-                createMemberMutation.isPending ||
-                !planTypesData ||
-                planTypesData.filter((pt) => pt.is_active).length === 0
-              }
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {createMemberMutation.isPending ? 'Creating...' : 'Create Member'}
-            </Button>
+          <div className="flex justify-between gap-3 pt-4 border-t">
+            <div>
+              {currentStep === 2 && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleBack}
+                  disabled={createMemberMutation.isPending}
+                >
+                  Back
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={createMemberMutation.isPending}
+              >
+                Cancel
+              </Button>
+              {currentStep === 1 ? (
+                <Button
+                  type="button"
+                  onClick={handleNext}
+                  disabled={
+                    !planTypesData ||
+                    planTypesData.filter((pt) => pt.is_active).length === 0
+                  }
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  Next: Payment
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={
+                    createMemberMutation.isPending ||
+                    !planTypesData ||
+                    planTypesData.filter((pt) => pt.is_active).length === 0
+                  }
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {createMemberMutation.isPending ? 'Creating...' : 'Create Member'}
+                </Button>
+              )}
+            </div>
           </div>
         </form>
       </DialogContent>
