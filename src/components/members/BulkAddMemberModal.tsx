@@ -170,7 +170,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
     if (!template) return null;
     const total = getRowDiscountedAmount(row);
     const perInstallment = Math.round((total / template.installment_count) * 100) / 100;
-    return `${template.installment_count}× LKR ${perInstallment.toFixed(0)} / ${template.interval_months}mo`;
+    return `${template.installment_count}× Rs. ${perInstallment.toFixed(0)} / ${template.interval_months}mo`;
   };
 
   const bulkRegisterMutation = useMutation({
@@ -459,7 +459,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
               </select>
             </div>
             <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Amount (LKR)</label>
+              <label className="text-xs font-medium text-gray-600 block mb-1">Amount (Rs.)</label>
               <Input
                 type="number"
                 value={globalPlanAmount}
@@ -579,7 +579,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
                   Phone <span className="text-red-500">*</span>
                 </th>
                 <th className="px-3 py-3 text-left font-medium text-gray-500 w-[120px]">Plan</th>
-                <th className="px-3 py-3 text-left font-medium text-gray-500 w-[110px]">Amount (LKR)</th>
+                <th className="px-3 py-3 text-left font-medium text-gray-500 w-[110px]">Amount (Rs.)</th>
                 <th className="px-3 py-3 text-left font-medium text-gray-500 w-[140px]">Start Date</th>
                 <th className="px-3 py-3 text-left font-medium text-gray-500 min-w-[180px]">Discount</th>
                 <th className="px-3 py-3 text-left font-medium text-gray-500 min-w-[200px]">Installment Plan</th>
@@ -701,7 +701,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
                               Recurring
                             </label>
                             <span className="text-xs font-medium text-green-700">
-                              LKR {discountedAmount.toFixed(0)}
+                              Rs. {discountedAmount.toFixed(0)}
                             </span>
                           </div>
                         )}
@@ -751,7 +751,28 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
                           )}
                         </div>
                       )}
-                      {row.status === 'idle' && <span className="text-xs text-gray-400">—</span>}
+                      {row.status === 'idle' && (() => {
+                        const validationError = validateRow(row);
+                        const hasContent = row.name.trim() || row.phoneNumber.trim();
+
+                        if (!hasContent) {
+                          return <span className="text-xs text-gray-400">—</span>;
+                        }
+
+                        if (validationError) {
+                          return (
+                            <Badge className="border-transparent bg-red-100 text-red-800 text-xs cursor-help" title={validationError}>
+                              <XCircle className="h-3 w-3 mr-1" /> Invalid
+                            </Badge>
+                          );
+                        }
+
+                        return (
+                          <Badge className="border-transparent bg-green-100 text-green-800 text-xs">
+                            <CheckCircle className="h-3 w-3 mr-1" /> Valid
+                          </Badge>
+                        );
+                      })()}
                     </td>
 
                     <td className="px-3 py-2">
