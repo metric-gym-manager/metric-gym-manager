@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const features = [
   {
-    title: 'AI-Powered Analytics',
+    title: 'Member Directory',
     description:
-      'Predictive insights on retention, revenue forecasting, and automated marketing recommendations that drive growth.',
-    metrics: '10x faster insights',
+      'Comprehensive profiles, multi-location support, staff roles, trainer management, and a branded mobile app.',
+    metrics: 'Unlimited scale',
   },
   {
     title: 'Automated Reminders',
@@ -16,22 +16,82 @@ const features = [
     metrics: '80% fewer late payments',
   },
   {
-    title: 'Biometric Access Control',
+    title: 'Revenue Analytics',
+    description:
+      'Predictive insights on retention, revenue forecasting, and automated marketing recommendations that drive growth.',
+    metrics: '10x faster insights',
+  },
+  {
+    title: 'Access Control',
     description:
       'HIKVISION & ZKTeco integration for RFID, facial recognition, and fingerprint entry. Full hardware setup included.',
     metrics: 'Zero-touch entry',
-  },
-  {
-    title: 'Unlimited Members',
-    description:
-      'Comprehensive profiles, multi-location support, staff roles, trainer management, and a branded mobile app.',
-    metrics: 'Unlimited scale',
   },
 ];
 
 export function NewFeaturesSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const autoScrollInterval = useRef<NodeJS.Timeout | null>(null);
 
+  // Auto-scroll functionality
+  useEffect(() => {
+    if (isPaused) return;
+
+    autoScrollInterval.current = setInterval(() => {
+      if (scrollContainerRef.current) {
+        const container = scrollContainerRef.current;
+        const itemWidth = container.scrollWidth / features.length;
+        const nextIndex = (currentIndex + 1) % features.length;
+
+        container.scrollTo({
+          left: itemWidth * nextIndex,
+          behavior: 'smooth',
+        });
+
+        setCurrentIndex(nextIndex);
+      }
+    }, 5000); // Scroll every 5 seconds
+
+    return () => {
+      if (autoScrollInterval.current) {
+        clearInterval(autoScrollInterval.current);
+      }
+    };
+  }, [currentIndex, isPaused]);
+
+  // Handle manual scroll
+  const handleScroll = () => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const itemWidth = container.scrollWidth / features.length;
+      const newIndex = Math.round(container.scrollLeft / itemWidth);
+      setCurrentIndex(newIndex);
+    }
+  };
+
+  // Handle dot navigation
+  const scrollToIndex = (index: number) => {
+    if (scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const itemWidth = container.scrollWidth / features.length;
+
+      container.scrollTo({
+        left: itemWidth * index,
+        behavior: 'smooth',
+      });
+
+      setCurrentIndex(index);
+    }
+  };
+
+  // Pause on hover
+  const handleMouseEnter = () => setIsPaused(true);
+  const handleMouseLeave = () => setIsPaused(false);
+
+  // Scroll reveal animation
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -55,7 +115,7 @@ export function NewFeaturesSection() {
       id="features"
       ref={sectionRef}
       style={{
-        padding: '140px 0',
+        padding: '100px 0',
         background: '#ffffff',
       }}
     >
@@ -76,7 +136,7 @@ export function NewFeaturesSection() {
 
         {/* Section Headline */}
         <h2
-          className="mb-4 text-center"
+          className="mb-4 text-center section-headline"
           style={{
             fontSize: 'clamp(36px, 5vw, 56px)',
             fontWeight: 700,
@@ -92,153 +152,175 @@ export function NewFeaturesSection() {
 
         {/* Section Description */}
         <p
-          className="text-center mx-auto"
+          className="text-center mx-auto section-description"
           style={{
             fontSize: '19px',
             color: '#6e6e73',
             maxWidth: '640px',
             lineHeight: 1.5,
-            marginBottom: '72px',
+            marginBottom: '48px',
           }}
         >
           From payment reminders to biometric access — one platform handles it all so
           you can focus on what matters: your members.
         </p>
 
-        {/* Features - Grid on Desktop, Horizontal Scroll on Mobile */}
-        <div className="features-container">
-          <div className="features-grid">
-            {features.map((feature, index) => (
-              <div
-                key={index}
-                className="feature-card scroll-reveal"
-                style={{
-                  animationDelay: `${index * 0.1}s`,
-                }}
-              >
-                {/* Visual Screenshot Area */}
+        {/* Features - Horizontal Scroll on All Devices */}
+        <div className="features-wrapper">
+          <div
+            ref={scrollContainerRef}
+            className="features-container"
+            onScroll={handleScroll}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
+          >
+            <div className="features-track">
+              {features.map((feature, index) => (
                 <div
-                  className="screenshot-area"
+                  key={index}
+                  className="feature-item scroll-reveal"
                   style={{
-                    background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.02) 100%)',
-                    borderBottom: '2px solid rgba(0, 0, 0, 0.08)',
+                    animationDelay: `${index * 0.1}s`,
                   }}
                 >
-                  <div className="screenshot-placeholder">
-                    {/* Placeholder for actual screenshot/mockup */}
-                    <div
-                      className="visual-icon"
-                      style={{
-                        background: 'linear-gradient(135deg, #1d1d1f 0%, #000000 100%)',
+                  {/* Screenshot/Image Area */}
+                  <div className="screenshot-wrapper">
+                    <img
+                      src={`/screenshots/${feature.title.toLowerCase().replace(/\s+/g, '-')}.png`}
+                      alt={feature.title}
+                      className="feature-screenshot"
+                      onError={(e) => {
+                        // Fallback to placeholder if image doesn't exist
+                        e.currentTarget.style.display = 'none';
+                        const placeholder = e.currentTarget.nextElementSibling as HTMLElement;
+                        if (placeholder) placeholder.style.display = 'flex';
                       }}
-                    >
-                      <svg
-                        width="40"
-                        height="40"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <rect
-                          x="3"
-                          y="3"
-                          width="18"
-                          height="18"
-                          rx="2"
-                          stroke="white"
-                          strokeWidth="2"
-                        />
-                        <path
-                          d="M8 12L11 15L16 9"
-                          stroke="white"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
+                    />
+                    <div className="screenshot-placeholder" style={{ display: 'none' }}>
+                      <div className="placeholder-text">
+                        {feature.title}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                {/* Content Area */}
-                <div className="card-content">
-                  {/* Metrics Badge */}
-                  <div
-                    className="metrics-badge"
-                    style={{
-                      background: 'rgba(0, 0, 0, 0.06)',
-                      color: '#1d1d1f',
-                    }}
-                  >
-                    {feature.metrics}
+                  {/* Content Area */}
+                  <div className="feature-content">
+                    {/* Metrics Badge */}
+                    <div className="metrics-badge">
+                      {feature.metrics}
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="feature-title">{feature.title}</h3>
+
+                    {/* Description */}
+                    <p className="feature-description">{feature.description}</p>
                   </div>
-
-                  {/* Title */}
-                  <h3 className="card-title">{feature.title}</h3>
-
-                  {/* Description */}
-                  <p className="card-description">{feature.description}</p>
                 </div>
-              </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Navigation Dots */}
+          <div className="navigation-dots">
+            {features.map((_, index) => (
+              <button
+                key={index}
+                className={`dot ${currentIndex === index ? 'active' : ''}`}
+                onClick={() => scrollToIndex(index)}
+                aria-label={`Go to feature ${index + 1}`}
+              />
             ))}
           </div>
         </div>
       </div>
 
       <style jsx>{`
+        .features-wrapper {
+          position: relative;
+          width: 100%;
+        }
+
         .features-container {
           width: 100%;
-          overflow: hidden;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          scroll-snap-type: x mandatory;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          cursor: grab;
+          padding: 0 max(24px, calc((100vw - 1200px) / 2));
         }
 
-        .features-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 24px;
+        .features-container:active {
+          cursor: grabbing;
         }
 
-        .feature-card {
-          background: #ffffff;
-          border: 1px solid rgba(0, 0, 0, 0.08);
-          border-radius: 20px;
-          overflow: hidden;
+        .features-container::-webkit-scrollbar {
+          display: none;
+        }
+
+        .features-track {
+          display: flex;
+          gap: 60px;
+          width: max-content;
+        }
+
+        .feature-item {
+          display: flex;
+          flex-direction: column;
+          width: min(calc(100vw - 120px), 600px);
+          flex-shrink: 0;
+          scroll-snap-align: center;
           transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .feature-card:hover {
-          transform: translateY(-4px);
-          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
-          border-color: rgba(0, 0, 0, 0.12);
+        .screenshot-wrapper {
+          width: 100%;
+          max-width: 500px;
+          margin: 0 auto 24px;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+          transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        .screenshot-area {
-          height: 240px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
+        .feature-item:hover .screenshot-wrapper {
+          transform: translateY(-8px) scale(1.01);
+          box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .feature-screenshot {
+          width: 100%;
+          height: auto;
+          max-height: 300px;
+          object-fit: cover;
+          display: block;
         }
 
         .screenshot-placeholder {
           width: 100%;
-          height: 100%;
+          height: 280px;
+          background: linear-gradient(135deg, rgba(0, 0, 0, 0.04) 0%, rgba(0, 0, 0, 0.02) 100%);
           display: flex;
           align-items: center;
           justify-content: center;
         }
 
-        .visual-icon {
-          width: 80px;
-          height: 80px;
-          border-radius: 20px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+        .placeholder-text {
+          font-size: 18px;
+          font-weight: 600;
+          color: rgba(0, 0, 0, 0.2);
+          text-align: center;
+          padding: 20px;
         }
 
-        .card-content {
-          padding: 32px;
+        .feature-content {
+          display: flex;
+          flex-direction: column;
+          max-width: 520px;
+          margin: 0 auto;
         }
 
         .metrics-badge {
@@ -247,82 +329,135 @@ export function NewFeaturesSection() {
           border-radius: 980px;
           font-size: 13px;
           font-weight: 600;
-          margin-bottom: 16px;
+          background: rgba(0, 0, 0, 0.06);
+          color: #1d1d1f;
+          margin-bottom: 12px;
+          width: fit-content;
         }
 
-        .card-title {
-          font-size: 24px;
+        .feature-title {
+          font-size: 28px;
           font-weight: 700;
           color: #1d1d1f;
           margin-bottom: 12px;
           letter-spacing: -0.02em;
+          line-height: 1.1;
         }
 
-        .card-description {
+        .feature-description {
           font-size: 16px;
           color: #6e6e73;
-          line-height: 1.6;
+          line-height: 1.5;
         }
 
-        /* Mobile: Horizontal Scrolling */
+        /* Navigation Dots */
+        .navigation-dots {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 12px;
+          margin-top: 48px;
+        }
+
+        .dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.15);
+          border: none;
+          cursor: pointer;
+          transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          padding: 0;
+        }
+
+        .dot:hover {
+          background: rgba(0, 0, 0, 0.3);
+          transform: scale(1.2);
+        }
+
+        .dot.active {
+          background: #1d1d1f;
+          width: 24px;
+          border-radius: 4px;
+        }
+
+        /* Mobile: Smaller dimensions */
         @media (max-width: 768px) {
           .features-container {
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            scroll-snap-type: x mandatory;
-            scrollbar-width: none;
-            -ms-overflow-style: none;
-            margin: 0 -24px;
             padding: 0 24px;
           }
 
-          .features-container::-webkit-scrollbar {
-            display: none;
+          .features-track {
+            gap: 40px;
           }
 
-          .features-grid {
-            display: flex;
-            gap: 16px;
-            width: max-content;
+          .feature-item {
+            width: calc(100vw - 48px);
           }
 
-          .feature-card {
-            width: 320px;
-            flex-shrink: 0;
-            scroll-snap-align: center;
+          .screenshot-wrapper {
+            margin-bottom: 20px;
+            max-width: 100%;
           }
 
-          .screenshot-area {
-            height: 200px;
+          .feature-screenshot {
+            max-height: 220px;
           }
 
-          .visual-icon {
-            width: 64px;
-            height: 64px;
+          .screenshot-placeholder {
+            height: 220px;
           }
 
-          .card-content {
-            padding: 24px;
+          .feature-title {
+            font-size: 24px;
           }
 
-          .card-title {
-            font-size: 20px;
-          }
-
-          .card-description {
+          .feature-description {
             font-size: 15px;
+          }
+
+          .navigation-dots {
+            margin-top: 32px;
+          }
+
+          .section-headline {
+            font-size: 32px !important;
+            line-height: 1.15 !important;
+            margin-bottom: 16px !important;
+          }
+
+          .section-description {
+            font-size: 16px !important;
+            line-height: 1.6 !important;
+            margin-bottom: 32px !important;
+            padding: 0 8px;
           }
         }
 
         /* Tablet */
         @media (min-width: 769px) and (max-width: 1024px) {
-          .features-grid {
-            gap: 20px;
+          .feature-item {
+            width: calc(100vw - 120px);
           }
 
-          .screenshot-area {
-            height: 220px;
+          .screenshot-wrapper {
+            max-width: 450px;
+          }
+
+          .feature-screenshot {
+            max-height: 260px;
+          }
+
+          .screenshot-placeholder {
+            height: 240px;
+          }
+
+          .feature-title {
+            font-size: 26px;
+          }
+
+          .feature-description {
+            font-size: 15px;
           }
         }
       `}</style>

@@ -53,9 +53,27 @@ export function LankaSection() {
       style={{
         padding: '180px 24px',
         background: '#000000',
+        position: 'relative',
       }}
     >
-      <div className="max-w-[1120px] mx-auto text-center">
+      {/* Background Yaka Image */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: '50%',
+          backgroundImage: 'url(/yaka.jpg)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center left',
+          backgroundRepeat: 'no-repeat',
+          opacity: 0.15,
+          pointerEvents: 'none',
+        }}
+      />
+
+      <div className="max-w-[1120px] mx-auto text-center" style={{ position: 'relative', zIndex: 1 }}>
         {/* Main Text - Oversized and Animated */}
         <h2
           className="mb-16"

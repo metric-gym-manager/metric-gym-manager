@@ -6,26 +6,26 @@ const testimonials = [
   {
     quote:
       'The automated SMS reminders have dramatically reduced missed payments. Our revenue is up 30%!',
-    author: 'Michael Chen',
-    role: 'Manager at Iron Temple',
+    author: 'Kasun Perera',
+    role: 'Manager at Iron Temple Colombo',
   },
   {
     quote:
       'Simple, intuitive, and powerful. Exactly what we needed to streamline our operations.',
-    author: 'Emma Rodriguez',
-    role: 'Owner at FitZone Studio',
+    author: 'Sanduni Fernando',
+    role: 'Owner at FitZone Galle',
   },
   {
     quote:
       'Customer support is outstanding and the platform is rock solid. Highly recommended!',
-    author: 'David Park',
-    role: 'Co-Founder at Elite Athletics',
+    author: 'Nuwan Silva',
+    role: 'Co-Founder at Elite Fitness Kandy',
   },
   {
     quote:
       'Switching to Metric was the best decision for our gym. Member management has never been easier.',
-    author: 'Lisa Thompson',
-    role: 'Owner at Muscle Factory',
+    author: 'Chamari Wickramasinghe',
+    role: 'Owner at PowerZone Negombo',
   },
 ];
 
@@ -54,8 +54,8 @@ export function NewTestimonialsSection() {
     <section
       id="reviews"
       ref={sectionRef}
+      className="testimonials-section"
       style={{
-        padding: '140px 24px',
         background: '#ffffff',
       }}
     >
@@ -76,7 +76,7 @@ export function NewTestimonialsSection() {
 
         {/* Section Headline */}
         <h2
-          className="text-center mb-16"
+          className="text-center mb-16 testimonials-headline"
           style={{
             fontSize: 'clamp(36px, 5vw, 56px)',
             fontWeight: 700,
@@ -139,6 +139,24 @@ export function NewTestimonialsSection() {
           ))}
         </div>
       </div>
+
+      <style jsx>{`
+        .testimonials-section {
+          padding: 140px 24px;
+        }
+
+        @media (max-width: 768px) {
+          .testimonials-section {
+            padding: 80px 24px;
+          }
+
+          .testimonials-headline {
+            font-size: 32px !important;
+            line-height: 1.15 !important;
+            margin-bottom: 40px !important;
+          }
+        }
+      `}</style>
     </section>
   );
 }

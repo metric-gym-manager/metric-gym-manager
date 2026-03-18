@@ -9,7 +9,7 @@ export function NewHeroSection() {
       style={{
         minHeight: '100vh',
         background: '#ffffff',
-        paddingTop: '64px',
+        paddingTop: '140px',
       }}
     >
       {/* Radial gradient glow */}
@@ -50,7 +50,7 @@ export function NewHeroSection() {
 
         {/* Headline */}
         <h1
-          className="mb-6"
+          className="mb-6 hero-headline"
           style={{
             fontSize: 'clamp(52px, 8vw, 96px)',
             fontWeight: 700,
@@ -66,7 +66,7 @@ export function NewHeroSection() {
 
         {/* Subheadline */}
         <p
-          className="mx-auto mb-10"
+          className="mx-auto mb-10 hero-subheadline"
           style={{
             fontSize: 'clamp(17px, 2vw, 21px)',
             color: '#6e6e73',
@@ -163,6 +163,24 @@ export function NewHeroSection() {
           </div>
         </div>
       </div>
+
+      <style jsx>{`
+        @media (max-width: 768px) {
+          .hero-headline {
+            font-size: 40px !important;
+            line-height: 1.1 !important;
+            letter-spacing: -0.02em !important;
+            margin-bottom: 20px !important;
+          }
+
+          .hero-subheadline {
+            font-size: 17px !important;
+            line-height: 1.6 !important;
+            margin-bottom: 32px !important;
+            padding: 0 8px;
+          }
+        }
+      `}</style>
     </section>
   );
 }

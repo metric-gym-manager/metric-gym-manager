@@ -68,8 +68,8 @@ export function NewPricingSection() {
     <section
       id="pricing"
       ref={sectionRef}
+      className="pricing-section"
       style={{
-        padding: '140px 24px',
         background: '#ffffff',
       }}
     >
@@ -90,7 +90,7 @@ export function NewPricingSection() {
 
         {/* Section Headline */}
         <h2
-          className="text-center mb-4"
+          className="text-center mb-4 pricing-headline"
           style={{
             fontSize: 'clamp(36px, 5vw, 56px)',
             fontWeight: 700,
@@ -106,7 +106,7 @@ export function NewPricingSection() {
 
         {/* Section Description */}
         <p
-          className="text-center mx-auto mb-16"
+          className="text-center mx-auto mb-16 pricing-description"
           style={{
             fontSize: '19px',
             color: '#6e6e73',
@@ -115,7 +115,7 @@ export function NewPricingSection() {
             marginBottom: '64px',
           }}
         >
-          No hidden fees. No surprises. Cancel anytime. 30-day money-back guarantee.
+          Start with a 14-day free trial. No hidden fees. No surprises. Cancel anytime.
         </p>
 
         {/* Pricing Grid */}
@@ -244,6 +244,31 @@ export function NewPricingSection() {
           ))}
         </div>
       </div>
+
+      <style jsx>{`
+        .pricing-section {
+          padding: 140px 24px;
+        }
+
+        @media (max-width: 768px) {
+          .pricing-section {
+            padding: 80px 24px;
+          }
+
+          .pricing-headline {
+            font-size: 32px !important;
+            line-height: 1.15 !important;
+            margin-bottom: 16px !important;
+          }
+
+          .pricing-description {
+            font-size: 16px !important;
+            line-height: 1.6 !important;
+            margin-bottom: 40px !important;
+            padding: 0 8px;
+          }
+        }
+      `}</style>
     </section>
   );
 }
