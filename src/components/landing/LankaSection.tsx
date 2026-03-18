@@ -1,31 +1,49 @@
 'use client';
 
+import { Coins, Languages, MessageCircle, LifeBuoy } from 'lucide-react';
+
 const features = [
   {
-    code: 'LKR',
-    color: '#34d399',
+    icon: 'rupee',
     label: 'Local Pricing',
     sublabel: 'No forex hassle',
   },
   {
-    code: 'SI · TA · EN',
-    color: '#60a5fa',
+    icon: 'language',
     label: 'Trilingual Support',
     sublabel: 'Sinhala · Tamil · English',
   },
   {
-    code: 'WA',
-    color: '#a78bfa',
+    icon: 'whatsapp',
     label: 'WhatsApp Reminders',
     sublabel: 'Where your members are',
   },
   {
-    code: '24/7',
-    color: '#f472b6',
+    icon: 'support',
     label: 'On-site Support',
     sublabel: 'We come to you',
   },
 ];
+
+const renderIcon = (iconType: string) => {
+  const iconProps = {
+    size: 24,
+    strokeWidth: 2,
+  };
+
+  switch (iconType) {
+    case 'rupee':
+      return <Coins {...iconProps} />;
+    case 'language':
+      return <Languages {...iconProps} />;
+    case 'whatsapp':
+      return <MessageCircle {...iconProps} />;
+    case 'support':
+      return <LifeBuoy {...iconProps} />;
+    default:
+      return null;
+  }
+};
 
 export function LankaSection() {
   return (
@@ -40,7 +58,7 @@ export function LankaSection() {
       <div className="max-w-[1120px] mx-auto text-center">
         {/* Main Text - Oversized and Animated */}
         <h2
-          className="mb-8"
+          className="mb-16"
           style={{
             fontSize: 'clamp(60px, 10vw, 140px)',
             fontWeight: 900,
@@ -69,20 +87,6 @@ export function LankaSection() {
           Industry
         </h2>
 
-        {/* Subtitle */}
-        <p
-          className="mx-auto mb-16"
-          style={{
-            fontSize: '19px',
-            color: '#6e6e73',
-            maxWidth: '600px',
-            lineHeight: 1.5,
-          }}
-        >
-          Built from the ground up for Sri Lankan gym owners. Local payment systems,
-          multilingual support, and a team that understands your business.
-        </p>
-
         {/* Feature Pills */}
         <div
           className="flex flex-wrap items-start justify-center gap-12"
@@ -94,17 +98,16 @@ export function LankaSection() {
             <div key={index} className="flex flex-col items-center">
               {/* Icon Container */}
               <div
-                className="mb-3 flex items-center justify-center font-bold"
+                className="mb-3 flex items-center justify-center"
                 style={{
-                  width: '48px',
-                  height: '48px',
-                  background: 'rgba(0, 0, 0, 0.04)',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  color: feature.color,
+                  width: '56px',
+                  height: '56px',
+                  background: 'rgba(0, 0, 0, 0.06)',
+                  borderRadius: '14px',
+                  color: '#1d1d1f',
                 }}
               >
-                {feature.code}
+                {renderIcon(feature.icon)}
               </div>
 
               {/* Label */}
