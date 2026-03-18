@@ -13,7 +13,6 @@ import {
   Lock,
   Eye,
   EyeOff,
-  CheckCircle,
   Phone,
   MessageCircle,
   Building2,
@@ -169,105 +168,109 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Branding & Visual */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-accent via-indigo-600 to-purple-700 p-12 flex-col justify-between relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
-        </div>
-
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#ffffff' }}>
+      <div className="w-full max-w-[480px] px-6 py-12">
         {/* Logo */}
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-3 bg-white px-4 py-3 rounded-lg shadow-lg">
+        <Link href="/" className="flex items-center gap-2 justify-center mb-12 group">
+          <div className="transition-transform duration-200 group-hover:scale-105">
             <Image
               src="/logo.svg"
-              alt="Metric Gym Manager Logo"
+              alt="Metric Logo"
               width={32}
               height={32}
-              className="w-8 h-8"
             />
-            <h1 className="text-2xl font-bold text-gray-900">Metric Gym Manager</h1>
           </div>
-        </div>
+          <span
+            className="font-bold"
+            style={{
+              fontSize: '20px',
+              letterSpacing: '-0.5px',
+              color: '#1d1d1f',
+            }}
+          >
+            Metric
+          </span>
+        </Link>
 
-        {/* Main Content */}
-        <div className="relative z-10 text-white">
-          <h2 className="text-4xl font-bold mb-6 leading-tight">
-            Start Your Free Trial
-          </h2>
-          <p className="text-xl text-white/90 mb-12">
-            Join 25+ gyms that trust Metric to manage their operations. Get started in minutes, no credit card required.
-          </p>
-
-          {/* Features */}
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-6 w-6 text-white" />
-              <span className="text-lg">Setup in under 5 minutes</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-6 w-6 text-white" />
-              <span className="text-lg">No credit card required</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-6 w-6 text-white" />
-              <span className="text-lg">30-day money-back guarantee</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-6 w-6 text-white" />
-              <span className="text-lg">Free onboarding support</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="relative z-10 text-white/75 text-sm">
-          <p>© 2026 Metric Gym Manager. Built with ❤️ in Sri Lanka 🇱🇰</p>
-        </div>
-      </div>
-
-      {/* Right Side - Registration Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12 bg-gray-50">
-        <div className="w-full max-w-md">
-          {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-2 justify-center mb-8">
-            <Image
-              src="/logo.svg"
-              alt="Logo"
-              width={24}
-              height={24}
-              className="w-6 h-6"
-            />
-            <h1 className="text-xl font-bold text-gray-900">Metric Gym Manager</h1>
-          </div>
-
-          <Card className="border-none shadow-xl">
-            <CardContent className="pt-8 pb-8">
+        <Card
+          className="border-none shadow-none"
+          style={{
+            background: 'rgba(0, 0, 0, 0.02)',
+            border: '1px solid rgba(0, 0, 0, 0.06)',
+            borderRadius: '18px',
+          }}
+        >
+          <CardContent className="pt-10 pb-10 px-8">
               {/* Header with Progress */}
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>
-                <p className="text-gray-300 mb-6">
+              <div className="mb-8 text-center">
+                <h2
+                  className="font-bold mb-2"
+                  style={{
+                    fontSize: '32px',
+                    letterSpacing: '-0.02em',
+                    color: '#1d1d1f',
+                  }}
+                >
+                  Create Account
+                </h2>
+                <p style={{ fontSize: '15px', color: '#6e6e73', marginBottom: '24px' }}>
                   {step === 1 ? 'Tell us about your gym' : 'Set up your credentials'}
                 </p>
 
                 {/* Visual Progress Indicator */}
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex items-center gap-2">
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${step >= 1 ? 'bg-brand-accent text-white' : 'bg-gray-700 text-gray-300'}`}>
+                    <div
+                      className="flex items-center justify-center rounded-full"
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        background: step >= 1 ? '#2563eb' : 'rgba(0, 0, 0, 0.08)',
+                        color: step >= 1 ? '#ffffff' : '#6e6e73',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                      }}
+                    >
                       {step > 1 ? <Check className="h-5 w-5" /> : '1'}
                     </div>
-                    <span className={`text-sm font-medium ${step >= 1 ? 'text-white' : 'text-gray-400'}`}>
+                    <span
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: step >= 1 ? '#1d1d1f' : '#86868b',
+                      }}
+                    >
                       Gym Info
                     </span>
                   </div>
-                  <div className={`flex-1 h-0.5 ${step >= 2 ? 'bg-brand-accent' : 'bg-gray-700'}`}></div>
+                  <div
+                    className="flex-1"
+                    style={{
+                      height: '2px',
+                      background: step >= 2 ? '#2563eb' : 'rgba(0, 0, 0, 0.08)',
+                    }}
+                  />
                   <div className="flex items-center gap-2">
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${step >= 2 ? 'bg-brand-accent text-white' : 'bg-gray-700 text-gray-300'}`}>
+                    <div
+                      className="flex items-center justify-center rounded-full"
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        background: step >= 2 ? '#2563eb' : 'rgba(0, 0, 0, 0.08)',
+                        color: step >= 2 ? '#ffffff' : '#6e6e73',
+                        fontSize: '13px',
+                        fontWeight: 600,
+                      }}
+                    >
                       2
                     </div>
-                    <span className={`text-sm font-medium ${step >= 2 ? 'text-white' : 'text-gray-400'}`}>
+                    <span
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: step >= 2 ? '#1d1d1f' : '#86868b',
+                      }}
+                    >
                       Account
                     </span>
                   </div>
@@ -287,7 +290,15 @@ export default function RegisterPage() {
                   <div className="space-y-5">
                     {/* Gym Name */}
                     <div className="space-y-2">
-                      <label htmlFor="gymName" className="text-sm font-medium text-white">
+                      <label
+                        htmlFor="gymName"
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#1d1d1f',
+                          display: 'block',
+                        }}
+                      >
                         Gym Name <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
@@ -308,7 +319,15 @@ export default function RegisterPage() {
 
                     {/* Gym Address */}
                     <div className="space-y-2">
-                      <label htmlFor="gymAddress" className="text-sm font-medium text-white">
+                      <label
+                        htmlFor="gymAddress"
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#1d1d1f',
+                          display: 'block',
+                        }}
+                      >
                         Gym Address (Optional)
                       </label>
                       <div className="relative">
@@ -329,7 +348,15 @@ export default function RegisterPage() {
 
                     {/* Gym Website */}
                     <div className="space-y-2">
-                      <label htmlFor="gymWebsite" className="text-sm font-medium text-white">
+                      <label
+                        htmlFor="gymWebsite"
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#1d1d1f',
+                          display: 'block',
+                        }}
+                      >
                         Gym Website (Optional)
                       </label>
                       <div className="relative">
@@ -361,7 +388,15 @@ export default function RegisterPage() {
                   <div className="space-y-5">
                     {/* Username */}
                     <div className="space-y-2">
-                      <label htmlFor="username" className="text-sm font-medium text-white">
+                      <label
+                        htmlFor="username"
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#1d1d1f',
+                          display: 'block',
+                        }}
+                      >
                         Username <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
@@ -378,14 +413,22 @@ export default function RegisterPage() {
                       {fieldErrors.username && (
                         <p className="text-sm text-red-500">{fieldErrors.username}</p>
                       )}
-                      <p className="text-xs text-gray-400">
+                      <p style={{ fontSize: '12px', color: '#86868b' }}>
                         Letters, numbers, hyphens, and underscores only
                       </p>
                     </div>
 
                     {/* Email */}
                     <div className="space-y-2">
-                      <label htmlFor="email" className="text-sm font-medium text-white">
+                      <label
+                        htmlFor="email"
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#1d1d1f',
+                          display: 'block',
+                        }}
+                      >
                         Email Address <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
@@ -406,7 +449,15 @@ export default function RegisterPage() {
 
                     {/* Password */}
                     <div className="space-y-2">
-                      <label htmlFor="password" className="text-sm font-medium text-white">
+                      <label
+                        htmlFor="password"
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#1d1d1f',
+                          display: 'block',
+                        }}
+                      >
                         Password <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
@@ -446,27 +497,27 @@ export default function RegisterPage() {
                               />
                             ))}
                           </div>
-                          <p className="text-xs text-gray-300">
+                          <p style={{ fontSize: '12px', color: '#6e6e73' }}>
                             Password strength: <span className="font-medium">{passwordStrength.text}</span>
                           </p>
                         </div>
                       )}
 
                       {/* Password Requirements */}
-                      <div className="text-xs space-y-1 mt-2">
-                        <div className={`flex items-center gap-1 ${formData.password && formData.password.length >= 8 ? 'text-green-400' : 'text-gray-400'}`}>
+                      <div className="space-y-1 mt-2" style={{ fontSize: '12px' }}>
+                        <div className={`flex items-center gap-1 ${formData.password && formData.password.length >= 8 ? 'text-green-600' : 'text-gray-500'}`}>
                           {formData.password && formData.password.length >= 8 ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                           <span>At least 8 characters</span>
                         </div>
-                        <div className={`flex items-center gap-1 ${formData.password && /[A-Z]/.test(formData.password) ? 'text-green-400' : 'text-gray-400'}`}>
+                        <div className={`flex items-center gap-1 ${formData.password && /[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-gray-500'}`}>
                           {formData.password && /[A-Z]/.test(formData.password) ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                           <span>One uppercase letter</span>
                         </div>
-                        <div className={`flex items-center gap-1 ${formData.password && /[a-z]/.test(formData.password) ? 'text-green-400' : 'text-gray-400'}`}>
+                        <div className={`flex items-center gap-1 ${formData.password && /[a-z]/.test(formData.password) ? 'text-green-600' : 'text-gray-500'}`}>
                           {formData.password && /[a-z]/.test(formData.password) ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                           <span>One lowercase letter</span>
                         </div>
-                        <div className={`flex items-center gap-1 ${formData.password && /[0-9]/.test(formData.password) ? 'text-green-400' : 'text-gray-400'}`}>
+                        <div className={`flex items-center gap-1 ${formData.password && /[0-9]/.test(formData.password) ? 'text-green-600' : 'text-gray-500'}`}>
                           {formData.password && /[0-9]/.test(formData.password) ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                           <span>One number</span>
                         </div>
@@ -475,7 +526,15 @@ export default function RegisterPage() {
 
                     {/* Confirm Password */}
                     <div className="space-y-2">
-                      <label htmlFor="confirmPassword" className="text-sm font-medium text-white">
+                      <label
+                        htmlFor="confirmPassword"
+                        style={{
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          color: '#1d1d1f',
+                          display: 'block',
+                        }}
+                      >
                         Confirm Password <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
@@ -524,46 +583,75 @@ export default function RegisterPage() {
                 )}
 
                 {/* Login Link */}
-                <p className="text-sm text-center text-gray-300 mt-6">
+                <p
+                  className="text-center"
+                  style={{
+                    fontSize: '13px',
+                    color: '#6e6e73',
+                    marginTop: '24px',
+                  }}
+                >
                   Already have an account?{' '}
-                  <Link href="/login" className="text-brand-accent hover:text-brand-accent/80 font-medium">
+                  <Link
+                    href="/login"
+                    style={{
+                      color: '#2563eb',
+                      fontWeight: 500,
+                    }}
+                  >
                     Sign in
                   </Link>
                 </p>
               </form>
 
               {/* Support Section */}
-              <div className="mt-8 pt-6 border-t border-gray-700">
-                <div className="text-center">
-                  <p className="text-sm text-gray-300 mb-3">Need help?</p>
-                  <div className="flex justify-center gap-4">
-                    <a
-                      href="tel:0704379967"
-                      className="flex items-center gap-2 text-sm text-white hover:text-brand-accent transition-colors"
-                    >
-                      <Phone className="h-4 w-4" />
-                      <span>0704379967</span>
-                    </a>
-                    <a
-                      href="https://wa.me/94704379967"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-white hover:text-brand-accent transition-colors"
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      <span>WhatsApp</span>
-                    </a>
-                  </div>
-                  <div className="mt-3 space-y-1">
-                    <p className="text-xs text-gray-400">සහය අවශ්‍යනම්, 0704379967 අමතන්න</p>
-                    <p className="text-xs text-gray-400">ஏதேனும் உதவிக்கு, 0704379967 அழைக்கவும்</p>
-                  </div>
+              <div
+                className="mt-8 pt-6 text-center"
+                style={{
+                  borderTop: '1px solid rgba(0, 0, 0, 0.08)',
+                }}
+              >
+                <p style={{ fontSize: '13px', color: '#6e6e73', marginBottom: '12px' }}>
+                  Need help?
+                </p>
+                <div className="flex justify-center gap-4">
+                  <a
+                    href="tel:0704379967"
+                    className="flex items-center gap-2 transition-colors"
+                    style={{
+                      fontSize: '13px',
+                      color: '#1d1d1f',
+                    }}
+                  >
+                    <Phone className="h-4 w-4" />
+                    <span>0704379967</span>
+                  </a>
+                  <a
+                    href="https://wa.me/94704379967"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 transition-colors"
+                    style={{
+                      fontSize: '13px',
+                      color: '#1d1d1f',
+                    }}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    <span>WhatsApp</span>
+                  </a>
+                </div>
+                <div className="mt-3 space-y-1">
+                  <p style={{ fontSize: '11px', color: '#86868b' }}>
+                    සහය අවශ්‍යනම්, 0704379967 අමතන්න
+                  </p>
+                  <p style={{ fontSize: '11px', color: '#86868b' }}>
+                    ஏதேனும் உதவிக்கு, 0704379967 அழைக்கவும்
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }

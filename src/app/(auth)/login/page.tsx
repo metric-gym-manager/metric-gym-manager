@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Mail, Lock, Eye, EyeOff, CheckCircle, Phone, MessageCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Phone, MessageCircle } from 'lucide-react';
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_code: 'Email verification link is invalid. Please try registering again.',
@@ -142,82 +142,54 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Branding & Visual */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-brand-accent via-indigo-600 to-purple-700 p-12 flex-col justify-between relative overflow-hidden">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl"></div>
-        </div>
-
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#ffffff' }}>
+      <div className="w-full max-w-[440px] px-6 py-12">
         {/* Logo */}
-        <div className="relative z-10">
-          <div className="inline-flex items-center gap-3 bg-white px-4 py-3 rounded-lg shadow-lg">
+        <Link href="/" className="flex items-center gap-2 justify-center mb-12 group">
+          <div className="transition-transform duration-200 group-hover:scale-105">
             <Image
               src="/logo.svg"
-              alt="Metric Gym Manager Logo"
+              alt="Metric Logo"
               width={32}
               height={32}
-              className="w-8 h-8"
             />
-            <h1 className="text-2xl font-bold text-gray-900">Metric Gym Manager</h1>
           </div>
-        </div>
+          <span
+            className="font-bold"
+            style={{
+              fontSize: '20px',
+              letterSpacing: '-0.5px',
+              color: '#1d1d1f',
+            }}
+          >
+            Metric
+          </span>
+        </Link>
 
-        {/* Main Content */}
-        <div className="relative z-10 text-white">
-          <h2 className="text-4xl font-bold mb-6 leading-tight">
-            Welcome Back!
-          </h2>
-          <p className="text-xl text-white/90 mb-12">
-            Manage your gym with confidence. All your members, payments, and analytics in one place.
-          </p>
-
-          {/* Trust Indicators */}
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-6 w-6 text-white" />
-              <span className="text-lg">25+ gyms trust Metric</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-6 w-6 text-white" />
-              <span className="text-lg">2.2K+ active members</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <CheckCircle className="h-6 w-6 text-white" />
-              <span className="text-lg">99.99% uptime guarantee</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="relative z-10 text-white/75 text-sm">
-          <p>© 2026 Metric Gym Manager. Built with ❤️ in Sri Lanka 🇱🇰</p>
-        </div>
-      </div>
-
-      {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 md:p-12 bg-gray-50">
-        <div className="w-full max-w-md">
-          {/* Mobile Logo */}
-          <div className="lg:hidden flex items-center gap-2 justify-center mb-8">
-            <Image
-              src="/logo.svg"
-              alt="Logo"
-              width={24}
-              height={24}
-              className="w-6 h-6"
-            />
-            <h1 className="text-xl font-bold text-gray-900">Metric Gym Manager</h1>
-          </div>
-
-          <Card className="border-none shadow-xl">
-            <CardContent className="pt-8 pb-8">
+        <Card
+          className="border-none shadow-none"
+          style={{
+            background: 'rgba(0, 0, 0, 0.02)',
+            border: '1px solid rgba(0, 0, 0, 0.06)',
+            borderRadius: '18px',
+          }}
+        >
+          <CardContent className="pt-10 pb-10 px-8">
               {/* Header */}
-              <div className="mb-8">
-                <h2 className="text-3xl font-bold text-white mb-2">Sign In</h2>
-                <p className="text-gray-300">Welcome back! Please enter your details.</p>
+              <div className="mb-8 text-center">
+                <h2
+                  className="font-bold mb-2"
+                  style={{
+                    fontSize: '32px',
+                    letterSpacing: '-0.02em',
+                    color: '#1d1d1f',
+                  }}
+                >
+                  Sign In
+                </h2>
+                <p style={{ fontSize: '15px', color: '#6e6e73' }}>
+                  Welcome back! Please enter your details.
+                </p>
               </div>
 
               {/* Alerts */}
@@ -262,7 +234,15 @@ function LoginContent() {
               <form onSubmit={handleLogin} className="space-y-5">
                 {/* Email Field */}
                 <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium text-white">
+                  <label
+                    htmlFor="email"
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#1d1d1f',
+                      display: 'block',
+                    }}
+                  >
                     Email Address
                   </label>
                   <div className="relative">
@@ -286,7 +266,15 @@ function LoginContent() {
 
                 {/* Password Field */}
                 <div className="space-y-2">
-                  <label htmlFor="password" className="text-sm font-medium text-white">
+                  <label
+                    htmlFor="password"
+                    style={{
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      color: '#1d1d1f',
+                      display: 'block',
+                    }}
+                  >
                     Password
                   </label>
                   <div className="relative">
@@ -327,13 +315,23 @@ function LoginContent() {
                       }
                       className="rounded border-gray-300 text-brand-accent focus:ring-brand-accent"
                     />
-                    <label htmlFor="rememberMe" className="text-sm text-white">
+                    <label
+                      htmlFor="rememberMe"
+                      style={{
+                        fontSize: '13px',
+                        color: '#6e6e73',
+                      }}
+                    >
                       Remember me
                     </label>
                   </div>
                   <Link
                     href="/forgot-password"
-                    className="text-sm text-brand-accent hover:text-brand-accent/80 font-medium"
+                    style={{
+                      fontSize: '13px',
+                      color: '#2563eb',
+                      fontWeight: 500,
+                    }}
                   >
                     Forgot password?
                   </Link>
@@ -349,48 +347,77 @@ function LoginContent() {
                 </Button>
 
                 {/* Register Link */}
-                <p className="text-sm text-center text-gray-300">
+                <p
+                  className="text-center"
+                  style={{
+                    fontSize: '13px',
+                    color: '#6e6e73',
+                    marginTop: '24px',
+                  }}
+                >
                   Don't have an account?{' '}
-                  <Link href="/register" className="text-brand-accent hover:text-brand-accent/80 font-medium">
+                  <Link
+                    href="/register"
+                    style={{
+                      color: '#2563eb',
+                      fontWeight: 500,
+                    }}
+                  >
                     Sign up for free
                   </Link>
                 </p>
               </form>
 
               {/* Support Section */}
-              <div className="mt-8 pt-6 border-t border-gray-700">
-                <div className="text-center">
-                  <p className="text-sm text-gray-300 mb-3">Need help?</p>
-                  <div className="flex justify-center gap-4">
-                    <a
-                      href="tel:0704379967"
-                      className="flex items-center gap-2 text-sm text-white hover:text-brand-accent transition-colors"
-                    >
-                      <Phone className="h-4 w-4" />
-                      <span>0704379967</span>
-                    </a>
-                    <a
-                      href="https://wa.me/94704379967"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-white hover:text-brand-accent transition-colors"
-                    >
-                      <MessageCircle className="h-4 w-4" />
-                      <span>WhatsApp</span>
-                    </a>
-                  </div>
-                  <div className="mt-3 space-y-1">
-                    <p className="text-xs text-gray-400">සහය අවශ්‍යනම්, 0704379967 අමතන්න</p>
-                    <p className="text-xs text-gray-400">ஏதேனும் உதவிக்கு, 0704379967 அழைக்கவும்</p>
-                  </div>
+              <div
+                className="mt-8 pt-6 text-center"
+                style={{
+                  borderTop: '1px solid rgba(0, 0, 0, 0.08)',
+                }}
+              >
+                <p style={{ fontSize: '13px', color: '#6e6e73', marginBottom: '12px' }}>
+                  Need help?
+                </p>
+                <div className="flex justify-center gap-4">
+                  <a
+                    href="tel:0704379967"
+                    className="flex items-center gap-2 transition-colors"
+                    style={{
+                      fontSize: '13px',
+                      color: '#1d1d1f',
+                    }}
+                  >
+                    <Phone className="h-4 w-4" />
+                    <span>0704379967</span>
+                  </a>
+                  <a
+                    href="https://wa.me/94704379967"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 transition-colors"
+                    style={{
+                      fontSize: '13px',
+                      color: '#1d1d1f',
+                    }}
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                    <span>WhatsApp</span>
+                  </a>
+                </div>
+                <div className="mt-3 space-y-1">
+                  <p style={{ fontSize: '11px', color: '#86868b' }}>
+                    සහය අවශ්‍යනම්, 0704379967 අමතන්න
+                  </p>
+                  <p style={{ fontSize: '11px', color: '#86868b' }}>
+                    ஏதேனும் உதவிக்கு, 0704379967 அழைக்கவும்
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
-    </div>
-  );
+    );
 }
 
 export default function LoginPage() {
