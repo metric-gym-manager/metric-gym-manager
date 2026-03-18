@@ -88,7 +88,7 @@ export function FinalCTASection() {
 
         {/* Trust Pills */}
         <div
-          className="flex flex-wrap items-center justify-center gap-3"
+          className="flex flex-wrap items-center justify-center gap-3 trust-pills"
           style={{
             marginTop: '48px',
           }}
@@ -160,8 +160,12 @@ export function FinalCTASection() {
           }
 
           .background-image-container :global(.background-image) {
-            width: 300px !important;
-            height: 300px !important;
+            width: 450px !important;
+            height: 450px !important;
+          }
+
+          .trust-pills {
+            display: none !important;
           }
         }
       `}</style>
