@@ -247,27 +247,27 @@ export default function RegisterPage() {
             <CardContent className="pt-8 pb-8">
               {/* Header with Progress */}
               <div className="mb-8">
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">Create Account</h2>
-                <p className="text-gray-600 mb-6">
+                <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>
+                <p className="text-gray-300 mb-6">
                   {step === 1 ? 'Tell us about your gym' : 'Set up your credentials'}
                 </p>
 
                 {/* Visual Progress Indicator */}
                 <div className="flex items-center gap-3 mb-6">
                   <div className="flex items-center gap-2">
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${step >= 1 ? 'bg-brand-accent text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${step >= 1 ? 'bg-brand-accent text-white' : 'bg-gray-700 text-gray-300'}`}>
                       {step > 1 ? <Check className="h-5 w-5" /> : '1'}
                     </div>
-                    <span className={`text-sm font-medium ${step >= 1 ? 'text-gray-900' : 'text-gray-500'}`}>
+                    <span className={`text-sm font-medium ${step >= 1 ? 'text-white' : 'text-gray-400'}`}>
                       Gym Info
                     </span>
                   </div>
-                  <div className={`flex-1 h-0.5 ${step >= 2 ? 'bg-brand-accent' : 'bg-gray-200'}`}></div>
+                  <div className={`flex-1 h-0.5 ${step >= 2 ? 'bg-brand-accent' : 'bg-gray-700'}`}></div>
                   <div className="flex items-center gap-2">
-                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${step >= 2 ? 'bg-brand-accent text-white' : 'bg-gray-200 text-gray-600'}`}>
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-full ${step >= 2 ? 'bg-brand-accent text-white' : 'bg-gray-700 text-gray-300'}`}>
                       2
                     </div>
-                    <span className={`text-sm font-medium ${step >= 2 ? 'text-gray-900' : 'text-gray-500'}`}>
+                    <span className={`text-sm font-medium ${step >= 2 ? 'text-white' : 'text-gray-400'}`}>
                       Account
                     </span>
                   </div>
@@ -287,7 +287,7 @@ export default function RegisterPage() {
                   <div className="space-y-5">
                     {/* Gym Name */}
                     <div className="space-y-2">
-                      <label htmlFor="gymName" className="text-sm font-medium text-gray-700">
+                      <label htmlFor="gymName" className="text-sm font-medium text-white">
                         Gym Name <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
@@ -308,7 +308,7 @@ export default function RegisterPage() {
 
                     {/* Gym Address */}
                     <div className="space-y-2">
-                      <label htmlFor="gymAddress" className="text-sm font-medium text-gray-700">
+                      <label htmlFor="gymAddress" className="text-sm font-medium text-white">
                         Gym Address (Optional)
                       </label>
                       <div className="relative">
@@ -329,7 +329,7 @@ export default function RegisterPage() {
 
                     {/* Gym Website */}
                     <div className="space-y-2">
-                      <label htmlFor="gymWebsite" className="text-sm font-medium text-gray-700">
+                      <label htmlFor="gymWebsite" className="text-sm font-medium text-white">
                         Gym Website (Optional)
                       </label>
                       <div className="relative">
@@ -361,7 +361,7 @@ export default function RegisterPage() {
                   <div className="space-y-5">
                     {/* Username */}
                     <div className="space-y-2">
-                      <label htmlFor="username" className="text-sm font-medium text-gray-700">
+                      <label htmlFor="username" className="text-sm font-medium text-white">
                         Username <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
@@ -378,14 +378,14 @@ export default function RegisterPage() {
                       {fieldErrors.username && (
                         <p className="text-sm text-red-500">{fieldErrors.username}</p>
                       )}
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-400">
                         Letters, numbers, hyphens, and underscores only
                       </p>
                     </div>
 
                     {/* Email */}
                     <div className="space-y-2">
-                      <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                      <label htmlFor="email" className="text-sm font-medium text-white">
                         Email Address <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
@@ -406,7 +406,7 @@ export default function RegisterPage() {
 
                     {/* Password */}
                     <div className="space-y-2">
-                      <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                      <label htmlFor="password" className="text-sm font-medium text-white">
                         Password <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
@@ -446,7 +446,7 @@ export default function RegisterPage() {
                               />
                             ))}
                           </div>
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-gray-300">
                             Password strength: <span className="font-medium">{passwordStrength.text}</span>
                           </p>
                         </div>
@@ -454,19 +454,19 @@ export default function RegisterPage() {
 
                       {/* Password Requirements */}
                       <div className="text-xs space-y-1 mt-2">
-                        <div className={`flex items-center gap-1 ${formData.password && formData.password.length >= 8 ? 'text-green-600' : 'text-gray-500'}`}>
+                        <div className={`flex items-center gap-1 ${formData.password && formData.password.length >= 8 ? 'text-green-400' : 'text-gray-400'}`}>
                           {formData.password && formData.password.length >= 8 ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                           <span>At least 8 characters</span>
                         </div>
-                        <div className={`flex items-center gap-1 ${formData.password && /[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-gray-500'}`}>
+                        <div className={`flex items-center gap-1 ${formData.password && /[A-Z]/.test(formData.password) ? 'text-green-400' : 'text-gray-400'}`}>
                           {formData.password && /[A-Z]/.test(formData.password) ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                           <span>One uppercase letter</span>
                         </div>
-                        <div className={`flex items-center gap-1 ${formData.password && /[a-z]/.test(formData.password) ? 'text-green-600' : 'text-gray-500'}`}>
+                        <div className={`flex items-center gap-1 ${formData.password && /[a-z]/.test(formData.password) ? 'text-green-400' : 'text-gray-400'}`}>
                           {formData.password && /[a-z]/.test(formData.password) ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                           <span>One lowercase letter</span>
                         </div>
-                        <div className={`flex items-center gap-1 ${formData.password && /[0-9]/.test(formData.password) ? 'text-green-600' : 'text-gray-500'}`}>
+                        <div className={`flex items-center gap-1 ${formData.password && /[0-9]/.test(formData.password) ? 'text-green-400' : 'text-gray-400'}`}>
                           {formData.password && /[0-9]/.test(formData.password) ? <Check className="h-3 w-3" /> : <X className="h-3 w-3" />}
                           <span>One number</span>
                         </div>
@@ -475,7 +475,7 @@ export default function RegisterPage() {
 
                     {/* Confirm Password */}
                     <div className="space-y-2">
-                      <label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
+                      <label htmlFor="confirmPassword" className="text-sm font-medium text-white">
                         Confirm Password <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
@@ -524,7 +524,7 @@ export default function RegisterPage() {
                 )}
 
                 {/* Login Link */}
-                <p className="text-sm text-center text-gray-600 mt-6">
+                <p className="text-sm text-center text-gray-300 mt-6">
                   Already have an account?{' '}
                   <Link href="/login" className="text-brand-accent hover:text-brand-accent/80 font-medium">
                     Sign in
@@ -533,13 +533,13 @@ export default function RegisterPage() {
               </form>
 
               {/* Support Section */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="mt-8 pt-6 border-t border-gray-700">
                 <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-3">Need help?</p>
+                  <p className="text-sm text-gray-300 mb-3">Need help?</p>
                   <div className="flex justify-center gap-4">
                     <a
                       href="tel:0704379967"
-                      className="flex items-center gap-2 text-sm text-gray-700 hover:text-brand-accent transition-colors"
+                      className="flex items-center gap-2 text-sm text-white hover:text-brand-accent transition-colors"
                     >
                       <Phone className="h-4 w-4" />
                       <span>0704379967</span>
@@ -548,15 +548,15 @@ export default function RegisterPage() {
                       href="https://wa.me/94704379967"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-gray-700 hover:text-brand-accent transition-colors"
+                      className="flex items-center gap-2 text-sm text-white hover:text-brand-accent transition-colors"
                     >
                       <MessageCircle className="h-4 w-4" />
                       <span>WhatsApp</span>
                     </a>
                   </div>
                   <div className="mt-3 space-y-1">
-                    <p className="text-xs text-gray-500">සහය අවශ්‍යනම්, 0704379967 අමතන්න</p>
-                    <p className="text-xs text-gray-500">ஏதேனும் உதவிக்கு, 0704379967 அழைக்கவும்</p>
+                    <p className="text-xs text-gray-400">සහය අවශ්‍යනම්, 0704379967 අමතන්න</p>
+                    <p className="text-xs text-gray-400">ஏதேனும் உதவிக்கு, 0704379967 அழைக்கவும்</p>
                   </div>
                 </div>
               </div>

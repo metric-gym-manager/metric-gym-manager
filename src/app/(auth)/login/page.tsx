@@ -216,8 +216,8 @@ function LoginContent() {
             <CardContent className="pt-8 pb-8">
               {/* Header */}
               <div className="mb-8">
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">Sign In</h2>
-                <p className="text-gray-600">Welcome back! Please enter your details.</p>
+                <h2 className="text-3xl font-bold text-white mb-2">Sign In</h2>
+                <p className="text-gray-300">Welcome back! Please enter your details.</p>
               </div>
 
               {/* Alerts */}
@@ -262,7 +262,7 @@ function LoginContent() {
               <form onSubmit={handleLogin} className="space-y-5">
                 {/* Email Field */}
                 <div className="space-y-2">
-                  <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  <label htmlFor="email" className="text-sm font-medium text-white">
                     Email Address
                   </label>
                   <div className="relative">
@@ -286,7 +286,7 @@ function LoginContent() {
 
                 {/* Password Field */}
                 <div className="space-y-2">
-                  <label htmlFor="password" className="text-sm font-medium text-gray-700">
+                  <label htmlFor="password" className="text-sm font-medium text-white">
                     Password
                   </label>
                   <div className="relative">
@@ -327,7 +327,7 @@ function LoginContent() {
                       }
                       className="rounded border-gray-300 text-brand-accent focus:ring-brand-accent"
                     />
-                    <label htmlFor="rememberMe" className="text-sm text-gray-700">
+                    <label htmlFor="rememberMe" className="text-sm text-white">
                       Remember me
                     </label>
                   </div>
@@ -349,7 +349,7 @@ function LoginContent() {
                 </Button>
 
                 {/* Register Link */}
-                <p className="text-sm text-center text-gray-600">
+                <p className="text-sm text-center text-gray-300">
                   Don't have an account?{' '}
                   <Link href="/register" className="text-brand-accent hover:text-brand-accent/80 font-medium">
                     Sign up for free
@@ -358,13 +358,13 @@ function LoginContent() {
               </form>
 
               {/* Support Section */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
+              <div className="mt-8 pt-6 border-t border-gray-700">
                 <div className="text-center">
-                  <p className="text-sm text-gray-600 mb-3">Need help?</p>
+                  <p className="text-sm text-gray-300 mb-3">Need help?</p>
                   <div className="flex justify-center gap-4">
                     <a
                       href="tel:0704379967"
-                      className="flex items-center gap-2 text-sm text-gray-700 hover:text-brand-accent transition-colors"
+                      className="flex items-center gap-2 text-sm text-white hover:text-brand-accent transition-colors"
                     >
                       <Phone className="h-4 w-4" />
                       <span>0704379967</span>
@@ -373,15 +373,15 @@ function LoginContent() {
                       href="https://wa.me/94704379967"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-2 text-sm text-gray-700 hover:text-brand-accent transition-colors"
+                      className="flex items-center gap-2 text-sm text-white hover:text-brand-accent transition-colors"
                     >
                       <MessageCircle className="h-4 w-4" />
                       <span>WhatsApp</span>
                     </a>
                   </div>
                   <div className="mt-3 space-y-1">
-                    <p className="text-xs text-gray-500">සහය අවශ්‍යනම්, 0704379967 අමතන්න</p>
-                    <p className="text-xs text-gray-500">ஏதேனும் உதவிக்கு, 0704379967 அழைக்கவும்</p>
+                    <p className="text-xs text-gray-400">සහය අවශ්‍යනම්, 0704379967 අමතන්න</p>
+                    <p className="text-xs text-gray-400">ஏதேனும் உதவிக்கு, 0704379967 அழைக்கவும்</p>
                   </div>
                 </div>
               </div>
