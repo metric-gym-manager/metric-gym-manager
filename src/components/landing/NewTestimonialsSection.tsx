@@ -62,7 +62,7 @@ export function NewTestimonialsSection() {
       <div className="max-w-[1120px] mx-auto">
         {/* Section Label */}
         <div
-          className="text-center mb-4"
+          className="text-center mb-4 testimonials-label"
           style={{
             fontSize: '13px',
             fontWeight: 600,
@@ -163,13 +163,14 @@ export function NewTestimonialsSection() {
 
         @media (max-width: 768px) {
           .testimonials-section {
-            padding: 80px 24px;
+            padding: 80px 0;
           }
 
           .testimonials-headline {
             font-size: 32px !important;
             line-height: 1.15 !important;
             margin-bottom: 40px !important;
+            padding: 0 24px;
           }
 
           .testimonials-container {
@@ -179,8 +180,7 @@ export function NewTestimonialsSection() {
             scroll-snap-type: x mandatory;
             scrollbar-width: none;
             -ms-overflow-style: none;
-            margin: 0 -24px;
-            padding: 0 24px;
+            padding: 0 calc((100vw - 320px) / 2);
           }
 
           .testimonials-container::-webkit-scrollbar {
