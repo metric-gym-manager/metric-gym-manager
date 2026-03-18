@@ -92,57 +92,73 @@ export function NewTestimonialsSection() {
         </h2>
 
         {/* Testimonials Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {testimonials.map((testimonial, index) => (
-            <div
-              key={index}
-              className="glass-card scroll-reveal p-8"
-              style={{
-                animationDelay: `${index * 0.1}s`,
-              }}
-            >
-              {/* Quote */}
-              <p
-                className="mb-6"
+        <div className="testimonials-container">
+          <div className="testimonials-grid">
+            {testimonials.map((testimonial, index) => (
+              <div
+                key={index}
+                className="glass-card scroll-reveal testimonial-card"
                 style={{
-                  fontSize: '17px',
-                  color: 'rgba(29, 29, 31, 0.8)',
-                  fontStyle: 'italic',
-                  lineHeight: 1.6,
+                  animationDelay: `${index * 0.1}s`,
                 }}
               >
-                &ldquo;{testimonial.quote}&rdquo;
-              </p>
+                {/* Quote */}
+                <p
+                  className="mb-6"
+                  style={{
+                    fontSize: '17px',
+                    color: 'rgba(29, 29, 31, 0.8)',
+                    fontStyle: 'italic',
+                    lineHeight: 1.6,
+                  }}
+                >
+                  &ldquo;{testimonial.quote}&rdquo;
+                </p>
 
-              {/* Author */}
-              <div>
-                <div
-                  style={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: '#1d1d1f',
-                    marginBottom: '2px',
-                  }}
-                >
-                  {testimonial.author}
-                </div>
-                <div
-                  style={{
-                    fontSize: '13px',
-                    color: '#6e6e73',
-                  }}
-                >
-                  {testimonial.role}
+                {/* Author */}
+                <div>
+                  <div
+                    style={{
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      color: '#1d1d1f',
+                      marginBottom: '2px',
+                    }}
+                  >
+                    {testimonial.author}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: '13px',
+                      color: '#6e6e73',
+                    }}
+                  >
+                    {testimonial.role}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
 
       <style jsx>{`
         .testimonials-section {
           padding: 140px 24px;
+        }
+
+        .testimonials-container {
+          width: 100%;
+        }
+
+        .testimonials-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 20px;
+        }
+
+        .testimonial-card {
+          padding: 32px;
         }
 
         @media (max-width: 768px) {
@@ -154,6 +170,34 @@ export function NewTestimonialsSection() {
             font-size: 32px !important;
             line-height: 1.15 !important;
             margin-bottom: 40px !important;
+          }
+
+          .testimonials-container {
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x mandatory;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            margin: 0 -24px;
+            padding: 0 24px;
+          }
+
+          .testimonials-container::-webkit-scrollbar {
+            display: none;
+          }
+
+          .testimonials-grid {
+            display: flex;
+            gap: 16px;
+            width: max-content;
+          }
+
+          .testimonial-card {
+            width: 320px;
+            flex-shrink: 0;
+            scroll-snap-align: center;
+            padding: 24px;
           }
         }
       `}</style>
