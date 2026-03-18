@@ -3,6 +3,7 @@ import { getGymProfileForLayout } from '@/lib/middleware/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import { MemberModalProvider } from '@/contexts/member-modal.context';
+import { NotificationPermission } from '@/components/pwa/NotificationPermission';
 
 export default async function DashboardLayout({
   children,
@@ -28,6 +29,7 @@ export default async function DashboardLayout({
 
         {/* Page content - Add top padding for mobile header and bottom padding for mobile nav */}
         <main className="px-4 py-6 lg:px-8 pt-16 lg:pt-6 pb-20 lg:pb-6">
+          <NotificationPermission />
           <MemberModalProvider>
             {children}
           </MemberModalProvider>

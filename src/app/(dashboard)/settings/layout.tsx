@@ -9,6 +9,7 @@ const settingsNavigation = [
   { name: 'Plan Types', href: '/settings/plans' },
   { name: 'Discounts', href: '/settings/discounts' },
   { name: 'Installments', href: '/settings/installments' },
+  { name: 'Notifications', href: '/settings/notifications' },
   { name: 'Account Security', href: '/settings/security' },
 ];
 

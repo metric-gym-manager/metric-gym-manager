@@ -42,6 +42,12 @@ yarn-error.log*
 *.swp
 *.swo
 
+# Android TWA
+keystore/
+android/
+*.keystore
+*.jks
+
 # Claude Code local settings
 .claude/settings.local.json
 

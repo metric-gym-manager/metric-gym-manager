@@ -1,0 +1,25 @@
+{
+  "host": "metricgymmanager.com",
+  "name": "Metric Gym Manager",
+  "launcherName": "Metric Gym",
+  "display": "standalone",
+  "themeColor": "#000000",
+  "navigationColor": "#000000",
+  "backgroundColor": "#ffffff",
+  "startUrl": "/members",
+  "iconUrl": "https://metricgymmanager.com/icon-512.png",
+  "maskableIconUrl": "https://metricgymmanager.com/icon-maskable-512.png",
+  "packageId": "com.metricgymmanager.twa",
+  "signingKey": {
+    "path": "./keystore/metric-gym-release.keystore",
+    "alias": "metric-gym"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "enableNotifications": true,
+  "enableSiteSettingsShortcut": true,
+  "isChromeOSOnly": false,
+  "splashScreenFadeOutDuration": 300,
+  "fallbackType": "customtabs"
+}

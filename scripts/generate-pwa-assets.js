@@ -20,20 +20,39 @@ console.log(`📦 Generating PWA assets with version ${APP_VERSION}...`);
 const manifest = {
   name: "Metric Gym Manager",
   short_name: "Metric Gym",
+  description: "Modern gym and fitness center management platform",
   start_url: "/members",
+  scope: "/",
   display: "standalone",
+  orientation: "portrait",
   background_color: "#ffffff",
   theme_color: "#000000",
+  categories: ["business", "fitness"],
+  lang: "en",
   icons: [
     {
       src: `/icon-192.png?v=${APP_VERSION}`,
       sizes: "192x192",
-      type: "image/png"
+      type: "image/png",
+      purpose: "any"
     },
     {
       src: `/icon-512.png?v=${APP_VERSION}`,
       sizes: "512x512",
-      type: "image/png"
+      type: "image/png",
+      purpose: "any"
+    },
+    {
+      src: `/icon-maskable-192.png?v=${APP_VERSION}`,
+      sizes: "192x192",
+      type: "image/png",
+      purpose: "maskable"
+    },
+    {
+      src: `/icon-maskable-512.png?v=${APP_VERSION}`,
+      sizes: "512x512",
+      type: "image/png",
+      purpose: "maskable"
     }
   ]
 };
@@ -117,6 +136,54 @@ self.addEventListener('fetch', (event) => {
     caches.match(request).then((cached) => {
       return cached || fetch(request);
     })
+  );
+});
+
+// Push notification event: Display notification from server
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  try {
+    const payload = event.data.json();
+    const options = {
+      body: payload.body || '',
+      icon: '/icon-192.png?v=${APP_VERSION}',
+      badge: '/icon-192.png?v=${APP_VERSION}',
+      tag: payload.tag || 'default',
+      data: payload.data || {},
+      vibrate: [200, 100, 200],
+      requireInteraction: false,
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(
+        payload.title || 'Metric Gym Manager',
+        options
+      )
+    );
+  } catch (err) {
+    console.error('Push event error:', err);
+  }
+});
+
+// Notification click: Navigate to relevant page
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const url = event.notification.data?.url || '/members';
+
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: 'window', includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if (client.url.includes(self.location.origin) && 'focus' in client) {
+            client.navigate(url);
+            return client.focus();
+          }
+        }
+        return self.clients.openWindow(url);
+      })
   );
 });
 `;

@@ -54,6 +54,20 @@ const nextConfig = {
         ],
       },
       {
+        // Digital Asset Links for TWA verification
+        source: '/.well-known/assetlinks.json',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/json',
+          },
+          {
+            key: 'Cache-Control',
+            value: 'public, no-cache, must-revalidate',
+          },
+        ],
+      },
+      {
         // Hashed static assets: aggressive long-term cache (immutable)
         source: '/_next/static/:path*',
         headers: [

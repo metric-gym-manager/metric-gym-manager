@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import type { Announcement } from '../types';
 import type { CreateAnnouncementInput } from '../schemas/announcement.schemas';
 import { sendSmsViaTextLk } from '@/features/sms/services/textlk.service';
+import { sendPushToGym } from '@/features/push-notifications/services/push.service';
 
 // ============================================================
 // GET ANNOUNCEMENTS
@@ -97,7 +98,20 @@ export async function createAndSendAnnouncement(
     console.error('Background SMS sending error:', error);
   });
 
-  // Return immediately - SMS sending happens in background
+  // Fire-and-forget: Send push notification to gym owner as confirmation
+  sendPushToGym(gymId, {
+    title: `${gymName} - Announcement Sent`,
+    body: `Sending to ${members.length} member(s): ${input.message.substring(0, 100)}`,
+    data: {
+      url: '/make-announcement',
+      type: 'announcement',
+      announcementId: announcement.id,
+    },
+  }).catch((error) => {
+    console.error('Background push notification error:', error);
+  });
+
+  // Return immediately - SMS and push sending happens in background
   return {
     announcement: announcement as Announcement,
     recipientCount: members.length,
