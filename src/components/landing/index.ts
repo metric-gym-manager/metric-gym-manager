@@ -23,3 +23,4 @@ export { NewPricingSection } from './NewPricingSection';
 export { NewTestimonialsSection } from './NewTestimonialsSection';
 export { FinalCTASection } from './FinalCTASection';
 export { NewFooter } from './NewFooter';
+export { ContactModal } from './ContactModal';

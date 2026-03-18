@@ -1,6 +1,11 @@
 'use client';
 
+import { useState } from 'react';
+import { ContactModal } from './ContactModal';
+
 export function NewFooter() {
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -91,17 +96,20 @@ export function NewFooter() {
           >
             Terms
           </a>
-          <a
-            href="/support"
+          <button
+            onClick={() => setIsContactModalOpen(true)}
             className="footer-link"
             style={{
               fontSize: '13px',
               color: '#6e6e73',
               transition: 'color 0.2s ease',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
             }}
           >
             Contact
-          </a>
+          </button>
         </div>
       </div>
 
@@ -110,6 +118,11 @@ export function NewFooter() {
           color: #1d1d1f !important;
         }
       `}</style>
+
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+      />
     </footer>
   );
 }

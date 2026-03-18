@@ -1,8 +1,12 @@
 'use client';
 
 import Link from 'next/link';
+import { useState } from 'react';
+import { ContactModal } from './ContactModal';
 
 export function FinalCTASection() {
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+
   return (
     <section
       className="relative text-center final-cta-section"
@@ -54,9 +58,12 @@ export function FinalCTASection() {
           <Link href="/register" className="btn-primary">
             Get Started Free
           </Link>
-          <Link href="/support" className="btn-secondary">
+          <button
+            onClick={() => setIsContactModalOpen(true)}
+            className="btn-secondary"
+          >
             Schedule a Demo
-          </Link>
+          </button>
         </div>
 
         {/* Trust Pills */}
@@ -133,6 +140,11 @@ export function FinalCTASection() {
           }
         }
       `}</style>
+
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+      />
     </section>
   );
 }

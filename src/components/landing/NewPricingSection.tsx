@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { ContactModal } from './ContactModal';
 
 const pricingTiers = [
   {
@@ -45,6 +46,7 @@ const pricingTiers = [
 
 export function NewPricingSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -227,19 +229,35 @@ export function NewPricingSection() {
               </ul>
 
               {/* CTA Button */}
-              <Link
-                href={tier.cta === 'Contact Sales' ? '/support' : '/register'}
-                className={
-                  tier.ctaStyle === 'primary' ? 'btn-primary' : 'btn-secondary'
-                }
-                style={{
-                  width: '100%',
-                  textAlign: 'center',
-                  display: 'block',
-                }}
-              >
-                {tier.cta}
-              </Link>
+              {tier.cta === 'Contact Sales' ? (
+                <button
+                  onClick={() => setIsContactModalOpen(true)}
+                  className={
+                    tier.ctaStyle === 'primary' ? 'btn-primary' : 'btn-secondary'
+                  }
+                  style={{
+                    width: '100%',
+                    textAlign: 'center',
+                    display: 'block',
+                  }}
+                >
+                  {tier.cta}
+                </button>
+              ) : (
+                <Link
+                  href="/register"
+                  className={
+                    tier.ctaStyle === 'primary' ? 'btn-primary' : 'btn-secondary'
+                  }
+                  style={{
+                    width: '100%',
+                    textAlign: 'center',
+                    display: 'block',
+                  }}
+                >
+                  {tier.cta}
+                </Link>
+              )}
             </div>
           ))}
         </div>
@@ -269,6 +287,11 @@ export function NewPricingSection() {
           }
         }
       `}</style>
+
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+      />
     </section>
   );
 }

@@ -2,9 +2,11 @@
 
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
+import { ContactModal } from './ContactModal';
 
 export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -135,6 +137,24 @@ export function Navigation() {
             Reviews
             <span className="nav-link-underline" />
           </button>
+          <button
+            onClick={() => setIsContactModalOpen(true)}
+            className="nav-link"
+            style={{
+              fontSize: '13px',
+              color: '#6e6e73',
+              fontWeight: 400,
+              transition: 'color 0.2s ease',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              position: 'relative',
+              padding: '4px 0',
+            }}
+          >
+            Contact
+            <span className="nav-link-underline" />
+          </button>
         </div>
 
         {/* Right CTAs */}
@@ -184,6 +204,11 @@ export function Navigation() {
           width: 100%;
         }
       `}</style>
+
+      <ContactModal
+        isOpen={isContactModalOpen}
+        onClose={() => setIsContactModalOpen(false)}
+      />
     </nav>
   );
 }
