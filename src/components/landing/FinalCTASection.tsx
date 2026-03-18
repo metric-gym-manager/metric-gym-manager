@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useState } from 'react';
 import { ContactModal } from './ContactModal';
 
@@ -22,6 +23,25 @@ export function FinalCTASection() {
             'radial-gradient(ellipse at center bottom, rgba(37,99,235,0.03) 0%, #ffffff 60%)',
         }}
       />
+
+      {/* Background Image - David */}
+      <div
+        className="absolute inset-0 flex items-center justify-center pointer-events-none background-image-container"
+        style={{
+          opacity: 0.15,
+        }}
+      >
+        <Image
+          src="/david.png"
+          alt="Background decoration"
+          width={600}
+          height={600}
+          className="background-image"
+          style={{
+            objectFit: 'contain',
+          }}
+        />
+      </div>
 
       <div className="relative z-10 max-w-[1120px] mx-auto">
         {/* Headline */}
@@ -137,6 +157,11 @@ export function FinalCTASection() {
             line-height: 1.6 !important;
             margin-bottom: 32px !important;
             padding: 0 16px;
+          }
+
+          .background-image-container :global(.background-image) {
+            width: 300px !important;
+            height: 300px !important;
           }
         }
       `}</style>
