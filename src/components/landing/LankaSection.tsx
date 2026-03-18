@@ -52,7 +52,7 @@ export function LankaSection() {
       className="overflow-hidden"
       style={{
         padding: '180px 24px',
-        background: '#ffffff',
+        background: '#000000',
       }}
     >
       <div className="max-w-[1120px] mx-auto text-center">
@@ -102,9 +102,10 @@ export function LankaSection() {
                 style={{
                   width: '56px',
                   height: '56px',
-                  background: 'rgba(0, 0, 0, 0.06)',
+                  background: 'transparent',
+                  border: '1.5px solid rgba(255, 255, 255, 0.3)',
                   borderRadius: '14px',
-                  color: '#1d1d1f',
+                  color: '#ffffff',
                 }}
               >
                 {renderIcon(feature.icon)}
@@ -116,7 +117,7 @@ export function LankaSection() {
                 style={{
                   fontSize: '15px',
                   fontWeight: 600,
-                  color: '#1d1d1f',
+                  color: '#ffffff',
                 }}
               >
                 {feature.label}
@@ -126,7 +127,7 @@ export function LankaSection() {
               <div
                 style={{
                   fontSize: '13px',
-                  color: '#6e6e73',
+                  color: 'rgba(255, 255, 255, 0.7)',
                 }}
               >
                 {feature.sublabel}
