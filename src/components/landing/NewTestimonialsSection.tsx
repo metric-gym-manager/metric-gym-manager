@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const testimonials = [
   {
@@ -31,6 +31,11 @@ const testimonials = [
 
 export function NewTestimonialsSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  const autoScrollTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const userInteractedRef = useRef(false);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -49,6 +54,86 @@ export function NewTestimonialsSection() {
 
     return () => observer.disconnect();
   }, []);
+
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Auto-scroll functionality for mobile
+  useEffect(() => {
+    if (!isMobile || !containerRef.current) return;
+
+    const startAutoScroll = () => {
+      if (autoScrollTimerRef.current) {
+        clearInterval(autoScrollTimerRef.current);
+      }
+
+      autoScrollTimerRef.current = setInterval(() => {
+        if (!userInteractedRef.current && containerRef.current) {
+          const nextIndex = (activeIndex + 1) % testimonials.length;
+          scrollToIndex(nextIndex);
+        }
+      }, 4000); // Auto-scroll every 4 seconds
+    };
+
+    startAutoScroll();
+
+    return () => {
+      if (autoScrollTimerRef.current) {
+        clearInterval(autoScrollTimerRef.current);
+      }
+    };
+  }, [isMobile, activeIndex]);
+
+  // Update active index based on scroll position
+  useEffect(() => {
+    if (!isMobile || !containerRef.current) return;
+
+    const container = containerRef.current;
+
+    const handleScroll = () => {
+      const scrollLeft = container.scrollLeft;
+      const cardWidth = 320 + 16; // card width + gap
+      const index = Math.round(scrollLeft / cardWidth);
+      setActiveIndex(index);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, [isMobile]);
+
+  const scrollToIndex = (index: number) => {
+    if (!containerRef.current) return;
+    const cardWidth = 320 + 16; // card width + gap
+    const scrollPosition = index * cardWidth;
+    containerRef.current.scrollTo({
+      left: scrollPosition,
+      behavior: 'smooth',
+    });
+    setActiveIndex(index);
+  };
+
+  const handleDotClick = (index: number) => {
+    userInteractedRef.current = true;
+    scrollToIndex(index);
+    // Resume auto-scroll after 10 seconds of no interaction
+    setTimeout(() => {
+      userInteractedRef.current = false;
+    }, 10000);
+  };
+
+  const handleTouchStart = () => {
+    userInteractedRef.current = true;
+    setTimeout(() => {
+      userInteractedRef.current = false;
+    }, 10000);
+  };
 
   return (
     <section
@@ -92,7 +177,11 @@ export function NewTestimonialsSection() {
         </h2>
 
         {/* Testimonials Grid */}
-        <div className="testimonials-container">
+        <div
+          ref={containerRef}
+          className="testimonials-container"
+          onTouchStart={handleTouchStart}
+        >
           <div className="testimonials-grid">
             {testimonials.map((testimonial, index) => (
               <div
@@ -140,6 +229,20 @@ export function NewTestimonialsSection() {
             ))}
           </div>
         </div>
+
+        {/* Dot Indicators - Mobile Only */}
+        {isMobile && (
+          <div className="dot-indicators">
+            {testimonials.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => handleDotClick(index)}
+                className={`dot ${index === activeIndex ? 'active' : ''}`}
+                aria-label={`Go to testimonial ${index + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <style jsx>{`
@@ -198,6 +301,36 @@ export function NewTestimonialsSection() {
             flex-shrink: 0;
             scroll-snap-align: center;
             padding: 24px;
+          }
+
+          .dot-indicators {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin-top: 32px;
+            padding: 0 24px;
+          }
+
+          .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.2);
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+          }
+
+          .dot.active {
+            width: 24px;
+            border-radius: 4px;
+            background: #1d1d1f;
+          }
+
+          .dot:hover {
+            background: rgba(0, 0, 0, 0.4);
           }
         }
       `}</style>
