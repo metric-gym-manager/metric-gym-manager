@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function NewHeroSection() {
   return (
@@ -19,6 +20,28 @@ export function NewHeroSection() {
           background: 'radial-gradient(circle at center 40%, rgba(37,99,235,0.05) 0%, transparent 70%)',
         }}
       />
+
+      {/* Background Logo */}
+      <div
+        className="absolute pointer-events-none hero-logo-bg"
+        style={{
+          left: '-60px',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          opacity: 0.08,
+        }}
+      >
+        <Image
+          src="/icon-512.png"
+          alt="Background decoration"
+          width={900}
+          height={900}
+          className="hero-logo-image"
+          style={{
+            objectFit: 'contain',
+          }}
+        />
+      </div>
 
       <div className="relative z-10 max-w-[1120px] mx-auto px-6 text-center">
         {/* Badge */}
@@ -178,6 +201,16 @@ export function NewHeroSection() {
             line-height: 1.6 !important;
             margin-bottom: 32px !important;
             padding: 0 8px;
+          }
+
+          .hero-logo-bg {
+            left: -40px !important;
+            top: 30% !important;
+          }
+
+          .hero-logo-bg :global(.hero-logo-image) {
+            width: 500px !important;
+            height: 500px !important;
           }
         }
       `}</style>
