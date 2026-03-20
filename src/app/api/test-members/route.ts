@@ -14,8 +14,7 @@ export async function GET() {
         id,
         name,
         phone_number,
-        next_due_date,
-        member_installments(id, status)
+        next_due_date
       `)
       .eq('gym_id', gymId)
       .eq('status', 'active');
@@ -41,7 +40,6 @@ export async function GET() {
         name: m.name,
         next_due_date: m.next_due_date,
         days_until_due: daysUntilDue,
-        has_installments: (m.member_installments as any)?.length > 0,
       };
     });
 

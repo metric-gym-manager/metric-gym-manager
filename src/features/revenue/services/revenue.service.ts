@@ -211,10 +211,10 @@ export async function getYearlyRevenue(
 async function checkHasOverduePayments(gymId: string): Promise<boolean> {
   const supabase = await createClient();
 
-  // Get active/expired members excluding those with active installments
+  // Get active/expired members
   const { data: members } = await supabase
     .from('members')
-    .select('id, next_due_date, member_installments(id, status)')
+    .select('id, next_due_date')
     .eq('gym_id', gymId)
     .in('status', ['active', 'expired']);
 
@@ -225,15 +225,8 @@ async function checkHasOverduePayments(gymId: string): Promise<boolean> {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  // Check if any member (without active installment) has overdue payment
+  // Check if any member has overdue payment
   for (const member of members) {
-    // Skip members with active installment plans
-    const installments = (member.member_installments as Array<{ id: string; status: string }> | null) ?? [];
-    const hasActiveInstallment = installments.some((inst) => inst.status === 'active');
-    if (hasActiveInstallment) {
-      continue;
-    }
-
     // Check if payment is overdue
     const dueDate = new Date(member.next_due_date);
     dueDate.setHours(0, 0, 0, 0);
