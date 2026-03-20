@@ -5,7 +5,7 @@ export default function PaymentCollectionPage() {
     <div className="space-y-6">
       {/* Server-rendered heading — appears in initial HTML for fast LCP */}
       <div>
-        <h1 className="text-xl lg:text-3xl font-bold tracking-tight">Payment Collection</h1>
+        <h1 className="text-xl lg:text-3xl font-bold tracking-tight">Fee Collection</h1>
       </div>
 
       <PaymentCollectionPageClient />

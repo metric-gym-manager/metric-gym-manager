@@ -32,6 +32,7 @@ export default function MembersPageClient() {
         <Button
           variant="outline"
           onClick={() => setBulkModalOpen(true)}
+          className="hidden sm:inline-flex"
         >
           Bulk Register
         </Button>

@@ -27,7 +27,7 @@ const navigation = [
     icon: DollarSign,
   },
   {
-    name: 'Payments',
+    name: 'Fee Collection',
     href: '/payment-collection',
     icon: CreditCard,
   },
