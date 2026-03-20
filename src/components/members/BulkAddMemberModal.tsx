@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -13,19 +13,12 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
+import { Trash2, Plus, CheckCircle, XCircle } from 'lucide-react';
 
 interface Discount {
   id: string;
   discount_name: string;
   discount_percentage: number;
-}
-
-interface InstallmentTemplate {
-  id: string;
-  name: string;
-  installment_count: number;
-  interval_months: number;
 }
 
 interface PlanType {
@@ -45,7 +38,6 @@ interface BulkRow {
   membershipStartDate: string;
   discountId: string | null;
   recurringDiscount: boolean;
-  installmentTemplateId: string | null;
   status: 'idle' | 'success' | 'error';
   errorMessage?: string;
 }
@@ -67,7 +59,6 @@ function createEmptyRow(): BulkRow {
     membershipStartDate: TODAY,
     discountId: null,
     recurringDiscount: false,
-    installmentTemplateId: null,
     status: 'idle',
   };
 }
@@ -91,9 +82,6 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
   const [globalDiscountId, setGlobalDiscountId] = useState<string>('');
   const [globalRecurring, setGlobalRecurring] = useState(false);
 
-  // Apply-to-all: installment
-  const [globalTemplateId, setGlobalTemplateId] = useState<string>('');
-
   const { data: planTypesData } = useQuery<PlanType[]>({
     queryKey: ['plan-types'],
     queryFn: async () => {
@@ -104,21 +92,11 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
     },
   });
 
-  const { data: discountsData } = useQuery<Discount[]>({
+  const { data: discountsData} = useQuery<Discount[]>({
     queryKey: ['discounts'],
     queryFn: async () => {
       const res = await fetch('/api/discounts');
       if (!res.ok) throw new Error('Failed to fetch discounts');
-      const r = await res.json();
-      return r.data;
-    },
-  });
-
-  const { data: templatesData } = useQuery<InstallmentTemplate[]>({
-    queryKey: ['installment-templates'],
-    queryFn: async () => {
-      const res = await fetch('/api/installment-templates');
-      if (!res.ok) throw new Error('Failed to fetch installment templates');
       const r = await res.json();
       return r.data;
     },
@@ -155,7 +133,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
     }
   }, [globalPlanType, planTypesData]);
 
-  // Derive discounted amount + installment preview for a row
+  // Derive discounted amount for a row
   const getRowDiscountPct = (row: BulkRow): number => {
     if (!row.discountId) return 0;
     return discountsData?.find((d) => d.id === row.discountId)?.discount_percentage ?? 0;
@@ -164,22 +142,9 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
   const getRowDiscountedAmount = (row: BulkRow): number =>
     computeDiscountedAmount(row.planAmount, getRowDiscountPct(row));
 
-  const getRowInstallmentPreview = (row: BulkRow): string | null => {
-    if (!row.installmentTemplateId) return null;
-    const template = templatesData?.find((t) => t.id === row.installmentTemplateId);
-    if (!template) return null;
-    const total = getRowDiscountedAmount(row);
-    const perInstallment = Math.round((total / template.installment_count) * 100) / 100;
-    return `${template.installment_count}× Rs. ${perInstallment.toFixed(0)} / ${template.interval_months}mo`;
-  };
-
   const bulkRegisterMutation = useMutation({
     mutationFn: async (members: BulkRow[]) => {
       const payload = members.map((row) => {
-        const discountPct = getRowDiscountPct(row);
-        const discountedAmount = computeDiscountedAmount(row.planAmount, discountPct);
-        const template = templatesData?.find((t) => t.id === row.installmentTemplateId) ?? null;
-
         return {
           name: row.name.trim(),
           phoneNumber: row.phoneNumber.trim(),
@@ -189,21 +154,6 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
           membershipStartDate: row.membershipStartDate,
           discountId: row.discountId || null,
           recurringDiscount: row.recurringDiscount,
-          ...(template
-            ? {
-                installmentTemplateId: template.id,
-                installmentTemplateName: template.name,
-                installmentTotalAmount: discountedAmount,
-                installmentCount: template.installment_count,
-                installmentIntervalMonths: template.interval_months,
-              }
-            : {
-                installmentTemplateId: null,
-                installmentTemplateName: null,
-                installmentTotalAmount: null,
-                installmentCount: null,
-                installmentIntervalMonths: null,
-              }),
         };
       });
 
@@ -285,21 +235,6 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
               ...row,
               discountId: globalDiscountId || null,
               recurringDiscount: globalRecurring,
-              status: 'idle' as const,
-              errorMessage: undefined,
-            }
-      )
-    );
-  };
-
-  const handleApplyInstallmentToAll = () => {
-    setRows((prev) =>
-      prev.map((row) =>
-        row.status === 'success'
-          ? row
-          : {
-              ...row,
-              installmentTemplateId: globalTemplateId || null,
               status: 'idle' as const,
               errorMessage: undefined,
             }
@@ -536,37 +471,6 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
             </Button>
           </div>
 
-          <div className="w-px h-8 bg-gray-300 self-end" />
-
-          {/* Installment section */}
-          <div className="flex items-end gap-2">
-            <div>
-              <label className="text-xs font-medium text-gray-600 block mb-1">Installment Plan</label>
-              <select
-                value={globalTemplateId}
-                onChange={(e) => setGlobalTemplateId(e.target.value)}
-                disabled={isPending}
-                className="h-8 rounded-md border border-input bg-white px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 min-w-[200px]"
-              >
-                <option value="">No Installment</option>
-                {templatesData?.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.installment_count}× / {t.interval_months}mo)
-                  </option>
-                ))}
-              </select>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleApplyInstallmentToAll}
-              disabled={isPending}
-              className="h-8"
-            >
-              Apply to All
-            </Button>
-          </div>
         </div>
 
         {/* Scrollable table */}
@@ -585,7 +489,6 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
                 <th className="px-3 py-3 text-left font-medium text-gray-500 w-[110px]">Amount (Rs.)</th>
                 <th className="px-3 py-3 text-left font-medium text-gray-500 w-[140px]">Start Date</th>
                 <th className="px-3 py-3 text-left font-medium text-gray-500 min-w-[180px]">Discount</th>
-                <th className="px-3 py-3 text-left font-medium text-gray-500 min-w-[200px]">Installment Plan</th>
                 <th className="px-3 py-3 text-left font-medium text-gray-500 w-[80px]">Status</th>
                 <th className="px-3 py-3 w-10"></th>
               </tr>
@@ -594,7 +497,6 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
               {rows.map((row, index) => {
                 const discountPct = getRowDiscountPct(row);
                 const discountedAmount = computeDiscountedAmount(row.planAmount, discountPct);
-                const installmentPreview = getRowInstallmentPreview(row);
 
                 return (
                   <tr
@@ -711,30 +613,6 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
                       </div>
                     </td>
 
-                    {/* Installment */}
-                    <td className="px-3 py-2">
-                      <div className="flex flex-col gap-1">
-                        <select
-                          value={row.installmentTemplateId ?? ''}
-                          onChange={(e) =>
-                            handleRowChange(row.id, 'installmentTemplateId', e.target.value || null)
-                          }
-                          disabled={row.status === 'success' || isPending}
-                          className={selectClass}
-                        >
-                          <option value="">No Installment</option>
-                          {templatesData?.map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.name} ({t.installment_count}×)
-                            </option>
-                          ))}
-                        </select>
-                        {installmentPreview && (
-                          <span className="text-xs text-blue-700 font-medium">{installmentPreview}</span>
-                        )}
-                      </div>
-                    </td>
-
                     {/* Status */}
                     <td className="px-3 py-2">
                       {row.status === 'success' && (
@@ -844,7 +722,6 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
         {!submitted && (
           <p className="text-xs text-gray-400 text-center">
             Fields marked <span className="text-red-500">*</span> are required.
-            Installment amounts are calculated automatically from the plan amount after any discount.
           </p>
         )}
       </DialogContent>
