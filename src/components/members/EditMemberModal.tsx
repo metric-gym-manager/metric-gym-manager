@@ -24,6 +24,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { updateMemberSchema, type UpdateMemberInput } from '@/features/members/schemas/member.schemas';
 import type { MemberWithDiscount } from '@/features/members/types';
+import { toast } from 'sonner';
 
 interface Discount {
   id: string;
@@ -133,8 +134,9 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] });
       if (member) {
-        queryClient.invalidateQueries({ queryKey: ['member', member.id] });
+        queryClient.invalidateQueries({ queryKey: ['member-detail', member.id] });
       }
+      toast.success('Member updated successfully');
       onClose();
     },
   });

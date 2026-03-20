@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 
 export function NewHeroSection() {
   return (
@@ -31,7 +30,7 @@ export function NewHeroSection() {
           opacity: 0.08,
         }}
       >
-        <Image
+        <img
           src="/icon-512.png"
           alt="Background decoration"
           width={900}

@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import ConfirmDialog from '@/components/common/ConfirmDialog';
+import MarkPaidDialog from '@/components/payment-collection/MarkPaidDialog';
 import { formatDate } from '@/lib/utils/date';
 import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
 
@@ -67,16 +67,15 @@ export default function RegularPaymentTable() {
   });
 
   const markPaidMutation = useMutation({
-    mutationFn: async (row: RegularPaymentRow) => {
-      const today = new Date().toISOString().split('T')[0];
-      const res = await fetch(`/api/members/${row.id}/payment`, {
+    mutationFn: async (data: RegularPaymentRow & { paymentDate: string }) => {
+      const res = await fetch(`/api/members/${data.id}/payment`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          planAmount: row.planAmount,
-          paymentAmount: row.effectiveAmount,
-          paymentDate: today,
-          discountId: row.discountId ?? undefined,
+          planAmount: data.planAmount,
+          paymentAmount: data.effectiveAmount,
+          paymentDate: data.paymentDate,
+          discountId: data.discountId ?? undefined,
           deductOverduePeriod: true,
         }),
       });
@@ -86,8 +85,8 @@ export default function RegularPaymentTable() {
       }
       return res.json();
     },
-    onMutate: (row) => {
-      setPendingMemberId(row.id);
+    onMutate: (data) => {
+      setPendingMemberId(data.id);
     },
     onSuccess: () => {
       setPendingMemberId(null);
@@ -134,9 +133,9 @@ export default function RegularPaymentTable() {
     setConfirmDialogOpen(true);
   };
 
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = (paymentDate: string) => {
     if (pendingPayment) {
-      markPaidMutation.mutate(pendingPayment);
+      markPaidMutation.mutate({ ...pendingPayment, paymentDate });
       setConfirmDialogOpen(false);
       setPendingPayment(null);
     }
@@ -275,16 +274,12 @@ export default function RegularPaymentTable() {
       </div>
 
       {/* Confirm Payment Dialog */}
-      <ConfirmDialog
+      <MarkPaidDialog
         open={confirmDialogOpen}
         onOpenChange={setConfirmDialogOpen}
-        title="Confirm Payment"
-        description={
-          pendingPayment
-            ? `Record Rs. ${pendingPayment.effectiveAmount.toFixed(2)} payment for ${pendingPayment.name}?`
-            : ''
-        }
-        confirmText="Mark Paid"
+        memberName={pendingPayment?.name || ''}
+        amount={pendingPayment?.effectiveAmount || 0}
+        planType={pendingPayment?.planType || 'monthly'}
         onConfirm={handleConfirmPayment}
       />
     </div>
