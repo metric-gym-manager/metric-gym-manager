@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, CheckCircle, XCircle } from 'lucide-react';
+import { Trash2, Plus, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
 
 interface Discount {
   id: string;
@@ -138,9 +138,6 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
     if (!row.discountId) return 0;
     return discountsData?.find((d) => d.id === row.discountId)?.discount_percentage ?? 0;
   };
-
-  const getRowDiscountedAmount = (row: BulkRow): number =>
-    computeDiscountedAmount(row.planAmount, getRowDiscountPct(row));
 
   const bulkRegisterMutation = useMutation({
     mutationFn: async (members: BulkRow[]) => {
@@ -307,7 +304,6 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
     setGlobalStartDate(TODAY);
     setGlobalDiscountId('');
     setGlobalRecurring(false);
-    setGlobalTemplateId('');
     onClose();
   };
 

@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import type { MemberWithDiscount, OverdueMember } from '@/features/members/types';
-import { CreditCard, X, Filter, ArrowRight } from 'lucide-react';
+import { X, Filter, ArrowRight } from 'lucide-react';
 import { formatDate } from '@/lib/utils/date';
 import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
 import UrgencyBadge from '@/components/common/UrgencyBadge';
