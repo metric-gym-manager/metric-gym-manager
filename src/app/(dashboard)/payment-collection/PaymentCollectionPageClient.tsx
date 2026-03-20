@@ -4,13 +4,6 @@ import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import PaymentRemindersTable from '@/components/payment-collection/PaymentRemindersTable';
 
-const InstallmentPaymentsTable = dynamic(
-  () => import('@/components/payment-collection/InstallmentPaymentsTable'),
-  {
-    ssr: false,
-    loading: () => <div className="h-64 animate-pulse rounded bg-gray-100" />,
-  }
-);
 const RegularPaymentTable = dynamic(
   () => import('@/components/payment-collection/RegularPaymentTable'),
   {
@@ -19,7 +12,7 @@ const RegularPaymentTable = dynamic(
   }
 );
 
-type Tab = 'reminders' | 'installments' | 'regular';
+type Tab = 'reminders' | 'regular';
 
 export default function PaymentCollectionPageClient() {
   const [activeTab, setActiveTab] = useState<Tab>('regular');
@@ -41,17 +34,6 @@ export default function PaymentCollectionPageClient() {
         </button>
         <button
           type="button"
-          onClick={() => setActiveTab('installments')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'installments'
-              ? 'border-blue-600 text-blue-700'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
-        >
-          Installment Collection
-        </button>
-        <button
-          type="button"
           onClick={() => setActiveTab('reminders')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'reminders'
@@ -65,7 +47,6 @@ export default function PaymentCollectionPageClient() {
 
       {/* Tab content */}
       {activeTab === 'regular' && <RegularPaymentTable />}
-      {activeTab === 'installments' && <InstallmentPaymentsTable />}
       {activeTab === 'reminders' && (
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
