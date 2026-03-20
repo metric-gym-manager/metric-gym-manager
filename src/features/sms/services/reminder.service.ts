@@ -182,7 +182,7 @@ async function processGymReminders(gymId: string): Promise<{
     } as Record<SMSType, number>,
   };
 
-  // Get all active members for this gym, excluding those with active installment plans
+  // Get all active members for this gym
   const { data: members, error} = await supabase
     .from('members')
     .select(`
@@ -190,8 +190,7 @@ async function processGymReminders(gymId: string): Promise<{
       name,
       phone_number,
       plan_type,
-      next_due_date,
-      member_installments(id, status)
+      next_due_date
     `)
     .eq('gym_id', gymId)
     .eq('status', 'active');
@@ -208,20 +207,13 @@ async function processGymReminders(gymId: string): Promise<{
 
   console.log(`  ✓ Found ${members.length} total active members`);
 
-  // Filter out members with active installment plans
-  const regularMembers = members.filter((member: any) => {
-    const installments = member.member_installments || [];
-    const hasActiveInstallment = installments.some((inst: any) => inst.status === 'active');
-    return !hasActiveInstallment;
-  });
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
-  console.log(`  📊 Processing ${regularMembers.length} regular members (${members.length - regularMembers.length} on installment plans)`);
+  console.log(`  📊 Processing ${members.length} members`);
 
-  // Process each regular member (excluding those on installment plans)
-  for (const member of regularMembers) {
+  // Process each member
+  for (const member of members) {
     const dueDate = new Date(member.next_due_date);
     dueDate.setHours(0, 0, 0, 0);
 
@@ -273,155 +265,7 @@ async function processGymReminders(gymId: string): Promise<{
     }
   }
 
-  // Process installment payment reminders
-  const installmentResults = await processInstallmentReminders(gymId);
-  results.totalSent += installmentResults.totalSent;
-  Object.keys(installmentResults.byType).forEach((type) => {
-    results.byType[type as SMSType] += installmentResults.byType[type as SMSType];
-  });
-
   return results;
-}
-
-// ============================================================
-// PROCESS INSTALLMENT PAYMENT REMINDERS
-// ============================================================
-
-async function processInstallmentReminders(gymId: string): Promise<{
-  totalSent: number;
-  byType: Record<SMSType, number>;
-}> {
-  const supabase = createAdminClient();
-
-  const results = {
-    totalSent: 0,
-    byType: {
-      reminder_7day: 0,
-      reminder_3day: 0,
-      due_today: 0,
-      overdue: 0,
-      receipt: 0,
-    } as Record<SMSType, number>,
-  };
-
-  // Get all pending/overdue installment payments for this gym
-  const { data: payments, error } = await supabase
-    .from('installment_payments')
-    .select(`
-      id,
-      installment_number,
-      amount,
-      due_date,
-      member_installments!inner (
-        id,
-        template_name,
-        installment_count,
-        members!inner (
-          id,
-          name,
-          phone_number,
-          gym:gyms!inner(gym_name)
-        )
-      )
-    `)
-    .eq('gym_id', gymId)
-    .eq('status', 'pending');
-
-  if (error) {
-    console.error(`  ✗ Failed to fetch installment payments: ${error.message}`);
-    return results;
-  }
-
-  if (!payments || payments.length === 0) {
-    console.log(`  No pending installment payments for gym ${gymId}`);
-    return results;
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  console.log(`  Processing ${payments.length} installment payments`);
-
-  // Process each installment payment
-  for (const payment of payments) {
-    const dueDate = new Date(payment.due_date);
-    dueDate.setHours(0, 0, 0, 0);
-
-    const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-    let smsType: SMSType | null = null;
-
-    // Determine SMS type based on days until due
-    if (daysUntilDue === 7) {
-      smsType = 'reminder_7day';
-    } else if (daysUntilDue === 3) {
-      smsType = 'reminder_3day';
-    } else if (daysUntilDue === 0) {
-      smsType = 'due_today';
-    } else if (daysUntilDue < 0) {
-      smsType = 'overdue';
-    }
-
-    // Send SMS if applicable
-    if (smsType) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const plan = (payment.member_installments as any);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const member = plan.members;
-        const gymName: string = member.gym?.gym_name ?? '';
-
-        // Custom installment reminder message
-        const message = formatInstallmentReminderMessage(
-          member.name,
-          payment.installment_number,
-          plan.installment_count,
-          payment.amount,
-          plan.template_name,
-          payment.due_date,
-          gymName,
-          smsType
-        );
-
-        await sendReminderSMS(supabase, gymId, member.id, smsType, message);
-        results.totalSent++;
-        results.byType[smsType]++;
-        console.log(`  ✓ Sent ${smsType} for installment #${payment.installment_number} to ${member.name} (due in ${daysUntilDue} days)`);
-      } catch (error) {
-        console.error(`  ✗ Failed to send installment reminder: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      }
-    }
-  }
-
-  return results;
-}
-
-// ============================================================
-// FORMAT INSTALLMENT REMINDER MESSAGE
-// ============================================================
-
-function formatInstallmentReminderMessage(
-  memberName: string,
-  installmentNumber: number,
-  totalInstallments: number,
-  amount: number,
-  templateName: string,
-  dueDate: string,
-  gymName: string,
-  smsType: SMSType
-): string {
-  const formattedDate = new Date(dueDate).toLocaleDateString('en-GB');
-  const formattedAmount = `Rs.${amount.toFixed(2)}`;
-
-  const prefix = smsType === 'overdue'
-    ? 'Reminder'
-    : '';
-
-  if (smsType === 'overdue') {
-    return `${prefix}: Dear ${memberName}, installment #${installmentNumber}/${totalInstallments} (${formattedAmount}) for '${templateName}' was due on ${formattedDate}. Please make payment. - ${gymName}`;
-  }
-
-  return `Dear ${memberName}, installment #${installmentNumber}/${totalInstallments} (${formattedAmount}) for '${templateName}' is due on ${formattedDate}. - ${gymName}`;
 }
 
 // ============================================================
