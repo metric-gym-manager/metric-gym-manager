@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/lib/utils';
-import { Home, Users, DollarSign, CreditCard, Megaphone, Settings, LogOut, Loader2, Headset } from 'lucide-react';
+import { Home, Users, DollarSign, CreditCard, Megaphone, Settings, LogOut, Loader2, Headset, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { GymProfile } from '@/features/auth/types';
 
@@ -35,6 +35,11 @@ const navigation = [
     name: 'Announcements',
     href: '/make-announcement',
     icon: Megaphone,
+  },
+  {
+    name: 'Billing Setup',
+    href: '/billing-setup',
+    icon: Receipt,
   },
   {
     name: 'Settings',

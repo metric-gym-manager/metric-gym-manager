@@ -39,13 +39,13 @@ export default function DashboardClient() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="space-y-4 sm:space-y-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
-              className="h-32 bg-gray-100 animate-pulse rounded-lg"
+              className="h-32 bg-gray-100 animate-pulse rounded-xl"
               aria-label="Loading metric card"
             />
           ))}
@@ -56,10 +56,10 @@ export default function DashboardClient() {
 
   if (error || !data?.success) {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800">Failed to load dashboard metrics. Please try again.</p>
+      <div className="space-y-4 sm:space-y-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 sm:p-5 shadow-sm">
+          <p className="text-sm text-red-800 font-medium">Failed to load dashboard metrics. Please try again.</p>
         </div>
       </div>
     );
@@ -68,10 +68,10 @@ export default function DashboardClient() {
   const metrics = data.data;
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+    <div className="space-y-4 sm:space-y-6">
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Dashboard</h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <OverdueMembersCard
           count={metrics.overdueMembers.count}
           critical={metrics.overdueMembers.critical}
@@ -86,7 +86,10 @@ export default function DashboardClient() {
           totalAmount={metrics.membersDueThisWeek.totalAmount}
         />
 
-        <ActiveMembersCard count={metrics.activeMembers} />
+        <ActiveMembersCard
+          count={metrics.activeMembers}
+          expiredCount={metrics.overdueMembers.count}
+        />
       </div>
     </div>
   );

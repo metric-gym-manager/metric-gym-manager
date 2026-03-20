@@ -11,10 +11,10 @@ interface RevenueSummaryCardProps {
  * Clickable to navigate to Revenue page.
  */
 export default function RevenueSummaryCard({ amount }: RevenueSummaryCardProps) {
-  const formattedAmount = `Rs. ${amount.toLocaleString('en-LK', {
+  const formattedAmount = amount.toLocaleString('en-LK', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  })}`;
+  });
 
   const currentMonth = new Date().toLocaleDateString('en-GB', {
     month: 'long',
@@ -24,7 +24,12 @@ export default function RevenueSummaryCard({ amount }: RevenueSummaryCardProps) 
   return (
     <MetricCard
       title="Revenue This Month"
-      value={formattedAmount}
+      value={
+        <span>
+          <span className="text-sm font-medium align-top">Rs. </span>
+          {formattedAmount}
+        </span>
+      }
       subtitle={currentMonth}
       icon={DollarSign}
       href="/revenue"

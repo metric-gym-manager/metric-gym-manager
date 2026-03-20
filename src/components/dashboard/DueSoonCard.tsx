@@ -27,9 +27,11 @@ export default function DueSoonCard({ count, totalAmount }: DueSoonCardProps) {
       variant={count > 0 ? 'warning' : 'default'}
     >
       {count > 0 && (
-        <p className="text-xs text-gray-600">
-          {count} {count === 1 ? 'member' : 'members'} with upcoming payments
-        </p>
+        <div className="bg-orange-50 rounded-md px-2.5 py-1.5">
+          <p className="text-xs font-medium text-orange-700">
+            {count} {count === 1 ? 'member' : 'members'} with upcoming payments
+          </p>
+        </div>
       )}
     </MetricCard>
   );

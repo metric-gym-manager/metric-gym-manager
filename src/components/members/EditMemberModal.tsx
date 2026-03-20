@@ -67,9 +67,9 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
 
   // Fetch plan types
   const { data: planTypesData } = useQuery<PlanType[]>({
-    queryKey: ['plan-types'],
+    queryKey: ['billing-setup-plan-types'],
     queryFn: async () => {
-      const response = await fetch('/api/settings/plans');
+      const response = await fetch('/api/billing-setup/plans');
       if (!response.ok) throw new Error('Failed to fetch plan types');
       const result = await response.json();
       return result.data as PlanType[];
@@ -78,9 +78,9 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
 
   // Fetch discounts
   const { data: discountsData } = useQuery<Discount[]>({
-    queryKey: ['discounts'],
+    queryKey: ['billing-setup-discounts'],
     queryFn: async () => {
-      const response = await fetch('/api/settings/discounts');
+      const response = await fetch('/api/billing-setup/discounts');
       if (!response.ok) throw new Error('Failed to fetch discounts');
       const result = await response.json();
       return result.data as Discount[];

@@ -25,7 +25,19 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const gymId = user.id;
+    // Get the gym record for this user
+    const { data: gym, error: gymError } = await supabase
+      .from('gyms')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+
+    if (gymError || !gym) {
+      console.error('Error fetching gym:', gymError);
+      return NextResponse.json({ error: 'Gym not found' }, { status: 404 });
+    }
+
+    const gymId = gym.id;
 
     // Get current date info
     const now = new Date();
@@ -36,7 +48,7 @@ export async function GET() {
     // Fetch all members for calculations
     const { data: members, error: membersError } = await supabase
       .from('members')
-      .select('id, status, next_due_date, plan_type')
+      .select('id, status, next_due_date, plan_type, plan_amount')
       .eq('gym_id', gymId);
 
     if (membersError) {
@@ -45,6 +57,7 @@ export async function GET() {
     }
 
     // Calculate overdue members with urgency breakdown
+    // Note: System automatically updates members to 'expired' when overdue
     const today = new Date().toISOString().split('T')[0];
     const overdueMembers = members.filter(
       (m) => m.status === 'expired' && m.next_due_date < today
@@ -67,13 +80,13 @@ export async function GET() {
     // Get revenue this month
     const { data: payments } = await supabase
       .from('payments')
-      .select('payment_amount')
-      .eq('gym_id', gymId)
+      .select('amount_paid, members!inner(gym_id)')
+      .eq('members.gym_id', gymId)
       .gte('payment_date', startOfMonth)
       .lte('payment_date', endOfMonth);
 
     const revenueThisMonth =
-      payments?.reduce((sum, p) => sum + (p.payment_amount || 0), 0) || 0;
+      payments?.reduce((sum, p) => sum + (p.amount_paid || 0), 0) || 0;
 
     // Get members due this week
     const membersDueThisWeek = members.filter(
@@ -83,19 +96,9 @@ export async function GET() {
         m.next_due_date <= sevenDaysFromNow
     );
 
-    // Calculate total amount due this week (need to get plan amounts)
-    const { data: plans } = await supabase
-      .from('plan_types')
-      .select('plan_type, default_amount')
-      .eq('gym_id', gymId);
-
-    const planAmountMap = plans?.reduce((acc, plan) => {
-      acc[plan.plan_type] = plan.default_amount;
-      return acc;
-    }, {} as Record<string, number>) || {};
-
+    // Calculate total amount due this week (use each member's actual plan_amount)
     const totalAmountDueThisWeek = membersDueThisWeek.reduce((sum, m) => {
-      return sum + (planAmountMap[m.plan_type] || 0);
+      return sum + (m.plan_amount || 0);
     }, 0);
 
     // Count active members

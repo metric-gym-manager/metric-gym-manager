@@ -83,9 +83,9 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
   const [globalRecurring, setGlobalRecurring] = useState(false);
 
   const { data: planTypesData } = useQuery<PlanType[]>({
-    queryKey: ['plan-types'],
+    queryKey: ['billing-setup-plan-types'],
     queryFn: async () => {
-      const res = await fetch('/api/settings/plans');
+      const res = await fetch('/api/billing-setup/plans');
       if (!res.ok) throw new Error('Failed to fetch plan types');
       const r = await res.json();
       return r.data;
@@ -93,9 +93,9 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
   });
 
   const { data: discountsData} = useQuery<Discount[]>({
-    queryKey: ['discounts'],
+    queryKey: ['billing-setup-discounts'],
     queryFn: async () => {
-      const res = await fetch('/api/discounts');
+      const res = await fetch('/api/billing-setup/discounts');
       if (!res.ok) throw new Error('Failed to fetch discounts');
       const r = await res.json();
       return r.data;

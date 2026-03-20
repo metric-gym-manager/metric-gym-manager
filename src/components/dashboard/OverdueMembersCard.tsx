@@ -29,23 +29,23 @@ export default function OverdueMembersCard({
       variant={count > 0 ? 'danger' : 'success'}
     >
       {count > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-col gap-2">
           {critical > 0 && (
-            <div className="text-xs">
-              <span className="font-semibold text-red-700">{critical}</span>
-              <span className="text-gray-600 ml-1">critical ({'>'}14d)</span>
+            <div className="flex items-center justify-between bg-red-50 rounded-md px-2.5 py-1.5">
+              <span className="text-xs font-medium text-red-700">Over 14 days</span>
+              <span className="text-sm font-bold text-red-900">{critical}</span>
             </div>
           )}
           {warning > 0 && (
-            <div className="text-xs">
-              <span className="font-semibold text-orange-700">{warning}</span>
-              <span className="text-gray-600 ml-1">warning (7-14d)</span>
+            <div className="flex items-center justify-between bg-orange-50 rounded-md px-2.5 py-1.5">
+              <span className="text-xs font-medium text-orange-700">7-14 days</span>
+              <span className="text-sm font-bold text-orange-900">{warning}</span>
             </div>
           )}
           {mild > 0 && (
-            <div className="text-xs">
-              <span className="font-semibold text-yellow-700">{mild}</span>
-              <span className="text-gray-600 ml-1">mild ({'<'}7d)</span>
+            <div className="flex items-center justify-between bg-yellow-50 rounded-md px-2.5 py-1.5">
+              <span className="text-xs font-medium text-yellow-700">Under 7 days</span>
+              <span className="text-sm font-bold text-yellow-900">{mild}</span>
             </div>
           )}
         </div>

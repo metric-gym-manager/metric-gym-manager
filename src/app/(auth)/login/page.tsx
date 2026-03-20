@@ -90,7 +90,7 @@ function LoginContent() {
       queryClient.clear();
 
       // Redirect to dashboard
-      router.push('/members');
+      router.push('/dashboard');
     } catch (err) {
       if (err instanceof z.ZodError) {
         const errors: Record<string, string> = {};
