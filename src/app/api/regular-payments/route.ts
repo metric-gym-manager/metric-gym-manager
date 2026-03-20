@@ -3,7 +3,7 @@ import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { createClient } from '@/lib/supabase/server';
 
 // GET /api/regular-payments?filter=overdue|due_today|upcoming|all&sortBy=due_date_asc|member_name
-// Returns members with regular (non-installment) payments pending, joined with discount info.
+// Returns members with payments pending, joined with discount info.
 export async function GET(request: NextRequest) {
   try {
     const gymProfile = await getCurrentGymProfile();
@@ -13,8 +13,7 @@ export async function GET(request: NextRequest) {
     const filter = searchParams.get('filter') ?? 'overdue';
     const sortBy = searchParams.get('sortBy') ?? 'due_date_asc';
 
-    // Fetch members who do NOT have an active installment plan,
-    // joined with their discount info.
+    // Fetch members with their discount info
     const { data, error } = await supabase
       .from('members')
       .select(
@@ -28,8 +27,7 @@ export async function GET(request: NextRequest) {
         recurring_discount,
         next_due_date,
         status,
-        discount:discounts(id, discount_name, discount_percentage),
-        member_installments(id, status)
+        discount:discounts(id, discount_name, discount_percentage)
       `
       )
       .eq('gym_id', gymProfile.id)
@@ -43,13 +41,7 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     type RawRow = Record<string, any>;
 
-    let rows = ((data ?? []) as RawRow[])
-      // Exclude members with an active installment plan
-      .filter((m) => {
-        const installments = (m.member_installments as Array<{ id: string; status: string }> | null) ?? [];
-        return !installments.some((inst) => inst.status === 'active');
-      })
-      .map((m) => {
+    let rows = ((data ?? []) as RawRow[]).map((m) => {
         const dueDate = new Date(m.next_due_date as string);
         dueDate.setHours(0, 0, 0, 0);
         const daysUntilDue = Math.floor(

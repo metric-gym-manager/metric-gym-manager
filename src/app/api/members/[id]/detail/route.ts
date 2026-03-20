@@ -4,8 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 
 // ============================================================
 // GET /api/members/[id]/detail
-// Returns member + payment history + installments in a single
-// request with all three DB queries running in parallel.
+// Returns member + payment history in a single
+// request with both DB queries running in parallel.
 // ============================================================
 
 export async function GET(
@@ -23,8 +23,8 @@ export async function GET(
     const supabase = await createClient();
     const gymId = gymProfile!.id;
 
-    // Run all three queries in parallel
-    const [memberResult, paymentsResult, installmentsResult] = await Promise.all([
+    // Run both queries in parallel
+    const [memberResult, paymentsResult] = await Promise.all([
       supabase
         .from('members')
         .select('*, discount:discounts(id, discount_name, discount_percentage)')
@@ -38,13 +38,6 @@ export async function GET(
         .eq('member_id', memberId)
         .eq('gym_id', gymId)
         .order('payment_date', { ascending: false }),
-
-      supabase
-        .from('member_installments')
-        .select('*, installment_payments(*)')
-        .eq('member_id', memberId)
-        .eq('gym_id', gymId)
-        .order('created_at', { ascending: false }),
     ]);
 
     if (memberResult.error || !memberResult.data) {
@@ -57,7 +50,6 @@ export async function GET(
         data: {
           member: memberResult.data,
           payments: paymentsResult.data ?? [],
-          installments: installmentsResult.data ?? [],
         },
       },
       { status: 200 }
