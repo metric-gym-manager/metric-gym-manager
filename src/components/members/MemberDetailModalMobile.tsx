@@ -26,33 +26,11 @@ import {
 import { Label } from '@/components/ui/label';
 import type { MemberWithDiscount, Payment } from '@/features/members/types';
 
-interface InstallmentPayment {
-  id: string;
-  installment_number: number;
-  amount: number;
-  due_date: string;
-  paid_date: string | null;
-  status: 'pending' | 'paid' | 'overdue';
-}
-
-interface MemberInstallment {
-  id: string;
-  template_name: string;
-  total_amount: number;
-  installment_count: number;
-  amount_per_installment: number;
-  installments_paid: number;
-  status: 'active' | 'completed' | 'cancelled';
-  created_at: string;
-  installment_payments: InstallmentPayment[];
-}
-
 interface MemberDetailModalMobileProps {
   open: boolean;
   onClose: () => void;
   member: MemberWithDiscount | null;
   payments?: Payment[];
-  installments?: MemberInstallment[];
   onEditClick: () => void;
 }
 
@@ -61,16 +39,13 @@ export default function MemberDetailModalMobile({
   onClose,
   member,
   payments = [],
-  installments: initialInstallments = [],
   onEditClick,
 }: MemberDetailModalMobileProps) {
   const queryClient = useQueryClient();
   const [showPaymentHistory, setShowPaymentHistory] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
-  const [pendingPaymentId, setPendingPaymentId] = useState<string | null>(null);
   const [isMarkingRegularPaid, setIsMarkingRegularPaid] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [expandedInstallment, setExpandedInstallment] = useState<string | null>(null);
 
   // Sync selectedStatus when member changes
   useEffect(() => {
@@ -102,54 +77,6 @@ export default function MemberDetailModalMobile({
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to update status');
-    },
-  });
-
-  // Live installments
-  const { data: liveInstallments } = useQuery<MemberInstallment[]>({
-    queryKey: ['member-installments', member?.id],
-    queryFn: async () => {
-      const res = await fetch(`/api/members/${member!.id}/installments`);
-      if (!res.ok) throw new Error('Failed to fetch installments');
-      const r = await res.json();
-      return r.data ?? [];
-    },
-    enabled: !!member,
-    initialData: initialInstallments,
-    staleTime: Infinity,
-  });
-
-  const installments = liveInstallments ?? initialInstallments;
-
-  // Mark installment payment as paid
-  const markPaidMutation = useMutation({
-    mutationFn: async (paymentId: string) => {
-      const res = await fetch(`/api/installment-payments/${paymentId}`, {
-        method: 'PATCH',
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to mark as paid');
-      }
-      return res.json();
-    },
-    onMutate: (paymentId) => {
-      setPendingPaymentId(paymentId);
-    },
-    onSuccess: (result) => {
-      setPendingPaymentId(null);
-      queryClient.invalidateQueries({ queryKey: ['member-installments', member?.id] });
-      queryClient.invalidateQueries({ queryKey: ['installment-payments'] });
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      if (result.data?.planCompleted) {
-        toast.success('Plan fully paid — receipt sent');
-      } else {
-        toast.success('Payment collected — receipt sent');
-      }
-    },
-    onError: (error) => {
-      setPendingPaymentId(null);
-      toast.error(error instanceof Error ? error.message : 'Failed to mark as paid');
     },
   });
 
@@ -422,147 +349,14 @@ export default function MemberDetailModalMobile({
               )}
             </div>
 
-            {/* Installment Plans */}
-            {installments.map((inst) => {
-              const amountPaid = inst.installments_paid * inst.amount_per_installment;
-              const remaining = inst.total_amount - amountPaid;
-              const progressPct = Math.round((inst.installments_paid / inst.installment_count) * 100);
-              const isExpanded = expandedInstallment === inst.id;
-
-              return (
-                <div key={inst.id} className="rounded-lg border border-indigo-200 bg-indigo-50 p-4 space-y-3">
-                  <button
-                    onClick={() => setExpandedInstallment(isExpanded ? null : inst.id)}
-                    className="w-full"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="text-left">
-                        <h3 className="text-sm font-semibold text-indigo-900">{inst.template_name}</h3>
-                        <p className="text-xs text-indigo-700 mt-1">
-                          {inst.installments_paid} of {inst.installment_count} paid
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                            inst.status === 'active'
-                              ? 'bg-green-100 text-green-800'
-                              : inst.status === 'completed'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {inst.status}
-                        </span>
-                        {isExpanded ? (
-                          <ChevronUp className="h-4 w-4" />
-                        ) : (
-                          <ChevronDown className="h-4 w-4" />
-                        )}
-                      </div>
-                    </div>
-                  </button>
-
-                  {/* Progress */}
-                  <div>
-                    <div className="flex justify-between text-xs text-indigo-700 mb-1">
-                      <span>Progress</span>
-                      <span>{progressPct}%</span>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-indigo-200">
-                      <div
-                        className="h-2 rounded-full bg-indigo-500"
-                        style={{ width: `${progressPct}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Summary */}
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="rounded bg-white p-2">
-                      <p className="text-xs text-gray-500">Total</p>
-                      <p className="text-xs font-semibold">{formatCurrency(inst.total_amount)}</p>
-                    </div>
-                    <div className="rounded bg-white p-2">
-                      <p className="text-xs text-gray-500">Paid</p>
-                      <p className="text-xs font-semibold text-green-700">{formatCurrency(amountPaid)}</p>
-                    </div>
-                    <div className="rounded bg-white p-2">
-                      <p className="text-xs text-gray-500">Remaining</p>
-                      <p className="text-xs font-semibold text-red-600">{formatCurrency(remaining)}</p>
-                    </div>
-                  </div>
-
-                  {/* Expandable payment schedule */}
-                  {isExpanded && (
-                    <div className="space-y-2 pt-2">
-                      {inst.installment_payments
-                        .sort((a, b) => a.installment_number - b.installment_number)
-                        .map((p) => {
-                          const dueDate = new Date(p.due_date);
-                          dueDate.setHours(0, 0, 0, 0);
-                          const today = new Date();
-                          today.setHours(0, 0, 0, 0);
-                          const isOverdue = p.status !== 'paid' && dueDate < today;
-                          const displayStatus = p.status === 'paid' ? 'paid' : isOverdue ? 'overdue' : 'pending';
-
-                          return (
-                            <div
-                              key={p.id}
-                              className={`bg-white rounded-lg p-3 border ${
-                                displayStatus === 'overdue' ? 'border-red-300 bg-red-50' : ''
-                              }`}
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-xs font-medium">#{p.installment_number}</span>
-                                <span
-                                  className={`text-xs font-semibold px-2 py-0.5 rounded ${
-                                    displayStatus === 'paid'
-                                      ? 'bg-green-100 text-green-800'
-                                      : displayStatus === 'overdue'
-                                      ? 'bg-red-100 text-red-800'
-                                      : 'bg-amber-100 text-amber-800'
-                                  }`}
-                                >
-                                  {displayStatus}
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-xs mb-1">
-                                <span className="text-gray-500">Due: {formatDate(p.due_date)}</span>
-                                <span className="font-medium">{formatCurrency(p.amount)}</span>
-                              </div>
-                              {p.paid_date && (
-                                <p className="text-xs text-gray-500">Paid: {formatDate(p.paid_date)}</p>
-                              )}
-                              {inst.status !== 'completed' && displayStatus !== 'paid' && (
-                                <Button
-                                  size="sm"
-                                  onClick={() => markPaidMutation.mutate(p.id)}
-                                  disabled={pendingPaymentId === p.id}
-                                  className="w-full mt-2 bg-green-600 hover:bg-green-700 text-white h-8"
-                                >
-                                  {pendingPaymentId === p.id ? 'Saving...' : 'Mark Paid'}
-                                </Button>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-
             {/* Mark Paid Button */}
-            {!installments.some(inst => inst.status === 'active') && (
-              <Button
-                onClick={() => markRegularPaidMutation.mutate()}
-                disabled={isMarkingRegularPaid}
-                className="w-full bg-green-600 hover:bg-green-700 text-white h-12"
-              >
-                {isMarkingRegularPaid ? 'Processing...' : `Mark Paid (${member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1)})`}
-              </Button>
-            )}
+            <Button
+              onClick={() => markRegularPaidMutation.mutate()}
+              disabled={isMarkingRegularPaid}
+              className="w-full bg-green-600 hover:bg-green-700 text-white h-12"
+            >
+              {isMarkingRegularPaid ? 'Processing...' : `Mark Paid (${member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1)})`}
+            </Button>
           </div>
 
           {/* Sticky Footer Actions */}
@@ -593,7 +387,6 @@ export default function MemberDetailModalMobile({
               This will permanently delete <strong>{member.name}</strong> and all data:
               <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
                 <li>{payments.length} payment{payments.length !== 1 ? 's' : ''}</li>
-                <li>{installments.length} installment plan{installments.length !== 1 ? 's' : ''}</li>
                 <li>SMS logs</li>
               </ul>
               <p className="mt-3 text-red-600 font-semibold text-sm">This cannot be undone.</p>
