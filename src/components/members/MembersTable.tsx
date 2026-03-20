@@ -518,15 +518,6 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                       <span className="flex items-center gap-2 font-medium" title={member.status}>
                         <span className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`} />
                         {member.name}
-                        {member.has_installment && (
-                          <span
-                            className="inline-flex items-center gap-0.5 rounded bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-800"
-                            title="Member is on an installment plan"
-                          >
-                            <CreditCard className="h-3 w-3" />
-                            Installment
-                          </span>
-                        )}
                       </span>
                     </TableCell>
                     <TableCell>{formatPhone(member.phone_number)}</TableCell>
