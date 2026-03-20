@@ -14,27 +14,6 @@ const EditMemberModal = dynamic(
   { ssr: false }
 );
 
-interface InstallmentPayment {
-  id: string;
-  installment_number: number;
-  amount: number;
-  due_date: string;
-  paid_date: string | null;
-  status: 'pending' | 'paid' | 'overdue';
-}
-
-interface MemberInstallment {
-  id: string;
-  template_name: string;
-  total_amount: number;
-  installment_count: number;
-  amount_per_installment: number;
-  installments_paid: number;
-  status: 'active' | 'completed' | 'cancelled';
-  created_at: string;
-  installment_payments: InstallmentPayment[];
-}
-
 interface MemberModalContextValue {
   openMember: (memberId: string) => void;
 }
@@ -58,11 +37,10 @@ export function MemberModalProvider({ children }: { children: ReactNode }) {
     setDetailOpen(true);
   }, []);
 
-  // Single request: member + payments + installments in parallel on the server
+  // Single request: member + payments in parallel on the server
   const { data: detailData } = useQuery<{
     member: MemberWithDiscount;
     payments: Payment[];
-    installments: MemberInstallment[];
   } | null>({
     queryKey: ['member-detail', memberId],
     queryFn: async () => {
@@ -75,7 +53,6 @@ export function MemberModalProvider({ children }: { children: ReactNode }) {
   });
 
   const memberData = detailData ? { member: detailData.member, payments: detailData.payments } : undefined;
-  const installmentsData = detailData?.installments;
 
   const handleDetailClose = useCallback(() => {
     setDetailOpen(false);
@@ -105,7 +82,6 @@ export function MemberModalProvider({ children }: { children: ReactNode }) {
         onClose={handleDetailClose}
         member={memberData?.member ?? null}
         payments={memberData?.payments ?? []}
-        installments={installmentsData ?? []}
         onEditClick={handleEditClick}
       />
 
