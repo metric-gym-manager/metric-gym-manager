@@ -260,7 +260,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
 
   const validateRow = (row: BulkRow): string | null => {
     if (!row.name.trim()) return 'Name is required';
-    if (!row.phoneNumber.trim()) return 'Phone is required';
+    if (!row.phoneNumber.trim()) return 'WhatsApp number is required';
     if (row.planAmount <= 0) return 'Plan amount must be > 0';
     if (!row.membershipStartDate) return 'Start date is required';
     return null;
@@ -479,7 +479,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
                   Name <span className="text-red-500">*</span>
                 </th>
                 <th className="px-3 py-3 text-left font-medium text-gray-500 min-w-[140px]">
-                  Phone <span className="text-red-500">*</span>
+                  WhatsApp <span className="text-red-500">*</span>
                 </th>
                 <th className="px-3 py-3 text-left font-medium text-gray-500 w-[120px]">Plan</th>
                 <th className="px-3 py-3 text-left font-medium text-gray-500 w-[110px]">Amount (Rs.)</th>

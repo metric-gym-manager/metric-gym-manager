@@ -265,7 +265,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             </div>
 
             <div>
-              <Label htmlFor="phoneNumber">Phone Number *</Label>
+              <Label htmlFor="phoneNumber">WhatsApp Number *</Label>
               <Input id="phoneNumber" {...register('phoneNumber')} placeholder="0771234567" />
               {errors.phoneNumber && (
                 <p className="text-sm text-red-600 mt-1">{errors.phoneNumber.message}</p>
