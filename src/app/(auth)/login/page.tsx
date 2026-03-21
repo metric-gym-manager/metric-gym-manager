@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import Image from 'next/image';
 import { z } from 'zod';
@@ -23,7 +22,6 @@ const ERROR_MESSAGES: Record<string, string> = {
 function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -86,10 +84,7 @@ function LoginContent() {
         return;
       }
 
-      // Clear React Query cache to ensure fresh data for new session
-      queryClient.clear();
-
-      // Redirect to dashboard
+      // Redirect to dashboard (React Query will handle fresh data fetching)
       router.push('/dashboard');
     } catch (err) {
       if (err instanceof z.ZodError) {
