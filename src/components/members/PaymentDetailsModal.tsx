@@ -64,12 +64,13 @@ export function PaymentDetailsModal({ member, open, onClose }: PaymentDetailsMod
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amountPaid: effectiveAmount,
-          paymentDate: new Date().toISOString().split('T')[0],
-          discountApplied: member.recurring_discount && member.discount
-            ? member.discount.discount_name
+          planAmount: member.plan_amount,
+          discountId: member.recurring_discount && member.discount
+            ? member.discount.id
             : null,
-          discountPercentage: discountPct > 0 ? discountPct : null,
+          paymentAmount: effectiveAmount,
+          paymentDate: new Date().toISOString().split('T')[0],
+          deductOverduePeriod: member.days_overdue > 0,
         }),
       });
 
