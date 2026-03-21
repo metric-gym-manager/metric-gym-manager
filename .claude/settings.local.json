@@ -108,7 +108,11 @@
       "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" diff --cached .claude/settings.local.json)",
       "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" commit -m \"$\\(cat <<''EOF''\nchore: update auto-approved bash commands in local settings\n\n- Add git branch management commands\n- Add recent commit and diff commands\n- Add directory creation/removal commands\n- Update settings from current session\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" add .claude/settings.local.json)",
-      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" commit -m \"chore: update auto-approved commands from current session\")"
+      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" commit -m \"chore: update auto-approved commands from current session\")",
+      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" add src/app/privacy src/app/terms)",
+      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" add docs/metric_gym_privacy_policy.txt docs/metric_gym_tos.txt)",
+      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" commit -m \"$\\(cat <<''EOF''\nfeat\\(legal\\): add Privacy Policy and Terms of Service pages\n\nLegal Pages:\n- Create /privacy page with full privacy policy\n- Create /terms page with complete terms of service\n- Both pages accessible from landing page footer\n- Clean, readable layout with proper typography\n- Navigation back to home page\n- Source documents stored in docs/ for reference\n\nContent:\n- Comprehensive data collection and usage policies\n- SMS notification policies and consent requirements\n- User rights and data protection measures\n- Subscription terms and payment policies\n- Intellectual property and liability clauses\n- Contact information for legal inquiries\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" commit -m \"chore: update auto-approved commands\")"
     ]
   },
   "enableAllProjectMcpServers": true,
