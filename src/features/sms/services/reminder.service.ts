@@ -82,12 +82,22 @@ async function sendReminderSMS(
 // SEND AUTOMATED REMINDERS
 // ============================================================
 
+interface RecipientLog {
+  name: string;
+  phone: string;
+  type: SMSType;
+  status: 'sent' | 'failed' | 'skipped';
+  error?: string;
+}
+
 export async function sendAutomatedReminders(): Promise<{
   totalSent: number;
   byType: Record<SMSType, number>;
   errors: string[];
+  recipients: RecipientLog[];
 }> {
   const supabase = createAdminClient();
+  const startTime = Date.now();
 
   const results = {
     totalSent: 0,
@@ -99,6 +109,7 @@ export async function sendAutomatedReminders(): Promise<{
       receipt: 0,
     } as Record<SMSType, number>,
     errors: [] as string[],
+    recipients: [] as RecipientLog[],
   };
 
   try {
@@ -135,6 +146,9 @@ export async function sendAutomatedReminders(): Promise<{
         Object.keys(gymResults.byType).forEach((type) => {
           results.byType[type as SMSType] += gymResults.byType[type as SMSType];
         });
+
+        // Merge recipients
+        results.recipients.push(...gymResults.recipients);
       } catch (error) {
         const errorMsg = `Failed to process gym ${gym.gym_name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
         results.errors.push(errorMsg);
@@ -142,7 +156,9 @@ export async function sendAutomatedReminders(): Promise<{
       }
     }
 
-    console.log(`✅ Automated reminders complete: ${results.totalSent} SMS sent`);
+    const duration = Date.now() - startTime;
+
+    console.log(`✅ Automated reminders complete: ${results.totalSent} SMS sent in ${duration}ms`);
     console.log(`   - 7-Day: ${results.byType.reminder_7day}`);
     console.log(`   - 3-Day: ${results.byType.reminder_3day}`);
     console.log(`   - Due Today: ${results.byType.due_today}`);
@@ -151,6 +167,24 @@ export async function sendAutomatedReminders(): Promise<{
     if (results.errors.length > 0) {
       console.log(`⚠️  Errors: ${results.errors.length}`);
     }
+
+    // Log execution to database
+    const status = results.errors.length === 0 ? 'success' :
+                   results.totalSent > 0 ? 'partial' : 'failed';
+
+    await supabase.from('cron_execution_logs').insert({
+      cron_job_name: 'send-reminders',
+      executed_at: new Date().toISOString(),
+      duration_ms: duration,
+      status: status,
+      total_processed: results.recipients.length,
+      total_successful: results.totalSent,
+      total_failed: results.recipients.filter(r => r.status === 'failed').length,
+      breakdown: results.byType,
+      recipients: results.recipients,
+      errors: results.errors.length > 0 ? results.errors : null,
+      triggered_by: 'cron',
+    });
 
   } catch (error) {
     const errorMsg = `Fatal error in sendAutomatedReminders: ${error instanceof Error ? error.message : 'Unknown error'}`;
@@ -168,6 +202,7 @@ export async function sendAutomatedReminders(): Promise<{
 async function processGymReminders(gymId: string): Promise<{
   totalSent: number;
   byType: Record<SMSType, number>;
+  recipients: RecipientLog[];
 }> {
   const supabase = createAdminClient();
 
@@ -180,6 +215,7 @@ async function processGymReminders(gymId: string): Promise<{
       overdue: 0,
       receipt: 0,
     } as Record<SMSType, number>,
+    recipients: [] as RecipientLog[],
   };
 
   // Get all active members for this gym
@@ -271,15 +307,35 @@ async function processGymReminders(gymId: string): Promise<{
 
         if (existingReminder) {
           console.log(`      → Skipped: ${smsType} already sent today`);
+          results.recipients.push({
+            name: member.name,
+            phone: member.phone_number,
+            type: smsType,
+            status: 'skipped',
+          });
           continue;
         }
 
         await sendReminderSMS(supabase, gymId, member.id, smsType);
         results.totalSent++;
         results.byType[smsType]++;
+        results.recipients.push({
+          name: member.name,
+          phone: member.phone_number,
+          type: smsType,
+          status: 'sent',
+        });
         console.log(`  ✓ Sent ${smsType} to ${member.name} (due in ${daysUntilDue} days)`);
       } catch (error) {
-        console.error(`  ✗ Failed to send ${smsType} to ${member.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error(`  ✗ Failed to send ${smsType} to ${member.name}: ${errorMsg}`);
+        results.recipients.push({
+          name: member.name,
+          phone: member.phone_number,
+          type: smsType,
+          status: 'failed',
+          error: errorMsg,
+        });
       }
     }
   }
