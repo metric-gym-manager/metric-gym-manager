@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Plus, Trash2 } from 'lucide-react';
+import { useConfirmDialog } from '@/hooks/use-confirm-dialog';
 import type { PlanType } from '@/features/settings/types';
 import type { UpdatePlanTypeInput, PlanTypeEnum } from '@/features/settings/schemas/settings.schemas';
 
@@ -31,6 +32,7 @@ export default function PlanTypesTab() {
   const queryClient = useQueryClient();
   const [editingPlan, setEditingPlan] = useState<string | null>(null);
   const [planValues, setPlanValues] = useState<Record<string, { amount: number; isActive: boolean }>>({});
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   // Add new plan state
   const [isAddingPlan, setIsAddingPlan] = useState(false);
@@ -162,8 +164,16 @@ export default function PlanTypesTab() {
     });
   };
 
-  const handleDelete = (planType: PlanTypeEnum) => {
-    if (confirm(`Are you sure you want to delete the ${getPlanLabel(planType)} plan type? This cannot be undone.`)) {
+  const handleDelete = async (planType: PlanTypeEnum) => {
+    const confirmed = await confirm({
+      title: 'Delete Plan Type',
+      description: `Are you sure you want to delete the ${getPlanLabel(planType)} plan type? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'destructive',
+    });
+
+    if (confirmed) {
       deleteMutation.mutate(planType);
     }
   };
@@ -442,6 +452,9 @@ export default function PlanTypesTab() {
           </p>
         </div>
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog />
     </div>
   );
 }

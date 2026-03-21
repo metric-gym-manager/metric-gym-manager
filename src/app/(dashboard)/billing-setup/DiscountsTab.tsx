@@ -23,12 +23,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { useConfirmDialog } from '@/hooks/use-confirm-dialog';
 import { createDiscountSchema, type CreateDiscountInput } from '@/features/settings/schemas/settings.schemas';
 import type { Discount } from '@/features/settings/types';
 
 export default function DiscountsTab() {
   const queryClient = useQueryClient();
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const {
     register,
@@ -123,12 +125,16 @@ export default function DiscountsTab() {
     createMutation.mutate(data);
   };
 
-  const handleDelete = (discount: Discount) => {
-    if (
-      confirm(
-        `Are you sure you want to delete "${discount.discount_name}"? This action cannot be undone.`
-      )
-    ) {
+  const handleDelete = async (discount: Discount) => {
+    const confirmed = await confirm({
+      title: 'Delete Discount',
+      description: `Are you sure you want to delete "${discount.discount_name}"? This action cannot be undone.`,
+      confirmText: 'Delete',
+      cancelText: 'Cancel',
+      variant: 'destructive',
+    });
+
+    if (confirmed) {
       deleteMutation.mutate(discount.id);
     }
   };
@@ -301,6 +307,9 @@ export default function DiscountsTab() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog />
     </div>
   );
 }

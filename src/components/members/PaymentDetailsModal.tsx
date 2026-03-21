@@ -18,10 +18,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Calendar } from 'lucide-react';
 import { formatDate } from '@/lib/utils/date';
 import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
 import UrgencyBadge from '@/components/common/UrgencyBadge';
+import { useConfirmDialog } from '@/hooks/use-confirm-dialog';
 import type { OverdueMember, MemberDetailResponse, Payment } from '@/features/members/types';
 
 interface PaymentDetailsModalProps {
@@ -33,6 +43,8 @@ interface PaymentDetailsModalProps {
 export function PaymentDetailsModal({ member, open, onClose }: PaymentDetailsModalProps) {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   // Fetch member details with payment history
   const { data, isLoading } = useQuery<MemberDetailResponse>({
@@ -91,7 +103,7 @@ export function PaymentDetailsModal({ member, open, onClose }: PaymentDetailsMod
       onClose();
     },
     onError: (error: Error) => {
-      alert(`Failed to record payment: ${error.message}`);
+      setErrorMessage(`Failed to record payment: ${error.message}`);
     },
   });
 
@@ -105,9 +117,12 @@ export function PaymentDetailsModal({ member, open, onClose }: PaymentDetailsMod
       member.plan_amount * (1 - discountPct / 100) * 100
     ) / 100;
 
-    const confirmed = confirm(
-      `Record payment of LKR ${effectiveAmount.toFixed(2)} for ${member.name}?`
-    );
+    const confirmed = await confirm({
+      title: 'Confirm Payment',
+      description: `Record payment of LKR ${effectiveAmount.toFixed(2)} for ${member.name}?`,
+      confirmText: 'Record Payment',
+      cancelText: 'Cancel',
+    });
 
     if (confirmed) {
       setIsSubmitting(true);
@@ -248,6 +263,24 @@ export function PaymentDetailsModal({ member, open, onClose }: PaymentDetailsMod
           </div>
         </div>
       </DialogContent>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog />
+
+      {/* Error Dialog */}
+      <AlertDialog open={!!errorMessage} onOpenChange={() => setErrorMessage(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Payment Error</AlertDialogTitle>
+            <AlertDialogDescription>{errorMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setErrorMessage(null)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
