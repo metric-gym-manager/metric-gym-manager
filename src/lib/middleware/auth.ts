@@ -18,9 +18,9 @@ const publicRoutes = [
 ];
 
 // Auth routes that authenticated users shouldn't access
+// Note: /register is excluded to allow authenticated users to view registration page
 const authRoutes = [
   '/login',
-  '/register',
   '/forgot-password',
   '/reset-password',
   '/auth/forgot-password',
