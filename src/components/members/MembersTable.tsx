@@ -27,7 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import type { MemberWithDiscount, OverdueMember } from '@/features/members/types';
-import { X, Filter, ArrowRight } from 'lucide-react';
+import { X, Filter } from 'lucide-react';
 import { formatDate } from '@/lib/utils/date';
 import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
 import UrgencyBadge from '@/components/common/UrgencyBadge';
@@ -476,10 +476,9 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                           e.stopPropagation();
                           setSelectedPaymentMember(member);
                         }}
-                        className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                        className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
                       >
                         View Payment Details
-                        <ArrowRight className="h-4 w-4" />
                       </button>
                     </TableCell>
                   </TableRow>
