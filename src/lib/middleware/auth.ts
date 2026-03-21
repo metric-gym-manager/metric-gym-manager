@@ -122,7 +122,7 @@ export async function authMiddleware(request: NextRequest) {
   // Redirect authenticated users away from auth pages.
   if (isAuthenticated && isAuthRoute) {
     const redirectResponse = NextResponse.redirect(
-      new URL('/members', request.url)
+      new URL('/dashboard', request.url)
     );
     copyAuthCookies(redirectResponse);
     return redirectResponse;
