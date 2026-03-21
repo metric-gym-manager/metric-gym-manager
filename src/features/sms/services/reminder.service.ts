@@ -76,6 +76,27 @@ async function sendReminderSMS(
     delivery_status: deliveryStatus,
     text_lk_message_id: textLkMessageId,
   });
+
+  // Update reminder tracking flags (Option B) - only for automatic reminders
+  if (['reminder_7day', 'reminder_3day', 'due_today', 'overdue'].includes(smsType)) {
+    const flagUpdates: Record<string, boolean> = {};
+
+    if (smsType === 'reminder_7day') {
+      flagUpdates.reminder_7day_sent_this_period = true;
+    } else if (smsType === 'reminder_3day') {
+      flagUpdates.reminder_3day_sent_this_period = true;
+    } else if (smsType === 'due_today') {
+      flagUpdates.due_today_sent_this_period = true;
+    } else if (smsType === 'overdue') {
+      flagUpdates.overdue_sent_this_period = true;
+    }
+
+    await supabase
+      .from('members')
+      .update(flagUpdates)
+      .eq('id', memberId)
+      .eq('gym_id', gymId);
+  }
 }
 
 // ============================================================

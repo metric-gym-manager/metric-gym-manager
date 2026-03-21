@@ -115,6 +115,10 @@ export async function getReminderStatus(
       phone_number,
       plan_type,
       next_due_date,
+      reminder_7day_sent_this_period,
+      reminder_3day_sent_this_period,
+      due_today_sent_this_period,
+      overdue_sent_this_period,
       sms_logs (
         sms_type,
         sent_at,
@@ -146,6 +150,36 @@ export async function getReminderStatus(
     );
     const lastLog = reminderLogs.length > 0 ? reminderLogs[reminderLogs.length - 1] : null;
 
+    // Calculate current billing period start date based on plan type
+    const billingPeriodStart = calculateBillingPeriodStart(member.next_due_date, member.plan_type);
+
+    // Query each reminder type individually within current billing period
+    // This fixes the critical bug where only the last reminder type was tracked
+    const reminder7Day = reminderLogs.find(
+      (log: any) =>
+        log.sms_type === 'reminder_7day' &&
+        new Date(log.sent_at) >= billingPeriodStart
+    );
+    const reminder3Day = reminderLogs.find(
+      (log: any) =>
+        log.sms_type === 'reminder_3day' &&
+        new Date(log.sent_at) >= billingPeriodStart
+    );
+    const dueToday = reminderLogs.find(
+      (log: any) =>
+        log.sms_type === 'due_today' &&
+        new Date(log.sent_at) >= billingPeriodStart
+    );
+    // For overdue, get the most recent one within billing period
+    const overdueReminders = reminderLogs.filter(
+      (log: any) =>
+        log.sms_type === 'overdue' &&
+        new Date(log.sent_at) >= billingPeriodStart
+    );
+    const overdue = overdueReminders.length > 0
+      ? overdueReminders[overdueReminders.length - 1]
+      : null;
+
     return {
       id: member.id,
       name: member.name,
@@ -156,6 +190,16 @@ export async function getReminderStatus(
       last_reminder_sent: lastLog?.sent_at || null,
       last_reminder_type: lastLog?.sms_type || null,
       last_delivery_status: lastLog?.delivery_status || null,
+      // Individual tracking for each reminder type (Option A)
+      reminder_7day_sent: reminder7Day?.sent_at || null,
+      reminder_3day_sent: reminder3Day?.sent_at || null,
+      due_today_sent: dueToday?.sent_at || null,
+      overdue_sent: overdue?.sent_at || null,
+      // Boolean flags for fast lookups (Option B)
+      reminder_7day_sent_this_period: member.reminder_7day_sent_this_period ?? false,
+      reminder_3day_sent_this_period: member.reminder_3day_sent_this_period ?? false,
+      due_today_sent_this_period: member.due_today_sent_this_period ?? false,
+      overdue_sent_this_period: member.overdue_sent_this_period ?? false,
     };
   });
 
@@ -249,4 +293,56 @@ export function formatReceiptSMS(
   }
 
   return `Dear ${memberName}, payment of ${amount} received. Next due date: ${dueDate}. Thank you - ${gymName}`;
+}
+
+// ============================================================
+// CALCULATE BILLING PERIOD START
+// ============================================================
+
+/**
+ * Calculate the start date of the current billing period based on plan type.
+ * This is used to filter SMS reminders to only show those sent in the current billing cycle.
+ *
+ * @param nextDueDate - The member's next due date (ISO string)
+ * @param planType - The member's plan type
+ * @returns Date object representing the start of the current billing period
+ */
+function calculateBillingPeriodStart(nextDueDate: string, planType: string): Date {
+  const dueDate = new Date(nextDueDate);
+  dueDate.setHours(0, 0, 0, 0);
+
+  const periodStart = new Date(dueDate);
+
+  switch (planType) {
+    case 'daily':
+      // For daily plans, billing period is just today
+      periodStart.setDate(periodStart.getDate() - 1);
+      break;
+
+    case 'monthly':
+      // For monthly plans, go back 1 month
+      periodStart.setMonth(periodStart.getMonth() - 1);
+      break;
+
+    case '3-months':
+      // For 3-month plans, go back 3 months (90 days)
+      periodStart.setDate(periodStart.getDate() - 90);
+      break;
+
+    case '6-months':
+      // For 6-month plans, go back 6 months (180 days)
+      periodStart.setDate(periodStart.getDate() - 180);
+      break;
+
+    case 'annual':
+      // For annual plans, go back 1 year
+      periodStart.setFullYear(periodStart.getFullYear() - 1);
+      break;
+
+    default:
+      // Default to 1 month for unknown plan types
+      periodStart.setMonth(periodStart.getMonth() - 1);
+  }
+
+  return periodStart;
 }

@@ -172,6 +172,11 @@ export async function collectPayment(
         status: 'active',
         next_due_date: nextDueDateStr,
         updated_at: new Date().toISOString(),
+        // Reset reminder tracking flags for new billing period (Option B)
+        reminder_7day_sent_this_period: false,
+        reminder_3day_sent_this_period: false,
+        due_today_sent_this_period: false,
+        overdue_sent_this_period: false,
       })
       .eq('id', input.memberId)
       .eq('gym_id', gymId)

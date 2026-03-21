@@ -15,10 +15,10 @@ export async function GET(
     const gymProfile = await getCurrentGymProfile();
     const supabase = await createClient();
 
-    // Verify member belongs to gym
+    // Verify member belongs to gym and get plan details for grouping
     const { data: member, error: memberError } = await supabase
       .from('members')
-      .select('id, name, phone_number')
+      .select('id, name, phone_number, plan_type, membership_start_date, next_due_date')
       .eq('id', memberId)
       .eq('gym_id', gymProfile.id)
       .single();

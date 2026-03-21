@@ -29,12 +29,22 @@ export interface MemberReminderStatus {
   id: string;
   name: string;
   phone_number: string;
-  plan_type: 'monthly' | 'daily' | 'annual';
+  plan_type: 'monthly' | 'daily' | 'annual' | '3-months' | '6-months';
   next_due_date: string;
   days_until_due: number; // Negative for overdue
   last_reminder_sent: string | null;
   last_reminder_type: SMSType | null;
   last_delivery_status: DeliveryStatus | null;
+  // Individual tracking for each reminder type (Option A)
+  reminder_7day_sent: string | null; // Timestamp when 7-day reminder was sent
+  reminder_3day_sent: string | null; // Timestamp when 3-day reminder was sent
+  due_today_sent: string | null; // Timestamp when due-today reminder was sent
+  overdue_sent: string | null; // Timestamp when overdue reminder was sent (most recent)
+  // Boolean flags for fast lookups (Option B)
+  reminder_7day_sent_this_period: boolean;
+  reminder_3day_sent_this_period: boolean;
+  due_today_sent_this_period: boolean;
+  overdue_sent_this_period: boolean;
 }
 
 // ============================================================

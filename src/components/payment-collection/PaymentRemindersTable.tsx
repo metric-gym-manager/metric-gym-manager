@@ -21,7 +21,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, Clock, AlertCircle, XCircle, History } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { CheckCircle2, Clock, AlertCircle, XCircle, History, Info } from 'lucide-react';
 import type { ReminderStatusResponse, MemberReminderStatus } from '@/features/sms/types';
 import SMSHistoryModal from './SMSHistoryModal';
 
@@ -99,13 +105,13 @@ export default function PaymentRemindersTable() {
     }
   };
 
-  // Get individual SMS type status
+  // Get individual SMS type status (Option A Fix: Use individual tracking fields)
   const getSMSTypeStatus = (
     reminder: MemberReminderStatus,
     targetDays: number,
     expectedType: string
   ): 'sent' | 'not_sent' | 'not_applicable' => {
-    const { days_until_due, last_reminder_type, plan_type } = reminder;
+    const { days_until_due, plan_type, reminder_7day_sent, reminder_3day_sent, due_today_sent } = reminder;
 
     // Daily members: no automatic reminders
     if (plan_type === 'daily') {
@@ -117,8 +123,17 @@ export default function PaymentRemindersTable() {
       return 'not_applicable';
     }
 
-    // Check if this reminder was sent
-    if (days_until_due === targetDays && last_reminder_type === expectedType) {
+    // Check if this specific reminder was sent (using individual tracking fields)
+    let wasSent = false;
+    if (expectedType === 'reminder_7day') {
+      wasSent = !!reminder_7day_sent;
+    } else if (expectedType === 'reminder_3day') {
+      wasSent = !!reminder_3day_sent;
+    } else if (expectedType === 'due_today') {
+      wasSent = !!due_today_sent;
+    }
+
+    if (wasSent) {
       return 'sent';
     }
 
@@ -131,30 +146,50 @@ export default function PaymentRemindersTable() {
     return 'not_applicable';
   };
 
-  // Render SMS status badge
-  const renderSMSStatusBadge = (status: 'sent' | 'not_sent' | 'not_applicable', label: string) => {
+  // Render SMS status badge with improved labels
+  const renderSMSStatusBadge = (
+    status: 'sent' | 'not_sent' | 'not_applicable',
+    reminder: MemberReminderStatus,
+    targetDays: number
+  ) => {
+    // Disabled: Reminder not applicable for this plan type
     if (status === 'not_applicable') {
       return (
         <div className="flex items-center gap-1.5 text-xs text-gray-400">
           <XCircle className="h-3.5 w-3.5" />
-          <span>N/A</span>
+          <span>Disabled</span>
         </div>
       );
     }
 
+    // Sent: Reminder was successfully sent
     if (status === 'sent') {
       return (
         <div className="flex items-center gap-1.5 text-xs font-medium text-green-700">
           <CheckCircle2 className="h-3.5 w-3.5" />
-          <span>{label}</span>
+          <span>Sent</span>
         </div>
       );
     }
 
+    // Not Sent / Pending: Depends on whether we're past the reminder window
+    const { days_until_due } = reminder;
+
+    // If we're still before or at the target window, show "Pending"
+    if (days_until_due >= targetDays) {
+      return (
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <Clock className="h-3.5 w-3.5" />
+          <span>Pending</span>
+        </div>
+      );
+    }
+
+    // If we're past the target window and it wasn't sent, show "Not Sent"
     return (
       <div className="flex items-center gap-1.5 text-xs font-medium text-amber-600">
         <AlertCircle className="h-3.5 w-3.5" />
-        <span>Not sent</span>
+        <span>Not Sent</span>
       </div>
     );
   };
@@ -199,6 +234,15 @@ export default function PaymentRemindersTable() {
 
   return (
     <div className="space-y-4">
+      {/* Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <p className="text-sm text-blue-800">
+          <span className="font-semibold">About Automatic Reminders:</span> The table below shows the status of automatic payment reminders only.
+          These are sent automatically by the system based on due dates (7-day, 3-day, and due-today reminders).
+          Manual reminders sent via the "Send Now" button are tracked separately and do not appear in these columns.
+        </p>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div>
@@ -254,9 +298,51 @@ export default function PaymentRemindersTable() {
                 <TableHead>Plan Type</TableHead>
                 <TableHead>Next Due Date</TableHead>
                 <TableHead>Due In</TableHead>
-                <TableHead>7-Day Reminder</TableHead>
-                <TableHead>3-Day Reminder</TableHead>
-                <TableHead>Due Date Reminder</TableHead>
+                <TableHead>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 cursor-help">
+                          7-Day Reminder
+                          <Info className="h-3 w-3 text-gray-400" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Automatic reminder sent 7 days before due date</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
+                <TableHead>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 cursor-help">
+                          3-Day Reminder
+                          <Info className="h-3 w-3 text-gray-400" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Automatic reminder sent 3 days before due date</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
+                <TableHead>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center gap-1 cursor-help">
+                          Due Date Reminder
+                          <Info className="h-3 w-3 text-gray-400" />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Automatic reminder sent on the due date</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -283,9 +369,9 @@ export default function PaymentRemindersTable() {
                     </TableCell>
                     <TableCell>{formatDate(reminder.next_due_date)}</TableCell>
                     <TableCell>{getDueInText(reminder.days_until_due)}</TableCell>
-                    <TableCell>{renderSMSStatusBadge(sevenDayStatus, '7-Day')}</TableCell>
-                    <TableCell>{renderSMSStatusBadge(threeDayStatus, '3-Day')}</TableCell>
-                    <TableCell>{renderSMSStatusBadge(dueDateStatus, 'Due Date')}</TableCell>
+                    <TableCell>{renderSMSStatusBadge(sevenDayStatus, reminder, 7)}</TableCell>
+                    <TableCell>{renderSMSStatusBadge(threeDayStatus, reminder, 3)}</TableCell>
+                    <TableCell>{renderSMSStatusBadge(dueDateStatus, reminder, 0)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <div className="flex flex-col items-start gap-1">
