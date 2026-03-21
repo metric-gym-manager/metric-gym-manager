@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import type { MemberWithDiscount, OverdueMember } from '@/features/members/types';
+import type { PlanType } from '@/features/settings/types';
 import { X, Filter } from 'lucide-react';
 import { formatDate } from '@/lib/utils/date';
 import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
@@ -96,6 +97,32 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
     enabled: inputValue.trim().length >= 1,
     staleTime: 30000,
   });
+
+  // Fetch active plan types
+  const { data: planTypes } = useQuery<PlanType[]>({
+    queryKey: ['billing-setup-plan-types'],
+    queryFn: async () => {
+      const response = await fetch('/api/billing-setup/plans');
+      if (!response.ok) return [];
+      const result = await response.json();
+      return result.data ?? [];
+    },
+    staleTime: 300000, // Cache for 5 minutes
+  });
+
+  // Filter only active plan types and map to labels
+  const activePlanTypes = planTypes?.filter(pt => pt.is_active) ?? [];
+  const getPlanLabel = (planType: string) => {
+    const labels: Record<string, string> = {
+      'daily': 'Daily',
+      'weekly': 'Weekly',
+      'monthly': 'Monthly',
+      '3-months': '3 Months',
+      '6-months': '6 Months',
+      'annual': 'Annual',
+    };
+    return labels[planType] || planType;
+  };
 
   // Fetch members data
   const { data, isLoading, error } = useQuery<MembersListResponse>({
@@ -268,9 +295,11 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Plans</SelectItem>
-                <SelectItem value="monthly">Monthly</SelectItem>
-                <SelectItem value="daily">Daily</SelectItem>
-                <SelectItem value="annual">Annual</SelectItem>
+                {activePlanTypes.map((pt) => (
+                  <SelectItem key={pt.plan_type} value={pt.plan_type}>
+                    {getPlanLabel(pt.plan_type)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -351,9 +380,11 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Plans</SelectItem>
-                  <SelectItem value="monthly">Monthly</SelectItem>
-                  <SelectItem value="daily">Daily</SelectItem>
-                  <SelectItem value="annual">Annual</SelectItem>
+                  {activePlanTypes.map((pt) => (
+                    <SelectItem key={pt.plan_type} value={pt.plan_type}>
+                      {getPlanLabel(pt.plan_type)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
