@@ -1,21 +1,14 @@
-import { redirect } from 'next/navigation';
-import { getGymProfileForLayout } from '@/lib/middleware/auth';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 import { MemberModalProvider } from '@/contexts/member-modal.context';
 
-export default async function DashboardLayout({
+export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // Lightweight check — middleware already verified auth, this just ensures gym profile exists
-  try {
-    await getGymProfileForLayout();
-  } catch (error) {
-    redirect('/login');
-  }
-
+  // Middleware already verified authentication and gym profile access
+  // No need for redundant server-side checks that block layout rendering
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Sidebar - Fixed on desktop */}

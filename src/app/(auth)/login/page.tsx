@@ -30,6 +30,11 @@ function LoginContent() {
   const [isResending, setIsResending] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Prefetch dashboard route to eliminate routing delay
+  useEffect(() => {
+    router.prefetch('/dashboard');
+  }, [router]);
+
   // Handle errors from URL parameters (e.g., email verification failures)
   useEffect(() => {
     const errorCode = searchParams.get('error');
@@ -75,6 +80,7 @@ function LoginContent() {
 
       if (!response.ok || !result.success) {
         setError(result.error || 'Login failed');
+        setIsLoading(false); // Only set to false on error
 
         // Show resend verification option if email verification is required
         if (result.errorCode === 'email_verification_required') {
@@ -84,9 +90,12 @@ function LoginContent() {
         return;
       }
 
-      // Redirect to dashboard (React Query will handle fresh data fetching)
+      // Redirect to dashboard - keep loading state until navigation completes
       router.push('/dashboard');
+      // Don't set isLoading to false - let component unmount during navigation
     } catch (err) {
+      setIsLoading(false); // Only set to false on error
+
       if (err instanceof z.ZodError) {
         const errors: Record<string, string> = {};
         err.errors.forEach((error) => {
@@ -99,8 +108,6 @@ function LoginContent() {
       } else {
         setError('An unexpected error occurred');
       }
-    } finally {
-      setIsLoading(false);
     }
   };
 
