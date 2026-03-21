@@ -159,6 +159,7 @@ export function Navigation() {
 
         {/* Right CTAs */}
         <div className="flex items-center gap-4">
+          {/* Desktop: Show Log In text link and Get Started Free button */}
           <Link
             href="/login"
             className="hidden md:block"
@@ -173,14 +174,25 @@ export function Navigation() {
           </Link>
           <Link
             href="/register"
-            className="btn-primary"
+            className="hidden md:inline-block btn-primary"
             style={{
               padding: '10px 20px',
               fontSize: '13px',
-              display: 'inline-block',
             }}
           >
             Get Started Free
+          </Link>
+
+          {/* Mobile: Show only Log In button */}
+          <Link
+            href="/login"
+            className="block md:hidden btn-primary"
+            style={{
+              padding: '10px 20px',
+              fontSize: '13px',
+            }}
+          >
+            Log In
           </Link>
         </div>
       </div>

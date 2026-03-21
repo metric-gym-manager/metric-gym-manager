@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import Link from 'next/link';
 import {
   Table,
   TableBody,
@@ -32,6 +31,7 @@ import { X, Filter, ArrowRight } from 'lucide-react';
 import { formatDate } from '@/lib/utils/date';
 import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
 import UrgencyBadge from '@/components/common/UrgencyBadge';
+import { PaymentDetailsModal } from './PaymentDetailsModal';
 
 interface MembersListResponse {
   members: MemberWithDiscount[];
@@ -60,6 +60,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
   const [page, setPage] = useState(1);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [selectedPaymentMember, setSelectedPaymentMember] = useState<OverdueMember | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   // Debounce the search input (300ms)
@@ -470,14 +471,16 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                       <UrgencyBadge daysOverdue={member.days_overdue} />
                     </TableCell>
                     <TableCell>
-                      <Link
-                        href="/payment-collection?filter=overdue"
-                        onClick={(e) => e.stopPropagation()}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedPaymentMember(member);
+                        }}
                         className="inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
                       >
                         View Payment Details
                         <ArrowRight className="h-4 w-4" />
-                      </Link>
+                      </button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -584,6 +587,13 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
           </div>
         </div>
       )}
+
+      {/* Payment Details Modal */}
+      <PaymentDetailsModal
+        member={selectedPaymentMember}
+        open={!!selectedPaymentMember}
+        onClose={() => setSelectedPaymentMember(null)}
+      />
     </div>
   );
 }
