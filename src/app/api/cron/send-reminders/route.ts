@@ -3,7 +3,7 @@ import { sendAutomatedReminders } from '@/features/sms/services/reminder.service
 
 // ============================================================
 // POST /api/cron/send-reminders - Daily SMS reminder cron job
-// Schedule: Daily at 9:00 AM Sri Lanka Time (UTC+5:30)
+// Schedule: Daily at 9:00 AM Sri Lanka Time (3:30 AM UTC)
 // ============================================================
 
 export async function POST(request: NextRequest) {

@@ -255,6 +255,25 @@ async function processGymReminders(gymId: string): Promise<{
     // Send SMS if applicable
     if (smsType) {
       try {
+        // Check if this reminder was already sent today (duplicate prevention)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStart = today.toISOString();
+
+        const { data: existingReminder } = await supabase
+          .from('sms_logs')
+          .select('id')
+          .eq('member_id', member.id)
+          .eq('sms_type', smsType)
+          .gte('sent_at', todayStart)
+          .limit(1)
+          .single();
+
+        if (existingReminder) {
+          console.log(`      → Skipped: ${smsType} already sent today`);
+          continue;
+        }
+
         await sendReminderSMS(supabase, gymId, member.id, smsType);
         results.totalSent++;
         results.byType[smsType]++;

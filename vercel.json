@@ -10,7 +10,7 @@
     },
     {
       "path": "/api/cron/send-reminders",
-      "schedule": "30 7 * * *"
+      "schedule": "30 3 * * *"
     },
     {
       "path": "/api/cron/archive-old-members",
