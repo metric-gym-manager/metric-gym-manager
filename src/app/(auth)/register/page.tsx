@@ -560,8 +560,32 @@ export default function RegisterPage() {
                       )}
                     </div>
 
+                    {/* Legal Agreement */}
+                    <div className="mt-6 mb-4">
+                      <p className="text-xs text-gray-600 text-center">
+                        By registering you accept our{' '}
+                        <Link
+                          href="/privacy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-700 underline"
+                        >
+                          Privacy Policy
+                        </Link>
+                        {' '}and{' '}
+                        <Link
+                          href="/terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-700 underline"
+                        >
+                          Terms of Service
+                        </Link>
+                      </p>
+                    </div>
+
                     {/* Action Buttons */}
-                    <div className="flex gap-3 mt-6">
+                    <div className="flex gap-3 mt-4">
                       <Button
                         type="button"
                         variant="outline"
