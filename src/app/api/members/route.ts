@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { addMemberSchema, memberFiltersSchema } from '@/features/members/schemas/member.schemas';
-import { getMembersList, createMember } from '@/features/members/services/member.service';
-import { sendSMS } from '@/features/sms/services/sms.service';
+import { getContainer } from '@/infrastructure/di';
+import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { ConflictError, ValidationError } from '@/core/utils/errors';
+import { PlanType } from '@/core/utils/constants/PlanConfig';
 
 // ============================================================
 // GET /api/members - Get members list
@@ -26,28 +28,39 @@ export async function GET(request: NextRequest) {
     // Validate filters
     const validatedFilters = memberFiltersSchema.parse(filters);
 
-    // Get members
-    const result = await getMembersList(gymProfile.id, validatedFilters);
+    // Get members via repository
+    const container = await getContainer();
+    const memberRepo = container.getMemberRepository();
+
+    const result = await memberRepo.findAll({
+      gymId: gymProfile.id,
+      ...validatedFilters,
+      planType: validatedFilters.planType as PlanType | undefined,
+    });
+
+    // Convert domain entities to database format for API response
+    const membersData = result.items.map(member => member.toDatabase());
 
     return NextResponse.json(
-      {
-        success: true,
-        data: result,
-      },
-      { status: 200 }
+      ResponseBuilder.success({
+        members: membersData,
+        totalCount: result.totalCount,
+        page: result.page,
+        totalPages: result.totalPages,
+      })
     );
   } catch (error) {
     console.error('Get members API error:', error);
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        ResponseBuilder.unauthorized(),
         { status: 401 }
       );
     }
 
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch members' },
+      ResponseBuilder.error('Failed to fetch members', 'FETCH_ERROR'),
       { status: 500 }
     );
   }
@@ -65,26 +78,48 @@ export async function POST(request: NextRequest) {
     // Validate input
     const validatedData = addMemberSchema.parse(body);
 
-    // Create member
-    const member = await createMember(gymProfile.id, validatedData);
+    // Get discount info if applicable
+    let discount = null;
+    if (validatedData.discountId) {
+      const container = await getContainer();
+      const supabase = (await import('@/lib/supabase/server')).createClient();
+      const { data: discountData } = await (await supabase)
+        .from('discounts')
+        .select('id, discount_name, discount_percentage')
+        .eq('id', validatedData.discountId)
+        .single();
 
-    // Send welcome SMS — fire and forget (SMS failure must not fail registration)
-    console.log(`📧 Sending welcome SMS to new member: ${member.name} (${(member as any).payment_amount})`);
-    sendSMS(
-      gymProfile.id,
-      member.id,
-      'welcome',
-      undefined, // customMessage
-      (member as any).payment_amount // Pass payment amount
-    )
-      .then(() => console.log('✅ Welcome SMS sent successfully'))
-      .catch((err) => console.error('❌ Welcome SMS failed:', err));
+      if (discountData) {
+        discount = {
+          discountId: discountData.id,
+          discountName: discountData.discount_name,
+          discountPercentage: discountData.discount_percentage,
+        };
+      }
+    }
+
+    // Register member via use case
+    const container = await getContainer();
+    const registerMember = container.getRegisterMemberUseCase();
+
+    const result = await registerMember.execute({
+      gymId: gymProfile.id,
+      name: validatedData.name,
+      phoneNumber: validatedData.phoneNumber,
+      planType: validatedData.planType as PlanType,
+      planAmount: validatedData.planAmount,
+      discountId: validatedData.discountId || null,
+      recurringDiscount: validatedData.recurringDiscount ?? false,
+      membershipStartDate: new Date(validatedData.membershipStartDate),
+      paymentAmount: validatedData.paymentAmount,
+      discount,
+    });
+
+    // Convert domain entity to database format for API response
+    const memberData = result.member.toDatabase();
 
     return NextResponse.json(
-      {
-        success: true,
-        data: member,
-      },
+      ResponseBuilder.success(memberData, { message: 'Member registered successfully' }),
       { status: 201 }
     );
   } catch (error) {
@@ -92,20 +127,34 @@ export async function POST(request: NextRequest) {
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        ResponseBuilder.unauthorized(),
         { status: 401 }
+      );
+    }
+
+    if (error instanceof ConflictError) {
+      return NextResponse.json(
+        ResponseBuilder.conflict(error.message),
+        { status: 409 }
+      );
+    }
+
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        ResponseBuilder.validationError({ general: [error.message] }),
+        { status: 400 }
       );
     }
 
     if (error instanceof Error && error.name === 'ZodError') {
       return NextResponse.json(
-        { success: false, error: 'Invalid input data' },
+        ResponseBuilder.validationError({ general: ['Invalid input data'] }),
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { success: false, error: 'Failed to create member' },
+      ResponseBuilder.error('Failed to create member', 'CREATE_ERROR'),
       { status: 500 }
     );
   }

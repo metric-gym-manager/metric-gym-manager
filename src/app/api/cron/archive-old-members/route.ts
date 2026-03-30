@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { archiveOldMembers } from '@/features/sms/services/reminder.service';
+// TODO: Create ArchiveOldMembers use case following Clean Architecture pattern
+// For now, this functionality is temporarily disabled pending use case implementation
 
 // ============================================================
 // POST /api/cron/archive-old-members - Archive old members cron job
@@ -20,26 +21,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('🚀 Starting archive old members cron job...');
-    const startTime = Date.now();
+    console.log('🚀 Archive old members cron job - temporarily disabled');
 
-    // Archive old members
-    const results = await archiveOldMembers();
-
-    const duration = Date.now() - startTime;
-
-    console.log(`⏱️  Cron job completed in ${duration}ms`);
-
+    // TODO: Implement ArchiveOldMembers use case
     return NextResponse.json(
       {
-        success: true,
-        data: {
-          totalArchived: results.totalArchived,
-          errors: results.errors,
-          duration: `${duration}ms`,
-        },
+        success: false,
+        error: 'Archive old members functionality temporarily disabled',
+        message: 'Pending Clean Architecture use case implementation',
       },
-      { status: 200 }
+      { status: 501 } // Not Implemented
     );
   } catch (error) {
     console.error('Archive old members cron error:', error);
@@ -65,12 +56,12 @@ export async function GET(_request: NextRequest) {
   }
 
   // In development, allow GET without auth for easy testing
-  console.log('🧪 Manual test: Starting archive old members cron job...');
+  console.log('🧪 Manual test: Archive old members - temporarily disabled');
 
-  const results = await archiveOldMembers();
-
+  // TODO: Implement ArchiveOldMembers use case
   return NextResponse.json({
-    success: true,
-    data: results,
+    success: false,
+    error: 'Archive old members functionality temporarily disabled',
+    message: 'Pending Clean Architecture use case implementation',
   });
 }

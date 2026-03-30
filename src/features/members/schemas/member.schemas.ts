@@ -97,8 +97,6 @@ export const updateMemberSchema = z.object({
   discountId: z.string().uuid().nullable().optional(),
 
   recurringDiscount: z.boolean().optional(),
-
-  status: MemberStatus.optional(),
 });
 
 export type UpdateMemberInput = z.infer<typeof updateMemberSchema>;

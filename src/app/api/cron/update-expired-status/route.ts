@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateExpiredMemberStatus } from '@/features/sms/services/reminder.service';
+import { getAdminContainer } from '@/infrastructure/di';
+import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { CronLogger } from '@/core/utils/cron';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // ============================================================
 // POST /api/cron/update-expired-status - Update expired members cron job
@@ -7,6 +10,10 @@ import { updateExpiredMemberStatus } from '@/features/sms/services/reminder.serv
 // ============================================================
 
 export async function POST(request: NextRequest) {
+  const supabase = createAdminClient();
+  const logger = new CronLogger(supabase);
+  let logId: string | null = null;
+
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
@@ -15,7 +22,7 @@ export async function POST(request: NextRequest) {
     if (authHeader !== `Bearer ${cronSecret}`) {
       console.error('Unauthorized cron request');
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        ResponseBuilder.unauthorized(),
         { status: 401 }
       );
     }
@@ -23,33 +30,50 @@ export async function POST(request: NextRequest) {
     console.log('🚀 Starting update expired status cron job...');
     const startTime = Date.now();
 
-    // Update expired member status
-    const results = await updateExpiredMemberStatus();
+    // Log cron job start
+    logId = await logger.logStart('update-expired-status');
+
+    // Update expired member status via use case
+    const container = await getAdminContainer();
+    const updateExpired = container.getUpdateExpiredStatusUseCase();
+    const summary = await updateExpired.execute();
 
     const duration = Date.now() - startTime;
 
     console.log(`⏱️  Cron job completed in ${duration}ms`);
 
+    // Log successful completion
+    await logger.logSuccess(logId, {
+      totalUpdated: summary.totalUpdated,
+      updatedMembers: summary.updatedMembers,
+      errors: summary.errors,
+      duration: `${duration}ms`,
+    });
+
     return NextResponse.json(
-      {
-        success: true,
-        data: {
-          totalUpdated: results.totalUpdated,
-          errors: results.errors,
-          duration: `${duration}ms`,
-        },
-      },
+      ResponseBuilder.success({
+        totalUpdated: summary.totalUpdated,
+        updatedMembers: summary.updatedMembers,
+        errors: summary.errors,
+        duration: `${duration}ms`,
+      }),
       { status: 200 }
     );
   } catch (error) {
     console.error('Update expired status cron error:', error);
 
+    // Log failure if we have a log ID
+    if (logId) {
+      await logger.logFailure(logId, [
+        error instanceof Error ? error.message : 'Unknown error',
+      ]);
+    }
+
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to update expired status',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      ResponseBuilder.internalError(
+        'Failed to update expired status',
+        error instanceof Error ? error.stack : undefined
+      ),
       { status: 500 }
     );
   }
@@ -59,7 +83,7 @@ export async function POST(request: NextRequest) {
 export async function GET(_request: NextRequest) {
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json(
-      { success: false, error: 'Method not allowed in production' },
+      ResponseBuilder.error('Method not allowed in production', 'METHOD_NOT_ALLOWED'),
       { status: 405 }
     );
   }
@@ -67,10 +91,9 @@ export async function GET(_request: NextRequest) {
   // In development, allow GET without auth for easy testing
   console.log('🧪 Manual test: Starting update expired status cron job...');
 
-  const results = await updateExpiredMemberStatus();
+  const container = await getAdminContainer();
+  const updateExpired = container.getUpdateExpiredStatusUseCase();
+  const summary = await updateExpired.execute();
 
-  return NextResponse.json({
-    success: true,
-    data: results,
-  });
+  return NextResponse.json(ResponseBuilder.success(summary));
 }

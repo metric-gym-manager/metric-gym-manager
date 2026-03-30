@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { collectPaymentSchema } from '@/features/members/schemas/member.schemas';
-import { collectPayment } from '@/features/members/services/payment.service';
+import { getContainer } from '@/infrastructure/di';
+import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { NotFoundError, ValidationError, InvalidStatusTransitionError } from '@/core/utils/errors';
 
 // ============================================================
 // POST /api/members/[id]/payment - Collect payment
@@ -22,42 +24,93 @@ export async function POST(
       memberId: id,
     });
 
-    // Collect payment
-    const result = await collectPayment(gymProfile.id, validatedData);
+    // Get discount info if applicable
+    let discount = null;
+    if (validatedData.discountId) {
+      const supabase = (await import('@/lib/supabase/server')).createClient();
+      const { data: discountData } = await (await supabase)
+        .from('discounts')
+        .select('id, discount_name, discount_percentage')
+        .eq('id', validatedData.discountId)
+        .single();
+
+      if (discountData) {
+        discount = {
+          discountId: discountData.id,
+          discountName: discountData.discount_name,
+          discountPercentage: discountData.discount_percentage,
+        };
+      }
+    }
+
+    // Collect payment via use case
+    const container = await getContainer();
+    const collectPayment = container.getCollectPaymentUseCase();
+
+    const result = await collectPayment.execute({
+      gymId: gymProfile.id,
+      memberId: id,
+      paymentDate: new Date(validatedData.paymentDate),
+      paymentAmount: validatedData.paymentAmount,
+      discountId: validatedData.discountId || null,
+      discount,
+      deductOverduePeriod: validatedData.deductOverduePeriod ?? true,
+    });
+
+    // Convert domain entities to database format for API response
+    const memberData = result.member.toDatabase();
+    const paymentData = result.payment.toDatabase();
 
     return NextResponse.json(
-      {
-        success: true,
-        data: result,
-      },
+      ResponseBuilder.success(
+        {
+          member: memberData,
+          payment: paymentData,
+        },
+        { message: 'Payment collected successfully' }
+      ),
       { status: 201 }
     );
   } catch (error) {
     console.error('Collect payment API error:', error);
 
-    if (error instanceof Error && error.message === 'Member not found') {
+    if (error instanceof NotFoundError) {
       return NextResponse.json(
-        { success: false, error: 'Member not found' },
+        ResponseBuilder.notFound(error.message),
         { status: 404 }
+      );
+    }
+
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        ResponseBuilder.validationError({ general: [error.message] }),
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof InvalidStatusTransitionError) {
+      return NextResponse.json(
+        ResponseBuilder.error(error.message, 'INVALID_STATUS_TRANSITION'),
+        { status: 400 }
       );
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
+        ResponseBuilder.unauthorized(),
         { status: 401 }
       );
     }
 
     if (error instanceof Error && error.name === 'ZodError') {
       return NextResponse.json(
-        { success: false, error: 'Invalid input data' },
+        ResponseBuilder.validationError({ general: ['Invalid input data'] }),
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { success: false, error: 'Failed to collect payment' },
+      ResponseBuilder.error('Failed to collect payment', 'PAYMENT_ERROR'),
       { status: 500 }
     );
   }

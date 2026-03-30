@@ -20,13 +20,13 @@ export const PLAN_BADGE_COLORS = {
  * Semantic color classes for member status badges.
  * - Active: Green (positive, good to go)
  * - Expired: Red (urgent action needed)
- * - Frozen: Gray (paused, neutral)
+ * - Suspended: Yellow (on hold, requires attention)
  * - Cancelled: Orange (warning, permanent)
  */
 export const STATUS_BADGE_COLORS = {
   active: 'bg-green-100 text-green-800 border-green-200',
   expired: 'bg-red-100 text-red-800 border-red-200',
-  frozen: 'bg-gray-100 text-gray-800 border-gray-200',
+  suspended: 'bg-yellow-100 text-yellow-800 border-yellow-200',
   cancelled: 'bg-orange-100 text-orange-800 border-orange-200',
 } as const;
 

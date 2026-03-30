@@ -1,0 +1,20 @@
+// Error classes exports
+export {
+  DomainError,
+  ValidationError,
+  NotFoundError,
+  UnauthorizedError,
+  ForbiddenError,
+  InvalidStatusTransitionError,
+  PaymentCalculationError,
+  BusinessRuleViolationError,
+  ConflictError,
+  DatabaseError,
+  ExternalServiceError,
+  SMSSendError,
+  isDomainError,
+  isValidationError,
+  isNotFoundError,
+  getErrorCode,
+  getErrorStatusCode,
+} from './DomainError';

@@ -1,0 +1,521 @@
+/**
+ * Supabase Member Repository Implementation
+ *
+ * Implements IMemberRepository using Supabase as the data source.
+ *
+ * This is an ADAPTER in hexagonal architecture - it implements the port
+ * defined by the core domain (IMemberRepository) using infrastructure (Supabase).
+ *
+ * Key responsibilities:
+ * 1. Translate domain operations to Supabase queries
+ * 2. Map database rows (snake_case) to domain entities (camelCase)
+ * 3. Map domain entities back to database format for persistence
+ * 4. Handle errors and return domain-appropriate error messages
+ */
+
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { Member } from '@/core/domain/member/Member';
+import {
+  IMemberRepository,
+  type MemberFilters,
+  type PaginatedResult,
+} from '@/core/ports/repositories/IMemberRepository';
+import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { MemberStatus } from '@/core/utils/constants/StatusConfig';
+import { NotFoundError } from '@/core/utils/errors';
+
+/**
+ * Database row interface (snake_case from Supabase)
+ */
+interface MemberRow {
+  id: string;
+  gym_id: string;
+  name: string;
+  phone_number: string;
+  plan_type: string;
+  plan_amount: number;
+  discount_id: string | null;
+  recurring_discount: boolean;
+  status: string;
+  registered_date: string;
+  membership_start_date: string;
+  next_due_date: string;
+  created_at: string;
+  updated_at: string;
+}
+
+/**
+ * Supabase Member Repository
+ *
+ * @example
+ * const supabase = await createClient();
+ * const memberRepo = new SupabaseMemberRepository(supabase);
+ *
+ * const member = await memberRepo.findById('member-123', 'gym-456');
+ * const updatedMember = member.activate(new Date());
+ * await memberRepo.update(updatedMember);
+ */
+export class SupabaseMemberRepository implements IMemberRepository {
+  constructor(private readonly supabase: SupabaseClient) {}
+
+  /**
+   * Find member by ID
+   */
+  async findById(id: string, gymId: string): Promise<Member | null> {
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('*')
+      .eq('id', id)
+      .eq('gym_id', gymId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Not found
+        return null;
+      }
+      throw new Error(`Failed to find member: ${error.message}`);
+    }
+
+    return data ? this.toDomain(data) : null;
+  }
+
+  /**
+   * Find all members with filters and pagination
+   */
+  async findAll(filters: MemberFilters): Promise<PaginatedResult<Member>> {
+    const { gymId, search, status, planType, page = 1, limit = 50, sortBy = 'newest' } = filters;
+
+    // Build query with count
+    let query = this.supabase
+      .from('members')
+      .select('*', { count: 'exact' })
+      .eq('gym_id', gymId);
+
+    // Apply filters
+    if (search) {
+      query = query.or(`name.ilike.%${search}%,phone_number.ilike.%${search}%`);
+    }
+
+    if (status) {
+      query = query.eq('status', status);
+    }
+
+    if (planType) {
+      query = query.eq('plan_type', planType);
+    }
+
+    // Apply sorting
+    switch (sortBy) {
+      case 'oldest':
+        query = query.order('created_at', { ascending: true });
+        break;
+      case 'upcoming_due':
+        query = query.order('next_due_date', { ascending: true });
+        break;
+      case 'recently_expired':
+        query = query.eq('status', MemberStatus.Expired).order('updated_at', { ascending: false });
+        break;
+      case 'name_asc':
+        query = query.order('name', { ascending: true });
+        break;
+      case 'name_desc':
+        query = query.order('name', { ascending: false });
+        break;
+      case 'newest':
+      default:
+        query = query.order('created_at', { ascending: false });
+        break;
+    }
+
+    // Apply pagination
+    const from = (page - 1) * limit;
+    const to = from + limit - 1;
+    query = query.range(from, to);
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      throw new Error(`Failed to fetch members: ${error.message}`);
+    }
+
+    const members = (data || []).map((row) => this.toDomain(row));
+    const totalCount = count || 0;
+    const totalPages = Math.ceil(totalCount / limit);
+
+    return {
+      items: members,
+      totalCount,
+      page,
+      totalPages,
+    };
+  }
+
+  /**
+   * Find all active members for a gym
+   */
+  async findActiveMembers(gymId: string): Promise<Member[]> {
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('*')
+      .eq('gym_id', gymId)
+      .eq('status', MemberStatus.Active);
+
+    if (error) {
+      throw new Error(`Failed to fetch active members: ${error.message}`);
+    }
+
+    return (data || []).map((row) => this.toDomain(row));
+  }
+
+  /**
+   * Find all active members across all gyms
+   */
+  async findAllActiveMembers(): Promise<Member[]> {
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('*')
+      .eq('status', MemberStatus.Active);
+
+    if (error) {
+      throw new Error(`Failed to fetch all active members: ${error.message}`);
+    }
+
+    return (data || []).map((row) => this.toDomain(row));
+  }
+
+  /**
+   * Find all expired members for a gym
+   */
+  async findExpiredMembers(gymId: string): Promise<Member[]> {
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('*')
+      .eq('gym_id', gymId)
+      .eq('status', MemberStatus.Expired);
+
+    if (error) {
+      throw new Error(`Failed to fetch expired members: ${error.message}`);
+    }
+
+    return (data || []).map((row) => this.toDomain(row));
+  }
+
+  /**
+   * Find all expired members across all gyms
+   */
+  async findAllExpiredMembers(): Promise<Member[]> {
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('*')
+      .eq('status', MemberStatus.Expired);
+
+    if (error) {
+      throw new Error(`Failed to fetch all expired members: ${error.message}`);
+    }
+
+    return (data || []).map((row) => this.toDomain(row));
+  }
+
+  /**
+   * Find all suspended members across all gyms
+   */
+  async findAllSuspendedMembers(): Promise<Member[]> {
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('*')
+      .eq('status', MemberStatus.Suspended);
+
+    if (error) {
+      throw new Error(`Failed to fetch all suspended members: ${error.message}`);
+    }
+
+    return (data || []).map((row) => this.toDomain(row));
+  }
+
+  /**
+   * Find overdue members (active but past due date)
+   */
+  async findOverdueMembers(gymId: string): Promise<Member[]> {
+    const today = new Date().toISOString().split('T')[0];
+
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('*')
+      .eq('gym_id', gymId)
+      .eq('status', MemberStatus.Active)
+      .lt('next_due_date', today);
+
+    if (error) {
+      throw new Error(`Failed to fetch overdue members: ${error.message}`);
+    }
+
+    return (data || []).map((row) => this.toDomain(row));
+  }
+
+  /**
+   * Find members due within N days
+   */
+  async findMembersDueWithinDays(gymId: string, days: number): Promise<Member[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const futureDate = new Date(today);
+    futureDate.setDate(futureDate.getDate() + days);
+
+    const todayStr = today.toISOString().split('T')[0];
+    const futureDateStr = futureDate.toISOString().split('T')[0];
+
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('*')
+      .eq('gym_id', gymId)
+      .eq('status', MemberStatus.Active)
+      .gte('next_due_date', todayStr)
+      .lte('next_due_date', futureDateStr);
+
+    if (error) {
+      throw new Error(`Failed to fetch members due within ${days} days: ${error.message}`);
+    }
+
+    return (data || []).map((row) => this.toDomain(row));
+  }
+
+  /**
+   * Create a new member
+   */
+  async create(member: Member): Promise<Member> {
+    const row = this.toDatabase(member);
+
+    // Remove id, created_at, updated_at - these are auto-generated
+    const { id, created_at, updated_at, ...insertData } = row;
+
+    const { data, error } = await this.supabase
+      .from('members')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to create member: ${error.message}`);
+    }
+
+    return this.toDomain(data);
+  }
+
+  /**
+   * Update an existing member
+   */
+  async update(member: Member): Promise<Member> {
+    const row = this.toDatabase(member);
+
+    // Remove created_at - it should never be updated
+    const { created_at, ...updateData } = row;
+
+    // Ensure updated_at is set to now
+    updateData.updated_at = new Date().toISOString();
+
+    const { data, error } = await this.supabase
+      .from('members')
+      .update(updateData)
+      .eq('id', member.id)
+      .eq('gym_id', member.gymId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update member: ${error.message}`);
+    }
+
+    if (!data) {
+      throw new NotFoundError('Member', member.id);
+    }
+
+    return this.toDomain(data);
+  }
+
+  /**
+   * Delete a member
+   */
+  async delete(id: string, gymId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('members')
+      .delete()
+      .eq('id', id)
+      .eq('gym_id', gymId);
+
+    if (error) {
+      throw new Error(`Failed to delete member: ${error.message}`);
+    }
+  }
+
+  /**
+   * Update status for multiple members (batch operation)
+   */
+  async updateStatusBatch(
+    memberIds: string[],
+    status: MemberStatus,
+    gymId: string
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from('members')
+      .update({
+        status,
+        updated_at: new Date().toISOString(),
+      })
+      .in('id', memberIds)
+      .eq('gym_id', gymId);
+
+    if (error) {
+      throw new Error(`Failed to batch update member status: ${error.message}`);
+    }
+  }
+
+  /**
+   * Count members by status
+   */
+  async countByStatus(gymId: string): Promise<Record<MemberStatus, number>> {
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('status')
+      .eq('gym_id', gymId);
+
+    if (error) {
+      throw new Error(`Failed to count members by status: ${error.message}`);
+    }
+
+    // Initialize all statuses to 0
+    const counts: Record<MemberStatus, number> = {
+      [MemberStatus.Active]: 0,
+      [MemberStatus.Expired]: 0,
+      [MemberStatus.Cancelled]: 0,
+      [MemberStatus.Suspended]: 0,
+    };
+
+    // Count each status
+    (data || []).forEach((row) => {
+      const status = row.status as MemberStatus;
+      if (status in counts) {
+        counts[status]++;
+      }
+    });
+
+    return counts;
+  }
+
+  /**
+   * Count members by plan type
+   */
+  async countByPlanType(gymId: string): Promise<Record<PlanType, number>> {
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('plan_type')
+      .eq('gym_id', gymId);
+
+    if (error) {
+      throw new Error(`Failed to count members by plan type: ${error.message}`);
+    }
+
+    // Initialize all plan types to 0
+    const counts: Record<PlanType, number> = {
+      [PlanType.Daily]: 0,
+      [PlanType.Weekly]: 0,
+      [PlanType.Monthly]: 0,
+      [PlanType.ThreeMonths]: 0,
+      [PlanType.SixMonths]: 0,
+      [PlanType.Annual]: 0,
+    };
+
+    // Count each plan type
+    (data || []).forEach((row) => {
+      const planType = row.plan_type as PlanType;
+      if (planType in counts) {
+        counts[planType]++;
+      }
+    });
+
+    return counts;
+  }
+
+  /**
+   * Find member by phone number
+   */
+  async findByPhoneNumber(phoneNumber: string, gymId: string): Promise<Member | null> {
+    const { data, error } = await this.supabase
+      .from('members')
+      .select('*')
+      .eq('gym_id', gymId)
+      .eq('phone_number', phoneNumber)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // Not found
+        return null;
+      }
+      throw new Error(`Failed to find member by phone number: ${error.message}`);
+    }
+
+    return data ? this.toDomain(data) : null;
+  }
+
+  // ============================================================
+  // MAPPING METHODS (Private)
+  // ============================================================
+
+  /**
+   * Map database row to domain entity
+   *
+   * This is where we translate snake_case database fields to camelCase domain properties.
+   *
+   * @param row - Database row
+   * @returns Domain Member entity
+   */
+  private toDomain(row: MemberRow): Member {
+    return Member.fromDatabase({
+      id: row.id,
+      gymId: row.gym_id,
+      name: row.name,
+      phoneNumber: row.phone_number,
+      planType: row.plan_type as PlanType,
+      planAmount: row.plan_amount,
+      discountId: row.discount_id,
+      recurringDiscount: row.recurring_discount,
+      status: row.status as MemberStatus,
+      registeredDate: new Date(row.registered_date),
+      membershipStartDate: new Date(row.membership_start_date),
+      nextDueDate: new Date(row.next_due_date),
+      createdAt: new Date(row.created_at),
+      updatedAt: new Date(row.updated_at),
+    });
+  }
+
+  /**
+   * Map domain entity to database row
+   *
+   * This is where we translate camelCase domain properties to snake_case database fields.
+   *
+   * @param member - Domain Member entity
+   * @returns Database row
+   */
+  private toDatabase(member: Member): MemberRow {
+    const props = member.toDatabase();
+
+    return {
+      id: props.id,
+      gym_id: props.gymId,
+      name: props.name,
+      phone_number: props.phoneNumber,
+      plan_type: props.planType,
+      plan_amount: props.planAmount,
+      discount_id: props.discountId,
+      recurring_discount: props.recurringDiscount,
+      status: props.status,
+      registered_date: props.registeredDate.toISOString().split('T')[0],
+      membership_start_date: props.membershipStartDate.toISOString().split('T')[0],
+      next_due_date: props.nextDueDate.toISOString().split('T')[0],
+      created_at: props.createdAt.toISOString(),
+      updated_at: props.updatedAt.toISOString(),
+    };
+  }
+}

@@ -6,11 +6,11 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import type { MemberWithDiscount, Payment } from '@/features/members/types';
 
 const MemberDetailModalResponsive = dynamic(
-  () => import('@/components/members/MemberDetailModalResponsive'),
+  () => import('@/features/members').then(mod => ({ default: mod.MemberDetailModalResponsive })),
   { ssr: false }
 );
 const EditMemberModal = dynamic(
-  () => import('@/components/members/EditMemberModal'),
+  () => import('@/features/members').then(mod => ({ default: mod.EditMemberModal })),
   { ssr: false }
 );
 

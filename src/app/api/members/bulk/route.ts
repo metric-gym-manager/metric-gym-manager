@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { addMemberSchema } from '@/features/members/schemas/member.schemas';
-import { createMember } from '@/features/members/services/member.service';
-import { sendSMS } from '@/features/sms/services/sms.service';
+import { getContainer } from '@/infrastructure/di';
+import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { z } from 'zod';
 
 const bulkCreateSchema = z.object({
@@ -36,17 +37,27 @@ export async function POST(request: NextRequest) {
       throw err;
     }
 
+    // Get use case via DI container
+    const container = await getContainer();
+    const registerMember = container.getRegisterMemberUseCase();
+
     // Process all members in parallel
     const results: BulkResult[] = await Promise.allSettled(
       validated.members.map(async (memberInput, index) => {
-        const member = await createMember(gymProfile.id, memberInput);
+        const result = await registerMember.execute({
+          gymId: gymProfile.id,
+          name: memberInput.name,
+          phoneNumber: memberInput.phoneNumber,
+          planType: memberInput.planType as PlanType,
+          planAmount: memberInput.planAmount,
+          discountId: memberInput.discountId || null,
+          recurringDiscount: memberInput.recurringDiscount ?? false,
+          membershipStartDate: new Date(memberInput.membershipStartDate),
+          paymentAmount: memberInput.paymentAmount,
+        });
 
-        // Send welcome SMS — fire and forget
-        sendSMS(gymProfile.id, member.id, 'welcome').catch((err) =>
-          console.error(`Welcome SMS failed for member ${member.id}:`, err)
-        );
-
-        return { index, success: true, name: memberInput.name, memberId: member.id };
+        // Welcome SMS is sent automatically by the use case
+        return { index, success: true, name: memberInput.name, memberId: result.member.id };
       })
     ).then((settled) =>
       settled.map((result, index) => {

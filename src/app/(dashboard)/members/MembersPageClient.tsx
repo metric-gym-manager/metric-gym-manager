@@ -3,16 +3,16 @@
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
-import MembersTable from '@/components/members/MembersTable';
+import { MembersTable } from '@/features/members';
 import { useMemberModal } from '@/contexts/member-modal.context';
 import type { MemberWithDiscount } from '@/features/members/types';
 
 const AddMemberModal = dynamic(
-  () => import('@/components/members/AddMemberModal'),
+  () => import('@/features/members').then(mod => ({ default: mod.AddMemberModal })),
   { ssr: false }
 );
 const BulkAddMemberModal = dynamic(
-  () => import('@/components/members/BulkAddMemberModal'),
+  () => import('@/features/members').then(mod => ({ default: mod.BulkAddMemberModal })),
   { ssr: false }
 );
 

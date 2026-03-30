@@ -31,9 +31,10 @@ export async function GET(
     }
 
     // Fetch SMS logs for this member, ordered by most recent first
+    // NOTE: Explicitly exclude 'error_message' to prevent exposing technical infrastructure details to gym managers
     const { data: smsLogs, error: logsError } = await supabase
       .from('sms_logs')
-      .select('*')
+      .select('id, sms_type, phone_number, message_body, sent_at, delivery_status, text_lk_message_id, created_at')
       .eq('member_id', memberId)
       .eq('gym_id', gymProfile.id)
       .order('sent_at', { ascending: false });

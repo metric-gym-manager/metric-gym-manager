@@ -84,14 +84,14 @@ export default function ReminderStatusTable() {
 
   // Get due in text
   const getDueInText = (daysUntilDue: number) => {
-    if (daysUntilDue === 0) {
+    if (daysUntilDue >= 0 && daysUntilDue < 1) {
       return <span className="font-medium text-orange-600">Due today</span>;
     } else if (daysUntilDue > 0) {
-      return <span className="text-gray-600">Due in {daysUntilDue} day{daysUntilDue > 1 ? 's' : ''}</span>;
+      return <span className="text-gray-600">Due in {Math.floor(daysUntilDue)} day{Math.floor(daysUntilDue) > 1 ? 's' : ''}</span>;
     } else {
       return (
         <span className="font-medium text-red-600">
-          Overdue by {Math.abs(daysUntilDue)} day{Math.abs(daysUntilDue) > 1 ? 's' : ''}
+          Overdue by {Math.abs(Math.floor(daysUntilDue))} day{Math.abs(Math.floor(daysUntilDue)) > 1 ? 's' : ''}
         </span>
       );
     }
@@ -102,9 +102,9 @@ export default function ReminderStatusTable() {
     const { days_until_due, last_reminder_type } = reminder;
 
     let expectedType: string | null = null;
-    if (days_until_due === 7) expectedType = 'reminder_7day';
-    else if (days_until_due === 3) expectedType = 'reminder_3day';
-    else if (days_until_due === 0) expectedType = 'due_today';
+    if (days_until_due >= 7 && days_until_due < 8) expectedType = 'reminder_7day';
+    else if (days_until_due >= 3 && days_until_due < 4) expectedType = 'reminder_3day';
+    else if (days_until_due >= 0 && days_until_due < 1) expectedType = 'due_today';
     else if (days_until_due < 0) expectedType = 'overdue';
 
     if (!expectedType) {
@@ -150,9 +150,9 @@ export default function ReminderStatusTable() {
   // Determine SMS type for resend
   const getResendSMSType = (daysUntilDue: number): string => {
     if (daysUntilDue < 0) return 'overdue';
-    if (daysUntilDue === 0) return 'due_today';
-    if (daysUntilDue <= 3) return 'reminder_3day';
-    if (daysUntilDue <= 7) return 'reminder_7day';
+    if (daysUntilDue >= 0 && daysUntilDue < 1) return 'due_today';
+    if (daysUntilDue < 4) return 'reminder_3day';
+    if (daysUntilDue < 8) return 'reminder_7day';
     return 'reminder_7day';
   };
 

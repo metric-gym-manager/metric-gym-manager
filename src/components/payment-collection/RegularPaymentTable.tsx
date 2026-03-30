@@ -24,6 +24,7 @@ import {
 import MarkPaidDialog from '@/components/payment-collection/MarkPaidDialog';
 import { formatDate } from '@/lib/utils/date';
 import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
+import { parseApiError } from '@/lib/utils/api-error';
 
 interface RegularPaymentRow {
   id: string;
@@ -80,8 +81,8 @@ export default function RegularPaymentTable() {
         }),
       });
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to collect payment');
+        const errorMessage = await parseApiError(res);
+        throw new Error(errorMessage);
       }
       return res.json();
     },
@@ -106,7 +107,7 @@ export default function RegularPaymentTable() {
   });
 
   const getDueInText = (daysUntilDue: number) => {
-    if (daysUntilDue === 0) {
+    if (daysUntilDue >= 0 && daysUntilDue < 1) {
       return (
         <Badge className="bg-orange-100 text-orange-800 border-orange-200 font-medium">
           Due today
@@ -115,11 +116,11 @@ export default function RegularPaymentTable() {
     } else if (daysUntilDue > 0) {
       return (
         <Badge className="bg-green-100 text-green-800 border-green-200 font-medium">
-          {daysUntilDue}d left
+          {Math.floor(daysUntilDue)}d left
         </Badge>
       );
     } else {
-      const days = Math.abs(daysUntilDue);
+      const days = Math.abs(Math.floor(daysUntilDue));
       return (
         <Badge className="bg-red-100 text-red-800 border-red-200 font-medium">
           {days}d overdue
@@ -217,7 +218,7 @@ export default function RegularPaymentTable() {
                 <TableRow
                   key={row.id}
                   onClick={() => openMember(row.id)}
-                  className={`cursor-pointer ${row.daysUntilDue < 0 ? 'bg-red-50 hover:bg-red-100/70' : row.daysUntilDue === 0 ? 'bg-orange-50 hover:bg-orange-100/70' : 'hover:bg-gray-50'}`}
+                  className={`cursor-pointer ${row.daysUntilDue < 0 ? 'bg-red-50 hover:bg-red-100/70' : (row.daysUntilDue >= 0 && row.daysUntilDue < 1) ? 'bg-orange-50 hover:bg-orange-100/70' : 'hover:bg-gray-50'}`}
                 >
                   <TableCell>
                     <span className="font-medium">{row.name}</span>

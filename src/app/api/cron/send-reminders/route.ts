@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendAutomatedReminders } from '@/features/sms/services/reminder.service';
+import { getAdminContainer } from '@/infrastructure/di';
+import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { CronLogger } from '@/core/utils/cron';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 // ============================================================
 // POST /api/cron/send-reminders - Daily SMS reminder cron job
@@ -7,6 +10,10 @@ import { sendAutomatedReminders } from '@/features/sms/services/reminder.service
 // ============================================================
 
 export async function POST(request: NextRequest) {
+  const supabase = createAdminClient();
+  const logger = new CronLogger(supabase);
+  let logId: string | null = null;
+
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
@@ -23,34 +30,54 @@ export async function POST(request: NextRequest) {
     console.log('🚀 Starting automated reminder cron job...');
     const startTime = Date.now();
 
-    // Send automated reminders
-    const results = await sendAutomatedReminders();
+    // Log cron job start
+    logId = await logger.logStart('send-reminders');
+
+    // Send automated reminders via use case
+    const container = await getAdminContainer();
+    const sendReminders = container.getSendAutomatedRemindersUseCase();
+    const summary = await sendReminders.execute();
 
     const duration = Date.now() - startTime;
 
     console.log(`⏱️  Cron job completed in ${duration}ms`);
 
+    // Log successful completion
+    await logger.logSuccess(logId, {
+      totalSent: summary.totalSent,
+      byType: summary.byType,
+      errors: summary.errors,
+      membersProcessed: summary.membersProcessed,
+      membersSkipped: summary.membersSkipped,
+      duration: `${duration}ms`,
+    });
+
     return NextResponse.json(
-      {
-        success: true,
-        data: {
-          totalSent: results.totalSent,
-          byType: results.byType,
-          errors: results.errors,
-          duration: `${duration}ms`,
-        },
-      },
+      ResponseBuilder.success({
+        totalSent: summary.totalSent,
+        byType: summary.byType,
+        errors: summary.errors,
+        membersProcessed: summary.membersProcessed,
+        membersSkipped: summary.membersSkipped,
+        duration: `${duration}ms`,
+      }),
       { status: 200 }
     );
   } catch (error) {
     console.error('Send reminders cron error:', error);
 
+    // Log failure if we have a log ID
+    if (logId) {
+      await logger.logFailure(logId, [
+        error instanceof Error ? error.message : 'Unknown error',
+      ]);
+    }
+
     return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to send reminders',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      ResponseBuilder.internalError(
+        'Failed to send reminders',
+        error instanceof Error ? error.stack : undefined
+      ),
       { status: 500 }
     );
   }
@@ -68,10 +95,9 @@ export async function GET(_request: NextRequest) {
   // In development, allow GET without auth for easy testing
   console.log('🧪 Manual test: Starting automated reminder cron job...');
 
-  const results = await sendAutomatedReminders();
+  const container = await getAdminContainer();
+  const sendReminders = container.getSendAutomatedRemindersUseCase();
+  const summary = await sendReminders.execute();
 
-  return NextResponse.json({
-    success: true,
-    data: results,
-  });
+  return NextResponse.json(ResponseBuilder.success(summary));
 }

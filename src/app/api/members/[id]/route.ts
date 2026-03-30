@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiGymProfile } from '@/lib/middleware/api-auth';
 import { updateMemberSchema } from '@/features/members/schemas/member.schemas';
-import {
-  getMemberById,
-  updateMember,
-  deleteMember,
-} from '@/features/members/services/member.service';
+import { getContainer } from '@/infrastructure/di';
+import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { NotFoundError } from '@/core/utils/errors';
+import { PlanType } from '@/core/utils/constants/PlanConfig';
 
 // ============================================================
 // GET /api/members/[id] - Get member by ID
@@ -23,27 +22,27 @@ export async function GET(
       return authError;
     }
 
-    const result = await getMemberById(id, gymProfile!.id);
+    // Use repository to get member
+    const container = await getContainer();
+    const memberRepo = container.getMemberRepository();
+    const member = await memberRepo.findById(id, gymProfile!.id);
 
-    return NextResponse.json(
-      {
-        success: true,
-        data: result,
-      },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error('Get member API error:', error);
-
-    if (error instanceof Error && error.message === 'Member not found') {
+    if (!member) {
       return NextResponse.json(
-        { success: false, error: 'Member not found' },
+        ResponseBuilder.notFound('Member not found'),
         { status: 404 }
       );
     }
 
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch member' },
+      ResponseBuilder.success(member.toDatabase()),
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error('Get member API error:', error);
+
+    return NextResponse.json(
+      ResponseBuilder.error('Failed to fetch member', 'FETCH_ERROR'),
       { status: 500 }
     );
   }
@@ -70,35 +69,68 @@ export async function PATCH(
     // Validate input
     const validatedData = updateMemberSchema.parse(body);
 
-    // Update member
-    const member = await updateMember(id, gymProfile!.id, validatedData);
+    // Get member and update via repository
+    const container = await getContainer();
+    const memberRepo = container.getMemberRepository();
+    const member = await memberRepo.findById(id, gymProfile!.id);
+
+    if (!member) {
+      return NextResponse.json(
+        ResponseBuilder.notFound('Member not found'),
+        { status: 404 }
+      );
+    }
+
+    // Apply updates to member entity
+    // NOTE: Status transitions must use dedicated endpoints:
+    // POST /api/members/[id]/suspend
+    // POST /api/members/[id]/activate
+    // POST /api/members/[id]/cancel
+    let updatedMember = member;
+    if (validatedData.name) {
+      updatedMember = updatedMember.updateName(validatedData.name);
+    }
+    if (validatedData.phoneNumber) {
+      updatedMember = updatedMember.updatePhoneNumber(validatedData.phoneNumber);
+    }
+    if (validatedData.planType) {
+      updatedMember = updatedMember.updatePlanType(validatedData.planType as PlanType);
+    }
+    if (validatedData.planAmount !== undefined) {
+      updatedMember = updatedMember.updatePlanAmount(validatedData.planAmount);
+    }
+    if (validatedData.recurringDiscount !== undefined) {
+      updatedMember = updatedMember.updateRecurringDiscount(validatedData.recurringDiscount);
+    }
+    if (validatedData.discountId !== undefined) {
+      updatedMember = updatedMember.updateDiscountId(validatedData.discountId);
+    }
+
+    const saved = await memberRepo.update(updatedMember);
 
     return NextResponse.json(
-      {
-        success: true,
-        data: member,
-      },
+      ResponseBuilder.success(saved.toDatabase()),
       { status: 200 }
     );
   } catch (error) {
     console.error('Update member API error:', error);
 
-    if (error instanceof Error && error.message === 'Member not found') {
+    if (error instanceof NotFoundError) {
       return NextResponse.json(
-        { success: false, error: 'Member not found' },
+        ResponseBuilder.notFound('Member not found'),
         { status: 404 }
       );
     }
 
     if (error instanceof Error && error.name === 'ZodError') {
       return NextResponse.json(
-        { success: false, error: 'Invalid input data' },
+        ResponseBuilder.validationError({ general: ['Invalid input data'] }),
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { success: false, error: 'Failed to update member' },
+      ResponseBuilder.error('Failed to update member', 'UPDATE_ERROR'),
       { status: 500 }
     );
   }
@@ -120,20 +152,20 @@ export async function DELETE(
       return authError;
     }
 
-    await deleteMember(id, gymProfile!.id);
+    // Use repository to delete member
+    const container = await getContainer();
+    const memberRepo = container.getMemberRepository();
+    await memberRepo.delete(id, gymProfile!.id);
 
     return NextResponse.json(
-      {
-        success: true,
-        message: 'Member deleted successfully',
-      },
+      ResponseBuilder.success({ message: 'Member deleted successfully' }),
       { status: 200 }
     );
   } catch (error) {
     console.error('Delete member API error:', error);
 
     return NextResponse.json(
-      { success: false, error: 'Failed to delete member' },
+      ResponseBuilder.error('Failed to delete member', 'DELETE_ERROR'),
       { status: 500 }
     );
   }

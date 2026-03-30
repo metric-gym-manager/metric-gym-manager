@@ -35,16 +35,15 @@ export interface MemberReminderStatus {
   last_reminder_sent: string | null;
   last_reminder_type: SMSType | null;
   last_delivery_status: DeliveryStatus | null;
-  // Individual tracking for each reminder type (Option A)
+  // Timestamp tracking for each reminder type
   reminder_7day_sent: string | null; // Timestamp when 7-day reminder was sent
   reminder_3day_sent: string | null; // Timestamp when 3-day reminder was sent
   due_today_sent: string | null; // Timestamp when due-today reminder was sent
   overdue_sent: string | null; // Timestamp when overdue reminder was sent (most recent)
-  // Boolean flags for fast lookups (Option B)
-  reminder_7day_sent_this_period: boolean;
-  reminder_3day_sent_this_period: boolean;
-  due_today_sent_this_period: boolean;
-  overdue_sent_this_period: boolean;
+  // Error tracking for each reminder type
+  reminder_7day_error: boolean; // True if 7-day reminder delivery failed
+  reminder_3day_error: boolean; // True if 3-day reminder delivery failed
+  due_today_error: boolean; // True if due-today reminder delivery failed
 }
 
 // ============================================================

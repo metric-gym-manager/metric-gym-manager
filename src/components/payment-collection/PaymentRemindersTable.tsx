@@ -27,7 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { CheckCircle2, Clock, AlertCircle, XCircle, History, Info } from 'lucide-react';
+import { CheckCircle2, Clock, AlertCircle, XCircle, History, Info, AlertOctagon } from 'lucide-react';
 import type { ReminderStatusResponse, MemberReminderStatus } from '@/features/sms/types';
 import SMSHistoryModal from './SMSHistoryModal';
 
@@ -92,14 +92,14 @@ export default function PaymentRemindersTable() {
 
   // Get due in text
   const getDueInText = (daysUntilDue: number) => {
-    if (daysUntilDue === 0) {
+    if (daysUntilDue >= 0 && daysUntilDue < 1) {
       return <span className="font-medium text-orange-600">Due today</span>;
     } else if (daysUntilDue > 0) {
-      return <span className="text-gray-600">Due in {daysUntilDue} day{daysUntilDue > 1 ? 's' : ''}</span>;
+      return <span className="text-gray-600">Due in {Math.floor(daysUntilDue)} day{Math.floor(daysUntilDue) > 1 ? 's' : ''}</span>;
     } else {
       return (
         <span className="font-medium text-red-600">
-          Overdue by {Math.abs(daysUntilDue)} day{Math.abs(daysUntilDue) > 1 ? 's' : ''}
+          Overdue by {Math.abs(Math.floor(daysUntilDue))} day{Math.abs(Math.floor(daysUntilDue)) > 1 ? 's' : ''}
         </span>
       );
     }
@@ -108,10 +108,18 @@ export default function PaymentRemindersTable() {
   // Get individual SMS type status (Option A Fix: Use individual tracking fields)
   const getSMSTypeStatus = (
     reminder: MemberReminderStatus,
-    targetDays: number,
+    _targetDays: number,
     expectedType: string
-  ): 'sent' | 'not_sent' | 'not_applicable' => {
-    const { days_until_due, plan_type, reminder_7day_sent, reminder_3day_sent, due_today_sent } = reminder;
+  ): 'sent' | 'not_sent' | 'not_applicable' | 'error' => {
+    const {
+      plan_type,
+      reminder_7day_sent,
+      reminder_3day_sent,
+      due_today_sent,
+      reminder_7day_error,
+      reminder_3day_error,
+      due_today_error
+    } = reminder;
 
     // Daily members: no automatic reminders
     if (plan_type === 'daily') {
@@ -121,6 +129,20 @@ export default function PaymentRemindersTable() {
     // Monthly members: no 7-day reminder
     if (plan_type === 'monthly' && expectedType === 'reminder_7day') {
       return 'not_applicable';
+    }
+
+    // Check for delivery failures (system errors) first
+    let hasError = false;
+    if (expectedType === 'reminder_7day') {
+      hasError = reminder_7day_error;
+    } else if (expectedType === 'reminder_3day') {
+      hasError = reminder_3day_error;
+    } else if (expectedType === 'due_today') {
+      hasError = due_today_error;
+    }
+
+    if (hasError) {
+      return 'error';
     }
 
     // Check if this specific reminder was sent (using individual tracking fields)
@@ -137,21 +159,32 @@ export default function PaymentRemindersTable() {
       return 'sent';
     }
 
-    // If we're past this reminder window and it wasn't sent
-    if (days_until_due < targetDays) {
-      return 'not_sent';
-    }
-
-    // Not yet time for this reminder
-    return 'not_applicable';
+    // For all other cases (not sent yet, either pending or missed)
+    // Return 'not_sent' and let renderSMSStatusBadge distinguish between:
+    // - "Pending" if days_until_due >= targetDays (not yet time)
+    // - "Not Sent" if days_until_due < targetDays (missed the window)
+    return 'not_sent';
   };
 
   // Render SMS status badge with improved labels
   const renderSMSStatusBadge = (
-    status: 'sent' | 'not_sent' | 'not_applicable',
+    status: 'sent' | 'not_sent' | 'not_applicable' | 'error',
     reminder: MemberReminderStatus,
     targetDays: number
   ) => {
+    // Error: System error occurred during SMS delivery
+    if (status === 'error') {
+      return (
+        <div
+          className="flex items-center gap-1.5 text-xs font-medium text-red-600"
+          title="System error occurred. Click 'Send Now' to retry."
+        >
+          <AlertOctagon className="h-3.5 w-3.5" />
+          <span>Error</span>
+        </div>
+      );
+    }
+
     // Disabled: Reminder not applicable for this plan type
     if (status === 'not_applicable') {
       return (
@@ -218,9 +251,9 @@ export default function PaymentRemindersTable() {
   // Determine SMS type for resend
   const getResendSMSType = (daysUntilDue: number): string => {
     if (daysUntilDue < 0) return 'overdue';
-    if (daysUntilDue === 0) return 'due_today';
-    if (daysUntilDue <= 3) return 'reminder_3day';
-    if (daysUntilDue <= 7) return 'reminder_7day';
+    if (daysUntilDue >= 0 && daysUntilDue < 1) return 'due_today';
+    if (daysUntilDue < 4) return 'reminder_3day';
+    if (daysUntilDue < 8) return 'reminder_7day';
     return 'reminder_7day';
   };
 

@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
-import { sendAutomatedReminders } from '@/features/sms/services/reminder.service';
+import { getAdminContainer } from '@/infrastructure/di';
 
 export async function GET() {
   console.log('===== STARTING REMINDER TEST =====');
 
   try {
-    const results = await sendAutomatedReminders();
+    // Use SendAutomatedReminders use case via DI container
+    const container = await getAdminContainer();
+    const sendReminders = container.getSendAutomatedRemindersUseCase();
+    const results = await sendReminders.execute();
 
     console.log('===== REMINDER TEST RESULTS =====');
     console.log(JSON.stringify(results, null, 2));

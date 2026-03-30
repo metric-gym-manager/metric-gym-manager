@@ -29,7 +29,7 @@ describe('Badge Color Utilities', () => {
     it('should have semantic colors for all status types', () => {
       expect(STATUS_BADGE_COLORS.active).toContain('bg-green');
       expect(STATUS_BADGE_COLORS.expired).toContain('bg-red');
-      expect(STATUS_BADGE_COLORS.frozen).toContain('bg-gray');
+      expect(STATUS_BADGE_COLORS.suspended).toContain('bg-yellow');
       expect(STATUS_BADGE_COLORS.cancelled).toContain('bg-orange');
     });
 
@@ -66,7 +66,7 @@ describe('Badge Color Utilities', () => {
     it('should return correct color class for valid status types', () => {
       expect(getStatusBadgeColor('active')).toBe(STATUS_BADGE_COLORS.active);
       expect(getStatusBadgeColor('expired')).toBe(STATUS_BADGE_COLORS.expired);
-      expect(getStatusBadgeColor('frozen')).toBe(STATUS_BADGE_COLORS.frozen);
+      expect(getStatusBadgeColor('suspended')).toBe(STATUS_BADGE_COLORS.suspended);
       expect(getStatusBadgeColor('cancelled')).toBe(STATUS_BADGE_COLORS.cancelled);
     });
 
