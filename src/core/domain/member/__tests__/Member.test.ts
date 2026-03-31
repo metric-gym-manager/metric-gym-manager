@@ -10,7 +10,7 @@
 
 import { Member, MemberStatus, type MemberProps, type CreateMemberProps } from '../Member';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { InvalidStatusTransitionError } from '@/core/utils/errors';
+import { InvalidStatusTransitionError, ValidationError } from '@/core/utils/errors';
 
 describe('Member Domain Entity', () => {
   const validMemberProps: CreateMemberProps = {
@@ -708,6 +708,268 @@ describe('Member Domain Entity', () => {
       // 2. Member returns, resume membership
       const resumed = frozen.activate(new Date('2024-03-01'));
       expect(resumed.status).toBe(MemberStatus.Active);
+    });
+  });
+
+  // ========================================================================
+  // GAP 1 & GAP 3: Comprehensive Test Coverage for renew() Method
+  // ========================================================================
+  describe('renew()', () => {
+    describe('Happy Path', () => {
+      it('should extend due date for active member', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2024-01-15T10:00:00'));
+
+        const activeMember = Member.fromDatabase({
+          ...validMemberProps,
+          id: 'member_123',
+          status: MemberStatus.Active,
+          nextDueDate: new Date('2024-02-01'),
+        } as MemberProps);
+
+        const newDueDate = new Date('2024-03-15');
+        const renewed = activeMember.renew(newDueDate);
+
+        expect(renewed.status).toBe(MemberStatus.Active); // Status unchanged
+        expect(renewed.nextDueDate).toEqual(newDueDate);
+        expect(renewed.id).toBe(activeMember.id); // Same identity
+        expect(renewed).not.toBe(activeMember); // New instance
+
+        jest.useRealTimers();
+      });
+    });
+
+    describe('Status Validation', () => {
+      it('should throw error when renewing expired member', () => {
+        const expiredMember = Member.fromDatabase({
+          ...validMemberProps,
+          id: 'member_123',
+          status: MemberStatus.Expired,
+        } as MemberProps);
+
+        expect(() => {
+          expiredMember.renew(new Date('2024-03-01'));
+        }).toThrow(InvalidStatusTransitionError);
+      });
+
+      it('should throw error when renewing suspended member', () => {
+        const suspendedMember = Member.fromDatabase({
+          ...validMemberProps,
+          id: 'member_123',
+          status: MemberStatus.Suspended,
+        } as MemberProps);
+
+        expect(() => {
+          suspendedMember.renew(new Date('2024-03-01'));
+        }).toThrow(InvalidStatusTransitionError);
+      });
+
+      it('should throw error when renewing cancelled member', () => {
+        const cancelledMember = Member.fromDatabase({
+          ...validMemberProps,
+          id: 'member_123',
+          status: MemberStatus.Cancelled,
+        } as MemberProps);
+
+        expect(() => {
+          cancelledMember.renew(new Date('2024-03-01'));
+        }).toThrow(InvalidStatusTransitionError);
+      });
+    });
+
+    describe('Immutability', () => {
+      it('should not mutate original member when renewing', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2024-01-15T10:00:00'));
+
+        const activeMember = Member.fromDatabase({
+          ...validMemberProps,
+          id: 'member_123',
+          status: MemberStatus.Active,
+          nextDueDate: new Date('2024-02-01'),
+        } as MemberProps);
+
+        const originalDate = activeMember.nextDueDate;
+        const originalStatus = activeMember.status;
+        const renewed = activeMember.renew(new Date('2024-03-15'));
+
+        // Verify original unchanged
+        expect(activeMember.nextDueDate).toEqual(originalDate);
+        expect(activeMember.status).toBe(originalStatus);
+
+        // Verify new instance has changes
+        expect(renewed.nextDueDate).toEqual(new Date('2024-03-15'));
+        expect(renewed.status).toBe(MemberStatus.Active);
+
+        // Verify different instances
+        expect(activeMember).not.toBe(renewed);
+
+        jest.useRealTimers();
+      });
+    });
+
+    describe('Date Validation', () => {
+      it('should throw ValidationError when newDueDate is invalid Date', () => {
+        const activeMember = Member.create({
+          ...validMemberProps,
+          status: MemberStatus.Active,
+        });
+
+        expect(() => {
+          activeMember.renew(new Date('invalid'));
+        }).toThrow(ValidationError);
+
+        expect(() => {
+          activeMember.renew(new Date('invalid'));
+        }).toThrow('newDueDate must be a valid Date object');
+      });
+
+      it('should throw ValidationError when newDueDate is in the past', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2024-02-15T12:00:00'));
+
+        const activeMember = Member.create({
+          ...validMemberProps,
+          status: MemberStatus.Active,
+          nextDueDate: new Date('2024-02-20'),
+        });
+
+        // Try to renew with past date (Feb 10)
+        expect(() => {
+          activeMember.renew(new Date('2024-02-10'));
+        }).toThrow(ValidationError);
+
+        expect(() => {
+          activeMember.renew(new Date('2024-02-10'));
+        }).toThrow('newDueDate must be in the future');
+
+        jest.useRealTimers();
+      });
+
+      it('should throw ValidationError when newDueDate is before current due date', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2024-01-15T10:00:00'));
+
+        const activeMember = Member.create({
+          ...validMemberProps,
+          status: MemberStatus.Active,
+          nextDueDate: new Date('2024-03-01'),
+        });
+
+        // Try to renew with date before current due date (Feb 15)
+        expect(() => {
+          activeMember.renew(new Date('2024-02-15'));
+        }).toThrow(ValidationError);
+
+        expect(() => {
+          activeMember.renew(new Date('2024-02-15'));
+        }).toThrow('newDueDate must be after current due date');
+
+        jest.useRealTimers();
+      });
+
+      it('should accept today as valid renewal date', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2024-02-15T12:00:00'));
+
+        const activeMember = Member.create({
+          ...validMemberProps,
+          status: MemberStatus.Active,
+          nextDueDate: new Date('2024-02-10'), // Past due
+        });
+
+        // Renew with today's date (should work - not "in the past")
+        const renewed = activeMember.renew(new Date('2024-02-15'));
+
+        expect(renewed.nextDueDate).toEqual(new Date('2024-02-15'));
+        expect(renewed.status).toBe(MemberStatus.Active);
+
+        jest.useRealTimers();
+      });
+
+      it('should allow renewing with same date as current due date', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2024-02-15T10:00:00'));
+
+        const currentDueDate = new Date('2024-03-01');
+        const activeMember = Member.create({
+          ...validMemberProps,
+          status: MemberStatus.Active,
+          nextDueDate: currentDueDate,
+        });
+
+        // This might be a no-op, but shouldn't throw
+        const renewed = activeMember.renew(new Date('2024-03-01'));
+
+        expect(renewed.nextDueDate).toEqual(currentDueDate);
+
+        jest.useRealTimers();
+      });
+    });
+
+    describe('Real-World Scenarios', () => {
+      it('Scenario: Active member pays early before due date', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2024-01-15T10:00:00'));
+
+        // Member's current due date is Jan 31
+        const activeMember = Member.create({
+          ...validMemberProps,
+          status: MemberStatus.Active,
+          nextDueDate: new Date('2024-01-31'),
+        });
+
+        expect(activeMember.status).toBe(MemberStatus.Active);
+        expect(activeMember.nextDueDate).toEqual(new Date('2024-01-31'));
+
+        // Member pays early on Jan 15, extends to Feb 15
+        const renewed = activeMember.renew(new Date('2024-02-15'));
+
+        expect(renewed.status).toBe(MemberStatus.Active);
+        expect(renewed.nextDueDate).toEqual(new Date('2024-02-15'));
+        expect(renewed.id).toBe(activeMember.id); // Same member
+
+        jest.useRealTimers();
+      });
+
+      it('Scenario: Active member pays on due date', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2024-01-31T14:30:00'));
+
+        const activeMember = Member.create({
+          ...validMemberProps,
+          status: MemberStatus.Active,
+          nextDueDate: new Date('2024-01-31'),
+        });
+
+        // Pay on due date, extend by 30 days
+        const renewed = activeMember.renew(new Date('2024-02-29'));
+
+        expect(renewed.status).toBe(MemberStatus.Active);
+        expect(renewed.nextDueDate).toEqual(new Date('2024-02-29'));
+
+        jest.useRealTimers();
+      });
+
+      it('Scenario: Active overdue member pays before cron expires them', () => {
+        jest.useFakeTimers();
+        jest.setSystemTime(new Date('2024-02-05T09:00:00'));
+
+        // Member is 5 days overdue but cron hasn't run yet (still Active)
+        const overdueActiveMember = Member.create({
+          ...validMemberProps,
+          status: MemberStatus.Active,
+          nextDueDate: new Date('2024-01-31'), // 5 days ago
+        });
+
+        // Member pays, extends from today forward
+        const renewed = overdueActiveMember.renew(new Date('2024-03-05'));
+
+        expect(renewed.status).toBe(MemberStatus.Active);
+        expect(renewed.nextDueDate).toEqual(new Date('2024-03-05'));
+
+        jest.useRealTimers();
+      });
     });
   });
 });

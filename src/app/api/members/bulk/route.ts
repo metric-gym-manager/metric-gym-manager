@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     } catch (err) {
       if (err instanceof z.ZodError) {
         return NextResponse.json(
-          { success: false, error: 'Invalid input data', details: err.errors },
+          ResponseBuilder.badRequest('Invalid input data', { errors: err.errors }),
           { status: 400 }
         );
       }
@@ -76,28 +76,31 @@ export async function POST(request: NextRequest) {
     const failureCount = results.filter((r) => !r.success).length;
 
     return NextResponse.json(
-      {
-        success: true,
-        data: {
-          results,
-          summary: {
-            total: results.length,
-            succeeded: successCount,
-            failed: failureCount,
-          },
+      ResponseBuilder.success({
+        results,
+        summary: {
+          total: results.length,
+          succeeded: successCount,
+          failed: failureCount,
         },
-      },
+      }),
       { status: 200 }
     );
   } catch (error) {
     console.error('Bulk create members API error:', error);
 
     if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json(
+        ResponseBuilder.unauthorized(),
+        { status: 401 }
+      );
     }
 
     return NextResponse.json(
-      { success: false, error: 'Failed to process bulk registration' },
+      ResponseBuilder.internalError(
+        'Failed to process bulk registration',
+        error instanceof Error ? error.stack : undefined
+      ),
       { status: 500 }
     );
   }

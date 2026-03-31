@@ -2,7 +2,7 @@
 ## Comprehensive Technical Audit & Operational Documentation
 
 **Generated**: 2026-03-26
-**Last Updated**: 2026-03-28 (Phase 5: Observability & Monitoring - Dual-layer architecture with user-facing error tracking and SaaS admin monitoring dashboard completed)
+**Last Updated**: 2026-03-31 (API Response Standardization - Bulk endpoint refactored to use ResponseBuilder utility; comprehensive API pattern documentation added)
 **Architecture**: Clean Architecture (Hexagonal) + Feature-First Organization + Dual-Layer Observability
 **Stack**: Next.js 16 (App Router), TypeScript, Supabase (PostgreSQL), React 19
 
@@ -95,6 +95,8 @@ Early renewal is **not a state transition** but a subscription extension operati
 
 ### Member.renew() Method
 
+**Updated**: 2026-03-30 - Added comprehensive date validation (GAP 3)
+
 ```typescript
 /**
  * Renew member (early renewal)
@@ -105,8 +107,10 @@ Early renewal is **not a state transition** but a subscription extension operati
  * @param newDueDate - The new next due date
  * @returns New Member instance with updated due date (status remains Active)
  * @throws InvalidStatusTransitionError if member is not Active
+ * @throws ValidationError if newDueDate is invalid, in the past, or before current due date
  */
 renew(newDueDate: Date): Member {
+  // Existing status validation
   if (this.props.status !== MemberStatus.Active) {
     throw new InvalidStatusTransitionError(
       this.props.status,
@@ -114,6 +118,30 @@ renew(newDueDate: Date): Member {
     );
   }
 
+  // Date Validation Layer 1: Validate date is a valid Date object
+  if (!(newDueDate instanceof Date) || isNaN(newDueDate.getTime())) {
+    throw new ValidationError('newDueDate must be a valid Date object');
+  }
+
+  // Date Validation Layer 2: Validate date is not in the past (compared to today at 00:00:00)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const newDueDateNormalized = new Date(newDueDate);
+  newDueDateNormalized.setHours(0, 0, 0, 0);
+
+  if (newDueDateNormalized < today) {
+    throw new ValidationError('newDueDate must be in the future');
+  }
+
+  // Date Validation Layer 3: Validate date is not before current due date (prevent backwards renewal)
+  const currentDueDateNormalized = new Date(this.props.nextDueDate);
+  currentDueDateNormalized.setHours(0, 0, 0, 0);
+
+  if (newDueDateNormalized < currentDueDateNormalized) {
+    throw new ValidationError('newDueDate must be after current due date');
+  }
+
+  // Create new instance with updated date
   return new Member({
     ...this.props,
     nextDueDate: newDueDate,
@@ -121,6 +149,33 @@ renew(newDueDate: Date): Member {
   });
 }
 ```
+
+### Date Validation Rules
+
+**Implemented**: 2026-03-30 (addresses GAP 3 from system test)
+
+| Validation | Rule | Error Message | Example |
+|------------|------|---------------|---------|
+| **Valid Date Object** | Must be instance of Date with valid timestamp | `"newDueDate must be a valid Date object"` | ❌ `new Date('invalid')` |
+| **Not in Past** | Must be today or future (compared at 00:00:00) | `"newDueDate must be in the future"` | ❌ `new Date('2024-01-01')` when today is 2024-02-01 |
+| **Not Backwards** | Must be on or after current `nextDueDate` | `"newDueDate must be after current due date"` | ❌ `new Date('2024-02-15')` when current due is 2024-03-01 |
+| **Edge Case: Today** | Today's date is accepted | ✅ Valid | ✅ `new Date()` |
+| **Edge Case: Same Date** | Same as current due date is accepted | ✅ Valid (no-op) | ✅ Same date as `nextDueDate` |
+
+### Test Coverage
+
+**Status**: ✅ **100% Coverage Achieved** (2026-03-30)
+
+**Test File**: `src/core/domain/member/__tests__/Member.test.ts:714-954`
+
+- **13 comprehensive unit tests** covering:
+  - Happy Path (1 test)
+  - Status Validation (3 tests)
+  - Immutability (1 test)
+  - Date Validation (5 tests)
+  - Real-World Scenarios (3 tests)
+- All tests passing ✓
+- Code coverage: 100% for `renew()` method (lines 320-358)
 
 ### Use Cases
 
@@ -2736,6 +2791,72 @@ interface SMSFailure {
 - `.env.example` (added `ADMIN_API_SECRET` and `NEXT_PUBLIC_ADMIN_API_SECRET`)
 
 **Architecture Documentation**: Added Section 2.8 to `.claude/rules/architecture.md` documenting the SaaS Admin Dashboard Pattern
+
+---
+
+### 2026-03-31: API Response Standardization - Bulk Endpoint Fix
+- **Objective**: Enforce consistent API response format across all endpoints using ResponseBuilder utility
+- **Problem**: Bulk member registration endpoint (`/api/members/bulk`) constructed responses manually, violating project's API standardization pattern
+- **Root Cause**: TypeScript strict mode (`noUnusedLocals: true`) caught unused `ResponseBuilder` import during production build
+
+**Build Error**:
+```
+Type error: 'ResponseBuilder' is declared but its value is never read.
+./src/app/api/members/bulk/route.ts:5:1
+```
+
+**Issues Identified**:
+- Manual JSON response construction instead of `ResponseBuilder` methods
+- Missing machine-readable error codes (`VALIDATION_ERROR`, `INTERNAL_ERROR`)
+- Inconsistent response structure compared to other endpoints
+- No structured error details or timestamps
+
+**Changes Made**:
+- **Refactored** validation error response (Line 33):
+  - From: `{ success: false, error: 'Invalid input data', details: err.errors }`
+  - To: `ResponseBuilder.badRequest('Invalid input data', { errors: err.errors })`
+- **Refactored** success response (Line 79):
+  - From: Manual `{ success: true, data: {...} }` object
+  - To: `ResponseBuilder.success({...})`
+- **Refactored** unauthorized response (Line 94):
+  - From: `{ success: false, error: 'Unauthorized' }`
+  - To: `ResponseBuilder.unauthorized()`
+- **Refactored** internal error response (Line 100):
+  - From: `{ success: false, error: 'Failed to process bulk registration' }`
+  - To: `ResponseBuilder.internalError('Failed to process bulk registration', stack)`
+
+**Benefits Achieved**:
+- ✅ Build error resolved - no more unused import warnings
+- ✅ API consistency - bulk endpoint now matches all other endpoints
+- ✅ Structured errors - error codes included (`BAD_REQUEST`, `UNAUTHORIZED`, `INTERNAL_ERROR`)
+- ✅ Better debugging - stack traces included in development mode
+- ✅ Architecture compliance - follows standardized API response pattern
+
+**Documentation Updated**:
+- **Added** new section to `.claude/rules/architecture.md`: "2.3 API Response Standardization Pattern"
+  - Comprehensive guide with ❌ WRONG and ✅ CORRECT examples
+  - Full ResponseBuilder methods table with use cases
+  - Common patterns (authentication, validation, resource lookup, conflicts, bulk operations)
+  - Response format examples (success, pagination, errors, validation errors)
+  - TypeScript integration examples
+  - HTTP status code mapping constants
+  - Build-time validation and code review checklist
+- **Renumbered** all subsequent architecture sections (2.4 → 2.5, 2.5 → 2.6, etc.)
+
+**Files Modified**: 2 total
+- `src/app/api/members/bulk/route.ts` (refactored to use ResponseBuilder)
+- `.claude/rules/architecture.md` (added comprehensive API standardization pattern documentation)
+
+**Impact**:
+- Production builds now succeed
+- All 7 API routes now use ResponseBuilder consistently:
+  - ✅ `members/route.ts`
+  - ✅ `members/[id]/route.ts`
+  - ✅ `members/bulk/route.ts` (fixed)
+  - ✅ `cron/send-reminders/route.ts`
+  - ✅ `cron/update-expired-status/route.ts`
+  - ✅ `cron/cancel-overdue-members/route.ts`
+  - ✅ `cron/expire-suspended-members/route.ts`
 
 ---
 

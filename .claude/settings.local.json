@@ -157,7 +157,10 @@
       "Bash(where:*)",
       "Bash(findstr:*)",
       "Bash(git grep:*)",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "Bash(npm run test:coverage:*)",
+      "Bash(npx eslint:*)",
+      "Bash(timeout 10 cat:*)"
     ]
   },
   "enableAllProjectMcpServers": true,

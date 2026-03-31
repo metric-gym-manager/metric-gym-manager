@@ -93,7 +93,361 @@ type User = z.infer<typeof UserSchema>;
 const user = UserSchema.parse(await getUser());
 ```
 
-### 2.3 Feature-First Architecture
+### 2.3 API Response Standardization Pattern
+
+**CRITICAL RULE**: All API routes MUST use the `ResponseBuilder` utility class for constructing responses to ensure consistency, type safety, and structured error handling across the entire application.
+
+#### ❌ WRONG: Manual Response Construction
+
+```typescript
+// ❌ NEVER construct responses manually
+export async function POST(request: NextRequest) {
+  try {
+    const data = await doSomething();
+
+    // WRONG - Inconsistent success format
+    return NextResponse.json({
+      success: true,
+      data: data,
+    });
+  } catch (error) {
+    // WRONG - Inconsistent error format
+    return NextResponse.json(
+      { success: false, error: 'Something failed' },
+      { status: 500 }
+    );
+  }
+}
+
+// ❌ NEVER use different response structures
+return NextResponse.json(
+  { ok: true, result: data },  // Different structure
+  { status: 200 }
+);
+
+// ❌ NEVER omit error codes
+return NextResponse.json(
+  { success: false, message: 'Invalid input' },  // No error code
+  { status: 400 }
+);
+```
+
+**Problems:**
+- Inconsistent response formats across endpoints
+- Missing machine-readable error codes
+- No structured error details for debugging
+- No timestamp metadata
+- Clients must handle multiple response formats
+
+#### ✅ CORRECT: ResponseBuilder Usage
+
+**Location:** `src/core/utils/api/ApiResponse.ts`
+
+**Step 1: Import ResponseBuilder**
+
+```typescript
+// src/app/api/members/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+```
+
+**Step 2: Use Appropriate Methods**
+
+```typescript
+export async function POST(request: NextRequest) {
+  try {
+    // Validation
+    const body = await request.json();
+    const validated = schema.parse(body);
+
+    // Business logic
+    const result = await createMember(validated);
+
+    // ✅ Success response with data
+    return NextResponse.json(
+      ResponseBuilder.success(result),
+      { status: 201 }
+    );
+  } catch (error) {
+    // ✅ Handle specific error types
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        ResponseBuilder.badRequest('Invalid input data', { errors: error.errors }),
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof Error && error.name === 'ConflictError') {
+      return NextResponse.json(
+        ResponseBuilder.conflict(error.message),
+        { status: 409 }
+      );
+    }
+
+    // ✅ Catch-all with stack trace (dev only)
+    return NextResponse.json(
+      ResponseBuilder.internalError(
+        'Failed to create member',
+        error instanceof Error ? error.stack : undefined
+      ),
+      { status: 500 }
+    );
+  }
+}
+```
+
+#### Available ResponseBuilder Methods
+
+| Method | Purpose | Error Code | HTTP Status | Example Use Case |
+|--------|---------|------------|-------------|------------------|
+| `success(data, meta?)` | Successful operation | N/A | 200/201 | Return data with optional pagination |
+| `error(message, code, details?, stack?)` | Generic error | Custom | Any | Custom error scenarios |
+| `validationError(errors)` | Input validation failed | `VALIDATION_ERROR` | 400 | Zod/form validation failures |
+| `badRequest(message, details?)` | Invalid request | `BAD_REQUEST` | 400 | Business rule violations |
+| `unauthorized(message?)` | Authentication failed | `UNAUTHORIZED` | 401 | Missing/invalid JWT token |
+| `forbidden(message?)` | Authorization failed | `FORBIDDEN` | 403 | Insufficient permissions |
+| `notFound(resource)` | Resource not found | `NOT_FOUND` | 404 | Member/Payment not found |
+| `conflict(message, details?)` | Resource conflict | `CONFLICT` | 409 | Duplicate phone number |
+| `internalError(message?, stack?)` | Server error | `INTERNAL_ERROR` | 500 | Unhandled exceptions |
+
+#### Response Format Examples
+
+**Success Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "uuid-123",
+    "name": "John Doe",
+    "status": "active"
+  },
+  "meta": {
+    "timestamp": "2026-03-31T10:30:00Z"
+  }
+}
+```
+
+**Success with Pagination:**
+```json
+{
+  "success": true,
+  "data": {
+    "members": [...],
+    "totalCount": 150
+  },
+  "meta": {
+    "page": 1,
+    "totalPages": 8,
+    "totalCount": 150,
+    "limit": 20,
+    "timestamp": "2026-03-31T10:30:00Z"
+  }
+}
+```
+
+**Error Response:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Member not found",
+    "code": "NOT_FOUND"
+  }
+}
+```
+
+**Validation Error Response:**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Validation failed",
+    "code": "VALIDATION_ERROR",
+    "details": {
+      "errors": {
+        "email": ["Invalid email format"],
+        "name": ["Name must be at least 2 characters"]
+      }
+    }
+  }
+}
+```
+
+**Internal Error Response (Development):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Failed to create member",
+    "code": "INTERNAL_ERROR",
+    "stack": "Error: ...\n    at ..."
+  }
+}
+```
+
+**Note:** `stack` field only included when `NODE_ENV === 'development'`
+
+#### Common Patterns
+
+**Pattern 1: Authentication Check**
+```typescript
+export async function GET(request: NextRequest) {
+  const gymProfile = await getCurrentGymProfile();
+
+  if (!gymProfile) {
+    return NextResponse.json(
+      ResponseBuilder.unauthorized(),
+      { status: 401 }
+    );
+  }
+
+  // Continue with authenticated logic
+}
+```
+
+**Pattern 2: Zod Validation**
+```typescript
+try {
+  const validated = schema.parse(body);
+} catch (err) {
+  if (err instanceof z.ZodError) {
+    return NextResponse.json(
+      ResponseBuilder.badRequest('Invalid input data', { errors: err.errors }),
+      { status: 400 }
+    );
+  }
+  throw err;
+}
+```
+
+**Pattern 3: Resource Lookup**
+```typescript
+const member = await memberRepo.findById(id);
+
+if (!member) {
+  return NextResponse.json(
+    ResponseBuilder.notFound('Member'),
+    { status: 404 }
+  );
+}
+```
+
+**Pattern 4: Conflict Detection**
+```typescript
+const existing = await memberRepo.findByPhoneNumber(phoneNumber);
+
+if (existing) {
+  return NextResponse.json(
+    ResponseBuilder.conflict('Phone number already registered', {
+      phoneNumber,
+      existingMemberId: existing.id
+    }),
+    { status: 409 }
+  );
+}
+```
+
+**Pattern 5: Bulk Operations**
+```typescript
+return NextResponse.json(
+  ResponseBuilder.success({
+    results: bulkResults,
+    summary: {
+      total: results.length,
+      succeeded: successCount,
+      failed: failureCount
+    }
+  }),
+  { status: 200 }
+);
+```
+
+#### Benefits of This Pattern
+
+1. **Consistency**: All endpoints return identical response structures
+2. **Type Safety**: TypeScript enforces correct response types
+3. **Machine-Readable Errors**: Error codes (`VALIDATION_ERROR`, `NOT_FOUND`) enable client-side error handling
+4. **Debugging Support**: Stack traces included in development mode
+5. **API Documentation**: Predictable response formats simplify API docs
+6. **Client Integration**: Frontend can use a single response handler for all endpoints
+7. **Testing**: Consistent structure makes testing easier
+8. **Maintainability**: Centralized response logic reduces duplication
+
+#### TypeScript Integration
+
+```typescript
+// Client-side types automatically inferred
+import type { ApiResponse } from '@/core/utils/api/ApiResponse';
+
+// Type-safe response handling
+const response: ApiResponse<Member> = await fetch('/api/members/123').then(r => r.json());
+
+if (response.success) {
+  console.log(response.data.name);  // ✅ Type-safe access
+} else {
+  console.error(response.error.code);  // ✅ Type-safe error handling
+}
+```
+
+#### HTTP Status Code Mapping
+
+Use the provided `HTTP_STATUS` constants for consistency:
+
+```typescript
+import { ResponseBuilder, HTTP_STATUS } from '@/core/utils/api/ApiResponse';
+
+return NextResponse.json(
+  ResponseBuilder.success(data),
+  { status: HTTP_STATUS.CREATED }  // 201
+);
+```
+
+Available constants:
+- `HTTP_STATUS.OK` → 200
+- `HTTP_STATUS.CREATED` → 201
+- `HTTP_STATUS.NO_CONTENT` → 204
+- `HTTP_STATUS.BAD_REQUEST` → 400
+- `HTTP_STATUS.UNAUTHORIZED` → 401
+- `HTTP_STATUS.FORBIDDEN` → 403
+- `HTTP_STATUS.NOT_FOUND` → 404
+- `HTTP_STATUS.CONFLICT` → 409
+- `HTTP_STATUS.UNPROCESSABLE_ENTITY` → 422
+- `HTTP_STATUS.INTERNAL_SERVER_ERROR` → 500
+
+#### When to Use This Pattern
+
+- ✅ All Next.js API routes (`/api/*`)
+- ✅ Cron job endpoints (`/api/cron/*`)
+- ✅ Admin API endpoints (`/api/admin/*`)
+- ✅ Any endpoint returning JSON data
+- ✅ Webhook handlers
+
+#### When NOT to Use This Pattern
+
+- ❌ Server Components (use direct rendering, not JSON responses)
+- ❌ Middleware (uses different response patterns)
+- ❌ Static file serving
+- ❌ Redirects (use `NextResponse.redirect()`)
+- ❌ Streaming responses
+
+#### Enforcement
+
+**Build-Time Validation:**
+- TypeScript strict mode (`noUnusedLocals: true`) catches unused imports
+- Type checking ensures correct usage of response methods
+
+**Code Review Checklist:**
+- [ ] All API routes import `ResponseBuilder`
+- [ ] No manual response construction (`{ success: true, data: ... }`)
+- [ ] Error responses include error codes
+- [ ] Validation errors use `badRequest()` or `validationError()`
+- [ ] Auth errors use `unauthorized()` or `forbidden()`
+- [ ] Resource not found uses `notFound()`
+- [ ] Generic errors use `internalError()` with stack traces
+
+---
+
+### 2.4 Feature-First Architecture
 
 Organize by domain, not by layer:
 ```
@@ -109,7 +463,7 @@ Organize by domain, not by layer:
     ...
 Rule: A feature folder should be deletable without breaking other features.
 
-### 2.4 State Machine Enforcement Pattern
+### 2.5 State Machine Enforcement Pattern
 
 **CRITICAL RULE**: All entity state transitions MUST be enforced through dedicated operational endpoints, NOT through generic update endpoints.
 
@@ -257,7 +611,7 @@ export const updateMemberSchema = z.object({
 
 ---
 
-### 2.4.1 Early Renewal Pattern (Non-Transition Operations)
+### 2.5.1 Early Renewal Pattern (Non-Transition Operations)
 
 **CRITICAL RULE**: When a state machine entity requires operations that update properties WITHOUT changing state, implement dedicated domain methods separate from state transition methods.
 
@@ -281,7 +635,7 @@ export class CollectPayment {
 
 #### ✅ CORRECT: Separate Renewal Method for Non-Transition Operations
 
-**Step 1: Add Dedicated Domain Method**
+**Step 1: Add Dedicated Domain Method with Date Validation**
 
 ```typescript
 // src/core/domain/member/Member.ts
@@ -305,14 +659,41 @@ export class Member {
    * Renew member (non-transition operation)
    *
    * Extends subscription for already active members.
+   *
+   * @throws ValidationError if newDueDate is invalid, in the past, or before current due date
    */
   renew(newDueDate: Date): Member {
+    // Status validation
     if (this.props.status !== MemberStatus.Active) {
       throw new InvalidStatusTransitionError(
         this.props.status,
         MemberStatus.Active
       );
     }
+
+    // Date Validation Layer 1: Validate date is a valid Date object
+    if (!(newDueDate instanceof Date) || isNaN(newDueDate.getTime())) {
+      throw new ValidationError('newDueDate must be a valid Date object');
+    }
+
+    // Date Validation Layer 2: Validate date is not in the past (compared to today at 00:00:00)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const newDueDateNormalized = new Date(newDueDate);
+    newDueDateNormalized.setHours(0, 0, 0, 0);
+
+    if (newDueDateNormalized < today) {
+      throw new ValidationError('newDueDate must be in the future');
+    }
+
+    // Date Validation Layer 3: Validate date is not before current due date (prevent backwards renewal)
+    const currentDueDateNormalized = new Date(this.props.nextDueDate);
+    currentDueDateNormalized.setHours(0, 0, 0, 0);
+
+    if (newDueDateNormalized < currentDueDateNormalized) {
+      throw new ValidationError('newDueDate must be after current due date');
+    }
+
     return new Member({
       ...this.props,
       nextDueDate: newDueDate,  // Only update date, status unchanged
@@ -321,6 +702,31 @@ export class Member {
   }
 }
 ```
+
+**Date Validation Requirements** (Added 2026-03-30):
+
+All `renew()` implementations MUST enforce these validations:
+
+1. **Valid Date Object**: Reject `new Date('invalid')` or corrupted Date instances
+2. **No Past Dates**: Reject dates before today (normalized to 00:00:00)
+3. **No Backwards Renewals**: Reject dates before current `nextDueDate` (prevents data corruption)
+4. **Edge Cases**: Accept today's date and same-as-current date (no-op renewal)
+
+**Test Coverage Requirement**: 100% branch coverage required for `renew()` method including all validation paths.
+
+**Import Requirement**: Must import `ValidationError` from domain errors:
+
+```typescript
+import {
+  InvalidStatusTransitionError,
+  ValidationError,
+} from '@/core/utils/errors';
+```
+
+**Implementation Status**: ✅ Completed 2026-03-30
+- Date validation fully implemented in `Member.ts:320-358`
+- 13 comprehensive tests added with 100% coverage
+- All validation layers tested including edge cases
 
 **Step 2: Implement Conditional Logic in Use Case**
 
@@ -345,7 +751,7 @@ export class CollectPayment {
 
 ```typescript
 // src/app/api/members/[id]/payment/route.ts
-import { InvalidStatusTransitionError } from '@/core/utils/errors';
+import { InvalidStatusTransitionError, ValidationError } from '@/core/utils/errors';
 
 export async function POST(request: NextRequest) {
   try {
@@ -354,6 +760,13 @@ export async function POST(request: NextRequest) {
     if (error instanceof InvalidStatusTransitionError) {
       return NextResponse.json(
         ResponseBuilder.error(error.message, 'INVALID_STATUS_TRANSITION'),
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        ResponseBuilder.error(error.message, 'VALIDATION_ERROR'),
         { status: 400 }
       );
     }
@@ -393,7 +806,7 @@ export async function POST(request: NextRequest) {
 
 ---
 
-### 2.5 Cron Job Error Persistence Pattern
+### 2.6 Cron Job Error Persistence Pattern
 
 **CRITICAL RULE**: All scheduled cron jobs MUST persist execution results to a database audit log for debugging, monitoring, and historical analysis.
 
@@ -699,7 +1112,7 @@ ORDER BY avg_duration_seconds DESC;
 
 ---
 
-### 2.6 SMS Error Logging Pattern
+### 2.7 SMS Error Logging Pattern
 
 **CRITICAL RULE**: All SMS sending operations MUST log both success and failure outcomes to the database to eliminate silent failures and provide complete audit trails.
 
@@ -921,7 +1334,7 @@ ORDER BY s.sent_at DESC;
 
 ---
 
-### 2.7 User-Facing Error Tracking Pattern
+### 2.8 User-Facing Error Tracking Pattern
 
 **CRITICAL RULE**: When displaying SMS delivery status to end users (gym managers), you MUST differentiate between pending operations and system errors while sanitizing technical error details.
 
@@ -1171,7 +1584,7 @@ interface SMSLog {
 
 ---
 
-### 2.8 SaaS Admin Dashboard Pattern
+### 2.9 SaaS Admin Dashboard Pattern
 
 **CRITICAL RULE**: SaaS platforms MUST provide a separate, protected technical dashboard for system administrators to monitor infrastructure health and debug production issues.
 

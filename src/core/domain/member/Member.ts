@@ -12,7 +12,7 @@ import { randomUUID } from 'crypto';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberStatus, canTransition } from '@/core/utils/constants/StatusConfig';
 import { getDaysUntilDue } from '@/core/utils/date/getDaysUntilDue';
-import { InvalidStatusTransitionError } from '@/core/utils/errors';
+import { InvalidStatusTransitionError, ValidationError } from '@/core/utils/errors';
 
 // Re-export MemberStatus for consumers
 export { MemberStatus } from '@/core/utils/constants/StatusConfig';
@@ -318,6 +318,7 @@ export class Member {
    * const renewed = member.renew(new Date('2024-02-15'));
    */
   renew(newDueDate: Date): Member {
+    // Existing status validation
     if (this.props.status !== MemberStatus.Active) {
       throw new InvalidStatusTransitionError(
         this.props.status,
@@ -325,6 +326,30 @@ export class Member {
       );
     }
 
+    // NEW: Validate date is a valid Date object
+    if (!(newDueDate instanceof Date) || isNaN(newDueDate.getTime())) {
+      throw new ValidationError('newDueDate must be a valid Date object');
+    }
+
+    // NEW: Validate date is not in the past (compared to today at 00:00:00)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const newDueDateNormalized = new Date(newDueDate);
+    newDueDateNormalized.setHours(0, 0, 0, 0);
+
+    if (newDueDateNormalized < today) {
+      throw new ValidationError('newDueDate must be in the future');
+    }
+
+    // NEW: Validate date is not before current due date (prevent backwards renewal)
+    const currentDueDateNormalized = new Date(this.props.nextDueDate);
+    currentDueDateNormalized.setHours(0, 0, 0, 0);
+
+    if (newDueDateNormalized < currentDueDateNormalized) {
+      throw new ValidationError('newDueDate must be after current due date');
+    }
+
+    // Create new instance with updated date
     return new Member({
       ...this.props,
       nextDueDate: newDueDate,
