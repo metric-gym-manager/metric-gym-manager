@@ -81,7 +81,6 @@ export async function POST(request: NextRequest) {
     // Get discount info if applicable
     let discount = null;
     if (validatedData.discountId) {
-      const container = await getContainer();
       const supabase = (await import('@/lib/supabase/server')).createClient();
       const { data: discountData } = await (await supabase)
         .from('discounts')

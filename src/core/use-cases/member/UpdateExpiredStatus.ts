@@ -16,7 +16,6 @@
 
 import { Member } from '@/core/domain/member/Member';
 import { IMemberRepository } from '@/core/ports/repositories';
-import { MemberStatus } from '@/core/utils/constants/StatusConfig';
 
 /**
  * Summary of status updates

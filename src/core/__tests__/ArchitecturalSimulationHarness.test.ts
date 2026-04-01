@@ -18,13 +18,6 @@ import { Member, CreateMemberProps } from '@/core/domain/member/Member';
 // SIMULATION HARNESS UTILITIES
 // ============================================================
 
-interface TestVector {
-  id: string;
-  description: string;
-  expected: 'PASS' | 'FAIL';
-  expectedBehavior: string;
-}
-
 interface TestResult {
   vector: string;
   status: 'PASS' | 'FAIL';
@@ -258,9 +251,6 @@ describe('PHASE 1: Temporal Boundary Simulation (Cron Idempotency)', () => {
         },
       ];
 
-      // First execution: No logs exist for this reminder type
-      const firstExecutionWouldSend = mockSmsLogs.length === 0;
-
       // Second execution: Log exists from earlier today, so should NOT send
       const logExistsToday = mockSmsLogs.some(
         (log) => log.sms_type === 'reminder_7day' &&
@@ -447,33 +437,6 @@ describe('PHASE 3: State Machine Inviolability', () => {
     });
   });
 
-  describe('Vector 3C: Expired → Frozen (Invalid Transition)', () => {
-    it('should REJECT expired → frozen transition', () => {
-      const expiredMember = createTestMember(MemberStatus.Expired);
-
-      let transitionFailed = false;
-      let errorMessage = '';
-
-      try {
-        expiredMember.freeze();
-      } catch (error) {
-        transitionFailed = true;
-        errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      }
-
-      recordResult({
-        vector: 'Vector 3C (Expired → Frozen)',
-        status: transitionFailed ? 'PASS' : 'FAIL',
-        message: transitionFailed
-          ? `Correctly rejected (${errorMessage})`
-          : 'ERROR: Invalid transition was allowed',
-        actualBehavior: transitionFailed ? 'Transition rejected by state machine' : 'Transition allowed',
-        expectedBehavior: 'Rejection/Exception (invalid transition)',
-      });
-
-      expect(transitionFailed).toBe(true);
-    });
-  });
 
   describe('Vector 3D: Expired → Active (Valid Transition)', () => {
     it('should ALLOW expired → active transition (reactivation)', () => {
@@ -652,40 +615,5 @@ describe('PHASE 4: Schema & Rule Configuration Binding', () => {
       expect(allSupported).toBe(true);
     });
 
-    it('should verify frozen status is supported', () => {
-      let frozenSupported = false;
-
-      try {
-        const props: CreateMemberProps = {
-          gymId: 'gym-123',
-          name: 'Test',
-          phoneNumber: '+94771234567',
-          planType: PlanType.Monthly,
-          planAmount: 5000,
-          discountId: null,
-          recurringDiscount: false,
-          status: MemberStatus.Active,
-          membershipStartDate: new Date(),
-          nextDueDate: new Date(),
-        };
-        const member = Member.create(props);
-        const frozenMember = member.freeze();
-        frozenSupported = frozenMember.status === MemberStatus.Frozen;
-      } catch {
-        frozenSupported = false;
-      }
-
-      recordResult({
-        vector: 'Bonus (Frozen status ENUM)',
-        status: frozenSupported ? 'PASS' : 'FAIL',
-        message: frozenSupported
-          ? 'Frozen status validated successfully'
-          : 'ERROR: Frozen status not supported',
-        actualBehavior: `Frozen status supported=${frozenSupported}`,
-        expectedBehavior: 'Frozen status accepted as valid member status',
-      });
-
-      expect(frozenSupported).toBe(true);
-    });
   });
 });

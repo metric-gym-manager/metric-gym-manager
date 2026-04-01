@@ -116,11 +116,8 @@ function addYearsSafe(date: Date, years: number): Date {
 export function calculateNextDueDate(
   startDate: Date,
   planType: PlanType | string,
-  options: CalculateNextDueDateOptions = {}
+  _options: CalculateNextDueDateOptions = {}
 ): Date {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { deductOverduePeriod = true } = options;
-
   // Get plan configuration
   const config = PLAN_CONFIGS[planType as PlanType];
 

@@ -21,7 +21,7 @@ import { ISMSProvider } from '@/core/ports/services';
 import { getDaysUntilDue } from '@/core/utils/date';
 import { formatDateForDisplay } from '@/core/utils/date';
 import { shouldSendReminder } from '@/core/utils/constants/ReminderConfig';
-import { SMSDeliveryStatus, type CreateSMSLogProps } from '@/core/ports/repositories/ISMSRepository';
+import { SMSDeliveryStatus } from '@/core/ports/repositories/ISMSRepository';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 
 /**
@@ -200,7 +200,7 @@ export class SendAutomatedReminders {
     }
 
     // Send reminder
-    await this.sendReminder(member, smsType, daysUntilDue);
+    await this.sendReminder(member, smsType);
 
     // Update summary
     summary.totalSent++;
@@ -235,16 +235,14 @@ export class SendAutomatedReminders {
    *
    * @param member - Member to send reminder to
    * @param smsType - Type of reminder
-   * @param daysUntilDue - Days until payment is due
    */
   private async sendReminder(
     member: Member,
-    smsType: ReminderSMSType,
-    daysUntilDue: number
+    smsType: ReminderSMSType
   ): Promise<void> {
     try {
       // Generate reminder message
-      const message = this.generateReminderMessage(member, smsType, daysUntilDue);
+      const message = this.generateReminderMessage(member, smsType);
 
       // Send SMS
       const result = await this.smsProvider.send({
@@ -279,13 +277,11 @@ export class SendAutomatedReminders {
    *
    * @param member - Member receiving reminder
    * @param smsType - Type of reminder
-   * @param daysUntilDue - Days until payment is due
    * @returns SMS message body
    */
   private generateReminderMessage(
     member: Member,
-    smsType: ReminderSMSType,
-    daysUntilDue: number
+    smsType: ReminderSMSType
   ): string {
     const planType = this.formatPlanType(member.planType);
     const dueDate = formatDateForDisplay(member.nextDueDate);

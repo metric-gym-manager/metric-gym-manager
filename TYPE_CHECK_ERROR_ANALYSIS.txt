@@ -1,0 +1,530 @@
+# TypeScript Type Check Error Analysis
+**Generated**: 2026-04-01
+**Total Errors**: 35
+
+## Executive Summary
+
+This document provides a comprehensive analysis of all TypeScript compilation errors discovered after fixing the MemberStatus enum type mismatch. The errors are grouped into 6 logical categories based on their root cause and impact.
+
+**Key Findings**:
+- 🔴 **11 Critical Errors** (Broken functionality): Frozen status migration, type mismatches, missing properties
+- 🟡 **18 Warning-Level Errors** (Code quality): Unused variables/imports
+- 🟢 **6 Test-Specific Errors** (Non-blocking): Missing test mocks
+
+**Priority Recommendations**:
+1. **HIGH PRIORITY**: Fix frozen status references in tests (prevents test suite from running)
+2. **MEDIUM PRIORITY**: Fix type mismatches and missing properties (potential runtime errors)
+3. **LOW PRIORITY**: Clean up unused variables (code quality improvement)
+
+---
+
+## Error Categories
+
+### Category 1: Frozen Status Migration Issues (11 errors)
+**Severity**: 🔴 **CRITICAL** - Prevents test suite execution
+**Root Cause**: Frozen status was removed on 2026-03-26 but tests still reference it
+**Impact**: Test files cannot compile, blocking CI/CD pipeline
+
+#### Affected Files and Errors
+
+**File**: `src/core/__tests__/ArchitecturalSimulationHarness.test.ts`
+```
+Line 458, Col 23: error TS2339: Property 'freeze' does not exist on type 'Member'.
+Line 672, Col 37: error TS2339: Property 'freeze' does not exist on type 'Member'.
+Line 673, Col 64: error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+```
+
+**File**: `src/core/domain/member/__tests__/Member.test.ts`
+```
+Line 132, Col 32: error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+Line 196, Col 32: error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+Line 246, Col 32: error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+Line 287, Col 43: error TS2339: Property 'freeze' does not exist on type 'Member'.
+Line 289, Col 55: error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+Line 300, Col 25: error TS2339: Property 'freeze' does not exist on type 'Member'.
+Line 415, Col 82: error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+Line 705, Col 29: error TS2339: Property 'freeze' does not exist on type 'Member'.
+Line 706, Col 47: error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+```
+
+#### Context
+On 2026-03-26, the `frozen` status was removed from the member status state machine and replaced with `suspended`. According to SYSTEM_MANUAL.md:
+- Frozen status enum value removed from MemberStatus
+- `member.freeze()` method removed from Member entity
+- All frozen members migrated to suspended status
+- State machine transitions reduced from 11 to 7
+
+#### What Needs to Change
+1. **Replace** `MemberStatus.Frozen` → `MemberStatus.Suspended`
+2. **Replace** `member.freeze()` → `member.suspend()`
+3. **Update** test assertions to expect 'suspended' instead of 'frozen'
+4. **Update** state transition tests to reflect new 7-transition matrix
+
+#### Example Fix
+```typescript
+// ❌ BEFORE (Broken)
+const frozen = member.freeze();
+expect(frozen.status).toBe(MemberStatus.Frozen);
+
+// ✅ AFTER (Fixed)
+const suspended = member.suspend();
+expect(suspended.status).toBe(MemberStatus.Suspended);
+```
+
+---
+
+### Category 2: Unused Variables/Imports (9 errors)
+**Severity**: 🟡 **WARNING** - Code quality issue, doesn't break functionality
+**Root Cause**: Variables/imports declared but never used
+**Impact**: Increases bundle size, reduces code readability
+
+#### Affected Files
+
+| File | Line | Error Code | Variable Name | Type |
+|------|------|-----------|---------------|------|
+| `src/app/api/members/route.ts` | 84 | TS6133 | `container` | Variable |
+| `src/core/__tests__/ArchitecturalSimulationHarness.test.ts` | 21 | TS6196 | `TestVector` | Type |
+| `src/core/__tests__/ArchitecturalSimulationHarness.test.ts` | 262 | TS6133 | `firstExecutionWouldSend` | Variable |
+| `src/core/use-cases/member/CancelOverdueMembers.ts` | 19 | TS6133 | `MemberStatus` | Import |
+| `src/core/use-cases/member/UpdateExpiredStatus.ts` | 19 | TS6133 | `MemberStatus` | Import |
+| `src/core/use-cases/reminder/SendAutomatedReminders.ts` | 24 | TS6133 | `CreateSMSLogProps` | Import |
+| `src/core/use-cases/reminder/SendAutomatedReminders.ts` | 288 | TS6133 | `daysUntilDue` | Variable |
+| `src/core/utils/date/calculateNextDueDate.ts` | 122 | TS6133 | `deductOverduePeriod` | Variable |
+
+**Total**: 9 unused variable/import errors
+
+#### Recommended Action
+**Option 1**: Remove unused imports/variables (safest)
+**Option 2**: Prefix with underscore if intentionally unused: `_container`, `_TestVector`
+**Option 3**: Disable rule for specific lines with `// @ts-ignore` (not recommended)
+
+#### Example Fixes
+```typescript
+// ❌ BEFORE
+import { MemberStatus } from '@/core/utils/constants/StatusConfig';  // Imported but never used
+
+// ✅ AFTER (Option 1: Remove)
+// (Remove entire line)
+
+// ✅ AFTER (Option 2: Indicate intentionally unused)
+import type { MemberStatus } from '@/core/utils/constants/StatusConfig';  // Type-only import
+```
+
+---
+
+### Category 3: Test Mock Issues (6 errors)
+**Severity**: 🟢 **LOW** - Test-specific, doesn't affect production code
+**Root Cause**: Mock variable `mockCreateMember` not defined
+**Impact**: Test file cannot compile
+
+#### Affected File
+**File**: `src/app/api/members/__tests__/route.test.ts`
+
+```
+Line 109, Col 5:  error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+Line 121, Col 12: error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+Line 171, Col 5:  error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+Line 215, Col 5:  error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+Line 260, Col 5:  error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+Line 349, Col 5:  error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+```
+
+**Total**: 6 instances of missing mock
+
+#### Analysis
+The test file references `mockCreateMember` but this mock is never declared. TypeScript suggests using `createdMember` instead, which likely exists.
+
+#### Recommended Fix
+**Option 1**: Rename references to existing variable
+```typescript
+// ❌ BEFORE
+mockCreateMember.mockResolvedValueOnce(member);
+
+// ✅ AFTER
+createdMember.mockResolvedValueOnce(member);
+```
+
+**Option 2**: Create the missing mock
+```typescript
+const mockCreateMember = vi.fn();
+```
+
+---
+
+### Category 4: Property Name Mismatch - `registeredDate` (3 errors)
+**Severity**: 🔴 **CRITICAL** - Type mismatch causing runtime errors
+**Root Cause**: Domain entity uses different property name than expected
+**Impact**: Object creation fails at runtime
+
+#### Affected Files
+
+**File**: `src/core/use-cases/member/RegisterMember.ts`
+```
+Line 172, Col 7: error TS2353: Object literal may only specify known properties, and 'registeredDate' does not exist in type 'CreateMemberProps'.
+```
+
+**File**: `src/infrastructure/database/repositories/SupabaseMemberRepository.ts`
+```
+Line 485, Col 7:  error TS2353: Object literal may only specify known properties, and 'registeredDate' does not exist in type 'MemberProps'.
+Line 514, Col 30: error TS2339: Property 'registeredDate' does not exist on type 'MemberProps'.
+```
+
+#### Root Cause Analysis
+
+**Domain Entity** (`src/core/domain/member/Member.ts:23-37`):
+```typescript
+export interface MemberProps {
+  id: string;
+  gymId: string;
+  name: string;
+  phoneNumber: string;
+  planType: PlanType;
+  planAmount: number;
+  discountId: string | null;
+  recurringDiscount: boolean;
+  status: MemberStatus;
+  membershipStartDate: Date;  // ✅ Correct property name
+  nextDueDate: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  // ❌ NO registeredDate property
+}
+```
+
+**Database Schema** (`src/features/members/types/index.ts:8-23`):
+```typescript
+export interface Member {
+  id: string;
+  gym_id: string;
+  name: string;
+  phone_number: string;
+  plan_type: MemberPlanType;
+  plan_amount: number;
+  discount_id: string | null;
+  recurring_discount: boolean;
+  status: MemberStatus;
+  registered_date: string;        // ⚠️ Database has this field
+  membership_start_date: string;  // ⚠️ Database has this field
+  next_due_date: string;
+  created_at: string;
+  updated_at: string;
+}
+```
+
+#### The Problem
+1. **Database** has TWO date fields: `registered_date` AND `membership_start_date`
+2. **Domain entity** only has ONE date field: `membershipStartDate`
+3. Code tries to set `registeredDate` on domain entity, which doesn't exist
+
+#### Resolution Options
+
+**Option 1**: Add `registeredDate` to domain entity (RECOMMENDED)
+```typescript
+export interface MemberProps {
+  // ... existing fields
+  registeredDate: Date;         // ✅ Add this field
+  membershipStartDate: Date;
+  nextDueDate: Date;
+  // ... rest
+}
+```
+
+**Option 2**: Remove `registered_date` from database and use only `membership_start_date`
+- Requires database migration
+- May break existing queries
+- Not recommended if `registered_date` serves different business purpose
+
+**Option 3**: Map property names in repository layer
+```typescript
+// In repository
+return new Member({
+  // ... other props
+  membershipStartDate: dbRow.registered_date,  // Map database field to domain property
+});
+```
+
+#### Recommended Approach
+**Use Option 1** - Add `registeredDate` to domain entity if both dates serve different purposes:
+- `registeredDate`: When member first signed up (never changes)
+- `membershipStartDate`: When current membership period started (changes on renewal)
+
+If they're the same, use **Option 2** or **Option 3**.
+
+---
+
+### Category 5: Function Signature Mismatches (2 errors)
+**Severity**: 🔴 **CRITICAL** - Wrong number of arguments
+**Root Cause**: Function called with incorrect number of parameters
+**Impact**: Runtime errors, function calls fail
+
+#### Affected Files
+
+**File**: `src/core/use-cases/payment/CollectPayment.ts`
+```
+Line 149, Col 41: error TS2554: Expected 1 arguments, but got 2.
+```
+
+**File**: `src/infrastructure/database/repositories/SupabaseMemberRepository.ts`
+```
+Line 331, Col 41: error TS2554: Expected 1 arguments, but got 2.
+```
+
+#### Analysis Needed
+Need to inspect the actual function calls to determine:
+1. What function is being called?
+2. What is the expected signature?
+3. What arguments are being passed?
+
+**Action Required**: Read the specific lines to diagnose the issue.
+
+---
+
+### Category 6: Type Incompatibility Issues (3 errors)
+**Severity**: 🔴 **CRITICAL** - Type mismatches
+**Root Cause**: Various type compatibility issues
+**Impact**: Type safety violations, potential runtime errors
+
+#### Error 1: Missing PlanType.Custom in Record
+
+**File**: `src/infrastructure/database/repositories/SupabaseMemberRepository.ts`
+```
+Line 420, Col 11: error TS2741: Property '[PlanType.Custom]' is missing in type '{ daily: number; weekly: number; monthly: number; "3-months": number; "6-months": number; annual: number; }' but required in type 'Record<PlanType, number>'.
+```
+
+**Analysis**:
+The code defines a `Record<PlanType, number>` but omits the `PlanType.Custom` key.
+
+**Fix**:
+```typescript
+// ❌ BEFORE
+const planDurations: Record<PlanType, number> = {
+  daily: 1,
+  weekly: 7,
+  monthly: 30,
+  '3-months': 90,
+  '6-months': 180,
+  annual: 365,
+  // Missing: custom
+};
+
+// ✅ AFTER
+const planDurations: Record<PlanType, number> = {
+  daily: 1,
+  weekly: 7,
+  monthly: 30,
+  '3-months': 90,
+  '6-months': 180,
+  annual: 365,
+  custom: 0,  // or throw error, or handle differently
+};
+```
+
+---
+
+#### Error 2: ReminderSMSType not assignable to SMSType
+
+**File**: `src/core/use-cases/reminder/SendAutomatedReminders.ts`
+```
+Line 195, Col 70: error TS2345: Argument of type 'ReminderSMSType' is not assignable to parameter of type 'SMSType'.
+  Type '"reminder_3day"' is not assignable to type 'SMSType'. Did you mean 'ReminderType.SevenDay'?
+
+Line 263, Col 9: error TS2322: Type 'ReminderSMSType' is not assignable to type 'SMSType'.
+  Type '"reminder_3day"' is not assignable to type 'SMSType'. Did you mean 'ReminderType.SevenDay'?
+```
+
+**Root Cause**:
+Two different type definitions for SMS types:
+- `ReminderSMSType`: Specific to reminder use case
+- `SMSType`: Generic SMS type used by SMS provider/repository
+
+**Analysis**:
+```typescript
+// ReminderSMSType likely defined as:
+type ReminderSMSType = 'reminder_7day' | 'reminder_3day' | 'due_today';
+
+// SMSType likely defined as:
+type SMSType = 'welcome' | 'receipt' | 'reminder' | ...;
+```
+
+**Fix Options**:
+
+**Option 1**: Make SMSType union include all reminder types
+```typescript
+type SMSType =
+  | 'welcome'
+  | 'receipt'
+  | 'reminder_7day'   // ✅ Add specific types
+  | 'reminder_3day'
+  | 'due_today';
+```
+
+**Option 2**: Make ReminderSMSType a subtype of SMSType
+```typescript
+type SMSType = 'welcome' | 'receipt' | 'reminder_7day' | 'reminder_3day' | 'due_today';
+type ReminderSMSType = Extract<SMSType, 'reminder_7day' | 'reminder_3day' | 'due_today'>;
+```
+
+**Option 3**: Type cast (not recommended)
+```typescript
+await smsRepo.create({
+  smsType: reminderType as SMSType,  // ❌ Bypasses type safety
+});
+```
+
+**Recommended**: Use **Option 1** or **Option 2** to maintain type safety.
+
+---
+
+#### Error 3: PlanType not exported from module
+
+**File**: `src/core/utils/date/index.ts`
+```
+Line 6, Col 8: error TS2459: Module '"./calculateNextDueDate"' declares 'PlanType' locally, but it is not exported.
+```
+
+**Root Cause**:
+The file `calculateNextDueDate.ts` likely defines or imports `PlanType` internally but doesn't export it, while `index.ts` tries to re-export it.
+
+**Fix**:
+```typescript
+// ❌ BEFORE (calculateNextDueDate.ts)
+import { PlanType } from '@/core/utils/constants/PlanConfig';  // Imported but not exported
+
+export function calculateNextDueDate(...) { ... }
+
+// ✅ AFTER (calculateNextDueDate.ts)
+export { PlanType } from '@/core/utils/constants/PlanConfig';  // Re-export
+
+export function calculateNextDueDate(...) { ... }
+```
+
+**OR** update `index.ts` to import directly from source:
+```typescript
+// ❌ BEFORE (index.ts)
+export { PlanType } from './calculateNextDueDate';
+
+// ✅ AFTER (index.ts)
+export { PlanType } from '@/core/utils/constants/PlanConfig';
+```
+
+---
+
+## Error Summary by Severity
+
+| Severity | Count | Category |
+|----------|-------|----------|
+| 🔴 **CRITICAL** | 17 | Frozen status (11), Property mismatch (3), Function signature (2), Type incompatibility (3) |
+| 🟡 **WARNING** | 9 | Unused variables/imports |
+| 🟢 **LOW** | 6 | Test mocks |
+| 🔵 **INFO** | 3 | Missing export |
+| **TOTAL** | **35** | |
+
+---
+
+## Recommended Fix Priority
+
+### Priority 1: CRITICAL - Frozen Status Migration (Blocks CI/CD)
+**Files to fix**:
+1. `src/core/__tests__/ArchitecturalSimulationHarness.test.ts` (3 errors)
+2. `src/core/domain/member/__tests__/Member.test.ts` (8 errors)
+
+**Effort**: 30-45 minutes
+**Impact**: Unblocks test suite execution
+
+**Action**:
+- Search/replace: `MemberStatus.Frozen` → `MemberStatus.Suspended`
+- Search/replace: `.freeze()` → `.suspend()`
+- Update test assertions to expect 7 transitions instead of 11
+
+---
+
+### Priority 2: CRITICAL - Property and Type Mismatches
+**Files to fix**:
+1. Add `registeredDate` to `MemberProps` in `src/core/domain/member/Member.ts`
+2. Fix ReminderSMSType/SMSType compatibility in `src/core/use-cases/reminder/SendAutomatedReminders.ts`
+3. Add PlanType.Custom to Record in `src/infrastructure/database/repositories/SupabaseMemberRepository.ts`
+4. Fix function signature mismatches (2 locations)
+5. Export PlanType from `src/core/utils/date/calculateNextDueDate.ts`
+
+**Effort**: 1-2 hours
+**Impact**: Fixes potential runtime errors
+
+---
+
+### Priority 3: WARNING - Code Quality (Unused Variables)
+**Files to fix**: 8 files with unused imports/variables
+
+**Effort**: 15-30 minutes
+**Impact**: Improves code quality, reduces bundle size
+
+**Action**: Remove unused imports and variables
+
+---
+
+### Priority 4: LOW - Test Mocks
+**File to fix**: `src/app/api/members/__tests__/route.test.ts`
+
+**Effort**: 5-10 minutes
+**Impact**: Fixes test file compilation
+
+**Action**: Rename `mockCreateMember` to `createdMember` (6 instances)
+
+---
+
+## Next Steps
+
+### Immediate Actions
+1. **Run tests** to verify frozen status migration is the blocker:
+   ```bash
+   npm test
+   ```
+
+2. **Fix Priority 1** (Frozen status) first to unblock CI/CD
+
+3. **Fix Priority 2** (Type mismatches) to prevent runtime errors
+
+4. **Clean up** Priority 3 & 4 for code quality
+
+### Long-Term Recommendations
+1. **Enable stricter ESLint rules**:
+   - `@typescript-eslint/no-unused-vars: "error"`
+   - `@typescript-eslint/no-unused-imports: "error"`
+
+2. **Add pre-commit hook** to run type-check:
+   ```json
+   {
+     "pre-commit": "npm run type-check && npm test"
+   }
+   ```
+
+3. **Document breaking changes** when removing features like frozen status:
+   - Update CHANGELOG.md
+   - Add migration guide
+   - Search codebase for references before removal
+
+4. **Consider type-only imports** for types to make unused imports more obvious:
+   ```typescript
+   import type { MemberStatus } from '@/core/utils/constants/StatusConfig';
+   ```
+
+---
+
+## Conclusion
+
+The type check revealed **35 errors** spanning 6 categories. The most critical issue is the **frozen status migration** affecting 11 test errors, which completely blocks the test suite from running.
+
+**Estimated Total Fix Time**: 2-3 hours
+
+**Recommended Approach**:
+1. Fix frozen status tests (Priority 1) - 30-45 min
+2. Fix type mismatches (Priority 2) - 1-2 hours
+3. Clean up unused variables (Priority 3) - 15-30 min
+4. Fix test mocks (Priority 4) - 5-10 min
+
+After fixes are applied, re-run `npm run type-check` to verify all errors are resolved.
+
+---
+
+**Document Version**: 1.0
+**Last Updated**: 2026-04-01
+**Status**: Initial Analysis Complete

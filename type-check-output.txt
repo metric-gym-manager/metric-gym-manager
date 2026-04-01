@@ -1,0 +1,41 @@
+
+> gym-management-saas@1.0.0 type-check
+> tsc --noEmit
+
+src/app/api/members/__tests__/route.test.ts(109,5): error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+src/app/api/members/__tests__/route.test.ts(121,12): error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+src/app/api/members/__tests__/route.test.ts(171,5): error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+src/app/api/members/__tests__/route.test.ts(215,5): error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+src/app/api/members/__tests__/route.test.ts(260,5): error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+src/app/api/members/__tests__/route.test.ts(349,5): error TS2552: Cannot find name 'mockCreateMember'. Did you mean 'createdMember'?
+src/app/api/members/route.ts(84,13): error TS6133: 'container' is declared but its value is never read.
+src/core/__tests__/ArchitecturalSimulationHarness.test.ts(21,11): error TS6196: 'TestVector' is declared but never used.
+src/core/__tests__/ArchitecturalSimulationHarness.test.ts(262,13): error TS6133: 'firstExecutionWouldSend' is declared but its value is never read.
+src/core/__tests__/ArchitecturalSimulationHarness.test.ts(458,23): error TS2339: Property 'freeze' does not exist on type 'Member'.
+src/core/__tests__/ArchitecturalSimulationHarness.test.ts(672,37): error TS2339: Property 'freeze' does not exist on type 'Member'.
+src/core/__tests__/ArchitecturalSimulationHarness.test.ts(673,64): error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+src/core/domain/member/__tests__/Member.test.ts(132,32): error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+src/core/domain/member/__tests__/Member.test.ts(196,32): error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+src/core/domain/member/__tests__/Member.test.ts(246,32): error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+src/core/domain/member/__tests__/Member.test.ts(287,43): error TS2339: Property 'freeze' does not exist on type 'Member'.
+src/core/domain/member/__tests__/Member.test.ts(289,55): error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+src/core/domain/member/__tests__/Member.test.ts(300,25): error TS2339: Property 'freeze' does not exist on type 'Member'.
+src/core/domain/member/__tests__/Member.test.ts(415,82): error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+src/core/domain/member/__tests__/Member.test.ts(705,29): error TS2339: Property 'freeze' does not exist on type 'Member'.
+src/core/domain/member/__tests__/Member.test.ts(706,47): error TS2339: Property 'Frozen' does not exist on type 'typeof MemberStatus'.
+src/core/use-cases/member/CancelOverdueMembers.ts(19,1): error TS6133: 'MemberStatus' is declared but its value is never read.
+src/core/use-cases/member/RegisterMember.ts(172,7): error TS2353: Object literal may only specify known properties, and 'registeredDate' does not exist in type 'CreateMemberProps'.
+src/core/use-cases/member/UpdateExpiredStatus.ts(19,1): error TS6133: 'MemberStatus' is declared but its value is never read.
+src/core/use-cases/payment/CollectPayment.ts(149,41): error TS2554: Expected 1 arguments, but got 2.
+src/core/use-cases/reminder/SendAutomatedReminders.ts(24,34): error TS6133: 'CreateSMSLogProps' is declared but its value is never read.
+src/core/use-cases/reminder/SendAutomatedReminders.ts(195,70): error TS2345: Argument of type 'ReminderSMSType' is not assignable to parameter of type 'SMSType'.
+  Type '"reminder_3day"' is not assignable to type 'SMSType'. Did you mean 'ReminderType.SevenDay'?
+src/core/use-cases/reminder/SendAutomatedReminders.ts(263,9): error TS2322: Type 'ReminderSMSType' is not assignable to type 'SMSType'.
+  Type '"reminder_3day"' is not assignable to type 'SMSType'. Did you mean 'ReminderType.SevenDay'?
+src/core/use-cases/reminder/SendAutomatedReminders.ts(288,5): error TS6133: 'daysUntilDue' is declared but its value is never read.
+src/core/utils/date/calculateNextDueDate.ts(122,9): error TS6133: 'deductOverduePeriod' is declared but its value is never read.
+src/core/utils/date/index.ts(6,8): error TS2459: Module '"./calculateNextDueDate"' declares 'PlanType' locally, but it is not exported.
+src/infrastructure/database/repositories/SupabaseMemberRepository.ts(331,41): error TS2554: Expected 1 arguments, but got 2.
+src/infrastructure/database/repositories/SupabaseMemberRepository.ts(420,11): error TS2741: Property '[PlanType.Custom]' is missing in type '{ daily: number; weekly: number; monthly: number; "3-months": number; "6-months": number; annual: number; }' but required in type 'Record<PlanType, number>'.
+src/infrastructure/database/repositories/SupabaseMemberRepository.ts(485,7): error TS2353: Object literal may only specify known properties, and 'registeredDate' does not exist in type 'MemberProps'.
+src/infrastructure/database/repositories/SupabaseMemberRepository.ts(514,30): error TS2339: Property 'registeredDate' does not exist on type 'MemberProps'.

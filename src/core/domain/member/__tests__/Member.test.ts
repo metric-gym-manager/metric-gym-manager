@@ -125,17 +125,6 @@ describe('Member Domain Entity', () => {
         expect(activeMember.id).toBe(expiredMember.id); // Same identity
       });
 
-      it('should transition from Frozen to Active', () => {
-        const frozenMember = Member.fromDatabase({
-          ...validMemberProps,
-          id: 'member_123',
-          status: MemberStatus.Frozen,
-        } as MemberProps);
-
-        const activeMember = frozenMember.activate(new Date('2024-03-01'));
-
-        expect(activeMember.status).toBe(MemberStatus.Active);
-      });
 
       it('should transition from Suspended to Active', () => {
         const suspendedMember = Member.fromDatabase({
@@ -189,17 +178,6 @@ describe('Member Domain Entity', () => {
         expect(expiredMember.status).toBe(MemberStatus.Expired);
       });
 
-      it('should transition from Frozen to Expired', () => {
-        const frozenMember = Member.fromDatabase({
-          ...validMemberProps,
-          id: 'member_123',
-          status: MemberStatus.Frozen,
-        } as MemberProps);
-
-        const expiredMember = frozenMember.expire();
-
-        expect(expiredMember.status).toBe(MemberStatus.Expired);
-      });
 
       it('should transition from Suspended to Expired', () => {
         const suspendedMember = Member.fromDatabase({
@@ -239,17 +217,6 @@ describe('Member Domain Entity', () => {
         expect(cancelledMember.status).toBe(MemberStatus.Cancelled);
       });
 
-      it('should transition from Frozen to Cancelled', () => {
-        const frozenMember = Member.fromDatabase({
-          ...validMemberProps,
-          id: 'member_123',
-          status: MemberStatus.Frozen,
-        } as MemberProps);
-
-        const cancelledMember = frozenMember.cancel();
-
-        expect(cancelledMember.status).toBe(MemberStatus.Cancelled);
-      });
 
       it('should transition from Suspended to Cancelled', () => {
         const suspendedMember = Member.fromDatabase({
@@ -276,31 +243,6 @@ describe('Member Domain Entity', () => {
       });
     });
 
-    describe('freeze()', () => {
-      it('should transition from Active to Frozen', () => {
-        const activeMember = Member.fromDatabase({
-          ...validMemberProps,
-          id: 'member_123',
-          status: MemberStatus.Active,
-        } as MemberProps);
-
-        const frozenMember = activeMember.freeze();
-
-        expect(frozenMember.status).toBe(MemberStatus.Frozen);
-      });
-
-      it('should throw error when transitioning from Expired to Frozen', () => {
-        const expiredMember = Member.fromDatabase({
-          ...validMemberProps,
-          id: 'member_123',
-          status: MemberStatus.Expired,
-        } as MemberProps);
-
-        expect(() => {
-          expiredMember.freeze();
-        }).toThrow(InvalidStatusTransitionError);
-      });
-    });
 
     describe('suspend()', () => {
       it('should transition from Active to Suspended', () => {
@@ -411,10 +353,6 @@ describe('Member Domain Entity', () => {
         expect(member.canCheckIn()).toBe(false);
       });
 
-      it('should return false when status is Frozen', () => {
-        const member = Member.create({ ...validMemberProps, status: MemberStatus.Frozen });
-        expect(member.canCheckIn()).toBe(false);
-      });
 
       it('should return false when status is Suspended', () => {
         const member = Member.create({ ...validMemberProps, status: MemberStatus.Suspended });
@@ -695,20 +633,6 @@ describe('Member Domain Entity', () => {
       }).toThrow(InvalidStatusTransitionError);
     });
 
-    it('Scenario: Member requests temporary freeze → later resumes', () => {
-      // 1. Active member requests freeze
-      const active = Member.create({
-        ...validMemberProps,
-        status: MemberStatus.Active,
-      });
-
-      const frozen = active.freeze();
-      expect(frozen.status).toBe(MemberStatus.Frozen);
-
-      // 2. Member returns, resume membership
-      const resumed = frozen.activate(new Date('2024-03-01'));
-      expect(resumed.status).toBe(MemberStatus.Active);
-    });
   });
 
   // ========================================================================
