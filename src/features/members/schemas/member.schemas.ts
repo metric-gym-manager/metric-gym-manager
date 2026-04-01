@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { normalizePhoneNumber, isValidSriLankanPhone } from '@/lib/utils/phone';
+import { MemberStatus } from '@/core/utils/constants/StatusConfig';
 
 // ============================================================
 // MEMBER ENUMS
@@ -7,9 +8,6 @@ import { normalizePhoneNumber, isValidSriLankanPhone } from '@/lib/utils/phone';
 
 export const MemberPlanType = z.enum(['daily', 'weekly', 'monthly', '3-months', '6-months', 'annual']);
 export type MemberPlanType = z.infer<typeof MemberPlanType>;
-
-export const MemberStatus = z.enum(['active', 'expired', 'suspended', 'cancelled']);
-export type MemberStatus = z.infer<typeof MemberStatus>;
 
 // ============================================================
 // PHONE NUMBER VALIDATION SCHEMAS
@@ -135,7 +133,7 @@ export type CollectPaymentInput = z.infer<typeof collectPaymentSchema>;
 
 export const memberFiltersSchema = z.object({
   search: z.string().optional(),
-  status: MemberStatus.optional(),
+  status: z.nativeEnum(MemberStatus).optional(),
   planType: MemberPlanType.optional(),
   sortBy: z.enum(['newest', 'oldest', 'upcoming_due', 'recently_expired']).optional(),
   page: z.number().int().positive().default(1),

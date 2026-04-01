@@ -44,6 +44,43 @@ CREATE TYPE member_status AS ENUM ('active', 'expired', 'suspended', 'cancelled'
 
 **Note**: The `frozen` status was removed on 2026-03-26. All frozen members were migrated to `suspended` status. The `suspended` status now handles both policy violations AND voluntary membership holds.
 
+### Validation Layer Integration
+
+**Updated**: 2026-03-31 - Fixed type mismatch in API validation
+
+**Location**: `src/features/members/schemas/member.schemas.ts`
+
+The validation layer uses `z.nativeEnum()` to validate MemberStatus while maintaining type compatibility with the domain enum:
+
+```typescript
+import { MemberStatus } from '@/core/utils/constants/StatusConfig';
+
+export const memberFiltersSchema = z.object({
+  search: z.string().optional(),
+  status: z.nativeEnum(MemberStatus).optional(),  // ✅ Validates domain enum
+  planType: MemberPlanType.optional(),
+  sortBy: z.enum(['newest', 'oldest', 'upcoming_due', 'recently_expired']).optional(),
+  page: z.number().int().positive().default(1),
+  limit: z.number().int().positive().max(100).default(20),
+});
+
+export type MemberFiltersInput = z.infer<typeof memberFiltersSchema>;
+// Result: { status?: MemberStatus }  ✅ Correct enum type
+```
+
+**Type Safety Pattern**:
+- ✅ Domain layer (`StatusConfig.ts`) is single source of truth for MemberStatus enum
+- ✅ Validation layer imports enum and uses `z.nativeEnum()` for runtime validation
+- ✅ Type compatibility maintained between validation, domain, and repository layers
+- ❌ Never create duplicate Zod enum definitions (`z.enum(['active', 'expired', ...])`) for domain enums
+
+**Benefits**:
+- Runtime validation ensures only valid enum values accepted
+- TypeScript compiler enforces correct usage
+- No type casts required when passing validated data to use cases
+
+**Reference**: See `.claude/rules/architecture.md` Section 2.2 "Enum Validation Pattern" for complete pattern documentation.
+
 ---
 
 ## 1.2 Complete Status Transition Matrix

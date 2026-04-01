@@ -1,4 +1,5 @@
-import type { MemberPlanType, MemberStatus } from '../schemas/member.schemas';
+import type { MemberPlanType } from '../schemas/member.schemas';
+import type { MemberStatus } from '@/core/utils/constants/StatusConfig';
 
 // ============================================================
 // MEMBER TYPES
