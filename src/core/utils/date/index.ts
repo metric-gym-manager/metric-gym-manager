@@ -3,7 +3,6 @@ export {
   calculateNextDueDate,
   calculateNextDueDateFromPayment,
   formatDateForDB as formatDateForDBFromCalculator,
-  type PlanType,
   type CalculateNextDueDateOptions,
 } from './calculateNextDueDate';
 
@@ -22,3 +21,6 @@ export {
   formatRelativeTime,
   parseDate,
 } from './formatDate';
+
+// Re-export PlanType from its actual source
+export { PlanType } from '../constants/PlanConfig';

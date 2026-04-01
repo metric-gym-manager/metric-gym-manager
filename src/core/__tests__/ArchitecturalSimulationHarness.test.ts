@@ -373,6 +373,7 @@ describe('PHASE 3: State Machine Inviolability', () => {
       discountId: null,
       recurringDiscount: false,
       status,
+      registeredDate: new Date('2024-01-01'),
       membershipStartDate: new Date('2024-01-01'),
       nextDueDate: new Date('2024-02-01'),
     };
@@ -493,6 +494,7 @@ describe('PHASE 4: Schema & Rule Configuration Binding', () => {
           discountId: null,
           recurringDiscount: false,
           status: MemberStatus.Active,
+          registeredDate: new Date('2024-01-01'),
           membershipStartDate: new Date('2024-01-01'),
           nextDueDate: new Date('2024-02-01'),
         };
@@ -592,6 +594,7 @@ describe('PHASE 4: Schema & Rule Configuration Binding', () => {
             discountId: null,
             recurringDiscount: false,
             status: MemberStatus.Active,
+            registeredDate: new Date(),
             membershipStartDate: new Date(),
             nextDueDate: new Date(),
           };

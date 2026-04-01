@@ -328,7 +328,7 @@ export class SupabaseMemberRepository implements IMemberRepository {
     }
 
     if (!data) {
-      throw new NotFoundError('Member', member.id);
+      throw new NotFoundError(`Member ${member.id}`);
     }
 
     return this.toDomain(data);
@@ -424,6 +424,7 @@ export class SupabaseMemberRepository implements IMemberRepository {
       [PlanType.ThreeMonths]: 0,
       [PlanType.SixMonths]: 0,
       [PlanType.Annual]: 0,
+      [PlanType.Custom]: 0,
     };
 
     // Count each plan type

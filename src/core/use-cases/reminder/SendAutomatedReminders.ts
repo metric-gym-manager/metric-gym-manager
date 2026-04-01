@@ -20,14 +20,9 @@ import { IMemberRepository, ISMSRepository } from '@/core/ports/repositories';
 import { ISMSProvider } from '@/core/ports/services';
 import { getDaysUntilDue } from '@/core/utils/date';
 import { formatDateForDisplay } from '@/core/utils/date';
-import { shouldSendReminder } from '@/core/utils/constants/ReminderConfig';
+import { shouldSendReminder, ReminderType } from '@/core/utils/constants/ReminderConfig';
 import { SMSDeliveryStatus } from '@/core/ports/repositories/ISMSRepository';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
-
-/**
- * SMS type for reminders
- */
-export type ReminderSMSType = 'reminder_7day' | 'reminder_3day' | 'due_today' | 'overdue';
 
 /**
  * Input for sending automated reminders
@@ -52,7 +47,7 @@ export interface ReminderSummary {
   /**
    * Reminders sent by type
    */
-  byType: Record<ReminderSMSType, number>;
+  byType: Record<ReminderType, number>;
 
   /**
    * Errors encountered
@@ -105,10 +100,10 @@ export class SendAutomatedReminders {
     const summary: ReminderSummary = {
       totalSent: 0,
       byType: {
-        reminder_7day: 0,
-        reminder_3day: 0,
-        due_today: 0,
-        overdue: 0,
+        [ReminderType.SevenDay]: 0,
+        [ReminderType.ThreeDay]: 0,
+        [ReminderType.DueToday]: 0,
+        [ReminderType.Overdue]: 0,
       },
       errors: [],
       membersProcessed: 0,
@@ -141,10 +136,10 @@ export class SendAutomatedReminders {
 
       console.log(`✅ Automated reminders complete:`);
       console.log(`   - Total sent: ${summary.totalSent}`);
-      console.log(`   - 7-Day: ${summary.byType.reminder_7day}`);
-      console.log(`   - 3-Day: ${summary.byType.reminder_3day}`);
-      console.log(`   - Due Today: ${summary.byType.due_today}`);
-      console.log(`   - Overdue: ${summary.byType.overdue}`);
+      console.log(`   - 7-Day: ${summary.byType[ReminderType.SevenDay]}`);
+      console.log(`   - 3-Day: ${summary.byType[ReminderType.ThreeDay]}`);
+      console.log(`   - Due Today: ${summary.byType[ReminderType.DueToday]}`);
+      console.log(`   - Overdue: ${summary.byType[ReminderType.Overdue]}`);
       console.log(`   - Members processed: ${summary.membersProcessed}`);
       console.log(`   - Members skipped: ${summary.membersSkipped}`);
 
@@ -217,15 +212,15 @@ export class SendAutomatedReminders {
    * @param daysUntilDue - Days until payment is due
    * @returns SMS type, or null if no reminder needed
    */
-  private determineSMSType(daysUntilDue: number): ReminderSMSType | null {
+  private determineSMSType(daysUntilDue: number): ReminderType | null {
     if (daysUntilDue >= 7 && daysUntilDue < 8) {
-      return 'reminder_7day';
+      return ReminderType.SevenDay;
     } else if (daysUntilDue >= 3 && daysUntilDue < 4) {
-      return 'reminder_3day';
+      return ReminderType.ThreeDay;
     } else if (daysUntilDue >= 0 && daysUntilDue < 1) {
-      return 'due_today';
+      return ReminderType.DueToday;
     } else if (daysUntilDue < 0) {
-      return 'overdue';
+      return ReminderType.Overdue;
     }
     return null;
   }
@@ -238,7 +233,7 @@ export class SendAutomatedReminders {
    */
   private async sendReminder(
     member: Member,
-    smsType: ReminderSMSType
+    smsType: ReminderType
   ): Promise<void> {
     try {
       // Generate reminder message
@@ -281,7 +276,7 @@ export class SendAutomatedReminders {
    */
   private generateReminderMessage(
     member: Member,
-    smsType: ReminderSMSType
+    smsType: ReminderType
   ): string {
     const planType = this.formatPlanType(member.planType);
     const dueDate = formatDateForDisplay(member.nextDueDate);
@@ -289,20 +284,20 @@ export class SendAutomatedReminders {
 
     // Different messages based on reminder type
     switch (smsType) {
-      case 'overdue':
+      case ReminderType.Overdue:
         return (
           `Dear ${member.name}, your ${planType} membership payment was due on ${dueDate}. ` +
           `Amount: ${amount}. Please make payment. Thank you.`
         );
 
-      case 'due_today':
+      case ReminderType.DueToday:
         return (
           `Dear ${member.name}, your ${planType} membership payment is due today. ` +
           `Amount: ${amount}. Please make payment. Thank you.`
         );
 
-      case 'reminder_3day':
-      case 'reminder_7day':
+      case ReminderType.ThreeDay:
+      case ReminderType.SevenDay:
       default:
         return (
           `Dear ${member.name}, your ${planType} membership payment is due on ${dueDate}. ` +

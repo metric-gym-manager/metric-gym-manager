@@ -146,7 +146,7 @@ export class CollectPayment {
     const member = await this.memberRepo.findById(input.memberId, input.gymId);
 
     if (!member) {
-      throw new NotFoundError('Member', input.memberId);
+      throw new NotFoundError(`Member ${input.memberId}`);
     }
 
     // 2. Validate payment amount

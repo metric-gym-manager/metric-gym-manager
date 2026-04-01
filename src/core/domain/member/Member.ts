@@ -30,7 +30,30 @@ export interface MemberProps {
   discountId: string | null;
   recurringDiscount: boolean;
   status: MemberStatus;
+
+  /**
+   * Registration date (when member signed up)
+   *
+   * This is the official registration timestamp for audit trail purposes.
+   * It may be earlier than membershipStartDate for backdated memberships.
+   *
+   * @example
+   * // Member registered on Jan 15, but data entered on Jan 20
+   * registeredDate: new Date('2024-01-15')
+   * membershipStartDate: new Date('2024-01-20')
+   */
+  registeredDate: Date;
+
+  /**
+   * Membership start date (when billing period begins)
+   *
+   * This is when the member's subscription period starts. It can be:
+   * - Same as registeredDate (normal registration)
+   * - Later than registeredDate (deferred start)
+   * - Earlier than today (backdated for offline registrations)
+   */
   membershipStartDate: Date;
+
   nextDueDate: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -172,6 +195,16 @@ export class Member {
 
   get updatedAt(): Date {
     return this.props.updatedAt;
+  }
+
+  /**
+   * Get registration date
+   *
+   * This is when the member officially registered (immutable audit timestamp).
+   * May be earlier than membershipStartDate for backdated memberships.
+   */
+  get registeredDate(): Date {
+    return this.props.registeredDate;
   }
 
   // ============================================================
@@ -631,6 +664,7 @@ export class Member {
       discountId: this.props.discountId,
       recurringDiscount: this.props.recurringDiscount,
       status: this.props.status,
+      registeredDate: this.props.registeredDate.toISOString(),
       membershipStartDate: this.props.membershipStartDate.toISOString(),
       nextDueDate: this.props.nextDueDate.toISOString(),
       createdAt: this.props.createdAt.toISOString(),

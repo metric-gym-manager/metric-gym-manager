@@ -16,6 +16,7 @@ import { NextRequest } from 'next/server';
 
 let mockSupabaseClient: any;
 let mockGymProfile: any;
+let mockCreateMember: jest.Mock;
 
 // Mock @/lib/supabase/server
 jest.mock('@/lib/supabase/server', () => ({
@@ -75,6 +76,9 @@ describe.skip('Members API - POST /api/members', () => {
       id: 'gym_123',
       gym_name: 'FitLife Gym',
     };
+
+    // Initialize mockCreateMember
+    mockCreateMember = jest.fn();
 
     // Reset ENABLE_REAL_SMS flag
     process.env.ENABLE_REAL_SMS = 'false';
