@@ -105,7 +105,7 @@ export async function getReminderStatus(
 ): Promise<MemberReminderStatus[]> {
   const supabase = await createClient();
 
-  // Get all active members with their last SMS log
+  // Get all active members with their SMS logs (ordered by most recent first)
   const { data: members, error } = await supabase
     .from('members')
     .select(
@@ -141,19 +141,17 @@ export async function getReminderStatus(
     // Only consider reminder-type SMS logs — receipt and welcome are transactional
     // and must not affect the auto-status indicator or the "Sent Xm ago" label.
     const REMINDER_TYPES = ['reminder_7day', 'reminder_3day', 'due_today', 'overdue'];
-    const reminderLogs = (member.sms_logs || []).filter(
-      (log: { sms_type: string }) => REMINDER_TYPES.includes(log.sms_type)
-    );
-    const lastLog = reminderLogs.length > 0 ? reminderLogs[reminderLogs.length - 1] : null;
+    const reminderLogs = (member.sms_logs || [])
+      .filter((log: { sms_type: string }) => REMINDER_TYPES.includes(log.sms_type))
+      .sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
 
-    // Query each reminder type's most recent log
+    const lastLog = reminderLogs.length > 0 ? reminderLogs[0] : null;
+
+    // Query each reminder type's most recent log (now sorted by sent_at DESC)
     const reminder7Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_7day');
     const reminder3Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_3day');
     const dueToday = reminderLogs.find((log: any) => log.sms_type === 'due_today');
-    const overdueReminders = reminderLogs.filter((log: any) => log.sms_type === 'overdue');
-    const overdue = overdueReminders.length > 0
-      ? overdueReminders[overdueReminders.length - 1]
-      : null;
+    const overdue = reminderLogs.find((log: any) => log.sms_type === 'overdue');
 
     // Check for delivery failures (system errors) for each reminder type
     const reminder7DayError = reminder7Day?.delivery_status === 'failed' || false;

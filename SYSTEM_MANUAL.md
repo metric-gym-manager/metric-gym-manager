@@ -1727,6 +1727,90 @@ suspended: 'bg-yellow-100 text-yellow-800 border-yellow-200'
 
 ---
 
+### 3. Reminder Status Query Ordering Bug
+
+**Location**: `src/features/sms/services/sms.service.ts:143-154`
+
+**Status**: ✅ **RESOLVED** (2026-04-10)
+
+**Original Issue**: Frontend always showed "Not Sent" status in Reminders tab for automatically delivered SMS, despite successful delivery confirmed in database and text.lk logs.
+
+**Root Cause**: Multi-billing cycle data ordering bug
+- Members with multiple payment cycles have multiple SMS logs per reminder type (e.g., March + April overdue reminders)
+- Query fetched ALL `sms_logs` with NO ordering from database
+- JavaScript `.find()` on unordered array returned first match in arbitrary order (often old March log instead of new April log)
+- UI displayed stale timestamp, making new reminders appear as "Not Sent"
+
+**Example Scenario**:
+```typescript
+// Member has 2 overdue reminder logs:
+// 1. March 2026 (sent_at: 2026-03-15) - old billing cycle
+// 2. April 2026 (sent_at: 2026-04-10) - current billing cycle
+
+// Without ordering, .find() might return March log
+const overdue = reminderLogs.find(log => log.sms_type === 'overdue');
+// Result: { sent_at: '2026-03-15' } ❌ Wrong - shows old data
+
+// With ordering, .find() returns April log
+const reminderLogs = allLogs.sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+const overdue = reminderLogs.find(log => log.sms_type === 'overdue');
+// Result: { sent_at: '2026-04-10' } ✅ Correct - shows current data
+```
+
+**Resolution**:
+
+**Before (Buggy Code - Lines 143-156)**:
+```typescript
+const REMINDER_TYPES = ['reminder_7day', 'reminder_3day', 'due_today', 'overdue'];
+const reminderLogs = (member.sms_logs || []).filter(
+  (log: { sms_type: string }) => REMINDER_TYPES.includes(log.sms_type)
+);
+const lastLog = reminderLogs.length > 0 ? reminderLogs[reminderLogs.length - 1] : null;
+
+// Query each reminder type's most recent log
+const reminder7Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_7day');
+const reminder3Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_3day');
+const dueToday = reminderLogs.find((log: any) => log.sms_type === 'due_today');
+const overdueReminders = reminderLogs.filter((log: any) => log.sms_type === 'overdue');
+const overdue = overdueReminders.length > 0
+  ? overdueReminders[overdueReminders.length - 1]
+  : null;
+```
+
+**After (Fixed Code - Lines 143-154)**:
+```typescript
+const REMINDER_TYPES = ['reminder_7day', 'reminder_3day', 'due_today', 'overdue'];
+const reminderLogs = (member.sms_logs || [])
+  .filter((log: { sms_type: string }) => REMINDER_TYPES.includes(log.sms_type))
+  .sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+
+const lastLog = reminderLogs.length > 0 ? reminderLogs[0] : null;
+
+// Query each reminder type's most recent log (now sorted by sent_at DESC)
+const reminder7Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_7day');
+const reminder3Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_3day');
+const dueToday = reminderLogs.find((log: any) => log.sms_type === 'due_today');
+const overdue = reminderLogs.find((log: any) => log.sms_type === 'overdue');
+```
+
+**Key Changes**:
+1. **Added `.sort()` by `sent_at DESC`** (line 146): Ensures chronological ordering (most recent first)
+2. **Changed `lastLog` to use index `[0]`** (line 148): First element is now most recent due to DESC sort
+3. **Simplified overdue retrieval** (line 154): No need for separate filter + index access, `.find()` now returns most recent
+
+**Benefits Achieved**:
+- ✅ **Accurate Status Display**: UI now shows current billing cycle's reminder status
+- ✅ **Correct Timestamps**: "Sent Xm ago" badges display actual delivery time
+- ✅ **Multi-Cycle Support**: Works correctly for members with payment history spanning multiple months
+- ✅ **Idempotency Preserved**: Most recent log per type still prevents duplicate sends
+- ✅ **Error Tracking**: `reminder_7day_error`, `reminder_3day_error`, `due_today_error` flags track most recent delivery failures
+
+**Impact**: This was a **high-severity UI bug** that made the automated reminder system appear non-functional despite working correctly. Gym managers thought reminders weren't being sent when they actually were being successfully delivered via text.lk.
+
+**Related Pattern**: See `.claude/rules/architecture.md` section 2.10 for "Multi-Cycle Query Ordering Pattern" documentation.
+
+---
+
 ## 4.5 Database Constraints Not Enforced
 
 ### 1. Phone Number Format Constraint
