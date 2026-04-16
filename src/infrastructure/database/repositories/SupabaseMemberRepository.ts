@@ -42,6 +42,11 @@ interface MemberRow {
   next_due_date: string;
   created_at: string;
   updated_at: string;
+  discount?: {
+    id: string;
+    discount_name: string;
+    discount_percentage: number;
+  } | null;
 }
 
 /**
@@ -86,10 +91,10 @@ export class SupabaseMemberRepository implements IMemberRepository {
   async findAll(filters: MemberFilters): Promise<PaginatedResult<Member>> {
     const { gymId, search, status, planType, page = 1, limit = 50, sortBy = 'newest' } = filters;
 
-    // Build query with count
+    // Build query with count and discount join
     let query = this.supabase
       .from('members')
-      .select('*', { count: 'exact' })
+      .select('*, discount:discounts(id, discount_name, discount_percentage)', { count: 'exact' })
       .eq('gym_id', gymId);
 
     // Apply filters

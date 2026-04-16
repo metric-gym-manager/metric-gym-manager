@@ -5,6 +5,55 @@ import { getContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
 import { ConflictError, ValidationError } from '@/core/utils/errors';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
+import type { Member } from '@/core/domain/member/Member';
+
+// ============================================================
+// Helper: Serialize Member for API Response
+// ============================================================
+
+/**
+ * Serializes a Member domain entity to API response format
+ *
+ * Converts Date objects to YYYY-MM-DD strings to ensure proper JSON serialization.
+ * This prevents NextResponse.json() from converting dates to ISO timestamps.
+ *
+ * @param member - Member domain entity
+ * @param discount - Optional discount information from repository join
+ */
+function serializeMemberForAPI(
+  member: Member,
+  discount?: { id: string; discount_name: string; discount_percentage: number } | null
+) {
+  const props = member.toDatabase();
+
+  return {
+    id: props.id,
+    gymId: props.gymId,
+    name: props.name,
+    phoneNumber: props.phoneNumber,
+    phone_number: props.phoneNumber, // Include snake_case for backward compatibility
+    planType: props.planType,
+    plan_type: props.planType, // Include snake_case for backward compatibility
+    planAmount: props.planAmount,
+    plan_amount: props.planAmount, // Include snake_case for backward compatibility
+    discountId: props.discountId,
+    discount_id: props.discountId, // Include snake_case for backward compatibility
+    recurringDiscount: props.recurringDiscount,
+    recurring_discount: props.recurringDiscount, // Include snake_case for backward compatibility
+    status: props.status,
+    registeredDate: props.registeredDate.toISOString().split('T')[0],
+    registered_date: props.registeredDate.toISOString().split('T')[0], // Include snake_case for backward compatibility
+    membershipStartDate: props.membershipStartDate.toISOString().split('T')[0],
+    membership_start_date: props.membershipStartDate.toISOString().split('T')[0], // Include snake_case for backward compatibility
+    nextDueDate: props.nextDueDate.toISOString().split('T')[0],
+    next_due_date: props.nextDueDate.toISOString().split('T')[0], // Include snake_case for backward compatibility
+    createdAt: props.createdAt.toISOString(),
+    created_at: props.createdAt.toISOString(), // Include snake_case for backward compatibility
+    updatedAt: props.updatedAt.toISOString(),
+    updated_at: props.updatedAt.toISOString(), // Include snake_case for backward compatibility
+    discount: discount || null, // Include joined discount data if available
+  };
+}
 
 // ============================================================
 // GET /api/members - Get members list
@@ -38,8 +87,36 @@ export async function GET(request: NextRequest) {
       planType: validatedFilters.planType as PlanType | undefined,
     });
 
-    // Convert domain entities to database format for API response
-    const membersData = result.items.map(member => member.toDatabase());
+    // Fetch discount data for members that have discounts
+    const discountIds = result.items
+      .map(member => member.toDatabase().discountId)
+      .filter((id): id is string => id !== null);
+
+    const uniqueDiscountIds = Array.from(new Set(discountIds));
+
+    let discountsMap: Record<string, { id: string; discount_name: string; discount_percentage: number }> = {};
+
+    if (uniqueDiscountIds.length > 0) {
+      const supabase = (await import('@/lib/supabase/server')).createClient();
+      const { data: discounts } = await (await supabase)
+        .from('discounts')
+        .select('id, discount_name, discount_percentage')
+        .in('id', uniqueDiscountIds);
+
+      if (discounts) {
+        discountsMap = discounts.reduce((acc, discount) => {
+          acc[discount.id] = discount;
+          return acc;
+        }, {} as Record<string, { id: string; discount_name: string; discount_percentage: number }>);
+      }
+    }
+
+    // Serialize domain entities for API response with properly formatted dates and discount data
+    const membersData = result.items.map(member => {
+      const props = member.toDatabase();
+      const discount = props.discountId ? discountsMap[props.discountId] : null;
+      return serializeMemberForAPI(member, discount);
+    });
 
     return NextResponse.json(
       ResponseBuilder.success({
@@ -114,8 +191,8 @@ export async function POST(request: NextRequest) {
       discount,
     });
 
-    // Convert domain entity to database format for API response
-    const memberData = result.member.toDatabase();
+    // Serialize domain entity for API response with properly formatted dates
+    const memberData = serializeMemberForAPI(result.member);
 
     return NextResponse.json(
       ResponseBuilder.success(memberData, { message: 'Member registered successfully' }),

@@ -3027,6 +3027,95 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 
 ---
 
+### 2026-04-16: Member Detail Table Date Serialization Fix
+- **Objective**: Fix member detail table display issues causing phone numbers, plan type badges, and dates to show incorrectly
+- **Problem**: API route was returning Date objects that were improperly serialized by NextResponse.json(), causing frontend to receive malformed data
+- **Root Cause**: Domain entity's `.toDatabase()` method returns Date objects intended for repository layer, not HTTP API responses
+
+**Issues Identified**:
+1. **Date Serialization Bug** (Critical):
+   - API used `member.toDatabase()` which returns Date objects
+   - `NextResponse.json()` serialized dates as ISO timestamps (`"2024-01-15T00:00:00.000Z"`)
+   - Frontend expected YYYY-MM-DD format (`"2024-01-15"`)
+   - `formatDate()` utility received malformed data → returned "Invalid Date"
+2. **Phone Numbers Not Visible**: Frontend expected snake_case `phone_number` field
+3. **Plan Type Badges Not Visible**: Frontend expected snake_case `plan_type` field
+4. **Missing Discount Data**: Repository query lacked JOIN with discounts table
+
+**Solution Implemented**:
+
+**Part 1: API Serialization Helper** (`src/app/api/members/route.ts:20-56`)
+- **Created** `serializeMemberForAPI()` function with proper date formatting:
+  - Converts `Date` objects to `YYYY-MM-DD` strings using `.toISOString().split('T')[0]`
+  - Includes both camelCase AND snake_case field names for backward compatibility
+  - Example: `phoneNumber` + `phone_number`, `planType` + `plan_type`
+  - Accepts optional `discount` parameter for joined discount data
+- **Applied** to both GET and POST handlers:
+  - GET: `result.items.map(member => serializeMemberForAPI(member, discount))`
+  - POST: `serializeMemberForAPI(result.member)`
+
+**Part 2: Discount Data Integration** (`src/app/api/members/route.ts:90-119`)
+- **Fetched** discount data for all members with discount IDs:
+  - Build unique discount ID list from members
+  - Query discounts table with `.in()` filter
+  - Create discount lookup map by ID
+- **Include** discount in serialization: `serializeMemberForAPI(member, discountsMap[props.discountId])`
+
+**Part 3: Repository Query Enhancement** (`SupabaseMemberRepository.ts:97`)
+- **Updated** `findAll()` query to include discount JOIN:
+  - From: `.select('*', { count: 'exact' })`
+  - To: `.select('*, discount:discounts(id, discount_name, discount_percentage)', { count: 'exact' })`
+- **Added** `discount` field to `MemberRow` interface (lines 45-49)
+
+**API Response Format**:
+
+**Before (Broken)**:
+```json
+{
+  "registeredDate": "2024-01-15T00:00:00.000Z",  // ❌ ISO timestamp
+  "phoneNumber": "+94712345678",                  // ❌ Missing snake_case
+  "planType": "monthly"                           // ❌ Missing snake_case
+}
+```
+
+**After (Fixed)**:
+```json
+{
+  "registeredDate": "2024-01-15",                 // ✅ YYYY-MM-DD format
+  "registered_date": "2024-01-15",                // ✅ Snake_case included
+  "phoneNumber": "+94712345678",                  // ✅ CamelCase
+  "phone_number": "+94712345678",                 // ✅ Snake_case included
+  "planType": "monthly",                          // ✅ CamelCase
+  "plan_type": "monthly",                         // ✅ Snake_case included
+  "discount": {                                   // ✅ Discount data included
+    "id": "uuid",
+    "discount_name": "Student Discount",
+    "discount_percentage": 20
+  }
+}
+```
+
+**Benefits Achieved**:
+- ✅ Dates display correctly: `formatDate()` receives proper YYYY-MM-DD format
+- ✅ Phone numbers visible: Frontend accesses `phone_number` snake_case field
+- ✅ Plan type badges visible: Frontend accesses `plan_type` snake_case field
+- ✅ Discount information available: Member detail modal can display discount details
+- ✅ Type safety maintained: TypeScript compilation passes with no errors
+- ✅ Backward compatibility: Both camelCase and snake_case fields provided
+
+**Impact**:
+- Fixed high-priority bug affecting member directory usability
+- Member table now correctly displays all core member information
+- Improved user experience for gym managers viewing member details
+
+**Files Modified**: 2 total
+- `src/app/api/members/route.ts` (added `serializeMemberForAPI()` helper, discount fetching logic)
+- `src/infrastructure/database/repositories/SupabaseMemberRepository.ts` (added discount JOIN, updated `MemberRow` interface)
+
+**Documentation**: Added Section 2.11 to `.claude/rules/architecture.md` documenting the "Domain Entity API Serialization Pattern"
+
+---
+
 ### 2026-03-26: Frozen Status Removal
 - **Removed**: `frozen` status from entire codebase
 - **Updated**: `suspended` status now handles both policy violations and voluntary holds
