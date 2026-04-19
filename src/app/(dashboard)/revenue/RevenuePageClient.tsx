@@ -92,7 +92,7 @@ export default function RevenuePageClient() {
             value={viewType}
             onValueChange={(value: 'monthly' | 'yearly') => setViewType(value)}
           >
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger id="revenue-view-type-select" className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -108,7 +108,7 @@ export default function RevenuePageClient() {
             value={selectedYear.toString()}
             onValueChange={(value) => setSelectedYear(parseInt(value))}
           >
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger id="revenue-year-select" className="w-[140px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -128,7 +128,7 @@ export default function RevenuePageClient() {
               value={selectedMonth.toString()}
               onValueChange={(value) => setSelectedMonth(parseInt(value))}
             >
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger id="revenue-month-select" className="w-[160px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

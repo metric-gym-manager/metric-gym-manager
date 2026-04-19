@@ -197,7 +197,7 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
                 value={watchPlanType}
                 onValueChange={(value) => setValue('planType', value as UpdateMemberInput['planType'])}
               >
-                <SelectTrigger>
+                <SelectTrigger id="edit-member-plan-select">
                   <SelectValue placeholder="Select plan type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -246,7 +246,7 @@ export default function EditMemberModal({ open, onClose, member }: EditMemberMod
                   }
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger id="edit-member-discount-select">
                   <SelectValue placeholder="Select discount" />
                 </SelectTrigger>
                 <SelectContent>

@@ -171,7 +171,7 @@ export default function ReminderStatusTable() {
         <div>
           <label className="text-sm font-medium mb-2 block">Filter</label>
           <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger id="reminder-status-filter-select" className="w-[180px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -186,7 +186,7 @@ export default function ReminderStatusTable() {
         <div>
           <label className="text-sm font-medium mb-2 block">Sort By</label>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[220px]">
+            <SelectTrigger id="reminder-status-sort-select" className="w-[220px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

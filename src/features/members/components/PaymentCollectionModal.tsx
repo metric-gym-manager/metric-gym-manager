@@ -301,7 +301,7 @@ export default function PaymentCollectionModal({ open, onClose, member }: Paymen
                   }
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger id="payment-modal-discount-select">
                   <SelectValue placeholder="Select discount" />
                 </SelectTrigger>
                 <SelectContent>

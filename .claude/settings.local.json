@@ -115,7 +115,9 @@
       "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" log --oneline -10)",
       "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" add SYSTEM_MANUAL.md .claude/rules/architecture.md src/features/sms/services/sms.service.ts)",
       "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" commit -m \"$\\(cat <<''EOF''\ndocs\\(sms\\): document multi-cycle query ordering pattern\n\nAdd comprehensive documentation for SMS reminder status query ordering bug fix:\n\n- SYSTEM_MANUAL.md: Add section 4.4.3 documenting the bug, root cause, and resolution\n  - Problem: Frontend showed \"Not Sent\" for delivered SMS due to unordered queries\n  - Root Cause: Multi-billing cycle members have multiple logs; .find\\(\\) returned arbitrary results\n  - Fix: Added .sort\\(\\) by sent_at DESC before .find\\(\\) in getReminderStatus\\(\\)\n  - Impact: High-severity UI bug that made automated reminders appear broken\n\n- architecture.md: Add section 2.10 \"Multi-Cycle Query Ordering Pattern\"\n  - Critical rule: MUST sort time-series data before using .find\\(\\)\n  - Provides client-side and server-side ordering examples\n  - Documents common mistakes and testing strategies\n  - Includes real-world impact analysis from 2026-04-10 incident\n\n- sms.service.ts: Code fix already applied \\(lines 143-154\\)\n  - Sort reminderLogs by sent_at DESC\n  - Simplified lastLog and overdue retrieval logic\n  - Ensures most recent log displayed for each reminder type\n\nCross-references:\n- SYSTEM_MANUAL.md references architecture.md section 2.10\n- Bidirectional documentation creates complete audit trail\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" push origin master)"
+      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" push origin master)",
+      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" diff HEAD)",
+      "Bash(git -C \"D:\\\\projects\\\\gym-management-saas\" add .)"
     ]
   },
   "enableAllProjectMcpServers": true,

@@ -255,7 +255,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
               setStatus(value);
               setPage(1);
             }}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger id="members-table-status-filter-desktop-select" className="w-[150px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -290,7 +290,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
               setPlanType(value);
               setPage(1);
             }}>
-              <SelectTrigger className="w-[150px]">
+              <SelectTrigger id="members-table-plan-filter-desktop-select" className="w-[150px]">
                 <SelectValue placeholder="Plan Type" />
               </SelectTrigger>
               <SelectContent>
@@ -308,7 +308,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
         {/* Sort dropdown - hidden on mobile, shown in filter modal instead */}
         <div className="hidden lg:block">
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger id="members-table-sort-desktop-select" className="w-[200px]">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -335,7 +335,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                 setStatus(value);
                 setPage(1);
               }}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="members-table-status-filter-mobile-select" className="w-full">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -375,7 +375,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                 setPlanType(value);
                 setPage(1);
               }}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="members-table-plan-filter-mobile-select" className="w-full">
                   <SelectValue placeholder="Plan Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -393,7 +393,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
             <div className="space-y-2">
               <label className="text-sm font-medium">Sort By</label>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="members-table-sort-mobile-select" className="w-full">
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>

@@ -226,7 +226,7 @@ export default function PlanTypesTab() {
                 value={newPlanType}
                 onValueChange={(value) => setNewPlanType(value as PlanTypeEnum)}
               >
-                <SelectTrigger id="new-plan-type">
+                <SelectTrigger id="billing-setup-plan-type-select">
                   <SelectValue placeholder="Select plan type" />
                 </SelectTrigger>
                 <SelectContent>

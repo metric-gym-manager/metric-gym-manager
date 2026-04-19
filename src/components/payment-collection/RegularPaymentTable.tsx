@@ -97,7 +97,8 @@ export default function RegularPaymentTable() {
         predicate: (query) =>
           query.queryKey[0] === 'regular-payments' ||
           query.queryKey[0] === 'members' ||
-          query.queryKey[0] === 'sms-reminders'
+          query.queryKey[0] === 'sms-reminders' ||
+          query.queryKey[0] === 'payment-collected'
       });
     },
     onError: (error) => {
@@ -157,7 +158,7 @@ export default function RegularPaymentTable() {
         <div>
           <label className="text-sm font-medium mb-2 block">Filter</label>
           <Select value={filter} onValueChange={setFilter}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger id="payment-regular-filter-select" className="w-[200px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -172,7 +173,7 @@ export default function RegularPaymentTable() {
         <div>
           <label className="text-sm font-medium mb-2 block">Sort By</label>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger id="payment-regular-sort-select" className="w-[200px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

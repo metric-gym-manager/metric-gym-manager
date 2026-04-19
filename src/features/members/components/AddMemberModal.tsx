@@ -285,7 +285,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                   setValue('planType', value as AddMemberInput['planType'])
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id="add-member-plan-select">
                   <SelectValue placeholder="Select plan type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -337,7 +337,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                   }
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger id="add-member-discount-select">
                   <SelectValue placeholder="Select discount" />
                 </SelectTrigger>
                 <SelectContent>

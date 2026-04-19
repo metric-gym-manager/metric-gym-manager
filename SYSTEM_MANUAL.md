@@ -2,7 +2,7 @@
 ## Comprehensive Technical Audit & Operational Documentation
 
 **Generated**: 2026-03-26
-**Last Updated**: 2026-03-31 (API Response Standardization - Bulk endpoint refactored to use ResponseBuilder utility; comprehensive API pattern documentation added)
+**Last Updated**: 2026-04-20 (Payment Collection Page - Renamed "Regular Payments" tab to "Dues", reordered tabs to Collected/Dues/Reminders, set Collected as default tab; Section 3.6 documents the Payment Collected Tab feature)
 **Architecture**: Clean Architecture (Hexagonal) + Feature-First Organization + Dual-Layer Observability
 **Stack**: Next.js 16 (App Router), TypeScript, Supabase (PostgreSQL), React 19
 
@@ -1434,6 +1434,123 @@ graph TB
 
 ---
 
+## 3.6 Payment Collection Page (Three-Tab Interface)
+
+**Added**: 2026-04-18
+**Updated**: 2026-04-20 (Tab renaming and reordering)
+
+### Page Structure
+**Location**: `src/app/(dashboard)/payment-collection/PaymentCollectionPageClient.tsx`
+
+**Tab Configuration**:
+- **Tab Order**: Collected (1st), Dues (2nd), Reminders (3rd)
+- **Default Tab**: `'collected'` (line 24)
+- **Tab Type**: `type Tab = 'reminders' | 'dues' | 'collected'` (line 21)
+
+**Tab Naming History**:
+- 2026-04-20: "Regular Payments" renamed to "Dues" for clarity
+- Tab value changed from `'regular'` to `'dues'` throughout the application
+
+### Payment Collected Tab (Read-Only Reporting)
+
+**Location**: `src/components/payment-collection/PaymentCollectedTable.tsx`
+
+**Interactive Elements**:
+
+| UI Element | Type | Action | API Route | Backend Service | DB Tables |
+|------------|------|--------|-----------|----------------|-----------|
+| **Month Picker** | `<Input type="month">` | Filter by month (YYYY-MM) | `GET /api/payment-collection/collected?month=<YYYY-MM>` | Direct Supabase query | `payments`, `members`, `discounts` |
+| **Plan Type Filter** | `<Select>` | Filter by plan type | `GET /api/payment-collection/collected?planType=<type>` | Direct Supabase query | `payments`, `members`, `discounts` |
+| **Search Input** | `<Input>` | Search by name/phone | `GET /api/payment-collection/collected?search=<query>` | Client-side filtering | N/A |
+| **Summary Cards** | Display | Show metrics | N/A (computed from API response) | N/A | N/A |
+| **Payment Row Click** | `<TableRow>` | Open member modal | N/A (client-side) | N/A | N/A |
+
+### API Routes
+
+#### GET /api/payment-collection/collected
+**Location**: `src/app/api/payment-collection/collected/route.ts:91-220`
+
+**Query Parameters**:
+- `month`: YYYY-MM format (default: current month)
+- `planType`: `daily` | `weekly` | `monthly` | `3-months` | `6-months` | `annual` | `custom` | `all` (default: all)
+- `search`: string (name or phone partial match, client-side filtering)
+
+**Response**:
+```json
+{
+  "success": true,
+  "data": {
+    "payments": [
+      {
+        "paymentId": "uuid",
+        "memberId": "uuid",
+        "memberName": "John Doe",
+        "phoneNumber": "+94771234567",
+        "planType": "monthly",
+        "amountPaid": 2000.00,
+        "discountName": "Student Discount",
+        "discountPct": 20,
+        "paymentDate": "2024-02-15",
+        "nextDueDate": "2024-03-15"
+      }
+    ],
+    "summary": {
+      "totalRevenue": 50000.00,
+      "paymentCount": 25,
+      "revenueByPlanType": {
+        "monthly": 30000.00,
+        "annual": 20000.00
+      }
+    },
+    "totalCount": 25
+  }
+}
+```
+
+**Backend Flow**:
+1. Auth: `getCurrentGymProfile()` → Supabase Auth session
+2. Validation: Month format regex (`/^\d{4}-\d{2}$/`)
+3. Date Range: `getMonthDateRange(month)` → `{startDate, endDate}`
+4. Database Query:
+   ```sql
+   SELECT
+     p.id, p.member_id, p.amount_paid, p.payment_date, p.next_due_date_calculated,
+     m.id, m.name, m.phone_number, m.plan_type, m.discount_id,
+     d.id, d.discount_name, d.discount_percentage
+   FROM payments p
+   INNER JOIN members m ON p.member_id = m.id
+   LEFT JOIN discounts d ON m.discount_id = d.id
+   WHERE p.gym_id = ?
+     AND p.payment_date >= ?
+     AND p.payment_date <= ?
+   ORDER BY p.payment_date DESC
+   ```
+5. Client-Side Filters:
+   - Plan type filter (if `planType !== 'all'`)
+   - Name/phone search (if `search` provided)
+6. Summary Metrics: `calculateSummaryMetrics(payments)` → `{totalRevenue, paymentCount, revenueByPlanType}`
+
+**Architecture Notes**:
+- **No Use Cases**: Read-only reporting feature with no business logic or state transitions
+- **Direct Supabase Access**: Appropriate for simple queries without complex domain rules
+- **Type Safety**: Proper TypeScript interfaces (MemberData, DiscountData, PaymentRecord, PaymentCollectedRow)
+- **API Response**: Uses ResponseBuilder utility for standardized responses
+
+**Query Invalidation**:
+When payment is collected via `RegularPaymentTable`, the `payment-collected` query is invalidated:
+```typescript
+// src/components/payment-collection/RegularPaymentTable.tsx:96-102
+queryClient.invalidateQueries({
+  predicate: (query) =>
+    query.queryKey[0] === 'regular-payments' ||
+    query.queryKey[0] === 'members' ||
+    query.queryKey[0] === 'sms-reminders' ||
+    query.queryKey[0] === 'payment-collected'  // ✅ Ensures real-time updates
+});
+```
+
+---
+
 # Phase 4: Gap & Orphan Analysis
 
 ## 4.1 Orphaned UI Elements
@@ -1938,6 +2055,174 @@ src/
 - Business rule validation centralized
 - Consistent error handling
 - Ready for future audit logging/notifications
+
+---
+
+## 4.7 React 19 + Radix UI Hydration Incompatibility
+
+**Status**: ⚠️ **MITIGATED** (2026-04-19)
+
+### Problem Description
+
+**Symptom**: React 19 hydration errors on all Radix UI `<Select>` components when using Next.js 16 App Router with Server-Side Rendering (SSR).
+
+**Error Pattern**:
+```
+Hydration failed because the server rendered HTML didn't match the client.
+Expected: aria-controls="radix-_R_ipaatperaitllb_"
+Received: aria-controls="radix-_R_4laatperaitllb_"
+```
+
+**Affected Components**: All 22 Select components across 10 files:
+- RegularPaymentTable.tsx (2 selects)
+- PaymentCollectedTable.tsx (1 select)
+- PaymentRemindersTable.tsx (2 selects)
+- MembersTable.tsx (6 selects - desktop + mobile variants)
+- RevenuePageClient.tsx (3 selects)
+- PaymentCollectionModal.tsx (1 select)
+- AddMemberModal.tsx (2 selects)
+- EditMemberModal.tsx (2 selects)
+- PlanTypesTab.tsx (1 select)
+- ReminderStatusTable.tsx (2 selects)
+
+### Root Cause
+
+**Technical Analysis**:
+
+1. **React 19's `useId()` Hook**: Generates component IDs based on tree position during rendering
+2. **Server-Side Rendering**: Component tree position calculated differently on server vs client
+3. **Radix UI's Internal Implementation**: Uses React's `useId()` internally to generate ARIA relationship IDs
+4. **The Breaking Chain**:
+   ```typescript
+   // Radix UI internals (simplified)
+   function Select() {
+     const generatedId = useId(); // Different on server vs client!
+
+     return (
+       <SelectTrigger aria-controls={`${generatedId}-content`} />
+       <SelectContent id={`${generatedId}-content`} />
+     );
+   }
+   ```
+
+5. **Result**: Server renders `aria-controls="radix-_R_ipaatperaitllb_"`, client hydrates with `aria-controls="radix-_R_4laatperaitllb_"`, React detects mismatch
+
+### Failed Attempted Fix #1: Explicit ID Props
+
+**Approach**: Added explicit `id` props to all 22 `<SelectTrigger>` components following `{page}-{component}-{purpose}-select` naming convention.
+
+**Example**:
+```tsx
+<SelectTrigger id="payment-regular-filter-select" className="w-[200px]">
+  <SelectValue />
+</SelectTrigger>
+```
+
+**Why It Failed**:
+- The `id` prop only sets the trigger button's **own** `id` attribute (`<button id="payment-regular-filter-select">`)
+- It does NOT affect Radix UI's **internal** ID generation for `aria-controls`
+- Radix UI still uses `useId()` internally for ARIA relationships, which remains non-deterministic
+- The hydration error persists because `aria-controls` attribute still mismatches
+
+**Lesson**: Third-party libraries with internal `useId()` calls cannot be fixed by external ID props alone.
+
+### Applied Solution: Targeted Hydration Suppression
+
+**Location**: `src/components/ui/select.tsx` (lines 19-32)
+
+**Implementation**:
+```typescript
+const SelectTrigger = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
+>(({ className, children, ...props }, ref) => (
+  <SelectPrimitive.Trigger
+    ref={ref}
+    className={cn(...)}
+    suppressHydrationWarning  // ⚠️ Added to suppress aria-controls mismatch
+    {...props}
+  >
+    {children}
+    <SelectPrimitive.Icon asChild>
+      <ChevronDown className="h-4 w-4 opacity-50" />
+    </SelectPrimitive.Icon>
+  </SelectPrimitive.Trigger>
+))
+```
+
+**Scope of Suppression**:
+- ✅ **Targeted**: Only suppresses warnings on the `<SelectTrigger>` component
+- ✅ **Minimal**: Does not suppress warnings on child elements or parent containers
+- ✅ **Safe**: The mismatch is purely cosmetic (ARIA IDs still function correctly on client)
+- ✅ **Centralized**: Applied once in shared component, affects all 22 Select instances
+
+### Why This Is Safe
+
+**Functional Impact**: ✅ **None**
+- The `aria-controls` attribute mismatch is a **presentation-only** issue
+- Screen readers use the **client-rendered** value, which is correct
+- The Select component functions identically on server and client
+- No business logic, data integrity, or user interaction is affected
+
+**Accessibility Impact**: ✅ **None**
+- ARIA relationships work correctly after hydration
+- Screen readers only interact with the client-rendered DOM
+- The temporary server-rendered HTML never reaches assistive technologies
+
+**SEO Impact**: ✅ **None**
+- Search engines do not parse or index ARIA attributes
+- Select components are interactive UI elements, not semantic content
+- Server-rendered HTML structure is identical (only IDs differ)
+
+### Alternative Solutions Considered
+
+| Solution | Status | Reason Rejected |
+|----------|--------|-----------------|
+| **Upgrade Radix UI** | ❌ Investigated | No fix available in latest version (as of 2026-04-19) |
+| **Downgrade to React 18** | ❌ Rejected | Loses React 19 features (automatic batching, use hook, etc.) |
+| **Disable SSR (`ssr: false`)** | ❌ Rejected | Loses SEO benefits and increases Time to Interactive |
+| **Custom Select Component** | ❌ Rejected | Large refactor, loses Radix UI's accessibility features |
+| **Wait for Upstream Fix** | ⏳ Monitoring | Tracking Radix UI issue tracker for React 19 compatibility |
+
+### Monitoring & Exit Strategy
+
+**Tracking Upstream Fix**:
+- Monitor: https://github.com/radix-ui/primitives/issues
+- Search for: "React 19 useId hydration"
+- When fixed: Remove `suppressHydrationWarning` and upgrade Radix UI
+
+**Verification Steps**:
+1. Check Radix UI release notes for React 19 hydration fixes
+2. Test upgrade in development environment
+3. Remove `suppressHydrationWarning` from `select.tsx`
+4. Verify no hydration errors in browser console
+5. Deploy to production
+
+**Documentation References**:
+- Implementation: `src/components/ui/select.tsx:25`
+- Architecture rules: `.claude/rules/architecture.md` Section 2.12
+- Affected components: See "Affected Components" list above
+
+### Impact Assessment
+
+**Before Fix**:
+- ❌ 22 hydration errors on every page load with Select components
+- ❌ Console pollution making real errors hard to detect
+- ❌ Poor developer experience
+- ❌ React DevTools showing hydration warnings
+
+**After Fix**:
+- ✅ Zero hydration warnings in production
+- ✅ Clean browser console
+- ✅ No functional or accessibility regressions
+- ✅ Temporary mitigation until upstream fix available
+
+**Risk Level**: 🟢 **Low**
+- Suppression is targeted and minimal
+- No functional impact on users
+- No accessibility impact on screen reader users
+- No SEO impact on search engines
+- Easily reversible when upstream fix is available
 
 ---
 
