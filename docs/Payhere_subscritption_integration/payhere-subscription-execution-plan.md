@@ -238,6 +238,8 @@ CREATE TABLE saas_payment_logs (
   payhere_payment_id      text,                -- NULL allowed: invalid-signature/garbage posts may omit it
   payhere_subscription_id text,
   status_code             integer     NOT NULL,
+  message_type            text,                -- e.g. RECURRING_INSTALLMENT_FAILED (C-22 classification)
+  status_message          text,                -- PayHere's failure reason, verbatim (admin-only surface)
   signature_valid         boolean     NOT NULL,
   raw_payload             jsonb       NOT NULL,
   processed_at            timestamptz NOT NULL DEFAULT now()
@@ -394,6 +396,15 @@ export const PAYMENT_POLL_TIMEOUT_MS = 10_000;
 export const PAYMENT_POLL_INTERVAL_MS = 1_500;
 export const INVALID_WEBHOOK_LOG_HOURLY_CAP = 100; // bound on signature-invalid audit rows/hour (C-20)
 
+/** Coarse decline classification (C-22). PayHere exposes no card-network decline codes —
+ *  only status_code + message_type + free-text status_message — so classification is
+ *  capture-first and deliberately two-valued until real gateway data justifies more. */
+export enum RecurringFailureClass {
+  Retriable = 'retriable', // -2 installment failed: PayHere retries; UX = "ensure funds"
+  Hard = 'hard',           // -3 chargedback, -1 canceled, RECURRING_STOPPED: no retry coming
+}
+export const recurringFailureClassSchema = z.nativeEnum(RecurringFailureClass);
+
 // §2.2: validation layer reuses the domain enum — never a duplicate z.enum list
 export const saasTierSchema = z.nativeEnum(SaasTier);
 export const saasStatusSchema = z.nativeEnum(SaasStatus);
@@ -424,6 +435,15 @@ Guard details that must be enforced (and unit-tested):
 - `markPastDue` only from `pro/active` (a failure on `past_due` is already-known; log-only).
 - Query helpers: `canAddMember(now)` (mirror of the SQL matrix in Phase DB file 3), `isGraceExpired(now)`,
   `isPaidThrough(now)`, `graceEndsAt` (derived `currentPeriodEnd + GRACE_PERIOD_DAYS`).
+
+**File — `src/core/domain/subscription/classifyRecurringFailure.ts`** (C-22): pure function
+`(statusCode: number, messageType: string | null) → RecurringFailureClass` — `-2` /
+`RECURRING_INSTALLMENT_FAILED` → `Retriable`; `-1`, `-3`, `RECURRING_STOPPED` → `Hard`; default `Hard`
+(fail pessimistic). The dunning discipline the industry sources demand (retry-tactic branching per decline
+code) is mostly PayHere's job — it owns retry scheduling — but the **recovery UX** must still branch:
+"PayHere will retry, ensure funds" vs "no retry is coming, re-subscribe". Capture-first: the class is
+persisted with every failure log and surfaced (sanitized) to the banner; finer-grained mapping waits for
+observed `status_message` data rather than guessing a taxonomy PayHere doesn't publish.
 
 Tests first (TDD): `src/core/__tests__/domain/subscription/Subscription.test.ts` — full matrix, see §6.
 
@@ -510,7 +530,10 @@ Unit tests first: crypto vectors (see §6) and gateway param assembly with an in
 - `ISaasPaymentLogRepository.ts` — `insertIfNew(input): Promise<boolean>` (false on duplicate
   `payhere_payment_id` → idempotency), `insertInvalid(input)` (signature-invalid/unattributed rows; never
   throws; enforces the `INVALID_WEBHOOK_LOG_HOURLY_CAP` hourly cap — C-20), `listFailures(limit, offset)`, `listByGym(gymId, page, limit)` (billing-history UI, typed rows —
-  no `unknown[]`; conflict C-10 refines the source plan's `listFailures(): Promise<unknown[]>`).
+  no `unknown[]`; conflict C-10 refines the source plan's `listFailures(): Promise<unknown[]>`), and
+  `findLatestFailure(gymId): Promise<SaasPaymentLogRow | null>` (feeds the serializer's `pastDueReason`,
+  C-22). The insert input carries `messageType` and `statusMessage` (promoted columns, not just
+  `raw_payload`), so classification is queryable.
 
 **Implementations** (in `src/infrastructure/database/repositories/`, `Supabase` prefix per §1.5):
 `SupabaseGymSubscriptionRepository.ts`, `SupabaseCheckoutIntentRepository.ts`,
@@ -585,6 +608,20 @@ AMOUNT_MISMATCH | ALREADY_PROCESSED | UNRESOLVED | STALE_EVENT | LOGGED_ONLY`):
      or PayHere/customer-side did), so local state follows. It is idempotent: if the state already matches
      (`pro/canceled` from UC-4, or a replayed event) the guard chain yields `STALE_EVENT`/`ALREADY_PROCESSED`
      and nothing is written.
+   - **Period anchor on recovery (C-23):** every successful charge — first activation, on-time renewal, or
+     `past_due` recovery — sets `current_period_end = now() + interval '1 month'` in the repo's SQL, i.e.
+     anchored at the **successful-charge processing date**, never `old current_period_end + 1 month`. A gym
+     that fails on the 1st and recovers on the 9th is paid through the 9th of next month; re-anchoring at
+     the stale boundary would silently shorten the period they just paid for (the industry "recovery
+     restores access but not the billing math" failure). PayHere's `item_rec_date_next` is **captured in
+     `raw_payload` but never used for period math**: it is outside the `md5sig`-signed field set (see C-24),
+     and the plan's single-clock principle keeps all period arithmetic on the server. If observed gateway
+     schedules drift from the local period, that surfaces in admin reconciliation
+     (`listSubscriptionPayments`), not in automatic trust of an unsigned field.
+   - **Failure classification capture (C-22):** every log insert persists `message_type` and
+     `status_message` verbatim; UC-2 computes `classifyRecurringFailure(...)` for the outcome it returns but
+     takes no class-dependent state action yet — the class drives UX copy (Phase SR/UI) and admin triage
+     only.
 
 **UC-3 `ProcessDunning.ts`** — injects `IGymSubscriptionRepository` (set-based method) +
 `ICheckoutIntentRepository`. All decisions in SQL on the server clock, idempotent:
@@ -695,6 +732,10 @@ input `Subscription` props (+`memberCount`), output:
   currentPeriodEnd, current_period_end,         // 'YYYY-MM-DD' | null
   graceEndsAt, grace_ends_at,                   // 'YYYY-MM-DD' | null — only when past_due; computed
                                                 // server-side so banner countdowns share one clock
+  pastDueReason, past_due_reason,               // RecurringFailureClass | null — only when past_due;
+                                                // derived from findLatestFailure() via
+                                                // classifyRecurringFailure (C-22). The class token only —
+                                                // raw status_message NEVER reaches the gym client (§2.8)
   canAddMember: boolean
 }
 ```
@@ -756,7 +797,8 @@ from `vercel.json` — noted in §7, not fixed here.
 `system-health/page.tsx` alongside `CronStatusGrid` and `RawSMSFailureTable`, following their exact
 data-fetch pattern (Bearer `ADMIN_API_SECRET` from the admin layout's secret handling) against
 `GET /api/admin/system-health/billing-failures`. Columns: processed_at, gym, order_id, payment_id,
-status_code, signature_valid, resolution outcome. The dunning cron is automatically visible in
+status_code, `message_type`, `status_message` (verbatim — admin is the only surface where it may appear,
+C-22), failure class, signature_valid, resolution outcome. The dunning cron is automatically visible in
 `CronStatusGrid` because it logs through `CronLogger` — no extra work.
 
 ### Phase TS — Test consolidation
@@ -770,8 +812,15 @@ earlier phases' tests.
    not** bump `package.json` version or tag — releases are user-triggered via the GUI
    (`.claude/rules/versioning.md`, "Never Auto-Bump Version").
 2. `docs/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`: schema, state machine diagram, webhook contract
-   (200-semantics table), dunning rules, PayHere runbook (domain whitelisting, live IP whitelisting, sandbox
-   notify-url tunneling), and the authoritative-source decision for invoice history.
+   (200-semantics table), dunning rules + failure-classification table (C-22), the C-24 threat model and its
+   compensating controls, and the PayHere runbook — domain whitelisting, live IP whitelisting, sandbox
+   notify-url tunneling, **required** per-IP edge rate limit on `/api/webhooks/payhere` (C-27), the
+   manual-retry guardrail (C-26), and the authoritative-source decision for invoice history. Include a
+   references appendix (industry sources behind C-22..C-27: Flexprice billing edge cases, RevenueCat grace
+   periods, Hooklistener/Hookdeck webhook security, Digital Applied dunning playbook) with the standing note
+   that Stripe-ecosystem articles supply universal principles only — PayHere's actual field surface
+   (`status_code`/`message_type`/`md5sig` 5-tuple, no decline codes, no timestamped signatures) is the
+   binding contract.
 3. `docs/TIER_IMPLEMENTATION_PLAN.md`: prepend a superseded-notice pointing at the new doc (conflict C-9).
 4. `.claude/rules/architecture.md`: add a Pattern Index row — "SaaS subscription billing: Free limit 50,
    grace 7 days, webhook always-200 idempotency, quota via `register_member_guarded`" → reference
@@ -868,7 +917,7 @@ Each step lists hard prerequisites. Steps with the same number can run in parall
 | Post-redirect verification | `components/ReturnStatusPanel.tsx` | `VERIFYING` spinner → `SUCCESS` / `PENDING_CONFIRMATION` / `CANCELED` states (flow 1) |
 | Billing / invoice history | `components/BillingHistoryTable.tsx` | Paginated `saas_payment_logs` rows: date, order id, amount, status badge (`paid/pending/failed`); row click → printable detail (browser print stylesheet — no PDF dependency) |
 | Cancel subscription | `components/CancelSubscriptionDialog.tsx` | `AlertDialog` with consequence disclosure (5.4 flow 4); destructive-variant confirm |
-| Past-due banner | `components/PastDueBanner.tsx` | Amber banner: "Payment failed — Pro features continue until {graceEndsAt} ({n} days left). Update your card via PayHere retry or contact support." Rendered on the billing page; optionally exported for the dashboard layout later (kept feature-internal for deletability now) |
+| Past-due banner | `components/PastDueBanner.tsx` | Amber banner, copy branches on `pastDueReason` (C-22): `retriable` → "Payment failed — PayHere will retry automatically. Make sure your card has funds. Pro features continue until {graceEndsAt} ({n} days left)."; `hard` → "Your payment method was declined and won't be retried. Pro features continue until {graceEndsAt} — re-subscribe before then to avoid reverting to Free." Rendered on the billing page; optionally exported for the dashboard layout later (kept feature-internal for deletability now) |
 | Quota-reached upsell | `components/QuotaReachedUpsell.tsx` | Inline panel: "Free plan limit reached (50/50 members). Upgrade to Pro for unlimited members." CTA → `/settings/billing`. Consumed by the members feature via `features/subscriptions` public index |
 | Admin failures table | `app/(admin)/system-health/BillingFailuresTable.tsx` | Phase AD; admin-only, technical detail permitted |
 
@@ -987,12 +1036,13 @@ authorization error, edge cases.
 | Suite | Scenarios |
 |---|---|
 | `core/__tests__/domain/subscription/Subscription.test.ts` | free below/at/over limit (`canAddMember` 49/50/500); pro/active; pro/past_due inside grace (day 6) and past grace (day 8); pro/canceled paid-through vs lapsed; `activatePro` from free/active, free/canceled, pro/canceled; `activatePro` **rejects** pro/active and pro/past_due; `renew` from active and past_due, **rejects** canceled and Free; `markPastDue` only from pro/active; `cancelPro` from active + past_due, rejects Free; `downgradeToFree` from past_due + canceled, rejects pro/active; immutability; `graceEndsAt` arithmetic across month boundaries |
+| `core/__tests__/domain/subscription/classifyRecurringFailure.test.ts` | `-2`/`RECURRING_INSTALLMENT_FAILED` → retriable; `-1`, `-3`, `RECURRING_STOPPED` → hard; unknown/null message_type → hard (pessimistic default) |
 | `lib/payhere/__tests__/crypto.test.ts` | outbound hash matches pinned PHP-formula vector; two-decimal formatting (`4900 → '4900.00'`, `4900.5 → '4900.50'`); inbound verify accepts valid vector; rejects wrong secret / tampered `payhere_amount` / tampered `status_code` / truncated & empty `md5sig`; raw-string rule (amount `'100.0'` must hash as `'100.0'`) |
 | `lib/payhere/__tests__/config.test.ts` | throws naming each missing var; sandbox vs live URL derivation |
 | `infrastructure/payments/__tests__/PayHereGateway.test.ts` | param assembly: recurrence/duration/custom_1/hash present; secret absent from output |
 | `infrastructure/payments/__tests__/PayHereSubscriptionGateway.test.ts` | token cached across calls; refresh after expiry; cancel success / already-cancelled idempotence / auth-error throw (mocked `fetch`) |
 | `core/__tests__/use-cases/subscription/*.test.ts` (mocked ports) | UC-1: happy, already-pro conflict, past_due conflict, concurrent-intent conflict propagation; UC-2 branch table — every outcome enum value reachable: PROVISIONED, RENEWED (incl. past_due recovery), MARKED_PAST_DUE, AMOUNT_MISMATCH (no save called!), ALREADY_PROCESSED, UNRESOLVED, LOGGED_PENDING, STALE_EVENT, RECONCILED_CANCELED; identity guard (C-21): after re-subscribe (stored id = B), late `RECURRING_STOPPED` for A → STALE_EVENT with B untouched, late installment success for A → STALE_EVENT with no period extension, and same-id replay of RECONCILED_CANCELED is a no-op; UC-3 returns counts from repo method; UC-4: happy, Free-gym conflict, idempotent second cancel, **gateway-throw leaves save un-called** |
-| `features/subscriptions/utils/__tests__/serializeSubscriptionForAPI.test.ts` | date format, dual keys, null handling, graceEndsAt presence rules, gateway-id exclusion |
+| `features/subscriptions/utils/__tests__/serializeSubscriptionForAPI.test.ts` | date format, dual keys, null handling, graceEndsAt + pastDueReason presence rules (both null unless past_due), gateway-id exclusion, raw `status_message` never present |
 | `features/subscriptions/__tests__/` (RTL, jsdom) | `usePaymentStatusPoll` with fake timers (success mid-poll; timeout → pending); `CurrentPlanCard` per §5.3 row; `QuotaReachedUpsell` render + CTA href; `CancelSubscriptionDialog` shows consequence copy and calls mutation on confirm only |
 | Members feature delta | `AddMemberModal` maps 403 `MEMBER_LIMIT_REACHED` to the upsell (mocked service) |
 
@@ -1000,7 +1050,7 @@ authorization error, edge cases.
 
 | Suite | Scenarios |
 |---|---|
-| `webhook.test.ts` | initial success provisions exactly once; duplicate `payment_id` replay → 200 + `ALREADY_PROCESSED` + single log row + no double period extension; recurring success on past_due recovers to active; `-2` on active → past_due; invalid signature → 200, `signature_valid=false` row, gym unchanged, md5sig redacted in `raw_payload`; forged-payload flood of `INVALID_WEBHOOK_LOG_HOURLY_CAP + 50` requests → row count capped at the constant, every response still 200 (C-20); amount mismatch → intent failed, gym stays Free; unresolved gym → 200 + null-gym log; `RECURRING_STOPPED` on pro/active → canceled; cancel + re-subscribe then late `RECURRING_STOPPED`/installment for the old `subscription_id` → new subscription untouched, `STALE_EVENT` logged (C-21); forced DB failure → 500 |
+| `webhook.test.ts` | initial success provisions exactly once; duplicate `payment_id` replay → 200 + `ALREADY_PROCESSED` + single log row + no double period extension; recurring success on past_due recovers to active **with `current_period_end` re-anchored at the recovery charge date, not the stale boundary** (C-23); `-2` on active → past_due with `message_type`/`status_message` persisted and class `retriable`, `-3` → class `hard`; invalid signature → 200, `signature_valid=false` row, gym unchanged, md5sig redacted in `raw_payload`; forged-payload flood of `INVALID_WEBHOOK_LOG_HOURLY_CAP + 50` requests → row count capped at the constant, every response still 200 (C-20); amount mismatch → intent failed, gym stays Free; unresolved gym → 200 + null-gym log; `RECURRING_STOPPED` on pro/active → canceled; cancel + re-subscribe then late `RECURRING_STOPPED`/installment for the old `subscription_id` → new subscription untouched, `STALE_EVENT` logged (C-21); forced DB failure → 500 |
 | `quota.test.ts` | 60 parallel registrations at count 49 → exactly 1 success/59 rejections/final 50; over-limit Free gym insert blocked + members readable; pro/past_due inside grace allows insert, past grace blocks; pro/canceled paid-through allows, lapsed blocks; bulk route per-row enforcement |
 | `dunning.test.ts` | past_due beyond grace → downgraded, `payhere_subscription_id` NULL; past_due inside grace → retained; pro/canceled past period-end → tier free, status stays canceled; pro/canceled before period-end → retained; **members table row count unchanged in all cases**; stale intents expired; cron_logs row written; wrong CRON_SECRET → 401 before any effect |
 | `checkout.test.ts` | two parallel checkouts → one pending intent + one 409; unauthenticated → 401; pro/active → 409 |
@@ -1044,6 +1094,12 @@ authorization error, edge cases.
 | C-19 | Source plan modeled `saas_tier`/`saas_status` as Postgres enums, but the superseded `TIER_IMPLEMENTATION_PLAN.md` shows prior product intent for >2 tiers, and `ALTER TYPE … ADD VALUE` is non-transactional (cannot ship in one transactional migration with dependent DDL). | Columns are `text` + CHECK constraints covering the full domains — tier `IN ('free','pro')`, status `IN ('active','past_due','canceled')`, `target_tier` likewise — validated immediately (new columns with passing defaults / new tables; no `NOT VALID` anywhere). `pro/canceled` paid-through is `tier='pro' + status='canceled'` — **no new status token exists outside the CHECK**. TS enums + `z.nativeEnum` unchanged and now sole app-layer enforcement: repo/route signatures type tier/status as the enums, never `string` (Phase RP corollary; §8 invariant 8 grep). Adding a tier later is a transactional CHECK swap. |
 | C-20 | Nullable `payhere_payment_id` (C-8) means invalid-signature audit rows bypass `insertIfNew` dedup — a forged-payload flood against the public webhook becomes unbounded write amplification. | `insertInvalid` enforces `INVALID_WEBHOOK_LOG_HOURLY_CAP`: hourly count served **index-only** by the exact-predicate `idx_saas_payment_logs_invalid_sig` (`WHERE signature_valid = false`) — the broader failures index is unsuitable (heap filtering, or signed failed payments counting against the cap on a dunning-storm day). Cap is **global**, not per-gym/order (attacker controls `order_id`/`custom_1` and would shard a scoped cap). Skip insert + single `console.warn` beyond cap; response stays 200; scanned range self-bounds at ~cap rows/hour. Edge-level rate limiting recommended as deployment-config defense-in-depth. |
 | C-21 | Late/out-of-order gateway events for a **replaced** subscription: after cancel + re-subscribe, `subscription_id` lookup for old sub A misses (row now stores B) and the `custom_1` fallback resolves the gym — a late `RECURRING_STOPPED`(A) would cancel B; a late installment success (A) would extend B. | Subscription-identity guard in UC-2: every non-intent state-mutating branch (`renew`, `markPastDue`, cancel reconciliation) requires the event's `subscription_id` to equal the stored `payhereSubscriptionId`; mismatch → `STALE_EVENT` (log-only). Intent-driven activations exempt (they establish the id). The gateway-success→local-write window is safe: `RECURRING_STOPPED` for the current id in that window **is** the intended reconciliation and converges idempotently with UC-4's own write, and no replacement subscription can be created inside the window because UC-1 rejects checkout while the row still reads `pro/active|past_due` (see UC-4 window analysis). Unit + integration coverage in §6. |
+| C-22 | Industry dunning discipline centers on decline-code classification (retriable vs unrecoverable); the plan previously collapsed `-1/-2/-3` into one undifferentiated `past_due`. PayHere constraint: no card-network decline codes exist — only `status_code`, `message_type`, free-text `status_message`. | Capture-first classification: `message_type`/`status_message` promoted to `saas_payment_logs` columns; two-valued `RecurringFailureClass` (`retriable`/`hard`, pessimistic default) computed by a pure domain helper; surfaced sanitized as `pastDueReason` (class token only, never raw text) to branch the past-due banner copy; full detail admin-only. State transitions unchanged — PayHere owns retry scheduling. Finer taxonomy deferred until observed `status_message` data exists. |
+| C-23 | Recovery that "restores access but not the billing math": re-anchoring at the stale pre-failure boundary silently shortens the period the customer just paid for. | Already the design (single server clock), now explicit + tested: every successful charge sets `current_period_end = now() + interval '1 month'` at the charge-processing date. PayHere's `item_rec_date_next` is captured in `raw_payload` but **never** used for period math — it sits outside the signed field set (C-24); gateway-vs-local schedule drift is an admin-reconciliation concern, not an automatic-trust concern. |
+| C-24 | PayHere protocol limitation: `md5sig` signs only `(merchant_id, order_id, payhere_amount, payhere_currency, status_code)` and carries no timestamp/nonce. Consequences: (a) timestamped-signature replay rejection is unavailable — idempotency is the sole replay defense (industry-sanctioned when the provider lacks timestamps); (b) `payment_id`, `subscription_id`, `message_type`, `item_rec_*` are **unsigned** — an actor holding one captured valid tuple could mutate them. | Compensating controls, named: TLS-only exposure of notify traffic; `md5sig` never logged (redaction is load-bearing, not hygiene); `payhere_subscription_id`/`customer_id` never serialized to any client; idempotency anchor on `payment_id`; identity guard on `subscription_id` (C-21); amount assertion before any provisioning; all period extension computed from the server clock, bounded to `+1 month` (no unsigned date is ever trusted — C-23); C-20 cap bounds the unauthenticated write path. Recorded so no future change (e.g. trusting `item_rec_date_next`) silently widens the surface. |
+| C-25 | Dominant industry webhook pattern is verify → enqueue → ACK (async worker); this plan is deliberately synchronous. | Conscious deviation, rationale recorded: the provisioning transaction is a single-row `gyms` UPDATE + one log insert; the stack has no queue/worker infrastructure; PayHere's retry-on-non-2xx **is** the durability layer, and ACKing before provisioning would forfeit it. Revisit trigger: if webhook side effects grow beyond the single transaction (emails, SMS, multi-row provisioning), introduce an outbox/queue and flip to verify-enqueue-ack rather than stretching the synchronous handler. |
+| C-26 | Card-network retry budgets (Visa: 15 attempts/30 days; Mastercard: fees per retry beyond 35/30 days from Jan 2025) can be breached by uncapped merchant-triggered retries. PayHere owns automatic retry scheduling, so the automatic path is its liability. | This plan deliberately exposes **no** user-facing "retry now" (`ISubscriptionGateway` omits `retrySubscription`; the past-due UX says PayHere retries). Guardrail recorded for the future: if a manual retry is ever added, cap it hard (e.g. 1/24h per subscription, ≤2 per past_due episode) so combined manual + PayHere attempts stay inside the tightest network budget. |
+| C-27 | App-layer cap (C-20) bounds audit writes but every forged request still costs a signature computation + one indexed count; the public webhook route itself needs an inbound ceiling. | Upgraded from "recommended" to **required deployment config** in the runbook (Phase HY): per-IP rate limit on `/api/webhooks/payhere` at ~5× expected peak (expected legitimate volume ≈ one notification per gym per month plus retries — tens/day platform-wide; a 60 req/min/IP ceiling is generous). Rate-limit rather than IP-allowlist: PayHere publishes no stable origin ranges. Kept as deployment config, not code — the app-layer C-20 cap remains the in-code guarantee. |
 | Obs | `/api/cron/expire-suspended-members` route exists but is missing from `vercel.json`. | Pre-existing, out of scope; noted for maintainers. |
 
 ---
@@ -1073,7 +1129,8 @@ Then assert the invariants (manual checklist against the diff):
    server-clock SQL.
 6. `PAYHERE_MERCHANT_SECRET`, App Secret, OAuth tokens, and `md5sig` never reach the client and never appear
    in logs (grep for the env names + `md5sig` in every `console.*` and serializer/route payload; confirm
-   invalid-sig `raw_payload` redaction).
+   invalid-sig `raw_payload` redaction — load-bearing for replay defense per C-24, not hygiene). Raw
+   `status_message` reaches admin surfaces only; gym clients see the `RecurringFailureClass` token alone.
 7. All secret comparisons on new routes are constant-time (`safeEqual`/`timingSafeEqual`).
 8. Enums are TS enums validated with `z.nativeEnum`; `grep -rn ": any\b"` over new files is empty; no repo
    or route types a tier/status parameter as `string` — grep new files for `'free'|'pro'|'past_due'` string
