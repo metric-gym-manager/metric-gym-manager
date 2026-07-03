@@ -189,16 +189,20 @@ Phases are labeled for cross-referencing: **DB** (database), **DM** (domain), **
 Postgres row lock — it cannot be retrofitted.
 
 **File 1 — `supabase/migrations/20260703000001_create_saas_subscriptions.sql`**
-Responsibility: enums, `gyms` subscription columns, backfill, `checkout_intents`, `saas_payment_logs`.
+Responsibility: tier/status text domains (CHECK-constrained, see C-19), `gyms` subscription columns,
+backfill, `checkout_intents`, `saas_payment_logs`.
 
 ```sql
--- Enums (TS mirror: src/core/utils/constants/SubscriptionConfig.ts)
-CREATE TYPE saas_tier   AS ENUM ('free', 'pro');
-CREATE TYPE saas_status AS ENUM ('active', 'past_due', 'canceled');
-
+-- Tier/status domains as text + CHECK, NOT Postgres enums (conflict C-19):
+-- prior product intent (docs/TIER_IMPLEMENTATION_PLAN.md) points at >2 tiers, and
+-- ALTER TYPE ... ADD VALUE is non-transactional — it cannot ship in the same
+-- transactional migration as dependent DDL. A CHECK constraint swap is transactional.
+-- TS mirror: src/core/utils/constants/SubscriptionConfig.ts
 ALTER TABLE gyms
-  ADD COLUMN subscription_tier       saas_tier   NOT NULL DEFAULT 'free',
-  ADD COLUMN subscription_status     saas_status NOT NULL DEFAULT 'active',
+  ADD COLUMN subscription_tier       text NOT NULL DEFAULT 'free'
+             CHECK (subscription_tier IN ('free','pro')),          -- values = SaasTier
+  ADD COLUMN subscription_status     text NOT NULL DEFAULT 'active'
+             CHECK (subscription_status IN ('active','past_due','canceled')),  -- values = SaasStatus
   ADD COLUMN payhere_customer_id     text,
   ADD COLUMN payhere_subscription_id text,
   ADD COLUMN current_period_end      timestamptz,
@@ -214,7 +218,7 @@ UPDATE gyms g SET member_count = (SELECT count(*) FROM members m WHERE m.gym_id 
 CREATE TABLE checkout_intents (
   order_id        text          PRIMARY KEY,
   gym_id          uuid          NOT NULL REFERENCES gyms(id) ON DELETE CASCADE,
-  target_tier     saas_tier     NOT NULL,
+  target_tier     text          NOT NULL CHECK (target_tier IN ('free','pro')),  -- values = SaasTier
   expected_amount numeric(12,2) NOT NULL,
   currency        text          NOT NULL DEFAULT 'LKR',
   status          text          NOT NULL DEFAULT 'pending'
@@ -252,6 +256,15 @@ impossible for payloads that omit the field, forcing either fabricated ids or dr
 `raw_payload` for invalid-signature rows must be stored with the `md5sig` field **redacted** (invariant: the
 signature never appears in logs).
 
+*Consequence of the nullable id (conflict C-20):* null-id audit rows bypass the `insertIfNew` dedup, so a
+flood of forged payloads to the public webhook would be unbounded write amplification. `insertInvalid`
+therefore enforces a cap before writing: one indexed count over the last hour
+(`WHERE signature_valid = false AND processed_at > now() - interval '1 hour'`, served by
+`idx_saas_payment_logs_failures`); at or beyond `INVALID_WEBHOOK_LOG_HOURLY_CAP` it skips the insert and
+emits a single `console.warn` — the route still returns 200 (never leak validation behavior to a prober).
+Legitimate signed traffic is unaffected. Edge-level rate limiting on `/api/webhooks/payhere` (Vercel WAF /
+middleware token bucket) is recommended defense-in-depth but is deployment config, not a code dependency.
+
 **File 2 — `supabase/migrations/20260703000002_saas_subscriptions_rls.sql`**
 Responsibility: RLS on both new tables using the repo's real predicate (§1.4) and the `cron_logs`
 service-role pattern.
@@ -278,12 +291,43 @@ CREATE POLICY "Gym owners can view own saas payment logs"
 
 The new `gyms` columns inherit the existing `"Gym owners can view own gym"` SELECT policy (verified in
 `20260211000005`) — the dashboard can read them with the session client. They also inherit the owner
-**UPDATE** policy; that is acceptable because the app never exposes a generic gyms-update path for these
-columns (`updateGymInfoSchema` whitelists only profile fields), but note it in the security review: a
-malicious owner with raw PostgREST access could self-upgrade. Mitigation (include in migration 2): a
-`BEFORE UPDATE` trigger `prevent_subscription_self_update` that raises unless the role is `service_role`
-when any of the six subscription columns change. This closes the gap at the database layer, matching the
-repo's defense-in-depth stance (`.claude/rules/security.md` Layer 1).
+**UPDATE** policy, and RLS is row-level only: a malicious owner with raw PostgREST access could
+`UPDATE gyms SET subscription_tier='pro'` (or `member_count=0`, defeating the quota) on their own row.
+Mitigation (include in migration 2): a `BEFORE UPDATE` trigger `prevent_subscription_self_update`:
+
+```sql
+CREATE OR REPLACE FUNCTION prevent_subscription_self_update() RETURNS trigger
+LANGUAGE plpgsql AS $$   -- SECURITY INVOKER on purpose: current_user must reflect the caller chain
+BEGIN
+  -- PostgREST executes SET ROLE from the JWT, so current_user is the reliable signal:
+  -- 'authenticated'/'anon' = end-user requests; block-list them rather than allow-listing
+  -- service_role so that superuser/migration/definer paths are never accidentally broken.
+  IF current_user IN ('anon', 'authenticated') AND (
+       NEW.subscription_tier       IS DISTINCT FROM OLD.subscription_tier
+    OR NEW.subscription_status     IS DISTINCT FROM OLD.subscription_status
+    OR NEW.payhere_customer_id     IS DISTINCT FROM OLD.payhere_customer_id
+    OR NEW.payhere_subscription_id IS DISTINCT FROM OLD.payhere_subscription_id
+    OR NEW.current_period_end      IS DISTINCT FROM OLD.current_period_end
+    OR NEW.member_count            IS DISTINCT FROM OLD.member_count
+  ) THEN
+    RAISE EXCEPTION 'SUBSCRIPTION_COLUMNS_READONLY';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_prevent_subscription_self_update
+BEFORE UPDATE ON gyms FOR EACH ROW EXECUTE FUNCTION prevent_subscription_self_update();
+```
+
+Role-signal notes the executor must not deviate from: (a) `member_count` **is** protected — it is the quota
+source read under `FOR UPDATE`; (b) the legitimate write paths stay exempt because they never run as
+`authenticated`/`anon`: `sync_gym_member_count()` and `register_member_guarded()` are SECURITY DEFINER, so
+inside them `current_user` is the function owner (`postgres`), and webhook/cron/billing writes run as
+`service_role`; migrations/backfills run as `postgres`. (c) Do not key off
+`current_setting('request.jwt.claims', …)` — it is absent on direct connections and would make the guard
+fail-open there. This closes the gap at the database layer, matching the repo's defense-in-depth stance
+(`.claude/rules/security.md` Layer 1).
 
 **File 3 — `supabase/migrations/20260703000003_member_count_trigger_and_guarded_insert.sql`**
 Responsibility: counter maintenance trigger + the single quota authority `register_member_guarded`.
@@ -332,6 +376,7 @@ export const PRO_BILLING_DURATION = 'Forever';    // PayHere `duration`
 export const CHECKOUT_INTENT_TTL_MINUTES = 30;
 export const PAYMENT_POLL_TIMEOUT_MS = 10_000;
 export const PAYMENT_POLL_INTERVAL_MS = 1_500;
+export const INVALID_WEBHOOK_LOG_HOURLY_CAP = 100; // bound on signature-invalid audit rows/hour (C-20)
 
 // §2.2: validation layer reuses the domain enum — never a duplicate z.enum list
 export const saasTierSchema = z.nativeEnum(SaasTier);
@@ -447,8 +492,8 @@ Unit tests first: crypto vectors (see §6) and gateway param assembly with an in
   `expireStale(now): Promise<number>` (interfaces exactly as source plan §2.1, with `targetTier: SaasTier.Pro`
   typed via the enum, not a string literal).
 - `ISaasPaymentLogRepository.ts` — `insertIfNew(input): Promise<boolean>` (false on duplicate
-  `payhere_payment_id` → idempotency), `insertInvalid(input)` (signature-invalid/unattributed rows, never
-  throws), `listFailures(limit, offset)`, `listByGym(gymId, page, limit)` (billing-history UI, typed rows —
+  `payhere_payment_id` → idempotency), `insertInvalid(input)` (signature-invalid/unattributed rows; never
+  throws; enforces the `INVALID_WEBHOOK_LOG_HOURLY_CAP` hourly cap — C-20), `listFailures(limit, offset)`, `listByGym(gymId, page, limit)` (billing-history UI, typed rows —
   no `unknown[]`; conflict C-10 refines the source plan's `listFailures(): Promise<unknown[]>`).
 
 **Implementations** (in `src/infrastructure/database/repositories/`, `Supabase` prefix per §1.5):
@@ -496,17 +541,29 @@ AMOUNT_MISMATCH | ALREADY_PROCESSED | UNRESOLVED | STALE_EVENT | LOGGED_ONLY`):
    - `2` (success): intent-driven → assert `formatAmount(raw payhere_amount) === formatAmount(expectedAmount)`;
      mismatch → intent `failed`, outcome `AMOUNT_MISMATCH`, **no provisioning** (a tampered client could
      otherwise buy Pro for 1 LKR — the signature validates integrity of what PayHere saw, not that the amount
-     is the price). Then: current sub Free or `pro/canceled` → `activatePro`; `pro/active|past_due` → `renew`.
-     `save({extendPeriod: true})`; intent → `completed`.
+     is the price). Then: current sub Free or `pro/canceled` → `activatePro`; `pro/active|past_due` → `renew`
+     **subject to the identity guard below**. `save({extendPeriod: true})`; intent → `completed`.
    - `0` (pending): log only → `LOGGED_PENDING`.
    - `-1 | -2 | -3`: initial activation (intent pending, gym Free) → intent `failed`, stay Free. Recurring on
      `pro/active` → `markPastDue` + save (grace starts; **no downgrade here** — only the dunning cron
      downgrades, on the server clock). On `pro/past_due` → already known, `LOGGED_ONLY`. On `pro/canceled` →
      `STALE_EVENT`.
-   - **Cancel reconciliation:** independent of the above, if `message_type = 'RECURRING_STOPPED'` or
-     `item_rec_status = '-1'` and the local sub is still `pro/active|past_due` → apply `cancelPro()` + save,
-     outcome `RECONCILED_CANCELED`. This is the mandated authoritative-state reconciliation: the gateway said
-     the subscription is dead (whether we initiated it or PayHere/customer-side did), so local state follows.
+   - **Subscription-identity guard (C-21) — applies to every non-intent, state-mutating branch** (`renew`,
+     `markPastDue`, cancel reconciliation): the event's `subscription_id` must equal the gym's stored
+     `payhereSubscriptionId`; on mismatch (or when the gym was resolved only via `custom_1` and carries a
+     different/NULL stored id) → `STALE_EVENT`, log-only. Why: after cancel + re-subscribe, the gym's row
+     holds the **new** subscription B while PayHere may still deliver late events for the replaced
+     subscription A. Without this guard, a late `RECURRING_STOPPED` for A would fall through the
+     `subscription_id` lookup (A is no longer stored), resolve the gym via `custom_1`, and wrongly cancel B —
+     and a late installment success for A would wrongly extend B's period. Intent-driven activations are
+     exempt: they are the moment the stored id is (re)established.
+   - **Cancel reconciliation:** independent of the status-code branch, if `message_type =
+     'RECURRING_STOPPED'` or `item_rec_status = '-1'`, the identity guard passes, and the local sub is still
+     `pro/active|past_due` → apply `cancelPro()` + save, outcome `RECONCILED_CANCELED`. This is the mandated
+     authoritative-state reconciliation: the gateway said this subscription is dead (whether we initiated it
+     or PayHere/customer-side did), so local state follows. It is idempotent: if the state already matches
+     (`pro/canceled` from UC-4, or a replayed event) the guard chain yields `STALE_EVENT`/`ALREADY_PROCESSED`
+     and nothing is written.
 
 **UC-3 `ProcessDunning.ts`** — injects `IGymSubscriptionRepository` (set-based method) +
 `ICheckoutIntentRepository`. All decisions in SQL on the server clock, idempotent:
@@ -587,7 +644,7 @@ All return through `ResponseBuilder` (§2.3); all Node-crypto/service-role route
 |---|---|---|---|
 | `POST /api/billing/checkout` | `src/app/api/billing/checkout/route.ts` | JWT (`getCurrentGymProfile`) | Zod `checkoutCustomerSchema` (feature schemas; defaults derived server-side from the gym profile: `firstName = gym_name`, `email`, `phone = phone_number ?? ''`, `address = gym_address ?? ''`, `city` required in body). `getAdminContainer().getGenerateCheckoutUrlUseCase()`. 200 `{checkoutUrl, params, orderId}`; `ConflictError` → 409; ZodError → 400 `validationError`. |
 | `POST /api/billing/cancel` | `src/app/api/billing/cancel/route.ts` | JWT | `getCancelSubscriptionUseCase()`. 200 with serialized subscription; `ConflictError` → 409; `ExternalServiceError` → 500 `internalError('Could not reach payment gateway…')` (sanitized — §2.8, no PayHere response bodies to the client). |
-| `POST /api/webhooks/payhere` | `src/app/api/webhooks/payhere/route.ts` | public | `dynamic = 'force-dynamic'`. `await req.formData()` (PayHere posts form-urlencoded), collect raw strings verbatim. Invalid `md5sig` → best-effort `insertInvalid` (md5sig redacted) → **200** `success({received:true})`. Valid → `execute(fields, raw)` → **200** `success({outcome})` for every business outcome incl. duplicate/unresolved/failed-payment. Only a thrown transient fault (DB down, etc.) → **500** `internalError` so PayHere retries. **HTTP status is never derived from `status_code`.** |
+| `POST /api/webhooks/payhere` | `src/app/api/webhooks/payhere/route.ts` | public | `dynamic = 'force-dynamic'`. `await req.formData()` (PayHere posts form-urlencoded), collect raw strings verbatim. Invalid `md5sig` → best-effort `insertInvalid` (md5sig redacted; hourly-capped per C-20) → **200** `success({received:true})`. Valid → `execute(fields, raw)` → **200** `success({outcome})` for every business outcome incl. duplicate/unresolved/failed-payment. Only a thrown transient fault (DB down, etc.) → **500** `internalError` so PayHere retries. **HTTP status is never derived from `status_code`.** |
 | `GET /api/settings/subscription` | `src/app/api/settings/subscription/route.ts` | JWT | Session-client read of the gym's subscription columns (+`member_count`); returns `serializeSubscriptionForAPI(...)`. Powers the billing page and the post-redirect poll. |
 | `GET /api/billing/history` | `src/app/api/billing/history/route.ts` | JWT | Session-client (RLS-scoped) paginated read of `saas_payment_logs` for the gym; `ResponseBuilder.success(rows, {page,totalPages,totalCount})`. Row payload: date, order id, masked status (`paid/pending/failed`), amount+currency from `raw_payload` whitelist — **never** the raw payload or signature fields (§2.8). *(Addition over the source plan — the UI needs an envelope-consistent API; direct client-side Supabase reads would bypass the service/hook convention.)* |
 | `POST /api/cron/process-dunning` | `src/app/api/cron/process-dunning/route.ts` | `CRON_SECRET` via `safeEqual` | Template = `update-expired-status` route: 401 on mismatch (no dev fallback secret) → `logStart('process-dunning')` → `getAdminContainer().getProcessDunningUseCase().execute()` → `logSuccess(logId, summary)`; catch → `logFailure` + 500. Dev-only `GET` (405 in production). |
@@ -729,7 +786,7 @@ Each step lists hard prerequisites. Steps with the same number can run in parall
 
 | Phase | Proof of correctness |
 |---|---|
-| DB | All three migrations apply cleanly **twice** on a fresh database (idempotence where declared, clean failure otherwise); `SELECT member_count FROM gyms` equals live `count(*)` per gym after backfill; inserting two `pending` intents for one gym raises `23505`; inserting two rows with the same `payhere_payment_id` raises `23505` while two `NULL`-id rows coexist; a session-role `UPDATE gyms SET subscription_tier='pro'` is rejected by the guard trigger. |
+| DB | All three migrations apply cleanly **twice** on a fresh database (idempotence where declared, clean failure otherwise); `SELECT member_count FROM gyms` equals live `count(*)` per gym after backfill; inserting two `pending` intents for one gym raises `23505`; inserting two rows with the same `payhere_payment_id` raises `23505` while two `NULL`-id rows coexist; guard trigger: as role `authenticated`, `UPDATE gyms SET subscription_tier='pro'` **and** `UPDATE gyms SET member_count=0` are both rejected, while a member INSERT via the guarded RPC still increments `member_count` (SECURITY DEFINER path exempt) and a service-role tier flip succeeds; CHECK constraints reject an out-of-domain tier/status value. |
 | DM | `Subscription.test.ts` green over the full matrix (§6); illegal moves throw `InvalidStatusTransitionError` with correct from/to strings; entity is immutable (mutating a returned instance's source leaves the original intact). |
 | GW | `generateCheckoutHash` reproduces a PHP-reference vector (compute once with the documented `strtoupper(md5(...))` formula and pin it); `verifyNotificationSignature` accepts the matching vector and rejects wrong-secret / tampered-amount / tampered-status / truncated-sig / absent-sig; token cache issues one token fetch for two consecutive gateway calls (mock fetch); `cancelSubscription` resolves on `status:1` and already-cancelled `-1`, throws on auth error. |
 | RP | Repos round-trip against a dev database: save→find preserves every field; `insertIfNew` returns `true` then `false` for the same payment id; `createPending` throws `ConflictError` on second pending. DI getters resolve without circular imports (`npm run type-check`). |
@@ -903,7 +960,7 @@ authorization error, edge cases.
 | `lib/payhere/__tests__/config.test.ts` | throws naming each missing var; sandbox vs live URL derivation |
 | `infrastructure/payments/__tests__/PayHereGateway.test.ts` | param assembly: recurrence/duration/custom_1/hash present; secret absent from output |
 | `infrastructure/payments/__tests__/PayHereSubscriptionGateway.test.ts` | token cached across calls; refresh after expiry; cancel success / already-cancelled idempotence / auth-error throw (mocked `fetch`) |
-| `core/__tests__/use-cases/subscription/*.test.ts` (mocked ports) | UC-1: happy, already-pro conflict, past_due conflict, concurrent-intent conflict propagation; UC-2 branch table — every outcome enum value reachable: PROVISIONED, RENEWED (incl. past_due recovery), MARKED_PAST_DUE, AMOUNT_MISMATCH (no save called!), ALREADY_PROCESSED, UNRESOLVED, LOGGED_PENDING, STALE_EVENT, RECONCILED_CANCELED; UC-3 returns counts from repo method; UC-4: happy, Free-gym conflict, idempotent second cancel, **gateway-throw leaves save un-called** |
+| `core/__tests__/use-cases/subscription/*.test.ts` (mocked ports) | UC-1: happy, already-pro conflict, past_due conflict, concurrent-intent conflict propagation; UC-2 branch table — every outcome enum value reachable: PROVISIONED, RENEWED (incl. past_due recovery), MARKED_PAST_DUE, AMOUNT_MISMATCH (no save called!), ALREADY_PROCESSED, UNRESOLVED, LOGGED_PENDING, STALE_EVENT, RECONCILED_CANCELED; identity guard (C-21): after re-subscribe (stored id = B), late `RECURRING_STOPPED` for A → STALE_EVENT with B untouched, late installment success for A → STALE_EVENT with no period extension, and same-id replay of RECONCILED_CANCELED is a no-op; UC-3 returns counts from repo method; UC-4: happy, Free-gym conflict, idempotent second cancel, **gateway-throw leaves save un-called** |
 | `features/subscriptions/utils/__tests__/serializeSubscriptionForAPI.test.ts` | date format, dual keys, null handling, graceEndsAt presence rules, gateway-id exclusion |
 | `features/subscriptions/__tests__/` (RTL, jsdom) | `usePaymentStatusPoll` with fake timers (success mid-poll; timeout → pending); `CurrentPlanCard` per §5.3 row; `QuotaReachedUpsell` render + CTA href; `CancelSubscriptionDialog` shows consequence copy and calls mutation on confirm only |
 | Members feature delta | `AddMemberModal` maps 403 `MEMBER_LIMIT_REACHED` to the upsell (mocked service) |
@@ -912,7 +969,7 @@ authorization error, edge cases.
 
 | Suite | Scenarios |
 |---|---|
-| `webhook.test.ts` | initial success provisions exactly once; duplicate `payment_id` replay → 200 + `ALREADY_PROCESSED` + single log row + no double period extension; recurring success on past_due recovers to active; `-2` on active → past_due; invalid signature → 200, `signature_valid=false` row, gym unchanged, md5sig redacted in `raw_payload`; amount mismatch → intent failed, gym stays Free; unresolved gym → 200 + null-gym log; `RECURRING_STOPPED` on pro/active → canceled; forced DB failure → 500 |
+| `webhook.test.ts` | initial success provisions exactly once; duplicate `payment_id` replay → 200 + `ALREADY_PROCESSED` + single log row + no double period extension; recurring success on past_due recovers to active; `-2` on active → past_due; invalid signature → 200, `signature_valid=false` row, gym unchanged, md5sig redacted in `raw_payload`; forged-payload flood of `INVALID_WEBHOOK_LOG_HOURLY_CAP + 50` requests → row count capped at the constant, every response still 200 (C-20); amount mismatch → intent failed, gym stays Free; unresolved gym → 200 + null-gym log; `RECURRING_STOPPED` on pro/active → canceled; cancel + re-subscribe then late `RECURRING_STOPPED`/installment for the old `subscription_id` → new subscription untouched, `STALE_EVENT` logged (C-21); forced DB failure → 500 |
 | `quota.test.ts` | 60 parallel registrations at count 49 → exactly 1 success/59 rejections/final 50; over-limit Free gym insert blocked + members readable; pro/past_due inside grace allows insert, past grace blocks; pro/canceled paid-through allows, lapsed blocks; bulk route per-row enforcement |
 | `dunning.test.ts` | past_due beyond grace → downgraded, `payhere_subscription_id` NULL; past_due inside grace → retained; pro/canceled past period-end → tier free, status stays canceled; pro/canceled before period-end → retained; **members table row count unchanged in all cases**; stale intents expired; cron_logs row written; wrong CRON_SECRET → 401 before any effect |
 | `checkout.test.ts` | two parallel checkouts → one pending intent + one 409; unauthenticated → 401; pro/active → 409 |
@@ -948,11 +1005,14 @@ authorization error, edge cases.
 | C-11 | `CLAUDE.md`/architecture §1.1 reference `instructions.md` as mandatory; the file does not exist at repo root. | Pre-existing gap, not created wholesale here. New constraints (Free=50, grace=7d, webhook-200 idempotency, members-never-deleted) are recorded in the architecture Pattern Index + `docs/architecture/saas-subscription.md` (Phase HY). |
 | C-12 | Invoice-history authority ambiguity: local `saas_payment_logs` vs PayHere Subscription Manager `/{id}/payments`. | **`saas_payment_logs` is authoritative for the gym-facing UI**: it is RLS-scoped, includes failed/pending rows (gateway list shows only its own view), works when PayHere is down, and adds no REST-quota/IP-whitelist coupling to a page load. The gateway endpoint is exposed only through `ISubscriptionGateway.listSubscriptionPayments` for admin-side reconciliation. |
 | C-13 | **Cancel-subscription gap** (the source plan ships no gateway cancellation). | Closed by design in this plan: `ISubscriptionGateway` port + `PayHereSubscriptionGateway` (OAuth token flow, cached ~10 min) + `CancelSubscription` use case + `POST /api/billing/cancel` + `cancelPro` domain transition + `pro/canceled` handling in quota SQL/dunning/webhook reconciliation + full UI flow (§5.4 flow 4). Config prerequisites treated as required: App ID/Secret env vars, PayHere domain whitelisting, live IP whitelisting (runbook). |
-| C-14 | Gyms UPDATE RLS would let an owner self-write subscription columns via raw PostgREST. | `prevent_subscription_self_update` trigger in migration 2 (service-role-only writes to those columns). |
+| C-14 | Gyms UPDATE RLS is row-level only — an owner could self-write subscription columns (incl. `member_count`, the quota source) via raw PostgREST. | `prevent_subscription_self_update` trigger in migration 2: SECURITY INVOKER, blocks changes to the six protected columns when `current_user IN ('anon','authenticated')` (block-list, so `postgres`/definer/migration paths stay exempt); `member_count` protected, with the SECURITY DEFINER counter trigger and guarded RPC verified exempt. |
 | C-15 | `POST /api/members` currently uses the session container; the guarded RPC is service-role-only. | Registration write path moves to the admin container **after** `getCurrentGymProfile()` fixes the gym id (same trust model the repo already uses elsewhere); reads stay session-scoped. |
 | C-16 | Sandbox `notify_url` cannot be localhost. | Dev/test uses a tunnel (documented in runbook); integration/E2E tests bypass PayHere entirely by posting signed bodies directly to the webhook route. |
 | C-17 | PayHere may retry or deliver webhooks out of order (e.g., installment success arriving after a cancel). | Idempotency row + state guards make replays no-ops and stale events log-only (`STALE_EVENT`); ordering never corrupts state because every mutation is guard-checked against current state, not event order. |
 | C-18 | Grace arithmetic in three places (TS entity, guarded SQL, dunning SQL) can drift. | Literals carry `-- see SubscriptionConfig.ts` comments (invariant), and integration tests assert TS-vs-SQL agreement at the boundary days (in-grace day 6 insert allowed, day 8 blocked ⇔ dunning day 8 downgrade). |
+| C-19 | Source plan modeled `saas_tier`/`saas_status` as Postgres enums, but the superseded `TIER_IMPLEMENTATION_PLAN.md` shows prior product intent for >2 tiers, and `ALTER TYPE … ADD VALUE` is non-transactional (cannot ship in one transactional migration with dependent DDL). | Columns are `text` + CHECK constraints (values mirrored by the TS enums + `z.nativeEnum`, unchanged). Adding a tier later is a transactional CHECK swap. Decided at plan stage precisely because it is free now and a migration hazard later. |
+| C-20 | Nullable `payhere_payment_id` (C-8) means invalid-signature audit rows bypass `insertIfNew` dedup — a forged-payload flood against the public webhook becomes unbounded write amplification. | `insertInvalid` enforces `INVALID_WEBHOOK_LOG_HOURLY_CAP` (indexed hourly count via `idx_saas_payment_logs_failures`; skip insert + single `console.warn` beyond cap; response stays 200). Edge-level rate limiting recommended as deployment-config defense-in-depth. |
+| C-21 | Late/out-of-order gateway events for a **replaced** subscription: after cancel + re-subscribe, `subscription_id` lookup for old sub A misses (row now stores B) and the `custom_1` fallback resolves the gym — a late `RECURRING_STOPPED`(A) would cancel B; a late installment success (A) would extend B. | Subscription-identity guard in UC-2: every non-intent state-mutating branch (`renew`, `markPastDue`, cancel reconciliation) requires the event's `subscription_id` to equal the stored `payhereSubscriptionId`; mismatch → `STALE_EVENT` (log-only). Intent-driven activations exempt (they establish the id). Unit + integration coverage in §6. |
 | Obs | `/api/cron/expire-suspended-members` route exists but is missing from `vercel.json`. | Pre-existing, out of scope; noted for maintainers. |
 
 ---
