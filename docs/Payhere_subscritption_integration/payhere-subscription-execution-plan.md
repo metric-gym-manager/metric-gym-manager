@@ -348,27 +348,122 @@ exception to be added explicitly, never as a silent bypass. This closes the gap 
 matching the repo's defense-in-depth stance (`.claude/rules/security.md` Layer 1).
 
 **File 3 — `supabase/migrations/20260703000003_member_count_trigger_and_guarded_insert.sql`**
-Responsibility: counter maintenance trigger + the single quota authority `register_member_guarded`.
+Responsibility: counter maintenance trigger, the single quota authority `register_member_guarded`, and the
+server-clock persistence RPC `save_gym_subscription`. Full final SQL (self-contained — the executor copies
+this, not the source plan):
 
-- Trigger `trg_sync_gym_member_count` (AFTER INSERT OR DELETE on `members`, SECURITY DEFINER function
-  `sync_gym_member_count()`) exactly as in the source plan §1.3.
-- `register_member_guarded(p_gym_id uuid, p_member jsonb) RETURNS uuid`, SECURITY DEFINER, which:
-  1. `SELECT subscription_tier, subscription_status, member_count, current_period_end FROM gyms
-     WHERE id = p_gym_id FOR UPDATE` — the gyms row is the per-tenant mutex; concurrent registrations
-     serialize here, which is what makes limit-1 races impossible.
-  2. Applies the allowance matrix (must mirror `Subscription.canAddMember`, Phase DM — the two are kept in
-     lock-step by the integration tests in Phase TS):
-     - `pro/active` → allowed
-     - `pro/past_due` → allowed while `now() <= current_period_end + interval '1 day' * 7`
-       (`-- 7 = GRACE_PERIOD_DAYS, see SubscriptionConfig.ts`)
-     - `pro/canceled` → allowed while `now() <= current_period_end` (paid-through after voluntary cancel)
-     - `free/*` → allowed while `member_count < 50` (`-- 50 = FREE_TIER_MEMBER_LIMIT, see SubscriptionConfig.ts`)
-  3. Raises `MEMBER_LIMIT_REACHED` / `GYM_NOT_FOUND` exceptions otherwise.
-  4. Performs the INSERT using **exactly** the §1.3 column list, casting from `p_member` jsonb
-     (`plan_type::member_plan_type`, `status::member_status` default `'active'`, dates with `CURRENT_DATE`
-     defaults, `next_due_date` required).
-  Returns the new member id; the AFTER trigger increments `member_count` inside the same transaction, so the
-  lock holder always sees its own increment before releasing.
+```sql
+-- 1. Denormalized member counter (SECURITY DEFINER: writes gyms regardless of inserter's RLS)
+CREATE OR REPLACE FUNCTION sync_gym_member_count() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER AS $$
+BEGIN
+  IF (TG_OP = 'INSERT') THEN
+    UPDATE gyms SET member_count = member_count + 1 WHERE id = NEW.gym_id;
+    RETURN NEW;
+  ELSIF (TG_OP = 'DELETE') THEN
+    UPDATE gyms SET member_count = GREATEST(member_count - 1, 0) WHERE id = OLD.gym_id;
+    RETURN OLD;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER trg_sync_gym_member_count
+AFTER INSERT OR DELETE ON members
+FOR EACH ROW EXECUTE FUNCTION sync_gym_member_count();
+
+-- 2. The ONLY member-quota authority. The gyms row lock is the per-tenant mutex:
+--    concurrent registrations serialize here, which is what makes limit-1 races impossible.
+CREATE OR REPLACE FUNCTION register_member_guarded(p_gym_id uuid, p_member jsonb)
+RETURNS uuid LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  g       RECORD;
+  allowed boolean := false;
+  new_id  uuid;
+BEGIN
+  SELECT subscription_tier, subscription_status, member_count, current_period_end
+    INTO g FROM gyms WHERE id = p_gym_id FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'GYM_NOT_FOUND'; END IF;
+
+  -- Allowance matrix — MUST mirror Subscription.canAddMember (SubscriptionConfig.ts)
+  IF g.subscription_tier = 'pro' THEN
+    IF g.subscription_status = 'active' THEN
+      allowed := true;
+    ELSIF g.subscription_status = 'past_due' THEN
+      -- 7 = GRACE_PERIOD_DAYS (SubscriptionConfig.ts)
+      allowed := (g.current_period_end IS NOT NULL
+                  AND now() <= g.current_period_end + (interval '1 day' * 7));
+    ELSIF g.subscription_status = 'canceled' THEN
+      -- voluntary cancel: paid-through until period end, NO grace (plan §2 Phase DM)
+      allowed := (g.current_period_end IS NOT NULL AND now() <= g.current_period_end);
+    END IF;
+  ELSE
+    -- 50 = FREE_TIER_MEMBER_LIMIT (SubscriptionConfig.ts)
+    allowed := (g.member_count < 50);
+  END IF;
+
+  IF NOT allowed THEN RAISE EXCEPTION 'MEMBER_LIMIT_REACHED'; END IF;
+
+  -- Column list = exact live members INSERT surface (preflight §1.3)
+  INSERT INTO members (
+    gym_id, name, phone_number, plan_type, plan_amount, discount_id,
+    recurring_discount, status, registered_date, membership_start_date, next_due_date
+  )
+  VALUES (
+    p_gym_id,
+    p_member->>'name',
+    p_member->>'phone_number',
+    (p_member->>'plan_type')::member_plan_type,
+    (p_member->>'plan_amount')::numeric,
+    NULLIF(p_member->>'discount_id','')::uuid,
+    COALESCE((p_member->>'recurring_discount')::boolean, false),
+    COALESCE(NULLIF(p_member->>'status','')::member_status, 'active'),
+    COALESCE(NULLIF(p_member->>'registered_date','')::date, CURRENT_DATE),
+    COALESCE(NULLIF(p_member->>'membership_start_date','')::date, CURRENT_DATE),
+    (p_member->>'next_due_date')::date
+  )
+  RETURNING id INTO new_id;  -- AFTER trigger increments member_count in this same transaction
+
+  RETURN new_id;
+END;
+$$;
+
+-- 3. Server-clock subscription persistence (item-3 fix): supabase-js .update() cannot express
+--    SQL expressions, so `current_period_end = now() + interval '1 month'` MUST go through an
+--    RPC. SupabaseGymSubscriptionRepository.save() calls this — never JS date math (C-18/C-23).
+CREATE OR REPLACE FUNCTION save_gym_subscription(
+  p_gym_id                  uuid,
+  p_tier                    text,     -- SaasTier value; CHECK on gyms re-validates
+  p_status                  text,     -- SaasStatus value
+  p_payhere_subscription_id text,     -- NULL clears (downgrade)
+  p_payhere_customer_id     text,
+  p_extend_period           boolean   -- true on activate/renew: period anchors at now()
+) RETURNS timestamptz LANGUAGE plpgsql SECURITY DEFINER AS $$
+DECLARE
+  v_period_end timestamptz;
+BEGIN
+  UPDATE gyms SET
+    subscription_tier       = p_tier,
+    subscription_status     = p_status,
+    payhere_subscription_id = p_payhere_subscription_id,
+    payhere_customer_id     = p_payhere_customer_id,
+    current_period_end      = CASE WHEN p_extend_period
+                              THEN now() + interval '1 month'  -- PRO_BILLING_RECURRENCE (SubscriptionConfig.ts)
+                              ELSE current_period_end END
+  WHERE id = p_gym_id
+  RETURNING current_period_end INTO v_period_end;
+  IF NOT FOUND THEN RAISE EXCEPTION 'GYM_NOT_FOUND'; END IF;
+  RETURN v_period_end;
+END;
+$$;
+
+-- Both RPCs are service-role-only: the API layer authenticates the caller and pins gym_id
+-- BEFORE invoking; direct PostgREST callers must not reach these.
+REVOKE ALL ON FUNCTION register_member_guarded(uuid, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION save_gym_subscription(uuid, text, text, text, text, boolean) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION register_member_guarded(uuid, jsonb) TO service_role;
+GRANT EXECUTE ON FUNCTION save_gym_subscription(uuid, text, text, text, text, boolean) TO service_role;
+```
 
 *Why `pro/canceled` appears here:* the mandated first-class cancel flow (§2 Phase UC-4) keeps Pro
 entitlements until period end; the DB gate must encode that or cancel would instantly strand gyms over 50
@@ -427,6 +522,46 @@ carry the mandated cancel flow):
 | `pro/active`, `pro/past_due` | `cancelPro()` | `pro/canceled` | voluntary cancel confirmed at gateway; keeps `currentPeriodEnd` |
 | `pro/past_due` (grace expired), `pro/canceled` (period ended) | `downgradeToFree()` | `free/canceled` | dunning cron; clears `payhereSubscriptionId`; **members untouched** |
 
+Pinned signatures (executor implements exactly these — no improvisation):
+
+```ts
+export interface SubscriptionProps {
+  gymId: string;
+  tier: SaasTier;
+  status: SaasStatus;
+  memberCount: number;
+  currentPeriodEnd: Date | null;
+  payhereCustomerId: string | null;
+  payhereSubscriptionId: string | null;
+}
+
+export class Subscription {
+  static create(props: SubscriptionProps): Subscription;
+  get gymId(): string;
+  get tier(): SaasTier;
+  get status(): SaasStatus;
+  get memberCount(): number;
+  get currentPeriodEnd(): Date | null;
+  get payhereCustomerId(): string | null;
+  get payhereSubscriptionId(): string | null;
+  toProps(): SubscriptionProps;                      // defensive copy
+  activatePro(input: { subscriptionId: string | null; customerId: string | null }): Subscription;
+  renew(): Subscription;                             // §2.5.1 non-transition; period set by save RPC
+  markPastDue(): Subscription;
+  cancelPro(): Subscription;
+  downgradeToFree(): Subscription;
+  canAddMember(now: Date): boolean;
+  isGraceExpired(now: Date): boolean;
+  isPaidThrough(now: Date): boolean;
+  graceEndsAt(): Date | null;                        // currentPeriodEnd + GRACE_PERIOD_DAYS when past_due
+}
+```
+
+Note `activatePro`/`renew` no longer take a `periodEnd` — the period is computed server-side by the
+`save_gym_subscription` RPC (`extendPeriod: true`); the entity carries intent, the database owns the clock.
+`currentPeriodEnd` on a freshly transitioned in-memory entity is therefore stale-until-saved; the repo's
+`save` returns a `Subscription` rebuilt with the RPC's returned `current_period_end`.
+
 Guard details that must be enforced (and unit-tested):
 - `activatePro` **rejects** `pro/active` and `pro/past_due` (already subscribed; past_due recovery arrives via
   `renew` on the existing subscription, not a second checkout).
@@ -449,21 +584,56 @@ Tests first (TDD): `src/core/__tests__/domain/subscription/Subscription.test.ts`
 
 ### Phase GW — PayHere config, crypto, gateways
 
-**File — `src/lib/payhere/config.ts`**: validated `payhereConfig` (Zod-parsed `process.env` at module load;
-throws with a named list of missing vars). Exposes `mode`, `merchantId`, `merchantSecret`, `proPriceLkr`,
-`checkoutUrl` (mode-derived `…/pay/checkout`), `restBaseUrl` (mode-derived), `appId`, `appSecret`, and the
-callback URLs built from `NEXT_PUBLIC_APP_URL`:
+**File — `src/lib/payhere/config.ts`**: `getPayhereConfig(): PayhereConfig` — **lazy, cached** Zod parse of
+`process.env` on first call (not module load: module-load throwing breaks Jest suites that import consumers
+without billing env; lazy keeps unit tests hermetic via `process.env` stubs + cache reset helper
+`__resetPayhereConfigForTests()`). Throws naming every missing var. Exposes `mode`, `merchantId`,
+`merchantSecret`, `proPriceLkr`, `checkoutUrl` (mode-derived `…/pay/checkout`), `restBaseUrl`
+(mode-derived), `appId`, `appSecret`, and the callback URLs built from `NEXT_PUBLIC_APP_URL`:
 - `returnUrl = ${APP_URL}/settings/billing?order={orderId}` (appended by the gateway)
 - `cancelUrl = ${APP_URL}/settings/billing?canceled=1`
 - `notifyUrl = ${APP_URL}/api/webhooks/payhere` — must be publicly reachable (API reference: no localhost);
   document the sandbox tunneling requirement in the runbook.
 
-**File — `src/lib/payhere/crypto.ts`**: exactly the source plan §3 implementation — `md5Upper`,
-`formatAmount = n.toFixed(2)`, `generateCheckoutHash(orderId, amount, currency)` implementing
-`UPPER(md5(merchant_id + order_id + amount2dp + currency + UPPER(md5(secret))))`, and
-`verifyNotificationSignature(fields)` recomputing the inbound formula over the **raw received strings**
-(`payhere_amount`, `status_code` never re-parsed/re-formatted) with `crypto.timingSafeEqual` and a
-length guard. Node `crypto` only ⇒ every consumer route declares `export const runtime = 'nodejs'`.
+**File — `src/lib/payhere/crypto.ts`** — final code (self-contained; the executor copies this):
+
+```ts
+import { createHash, timingSafeEqual } from 'crypto';
+
+const md5Upper = (s: string): string =>
+  createHash('md5').update(s, 'utf8').digest('hex').toUpperCase();
+
+/** Mirrors PHP number_format(x, 2, '.', '') — two decimals, no thousands separator. */
+export const formatAmount = (n: number): string => n.toFixed(2);
+
+/** Outbound: UPPER(md5(merchant_id + order_id + amount(2dp) + currency + UPPER(md5(secret)))) */
+export function generateCheckoutHash(
+  merchantId: string, merchantSecret: string,
+  orderId: string, amount: number, currency: string
+): string {
+  return md5Upper(merchantId + orderId + formatAmount(amount) + currency + md5Upper(merchantSecret));
+}
+
+/** Inbound: recompute over the RAW received strings — never re-parse/re-format payhere_amount
+ *  or status_code. Constant-time compare with length guard. */
+export function verifyNotificationSignature(
+  merchantSecret: string,
+  f: { merchant_id: string; order_id: string; payhere_amount: string;
+       payhere_currency: string; status_code: string; md5sig: string }
+): boolean {
+  if (!f.md5sig) return false;
+  const local = md5Upper(
+    f.merchant_id + f.order_id + f.payhere_amount + f.payhere_currency +
+    f.status_code + md5Upper(merchantSecret)
+  );
+  const a = Buffer.from(local);
+  const b = Buffer.from(f.md5sig);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+```
+
+(Secrets are passed in, not imported — keeps the module pure and unit-testable without env.) Node `crypto`
+only ⇒ every consumer route declares `export const runtime = 'nodejs'`.
 
 **File — `src/lib/auth/safeEqual.ts`**: `safeEqual(a: string, b: string): boolean` via `timingSafeEqual`
 with length check. Used by the new cron and admin routes for Bearer secrets (§1.5 last row).
@@ -518,15 +688,36 @@ Unit tests first: crypto vectors (see §6) and gateway param assembly with an in
 
 **Ports** (in `src/core/ports/repositories/`, added to the barrel):
 
-- `IGymSubscriptionRepository.ts` — `findByGymId(gymId)`, `findByPayhereSubscriptionId(id)`,
-  `save(sub: Subscription): Promise<Subscription>` where `save` persists tier/status/ids and, when the entity
-  was produced by `activatePro`/`renew`, sets `current_period_end = now() + interval '1 month'` **in SQL**
-  (single server clock — JS date math would drift from the dunning cron's `now()`). Implementation detail:
-  `save` takes an options flag `{ extendPeriod: boolean }` set by the use case, because the entity itself
-  carries only the intent, and the repo owns clock authority.
-- `ICheckoutIntentRepository.ts` — `createPending`, `findPendingByOrderId`, `markStatus`,
-  `expireStale(now): Promise<number>` (interfaces exactly as source plan §2.1, with `targetTier: SaasTier.Pro`
-  typed via the enum, not a string literal).
+- `IGymSubscriptionRepository.ts` — pinned:
+
+  ```ts
+  export interface IGymSubscriptionRepository {
+    findByGymId(gymId: string): Promise<Subscription | null>;
+    findByPayhereSubscriptionId(payhereSubscriptionId: string): Promise<Subscription | null>;
+    /** Persists tier/status/ids via the save_gym_subscription RPC (migration 3). extendPeriod:true
+     *  anchors current_period_end = now() + 1 month ON THE DATABASE CLOCK — supabase-js .update()
+     *  cannot express SQL expressions, hence the RPC; JS date math is forbidden here (C-18/C-23).
+     *  Returns the entity rebuilt with the RPC's returned current_period_end. */
+    save(sub: Subscription, opts: { extendPeriod: boolean }): Promise<Subscription>;
+  }
+  ```
+- `ICheckoutIntentRepository.ts` — pinned:
+
+  ```ts
+  export interface CheckoutIntent {
+    orderId: string; gymId: string; targetTier: SaasTier;
+    expectedAmount: number; currency: string;
+    status: 'pending' | 'completed' | 'failed' | 'expired';
+    expiresAt: Date;
+  }
+  export interface ICheckoutIntentRepository {
+    /** throws ConflictError on the one-pending-per-gym partial unique index (23505) */
+    createPending(intent: Omit<CheckoutIntent, 'status'>): Promise<CheckoutIntent>;
+    findPendingByOrderId(orderId: string): Promise<CheckoutIntent | null>;
+    markStatus(orderId: string, status: CheckoutIntent['status']): Promise<void>;
+    expireStale(now: Date): Promise<number>;
+  }
+  ```
 - `ISaasPaymentLogRepository.ts` — `insertIfNew(input): Promise<boolean>` (false on duplicate
   `payhere_payment_id` → idempotency), `insertInvalid(input)` (signature-invalid/unattributed rows; never
   throws; enforces the `INVALID_WEBHOOK_LOG_HOURLY_CAP` hourly cap — C-20), `listFailures(limit, offset)`, `listByGym(gymId, page, limit)` (billing-history UI, typed rows —
@@ -622,6 +813,59 @@ AMOUNT_MISMATCH | ALREADY_PROCESSED | UNRESOLVED | STALE_EVENT | LOGGED_ONLY`):
      `status_message` verbatim; UC-2 computes `classifyRecurringFailure(...)` for the outcome it returns but
      takes no class-dependent state action yet — the class drives UX copy (Phase SR/UI) and admin triage
      only.
+
+**Normative guard-chain order** — the executor implements exactly this sequence; re-ordering any step
+re-opens a closed hole (resolution before idempotency so duplicates are attributed; idempotency before any
+state mutation; identity guard before every non-intent mutation):
+
+```
+execute(fields, rawPayload):
+  intent = checkoutIntentRepo.findPendingByOrderId(fields.order_id)          # 1. resolve gym
+  sub    = intent ? subRepo.findByGymId(intent.gymId)
+         : fields.subscription_id ? subRepo.findByPayhereSubscriptionId(fields.subscription_id)
+         : null
+  if !sub and fields.custom_1: sub = subRepo.findByGymId(fields.custom_1)    # fallback, unsigned (C-24)
+  if !sub:
+    logRepo.insertIfNew({gymId: null, ...fields})                            # audit, unattributed
+    return UNRESOLVED
+
+  inserted = logRepo.insertIfNew({gymId, orderId, payherePaymentId,          # 2. idempotency anchor
+              payhereSubscriptionId, statusCode, signatureValid: true,
+              messageType, statusMessage, rawPayload})
+  if !inserted: return ALREADY_PROCESSED                                     # replay → no state change
+
+  idMatches = intent != null                                                 # 3. identity guard (C-21)
+           or (fields.subscription_id and fields.subscription_id == sub.payhereSubscriptionId)
+
+  if fields.message_type == 'RECURRING_STOPPED' or fields.item_rec_status == '-1':   # 4. reconcile cancel
+    if idMatches and sub.status in (Active, PastDue) and sub.tier == Pro:
+      subRepo.save(sub.cancelPro(), {extendPeriod: false}); return RECONCILED_CANCELED
+    return STALE_EVENT
+
+  switch int(fields.status_code):                                            # 5. status branch
+    case 2:
+      if intent:
+        if formatAmount(fields.payhere_amount) != formatAmount(intent.expectedAmount):
+          intentRepo.markStatus(orderId,'failed'); return AMOUNT_MISMATCH    # no provisioning
+        if sub.tier == Free or (sub.tier == Pro and sub.status == Canceled):
+          subRepo.save(sub.activatePro({subscriptionId, customerId}), {extendPeriod: true})
+        else:
+          subRepo.save(sub.renew(), {extendPeriod: true})                    # past_due recovery incl.
+        intentRepo.markStatus(orderId,'completed'); return PROVISIONED
+      # recurring installment (no intent):
+      if !idMatches: return STALE_EVENT                                      # late event for replaced sub
+      if sub.tier == Pro and sub.status in (Active, PastDue):
+        subRepo.save(sub.renew(), {extendPeriod: true}); return RENEWED      # anchor = now() (C-23)
+      return STALE_EVENT                                                     # canceled: never un-cancel
+    case 0: return LOGGED_PENDING
+    case -1, -2, -3:
+      if intent: intentRepo.markStatus(orderId,'failed'); return LOGGED_ONLY # initial checkout failed
+      if !idMatches: return STALE_EVENT
+      if sub.tier == Pro and sub.status == Active:
+        subRepo.save(sub.markPastDue(), {extendPeriod: false}); return MARKED_PAST_DUE
+      return LOGGED_ONLY                                                     # past_due known / canceled stale
+    default: return LOGGED_ONLY
+```
 
 **UC-3 `ProcessDunning.ts`** — injects `IGymSubscriptionRepository` (set-based method) +
 `ICheckoutIntentRepository`. All decisions in SQL on the server clock, idempotent:
