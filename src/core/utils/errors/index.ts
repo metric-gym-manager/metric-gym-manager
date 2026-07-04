@@ -9,6 +9,7 @@ export {
   PaymentCalculationError,
   BusinessRuleViolationError,
   ConflictError,
+  MemberLimitError,
   DatabaseError,
   ExternalServiceError,
   SMSSendError,

@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import CronStatusGrid from './CronStatusGrid';
 import RawSMSFailureTable from './RawSMSFailureTable';
+import BillingFailuresTable from './BillingFailuresTable';
 import { Shield, Activity } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -71,6 +72,11 @@ export default function SystemHealthPage() {
           {/* SMS Failures Table */}
           <section>
             <RawSMSFailureTable />
+          </section>
+
+          {/* PayHere Billing Failures Table */}
+          <section>
+            <BillingFailuresTable />
           </section>
 
           {/* Footer Info */}

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { addMemberSchema, memberFiltersSchema } from '@/features/members/schemas/member.schemas';
-import { getContainer } from '@/infrastructure/di';
+import { getContainer, getAdminContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { ConflictError, ValidationError } from '@/core/utils/errors';
+import { ConflictError, MemberLimitError, ValidationError } from '@/core/utils/errors';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import type { Member } from '@/core/domain/member/Member';
 
@@ -174,8 +174,10 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Register member via use case
-    const container = await getContainer();
+    // Register member via use case. Admin container on purpose: the guarded
+    // quota RPC is EXECUTE-granted to service_role only, and the caller's
+    // gym id was already pinned by getCurrentGymProfile() above (plan C-15).
+    const container = await getAdminContainer();
     const registerMember = container.getRegisterMemberUseCase();
 
     const result = await registerMember.execute({
@@ -205,6 +207,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         ResponseBuilder.unauthorized(),
         { status: 401 }
+      );
+    }
+
+    if (error instanceof MemberLimitError) {
+      // Machine-readable code: the frontend keys the upgrade prompt on it
+      return NextResponse.json(
+        ResponseBuilder.error(error.message, 'MEMBER_LIMIT_REACHED'),
+        { status: 403 }
       );
     }
 

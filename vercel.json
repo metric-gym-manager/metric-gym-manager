@@ -13,6 +13,10 @@
       "schedule": "30 3 * * *"
     },
     {
+      "path": "/api/cron/process-dunning",
+      "schedule": "45 0 * * *"
+    },
+    {
       "path": "/api/cron/archive-old-members",
       "schedule": "0 1 1 * *"
     }

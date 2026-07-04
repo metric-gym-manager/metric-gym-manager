@@ -22,7 +22,7 @@ import {
 } from '@/core/ports/repositories/IMemberRepository';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberStatus } from '@/core/utils/constants/StatusConfig';
-import { NotFoundError } from '@/core/utils/errors';
+import { NotFoundError, MemberLimitError, DatabaseError } from '@/core/utils/errors';
 
 /**
  * Database row interface (snake_case from Supabase)
@@ -306,6 +306,53 @@ export class SupabaseMemberRepository implements IMemberRepository {
     }
 
     return this.toDomain(data);
+  }
+
+  /**
+   * Create a member through the FOR UPDATE-locked quota gate.
+   *
+   * The register_member_guarded RPC (migration 20260704000003) locks the
+   * gyms row, applies the tier allowance matrix, and performs the INSERT in
+   * one transaction — the single member-quota authority. EXECUTE is granted
+   * to service_role only, so this repo must be constructed with the admin
+   * client on registration paths (the route authenticates and pins gymId
+   * BEFORE this call).
+   */
+  async createGuarded(gymId: string, member: Member): Promise<Member> {
+    const row = this.toDatabase(member);
+    const pMember = {
+      name: row.name,
+      phone_number: row.phone_number,
+      plan_type: row.plan_type,
+      plan_amount: row.plan_amount,
+      discount_id: row.discount_id,
+      recurring_discount: row.recurring_discount,
+      status: row.status,
+      registered_date: row.registered_date,
+      membership_start_date: row.membership_start_date,
+      next_due_date: row.next_due_date,
+    };
+
+    const { data, error } = await this.supabase.rpc('register_member_guarded', {
+      p_gym_id: gymId,
+      p_member: pMember,
+    });
+
+    if (error) {
+      if (error.message.includes('MEMBER_LIMIT_REACHED')) {
+        throw new MemberLimitError();
+      }
+      if (error.message.includes('GYM_NOT_FOUND')) {
+        throw new NotFoundError('Gym');
+      }
+      throw new DatabaseError(`Failed to register member: ${error.message}`);
+    }
+
+    const created = await this.findById(data as string, gymId);
+    if (!created) {
+      throw new DatabaseError('Member created but could not be loaded');
+    }
+    return created;
   }
 
   /**

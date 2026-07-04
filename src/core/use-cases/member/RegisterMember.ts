@@ -174,8 +174,10 @@ export class RegisterMember {
       nextDueDate: nextDueDate,
     });
 
-    // 5. Persist member
-    const savedMember = await this.memberRepo.create(member);
+    // 5. Persist member through the FOR UPDATE-locked quota gate
+    //    (register_member_guarded — the single member-quota authority).
+    //    Throws MemberLimitError when the gym's tier blocks the insert.
+    const savedMember = await this.memberRepo.createGuarded(input.gymId, member);
 
     // 6. Create initial payment record
     const payment = Payment.create({
