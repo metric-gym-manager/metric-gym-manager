@@ -19,3 +19,16 @@ export {
   type SMSType,
   SMSDeliveryStatus,
 } from './ISMSRepository';
+
+export { type IGymSubscriptionRepository } from './IGymSubscriptionRepository';
+
+export {
+  type ICheckoutIntentRepository,
+  type CheckoutIntent,
+} from './ICheckoutIntentRepository';
+
+export {
+  type ISaasPaymentLogRepository,
+  type SaasPaymentLogInput,
+  type SaasPaymentLogRow,
+} from './ISaasPaymentLogRepository';

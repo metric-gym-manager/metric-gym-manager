@@ -11,3 +11,14 @@ export {
   type UploadOptions,
   type UploadResult,
 } from './IStorageProvider';
+
+export {
+  type IPaymentGateway,
+  type CheckoutCustomer,
+  type CheckoutRedirect,
+} from './IPaymentGateway';
+
+export {
+  type ISubscriptionGateway,
+  type GatewaySubscriptionPayment,
+} from './ISubscriptionGateway';

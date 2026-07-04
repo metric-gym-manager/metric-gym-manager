@@ -21,6 +21,14 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseMemberRepository } from '@/infrastructure/database/repositories/SupabaseMemberRepository';
 import { SupabasePaymentRepository } from '@/infrastructure/database/repositories/SupabasePaymentRepository';
 import { SupabaseSMSRepository } from '@/infrastructure/database/repositories/SupabaseSMSRepository';
+import { SupabaseGymSubscriptionRepository } from '@/infrastructure/database/repositories/SupabaseGymSubscriptionRepository';
+import { SupabaseCheckoutIntentRepository } from '@/infrastructure/database/repositories/SupabaseCheckoutIntentRepository';
+import { SupabaseSaasPaymentLogRepository } from '@/infrastructure/database/repositories/SupabaseSaasPaymentLogRepository';
+
+// Payment gateways
+import { PayHereGateway } from '@/infrastructure/payments/PayHereGateway';
+import { PayHereSubscriptionGateway } from '@/infrastructure/payments/PayHereSubscriptionGateway';
+import { getPayhereConfig } from '@/lib/payhere/config';
 
 // Services
 import { TextLkSMSProvider } from '@/infrastructure/sms/providers/TextLkSMSProvider';
@@ -36,12 +44,20 @@ import { ExpireSuspendedMembers } from '@/core/use-cases/member/ExpireSuspendedM
 import { SuspendMember } from '@/core/use-cases/member/SuspendMember';
 import { ReactivateMember } from '@/core/use-cases/member/ReactivateMember';
 import { CancelMember } from '@/core/use-cases/member/CancelMember';
+import { GenerateCheckoutUrl } from '@/core/use-cases/subscription/GenerateCheckoutUrl';
+import { HandlePayHereWebhook } from '@/core/use-cases/subscription/HandlePayHereWebhook';
+import { ProcessDunning } from '@/core/use-cases/subscription/ProcessDunning';
+import { CancelSubscription } from '@/core/use-cases/subscription/CancelSubscription';
 
 // Interfaces
 import type { IMemberRepository } from '@/core/ports/repositories/IMemberRepository';
 import type { IPaymentRepository } from '@/core/ports/repositories/IPaymentRepository';
 import type { ISMSRepository } from '@/core/ports/repositories/ISMSRepository';
+import type { IGymSubscriptionRepository } from '@/core/ports/repositories/IGymSubscriptionRepository';
+import type { ICheckoutIntentRepository } from '@/core/ports/repositories/ICheckoutIntentRepository';
+import type { ISaasPaymentLogRepository } from '@/core/ports/repositories/ISaasPaymentLogRepository';
 import type { ISMSProvider } from '@/core/ports/services/ISMSProvider';
+import type { IPaymentGateway, ISubscriptionGateway } from '@/core/ports/services';
 
 /**
  * Dependency Injection Container
@@ -66,6 +82,11 @@ export class Container {
   private paymentRepo?: IPaymentRepository;
   private smsRepo?: ISMSRepository;
   private smsProvider?: ISMSProvider;
+  private gymSubscriptionRepo?: IGymSubscriptionRepository;
+  private checkoutIntentRepo?: ICheckoutIntentRepository;
+  private saasPaymentLogRepo?: ISaasPaymentLogRepository;
+  private paymentGateway?: IPaymentGateway;
+  private subscriptionGateway?: ISubscriptionGateway;
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
@@ -105,9 +126,59 @@ export class Container {
     return this.smsRepo;
   }
 
+  /**
+   * Get Gym Subscription Repository (SaaS billing state on the gyms row)
+   */
+  getGymSubscriptionRepository(): IGymSubscriptionRepository {
+    if (!this.gymSubscriptionRepo) {
+      this.gymSubscriptionRepo = new SupabaseGymSubscriptionRepository(this.supabase);
+    }
+    return this.gymSubscriptionRepo;
+  }
+
+  /**
+   * Get Checkout Intent Repository (PayHere order_id -> gym attribution)
+   */
+  getCheckoutIntentRepository(): ICheckoutIntentRepository {
+    if (!this.checkoutIntentRepo) {
+      this.checkoutIntentRepo = new SupabaseCheckoutIntentRepository(this.supabase);
+    }
+    return this.checkoutIntentRepo;
+  }
+
+  /**
+   * Get SaaS Payment Log Repository (webhook audit + billing history)
+   */
+  getSaasPaymentLogRepository(): ISaasPaymentLogRepository {
+    if (!this.saasPaymentLogRepo) {
+      this.saasPaymentLogRepo = new SupabaseSaasPaymentLogRepository(this.supabase);
+    }
+    return this.saasPaymentLogRepo;
+  }
+
   // ============================================================
   // SERVICES
   // ============================================================
+
+  /**
+   * Get PayHere redirect/form payment gateway
+   */
+  getPaymentGateway(): IPaymentGateway {
+    if (!this.paymentGateway) {
+      this.paymentGateway = new PayHereGateway();
+    }
+    return this.paymentGateway;
+  }
+
+  /**
+   * Get PayHere OAuth REST subscription gateway (cancel / list payments)
+   */
+  getSubscriptionGateway(): ISubscriptionGateway {
+    if (!this.subscriptionGateway) {
+      this.subscriptionGateway = new PayHereSubscriptionGateway();
+    }
+    return this.subscriptionGateway;
+  }
 
   /**
    * Get SMS Provider
@@ -201,6 +272,53 @@ export class Container {
       this.getPaymentRepository(),
       this.getSMSProvider(),
       this.getSMSRepository()
+    );
+  }
+
+  // ============================================================
+  // USE CASES - SAAS SUBSCRIPTION (billing routes use getAdminContainer())
+  // ============================================================
+
+  /**
+   * Get GenerateCheckoutUrl use case (UC-1)
+   */
+  getGenerateCheckoutUrlUseCase(): GenerateCheckoutUrl {
+    return new GenerateCheckoutUrl(
+      this.getGymSubscriptionRepository(),
+      this.getCheckoutIntentRepository(),
+      this.getPaymentGateway(),
+      getPayhereConfig().proPriceLkr
+    );
+  }
+
+  /**
+   * Get HandlePayHereWebhook use case (UC-2)
+   */
+  getHandlePayHereWebhookUseCase(): HandlePayHereWebhook {
+    return new HandlePayHereWebhook(
+      this.getGymSubscriptionRepository(),
+      this.getCheckoutIntentRepository(),
+      this.getSaasPaymentLogRepository()
+    );
+  }
+
+  /**
+   * Get ProcessDunning use case (UC-3)
+   */
+  getProcessDunningUseCase(): ProcessDunning {
+    return new ProcessDunning(
+      this.getGymSubscriptionRepository(),
+      this.getCheckoutIntentRepository()
+    );
+  }
+
+  /**
+   * Get CancelSubscription use case (UC-4)
+   */
+  getCancelSubscriptionUseCase(): CancelSubscription {
+    return new CancelSubscription(
+      this.getGymSubscriptionRepository(),
+      this.getSubscriptionGateway()
     );
   }
 
