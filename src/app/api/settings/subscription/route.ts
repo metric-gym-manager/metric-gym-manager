@@ -5,6 +5,16 @@ import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
 import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
 import { classifyRecurringFailure } from '@/core/domain/subscription/classifyRecurringFailure';
 import { serializeSubscriptionForAPI } from '@/features/subscriptions/utils/serializeSubscriptionForAPI';
+import { getPayhereConfig } from '@/lib/payhere/config';
+
+/** Pro price for the pricing UI; null when billing env is not configured. */
+function proPriceOrNull(): number | null {
+  try {
+    return getPayhereConfig().proPriceLkr;
+  } catch {
+    return null;
+  }
+}
 
 // ============================================================
 // GET /api/settings/subscription — current gym's subscription (JWT)
@@ -40,7 +50,9 @@ export async function GET(_request: NextRequest) {
     }
 
     return NextResponse.json(
-      ResponseBuilder.success(serializeSubscriptionForAPI(subscription, pastDueReason)),
+      ResponseBuilder.success(serializeSubscriptionForAPI(subscription, pastDueReason), {
+        proPriceLkr: proPriceOrNull(),
+      }),
       { status: 200 }
     );
   } catch (error) {

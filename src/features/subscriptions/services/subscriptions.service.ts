@@ -35,10 +35,19 @@ async function unwrap<T>(response: Response): Promise<{ data: T; meta?: Record<s
   return { data: body.data as T, meta: body.meta };
 }
 
-export async function getSubscription(): Promise<SerializedSubscription> {
+export interface SubscriptionWithPrice {
+  subscription: SerializedSubscription;
+  /** Monthly Pro price (LKR) from server config; null when billing env is absent */
+  proPriceLkr: number | null;
+}
+
+export async function getSubscription(): Promise<SubscriptionWithPrice> {
   const response = await fetch('/api/settings/subscription');
-  const { data } = await unwrap<SerializedSubscription>(response);
-  return data;
+  const { data, meta } = await unwrap<SerializedSubscription>(response);
+  return {
+    subscription: data,
+    proPriceLkr: typeof meta?.proPriceLkr === 'number' ? meta.proPriceLkr : null,
+  };
 }
 
 export async function startCheckout(input: {
