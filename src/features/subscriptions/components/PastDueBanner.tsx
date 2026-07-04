@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { RecurringFailureClass } from '@/core/utils/constants/SubscriptionConfig';
 import type { SerializedSubscription } from '../types';
@@ -15,12 +16,24 @@ interface PastDueBannerProps {
  */
 export default function PastDueBanner({ subscription: sub }: PastDueBannerProps) {
   const graceEndsAt = sub.graceEndsAt;
-  const daysLeft = graceEndsAt
-    ? Math.max(
-        0,
-        Math.ceil((new Date(graceEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
-      )
-    : null;
+
+  // Clock read scheduled asynchronously (not during render, not synchronously
+  // in the effect): keeps render pure, satisfies react-hooks/set-state-in-effect,
+  // and avoids an SSR/client hydration mismatch on the countdown.
+  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDaysLeft(
+        graceEndsAt
+          ? Math.max(
+              0,
+              Math.ceil((new Date(graceEndsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+            )
+          : null
+      );
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [graceEndsAt]);
 
   const isHard = sub.pastDueReason === RecurringFailureClass.Hard;
 

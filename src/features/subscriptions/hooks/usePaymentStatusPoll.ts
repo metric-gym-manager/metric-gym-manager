@@ -25,17 +25,20 @@ export function usePaymentStatusPoll(active: boolean): PaymentPollState {
   const queryClient = useQueryClient();
 
   useEffect(() => {
+    // All setState calls are scheduled asynchronously (timeout/microtask) —
+    // never synchronously inside the effect body (react-hooks lint).
     if (!active) {
-      setState('idle');
-      return;
+      const idleTimer = setTimeout(() => setState('idle'), 0);
+      return () => clearTimeout(idleTimer);
     }
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
     const startedAt = Date.now();
-    setState('verifying');
 
     const tick = async (): Promise<void> => {
+      if (cancelled) return;
+      setState((prev) => (prev === 'verifying' ? prev : 'verifying'));
       try {
         const result = await getSubscription();
         if (cancelled) return;

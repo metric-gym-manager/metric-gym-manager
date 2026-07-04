@@ -1,3 +1,9 @@
+> ⚠️ **SUPERSEDED (2026-07-04).** This 3-tier (Basic/Pro/Enterprise) plan was never implemented —
+> none of its migrations or columns exist. The shipped system is the 2-tier Free/Pro PayHere
+> subscription: see `docs/SAAS_SUBSCRIPTION_IMPLEMENTATION.md` and
+> `docs/Payhere_subscritption_integration/payhere-subscription-execution-plan.md` (register C-9).
+> The `feature_overrides` entitlement idea below remains unimplemented and out of scope.
+
 Tier-Based Subscription System Implementation Plan
 
  Overview

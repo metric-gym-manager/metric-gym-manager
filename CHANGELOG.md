@@ -10,6 +10,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **SaaS Free/Pro subscription billing via PayHere** — Free tier (50-member
+  limit) and Pro tier (unlimited members, monthly recurring billing):
+  - Subscription page under Settings with plan comparison, upgrade flow,
+    cancel flow (retains Pro until period end), billing history, and a
+    past-due grace banner
+  - PayHere Recurring checkout with signed hand-off and synchronous,
+    idempotent webhook processing (always-200 contract)
+  - Gateway cancellation via the PayHere OAuth Subscription Manager API
+  - Race-free member quota enforced by a `FOR UPDATE`-locked database
+    function wired into the existing registration path (403
+    `MEMBER_LIMIT_REACHED` with an inline upgrade prompt)
+  - Nightly dunning cron: 7-day grace after failed charges, then downgrade
+    to Free — members are never deleted
+  - Admin billing-failures panel on the system-health dashboard
 - add PWA support with install button on landing page ([a5ae374](../../commit/a5ae374))
 - complete Phases 4-8 implementation with full feature set ([45f661c](../../commit/45f661c))
 - migrate entire application from PostgreSQL+JWT to Supabase ([b270ebc](../../commit/b270ebc))
