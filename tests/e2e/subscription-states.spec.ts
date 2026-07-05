@@ -57,10 +57,13 @@ test('quota block: at-limit gym sees the upsell in the add-member modal and land
   await page.goto('/members');
   await page.getByRole('button', { name: /add member/i }).first().click();
 
-  await page.getByLabel(/name/i).first().fill('Overflow Member');
-  await page.getByLabel(/phone/i).first().fill('0771234599');
-  await page.getByRole('button', { name: /next/i }).click();
-  await page.getByRole('button', { name: /register|complete/i }).click();
+  // Real modal contract: "Name *", "WhatsApp Number *" (plan type + amount
+  // auto-fill from the gym's first active plan type), two steps, submit is
+  // "Create Member". Requires the seeded gym to have >=1 active plan type.
+  await page.getByLabel(/^name/i).first().fill('Overflow Member');
+  await page.getByLabel(/whatsapp number/i).fill('0771234599');
+  await page.getByRole('button', { name: /next: payment/i }).click();
+  await page.getByRole('button', { name: /create member/i }).click();
 
   const upsell = page.getByTestId('quota-reached-upsell');
   await expect(upsell).toBeVisible();
@@ -87,11 +90,18 @@ test('cancel: consequence disclosure -> Pro-until-date state, cancel button gone
 
   await page.getByRole('button', { name: /^cancel subscription$/i }).last().click();
 
-  await expect(page.getByText(/pro features continue until/i)).toBeVisible({ timeout: 10_000 });
+  // The canceled-state copy renders in both the plan card and a confirmation
+  // toast; the re-subscribe CTA renders in both the plan card and the pricing
+  // table. Both are correct — assert at least one is present (first()).
+  await expect(
+    page.getByText(/pro features continue until/i).first()
+  ).toBeVisible({ timeout: 10_000 });
   await expect(
     page.getByRole('button', { name: /cancel subscription/i })
   ).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /re-subscribe to pro/i })).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: /re-subscribe to pro/i }).first()
+  ).toBeVisible();
 });
 
 test('past-due state renders the grace banner', async ({ page }) => {
@@ -100,6 +110,9 @@ test('past-due state renders the grace banner', async ({ page }) => {
 
   await loginAsGym(page);
   await page.goto('/settings/billing');
-  await expect(page.getByRole('alert')).toContainText(/payment (failed|method declined)/i);
-  await expect(page.getByRole('alert')).toContainText(/pro features continue until/i);
+  // Next.js injects its own empty role="alert" route-announcer; scope to the
+  // PastDueBanner by its text so the assertion targets the real banner.
+  const banner = page.getByRole('alert').filter({ hasText: /payment (failed|method declined)/i });
+  await expect(banner).toContainText(/payment (failed|method declined)/i);
+  await expect(banner).toContainText(/pro features continue until/i);
 });
