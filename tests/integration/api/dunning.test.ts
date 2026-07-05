@@ -32,6 +32,17 @@ gatedDescribe('process-dunning (integration)', () => {
   ): Promise<TestGym> {
     const gym = await createTestGym(supabase);
     gyms.push(gym);
+    // Seed members BEFORE pushing the subscription into arrears: the quota
+    // matrix (correctly) rejects registrations once a past_due gym is beyond
+    // grace, and the invariant under test is that dunning preserves members
+    // that were registered while the gym could still register them.
+    for (let i = 0; i < memberCount; i++) {
+      const { error } = await supabase.rpc('register_member_guarded', {
+        p_gym_id: gym.gymId,
+        p_member: memberJson(i),
+      });
+      if (error) throw new Error(error.message);
+    }
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
       p_tier: 'pro',
@@ -48,13 +59,6 @@ gatedDescribe('process-dunning (integration)', () => {
         ).toISOString(),
       })
       .eq('id', gym.gymId);
-    for (let i = 0; i < memberCount; i++) {
-      const { error } = await supabase.rpc('register_member_guarded', {
-        p_gym_id: gym.gymId,
-        p_member: memberJson(i),
-      });
-      if (error) throw new Error(error.message);
-    }
     return gym;
   }
 

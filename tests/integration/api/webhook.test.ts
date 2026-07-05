@@ -42,6 +42,13 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
   let seq = 0;
   const nextId = (p: string) => `${p}-${Date.now()}-${seq++}`;
 
+  beforeAll(async () => {
+    // The C-20 invalid-audit cap counts signature_valid=false rows GLOBALLY
+    // over the last hour, so flood rows left by a previous run would silently
+    // suppress this run's audit inserts. Disposable database — purge them.
+    await supabase.from('saas_payment_logs').delete().eq('signature_valid', false);
+  });
+
   beforeEach(async () => {
     gym = await createTestGym(supabase);
   });
