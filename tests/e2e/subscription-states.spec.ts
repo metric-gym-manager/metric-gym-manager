@@ -18,13 +18,18 @@ test('webhook-absent path: verifying times out into PENDING_CONFIRMATION with a 
 }) => {
   await loginAsGym(page);
 
-  await page.route('**/pay/checkout', (route) => route.fulfill({ status: 200, body: 'ok' }));
+  // Order id comes from the intercepted PayHere hand-off body — reading the
+  // checkout API response races the auto-submitted form navigation.
+  let orderId = '';
+  await page.route('**/pay/checkout', (route) => {
+    orderId = new URLSearchParams(route.request().postData() ?? '').get('order_id') ?? '';
+    return route.fulfill({ status: 200, body: 'ok' });
+  });
   await page.goto('/settings/billing');
   await page.getByRole('button', { name: /upgrade to pro/i }).first().click();
   await page.getByLabel(/billing city/i).fill('Colombo');
-  const checkoutResponse = page.waitForResponse('**/api/billing/checkout');
   await page.getByRole('button', { name: /continue to payment/i }).click();
-  const orderId = (await (await checkoutResponse).json()).data.orderId as string;
+  await expect.poll(() => orderId).toMatch(/^SUB-/);
 
   // Return WITHOUT a webhook: 10s poll window elapses -> pending (not failure)
   await page.goto(`/settings/billing?order=${encodeURIComponent(orderId)}`);

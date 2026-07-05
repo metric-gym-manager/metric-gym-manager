@@ -12,6 +12,7 @@
  */
 
 import { createHash } from 'crypto';
+import { expect } from '@playwright/test';
 import type { APIRequestContext, Page } from '@playwright/test';
 
 export const E2E_BILLING_ENABLED = process.env.E2E_BILLING === '1';
@@ -21,9 +22,16 @@ const md5Upper = (s: string): string =>
 
 export async function loginAsGym(page: Page): Promise<void> {
   await page.goto('/login');
-  await page.getByLabel(/email/i).fill(process.env.E2E_GYM_EMAIL ?? '');
-  await page.getByLabel(/password/i).fill(process.env.E2E_GYM_PASSWORD ?? '');
-  await page.getByRole('button', { name: /log ?in|sign ?in/i }).click();
+  // Dev-mode hydration can lag behind first paint: values filled into the
+  // uncontrolled DOM are wiped when React hydrates the controlled inputs and
+  // clicks are swallowed. Re-fill and re-click until the request fires.
+  await expect(async () => {
+    await page.getByLabel(/email/i).fill(process.env.E2E_GYM_EMAIL ?? '');
+    await page.getByLabel(/password/i).fill(process.env.E2E_GYM_PASSWORD ?? '');
+    const loginResponse = page.waitForResponse('**/api/auth/login', { timeout: 3000 });
+    await page.getByRole('button', { name: /log ?in|sign ?in/i }).click();
+    await loginResponse;
+  }).toPass({ timeout: 30_000 });
   await page.waitForURL('**/dashboard**');
 }
 

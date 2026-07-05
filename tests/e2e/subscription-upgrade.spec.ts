@@ -18,24 +18,24 @@ test('upgrade: checkout -> return -> verifying -> webhook -> Pro', async ({ page
   await page.goto('/settings/billing');
   await expect(page.getByText('Free Plan')).toBeVisible();
 
-  // Block the actual cross-origin PayHere navigation; capture the form POST
+  // Block the actual cross-origin PayHere navigation; capture the form POST.
+  // The order id is read from the intercepted hand-off body (what PayHere
+  // would receive) — reading the checkout API response instead races the
+  // auto-submitted form navigation, which evicts the response body.
   let checkoutPosted = false;
+  let orderId = '';
   await page.route('**/pay/checkout', (route) => {
     checkoutPosted = true;
+    orderId = new URLSearchParams(route.request().postData() ?? '').get('order_id') ?? '';
     return route.fulfill({ status: 200, body: 'intercepted' });
   });
 
   // Start the upgrade
   await page.getByRole('button', { name: /upgrade to pro/i }).first().click();
   await page.getByLabel(/billing city/i).fill('Colombo');
-
-  // Capture the orderId from the checkout API response
-  const checkoutResponse = page.waitForResponse('**/api/billing/checkout');
   await page.getByRole('button', { name: /continue to payment/i }).click();
-  const checkoutBody = await (await checkoutResponse).json();
-  const orderId: string = checkoutBody.data.orderId;
-  expect(orderId).toMatch(/^SUB-/);
   await expect.poll(() => checkoutPosted).toBe(true);
+  expect(orderId).toMatch(/^SUB-/);
 
   // Simulate the browser return from PayHere -> VERIFYING
   await page.goto(`/settings/billing?order=${encodeURIComponent(orderId)}`);
