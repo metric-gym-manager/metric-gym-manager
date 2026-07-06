@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'crypto';
 
 /**
- * Constant-time string comparison for Bearer secrets (CRON_SECRET, ADMIN_API_SECRET).
+ * Constant-time string comparison for Bearer secrets (e.g. CRON_SECRET).
  *
  * A plain `===` short-circuits on the first differing byte, leaking secret
  * prefixes through timing. `timingSafeEqual` requires equal lengths, so the

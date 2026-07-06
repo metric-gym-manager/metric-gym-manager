@@ -21,8 +21,9 @@ export const metadata: Metadata = {
  * (error messages, stack traces, database errors) that are intentionally
  * hidden from gym managers. Access must be strictly controlled.
  *
- * Access Control: Set NEXT_PUBLIC_ADMIN_API_SECRET environment variable
- * and protect this route with middleware or layout-level authentication.
+ * Access Control: the (admin) layout gates this route on a Supabase session +
+ * saas_admins membership; the /api/admin/* routes enforce the same server-side.
+ * No admin secret is shipped to the browser.
  */
 export default function SystemHealthPage() {
   return (

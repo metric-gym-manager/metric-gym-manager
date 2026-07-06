@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { safeEqual } from '@/lib/auth/safeEqual';
+import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin';
 
 export const runtime = 'nodejs';
 
@@ -17,22 +17,12 @@ export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   try {
-    // --- Strict authorization first (constant-time, no fallback secret) ---
-    const authHeader = request.headers.get('authorization');
-    const adminSecret = process.env.ADMIN_API_SECRET;
-
-    if (!adminSecret) {
-      console.error('ADMIN_API_SECRET not configured');
-      return NextResponse.json(
-        ResponseBuilder.error('Admin API not configured', 'ADMIN_NOT_CONFIGURED'),
-        { status: 500 }
-      );
-    }
-
-    if (!authHeader || !safeEqual(authHeader, `Bearer ${adminSecret}`)) {
+    // --- Strict authorization first: Supabase session + saas_admins membership ---
+    const admin = await getSaasAdmin();
+    if (!admin) {
       console.warn('Unauthorized admin billing-failures access attempt');
       return NextResponse.json(
-        ResponseBuilder.forbidden('Invalid admin credentials'),
+        ResponseBuilder.forbidden('SaaS admin access required'),
         { status: 403 }
       );
     }

@@ -49,10 +49,9 @@ export default function BillingFailuresTable() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<BillingFailuresResponse>({
     queryKey: ['admin-billing-failures'],
     queryFn: async () => {
-      const adminSecret = process.env.NEXT_PUBLIC_ADMIN_API_SECRET || '';
-      const response = await fetch('/api/admin/system-health/billing-failures', {
-        headers: { Authorization: `Bearer ${adminSecret}` },
-      });
+      // Same-origin fetch: the Supabase session cookie authenticates the
+      // request; the API route checks saas_admins membership. No secret in JS.
+      const response = await fetch('/api/admin/system-health/billing-failures');
       if (!response.ok) {
         throw new Error('Failed to fetch billing failures');
       }

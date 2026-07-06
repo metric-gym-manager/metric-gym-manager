@@ -25,12 +25,9 @@ export default function CronStatusGrid() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<CronStatsResponse>({
     queryKey: ['admin-cron-stats'],
     queryFn: async () => {
-      const adminSecret = process.env.NEXT_PUBLIC_ADMIN_API_SECRET || '';
-      const response = await fetch('/api/admin/system-health/cron-stats', {
-        headers: {
-          'Authorization': `Bearer ${adminSecret}`,
-        },
-      });
+      // Same-origin fetch: the Supabase session cookie authenticates the
+      // request; the API route checks saas_admins membership. No secret in JS.
+      const response = await fetch('/api/admin/system-health/cron-stats');
 
       if (!response.ok) {
         throw new Error('Failed to fetch cron stats');

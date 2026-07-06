@@ -35,6 +35,12 @@ PayHere dashboard. Never commit real values.
 
 After changing any of these, redeploy (env vars are read at build/runtime).
 
+> **No `ADMIN_API_SECRET` / `NEXT_PUBLIC_ADMIN_API_SECRET`.** The admin
+> system-health surfaces are gated by a Supabase session + `saas_admins`
+> membership (§5), not a shared secret. The old `NEXT_PUBLIC_ADMIN_API_SECRET`
+> was compiled into the browser bundle and has been removed — do not reintroduce
+> it.
+
 ## 2. PayHere dashboard — domain whitelisting
 
 Two **separate** whitelists in the PayHere dashboard, both keyed to
@@ -90,7 +96,32 @@ the app additionally caps signature-invalid **audit rows** globally at 100/hour
 (C-20, `INVALID_WEBHOOK_LOG_HOURLY_CAP`), which is a DB-write guard, not a
 request limiter — the two are complementary, both are needed.
 
-## 5. Sandbox smoke (before flipping `PAYHERE_MODE=live`)
+## 5. Provision SaaS-admin access (system-health dashboard)
+
+`/system-health` and every `/api/admin/*` route are gated by a Supabase session
+plus membership in the `saas_admins` table (migration `20260706000001`). There is
+no admin secret. To grant an operator access:
+
+1. The operator needs a Supabase auth account. In practice they log in through
+   the normal app (they also own a gym); any signed-in user works — the gate is
+   membership, not gym ownership.
+2. Add their `auth.users` id to `saas_admins` via **service-role / dashboard
+   SQL** (never from the client):
+
+   ```sql
+   INSERT INTO saas_admins (user_id, note)
+   SELECT id, 'platform operator'
+   FROM auth.users
+   WHERE email = 'ops@yourcompany.com';
+   ```
+
+3. Verify: signed in as that user, `/system-health` renders; signed in as any
+   other user it redirects to `/dashboard`; unauthenticated it redirects to
+   `/login`. The `/api/admin/*` routes return `403` for non-admins.
+
+To revoke, `DELETE FROM saas_admins WHERE user_id = '…'`.
+
+## 7. Sandbox smoke (before flipping `PAYHERE_MODE=live`)
 
 - `notify_url` cannot be `localhost`; tunnel the dev server (e.g. ngrok) and set
   `NEXT_PUBLIC_APP_URL` to the tunnel origin so PayHere can reach the webhook.

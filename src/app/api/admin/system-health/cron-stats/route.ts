@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin';
 
 // ============================================================
 // GET /api/admin/system-health/cron-stats
@@ -7,32 +8,23 @@ import { createAdminClient } from '@/lib/supabase/admin';
 // ============================================================
 
 /**
- * Authorization: Requires ADMIN_API_SECRET header
- * This endpoint is for SaaS admin monitoring only
+ * Authorization: Supabase session + saas_admins membership.
+ * This endpoint is for SaaS admin monitoring only.
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // CRITICAL: Strict authorization check
-    const authHeader = request.headers.get('authorization');
-    const adminSecret = process.env.ADMIN_API_SECRET;
-
-    if (!adminSecret) {
-      console.error('ADMIN_API_SECRET not configured');
-      return NextResponse.json(
-        { success: false, error: 'Admin API not configured' },
-        { status: 500 }
-      );
-    }
-
-    if (authHeader !== `Bearer ${adminSecret}`) {
+    // CRITICAL: Strict authorization BEFORE any DB query — Supabase session +
+    // saas_admins membership (replaces the retired ADMIN_API_SECRET Bearer).
+    const admin = await getSaasAdmin();
+    if (!admin) {
       console.warn('Unauthorized admin API access attempt');
       return NextResponse.json(
-        { success: false, error: 'Forbidden - Invalid admin credentials' },
+        { success: false, error: 'Forbidden - SaaS admin access required' },
         { status: 403 }
       );
     }
 
-    // Fetch cron logs from database
+    // Fetch cron logs from database (cross-tenant read needs the service role)
     const supabase = createAdminClient();
 
     // Get distinct job names
