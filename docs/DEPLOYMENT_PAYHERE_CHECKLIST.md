@@ -41,6 +41,29 @@ After changing any of these, redeploy (env vars are read at build/runtime).
 > was compiled into the browser bundle and has been removed — do not reintroduce
 > it.
 
+### Amount authority (invariant — do not weaken)
+
+The charged amount is **never taken from a request**. The enforcement chain,
+end to end (each link is unit/integration-tested):
+
+1. `POST /api/billing/checkout` accepts only customer contact fields
+   (`checkoutCustomerSchema`); an injected `amount`/`tier` key is discarded.
+2. `GenerateCheckoutUrl` prices the intent from `PAYHERE_PRO_PRICE_LKR` via DI
+   and persists it as `checkout_intents.expected_amount` — both server-side.
+3. The PayHere hand-off `hash` is computed server-side over
+   `(merchant_id, order_id, amount, currency)` with the Merchant Secret;
+   editing the hidden form's `amount` breaks the hash and PayHere rejects it.
+4. The webhook provisions **only** when the *signed* `payhere_amount` equals
+   the intent's `expected_amount` (2 dp) — mismatch marks the intent `failed`
+   and changes nothing (`AmountMismatch`).
+
+**Member payments (`CollectPayment`) are different by design**: the gym owner
+records cash they already collected, so the amount is owner-entered (validated
+`> 0`, pinned to their own gym/member — it can only distort their own books).
+If member payments are ever charged to a **card**, that flow must adopt the
+same invariant: derive the amount server-side from the member's plan, never
+from the request.
+
 ## 2. PayHere dashboard — domain whitelisting
 
 Two **separate** whitelists in the PayHere dashboard, both keyed to
