@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
-import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasStatus, SaasTier, type PaidTier } from '@/core/utils/constants/SubscriptionConfig';
 import CurrentPlanCard from '@/features/subscriptions/components/CurrentPlanCard';
 import PricingTable from '@/features/subscriptions/components/PricingTable';
 import UpgradeConfirmDialog from '@/features/subscriptions/components/UpgradeConfirmDialog';
@@ -28,7 +28,7 @@ export default function BillingPageClient() {
   const { data, isLoading, error, refetch } = useSubscription();
   const pollState = usePaymentStatusPoll(Boolean(returnedOrderId));
 
-  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [upgradeTier, setUpgradeTier] = useState<PaidTier | null>(null);
   const [cancelOpen, setCancelOpen] = useState(false);
 
   if (isLoading) {
@@ -51,7 +51,9 @@ export default function BillingPageClient() {
     );
   }
 
-  const { subscription, proPriceLkr } = data;
+  const { subscription, proPriceLkr, enterprisePriceLkr } = data;
+  const priceForTier = (tier: PaidTier | null) =>
+    tier === SaasTier.Enterprise ? enterprisePriceLkr : proPriceLkr;
 
   return (
     <div className="space-y-6">
@@ -69,22 +71,24 @@ export default function BillingPageClient() {
 
       <CurrentPlanCard
         subscription={subscription}
-        onUpgradeClick={() => setUpgradeOpen(true)}
+        onUpgradeClick={(tier) => setUpgradeTier(tier)}
         onCancelClick={() => setCancelOpen(true)}
       />
 
       <PricingTable
         subscription={subscription}
         proPriceLkr={proPriceLkr}
-        onUpgrade={() => setUpgradeOpen(true)}
+        enterprisePriceLkr={enterprisePriceLkr}
+        onUpgrade={(tier) => setUpgradeTier(tier)}
       />
 
       <BillingHistoryTable />
 
       <UpgradeConfirmDialog
-        open={upgradeOpen}
-        onClose={() => setUpgradeOpen(false)}
-        proPriceLkr={proPriceLkr}
+        open={upgradeTier !== null}
+        onClose={() => setUpgradeTier(null)}
+        targetTier={upgradeTier ?? SaasTier.Growth}
+        priceLkr={priceForTier(upgradeTier)}
       />
       <CancelSubscriptionDialog
         open={cancelOpen}

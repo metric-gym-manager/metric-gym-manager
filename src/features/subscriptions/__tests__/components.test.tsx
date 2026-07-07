@@ -6,9 +6,16 @@ import {
   SaasTier,
   SaasStatus,
   STARTER_TIER_MEMBER_LIMIT,
+  GROWTH_TIER_MEMBER_LIMIT,
   RecurringFailureClass,
 } from '@/core/utils/constants/SubscriptionConfig';
 import type { SerializedSubscription } from '@/features/subscriptions/types';
+
+// QuotaReachedUpsell reads the subscription; default to a Starter gym.
+const mockUseSubscription = jest.fn();
+jest.mock('@/features/subscriptions/hooks/useSubscription', () => ({
+  useSubscription: () => mockUseSubscription(),
+}));
 
 function makeSerialized(
   overrides: Partial<SerializedSubscription> = {}
@@ -39,6 +46,10 @@ function makeSerialized(
 }
 
 const noop = () => undefined;
+
+beforeEach(() => {
+  mockUseSubscription.mockReturnValue({ data: { subscription: makeSerialized() } });
+});
 
 describe('CurrentPlanCard (state-to-UI mapping, plan §5.3)', () => {
   it('free below limit: usage meter + Upgrade CTA, no cancel', () => {
@@ -72,14 +83,16 @@ describe('CurrentPlanCard (state-to-UI mapping, plan §5.3)', () => {
     expect(screen.getByRole('button', { name: /re-subscribe to growth/i })).toBeInTheDocument();
   });
 
-  it('pro/active: unlimited members, renewal date, cancel visible', () => {
+  it('growth/active: 190 cap meter, renewal date, cancel visible', () => {
     render(
       <CurrentPlanCard
         subscription={makeSerialized({
           subscriptionTier: SaasTier.Growth,
           subscription_tier: SaasTier.Growth,
-          memberLimit: null,
-          member_limit: null,
+          memberCount: 120,
+          member_count: 120,
+          memberLimit: GROWTH_TIER_MEMBER_LIMIT,
+          member_limit: GROWTH_TIER_MEMBER_LIMIT,
           currentPeriodEnd: '2026-08-04',
           current_period_end: '2026-08-04',
         })}
@@ -88,7 +101,7 @@ describe('CurrentPlanCard (state-to-UI mapping, plan §5.3)', () => {
       />
     );
     expect(screen.getByText('Growth Plan')).toBeInTheDocument();
-    expect(screen.getByText(/unlimited/)).toBeInTheDocument();
+    expect(screen.getByText(`120 / ${GROWTH_TIER_MEMBER_LIMIT}`)).toBeInTheDocument();
     expect(screen.getByText(/renews on/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancel subscription/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /upgrade/i })).not.toBeInTheDocument();
@@ -144,12 +157,43 @@ describe('PastDueBanner (C-22 copy branching)', () => {
 });
 
 describe('QuotaReachedUpsell', () => {
-  it('renders the limit copy and links to the billing page', () => {
-    render(<QuotaReachedUpsell memberCount={STARTER_TIER_MEMBER_LIMIT} />);
+  it('Starter at limit: upsells to Growth with the 40/40 copy', () => {
+    mockUseSubscription.mockReturnValue({
+      data: {
+        subscription: makeSerialized({
+          memberCount: STARTER_TIER_MEMBER_LIMIT,
+          member_count: STARTER_TIER_MEMBER_LIMIT,
+        }),
+      },
+    });
+    render(<QuotaReachedUpsell />);
     expect(screen.getByTestId('quota-reached-upsell')).toHaveTextContent(
       `${STARTER_TIER_MEMBER_LIMIT}/${STARTER_TIER_MEMBER_LIMIT}`
     );
     expect(screen.getByRole('link', { name: /upgrade to growth/i })).toHaveAttribute(
+      'href',
+      '/settings/billing'
+    );
+  });
+
+  it('Growth at limit: upsells to Enterprise (unlimited)', () => {
+    mockUseSubscription.mockReturnValue({
+      data: {
+        subscription: makeSerialized({
+          subscriptionTier: SaasTier.Growth,
+          subscription_tier: SaasTier.Growth,
+          memberCount: GROWTH_TIER_MEMBER_LIMIT,
+          member_count: GROWTH_TIER_MEMBER_LIMIT,
+          memberLimit: GROWTH_TIER_MEMBER_LIMIT,
+          member_limit: GROWTH_TIER_MEMBER_LIMIT,
+        }),
+      },
+    });
+    render(<QuotaReachedUpsell />);
+    const upsell = screen.getByTestId('quota-reached-upsell');
+    expect(upsell).toHaveTextContent(`${GROWTH_TIER_MEMBER_LIMIT}/${GROWTH_TIER_MEMBER_LIMIT}`);
+    expect(upsell).toHaveTextContent(/unlimited members/i);
+    expect(screen.getByRole('link', { name: /upgrade to enterprise/i })).toHaveAttribute(
       'href',
       '/settings/billing'
     );

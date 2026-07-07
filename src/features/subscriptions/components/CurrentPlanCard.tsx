@@ -4,55 +4,78 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
-import { Crown, Users } from 'lucide-react';
-import { SaasStatus, SaasTier } from '@/core/utils/constants/SubscriptionConfig';
+import { Crown, Users, Sparkles } from 'lucide-react';
+import {
+  SaasStatus,
+  SaasTier,
+  TIER_DISPLAY_NAME,
+  isPaidTier,
+  type PaidTier,
+} from '@/core/utils/constants/SubscriptionConfig';
 import type { SerializedSubscription } from '../types';
 
 interface CurrentPlanCardProps {
   subscription: SerializedSubscription;
-  onUpgradeClick: () => void;
+  /** Open the upgrade dialog for the chosen paid tier. */
+  onUpgradeClick: (tier: PaidTier) => void;
   onCancelClick: () => void;
 }
 
 function statusBadge(sub: SerializedSubscription) {
-  if (sub.subscriptionTier === SaasTier.Growth) {
-    switch (sub.subscriptionStatus) {
-      case SaasStatus.Active:
-        return <Badge className="border-transparent bg-green-100 text-green-800">Active</Badge>;
-      case SaasStatus.PastDue:
-        return <Badge className="border-transparent bg-amber-100 text-amber-800">Past due</Badge>;
-      case SaasStatus.Canceled:
-        return <Badge className="border-transparent bg-gray-100 text-gray-800">Canceled</Badge>;
-    }
+  if (!isPaidTier(sub.subscriptionTier)) return null;
+  if (sub.isComplimentary) {
+    return (
+      <Badge className="border-transparent bg-purple-100 text-purple-800">Lifetime</Badge>
+    );
   }
-  return null;
+  switch (sub.subscriptionStatus) {
+    case SaasStatus.Active:
+      return <Badge className="border-transparent bg-green-100 text-green-800">Active</Badge>;
+    case SaasStatus.PastDue:
+      return <Badge className="border-transparent bg-amber-100 text-amber-800">Past due</Badge>;
+    case SaasStatus.Canceled:
+      return <Badge className="border-transparent bg-gray-100 text-gray-800">Canceled</Badge>;
+    default:
+      return null;
+  }
 }
 
 /**
- * Current plan & usage panel (plan §5.3 state-to-UI mapping).
+ * Current plan & usage panel (plan §5.3 state-to-UI mapping), generalized for
+ * Starter / Growth / Enterprise. Complimentary (lifetime) subscriptions are
+ * platform-managed: usage and status show, but every self-service billing
+ * control is disabled — never removed.
  */
 export default function CurrentPlanCard({
   subscription: sub,
   onUpgradeClick,
   onCancelClick,
 }: CurrentPlanCardProps) {
-  const isPro = sub.subscriptionTier === SaasTier.Growth;
-  const isFree = !isPro;
-  const overLimit = isFree && sub.memberLimit !== null && sub.memberCount > sub.memberLimit;
-  const atLimit = isFree && sub.memberLimit !== null && sub.memberCount >= sub.memberLimit;
-  const usagePercent =
-    isFree && sub.memberLimit ? Math.min((sub.memberCount / sub.memberLimit) * 100, 100) : 0;
+  const tier = sub.subscriptionTier;
+  const paid = isPaidTier(tier);
+  const comped = sub.isComplimentary;
 
-  const showCancel = isPro && sub.subscriptionStatus !== SaasStatus.Canceled;
-  const proCanceled = isPro && sub.subscriptionStatus === SaasStatus.Canceled;
+  // Usage meter renders for any capped tier (Starter 40, Growth 190).
+  const capped = sub.memberLimit !== null;
+  const overLimit = capped && sub.memberCount > sub.memberLimit!;
+  const atLimit = capped && sub.memberCount >= sub.memberLimit!;
+  const usagePercent = capped ? Math.min((sub.memberCount / sub.memberLimit!) * 100, 100) : 0;
+
+  const canceled = paid && sub.subscriptionStatus === SaasStatus.Canceled;
+  // Cancel only for a live, self-managed paid sub.
+  const showCancel = paid && !comped && sub.subscriptionStatus !== SaasStatus.Canceled;
 
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
-            {isPro && <Crown className="h-5 w-5 text-amber-500" />}
-            {isPro ? 'Growth Plan' : 'Starter Plan'}
+            {tier === SaasTier.Enterprise ? (
+              <Sparkles className="h-5 w-5 text-purple-500" />
+            ) : (
+              paid && <Crown className="h-5 w-5 text-amber-500" />
+            )}
+            {TIER_DISPLAY_NAME[tier]} Plan
           </CardTitle>
           {statusBadge(sub)}
         </div>
@@ -70,47 +93,61 @@ export default function CurrentPlanCard({
               {sub.memberLimit !== null ? ` / ${sub.memberLimit}` : ' — unlimited'}
             </span>
           </div>
-          {isFree && sub.memberLimit !== null && (
-            <Progress
-              value={usagePercent}
-              className={atLimit ? '[&>div]:bg-red-500' : undefined}
-            />
+          {capped && (
+            <Progress value={usagePercent} className={atLimit ? '[&>div]:bg-red-500' : undefined} />
           )}
         </div>
 
         {/* Period / state explanation */}
-        {isPro && sub.subscriptionStatus === SaasStatus.Active && sub.currentPeriodEnd && (
+        {comped && (
+          <p className="text-sm text-gray-600">
+            Your {TIER_DISPLAY_NAME[tier]} plan is provided by us at no cost and never expires.
+            Billing is managed on your behalf.
+          </p>
+        )}
+        {!comped && paid && sub.subscriptionStatus === SaasStatus.Active && sub.currentPeriodEnd && (
           <p className="text-sm text-gray-600">
             Renews on <span className="font-medium">{sub.currentPeriodEnd}</span>.
           </p>
         )}
-        {proCanceled && (
+        {!comped && canceled && (
           <p className="text-sm text-gray-600">
-            Subscription canceled — Growth features continue until{' '}
+            Subscription canceled — {TIER_DISPLAY_NAME[tier]} features continue until{' '}
             <span className="font-medium">{sub.currentPeriodEnd ?? 'the end of the paid period'}</span>,
             then your account reverts to the Starter plan.
           </p>
         )}
         {overLimit && (
           <p className="text-sm text-gray-600">
-            You have more members than the Starter limit allows. Existing members are kept and stay
-            fully manageable — adding <span className="font-medium">new</span> members needs Growth.
+            You have more members than the {TIER_DISPLAY_NAME[tier]} limit allows. Existing members
+            are kept and stay fully manageable — adding <span className="font-medium">new</span>{' '}
+            members needs a higher plan.
           </p>
         )}
 
-        {/* Contextual CTA */}
-        <div className="flex gap-2 pt-2">
-          {(isFree || proCanceled) && (
-            <Button onClick={onUpgradeClick}>
-              {proCanceled || overLimit ? 'Re-subscribe to Growth' : 'Upgrade to Growth'}
+        {/* Contextual CTA. Comped gyms see everything greyed out (managed by us). */}
+        {comped ? (
+          <div className="pt-2">
+            <Button variant="outline" disabled title="Your subscription is managed by us">
+              Subscription managed by us
             </Button>
-          )}
-          {showCancel && (
-            <Button variant="outline" onClick={onCancelClick} className="text-red-600">
-              Cancel subscription
-            </Button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="flex gap-2 pt-2">
+            {/* Primary CTA to (re)subscribe to Growth; cross-tier upgrades
+                (e.g. Growth -> Enterprise) live in the pricing table below. */}
+            {(!paid || canceled) && (
+              <Button onClick={() => onUpgradeClick(SaasTier.Growth)}>
+                {canceled || overLimit ? 'Re-subscribe to Growth' : 'Upgrade to Growth'}
+              </Button>
+            )}
+            {showCancel && (
+              <Button variant="outline" onClick={onCancelClick} className="text-red-600">
+                Cancel subscription
+              </Button>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

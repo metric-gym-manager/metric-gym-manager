@@ -1,6 +1,6 @@
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
-import { StarterLimitBar } from '@/features/subscriptions';
+import { MemberLimitBar } from '@/features/subscriptions';
 import { MemberModalProvider } from '@/contexts/member-modal.context';
 
 export default function DashboardLayout({
@@ -21,8 +21,8 @@ export default function DashboardLayout({
         <Header />
 
         {/* Starter usage: remaining member slots + universal upgrade CTA.
-            Self-hides for Growth gyms and everywhere under /settings. */}
-        <StarterLimitBar />
+            Shows Starter (40) and Growth (190) usage; hides for Enterprise/comped and under /settings. */}
+        <MemberLimitBar />
 
         {/* Page content - Add top padding for mobile header and bottom padding for mobile nav */}
         <main className="px-4 py-6 lg:px-8 pt-16 lg:pt-6 pb-20 lg:pb-6">

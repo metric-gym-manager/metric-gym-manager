@@ -11,6 +11,7 @@ import type {
   BillingHistoryPage,
   CheckoutRedirectResponse,
 } from '../types';
+import type { PaidTier } from '@/core/utils/constants/SubscriptionConfig';
 
 export class ApiRequestError extends Error {
   constructor(
@@ -55,6 +56,7 @@ export async function getSubscription(): Promise<SubscriptionWithPrice> {
 
 export async function startCheckout(input: {
   city: string;
+  targetTier: PaidTier;
   phone?: string;
   address?: string;
 }): Promise<CheckoutRedirectResponse> {

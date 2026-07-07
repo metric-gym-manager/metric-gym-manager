@@ -10,7 +10,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { STARTER_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
+import {
+  STARTER_TIER_MEMBER_LIMIT,
+  TIER_DISPLAY_NAME,
+} from '@/core/utils/constants/SubscriptionConfig';
 import { useCancelSubscription } from '../hooks/useCancelSubscription';
 import type { SerializedSubscription } from '../types';
 
@@ -30,6 +33,7 @@ export default function CancelSubscriptionDialog({
 }: CancelSubscriptionDialogProps) {
   const cancel = useCancelSubscription();
   const overLimit = sub.memberCount > STARTER_TIER_MEMBER_LIMIT;
+  const tierName = TIER_DISPLAY_NAME[sub.subscriptionTier];
 
   const handleConfirm = () => {
     cancel.mutate(undefined, { onSettled: onClose });
@@ -39,11 +43,11 @@ export default function CancelSubscriptionDialog({
     <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && !cancel.isPending && onClose()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Cancel your Growth subscription?</AlertDialogTitle>
+          <AlertDialogTitle>Cancel your {tierName} subscription?</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <ul className="list-disc pl-5 space-y-1 text-sm">
               <li>
-                You keep Growth features until{' '}
+                You keep {tierName} features until{' '}
                 <span className="font-semibold">
                   {sub.currentPeriodEnd ?? 'the end of the current paid period'}
                 </span>
@@ -72,7 +76,7 @@ export default function CancelSubscriptionDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={cancel.isPending}>Keep Growth</AlertDialogCancel>
+          <AlertDialogCancel disabled={cancel.isPending}>Keep {tierName}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={cancel.isPending}
