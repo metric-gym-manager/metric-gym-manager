@@ -1,7 +1,14 @@
-# SaaS Subscription (Free/Pro via PayHere) — Reference & Runbook
+# SaaS Subscription (Starter/Growth via PayHere) — Reference & Runbook
 
 **Implemented:** 2026-07-04 · **Plan:** `docs/Payhere_subscritption_integration/payhere-subscription-execution-plan.md`
 (conflict register C-1..C-27 explains every design decision referenced below).
+
+> **Tier rename (2026-07-06):** launched as `free`/`pro` (cap 50); renamed to
+> `starter`/`growth` with a Starter cap of **40** in migration
+> `20260706000002_rename_tiers_starter_growth.sql` (transactional CHECK swap +
+> row backfill + SQL-authority replacement — the C-19 text+CHECK design exists
+> for exactly this). TS mirror: `SubscriptionConfig.ts`
+> (`SaasTier.Starter/Growth`, `STARTER_TIER_MEMBER_LIMIT = 40`).
 
 ---
 
@@ -11,7 +18,7 @@ Migrations `20260704000001..3`:
 
 | Object | Purpose |
 |---|---|
-| `gyms.subscription_tier` (`text` CHECK `free\|pro`), `gyms.subscription_status` (`text` CHECK `active\|past_due\|canceled`) | Tenant billing state. Text + CHECK, not enums — tier additions stay transactional (C-19). |
+| `gyms.subscription_tier` (`text` CHECK `starter\|growth`), `gyms.subscription_status` (`text` CHECK `active\|past_due\|canceled`) | Tenant billing state. Text + CHECK, not enums — tier additions/renames stay transactional (C-19). |
 | `gyms.payhere_subscription_id / payhere_customer_id / current_period_end / member_count` | Gateway ids, paid-through boundary (always DB-clock), denormalized quota counter. |
 | `checkout_intents` | order_id → gym attribution for webhooks; one `pending` per gym (partial unique index → concurrent checkout 409s). |
 | `saas_payment_logs` | Webhook audit + idempotency anchor (partial unique on `payhere_payment_id`) + gym billing history. `message_type`/`status_message` promoted for classification (C-22). `raw_payload.md5sig` always `[REDACTED]` (C-24). |
@@ -25,22 +32,22 @@ Migrations `20260704000001..3`:
 Five legal `(tier, status)` pairs. Domain entity: `src/core/domain/subscription/Subscription.ts`.
 
 ```
-free/active ──activatePro──▶ pro/active ◀──renew(recovery)── pro/past_due
-free/canceled ─activatePro─▶     │                                ▲
-pro/canceled ──activatePro─▶     │──markPastDue─────────────────▶─┘
-                                 │──cancelPro──▶ pro/canceled
-pro/past_due ──cancelPro───▶ pro/canceled
-pro/past_due (grace over) ──downgradeToFree──▶ free/canceled   (dunning cron only)
-pro/canceled (period over) ─downgradeToFree──▶ free/canceled   (dunning cron only)
+starter/active ──activateGrowth──▶ growth/active ◀──renew(recovery)── growth/past_due
+starter/canceled ─activateGrowth─▶     │                                    ▲
+growth/canceled ──activateGrowth─▶     │──markPastDue─────────────────────▶─┘
+                                       │──cancelGrowth──▶ growth/canceled
+growth/past_due ──cancelGrowth───▶ growth/canceled
+growth/past_due (grace over) ──downgradeToStarter──▶ starter/canceled   (dunning cron only)
+growth/canceled (period over) ─downgradeToStarter──▶ starter/canceled   (dunning cron only)
 ```
 
 - `renew()` is a **non-transition** (§2.5.1): installment success on active/past_due; never from
   canceled (a stale installment must not un-cancel — C-21).
-- Voluntary cancel keeps Pro **until `current_period_end`, no grace**; involuntary failure gets
+- Voluntary cancel keeps Growth **until `current_period_end`, no grace**; involuntary failure gets
   `GRACE_PERIOD_DAYS` (7) of grace after `current_period_end`.
-- Quota matrix (mirrored in SQL and `canAddMember`): pro/active → ∞ · pro/past_due → until
-  period+grace · pro/canceled → until period end · free → `member_count < 50`.
-- **No code path ever deletes members.** Over-limit Free gyms keep everything; only new inserts block.
+- Quota matrix (mirrored in SQL and `canAddMember`): growth/active → ∞ · growth/past_due → until
+  period+grace · growth/canceled → until period end · starter → `member_count < 40`.
+- **No code path ever deletes members.** Over-limit Starter gyms keep everything; only new inserts block.
 
 ## 3. Webhook contract (`POST /api/webhooks/payhere`)
 
@@ -71,8 +78,8 @@ period extension; C-20 hourly cap (100) on signature-invalid audit rows (global,
 
 ## 4. Dunning (`POST /api/cron/process-dunning`, daily 00:45 UTC)
 
-1. `pro/past_due` with `current_period_end + 7d < now()` → `free/canceled`, gateway id cleared.
-2. `pro/canceled` with `current_period_end < now()` → tier `free` (status stays `canceled`).
+1. `growth/past_due` with `current_period_end + 7d < now()` → `starter/canceled`, gateway id cleared.
+2. `growth/canceled` with `current_period_end < now()` → tier `starter` (status stays `canceled`).
 3. Stale pending checkout intents → `expired`.
 
 All decisions in SQL on the DB clock; idempotent; logged via `CronLogger` (visible in the
@@ -83,7 +90,7 @@ RECURRING_STOPPED`→`hard`. The class drives banner copy only, never state.
 ## 5. Cancel flow
 
 `POST /api/billing/cancel` → `CancelSubscription`: **gateway first** (PayHere OAuth
-`subscription/cancel`, idempotent on already-cancelled), then local `pro/canceled`. Gateway failure
+`subscription/cancel`, idempotent on already-cancelled), then local `growth/canceled`. Gateway failure
 leaves local state untouched. Final confirmation via the next `RECURRING_STOPPED` webhook.
 **No manual "retry charge" is exposed** (C-26): card-network retry budgets (Visa 15/30d;
 Mastercard fees past 35/30d) are PayHere's liability only while PayHere owns all retries. If a
@@ -97,7 +104,7 @@ retry button is ever added, cap it (≤1/24h per subscription, ≤2 per past_due
 | `GET /api/settings/subscription` | JWT | Serialized state + sanitized `pastDueReason` + `proPriceLkr` meta |
 | `GET /api/billing/history` | JWT | `saas_payment_logs` is authoritative for the gym UI (C-12); whitelisted fields only |
 | `POST /api/billing/checkout` / `cancel` | JWT | Admin-container writes after `getCurrentGymProfile()` pins the gym (C-15) |
-| `GET /api/admin/system-health/billing-failures` | `ADMIN_API_SECRET` | Full technical detail lives HERE ONLY — never gym-facing |
+| `GET /api/admin/system-health/billing-failures` | SaaS admin session (`saas_admins`) | Full technical detail lives HERE ONLY — never gym-facing |
 | Member quota | — | 403 `MEMBER_LIMIT_REACHED` from `/api/members` (+bulk per-row `errorCode`) → inline upgrade upsell |
 
 ## 7. Deployment runbook (REQUIRED config)

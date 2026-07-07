@@ -11,7 +11,7 @@ Design rationale (conflict register C-1..C-27):
 
 ## Non-negotiable constraints
 
-1. **Free limit = 50 members, grace = 7 days** — single source
+1. **Starter limit = 40 members, grace = 7 days** (tiers renamed free/pro -> starter/growth, 20260706000002) — single source
    `src/core/utils/constants/SubscriptionConfig.ts`; SQL literals carry back-reference comments.
 2. **Quota authority**: only `register_member_guarded` (FOR UPDATE on the gyms row) may create
    members. Serialized `canAddMember` is display-only. Never add a second INSERT path.

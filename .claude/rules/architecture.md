@@ -169,4 +169,4 @@ Each pattern is a directive here plus full detail in a reference file. Open the 
 | 2.10 | Sort time-series records by timestamp DESC before `.find()` to get the most-recent record | `docs/architecture/query-ordering.md` |
 | 2.11 | Never serialize domain entities directly; use serialization helpers (YYYY-MM-DD dates, camelCase + snake_case) | `docs/architecture/api-patterns.md` |
 | 2.12 | Radix Select + React 19 `useId()` mismatch mitigated with targeted `suppressHydrationWarning` | `docs/architecture/frontend-patterns.md` |
-| 2.13 | SaaS billing: Free limit 50 / grace 7d (`SubscriptionConfig.ts`); member quota only via `register_member_guarded`; PayHere webhook always-200 idempotent contract; dunning cron is the only downgrade path; members never deleted by billing code | `docs/architecture/saas-subscription.md` |
+| 2.13 | SaaS billing: Starter limit 40 / grace 7d (tiers starter|growth) (`SubscriptionConfig.ts`); member quota only via `register_member_guarded`; PayHere webhook always-200 idempotent contract; dunning cron is the only downgrade path; members never deleted by billing code | `docs/architecture/saas-subscription.md` |

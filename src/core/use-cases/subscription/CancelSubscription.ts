@@ -48,6 +48,6 @@ export class CancelSubscription {
     // Gateway FIRST; throws ExternalServiceError on failure (local state untouched)
     await this.subscriptionGateway.cancelSubscription(sub.payhereSubscriptionId);
 
-    return this.subscriptionRepo.save(sub.cancelPro(), { extendPeriod: false });
+    return this.subscriptionRepo.save(sub.cancelGrowth(), { extendPeriod: false });
   }
 }

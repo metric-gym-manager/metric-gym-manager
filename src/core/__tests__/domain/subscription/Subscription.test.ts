@@ -30,13 +30,13 @@ function daysFrom(date: Date, days: number): Date {
 describe('Subscription entity', () => {
   const periodEnd = new Date('2026-07-01T00:00:00Z');
 
-  describe('activatePro', () => {
+  describe('activateGrowth', () => {
     it.each([
       ['free/active', SaasTier.Starter, SaasStatus.Active],
       ['free/canceled', SaasTier.Starter, SaasStatus.Canceled],
       ['pro/canceled (re-subscribe)', SaasTier.Growth, SaasStatus.Canceled],
     ])('activates from %s', (_label, tier, status) => {
-      const next = sub({ tier, status }).activatePro({
+      const next = sub({ tier, status }).activateGrowth({
         subscriptionId: 'SUB-B',
         customerId: 'CUST-1',
       });
@@ -51,7 +51,7 @@ describe('Subscription entity', () => {
         tier: SaasTier.Growth,
         status: SaasStatus.Canceled,
         payhereSubscriptionId: 'SUB-A',
-      }).activatePro({ subscriptionId: 'SUB-B', customerId: null });
+      }).activateGrowth({ subscriptionId: 'SUB-B', customerId: null });
       expect(next.payhereSubscriptionId).toBe('SUB-B');
     });
 
@@ -61,7 +61,7 @@ describe('Subscription entity', () => {
         status: SaasStatus.Canceled,
         payhereSubscriptionId: 'SUB-A',
         payhereCustomerId: 'CUST-A',
-      }).activatePro({ subscriptionId: null, customerId: null });
+      }).activateGrowth({ subscriptionId: null, customerId: null });
       expect(next.payhereSubscriptionId).toBe('SUB-A');
       expect(next.payhereCustomerId).toBe('CUST-A');
     });
@@ -71,7 +71,7 @@ describe('Subscription entity', () => {
       ['pro/past_due', SaasStatus.PastDue],
     ])('rejects from %s (already subscribed)', (_label, status) => {
       expect(() =>
-        sub({ tier: SaasTier.Growth, status }).activatePro({ subscriptionId: 'X', customerId: null })
+        sub({ tier: SaasTier.Growth, status }).activateGrowth({ subscriptionId: 'X', customerId: null })
       ).toThrow(InvalidStatusTransitionError);
     });
   });
@@ -118,14 +118,14 @@ describe('Subscription entity', () => {
     });
   });
 
-  describe('cancelPro', () => {
+  describe('cancelGrowth', () => {
     it('cancels from pro/active, keeping tier, period end and ids', () => {
       const next = sub({
         tier: SaasTier.Growth,
         status: SaasStatus.Active,
         currentPeriodEnd: periodEnd,
         payhereSubscriptionId: 'SUB-A',
-      }).cancelPro();
+      }).cancelGrowth();
       expect(next.status).toBe(SaasStatus.Canceled);
       expect(next.tier).toBe(SaasTier.Growth);
       expect(next.currentPeriodEnd).toEqual(periodEnd);
@@ -133,7 +133,7 @@ describe('Subscription entity', () => {
     });
 
     it('cancels from pro/past_due', () => {
-      const next = sub({ tier: SaasTier.Growth, status: SaasStatus.PastDue }).cancelPro();
+      const next = sub({ tier: SaasTier.Growth, status: SaasStatus.PastDue }).cancelGrowth();
       expect(next.status).toBe(SaasStatus.Canceled);
     });
 
@@ -141,11 +141,11 @@ describe('Subscription entity', () => {
       ['free/active', SaasTier.Starter, SaasStatus.Active],
       ['pro/canceled (idempotence handled by use case)', SaasTier.Growth, SaasStatus.Canceled],
     ])('rejects from %s', (_label, tier, status) => {
-      expect(() => sub({ tier, status }).cancelPro()).toThrow(InvalidStatusTransitionError);
+      expect(() => sub({ tier, status }).cancelGrowth()).toThrow(InvalidStatusTransitionError);
     });
   });
 
-  describe('downgradeToFree', () => {
+  describe('downgradeToStarter', () => {
     it.each([
       ['pro/past_due (grace expired)', SaasStatus.PastDue],
       ['pro/canceled (period ended)', SaasStatus.Canceled],
@@ -154,7 +154,7 @@ describe('Subscription entity', () => {
         tier: SaasTier.Growth,
         status,
         payhereSubscriptionId: 'SUB-A',
-      }).downgradeToFree();
+      }).downgradeToStarter();
       expect(next.tier).toBe(SaasTier.Starter);
       expect(next.status).toBe(SaasStatus.Canceled);
       expect(next.payhereSubscriptionId).toBeNull();
@@ -162,12 +162,12 @@ describe('Subscription entity', () => {
 
     it('rejects from pro/active', () => {
       expect(() =>
-        sub({ tier: SaasTier.Growth, status: SaasStatus.Active }).downgradeToFree()
+        sub({ tier: SaasTier.Growth, status: SaasStatus.Active }).downgradeToStarter()
       ).toThrow(InvalidStatusTransitionError);
     });
 
     it('rejects from free tiers', () => {
-      expect(() => sub().downgradeToFree()).toThrow(InvalidStatusTransitionError);
+      expect(() => sub().downgradeToStarter()).toThrow(InvalidStatusTransitionError);
     });
   });
 

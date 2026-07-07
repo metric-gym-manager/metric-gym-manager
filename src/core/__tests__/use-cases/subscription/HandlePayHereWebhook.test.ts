@@ -213,7 +213,7 @@ describe('HandlePayHereWebhook (UC-2)', () => {
   });
 
   describe('cancel reconciliation + identity guard (C-21)', () => {
-    it('RECONCILED_CANCELED: RECURRING_STOPPED on pro/active applies cancelPro', async () => {
+    it('RECONCILED_CANCELED: RECURRING_STOPPED on pro/active applies cancelGrowth', async () => {
       const { subRepo, useCase } = build();
       subRepo.findByPayhereSubscriptionId.mockResolvedValue(
         makeSubscription({

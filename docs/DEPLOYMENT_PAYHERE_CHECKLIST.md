@@ -148,10 +148,10 @@ To revoke, `DELETE FROM saas_admins WHERE user_id = '…'`.
 
 - `notify_url` cannot be `localhost`; tunnel the dev server (e.g. ngrok) and set
   `NEXT_PUBLIC_APP_URL` to the tunnel origin so PayHere can reach the webhook.
-- Drive a sandbox checkout → confirm the signed notify provisions Pro exactly
+- Drive a sandbox checkout → confirm the signed notify provisions Growth exactly
   once and a replay is a 200 no-op.
 - Drive a sandbox cancel → confirm the gateway call succeeds and local state
-  goes `pro/canceled`.
+  goes `growth/canceled`.
 
 ---
 

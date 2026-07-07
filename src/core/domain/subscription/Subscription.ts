@@ -9,7 +9,7 @@
  * State model — five legal (tier, status) pairs:
  *   free/active, free/canceled, pro/active, pro/past_due, pro/canceled
  *
- * Period arithmetic note: activatePro()/renew() carry INTENT only. The actual
+ * Period arithmetic note: activateGrowth()/renew() carry INTENT only. The actual
  * current_period_end is computed by the save_gym_subscription RPC on the
  * DATABASE clock (migration 20260704000003) — the in-memory value is
  * stale-until-saved and the repository rebuilds the entity from the RPC
@@ -94,7 +94,7 @@ export class Subscription {
    * recovery arrives via renew() on the existing subscription, never a
    * second checkout.
    */
-  activatePro(input: {
+  activateGrowth(input: {
     subscriptionId: string | null;
     customerId: string | null;
   }): Subscription {
@@ -151,7 +151,7 @@ export class Subscription {
    * pro/active | pro/past_due → pro/canceled. Voluntary cancel confirmed at
    * the gateway; retains tier and currentPeriodEnd (paid-through).
    */
-  cancelPro(): Subscription {
+  cancelGrowth(): Subscription {
     const allowed =
       this.props.tier === SaasTier.Growth &&
       (this.props.status === SaasStatus.Active || this.props.status === SaasStatus.PastDue);
@@ -168,7 +168,7 @@ export class Subscription {
    * Dunning-cron transition; clears the gateway subscription id.
    * Members are NEVER touched by this transition.
    */
-  downgradeToFree(): Subscription {
+  downgradeToStarter(): Subscription {
     const allowed =
       this.props.tier === SaasTier.Growth &&
       (this.props.status === SaasStatus.PastDue || this.props.status === SaasStatus.Canceled);

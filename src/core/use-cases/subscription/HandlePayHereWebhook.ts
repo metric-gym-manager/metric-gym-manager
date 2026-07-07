@@ -134,7 +134,7 @@ export class HandlePayHereWebhook {
         sub.tier === SaasTier.Growth &&
         (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue)
       ) {
-        await this.subscriptionRepo.save(sub.cancelPro(), { extendPeriod: false });
+        await this.subscriptionRepo.save(sub.cancelGrowth(), { extendPeriod: false });
         return { outcome: WebhookOutcome.ReconciledCanceled };
       }
       return { outcome: WebhookOutcome.StaleEvent };
@@ -155,7 +155,7 @@ export class HandlePayHereWebhook {
         const next =
           sub.tier === SaasTier.Starter ||
           (sub.tier === SaasTier.Growth && sub.status === SaasStatus.Canceled)
-            ? sub.activatePro({
+            ? sub.activateGrowth({
                 subscriptionId: fields.subscription_id ?? null,
                 customerId: fields.customer_token ?? null,
               })
