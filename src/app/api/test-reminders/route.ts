@@ -1,7 +1,24 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAdminContainer } from '@/infrastructure/di';
 
-export async function GET() {
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+export async function GET(request: NextRequest) {
+  // This endpoint triggers real SMS sends. In production it must not be
+  // publicly invocable, so require the same bearer token as the cron routes.
+  if (process.env.NODE_ENV === 'production') {
+    const authHeader = request.headers.get('authorization');
+    const cronSecret = process.env.CRON_SECRET || 'dev-secret-key';
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+  }
+
   console.log('===== STARTING REMINDER TEST =====');
 
   try {
