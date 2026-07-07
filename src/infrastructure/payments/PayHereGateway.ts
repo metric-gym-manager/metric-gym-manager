@@ -21,6 +21,8 @@ import { getPayhereConfig } from '@/lib/payhere/config';
 import {
   PRO_BILLING_RECURRENCE,
   PRO_BILLING_DURATION,
+  TIER_DISPLAY_NAME,
+  type PaidTier,
 } from '@/core/utils/constants/SubscriptionConfig';
 
 export class PayHereGateway implements IPaymentGateway {
@@ -28,11 +30,12 @@ export class PayHereGateway implements IPaymentGateway {
     orderId: string;
     amount: number;
     currency: 'LKR';
+    tier: PaidTier;
     gymId: string;
     customer: CheckoutCustomer;
   }): CheckoutRedirect {
     const config = getPayhereConfig();
-    const { orderId, amount, currency, gymId, customer } = input;
+    const { orderId, amount, currency, tier, gymId, customer } = input;
 
     const params: Record<string, string> = {
       merchant_id: config.merchantId,
@@ -47,7 +50,7 @@ export class PayHereGateway implements IPaymentGateway {
       city: customer.city,
       country: 'Sri Lanka',
       order_id: orderId,
-      items: 'Growth Plan — Monthly',
+      items: `${TIER_DISPLAY_NAME[tier]} Plan — Monthly`,
       currency,
       amount: formatAmount(amount),
       recurrence: PRO_BILLING_RECURRENCE,

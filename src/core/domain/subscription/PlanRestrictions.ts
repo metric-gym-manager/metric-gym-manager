@@ -14,7 +14,11 @@
  * Pure domain: no I/O, no framework imports — unit-testable in isolation.
  */
 
-import { SaasTier, STARTER_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
+import {
+  SaasTier,
+  STARTER_TIER_MEMBER_LIMIT,
+  GROWTH_TIER_MEMBER_LIMIT,
+} from '@/core/utils/constants/SubscriptionConfig';
 
 /** Feature keys that plans can switch off. Extend here — never with ad-hoc ifs. */
 export type RestrictedFeature = 'automatedReminders' | 'announcements';
@@ -39,6 +43,11 @@ export const PLAN_CAPABILITIES: Record<SaasTier, PlanCapabilities> = {
     announcements: false,
   },
   [SaasTier.Growth]: {
+    maxMembers: GROWTH_TIER_MEMBER_LIMIT,
+    automatedReminders: true,
+    announcements: true,
+  },
+  [SaasTier.Enterprise]: {
     maxMembers: null,
     automatedReminders: true,
     announcements: true,

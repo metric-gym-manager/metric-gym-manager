@@ -4,6 +4,7 @@ import {
   SaasTier,
   SaasStatus,
   STARTER_TIER_MEMBER_LIMIT,
+  GROWTH_TIER_MEMBER_LIMIT,
   GRACE_PERIOD_DAYS,
   RecurringFailureClass,
 } from '@/core/utils/constants/SubscriptionConfig';
@@ -44,10 +45,14 @@ describe('serializeSubscriptionForAPI', () => {
     expect(out.currentPeriodEnd).toBe('2026-08-15');
   });
 
-  it('exposes the member limit for Starter and null for Growth', () => {
+  it('exposes the member limit per tier (Starter 40, Growth 190, Enterprise null)', () => {
     expect(serializeSubscriptionForAPI(make()).memberLimit).toBe(STARTER_TIER_MEMBER_LIMIT);
     expect(
       serializeSubscriptionForAPI(make({ tier: SaasTier.Growth, status: SaasStatus.Active }))
+        .memberLimit
+    ).toBe(GROWTH_TIER_MEMBER_LIMIT);
+    expect(
+      serializeSubscriptionForAPI(make({ tier: SaasTier.Enterprise, status: SaasStatus.Active }))
         .memberLimit
     ).toBeNull();
   });
@@ -71,9 +76,14 @@ describe('serializeSubscriptionForAPI', () => {
     expect(overLimit.remainingMemberSlots).toBe(0);
 
     const growth = serializeSubscriptionForAPI(
-      make({ tier: SaasTier.Growth, status: SaasStatus.Active, memberCount: 999 })
+      make({ tier: SaasTier.Growth, status: SaasStatus.Active, memberCount: 100 })
     );
-    expect(growth.remainingMemberSlots).toBeNull();
+    expect(growth.remainingMemberSlots).toBe(GROWTH_TIER_MEMBER_LIMIT - 100);
+
+    const enterprise = serializeSubscriptionForAPI(
+      make({ tier: SaasTier.Enterprise, status: SaasStatus.Active, memberCount: 999 })
+    );
+    expect(enterprise.remainingMemberSlots).toBeNull();
   });
 
   it('computes graceEndsAt only when past_due', () => {

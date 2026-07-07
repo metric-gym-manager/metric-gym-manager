@@ -2,6 +2,7 @@
  * Checkout race + cancel integration tests (plan §6.2).
  */
 
+import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
 import {
   gatedDescribe,
   setPayhereTestEnv,
@@ -50,15 +51,15 @@ gatedDescribe('checkout race + cancel (integration)', () => {
       new SupabaseGymSubscriptionRepository(supabase),
       new SupabaseCheckoutIntentRepository(supabase),
       new PayHereGateway(),
-      4900
+      { [SaasTier.Growth]: 4900, [SaasTier.Enterprise]: 6990 }
     );
   }
 
   it('two parallel checkouts: exactly one pending intent, the other rejected (409-mapped ConflictError)', async () => {
     const useCase = buildCheckout();
     const results = await Promise.allSettled([
-      useCase.execute({ gymId: gym.gymId, customer }),
-      useCase.execute({ gymId: gym.gymId, customer }),
+      useCase.execute({ targetTier: SaasTier.Growth, gymId: gym.gymId, customer }),
+      useCase.execute({ targetTier: SaasTier.Growth, gymId: gym.gymId, customer }),
     ]);
 
     const fulfilled = results.filter((r) => r.status === 'fulfilled');
@@ -86,7 +87,7 @@ gatedDescribe('checkout race + cancel (integration)', () => {
     });
 
     await expect(
-      buildCheckout().execute({ gymId: gym.gymId, customer })
+      buildCheckout().execute({ targetTier: SaasTier.Growth, gymId: gym.gymId, customer })
     ).rejects.toMatchObject({ name: 'ConflictError' });
   });
 

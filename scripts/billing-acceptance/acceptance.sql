@@ -227,6 +227,50 @@ BEGIN
   END;
 
   ------------------------------------------------------------------
+  -- 7b. Growth cap enforced at exactly 190 (fill 41..190 on growth/active)
+  ------------------------------------------------------------------
+  PERFORM save_gym_subscription(v_gym_id, 'growth', 'active', 'PHSUB-CAP', NULL, true);
+  FOR i IN 41..190 LOOP
+    PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
+      'name', 'GFill ' || i,
+      'phone_number', '+9476' || lpad((2000000 + i)::text, 7, '0'),
+      'plan_type', 'monthly', 'plan_amount', 2000,
+      'recurring_discount', false, 'status', 'active',
+      'next_due_date', '2099-01-01'
+    ));
+  END LOOP;
+  BEGIN
+    PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
+      'name', 'Growth Over', 'phone_number', '+94760000191',
+      'plan_type', 'monthly', 'plan_amount', 2000,
+      'recurring_discount', false, 'status', 'active',
+      'next_due_date', '2099-01-01'
+    ));
+    v_failures := v_failures || 'FAIL 7b: 191st member accepted on Growth tier';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE '%MEMBER_LIMIT_REACHED%' THEN
+      PERFORM pg_temp._acc_log('PASS 7b: 191st registration rejected on Growth (cap 190)');
+    ELSE
+      v_failures := v_failures || format('FAIL 7b: unexpected error: %s', SQLERRM);
+    END IF;
+  END;
+
+  -- 7c. Enterprise: unlimited — the 191st member that Growth rejected goes in
+  PERFORM save_gym_subscription(v_gym_id, 'enterprise', 'active', 'PHSUB-ENT', NULL, true);
+  PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
+    'name', 'Enterprise Over', 'phone_number', '+94760000192',
+    'plan_type', 'monthly', 'plan_amount', 2000,
+    'recurring_discount', false, 'status', 'active',
+    'next_due_date', '2099-01-01'
+  ));
+  SELECT member_count INTO v_count FROM gyms WHERE id = v_gym_id;
+  IF v_count = 191 THEN
+    PERFORM pg_temp._acc_log('PASS 7c: enterprise accepts beyond 190 (unlimited)');
+  ELSE
+    v_failures := v_failures || format('FAIL 7c: expected 191 members, got %s', v_count);
+  END IF;
+
+  ------------------------------------------------------------------
   -- 8. Dunning branches via process_dunning_downgrades (server clock)
   ------------------------------------------------------------------
   SELECT count(*) INTO v_before FROM members WHERE gym_id = v_gym_id;
@@ -290,6 +334,20 @@ BEGIN
   -- 8f. idempotence
   PERFORM * FROM process_dunning_downgrades(7);
   PERFORM pg_temp._acc_log('PASS 8f: second dunning pass ran (idempotent, no error)');
+
+  -- 8g. Complimentary (lifetime) enterprise is immune to dunning:
+  --     enterprise/active, NO gateway id, NO period end -> untouched
+  PERFORM save_gym_subscription(v_gym_id, 'enterprise', 'active', NULL, NULL, false);
+  UPDATE gyms SET current_period_end = NULL WHERE id = v_gym_id;
+  PERFORM * FROM process_dunning_downgrades(7);
+  SELECT (subscription_tier = 'enterprise' AND subscription_status = 'active'
+          AND payhere_subscription_id IS NULL AND current_period_end IS NULL) INTO v_ok
+  FROM gyms WHERE id = v_gym_id;
+  IF v_ok THEN
+    PERFORM pg_temp._acc_log('PASS 8g: complimentary enterprise untouched by dunning');
+  ELSE
+    v_failures := v_failures || 'FAIL 8g: dunning modified a complimentary enterprise row';
+  END IF;
 
   ------------------------------------------------------------------
   -- 9. One pending intent per gym (23505) + payment-id partial unique

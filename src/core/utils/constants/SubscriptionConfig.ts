@@ -26,9 +26,26 @@ export enum SaasTier {
   Starter = 'starter',
 
   /**
-   * Growth tier (paid): unlimited members, billed monthly via PayHere Recurring
+   * Growth tier (paid): up to GROWTH_TIER_MEMBER_LIMIT members, billed monthly
+   * via PayHere Recurring
    */
   Growth = 'growth',
+
+  /**
+   * Enterprise tier (paid): unlimited members, billed monthly via PayHere
+   * Recurring. May also be granted complimentary (lifetime): no gateway
+   * subscription and no period end — see Subscription.isComplimentary().
+   */
+  Enterprise = 'enterprise',
+}
+
+/** Tiers that carry a PayHere recurring subscription. */
+export const PAID_TIERS = [SaasTier.Growth, SaasTier.Enterprise] as const;
+
+export type PaidTier = (typeof PAID_TIERS)[number];
+
+export function isPaidTier(tier: SaasTier): tier is PaidTier {
+  return (PAID_TIERS as readonly SaasTier[]).includes(tier);
 }
 
 /**
@@ -77,10 +94,14 @@ export enum RecurringFailureClass {
 export const TIER_DISPLAY_NAME: Record<SaasTier, string> = {
   [SaasTier.Starter]: 'Starter',
   [SaasTier.Growth]: 'Growth',
+  [SaasTier.Enterprise]: 'Enterprise',
 };
 
 /** Starter-tier member cap. SQL mirror: register_member_guarded (literal 40). */
 export const STARTER_TIER_MEMBER_LIMIT = 40;
+
+/** Growth-tier member cap. SQL mirror: register_member_guarded (literal 190). */
+export const GROWTH_TIER_MEMBER_LIMIT = 190;
 
 /** Days of Growth access after a failed charge before dunning downgrades. SQL mirror: literal 7. */
 export const GRACE_PERIOD_DAYS = 7;

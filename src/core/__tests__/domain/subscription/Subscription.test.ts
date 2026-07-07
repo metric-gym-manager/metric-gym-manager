@@ -3,6 +3,7 @@ import {
   SaasTier,
   SaasStatus,
   STARTER_TIER_MEMBER_LIMIT,
+  GROWTH_TIER_MEMBER_LIMIT,
   GRACE_PERIOD_DAYS,
 } from '@/core/utils/constants/SubscriptionConfig';
 import { InvalidStatusTransitionError } from '@/core/utils/errors';
@@ -36,7 +37,7 @@ describe('Subscription entity', () => {
       ['free/canceled', SaasTier.Starter, SaasStatus.Canceled],
       ['pro/canceled (re-subscribe)', SaasTier.Growth, SaasStatus.Canceled],
     ])('activates from %s', (_label, tier, status) => {
-      const next = sub({ tier, status }).activateGrowth({
+      const next = sub({ tier, status }).activatePaid(SaasTier.Growth, {
         subscriptionId: 'SUB-B',
         customerId: 'CUST-1',
       });
@@ -51,7 +52,7 @@ describe('Subscription entity', () => {
         tier: SaasTier.Growth,
         status: SaasStatus.Canceled,
         payhereSubscriptionId: 'SUB-A',
-      }).activateGrowth({ subscriptionId: 'SUB-B', customerId: null });
+      }).activatePaid(SaasTier.Growth, { subscriptionId: 'SUB-B', customerId: null });
       expect(next.payhereSubscriptionId).toBe('SUB-B');
     });
 
@@ -61,7 +62,7 @@ describe('Subscription entity', () => {
         status: SaasStatus.Canceled,
         payhereSubscriptionId: 'SUB-A',
         payhereCustomerId: 'CUST-A',
-      }).activateGrowth({ subscriptionId: null, customerId: null });
+      }).activatePaid(SaasTier.Growth, { subscriptionId: null, customerId: null });
       expect(next.payhereSubscriptionId).toBe('SUB-A');
       expect(next.payhereCustomerId).toBe('CUST-A');
     });
@@ -71,7 +72,7 @@ describe('Subscription entity', () => {
       ['pro/past_due', SaasStatus.PastDue],
     ])('rejects from %s (already subscribed)', (_label, status) => {
       expect(() =>
-        sub({ tier: SaasTier.Growth, status }).activateGrowth({ subscriptionId: 'X', customerId: null })
+        sub({ tier: SaasTier.Growth, status }).activatePaid(SaasTier.Growth, { subscriptionId: 'X', customerId: null })
       ).toThrow(InvalidStatusTransitionError);
     });
   });
@@ -125,7 +126,7 @@ describe('Subscription entity', () => {
         status: SaasStatus.Active,
         currentPeriodEnd: periodEnd,
         payhereSubscriptionId: 'SUB-A',
-      }).cancelGrowth();
+      }).cancelPaid();
       expect(next.status).toBe(SaasStatus.Canceled);
       expect(next.tier).toBe(SaasTier.Growth);
       expect(next.currentPeriodEnd).toEqual(periodEnd);
@@ -133,7 +134,7 @@ describe('Subscription entity', () => {
     });
 
     it('cancels from pro/past_due', () => {
-      const next = sub({ tier: SaasTier.Growth, status: SaasStatus.PastDue }).cancelGrowth();
+      const next = sub({ tier: SaasTier.Growth, status: SaasStatus.PastDue }).cancelPaid();
       expect(next.status).toBe(SaasStatus.Canceled);
     });
 
@@ -141,7 +142,7 @@ describe('Subscription entity', () => {
       ['free/active', SaasTier.Starter, SaasStatus.Active],
       ['pro/canceled (idempotence handled by use case)', SaasTier.Growth, SaasStatus.Canceled],
     ])('rejects from %s', (_label, tier, status) => {
-      expect(() => sub({ tier, status }).cancelGrowth()).toThrow(InvalidStatusTransitionError);
+      expect(() => sub({ tier, status }).cancelPaid()).toThrow(InvalidStatusTransitionError);
     });
   });
 
@@ -188,10 +189,54 @@ describe('Subscription entity', () => {
       ).toBe(false);
     });
 
-    it('pro/active: always allowed', () => {
+    it('growth/active: allowed below the 190 cap, blocked at/over it', () => {
+      expect(
+        sub({ tier: SaasTier.Growth, status: SaasStatus.Active, memberCount: 189 }).canAddMember(now)
+      ).toBe(true);
+      expect(
+        sub({
+          tier: SaasTier.Growth,
+          status: SaasStatus.Active,
+          memberCount: GROWTH_TIER_MEMBER_LIMIT,
+        }).canAddMember(now)
+      ).toBe(false);
       expect(
         sub({ tier: SaasTier.Growth, status: SaasStatus.Active, memberCount: 5000 }).canAddMember(now)
+      ).toBe(false);
+    });
+
+    it('enterprise/active: always allowed (unlimited)', () => {
+      expect(
+        sub({
+          tier: SaasTier.Enterprise,
+          status: SaasStatus.Active,
+          memberCount: 5000,
+        }).canAddMember(now)
       ).toBe(true);
+    });
+
+    it('complimentary enterprise (no gateway id, no period end): allowed and detected', () => {
+      const comped = sub({
+        tier: SaasTier.Enterprise,
+        status: SaasStatus.Active,
+        memberCount: 999,
+        currentPeriodEnd: null,
+        payhereSubscriptionId: null,
+      });
+      expect(comped.isComplimentary()).toBe(true);
+      expect(comped.canAddMember(now)).toBe(true);
+    });
+
+    it('billed subscriptions are NOT complimentary', () => {
+      expect(
+        sub({
+          tier: SaasTier.Enterprise,
+          status: SaasStatus.Active,
+          payhereSubscriptionId: 'PHSUB-1',
+          currentPeriodEnd: new Date('2099-01-01'),
+        }).isComplimentary()
+      ).toBe(false);
+      expect(sub({ tier: SaasTier.Starter }).isComplimentary()).toBe(false);
     });
 
     it('pro/past_due inside grace (day 6): allowed', () => {

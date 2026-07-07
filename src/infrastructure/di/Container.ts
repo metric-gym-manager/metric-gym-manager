@@ -29,6 +29,7 @@ import { SupabaseSaasPaymentLogRepository } from '@/infrastructure/database/repo
 import { PayHereGateway } from '@/infrastructure/payments/PayHereGateway';
 import { PayHereSubscriptionGateway } from '@/infrastructure/payments/PayHereSubscriptionGateway';
 import { getPayhereConfig } from '@/lib/payhere/config';
+import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
 
 // Services
 import { TextLkSMSProvider } from '@/infrastructure/sms/providers/TextLkSMSProvider';
@@ -283,11 +284,15 @@ export class Container {
    * Get GenerateCheckoutUrl use case (UC-1)
    */
   getGenerateCheckoutUrlUseCase(): GenerateCheckoutUrl {
+    const payhere = getPayhereConfig();
     return new GenerateCheckoutUrl(
       this.getGymSubscriptionRepository(),
       this.getCheckoutIntentRepository(),
       this.getPaymentGateway(),
-      getPayhereConfig().proPriceLkr
+      {
+        [SaasTier.Growth]: payhere.proPriceLkr,
+        [SaasTier.Enterprise]: payhere.enterprisePriceLkr,
+      }
     );
   }
 

@@ -4,7 +4,7 @@ import {
   isFeatureEnabled,
   remainingMemberSlots,
 } from '@/core/domain/subscription/PlanRestrictions';
-import { SaasTier, STARTER_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasTier, STARTER_TIER_MEMBER_LIMIT, GROWTH_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
 
 describe('PlanRestrictions (the single source of Starter restriction rules)', () => {
   describe('capability matrix', () => {
@@ -16,8 +16,16 @@ describe('PlanRestrictions (the single source of Starter restriction rules)', ()
       });
     });
 
-    it('Growth: unlimited members, everything enabled', () => {
+    it('Growth: capped members (190), everything else enabled', () => {
       expect(PLAN_CAPABILITIES[SaasTier.Growth]).toEqual({
+        maxMembers: GROWTH_TIER_MEMBER_LIMIT,
+        automatedReminders: true,
+        announcements: true,
+      });
+    });
+
+    it('Enterprise: unlimited members, everything enabled', () => {
+      expect(PLAN_CAPABILITIES[SaasTier.Enterprise]).toEqual({
         maxMembers: null,
         automatedReminders: true,
         announcements: true,
@@ -43,6 +51,7 @@ describe('PlanRestrictions (the single source of Starter restriction rules)', ()
       [SaasTier.Starter, 'automatedReminders', false],
       [SaasTier.Starter, 'announcements', false],
       [SaasTier.Growth, 'automatedReminders', true],
+      [SaasTier.Enterprise, 'announcements', true],
       [SaasTier.Growth, 'announcements', true],
     ] as const)('%s / %s -> %s', (tier, feature, expected) => {
       expect(isFeatureEnabled(tier, feature)).toBe(expected);
@@ -60,8 +69,10 @@ describe('PlanRestrictions (the single source of Starter restriction rules)', ()
       expect(remainingMemberSlots(SaasTier.Starter, 218)).toBe(0);
     });
 
-    it('Growth: null (unlimited)', () => {
-      expect(remainingMemberSlots(SaasTier.Growth, 999)).toBeNull();
+    it('Growth: capped at 190; Enterprise: null (unlimited)', () => {
+      expect(remainingMemberSlots(SaasTier.Growth, 100)).toBe(GROWTH_TIER_MEMBER_LIMIT - 100);
+      expect(remainingMemberSlots(SaasTier.Growth, 250)).toBe(0);
+      expect(remainingMemberSlots(SaasTier.Enterprise, 999)).toBeNull();
     });
   });
 });

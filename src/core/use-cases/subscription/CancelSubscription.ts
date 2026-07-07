@@ -16,7 +16,7 @@
 import type { IGymSubscriptionRepository } from '@/core/ports/repositories';
 import type { ISubscriptionGateway } from '@/core/ports/services';
 import { Subscription } from '@/core/domain/subscription/Subscription';
-import { SaasTier, SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasStatus, isPaidTier } from '@/core/utils/constants/SubscriptionConfig';
 import { ConflictError, NotFoundError } from '@/core/utils/errors';
 
 export class CancelSubscription {
@@ -31,8 +31,14 @@ export class CancelSubscription {
       throw new NotFoundError('Gym');
     }
 
-    if (sub.tier !== SaasTier.Growth) {
+    if (!isPaidTier(sub.tier)) {
       throw new ConflictError('No active subscription to cancel');
+    }
+
+    if (sub.isComplimentary()) {
+      // Lifetime/complimentary subscriptions are managed by the platform —
+      // there is no gateway subscription to stop and nothing to cancel.
+      throw new ConflictError('Your subscription is managed by us — there is nothing to cancel');
     }
 
     if (sub.status === SaasStatus.Canceled) {
@@ -40,14 +46,15 @@ export class CancelSubscription {
     }
 
     if (!sub.payhereSubscriptionId) {
-      // Pro without a gateway id is a data inconsistency — surface it rather
-      // than silently cancel locally while an unknown gateway sub may charge.
+      // A billed paid tier without a gateway id is a data inconsistency —
+      // surface it rather than silently cancel locally while an unknown
+      // gateway sub may charge.
       throw new ConflictError('No payment gateway subscription on record — contact support');
     }
 
     // Gateway FIRST; throws ExternalServiceError on failure (local state untouched)
     await this.subscriptionGateway.cancelSubscription(sub.payhereSubscriptionId);
 
-    return this.subscriptionRepo.save(sub.cancelGrowth(), { extendPeriod: false });
+    return this.subscriptionRepo.save(sub.cancelPaid(), { extendPeriod: false });
   }
 }

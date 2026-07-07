@@ -106,4 +106,37 @@ describe('CancelSubscription (UC-4)', () => {
 
     await expect(useCase.execute({ gymId: 'nope' })).rejects.toThrow(NotFoundError);
   });
+
+  it('rejects complimentary (lifetime) subscriptions — nothing to cancel, gateway untouched', async () => {
+    const { subRepo, gateway, useCase } = build();
+    subRepo.findByGymId.mockResolvedValue(
+      makeSubscription({
+        tier: SaasTier.Enterprise,
+        status: SaasStatus.Active,
+        payhereSubscriptionId: null,
+        currentPeriodEnd: null,
+      })
+    );
+
+    await expect(useCase.execute({ gymId: 'gym-1' })).rejects.toThrow(ConflictError);
+    expect(gateway.cancelSubscription).not.toHaveBeenCalled();
+  });
+
+  it('cancels a billed Enterprise subscription like any paid tier', async () => {
+    const { subRepo, gateway, useCase } = build();
+    subRepo.findByGymId.mockResolvedValue(
+      makeSubscription({
+        tier: SaasTier.Enterprise,
+        status: SaasStatus.Active,
+        payhereSubscriptionId: 'PHSUB-ENT',
+        currentPeriodEnd: new Date('2099-01-01'),
+      })
+    );
+    subRepo.save.mockImplementation(async (s) => s);
+
+    const result = await useCase.execute({ gymId: 'gym-1' });
+    expect(gateway.cancelSubscription).toHaveBeenCalledWith('PHSUB-ENT');
+    expect(result.tier).toBe(SaasTier.Enterprise);
+    expect(result.status).toBe(SaasStatus.Canceled);
+  });
 });

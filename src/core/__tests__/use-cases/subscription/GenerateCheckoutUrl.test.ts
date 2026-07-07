@@ -25,7 +25,7 @@ describe('GenerateCheckoutUrl (UC-1)', () => {
     const subRepo = mockSubscriptionRepo();
     const intentRepo = mockIntentRepo();
     const gateway = mockPaymentGateway();
-    const useCase = new GenerateCheckoutUrl(subRepo, intentRepo, gateway, PRICE);
+    const useCase = new GenerateCheckoutUrl(subRepo, intentRepo, gateway, { [SaasTier.Growth]: PRICE, [SaasTier.Enterprise]: 6990 });
     return { subRepo, intentRepo, gateway, useCase };
   }
 
@@ -34,7 +34,7 @@ describe('GenerateCheckoutUrl (UC-1)', () => {
     subRepo.findByGymId.mockResolvedValue(makeSubscription());
     intentRepo.createPending.mockImplementation(async (i) => makeIntent(i));
 
-    const out = await useCase.execute({ gymId: 'gym-1', customer });
+    const out = await useCase.execute({ targetTier: SaasTier.Growth, gymId: 'gym-1', customer });
 
     expect(intentRepo.createPending).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -58,7 +58,7 @@ describe('GenerateCheckoutUrl (UC-1)', () => {
     );
     intentRepo.createPending.mockImplementation(async (i) => makeIntent(i));
 
-    await expect(useCase.execute({ gymId: 'gym-1', customer })).resolves.toBeDefined();
+    await expect(useCase.execute({ targetTier: SaasTier.Growth, gymId: 'gym-1', customer })).resolves.toBeDefined();
   });
 
   it.each([
@@ -68,7 +68,7 @@ describe('GenerateCheckoutUrl (UC-1)', () => {
     const { subRepo, intentRepo, useCase } = build();
     subRepo.findByGymId.mockResolvedValue(makeSubscription({ tier: SaasTier.Growth, status }));
 
-    await expect(useCase.execute({ gymId: 'gym-1', customer })).rejects.toThrow(ConflictError);
+    await expect(useCase.execute({ targetTier: SaasTier.Growth, gymId: 'gym-1', customer })).rejects.toThrow(ConflictError);
     expect(intentRepo.createPending).not.toHaveBeenCalled();
   });
 
@@ -79,13 +79,45 @@ describe('GenerateCheckoutUrl (UC-1)', () => {
       new ConflictError('A checkout is already in progress for this gym')
     );
 
-    await expect(useCase.execute({ gymId: 'gym-1', customer })).rejects.toThrow(ConflictError);
+    await expect(useCase.execute({ targetTier: SaasTier.Growth, gymId: 'gym-1', customer })).rejects.toThrow(ConflictError);
   });
 
   it('throws NotFoundError for an unknown gym', async () => {
     const { subRepo, useCase } = build();
     subRepo.findByGymId.mockResolvedValue(null);
 
-    await expect(useCase.execute({ gymId: 'nope', customer })).rejects.toThrow(NotFoundError);
+    await expect(useCase.execute({ targetTier: SaasTier.Growth, gymId: 'nope', customer })).rejects.toThrow(NotFoundError);
+  });
+
+  it('rejects complimentary (lifetime) subscriptions with ConflictError', async () => {
+    const { subRepo, intentRepo, useCase } = build();
+    subRepo.findByGymId.mockResolvedValue(
+      makeSubscription({
+        tier: SaasTier.Enterprise,
+        status: SaasStatus.Active,
+        payhereSubscriptionId: null,
+        currentPeriodEnd: null,
+      })
+    );
+
+    await expect(
+      useCase.execute({ targetTier: SaasTier.Growth, gymId: 'gym-1', customer })
+    ).rejects.toThrow(ConflictError);
+    expect(intentRepo.createPending).not.toHaveBeenCalled();
+  });
+
+  it('prices an Enterprise checkout server-side (6990) and stamps the intent tier', async () => {
+    const { subRepo, intentRepo, gateway, useCase } = build();
+    subRepo.findByGymId.mockResolvedValue(makeSubscription());
+    intentRepo.createPending.mockImplementation(async (i) => makeIntent(i));
+
+    await useCase.execute({ targetTier: SaasTier.Enterprise, gymId: 'gym-1', customer });
+
+    expect(intentRepo.createPending).toHaveBeenCalledWith(
+      expect.objectContaining({ targetTier: SaasTier.Enterprise, expectedAmount: 6990 })
+    );
+    expect(gateway.buildCheckoutRedirect).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 6990, tier: SaasTier.Enterprise })
+    );
   });
 });

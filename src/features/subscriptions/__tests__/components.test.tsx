@@ -32,6 +32,8 @@ function makeSerialized(
     capabilities: { automatedReminders: false, announcements: false },
     remainingMemberSlots: STARTER_TIER_MEMBER_LIMIT - 10,
     remaining_member_slots: STARTER_TIER_MEMBER_LIMIT - 10,
+    isComplimentary: false,
+    is_complimentary: false,
     ...overrides,
   };
 }

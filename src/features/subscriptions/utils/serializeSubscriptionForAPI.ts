@@ -40,6 +40,9 @@ export interface SerializedSubscription {
   capabilities: Record<RestrictedFeature, boolean>;
   remainingMemberSlots: number | null;
   remaining_member_slots: number | null;
+  /** Lifetime/complimentary subscription — platform-managed; self-service billing controls are disabled. */
+  isComplimentary: boolean;
+  is_complimentary: boolean;
 }
 
 const toDateString = (d: Date | null): string | null =>
@@ -87,5 +90,7 @@ export function serializeSubscriptionForAPI(
     },
     remainingMemberSlots: remaining,
     remaining_member_slots: remaining,
+    isComplimentary: sub.isComplimentary(),
+    is_complimentary: sub.isComplimentary(),
   };
 }

@@ -33,10 +33,12 @@ export async function POST(request: NextRequest) {
 
     // Admin container on purpose: checkout intents are RLS'd to service_role
     // only, and the caller's gym id was pinned by getCurrentGymProfile() above.
+    // targetTier is a validated enum; the PRICE is always looked up server-side
+    // in the use case (amount-authority invariant — never from the request).
     const container = await getAdminContainer();
     const result = await container
       .getGenerateCheckoutUrlUseCase()
-      .execute({ gymId: gymProfile.id, customer });
+      .execute({ gymId: gymProfile.id, targetTier: validated.targetTier, customer });
 
     return NextResponse.json(
       ResponseBuilder.success({

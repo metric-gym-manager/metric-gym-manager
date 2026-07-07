@@ -22,6 +22,7 @@ export function useCancelSubscription() {
       queryClient.setQueryData<SubscriptionWithPrice>(SUBSCRIPTION_QUERY_KEY, (old) => ({
         subscription: sub,
         proPriceLkr: old?.proPriceLkr ?? null,
+        enterprisePriceLkr: old?.enterprisePriceLkr ?? null,
       }));
       toast.success(
         sub.currentPeriodEnd
