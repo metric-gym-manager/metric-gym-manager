@@ -44,12 +44,36 @@ describe('serializeSubscriptionForAPI', () => {
     expect(out.currentPeriodEnd).toBe('2026-08-15');
   });
 
-  it('exposes the member limit for Free and null for Pro', () => {
+  it('exposes the member limit for Starter and null for Growth', () => {
     expect(serializeSubscriptionForAPI(make()).memberLimit).toBe(STARTER_TIER_MEMBER_LIMIT);
     expect(
       serializeSubscriptionForAPI(make({ tier: SaasTier.Growth, status: SaasStatus.Active }))
         .memberLimit
     ).toBeNull();
+  });
+
+  it('exposes plan capabilities from the PlanRestrictions matrix', () => {
+    const starter = serializeSubscriptionForAPI(make());
+    expect(starter.capabilities).toEqual({ automatedReminders: false, announcements: false });
+
+    const growth = serializeSubscriptionForAPI(
+      make({ tier: SaasTier.Growth, status: SaasStatus.Active })
+    );
+    expect(growth.capabilities).toEqual({ automatedReminders: true, announcements: true });
+  });
+
+  it('exposes remaining member slots (dual-key), clamped at zero, null for Growth', () => {
+    const starter = serializeSubscriptionForAPI(make({ memberCount: 33 }));
+    expect(starter.remainingMemberSlots).toBe(STARTER_TIER_MEMBER_LIMIT - 33);
+    expect(starter.remaining_member_slots).toBe(starter.remainingMemberSlots);
+
+    const overLimit = serializeSubscriptionForAPI(make({ memberCount: 218 }));
+    expect(overLimit.remainingMemberSlots).toBe(0);
+
+    const growth = serializeSubscriptionForAPI(
+      make({ tier: SaasTier.Growth, status: SaasStatus.Active, memberCount: 999 })
+    );
+    expect(growth.remainingMemberSlots).toBeNull();
   });
 
   it('computes graceEndsAt only when past_due', () => {

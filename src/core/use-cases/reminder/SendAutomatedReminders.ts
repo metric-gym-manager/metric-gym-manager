@@ -17,7 +17,9 @@
 
 import { Member } from '@/core/domain/member/Member';
 import { IMemberRepository, ISMSRepository } from '@/core/ports/repositories';
+import type { IGymSubscriptionRepository } from '@/core/ports/repositories/IGymSubscriptionRepository';
 import { ISMSProvider } from '@/core/ports/services';
+import { isFeatureEnabled } from '@/core/domain/subscription/PlanRestrictions';
 import { getDaysUntilDue } from '@/core/utils/date';
 import { formatDateForDisplay } from '@/core/utils/date';
 import { shouldSendReminder, ReminderType } from '@/core/utils/constants/ReminderConfig';
@@ -63,6 +65,12 @@ export interface ReminderSummary {
    * Members skipped (with reasons)
    */
   membersSkipped: number;
+
+  /**
+   * Members skipped because their gym's plan does not include automated
+   * reminders (PlanRestrictions matrix — Starter tier)
+   */
+  membersSkippedPlanRestricted: number;
 }
 
 /**
@@ -87,8 +95,25 @@ export class SendAutomatedReminders {
   constructor(
     private readonly memberRepo: IMemberRepository,
     private readonly smsRepo: ISMSRepository,
-    private readonly smsProvider: ISMSProvider
+    private readonly smsProvider: ISMSProvider,
+    private readonly gymSubscriptionRepo: IGymSubscriptionRepository
   ) {}
+
+  /**
+   * Resolve which of the given gyms may use automated reminders.
+   * One subscription lookup per DISTINCT gym; a gym whose subscription
+   * cannot be resolved is treated as restricted (fail closed).
+   */
+  private async resolveAllowedGyms(gymIds: string[]): Promise<Set<string>> {
+    const allowed = new Set<string>();
+    for (const gymId of new Set(gymIds)) {
+      const sub = await this.gymSubscriptionRepo.findByGymId(gymId);
+      if (sub && isFeatureEnabled(sub.tier, 'automatedReminders')) {
+        allowed.add(gymId);
+      }
+    }
+    return allowed;
+  }
 
   /**
    * Execute automated reminder sending
@@ -108,13 +133,26 @@ export class SendAutomatedReminders {
       errors: [],
       membersProcessed: 0,
       membersSkipped: 0,
+      membersSkippedPlanRestricted: 0,
     };
 
     try {
       // Get active members
-      const members = input.gymId
+      const allMembers = input.gymId
         ? await this.memberRepo.findActiveMembers(input.gymId)
         : await this.memberRepo.findAllActiveMembers();
+
+      // Plan restriction (PlanRestrictions matrix): automated reminders are a
+      // Growth feature — members of Starter gyms are excluded before any
+      // reminder logic runs. One tier lookup per distinct gym.
+      const allowedGyms = await this.resolveAllowedGyms(allMembers.map((m) => m.gymId));
+      const members = allMembers.filter((m) => allowedGyms.has(m.gymId));
+      summary.membersSkippedPlanRestricted = allMembers.length - members.length;
+      if (summary.membersSkippedPlanRestricted > 0) {
+        console.log(
+          `⏭  Skipping ${summary.membersSkippedPlanRestricted} member(s) of plan-restricted (Starter) gyms`
+        );
+      }
 
       console.log(`📊 Processing ${members.length} active members for reminders`);
 

@@ -35,6 +35,9 @@ function subResult(tier: SaasTier, status: SaasStatus) {
       pastDueReason: null,
       past_due_reason: null,
       canAddMember: true,
+      capabilities: { automatedReminders: false, announcements: false },
+      remainingMemberSlots: 30,
+      remaining_member_slots: 30,
     },
   };
 }

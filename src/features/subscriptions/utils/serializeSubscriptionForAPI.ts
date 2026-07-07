@@ -10,9 +10,13 @@
 
 import { Subscription } from '@/core/domain/subscription/Subscription';
 import {
+  getPlanCapabilities,
+  remainingMemberSlots,
+  type RestrictedFeature,
+} from '@/core/domain/subscription/PlanRestrictions';
+import {
   SaasTier,
   SaasStatus,
-  STARTER_TIER_MEMBER_LIMIT,
   RecurringFailureClass,
 } from '@/core/utils/constants/SubscriptionConfig';
 
@@ -32,6 +36,10 @@ export interface SerializedSubscription {
   pastDueReason: RecurringFailureClass | null;
   past_due_reason: RecurringFailureClass | null;
   canAddMember: boolean;
+  /** Feature switches from the PlanRestrictions matrix — UI gates read these, never local tier math. */
+  capabilities: Record<RestrictedFeature, boolean>;
+  remainingMemberSlots: number | null;
+  remaining_member_slots: number | null;
 }
 
 const toDateString = (d: Date | null): string | null =>
@@ -49,7 +57,9 @@ export function serializeSubscriptionForAPI(
   pastDueReason: RecurringFailureClass | null = null,
   now: Date = new Date()
 ): SerializedSubscription {
-  const memberLimit = sub.tier === SaasTier.Starter ? STARTER_TIER_MEMBER_LIMIT : null;
+  const capabilities = getPlanCapabilities(sub.tier);
+  const memberLimit = capabilities.maxMembers;
+  const remaining = remainingMemberSlots(sub.tier, sub.memberCount);
   const graceEndsAt = toDateString(sub.graceEndsAt());
   const currentPeriodEnd = toDateString(sub.currentPeriodEnd);
   const reason = sub.status === SaasStatus.PastDue ? pastDueReason : null;
@@ -71,5 +81,11 @@ export function serializeSubscriptionForAPI(
     past_due_reason: reason,
     // Display-only flag: the FOR UPDATE-locked RPC is the real authority
     canAddMember: sub.canAddMember(now),
+    capabilities: {
+      automatedReminders: capabilities.automatedReminders,
+      announcements: capabilities.announcements,
+    },
+    remainingMemberSlots: remaining,
+    remaining_member_slots: remaining,
   };
 }

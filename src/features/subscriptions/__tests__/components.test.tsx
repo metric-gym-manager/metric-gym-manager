@@ -29,6 +29,9 @@ function makeSerialized(
     pastDueReason: null,
     past_due_reason: null,
     canAddMember: true,
+    capabilities: { automatedReminders: false, announcements: false },
+    remainingMemberSlots: STARTER_TIER_MEMBER_LIMIT - 10,
+    remaining_member_slots: STARTER_TIER_MEMBER_LIMIT - 10,
     ...overrides,
   };
 }

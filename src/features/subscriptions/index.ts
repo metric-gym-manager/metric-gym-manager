@@ -16,6 +16,8 @@ export { default as CancelSubscriptionDialog } from './components/CancelSubscrip
 export { default as BillingHistoryTable } from './components/BillingHistoryTable';
 export { default as QuotaReachedUpsell } from './components/QuotaReachedUpsell';
 export { default as GrowthAvatarRing } from './components/GrowthAvatarRing';
+export { default as StarterLimitBar } from './components/StarterLimitBar';
+export { default as FeatureGate } from './components/FeatureGate';
 export { submitPayHereCheckout } from './components/PayHereRedirectForm';
 
 // Hooks

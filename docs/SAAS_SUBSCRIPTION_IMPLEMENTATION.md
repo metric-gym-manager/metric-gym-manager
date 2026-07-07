@@ -107,6 +107,23 @@ retry button is ever added, cap it (≤1/24h per subscription, ≤2 per past_due
 | `GET /api/admin/system-health/billing-failures` | SaaS admin session (`saas_admins`) | Full technical detail lives HERE ONLY — never gym-facing |
 | Member quota | — | 403 `MEMBER_LIMIT_REACHED` from `/api/members` (+bulk per-row `errorCode`) → inline upgrade upsell |
 
+## 6.1 Plan restrictions (Starter feature switches)
+
+**Single source of truth: `src/core/domain/subscription/PlanRestrictions.ts`**
+(the capability matrix). Tier conditionals are never written anywhere else;
+adding a tier to `SaasTier` breaks compilation until the matrix is extended.
+
+| Capability | Starter | Growth | Server authority | UX layer |
+|---|---|---|---|---|
+| `maxMembers` | 40 | ∞ | `register_member_guarded` (SQL, unchanged) | `StarterLimitBar` (site-wide slots counter + Upgrade CTA, hidden on `/settings/*`), quota upsell |
+| `automatedReminders` | ✗ | ✓ | `SendAutomatedReminders` skips restricted gyms (one tier lookup per distinct gym, fail-closed; `membersSkippedPlanRestricted` in the cron summary) | — |
+| `announcements` | ✗ | ✓ | `POST /api/announcements` → 403 `FEATURE_NOT_AVAILABLE` before any work (fail-closed) | `/make-announcement` renders `FeatureGate` upgrade panel; composer never mounts |
+
+The serializer exposes `capabilities` + `remainingMemberSlots` (dual-key) so
+every client gate reads server-computed flags — never local tier math. The
+Growth avatar ring (`GrowthAvatarRing`, header) is the positive marker on the
+paid side of the same matrix.
+
 ## 7. Deployment runbook (REQUIRED config)
 
 1. **Env** (see `.env.example`): `PAYHERE_MODE/MERCHANT_ID/MERCHANT_SECRET/PRO_PRICE_LKR/APP_ID/APP_SECRET`.

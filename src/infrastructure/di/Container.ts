@@ -333,7 +333,9 @@ export class Container {
     return new SendAutomatedReminders(
       this.getMemberRepository(),
       this.getSMSRepository(),
-      this.getSMSProvider()
+      this.getSMSProvider(),
+      // Plan restriction source: Starter gyms are skipped (PlanRestrictions)
+      this.getGymSubscriptionRepository()
     );
   }
 }
