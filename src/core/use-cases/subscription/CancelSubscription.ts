@@ -31,7 +31,7 @@ export class CancelSubscription {
       throw new NotFoundError('Gym');
     }
 
-    if (sub.tier !== SaasTier.Pro) {
+    if (sub.tier !== SaasTier.Growth) {
       throw new ConflictError('No active subscription to cancel');
     }
 

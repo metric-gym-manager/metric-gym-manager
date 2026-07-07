@@ -4,34 +4,34 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Check } from 'lucide-react';
-import { SaasStatus, SaasTier, FREE_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasStatus, SaasTier, STARTER_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
 import type { SerializedSubscription } from '../types';
 
 interface PricingTableProps {
   subscription: SerializedSubscription;
-  /** Monthly Pro price in LKR, rendered from public config */
+  /** Monthly Growth price in LKR, rendered from public config */
   proPriceLkr?: number | null;
   onUpgrade: () => void;
 }
 
 const FREE_FEATURES = [
-  `Up to ${FREE_TIER_MEMBER_LIMIT} members`,
+  `Up to ${STARTER_TIER_MEMBER_LIMIT} members`,
   'Payment collection & SMS reminders',
   'Revenue analytics',
 ];
 
 const PRO_FEATURES = [
   'Unlimited members',
-  'Everything in Free',
+  'Everything in Starter',
   'Billed monthly via PayHere — cancel anytime',
 ];
 
 /**
- * Free vs Pro comparison (plan §5.2). CTA state follows §5.3:
+ * Starter vs Growth comparison (plan §5.2). CTA state follows §5.3:
  * pro/active and pro/past_due cannot start a second checkout.
  */
 export default function PricingTable({ subscription: sub, proPriceLkr, onUpgrade }: PricingTableProps) {
-  const isPro = sub.subscriptionTier === SaasTier.Pro;
+  const isPro = sub.subscriptionTier === SaasTier.Growth;
   const isProActive = isPro && sub.subscriptionStatus === SaasStatus.Active;
   const isPastDue = isPro && sub.subscriptionStatus === SaasStatus.PastDue;
   const canUpgrade = !isProActive && !isPastDue;
@@ -41,7 +41,7 @@ export default function PricingTable({ subscription: sub, proPriceLkr, onUpgrade
       <Card className={!isPro ? 'border-blue-200' : undefined}>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Free</CardTitle>
+            <CardTitle>Starter</CardTitle>
             {!isPro && (
               <Badge className="border-transparent bg-blue-100 text-blue-800">Current plan</Badge>
             )}
@@ -65,7 +65,7 @@ export default function PricingTable({ subscription: sub, proPriceLkr, onUpgrade
       <Card className={isPro ? 'border-amber-300' : 'border-amber-200'}>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Pro</CardTitle>
+            <CardTitle>Growth</CardTitle>
             {isProActive && (
               <Badge className="border-transparent bg-amber-100 text-amber-800">Current plan</Badge>
             )}
@@ -90,8 +90,8 @@ export default function PricingTable({ subscription: sub, proPriceLkr, onUpgrade
               : isPastDue
                 ? 'Resolve payment first'
                 : isPro
-                  ? 'Re-subscribe to Pro'
-                  : 'Upgrade to Pro'}
+                  ? 'Re-subscribe to Growth'
+                  : 'Upgrade to Growth'}
           </Button>
           {isPastDue && (
             <p className="text-xs text-gray-500">

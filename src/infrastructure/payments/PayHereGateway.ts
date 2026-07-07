@@ -47,7 +47,7 @@ export class PayHereGateway implements IPaymentGateway {
       city: customer.city,
       country: 'Sri Lanka',
       order_id: orderId,
-      items: 'Pro Plan — Monthly',
+      items: 'Growth Plan — Monthly',
       currency,
       amount: formatAmount(amount),
       recurrence: PRO_BILLING_RECURRENCE,

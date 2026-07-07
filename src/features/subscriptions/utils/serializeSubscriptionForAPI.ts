@@ -12,7 +12,7 @@ import { Subscription } from '@/core/domain/subscription/Subscription';
 import {
   SaasTier,
   SaasStatus,
-  FREE_TIER_MEMBER_LIMIT,
+  STARTER_TIER_MEMBER_LIMIT,
   RecurringFailureClass,
 } from '@/core/utils/constants/SubscriptionConfig';
 
@@ -49,7 +49,7 @@ export function serializeSubscriptionForAPI(
   pastDueReason: RecurringFailureClass | null = null,
   now: Date = new Date()
 ): SerializedSubscription {
-  const memberLimit = sub.tier === SaasTier.Free ? FREE_TIER_MEMBER_LIMIT : null;
+  const memberLimit = sub.tier === SaasTier.Starter ? STARTER_TIER_MEMBER_LIMIT : null;
   const graceEndsAt = toDateString(sub.graceEndsAt());
   const currentPeriodEnd = toDateString(sub.currentPeriodEnd);
   const reason = sub.status === SaasStatus.PastDue ? pastDueReason : null;

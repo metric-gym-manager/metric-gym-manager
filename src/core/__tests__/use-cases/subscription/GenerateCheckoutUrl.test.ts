@@ -39,7 +39,7 @@ describe('GenerateCheckoutUrl (UC-1)', () => {
     expect(intentRepo.createPending).toHaveBeenCalledWith(
       expect.objectContaining({
         gymId: 'gym-1',
-        targetTier: SaasTier.Pro,
+        targetTier: SaasTier.Growth,
         expectedAmount: PRICE,
         currency: 'LKR',
       })
@@ -54,7 +54,7 @@ describe('GenerateCheckoutUrl (UC-1)', () => {
   it('allows re-subscription from pro/canceled', async () => {
     const { subRepo, intentRepo, useCase } = build();
     subRepo.findByGymId.mockResolvedValue(
-      makeSubscription({ tier: SaasTier.Pro, status: SaasStatus.Canceled })
+      makeSubscription({ tier: SaasTier.Growth, status: SaasStatus.Canceled })
     );
     intentRepo.createPending.mockImplementation(async (i) => makeIntent(i));
 
@@ -66,7 +66,7 @@ describe('GenerateCheckoutUrl (UC-1)', () => {
     ['pro/past_due (recovery goes via PayHere retry, not a second checkout)', SaasStatus.PastDue],
   ])('rejects %s with ConflictError', async (_label, status) => {
     const { subRepo, intentRepo, useCase } = build();
-    subRepo.findByGymId.mockResolvedValue(makeSubscription({ tier: SaasTier.Pro, status }));
+    subRepo.findByGymId.mockResolvedValue(makeSubscription({ tier: SaasTier.Growth, status }));
 
     await expect(useCase.execute({ gymId: 'gym-1', customer })).rejects.toThrow(ConflictError);
     expect(intentRepo.createPending).not.toHaveBeenCalled();

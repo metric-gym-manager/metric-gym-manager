@@ -15,7 +15,7 @@ interface CurrentPlanCardProps {
 }
 
 function statusBadge(sub: SerializedSubscription) {
-  if (sub.subscriptionTier === SaasTier.Pro) {
+  if (sub.subscriptionTier === SaasTier.Growth) {
     switch (sub.subscriptionStatus) {
       case SaasStatus.Active:
         return <Badge className="border-transparent bg-green-100 text-green-800">Active</Badge>;
@@ -36,7 +36,7 @@ export default function CurrentPlanCard({
   onUpgradeClick,
   onCancelClick,
 }: CurrentPlanCardProps) {
-  const isPro = sub.subscriptionTier === SaasTier.Pro;
+  const isPro = sub.subscriptionTier === SaasTier.Growth;
   const isFree = !isPro;
   const overLimit = isFree && sub.memberLimit !== null && sub.memberCount > sub.memberLimit;
   const atLimit = isFree && sub.memberLimit !== null && sub.memberCount >= sub.memberLimit;
@@ -52,7 +52,7 @@ export default function CurrentPlanCard({
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             {isPro && <Crown className="h-5 w-5 text-amber-500" />}
-            {isPro ? 'Pro Plan' : 'Free Plan'}
+            {isPro ? 'Growth Plan' : 'Starter Plan'}
           </CardTitle>
           {statusBadge(sub)}
         </div>
@@ -86,15 +86,15 @@ export default function CurrentPlanCard({
         )}
         {proCanceled && (
           <p className="text-sm text-gray-600">
-            Subscription canceled — Pro features continue until{' '}
+            Subscription canceled — Growth features continue until{' '}
             <span className="font-medium">{sub.currentPeriodEnd ?? 'the end of the paid period'}</span>,
-            then your account reverts to the Free plan.
+            then your account reverts to the Starter plan.
           </p>
         )}
         {overLimit && (
           <p className="text-sm text-gray-600">
-            You have more members than the Free limit allows. Existing members are kept and stay
-            fully manageable — adding <span className="font-medium">new</span> members needs Pro.
+            You have more members than the Starter limit allows. Existing members are kept and stay
+            fully manageable — adding <span className="font-medium">new</span> members needs Growth.
           </p>
         )}
 
@@ -102,7 +102,7 @@ export default function CurrentPlanCard({
         <div className="flex gap-2 pt-2">
           {(isFree || proCanceled) && (
             <Button onClick={onUpgradeClick}>
-              {proCanceled || overLimit ? 'Re-subscribe to Pro' : 'Upgrade to Pro'}
+              {proCanceled || overLimit ? 'Re-subscribe to Growth' : 'Upgrade to Growth'}
             </Button>
           )}
           {showCancel && (

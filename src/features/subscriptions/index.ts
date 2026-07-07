@@ -15,6 +15,7 @@ export { default as PastDueBanner } from './components/PastDueBanner';
 export { default as CancelSubscriptionDialog } from './components/CancelSubscriptionDialog';
 export { default as BillingHistoryTable } from './components/BillingHistoryTable';
 export { default as QuotaReachedUpsell } from './components/QuotaReachedUpsell';
+export { default as GrowthAvatarRing } from './components/GrowthAvatarRing';
 export { submitPayHereCheckout } from './components/PayHereRedirectForm';
 
 // Hooks

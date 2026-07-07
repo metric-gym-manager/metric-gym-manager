@@ -16,7 +16,9 @@ test('upgrade: checkout -> return -> verifying -> webhook -> Pro', async ({ page
   await loginAsGym(page);
 
   await page.goto('/settings/billing');
-  await expect(page.getByText('Free Plan')).toBeVisible();
+  await expect(page.getByText('Starter Plan')).toBeVisible();
+  // Starter gyms get no avatar ring
+  await expect(page.getByTestId('growth-avatar-ring')).toHaveCount(0);
 
   // Block the actual cross-origin PayHere navigation; capture the form POST.
   // The order id is read from the intercepted hand-off body (what PayHere
@@ -31,7 +33,7 @@ test('upgrade: checkout -> return -> verifying -> webhook -> Pro', async ({ page
   });
 
   // Start the upgrade
-  await page.getByRole('button', { name: /upgrade to pro/i }).first().click();
+  await page.getByRole('button', { name: /upgrade to growth/i }).first().click();
   await page.getByLabel(/billing city/i).fill('Colombo');
   await page.getByRole('button', { name: /continue to payment/i }).click();
   await expect.poll(() => checkoutPosted).toBe(true);
@@ -50,9 +52,13 @@ test('upgrade: checkout -> return -> verifying -> webhook -> Pro', async ({ page
     subscription_id: `E2E-PHSUB-${Date.now()}`,
   });
 
-  // Poll flips to SUCCESS; plan card shows Pro
-  await expect(page.getByText(/you'?re on pro/i)).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText('Pro Plan')).toBeVisible();
+  // Poll flips to SUCCESS; plan card shows Growth
+  await expect(page.getByText(/you'?re on growth/i)).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Growth Plan')).toBeVisible();
+
+  // Positive-reinforcement marker: the header avatar gains the Growth ring
+  // (the shared subscription query is invalidated by the successful poll)
+  await expect(page.getByTestId('growth-avatar-ring')).toBeVisible({ timeout: 10_000 });
 });
 
 test('canceled return shows the not-charged panel', async ({ page }) => {

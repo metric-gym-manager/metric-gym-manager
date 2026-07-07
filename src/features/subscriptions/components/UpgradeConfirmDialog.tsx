@@ -54,7 +54,7 @@ export default function UpgradeConfirmDialog({
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Upgrade to Pro</DialogTitle>
+          <DialogTitle>Upgrade to Growth</DialogTitle>
           <DialogDescription>
             {proPriceLkr
               ? `Rs. ${proPriceLkr.toLocaleString()} will be charged monthly by PayHere until you cancel.`

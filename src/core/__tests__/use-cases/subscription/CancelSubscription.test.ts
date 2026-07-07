@@ -14,7 +14,7 @@ describe('CancelSubscription (UC-4)', () => {
 
   const proActive = () =>
     makeSubscription({
-      tier: SaasTier.Pro,
+      tier: SaasTier.Growth,
       status: SaasStatus.Active,
       payhereSubscriptionId: 'PHSUB-A',
       currentPeriodEnd: new Date('2026-08-01T00:00:00Z'),
@@ -38,7 +38,7 @@ describe('CancelSubscription (UC-4)', () => {
     expect(callOrder).toEqual(['gateway', 'save']); // gateway BEFORE local write
     expect(gateway.cancelSubscription).toHaveBeenCalledWith('PHSUB-A');
     expect(result.status).toBe(SaasStatus.Canceled);
-    expect(result.tier).toBe(SaasTier.Pro); // paid-through until period end
+    expect(result.tier).toBe(SaasTier.Growth); // paid-through until period end
     expect(subRepo.save).toHaveBeenCalledWith(expect.anything(), { extendPeriod: false });
   });
 
@@ -46,7 +46,7 @@ describe('CancelSubscription (UC-4)', () => {
     const { subRepo, useCase } = build();
     subRepo.findByGymId.mockResolvedValue(
       makeSubscription({
-        tier: SaasTier.Pro,
+        tier: SaasTier.Growth,
         status: SaasStatus.PastDue,
         payhereSubscriptionId: 'PHSUB-A',
       })
@@ -59,7 +59,7 @@ describe('CancelSubscription (UC-4)', () => {
   it('is idempotent: already-canceled returns current state without a gateway call', async () => {
     const { subRepo, gateway, useCase } = build();
     const canceled = makeSubscription({
-      tier: SaasTier.Pro,
+      tier: SaasTier.Growth,
       status: SaasStatus.Canceled,
       payhereSubscriptionId: 'PHSUB-A',
     });
@@ -94,7 +94,7 @@ describe('CancelSubscription (UC-4)', () => {
   it('rejects Pro without a gateway subscription id (data inconsistency)', async () => {
     const { subRepo, useCase } = build();
     subRepo.findByGymId.mockResolvedValue(
-      makeSubscription({ tier: SaasTier.Pro, status: SaasStatus.Active })
+      makeSubscription({ tier: SaasTier.Growth, status: SaasStatus.Active })
     );
 
     await expect(useCase.execute({ gymId: 'gym-1' })).rejects.toThrow(ConflictError);

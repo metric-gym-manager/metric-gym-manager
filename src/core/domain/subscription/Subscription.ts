@@ -20,7 +20,7 @@ import {
   SaasTier,
   SaasStatus,
   GRACE_PERIOD_DAYS,
-  FREE_TIER_MEMBER_LIMIT,
+  STARTER_TIER_MEMBER_LIMIT,
 } from '@/core/utils/constants/SubscriptionConfig';
 import { InvalidStatusTransitionError } from '@/core/utils/errors';
 
@@ -99,8 +99,8 @@ export class Subscription {
     customerId: string | null;
   }): Subscription {
     const allowed =
-      this.props.tier === SaasTier.Free ||
-      (this.props.tier === SaasTier.Pro && this.props.status === SaasStatus.Canceled);
+      this.props.tier === SaasTier.Starter ||
+      (this.props.tier === SaasTier.Growth && this.props.status === SaasStatus.Canceled);
 
     if (!allowed) {
       throw new InvalidStatusTransitionError(this.stateKey(), 'pro:active');
@@ -108,7 +108,7 @@ export class Subscription {
 
     return new Subscription({
       ...this.props,
-      tier: SaasTier.Pro,
+      tier: SaasTier.Growth,
       status: SaasStatus.Active,
       payhereSubscriptionId: input.subscriptionId ?? this.props.payhereSubscriptionId,
       payhereCustomerId: input.customerId ?? this.props.payhereCustomerId,
@@ -126,7 +126,7 @@ export class Subscription {
    */
   renew(): Subscription {
     const allowed =
-      this.props.tier === SaasTier.Pro &&
+      this.props.tier === SaasTier.Growth &&
       (this.props.status === SaasStatus.Active || this.props.status === SaasStatus.PastDue);
 
     if (!allowed) {
@@ -141,7 +141,7 @@ export class Subscription {
    * Only the dunning cron performs the hard downgrade later.
    */
   markPastDue(): Subscription {
-    if (this.props.tier !== SaasTier.Pro || this.props.status !== SaasStatus.Active) {
+    if (this.props.tier !== SaasTier.Growth || this.props.status !== SaasStatus.Active) {
       throw new InvalidStatusTransitionError(this.stateKey(), 'pro:past_due');
     }
     return new Subscription({ ...this.props, status: SaasStatus.PastDue });
@@ -153,7 +153,7 @@ export class Subscription {
    */
   cancelPro(): Subscription {
     const allowed =
-      this.props.tier === SaasTier.Pro &&
+      this.props.tier === SaasTier.Growth &&
       (this.props.status === SaasStatus.Active || this.props.status === SaasStatus.PastDue);
 
     if (!allowed) {
@@ -170,7 +170,7 @@ export class Subscription {
    */
   downgradeToFree(): Subscription {
     const allowed =
-      this.props.tier === SaasTier.Pro &&
+      this.props.tier === SaasTier.Growth &&
       (this.props.status === SaasStatus.PastDue || this.props.status === SaasStatus.Canceled);
 
     if (!allowed) {
@@ -179,7 +179,7 @@ export class Subscription {
 
     return new Subscription({
       ...this.props,
-      tier: SaasTier.Free,
+      tier: SaasTier.Starter,
       status: SaasStatus.Canceled,
       payhereSubscriptionId: null,
     });
@@ -190,7 +190,7 @@ export class Subscription {
    * (migration 20260704000003); integration tests keep the two in lock-step.
    */
   canAddMember(now: Date): boolean {
-    if (this.props.tier === SaasTier.Pro) {
+    if (this.props.tier === SaasTier.Growth) {
       if (this.props.status === SaasStatus.Active) {
         return true;
       }
@@ -204,7 +204,7 @@ export class Subscription {
         now.getTime() <= this.props.currentPeriodEnd.getTime()
       );
     }
-    return this.props.memberCount < FREE_TIER_MEMBER_LIMIT;
+    return this.props.memberCount < STARTER_TIER_MEMBER_LIMIT;
   }
 
   /**

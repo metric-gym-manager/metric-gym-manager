@@ -15,7 +15,7 @@ import type { IPaymentGateway, ISubscriptionGateway } from '@/core/ports/service
 export function makeSubscription(overrides: Partial<SubscriptionProps> = {}): Subscription {
   return Subscription.create({
     gymId: 'gym-1',
-    tier: SaasTier.Free,
+    tier: SaasTier.Starter,
     status: SaasStatus.Active,
     memberCount: 0,
     currentPeriodEnd: null,
@@ -29,7 +29,7 @@ export function makeIntent(overrides: Partial<CheckoutIntent> = {}): CheckoutInt
   return {
     orderId: 'SUB-gym-1-1',
     gymId: 'gym-1',
-    targetTier: SaasTier.Pro,
+    targetTier: SaasTier.Growth,
     expectedAmount: 4900,
     currency: 'LKR',
     status: 'pending',

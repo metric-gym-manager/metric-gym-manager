@@ -131,7 +131,7 @@ export class HandlePayHereWebhook {
     if (messageType === 'RECURRING_STOPPED' || fields.item_rec_status === '-1') {
       if (
         idMatches &&
-        sub.tier === SaasTier.Pro &&
+        sub.tier === SaasTier.Growth &&
         (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue)
       ) {
         await this.subscriptionRepo.save(sub.cancelPro(), { extendPeriod: false });
@@ -153,8 +153,8 @@ export class HandlePayHereWebhook {
         }
 
         const next =
-          sub.tier === SaasTier.Free ||
-          (sub.tier === SaasTier.Pro && sub.status === SaasStatus.Canceled)
+          sub.tier === SaasTier.Starter ||
+          (sub.tier === SaasTier.Growth && sub.status === SaasStatus.Canceled)
             ? sub.activatePro({
                 subscriptionId: fields.subscription_id ?? null,
                 customerId: fields.customer_token ?? null,
@@ -171,7 +171,7 @@ export class HandlePayHereWebhook {
         return { outcome: WebhookOutcome.StaleEvent }; // late event for a replaced subscription
       }
       if (
-        sub.tier === SaasTier.Pro &&
+        sub.tier === SaasTier.Growth &&
         (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue)
       ) {
         await this.subscriptionRepo.save(sub.renew(), { extendPeriod: true }); // anchor = now() (C-23)
@@ -192,7 +192,7 @@ export class HandlePayHereWebhook {
       if (!idMatches) {
         return { outcome: WebhookOutcome.StaleEvent };
       }
-      if (sub.tier === SaasTier.Pro && sub.status === SaasStatus.Active) {
+      if (sub.tier === SaasTier.Growth && sub.status === SaasStatus.Active) {
         await this.subscriptionRepo.save(sub.markPastDue(), { extendPeriod: false });
         return { outcome: WebhookOutcome.MarkedPastDue }; // grace starts; dunning cron downgrades later
       }

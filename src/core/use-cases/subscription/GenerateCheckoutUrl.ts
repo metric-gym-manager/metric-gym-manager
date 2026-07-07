@@ -48,7 +48,7 @@ export class GenerateCheckoutUrl {
     // PayHere retry on the EXISTING subscription — a second checkout would
     // double-bill under two subscription ids. pro/canceled and free/* may proceed.
     if (
-      sub.tier === SaasTier.Pro &&
+      sub.tier === SaasTier.Growth &&
       (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue)
     ) {
       throw new ConflictError('Already subscribed');
@@ -60,7 +60,7 @@ export class GenerateCheckoutUrl {
     await this.checkoutIntentRepo.createPending({
       orderId,
       gymId: input.gymId,
-      targetTier: SaasTier.Pro,
+      targetTier: SaasTier.Growth,
       expectedAmount: this.proPriceLkr,
       currency: 'LKR',
       expiresAt,

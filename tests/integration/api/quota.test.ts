@@ -14,7 +14,7 @@ import {
   type TestGym,
 } from '../helpers/billing';
 import {
-  FREE_TIER_MEMBER_LIMIT,
+  STARTER_TIER_MEMBER_LIMIT,
   GRACE_PERIOD_DAYS,
 } from '@/core/utils/constants/SubscriptionConfig';
 
@@ -40,9 +40,9 @@ gatedDescribe('register_member_guarded (integration)', () => {
     }
   }
 
-  it(`60 parallel registrations at count ${FREE_TIER_MEMBER_LIMIT - 1}: exactly 1 success, final count ${FREE_TIER_MEMBER_LIMIT}`, async () => {
+  it(`60 parallel registrations at count ${STARTER_TIER_MEMBER_LIMIT - 1}: exactly 1 success, final count ${STARTER_TIER_MEMBER_LIMIT}`, async () => {
     gym = await createTestGym(supabase);
-    await seedMembers(FREE_TIER_MEMBER_LIMIT - 1);
+    await seedMembers(STARTER_TIER_MEMBER_LIMIT - 1);
 
     const attempts = await Promise.all(
       Array.from({ length: 60 }, (_, i) => registerOne(1000 + i))
@@ -57,13 +57,13 @@ gatedDescribe('register_member_guarded (integration)', () => {
     expect(limitRejections).toBe(59);
 
     const row = await getGymSubscriptionRow(supabase, gym.gymId);
-    expect(row.member_count).toBe(FREE_TIER_MEMBER_LIMIT);
+    expect(row.member_count).toBe(STARTER_TIER_MEMBER_LIMIT);
 
     const { count } = await supabase
       .from('members')
       .select('id', { count: 'exact', head: true })
       .eq('gym_id', gym.gymId);
-    expect(count).toBe(FREE_TIER_MEMBER_LIMIT); // denormalized counter = truth
+    expect(count).toBe(STARTER_TIER_MEMBER_LIMIT); // denormalized counter = truth
   }, 120_000);
 
   it('over-limit Free gym (post-downgrade): inserts blocked, existing members readable', async () => {
@@ -72,16 +72,16 @@ gatedDescribe('register_member_guarded (integration)', () => {
     // insert as Pro, then downgrade.
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'pro',
+      p_tier: 'growth',
       p_status: 'active',
       p_payhere_subscription_id: 'PHSUB-OVER',
       p_payhere_customer_id: null,
       p_extend_period: true,
     });
-    await seedMembers(FREE_TIER_MEMBER_LIMIT + 5);
+    await seedMembers(STARTER_TIER_MEMBER_LIMIT + 5);
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'free',
+      p_tier: 'starter',
       p_status: 'canceled',
       p_payhere_subscription_id: null,
       p_payhere_customer_id: null,
@@ -95,14 +95,14 @@ gatedDescribe('register_member_guarded (integration)', () => {
       .from('members')
       .select('id', { count: 'exact', head: true })
       .eq('gym_id', gym.gymId);
-    expect(count).toBe(FREE_TIER_MEMBER_LIMIT + 5); // nothing deleted
+    expect(count).toBe(STARTER_TIER_MEMBER_LIMIT + 5); // nothing deleted
   }, 120_000);
 
   it('pro/past_due: allowed inside grace, blocked past grace (matches TS entity at the boundary)', async () => {
     gym = await createTestGym(supabase);
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'pro',
+      p_tier: 'growth',
       p_status: 'past_due',
       p_payhere_subscription_id: 'PHSUB-PD',
       p_payhere_customer_id: null,
@@ -130,7 +130,7 @@ gatedDescribe('register_member_guarded (integration)', () => {
     gym = await createTestGym(supabase);
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'pro',
+      p_tier: 'growth',
       p_status: 'canceled',
       p_payhere_subscription_id: 'PHSUB-C',
       p_payhere_customer_id: null,

@@ -45,7 +45,7 @@ gatedDescribe('process-dunning (integration)', () => {
     }
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'pro',
+      p_tier: 'growth',
       p_status: status,
       p_payhere_subscription_id: `PHSUB-${gym.gymId.slice(0, 8)}`,
       p_payhere_customer_id: null,
@@ -82,20 +82,20 @@ gatedDescribe('process-dunning (integration)', () => {
     expect(counts.downgraded_past_due).toBeGreaterThanOrEqual(1);
     expect(counts.lapsed_canceled).toBeGreaterThanOrEqual(1);
 
-    expect((await getGymSubscriptionRow(supabase, pastGrace.gymId)).subscription_tier).toBe('free');
+    expect((await getGymSubscriptionRow(supabase, pastGrace.gymId)).subscription_tier).toBe('starter');
     expect(
       (await getGymSubscriptionRow(supabase, pastGrace.gymId)).payhere_subscription_id
     ).toBeNull();
-    expect((await getGymSubscriptionRow(supabase, inGrace.gymId)).subscription_tier).toBe('pro');
+    expect((await getGymSubscriptionRow(supabase, inGrace.gymId)).subscription_tier).toBe('growth');
     expect((await getGymSubscriptionRow(supabase, inGrace.gymId)).subscription_status).toBe(
       'past_due'
     );
 
     const lapsedRow = await getGymSubscriptionRow(supabase, lapsedCancel.gymId);
-    expect(lapsedRow.subscription_tier).toBe('free');
+    expect(lapsedRow.subscription_tier).toBe('starter');
     expect(lapsedRow.subscription_status).toBe('canceled'); // status preserved on lapse
 
-    expect((await getGymSubscriptionRow(supabase, paidCancel.gymId)).subscription_tier).toBe('pro');
+    expect((await getGymSubscriptionRow(supabase, paidCancel.gymId)).subscription_tier).toBe('growth');
     expect((await getGymSubscriptionRow(supabase, activePro.gymId)).subscription_status).toBe(
       'active'
     );
@@ -121,7 +121,7 @@ gatedDescribe('process-dunning (integration)', () => {
     await supabase.from('checkout_intents').insert({
       order_id: `STALE-${Date.now()}`,
       gym_id: gym.gymId,
-      target_tier: 'pro',
+      target_tier: 'growth',
       expected_amount: 4900,
       currency: 'LKR',
       status: 'pending',

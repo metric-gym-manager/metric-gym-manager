@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
-import { FREE_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
+import { STARTER_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
 
 interface QuotaReachedUpsellProps {
   /** Current member count, when known (defaults to the limit copy) */
@@ -11,7 +11,7 @@ interface QuotaReachedUpsellProps {
 }
 
 /**
- * Inline upsell rendered when member registration hits the Free-tier limit
+ * Inline upsell rendered when member registration hits the Starter-tier limit
  * (403 MEMBER_LIMIT_REACHED — plan §5.4 flow 3). Consumed by the members
  * feature via this feature's public index.
  */
@@ -28,17 +28,17 @@ export default function QuotaReachedUpsell({ memberCount }: QuotaReachedUpsellPr
         </div>
         <div className="space-y-2">
           <p className="text-sm font-semibold text-blue-900">
-            Free plan limit reached
+            Starter plan limit reached
             {typeof memberCount === 'number'
-              ? ` (${memberCount}/${FREE_TIER_MEMBER_LIMIT} members)`
-              : ` (${FREE_TIER_MEMBER_LIMIT}-member limit)`}
+              ? ` (${memberCount}/${STARTER_TIER_MEMBER_LIMIT} members)`
+              : ` (${STARTER_TIER_MEMBER_LIMIT}-member limit)`}
           </p>
           <p className="text-sm text-blue-800">
-            Your existing members are unaffected. Upgrade to Pro for unlimited members — billed
+            Your existing members are unaffected. Upgrade to Growth for unlimited members — billed
             monthly, cancel anytime.
           </p>
           <Button asChild size="sm">
-            <Link href="/settings/billing">Upgrade to Pro</Link>
+            <Link href="/settings/billing">Upgrade to Growth</Link>
           </Button>
         </div>
       </div>

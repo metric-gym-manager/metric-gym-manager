@@ -124,14 +124,14 @@ BEGIN
     GRANT EXECUTE ON FUNCTION auth.uid() TO billing_acceptance_probe;
     BEGIN
       SET LOCAL ROLE billing_acceptance_probe;
-      UPDATE gyms SET subscription_tier = 'pro' WHERE id = v_gym_id;
+      UPDATE gyms SET subscription_tier = 'growth' WHERE id = v_gym_id;
       GET DIAGNOSTICS v_rows = ROW_COUNT;
       RESET ROLE;
       IF v_rows = 0 THEN
         v_failures := v_failures ||
           'FAIL 3: RLS hid the gym row for the probe role — trigger never probed';
       ELSE
-        v_failures := v_failures || 'FAIL 3: unenumerated role self-upgraded to pro';
+        v_failures := v_failures || 'FAIL 3: unenumerated role self-upgraded to growth';
       END IF;
     EXCEPTION WHEN OTHERS THEN
       RESET ROLE;
@@ -199,9 +199,9 @@ BEGIN
   END IF;
 
   ------------------------------------------------------------------
-  -- 7. Free-tier limit enforced at exactly 50 (sequential fill)
+  -- 7. Starter-tier limit enforced at exactly 40 (sequential fill)
   ------------------------------------------------------------------
-  FOR i IN 1..50 LOOP
+  FOR i IN 1..40 LOOP
     PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
       'name', 'Fill ' || i,
       'phone_number', '+9477' || lpad((1000000 + i)::text, 7, '0'),
@@ -217,10 +217,10 @@ BEGIN
       'recurring_discount', false, 'status', 'active',
       'next_due_date', '2099-01-01'
     ));
-    v_failures := v_failures || 'FAIL 7: 51st member accepted on Free tier';
+    v_failures := v_failures || 'FAIL 7: 41st member accepted on Starter tier';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM LIKE '%MEMBER_LIMIT_REACHED%' THEN
-      PERFORM pg_temp._acc_log('PASS 7: 51st registration rejected with MEMBER_LIMIT_REACHED');
+      PERFORM pg_temp._acc_log('PASS 7: 41st registration rejected with MEMBER_LIMIT_REACHED');
     ELSE
       v_failures := v_failures || format('FAIL 7: unexpected error: %s', SQLERRM);
     END IF;
@@ -232,23 +232,23 @@ BEGIN
   SELECT count(*) INTO v_before FROM members WHERE gym_id = v_gym_id;
 
   -- 8a. past_due beyond grace -> free/canceled
-  PERFORM save_gym_subscription(v_gym_id, 'pro', 'past_due', 'PHSUB-ACC', NULL, false);
+  PERFORM save_gym_subscription(v_gym_id, 'growth', 'past_due', 'PHSUB-ACC', NULL, false);
   UPDATE gyms SET current_period_end = now() - interval '9 days' WHERE id = v_gym_id;
   PERFORM * FROM process_dunning_downgrades(7);
-  SELECT (subscription_tier = 'free' AND subscription_status = 'canceled'
+  SELECT (subscription_tier = 'starter' AND subscription_status = 'canceled'
           AND payhere_subscription_id IS NULL) INTO v_ok
   FROM gyms WHERE id = v_gym_id;
   IF v_ok THEN
-    PERFORM pg_temp._acc_log('PASS 8a: past-grace past_due downgraded to free/canceled, id cleared');
+    PERFORM pg_temp._acc_log('PASS 8a: past-grace past_due downgraded to starter/canceled, id cleared');
   ELSE
     v_failures := v_failures || 'FAIL 8a: past-grace downgrade did not apply';
   END IF;
 
   -- 8b. past_due inside grace -> retained
-  PERFORM save_gym_subscription(v_gym_id, 'pro', 'past_due', 'PHSUB-ACC2', NULL, false);
+  PERFORM save_gym_subscription(v_gym_id, 'growth', 'past_due', 'PHSUB-ACC2', NULL, false);
   UPDATE gyms SET current_period_end = now() - interval '5 days' WHERE id = v_gym_id;
   PERFORM * FROM process_dunning_downgrades(7);
-  SELECT (subscription_tier = 'pro' AND subscription_status = 'past_due') INTO v_ok
+  SELECT (subscription_tier = 'growth' AND subscription_status = 'past_due') INTO v_ok
   FROM gyms WHERE id = v_gym_id;
   IF v_ok THEN
     PERFORM pg_temp._acc_log('PASS 8b: in-grace past_due retained');
@@ -257,22 +257,22 @@ BEGIN
   END IF;
 
   -- 8c. voluntary cancel past period end -> lapses to free, status stays canceled
-  PERFORM save_gym_subscription(v_gym_id, 'pro', 'canceled', 'PHSUB-ACC3', NULL, false);
+  PERFORM save_gym_subscription(v_gym_id, 'growth', 'canceled', 'PHSUB-ACC3', NULL, false);
   UPDATE gyms SET current_period_end = now() - interval '1 day' WHERE id = v_gym_id;
   PERFORM * FROM process_dunning_downgrades(7);
-  SELECT (subscription_tier = 'free' AND subscription_status = 'canceled') INTO v_ok
+  SELECT (subscription_tier = 'starter' AND subscription_status = 'canceled') INTO v_ok
   FROM gyms WHERE id = v_gym_id;
   IF v_ok THEN
-    PERFORM pg_temp._acc_log('PASS 8c: ended voluntary cancel lapsed to free (status preserved)');
+    PERFORM pg_temp._acc_log('PASS 8c: ended voluntary cancel lapsed to starter (status preserved)');
   ELSE
     v_failures := v_failures || 'FAIL 8c: voluntary-cancel lapse did not apply';
   END IF;
 
   -- 8d. paid-through voluntary cancel -> retained
-  PERFORM save_gym_subscription(v_gym_id, 'pro', 'canceled', 'PHSUB-ACC4', NULL, false);
+  PERFORM save_gym_subscription(v_gym_id, 'growth', 'canceled', 'PHSUB-ACC4', NULL, false);
   UPDATE gyms SET current_period_end = now() + interval '5 days' WHERE id = v_gym_id;
   PERFORM * FROM process_dunning_downgrades(7);
-  SELECT (subscription_tier = 'pro') INTO v_ok FROM gyms WHERE id = v_gym_id;
+  SELECT (subscription_tier = 'growth') INTO v_ok FROM gyms WHERE id = v_gym_id;
   IF v_ok THEN
     PERFORM pg_temp._acc_log('PASS 8d: paid-through voluntary cancel retained');
   ELSE
@@ -295,10 +295,10 @@ BEGIN
   -- 9. One pending intent per gym (23505) + payment-id partial unique
   ------------------------------------------------------------------
   INSERT INTO checkout_intents (order_id, gym_id, target_tier, expected_amount, expires_at)
-  VALUES ('ACC-1-' || v_gym_id, v_gym_id, 'pro', 4900, now() + interval '30 minutes');
+  VALUES ('ACC-1-' || v_gym_id, v_gym_id, 'growth', 4900, now() + interval '30 minutes');
   BEGIN
     INSERT INTO checkout_intents (order_id, gym_id, target_tier, expected_amount, expires_at)
-    VALUES ('ACC-2-' || v_gym_id, v_gym_id, 'pro', 4900, now() + interval '30 minutes');
+    VALUES ('ACC-2-' || v_gym_id, v_gym_id, 'growth', 4900, now() + interval '30 minutes');
     v_failures := v_failures || 'FAIL 9: second pending intent accepted';
   EXCEPTION WHEN unique_violation THEN
     PERFORM pg_temp._acc_log('PASS 9: second pending intent hit 23505');
