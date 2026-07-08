@@ -19,9 +19,15 @@ All times are configured for **Sri Lanka Time (UTC+5:30)**:
 | Update Status | `30 18 * * *` | 12:00 AM (midnight) | 6:30 PM (previous day) | Daily |
 | Archive Members | `30 19 1 * *` | 1:00 AM on 1st | 7:30 PM on 1st | Monthly |
 
+> **IMPORTANT:** Vercel Cron invokes cron paths with an **HTTP GET** request
+> (with `Authorization: Bearer <CRON_SECRET>` attached automatically when the
+> `CRON_SECRET` environment variable is set on the project). All cron routes
+> therefore run their job on GET as well as POST. POST remains available for
+> manual/external triggering with the same bearer token.
+
 ## 1. Daily SMS Reminders
 
-**Endpoint:** `POST /api/cron/send-reminders`
+**Endpoint:** `GET|POST /api/cron/send-reminders`
 
 ### What It Does
 Automatically sends payment reminders to all active members based on their due dates:
@@ -72,7 +78,7 @@ Dear John Doe, your Monthly membership at PowerFit Gym was due on 13/02/2026. Am
 
 ## 2. Update Expired Status
 
-**Endpoint:** `POST /api/cron/update-expired-status`
+**Endpoint:** `GET|POST /api/cron/update-expired-status`
 
 ### What It Does
 Updates member status from "Active" to "Expired" for members who are more than 7 days overdue.
@@ -103,7 +109,7 @@ Updates member status from "Active" to "Expired" for members who are more than 7
 
 ## 3. Archive Old Members
 
-**Endpoint:** `POST /api/cron/archive-old-members`
+**Endpoint:** `GET|POST /api/cron/archive-old-members`
 
 ### What It Does
 Archives (soft deletes) expired members who haven't been updated in 2 years.
@@ -173,7 +179,8 @@ curl http://localhost:3000/api/cron/update-expired-status
 curl http://localhost:3000/api/cron/archive-old-members
 ```
 
-**Note:** GET methods are **disabled in production** for security.
+**Note:** In production, GET requires the same `Authorization: Bearer <CRON_SECRET>`
+header as POST (this is how Vercel Cron invokes the routes).
 
 ### Production Testing (POST Method)
 
@@ -201,16 +208,24 @@ The cron jobs are configured in `vercel.json`:
 {
   "crons": [
     {
+      "path": "/api/cron/update-expired-status",
+      "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/cron/cancel-overdue-members",
+      "schedule": "15 0 * * *"
+    },
+    {
+      "path": "/api/cron/expire-suspended-members",
+      "schedule": "30 0 * * *"
+    },
+    {
       "path": "/api/cron/send-reminders",
       "schedule": "30 3 * * *"
     },
     {
-      "path": "/api/cron/update-expired-status",
-      "schedule": "30 18 * * *"
-    },
-    {
       "path": "/api/cron/archive-old-members",
-      "schedule": "30 19 1 * *"
+      "schedule": "0 1 1 * *"
     }
   ]
 }
