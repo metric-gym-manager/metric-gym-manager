@@ -10,7 +10,7 @@ import {
 import { SUBSCRIPTION_QUERY_KEY } from './useSubscription';
 
 /**
- * Cancel the Pro subscription. The server cancels at the gateway FIRST; on
+ * Cancel the Growth subscription. The server cancels at the gateway FIRST; on
  * gateway failure nothing changes locally and the error says so.
  */
 export function useCancelSubscription() {
@@ -22,10 +22,11 @@ export function useCancelSubscription() {
       queryClient.setQueryData<SubscriptionWithPrice>(SUBSCRIPTION_QUERY_KEY, (old) => ({
         subscription: sub,
         proPriceLkr: old?.proPriceLkr ?? null,
+        enterprisePriceLkr: old?.enterprisePriceLkr ?? null,
       }));
       toast.success(
         sub.currentPeriodEnd
-          ? `Subscription canceled — Pro features continue until ${sub.currentPeriodEnd}.`
+          ? `Subscription canceled — Growth features continue until ${sub.currentPeriodEnd}.`
           : 'Subscription canceled.'
       );
     },

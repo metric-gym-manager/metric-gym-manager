@@ -42,6 +42,13 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
   let seq = 0;
   const nextId = (p: string) => `${p}-${Date.now()}-${seq++}`;
 
+  beforeAll(async () => {
+    // The C-20 invalid-audit cap counts signature_valid=false rows GLOBALLY
+    // over the last hour, so flood rows left by a previous run would silently
+    // suppress this run's audit inserts. Disposable database — purge them.
+    await supabase.from('saas_payment_logs').delete().eq('signature_valid', false);
+  });
+
   beforeEach(async () => {
     gym = await createTestGym(supabase);
   });
@@ -50,11 +57,11 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     await deleteTestGym(supabase, gym);
   });
 
-  async function createPendingIntent(orderId: string, amount = 4900) {
+  async function createPendingIntent(orderId: string, amount = 2990) {
     const { error } = await supabase.from('checkout_intents').insert({
       order_id: orderId,
       gym_id: gym.gymId,
-      target_tier: 'pro',
+      target_tier: 'growth',
       expected_amount: amount,
       currency: 'LKR',
       status: 'pending',
@@ -71,7 +78,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     const fields = signedNotification({
       order_id: orderId,
       payment_id: paymentId,
-      payhere_amount: '4900.00',
+      payhere_amount: '2990.00',
       status_code: '2',
       subscription_id: nextId('PHSUB'),
     });
@@ -81,7 +88,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     expect(first.json.data.outcome).toBe('PROVISIONED');
 
     const row = await getGymSubscriptionRow(supabase, gym.gymId);
-    expect(row.subscription_tier).toBe('pro');
+    expect(row.subscription_tier).toBe('growth');
     expect(row.subscription_status).toBe('active');
     expect(row.current_period_end).not.toBeNull();
     const firstPeriodEnd = row.current_period_end;
@@ -107,7 +114,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     const stalePeriodEnd = new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString();
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'pro',
+      p_tier: 'growth',
       p_status: 'active',
       p_payhere_subscription_id: phsub,
       p_payhere_customer_id: null,
@@ -123,7 +130,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
       signedNotification({
         order_id: nextId('SUB'),
         payment_id: nextId('PAY'),
-        payhere_amount: '4900.00',
+        payhere_amount: '2990.00',
         status_code: '-2',
         subscription_id: phsub,
         message_type: 'RECURRING_INSTALLMENT_FAILED',
@@ -133,7 +140,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     expect(fail.json.data.outcome).toBe('MARKED_PAST_DUE');
     let row = await getGymSubscriptionRow(supabase, gym.gymId);
     expect(row.subscription_status).toBe('past_due');
-    expect(row.subscription_tier).toBe('pro'); // no downgrade in the webhook
+    expect(row.subscription_tier).toBe('growth'); // no downgrade in the webhook
 
     const { data: failLog } = await supabase
       .from('saas_payment_logs')
@@ -150,7 +157,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
       signedNotification({
         order_id: nextId('SUB'),
         payment_id: nextId('PAY'),
-        payhere_amount: '4900.00',
+        payhere_amount: '2990.00',
         status_code: '2',
         subscription_id: phsub,
       })
@@ -167,7 +174,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
 
   it('amount mismatch: intent fails, gym stays Free', async () => {
     const orderId = nextId('SUB');
-    await createPendingIntent(orderId, 4900);
+    await createPendingIntent(orderId, 2990);
 
     const res = await post(
       signedNotification({
@@ -181,7 +188,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     expect(res.json.data.outcome).toBe('AMOUNT_MISMATCH');
 
     const row = await getGymSubscriptionRow(supabase, gym.gymId);
-    expect(row.subscription_tier).toBe('free');
+    expect(row.subscription_tier).toBe('starter');
 
     const { data: intent } = await supabase
       .from('checkout_intents')
@@ -199,7 +206,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     const fields = signedNotification({
       order_id: orderId,
       payment_id: paymentId,
-      payhere_amount: '4900.00',
+      payhere_amount: '2990.00',
       status_code: '2',
     });
     fields.md5sig = 'F'.repeat(32); // tampered
@@ -208,7 +215,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     expect(res.status).toBe(200);
 
     const row = await getGymSubscriptionRow(supabase, gym.gymId);
-    expect(row.subscription_tier).toBe('free');
+    expect(row.subscription_tier).toBe('starter');
 
     const { data: log } = await supabase
       .from('saas_payment_logs')
@@ -225,7 +232,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
       signedNotification({
         order_id: nextId('UNKNOWN'),
         payment_id: paymentId,
-        payhere_amount: '4900.00',
+        payhere_amount: '2990.00',
         status_code: '2',
         subscription_id: nextId('PHSUB-UNKNOWN'),
       })
@@ -245,7 +252,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     const subA = nextId('PHSUB-A');
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'pro',
+      p_tier: 'growth',
       p_status: 'active',
       p_payhere_subscription_id: subA,
       p_payhere_customer_id: null,
@@ -257,7 +264,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
       signedNotification({
         order_id: nextId('SUB'),
         payment_id: nextId('PAY'),
-        payhere_amount: '4900.00',
+        payhere_amount: '2990.00',
         status_code: '-1',
         subscription_id: subA,
         message_type: 'RECURRING_STOPPED',
@@ -266,14 +273,14 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     );
     expect(stop.json.data.outcome).toBe('RECONCILED_CANCELED');
     let row = await getGymSubscriptionRow(supabase, gym.gymId);
-    expect(row.subscription_tier).toBe('pro');
+    expect(row.subscription_tier).toBe('growth');
     expect(row.subscription_status).toBe('canceled');
 
     // Re-subscribe under sub B
     const subB = nextId('PHSUB-B');
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'pro',
+      p_tier: 'growth',
       p_status: 'active',
       p_payhere_subscription_id: subB,
       p_payhere_customer_id: null,
@@ -285,7 +292,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
       signedNotification({
         order_id: nextId('SUB'),
         payment_id: nextId('PAY'),
-        payhere_amount: '4900.00',
+        payhere_amount: '2990.00',
         status_code: '-1',
         subscription_id: subA,
         custom_1: gym.gymId,

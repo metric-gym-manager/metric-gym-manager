@@ -1,9 +1,14 @@
 /**
- * SaaS Subscription Configuration — Free/Pro tiers (PayHere billing)
+ * SaaS Subscription Configuration — Starter/Growth tiers (PayHere billing)
  *
  * Single source of truth for the SaaS billing domain enums and limits.
- * SQL literals in supabase/migrations/20260704000003_* carry comments
- * pointing back to the constants here — keep them in lock-step.
+ * SQL literals in supabase/migrations/20260704000003_* (as replaced by
+ * 20260706000002_rename_tiers_starter_growth.sql) carry comments pointing
+ * back to the constants here — keep them in lock-step.
+ *
+ * Tier history: launched as free/pro (migrations 20260704*), renamed to
+ * starter/growth in 20260706000002 (values, rows and SQL functions swapped
+ * transactionally — the text + CHECK design exists for exactly this).
  *
  * Plan: docs/Payhere_subscritption_integration/payhere-subscription-execution-plan.md
  */
@@ -12,18 +17,35 @@ import { z } from 'zod';
 
 /**
  * SaaS billing tier of a gym (tenant).
- * DB mirror: gyms.subscription_tier (text + CHECK, migration 20260704000001)
+ * DB mirror: gyms.subscription_tier (text + CHECK, migration 20260706000002)
  */
 export enum SaasTier {
   /**
-   * Free tier: up to FREE_TIER_MEMBER_LIMIT members, no recurring billing
+   * Starter tier (free): up to STARTER_TIER_MEMBER_LIMIT members, no recurring billing
    */
-  Free = 'free',
+  Starter = 'starter',
 
   /**
-   * Pro tier: unlimited members, billed monthly via PayHere Recurring
+   * Growth tier (paid): up to GROWTH_TIER_MEMBER_LIMIT members, billed monthly
+   * via PayHere Recurring
    */
-  Pro = 'pro',
+  Growth = 'growth',
+
+  /**
+   * Enterprise tier (paid): unlimited members, billed monthly via PayHere
+   * Recurring. May also be granted complimentary (lifetime): no gateway
+   * subscription and no period end — see Subscription.isComplimentary().
+   */
+  Enterprise = 'enterprise',
+}
+
+/** Tiers that carry a PayHere recurring subscription. */
+export const PAID_TIERS = [SaasTier.Growth, SaasTier.Enterprise] as const;
+
+export type PaidTier = (typeof PAID_TIERS)[number];
+
+export function isPaidTier(tier: SaasTier): tier is PaidTier {
+  return (PAID_TIERS as readonly SaasTier[]).includes(tier);
 }
 
 /**
@@ -32,18 +54,18 @@ export enum SaasTier {
  */
 export enum SaasStatus {
   /**
-   * Billing in good standing (also the default state for Free gyms)
+   * Billing in good standing (also the default state for Starter gyms)
    */
   Active = 'active',
 
   /**
-   * A recurring charge failed; grace period running (Pro only)
+   * A recurring charge failed; grace period running (Growth only)
    */
   PastDue = 'past_due',
 
   /**
-   * Voluntarily canceled (Pro: paid-through until period end) or
-   * downgraded by dunning (Free: terminal record of the downgrade)
+   * Voluntarily canceled (Growth: paid-through until period end) or
+   * downgraded by dunning (Starter: terminal record of the downgrade)
    */
   Canceled = 'canceled',
 }
@@ -68,10 +90,20 @@ export enum RecurringFailureClass {
   Hard = 'hard',
 }
 
-/** Free-tier member cap. SQL mirror: register_member_guarded (literal 50). */
-export const FREE_TIER_MEMBER_LIMIT = 50;
+/** Human display names for the tiers — the ONLY place UI copy derives them. */
+export const TIER_DISPLAY_NAME: Record<SaasTier, string> = {
+  [SaasTier.Starter]: 'Starter',
+  [SaasTier.Growth]: 'Growth',
+  [SaasTier.Enterprise]: 'Enterprise',
+};
 
-/** Days of Pro access after a failed charge before dunning downgrades. SQL mirror: literal 7. */
+/** Starter-tier member cap. SQL mirror: register_member_guarded (literal 40). */
+export const STARTER_TIER_MEMBER_LIMIT = 40;
+
+/** Growth-tier ACTIVE-member cap. SQL mirror: assert_gym_can_add_active_member (literal 150, migration 20260708000002). */
+export const GROWTH_TIER_MEMBER_LIMIT = 150;
+
+/** Days of Growth access after a failed charge before dunning downgrades. SQL mirror: literal 7. */
 export const GRACE_PERIOD_DAYS = 7;
 
 /** PayHere Recurring API `recurrence` param. SQL mirror: interval '1 month'. */

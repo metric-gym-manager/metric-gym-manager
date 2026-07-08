@@ -23,7 +23,7 @@ import type {
   CheckoutIntent,
 } from '@/core/ports/repositories';
 import { Subscription } from '@/core/domain/subscription/Subscription';
-import { SaasTier, SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasTier, SaasStatus, isPaidTier } from '@/core/utils/constants/SubscriptionConfig';
 
 export enum WebhookOutcome {
   Provisioned = 'PROVISIONED',
@@ -131,10 +131,10 @@ export class HandlePayHereWebhook {
     if (messageType === 'RECURRING_STOPPED' || fields.item_rec_status === '-1') {
       if (
         idMatches &&
-        sub.tier === SaasTier.Pro &&
+        isPaidTier(sub.tier) &&
         (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue)
       ) {
-        await this.subscriptionRepo.save(sub.cancelPro(), { extendPeriod: false });
+        await this.subscriptionRepo.save(sub.cancelPaid(), { extendPeriod: false });
         return { outcome: WebhookOutcome.ReconciledCanceled };
       }
       return { outcome: WebhookOutcome.StaleEvent };
@@ -152,14 +152,22 @@ export class HandlePayHereWebhook {
           return { outcome: WebhookOutcome.AmountMismatch }; // no provisioning
         }
 
+        // The intent's target tier (priced server-side at checkout) is what
+        // gets provisioned. A non-paid target can only exist via manual data
+        // tampering — fail the intent, never the state machine (always-200).
+        if (!isPaidTier(intent.targetTier)) {
+          await this.checkoutIntentRepo.markStatus(intent.orderId, 'failed');
+          return { outcome: WebhookOutcome.AmountMismatch }; // no provisioning
+        }
+
         const next =
-          sub.tier === SaasTier.Free ||
-          (sub.tier === SaasTier.Pro && sub.status === SaasStatus.Canceled)
-            ? sub.activatePro({
+          sub.tier === SaasTier.Starter ||
+          (isPaidTier(sub.tier) && sub.status === SaasStatus.Canceled)
+            ? sub.activatePaid(intent.targetTier, {
                 subscriptionId: fields.subscription_id ?? null,
                 customerId: fields.customer_token ?? null,
               })
-            : sub.renew(); // rare: intent completed while already pro/active|past_due
+            : sub.renew(); // rare: intent completed while already active|past_due
 
         await this.subscriptionRepo.save(next, { extendPeriod: true });
         await this.checkoutIntentRepo.markStatus(intent.orderId, 'completed');
@@ -171,7 +179,7 @@ export class HandlePayHereWebhook {
         return { outcome: WebhookOutcome.StaleEvent }; // late event for a replaced subscription
       }
       if (
-        sub.tier === SaasTier.Pro &&
+        isPaidTier(sub.tier) &&
         (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue)
       ) {
         await this.subscriptionRepo.save(sub.renew(), { extendPeriod: true }); // anchor = now() (C-23)
@@ -192,7 +200,7 @@ export class HandlePayHereWebhook {
       if (!idMatches) {
         return { outcome: WebhookOutcome.StaleEvent };
       }
-      if (sub.tier === SaasTier.Pro && sub.status === SaasStatus.Active) {
+      if (isPaidTier(sub.tier) && sub.status === SaasStatus.Active) {
         await this.subscriptionRepo.save(sub.markPastDue(), { extendPeriod: false });
         return { outcome: WebhookOutcome.MarkedPastDue }; // grace starts; dunning cron downgrades later
       }

@@ -16,6 +16,7 @@ const payhereEnvSchema = z.object({
   PAYHERE_MERCHANT_ID: z.string().min(1),
   PAYHERE_MERCHANT_SECRET: z.string().min(1),
   PAYHERE_PRO_PRICE_LKR: z.coerce.number().positive(),
+  PAYHERE_ENTERPRISE_PRICE_LKR: z.coerce.number().positive(),
   PAYHERE_APP_ID: z.string().min(1),
   PAYHERE_APP_SECRET: z.string().min(1),
   NEXT_PUBLIC_APP_URL: z.string().url(),
@@ -26,6 +27,7 @@ export interface PayhereConfig {
   merchantId: string;
   merchantSecret: string;
   proPriceLkr: number;
+  enterprisePriceLkr: number;
   appId: string;
   appSecret: string;
   /** Mode-derived PayHere origin, e.g. https://sandbox.payhere.lk */
@@ -70,6 +72,7 @@ export function getPayhereConfig(): PayhereConfig {
     merchantId: env.PAYHERE_MERCHANT_ID,
     merchantSecret: env.PAYHERE_MERCHANT_SECRET,
     proPriceLkr: env.PAYHERE_PRO_PRICE_LKR,
+    enterprisePriceLkr: env.PAYHERE_ENTERPRISE_PRICE_LKR,
     appId: env.PAYHERE_APP_ID,
     appSecret: env.PAYHERE_APP_SECRET,
     baseUrl,

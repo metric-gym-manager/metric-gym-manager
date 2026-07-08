@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
 import MarkPaidDialog from '@/components/payment-collection/MarkPaidDialog';
+import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog';
 import type { MemberWithDiscount, Payment } from '@/features/members/types';
 import { parseApiError } from '@/lib/utils/api-error';
 
@@ -58,6 +59,9 @@ export default function MemberDetailModal({
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showMarkPaidDialog, setShowMarkPaidDialog] = useState(false);
   const [showActivateDialog, setShowActivateDialog] = useState(false);
+  // Opened when an into-active transition (reactivate / pay-to-reactivate) is
+  // rejected by the active-member quota (403 MEMBER_LIMIT_REACHED).
+  const [showReactivationLimit, setShowReactivationLimit] = useState(false);
   const [activateNewDueDate, setActivateNewDueDate] = useState<string>('');
 
   // Suspend member mutation
@@ -95,8 +99,13 @@ export default function MemberDetailModal({
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to activate member');
+        // ApiResponse envelope: {success:false, error:{message, code}}
+        const body = await response.json().catch(() => null);
+        const err = new Error(
+          body?.error?.message || body?.error || 'Failed to activate member'
+        ) as Error & { code?: string };
+        err.code = body?.error?.code;
+        throw err;
       }
 
       return response.json();
@@ -109,6 +118,12 @@ export default function MemberDetailModal({
       setActivateNewDueDate('');
     },
     onError: (error) => {
+      // Active-member quota exhausted -> upgrade pop-up instead of a toast
+      if ((error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED') {
+        setShowActivateDialog(false);
+        setShowReactivationLimit(true);
+        return;
+      }
       toast.error(error instanceof Error ? error.message : 'Failed to activate member');
     },
   });
@@ -162,8 +177,12 @@ export default function MemberDetailModal({
         }),
       });
       if (!res.ok) {
-        const errorMessage = await parseApiError(res);
-        throw new Error(errorMessage);
+        const body = await res.json().catch(() => null);
+        const err = new Error(
+          body?.error?.message || 'Failed to collect payment'
+        ) as Error & { code?: string };
+        err.code = body?.error?.code;
+        throw err;
       }
       return res.json();
     },
@@ -179,6 +198,12 @@ export default function MemberDetailModal({
     },
     onError: (error) => {
       setIsMarkingRegularPaid(false);
+      // Paying to reactivate an expired member can hit the active-member quota;
+      // the flip is blocked before anything is charged (see CollectPayment).
+      if ((error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED') {
+        setShowReactivationLimit(true);
+        return;
+      }
       toast.error(error instanceof Error ? error.message : 'Failed to collect payment');
     },
   });
@@ -629,6 +654,12 @@ export default function MemberDetailModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Active-member quota reached while (re)activating */}
+      <ReactivationLimitDialog
+        open={showReactivationLimit}
+        onOpenChange={setShowReactivationLimit}
+      />
     </Dialog>
   );
 }

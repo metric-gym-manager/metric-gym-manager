@@ -6,7 +6,7 @@ import { startCheckout, ApiRequestError } from '../services/subscriptions.servic
 import { submitPayHereCheckout } from '../components/PayHereRedirectForm';
 
 /**
- * Start a Pro upgrade: create the checkout intent, then hand the browser to
+ * Start a Growth upgrade: create the checkout intent, then hand the browser to
  * PayHere via a plain form POST (card entry happens entirely on PayHere).
  */
 export function useCheckout() {

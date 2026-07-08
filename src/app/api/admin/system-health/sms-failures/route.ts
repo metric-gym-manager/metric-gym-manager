@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin';
 
 // ============================================================
 // GET /api/admin/system-health/sms-failures
@@ -9,7 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 // ============================================================
 
 /**
- * Authorization: Requires ADMIN_API_SECRET header
+ * Authorization: Supabase session + saas_admins membership.
  * This endpoint is for SaaS admin monitoring only
  *
  * IMPORTANT: This endpoint exposes error_message field which contains
@@ -28,22 +29,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
  */
 export async function GET(request: NextRequest) {
   try {
-    // CRITICAL: Strict authorization check BEFORE any database queries
-    const authHeader = request.headers.get('authorization');
-    const adminSecret = process.env.ADMIN_API_SECRET;
-
-    if (!adminSecret) {
-      console.error('ADMIN_API_SECRET not configured');
-      return NextResponse.json(
-        { success: false, error: 'Admin API not configured' },
-        { status: 500 }
-      );
-    }
-
-    if (authHeader !== `Bearer ${adminSecret}`) {
+    // CRITICAL: Strict authorization BEFORE any database query — Supabase session
+    // + saas_admins membership (replaces the retired ADMIN_API_SECRET Bearer).
+    // This surface exposes raw error_message traces, so the gate is non-negotiable.
+    const admin = await getSaasAdmin();
+    if (!admin) {
       console.warn('Unauthorized admin API access attempt');
       return NextResponse.json(
-        { success: false, error: 'Forbidden - Invalid admin credentials' },
+        { success: false, error: 'Forbidden - SaaS admin access required' },
         { status: 403 }
       );
     }

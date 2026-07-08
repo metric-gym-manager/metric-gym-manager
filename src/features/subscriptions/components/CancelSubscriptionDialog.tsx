@@ -10,7 +10,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { FREE_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
+import {
+  STARTER_TIER_MEMBER_LIMIT,
+  TIER_DISPLAY_NAME,
+} from '@/core/utils/constants/SubscriptionConfig';
 import { useCancelSubscription } from '../hooks/useCancelSubscription';
 import type { SerializedSubscription } from '../types';
 
@@ -29,7 +32,8 @@ export default function CancelSubscriptionDialog({
   subscription: sub,
 }: CancelSubscriptionDialogProps) {
   const cancel = useCancelSubscription();
-  const overLimit = sub.memberCount > FREE_TIER_MEMBER_LIMIT;
+  const overLimit = sub.memberCount > STARTER_TIER_MEMBER_LIMIT;
+  const tierName = TIER_DISPLAY_NAME[sub.subscriptionTier];
 
   const handleConfirm = () => {
     cancel.mutate(undefined, { onSettled: onClose });
@@ -39,18 +43,18 @@ export default function CancelSubscriptionDialog({
     <AlertDialog open={open} onOpenChange={(isOpen) => !isOpen && !cancel.isPending && onClose()}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Cancel your Pro subscription?</AlertDialogTitle>
+          <AlertDialogTitle>Cancel your {tierName} subscription?</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <ul className="list-disc pl-5 space-y-1 text-sm">
               <li>
-                You keep Pro features until{' '}
+                You keep {tierName} features until{' '}
                 <span className="font-semibold">
                   {sub.currentPeriodEnd ?? 'the end of the current paid period'}
                 </span>
                 .
               </li>
               <li>
-                After that, your account reverts to the Free plan ({FREE_TIER_MEMBER_LIMIT}-member
+                After that, your account reverts to the Starter plan ({STARTER_TIER_MEMBER_LIMIT}-member
                 limit).
               </li>
               <li>
@@ -58,7 +62,7 @@ export default function CancelSubscriptionDialog({
                 {overLimit && (
                   <>
                     {' '}
-                    — since you&apos;re over {FREE_TIER_MEMBER_LIMIT}, you won&apos;t be able to add{' '}
+                    — since you&apos;re over {STARTER_TIER_MEMBER_LIMIT}, you won&apos;t be able to add{' '}
                     <span className="font-semibold">new</span> members until you re-subscribe
                   </>
                 )}
@@ -72,7 +76,7 @@ export default function CancelSubscriptionDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={cancel.isPending}>Keep Pro</AlertDialogCancel>
+          <AlertDialogCancel disabled={cancel.isPending}>Keep {tierName}</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
             disabled={cancel.isPending}

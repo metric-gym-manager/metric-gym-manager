@@ -2,6 +2,7 @@
  * Checkout race + cancel integration tests (plan §6.2).
  */
 
+import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
 import {
   gatedDescribe,
   setPayhereTestEnv,
@@ -50,15 +51,15 @@ gatedDescribe('checkout race + cancel (integration)', () => {
       new SupabaseGymSubscriptionRepository(supabase),
       new SupabaseCheckoutIntentRepository(supabase),
       new PayHereGateway(),
-      4900
+      { [SaasTier.Growth]: 2990, [SaasTier.Enterprise]: 6990 }
     );
   }
 
   it('two parallel checkouts: exactly one pending intent, the other rejected (409-mapped ConflictError)', async () => {
     const useCase = buildCheckout();
     const results = await Promise.allSettled([
-      useCase.execute({ gymId: gym.gymId, customer }),
-      useCase.execute({ gymId: gym.gymId, customer }),
+      useCase.execute({ targetTier: SaasTier.Growth, gymId: gym.gymId, customer }),
+      useCase.execute({ targetTier: SaasTier.Growth, gymId: gym.gymId, customer }),
     ]);
 
     const fulfilled = results.filter((r) => r.status === 'fulfilled');
@@ -78,7 +79,7 @@ gatedDescribe('checkout race + cancel (integration)', () => {
   it('pro/active gym cannot start a checkout', async () => {
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'pro',
+      p_tier: 'growth',
       p_status: 'active',
       p_payhere_subscription_id: 'PHSUB-ACTIVE',
       p_payhere_customer_id: null,
@@ -86,14 +87,14 @@ gatedDescribe('checkout race + cancel (integration)', () => {
     });
 
     await expect(
-      buildCheckout().execute({ gymId: gym.gymId, customer })
+      buildCheckout().execute({ targetTier: SaasTier.Growth, gymId: gym.gymId, customer })
     ).rejects.toMatchObject({ name: 'ConflictError' });
   });
 
   it('cancel: gateway success persists pro/canceled; gateway failure leaves state untouched', async () => {
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'pro',
+      p_tier: 'growth',
       p_status: 'active',
       p_payhere_subscription_id: 'PHSUB-CANCEL',
       p_payhere_customer_id: null,
@@ -127,11 +128,11 @@ gatedDescribe('checkout race + cancel (integration)', () => {
     });
     expect(okGateway.cancelSubscription).toHaveBeenCalledWith('PHSUB-CANCEL');
     expect(result.status).toBe('canceled');
-    expect(result.tier).toBe('pro');
+    expect(result.tier).toBe('growth');
 
     row = await getGymSubscriptionRow(supabase, gym.gymId);
     expect(row.subscription_status).toBe('canceled');
-    expect(row.subscription_tier).toBe('pro');
+    expect(row.subscription_tier).toBe('growth');
     expect(row.current_period_end).toBe(periodBefore); // no extension on cancel
   });
 });

@@ -3,19 +3,31 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
-import { FREE_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
+import { useSubscription } from '../hooks/useSubscription';
+import { SaasTier, TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
 
-interface QuotaReachedUpsellProps {
-  /** Current member count, when known (defaults to the limit copy) */
-  memberCount?: number;
-}
+/** Next paid tier to upsell from a capped tier (Starter -> Growth -> Enterprise). */
+const NEXT_TIER: Partial<Record<SaasTier, SaasTier>> = {
+  [SaasTier.Starter]: SaasTier.Growth,
+  [SaasTier.Growth]: SaasTier.Enterprise,
+};
 
 /**
- * Inline upsell rendered when member registration hits the Free-tier limit
- * (403 MEMBER_LIMIT_REACHED — plan §5.4 flow 3). Consumed by the members
+ * Inline upsell rendered when member registration hits the current tier's cap
+ * (403 MEMBER_LIMIT_REACHED — plan §5.4 flow 3). Tier-aware: Starter (40) →
+ * Growth, Growth (190) → Enterprise (unlimited). Consumed by the members
  * feature via this feature's public index.
  */
-export default function QuotaReachedUpsell({ memberCount }: QuotaReachedUpsellProps) {
+export default function QuotaReachedUpsell() {
+  const { data } = useSubscription();
+  const sub = data?.subscription;
+
+  const tier = sub?.subscriptionTier ?? SaasTier.Starter;
+  const limit = sub?.memberLimit ?? null;
+  const nextTier = NEXT_TIER[tier] ?? SaasTier.Growth;
+  const nextName = TIER_DISPLAY_NAME[nextTier];
+  const nextIsUnlimited = nextTier === SaasTier.Enterprise;
+
   return (
     <div
       className="bg-blue-50 border border-blue-200 rounded-lg p-4"
@@ -28,17 +40,19 @@ export default function QuotaReachedUpsell({ memberCount }: QuotaReachedUpsellPr
         </div>
         <div className="space-y-2">
           <p className="text-sm font-semibold text-blue-900">
-            Free plan limit reached
-            {typeof memberCount === 'number'
-              ? ` (${memberCount}/${FREE_TIER_MEMBER_LIMIT} members)`
-              : ` (${FREE_TIER_MEMBER_LIMIT}-member limit)`}
+            {TIER_DISPLAY_NAME[tier]} plan active-member limit reached
+            {limit !== null
+              ? ` (${sub?.memberCount ?? limit}/${limit} active members)`
+              : ''}
           </p>
           <p className="text-sm text-blue-800">
-            Your existing members are unaffected. Upgrade to Pro for unlimited members — billed
-            monthly, cancel anytime.
+            Only active members count — expired, suspended and cancelled members are unlimited and
+            unaffected. Upgrade to {nextName} for{' '}
+            {nextIsUnlimited ? 'unlimited active members' : 'a higher active-member limit'} —
+            billed monthly, cancel anytime.
           </p>
           <Button asChild size="sm">
-            <Link href="/settings/billing">Upgrade to Pro</Link>
+            <Link href="/settings/billing">Upgrade to {nextName}</Link>
           </Button>
         </div>
       </div>

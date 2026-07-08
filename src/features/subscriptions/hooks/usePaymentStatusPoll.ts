@@ -43,7 +43,7 @@ export function usePaymentStatusPoll(active: boolean): PaymentPollState {
         const result = await getSubscription();
         if (cancelled) return;
         if (
-          result.subscription.subscriptionTier === SaasTier.Pro &&
+          result.subscription.subscriptionTier === SaasTier.Growth &&
           result.subscription.subscriptionStatus === SaasStatus.Active
         ) {
           queryClient.setQueryData(SUBSCRIPTION_QUERY_KEY, result);

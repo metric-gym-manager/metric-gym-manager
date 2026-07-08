@@ -5,6 +5,8 @@
  * Merchant Secret; it receives ready-made form params + target URL.
  */
 
+import type { PaidTier } from '@/core/utils/constants/SubscriptionConfig';
+
 export interface CheckoutCustomer {
   firstName: string;
   lastName: string;
@@ -29,6 +31,8 @@ export interface IPaymentGateway {
     orderId: string;
     amount: number;
     currency: 'LKR';
+    /** Paid tier being purchased — used for the PayHere line-item label. */
+    tier: PaidTier;
     gymId: string;
     customer: CheckoutCustomer;
   }): CheckoutRedirect;

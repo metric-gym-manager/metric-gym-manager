@@ -357,6 +357,12 @@ export class SupabaseMemberRepository implements IMemberRepository {
 
   /**
    * Update an existing member
+   *
+   * Into-active status flips (reactivation, payment collection on an expired
+   * member) are quota-gated by the DB trigger trg_enforce_active_member_quota
+   * (migration 20260708000001) — at the cap it raises MEMBER_LIMIT_REACHED,
+   * surfaced here as MemberLimitError so routes can return the 403 the UI
+   * keys its upgrade prompt on.
    */
   async update(member: Member): Promise<Member> {
     const row = this.toDatabase(member);
@@ -376,6 +382,9 @@ export class SupabaseMemberRepository implements IMemberRepository {
       .single();
 
     if (error) {
+      if (error.message.includes('MEMBER_LIMIT_REACHED')) {
+        throw new MemberLimitError();
+      }
       throw new Error(`Failed to update member: ${error.message}`);
     }
 
@@ -419,6 +428,10 @@ export class SupabaseMemberRepository implements IMemberRepository {
       .eq('gym_id', gymId);
 
     if (error) {
+      // Batch into-active flips hit the same DB quota gate as single updates
+      if (error.message.includes('MEMBER_LIMIT_REACHED')) {
+        throw new MemberLimitError();
+      }
       throw new Error(`Failed to batch update member status: ${error.message}`);
     }
   }

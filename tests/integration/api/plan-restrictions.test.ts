@@ -1,0 +1,138 @@
+/**
+ * Starter plan restriction integration tests (PlanRestrictions matrix).
+ *
+ * Server-side enforcement is the authority:
+ *  - POST /api/announcements -> 403 FEATURE_NOT_AVAILABLE for Starter gyms
+ *  - SendAutomatedReminders (via the DI container) skips Starter gyms
+ *
+ * The route reads the caller's session via @/lib/supabase/server (cookies);
+ * in jest there is no request context, so ONLY that cookie plumbing is
+ * replaced — the client it returns carries a REAL session token minted by
+ * the stack's password grant, so auth, RLS and route logic stay real.
+ */
+
+import { NextRequest } from 'next/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import {
+  gatedDescribe,
+  setPayhereTestEnv,
+  adminClient,
+  createTestGym,
+  deleteTestGym,
+  memberJson,
+  type TestGym,
+} from '../helpers/billing';
+
+setPayhereTestEnv();
+
+// Session-bound client for the announcements route: swapped per test via
+// setSessionToken(); everything else about the client is real.
+let sessionToken: string | null = null;
+
+jest.mock('@/lib/supabase/server', () => ({
+  createClient: jest.fn(async () => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+    return createSupabaseClient(url, anon, {
+      auth: { autoRefreshToken: false, persistSession: false },
+      global: sessionToken ? { headers: { Authorization: `Bearer ${sessionToken}` } } : {},
+    });
+  }),
+}));
+
+// Import AFTER env + mock are in place
+const { POST: announcementsPOST } = require('@/app/api/announcements/route');
+
+async function loginAs(email: string): Promise<string> {
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password: 'integration-test-password-123' }),
+    }
+  );
+  if (!res.ok) throw new Error(`login failed: ${res.status}`);
+  return (await res.json()).access_token as string;
+}
+
+async function postAnnouncement(message: string) {
+  const request = new NextRequest('http://localhost:3000/api/announcements', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, audience: 'all' }),
+  });
+  const response = await announcementsPOST(request);
+  return { status: response.status, json: await response.json() };
+}
+
+gatedDescribe('Starter plan restrictions (integration)', () => {
+  const supabase = adminClient();
+  let gym: TestGym;
+  let email: string;
+
+  beforeEach(async () => {
+    gym = await createTestGym(supabase);
+    const { data } = await supabase.from('gyms').select('email').eq('id', gym.gymId).single();
+    email = (data as { email: string }).email;
+    sessionToken = await loginAs(email);
+  });
+
+  afterEach(async () => {
+    sessionToken = null;
+    await deleteTestGym(supabase, gym);
+  });
+
+  it('announcements POST: 403 FEATURE_NOT_AVAILABLE for a Starter gym, before any work', async () => {
+    const { status, json } = await postAnnouncement('Starter gyms cannot send this');
+    expect(status).toBe(403);
+    expect(json.errorCode).toBe('FEATURE_NOT_AVAILABLE');
+
+    const { count } = await supabase
+      .from('announcements')
+      .select('id', { count: 'exact', head: true })
+      .eq('gym_id', gym.gymId);
+    expect(count).toBe(0); // nothing was created
+  });
+
+  it('announcements POST: passes the gate for a Growth gym', async () => {
+    await supabase.rpc('save_gym_subscription', {
+      p_gym_id: gym.gymId,
+      p_tier: 'growth',
+      p_status: 'active',
+      p_payhere_subscription_id: 'PHSUB-RESTRICT',
+      p_payhere_customer_id: null,
+      p_extend_period: true,
+    });
+    // The service requires at least one recipient
+    await supabase.rpc('register_member_guarded', {
+      p_gym_id: gym.gymId,
+      p_member: memberJson(1),
+    });
+
+    const { status, json } = await postAnnouncement('Growth gym announcement');
+    expect(status).not.toBe(403);
+    expect(json.errorCode).not.toBe('FEATURE_NOT_AVAILABLE');
+  });
+
+  it('reminder cron use case (via DI container) skips Starter gyms end-to-end', async () => {
+    // Overdue member in a Starter gym -> would get a reminder if allowed
+    await supabase.rpc('register_member_guarded', {
+      p_gym_id: gym.gymId,
+      p_member: {
+        ...memberJson(2),
+        status: 'active',
+        next_due_date: '2026-01-01', // long overdue
+      },
+    });
+
+    const { getAdminContainer } = require('@/infrastructure/di');
+    const container = await getAdminContainer();
+    const summary = await container
+      .getSendAutomatedRemindersUseCase()
+      .execute({ gymId: gym.gymId });
+
+    expect(summary.membersSkippedPlanRestricted).toBe(1);
+    expect(summary.totalSent).toBe(0);
+  });
+});

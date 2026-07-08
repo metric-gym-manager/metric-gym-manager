@@ -48,16 +48,13 @@ export default function RawSMSFailureTable() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<SMSFailuresResponse>({
     queryKey: ['admin-sms-failures', activeGymId],
     queryFn: async () => {
-      const adminSecret = process.env.NEXT_PUBLIC_ADMIN_API_SECRET || '';
       const url = activeGymId
         ? `/api/admin/system-health/sms-failures?gymId=${activeGymId}`
         : '/api/admin/system-health/sms-failures';
 
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${adminSecret}`,
-        },
-      });
+      // Same-origin fetch: the Supabase session cookie authenticates the
+      // request; the API route checks saas_admins membership. No secret in JS.
+      const response = await fetch(url);
 
       if (!response.ok) {
         throw new Error('Failed to fetch SMS failures');

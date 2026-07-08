@@ -1,40 +1,29 @@
 import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
+import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin';
 
 interface AdminLayoutProps {
   children: ReactNode;
 }
 
 /**
- * Admin Layout
+ * Admin Layout — real authorization gate for SaaS-operator routes.
  *
- * This layout protects admin-only routes.
+ * Access requires a Supabase session (enforced by middleware) AND membership in
+ * the `saas_admins` allow-list. A signed-in non-admin is bounced to their
+ * dashboard; an unauthenticated visitor is already redirected to /login by
+ * middleware before reaching here.
  *
- * SECURITY NOTE: This is a basic protection layer that checks for the
- * NEXT_PUBLIC_ADMIN_API_SECRET environment variable. In a production
- * environment, you should implement proper role-based authentication
- * with user roles stored in the database.
- *
- * Current protection: URL parameter-based (dev/testing only)
- * Production: Should use session-based role checking
+ * This replaces the previous NEXT_PUBLIC_ADMIN_API_SECRET existence check, which
+ * only verified the secret was configured (not that the *viewer* was authorized)
+ * and shipped that secret to every browser via the client bundle.
  */
-export default function AdminLayout({ children }: AdminLayoutProps) {
-  // Basic protection: Check if admin secret is configured
-  // In production, replace this with proper role-based auth
-  const adminSecret = process.env.NEXT_PUBLIC_ADMIN_API_SECRET;
+export default async function AdminLayout({ children }: AdminLayoutProps) {
+  const admin = await getSaasAdmin();
 
-  if (!adminSecret) {
-    // If no admin secret is configured, block access entirely
+  if (!admin) {
     redirect('/dashboard');
   }
 
-  // Note: The actual authorization happens at the API level
-  // This layout just ensures the admin routes are clearly separated
-
-  return (
-    <div className="admin-layout">
-      {/* Admin-specific header or navigation can go here */}
-      {children}
-    </div>
-  );
+  return <div className="admin-layout">{children}</div>;
 }

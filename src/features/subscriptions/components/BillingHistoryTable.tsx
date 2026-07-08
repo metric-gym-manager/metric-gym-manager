@@ -60,7 +60,7 @@ export default function BillingHistoryTable() {
             <div className="text-center">
               <p className="text-sm text-gray-500 font-medium">No payments yet</p>
               <p className="text-xs text-gray-400 mt-1">
-                Invoices appear here after your first Pro payment.
+                Invoices appear here after your first Growth payment.
               </p>
             </div>
           </div>

@@ -11,6 +11,7 @@ import type {
   BillingHistoryPage,
   CheckoutRedirectResponse,
 } from '../types';
+import type { PaidTier } from '@/core/utils/constants/SubscriptionConfig';
 
 export class ApiRequestError extends Error {
   constructor(
@@ -39,6 +40,7 @@ export interface SubscriptionWithPrice {
   subscription: SerializedSubscription;
   /** Monthly Pro price (LKR) from server config; null when billing env is absent */
   proPriceLkr: number | null;
+  enterprisePriceLkr: number | null;
 }
 
 export async function getSubscription(): Promise<SubscriptionWithPrice> {
@@ -47,11 +49,14 @@ export async function getSubscription(): Promise<SubscriptionWithPrice> {
   return {
     subscription: data,
     proPriceLkr: typeof meta?.proPriceLkr === 'number' ? meta.proPriceLkr : null,
+    enterprisePriceLkr:
+      typeof meta?.enterprisePriceLkr === 'number' ? meta.enterprisePriceLkr : null,
   };
 }
 
 export async function startCheckout(input: {
   city: string;
+  targetTier: PaidTier;
   phone?: string;
   address?: string;
 }): Promise<CheckoutRedirectResponse> {

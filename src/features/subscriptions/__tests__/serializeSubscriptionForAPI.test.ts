@@ -3,7 +3,8 @@ import { Subscription } from '@/core/domain/subscription/Subscription';
 import {
   SaasTier,
   SaasStatus,
-  FREE_TIER_MEMBER_LIMIT,
+  STARTER_TIER_MEMBER_LIMIT,
+  GROWTH_TIER_MEMBER_LIMIT,
   GRACE_PERIOD_DAYS,
   RecurringFailureClass,
 } from '@/core/utils/constants/SubscriptionConfig';
@@ -11,7 +12,7 @@ import {
 function make(overrides: Partial<Parameters<typeof Subscription.create>[0]> = {}) {
   return Subscription.create({
     gymId: 'gym-1',
-    tier: SaasTier.Free,
+    tier: SaasTier.Starter,
     status: SaasStatus.Active,
     memberCount: 10,
     currentPeriodEnd: null,
@@ -36,7 +37,7 @@ describe('serializeSubscriptionForAPI', () => {
   it('formats dates as YYYY-MM-DD', () => {
     const out = serializeSubscriptionForAPI(
       make({
-        tier: SaasTier.Pro,
+        tier: SaasTier.Growth,
         status: SaasStatus.Active,
         currentPeriodEnd: new Date('2026-08-15T13:45:00Z'),
       })
@@ -44,23 +45,56 @@ describe('serializeSubscriptionForAPI', () => {
     expect(out.currentPeriodEnd).toBe('2026-08-15');
   });
 
-  it('exposes the member limit for Free and null for Pro', () => {
-    expect(serializeSubscriptionForAPI(make()).memberLimit).toBe(FREE_TIER_MEMBER_LIMIT);
+  it('exposes the member limit per tier (Starter 40, Growth 150, Enterprise null)', () => {
+    expect(serializeSubscriptionForAPI(make()).memberLimit).toBe(STARTER_TIER_MEMBER_LIMIT);
     expect(
-      serializeSubscriptionForAPI(make({ tier: SaasTier.Pro, status: SaasStatus.Active }))
+      serializeSubscriptionForAPI(make({ tier: SaasTier.Growth, status: SaasStatus.Active }))
+        .memberLimit
+    ).toBe(GROWTH_TIER_MEMBER_LIMIT);
+    expect(
+      serializeSubscriptionForAPI(make({ tier: SaasTier.Enterprise, status: SaasStatus.Active }))
         .memberLimit
     ).toBeNull();
+  });
+
+  it('exposes plan capabilities from the PlanRestrictions matrix', () => {
+    const starter = serializeSubscriptionForAPI(make());
+    expect(starter.capabilities).toEqual({ automatedReminders: false, announcements: false });
+
+    const growth = serializeSubscriptionForAPI(
+      make({ tier: SaasTier.Growth, status: SaasStatus.Active })
+    );
+    expect(growth.capabilities).toEqual({ automatedReminders: true, announcements: true });
+  });
+
+  it('exposes remaining member slots (dual-key), clamped at zero, null for Growth', () => {
+    const starter = serializeSubscriptionForAPI(make({ memberCount: 33 }));
+    expect(starter.remainingMemberSlots).toBe(STARTER_TIER_MEMBER_LIMIT - 33);
+    expect(starter.remaining_member_slots).toBe(starter.remainingMemberSlots);
+
+    const overLimit = serializeSubscriptionForAPI(make({ memberCount: 218 }));
+    expect(overLimit.remainingMemberSlots).toBe(0);
+
+    const growth = serializeSubscriptionForAPI(
+      make({ tier: SaasTier.Growth, status: SaasStatus.Active, memberCount: 100 })
+    );
+    expect(growth.remainingMemberSlots).toBe(GROWTH_TIER_MEMBER_LIMIT - 100);
+
+    const enterprise = serializeSubscriptionForAPI(
+      make({ tier: SaasTier.Enterprise, status: SaasStatus.Active, memberCount: 999 })
+    );
+    expect(enterprise.remainingMemberSlots).toBeNull();
   });
 
   it('computes graceEndsAt only when past_due', () => {
     const periodEnd = new Date('2026-07-01T00:00:00Z');
     const pastDue = serializeSubscriptionForAPI(
-      make({ tier: SaasTier.Pro, status: SaasStatus.PastDue, currentPeriodEnd: periodEnd })
+      make({ tier: SaasTier.Growth, status: SaasStatus.PastDue, currentPeriodEnd: periodEnd })
     );
     expect(pastDue.graceEndsAt).toBe(`2026-07-0${1 + GRACE_PERIOD_DAYS}`);
 
     const active = serializeSubscriptionForAPI(
-      make({ tier: SaasTier.Pro, status: SaasStatus.Active, currentPeriodEnd: periodEnd })
+      make({ tier: SaasTier.Growth, status: SaasStatus.Active, currentPeriodEnd: periodEnd })
     );
     expect(active.graceEndsAt).toBeNull();
   });
@@ -68,7 +102,7 @@ describe('serializeSubscriptionForAPI', () => {
   it('passes the sanitized failure class only when past_due', () => {
     const pastDue = serializeSubscriptionForAPI(
       make({
-        tier: SaasTier.Pro,
+        tier: SaasTier.Growth,
         status: SaasStatus.PastDue,
         currentPeriodEnd: new Date('2026-07-01T00:00:00Z'),
       }),
@@ -77,7 +111,7 @@ describe('serializeSubscriptionForAPI', () => {
     expect(pastDue.pastDueReason).toBe(RecurringFailureClass.Retriable);
 
     const active = serializeSubscriptionForAPI(
-      make({ tier: SaasTier.Pro, status: SaasStatus.Active }),
+      make({ tier: SaasTier.Growth, status: SaasStatus.Active }),
       RecurringFailureClass.Retriable // stale input must be dropped
     );
     expect(active.pastDueReason).toBeNull();
@@ -93,7 +127,7 @@ describe('serializeSubscriptionForAPI', () => {
   it('computes the display-only canAddMember flag', () => {
     const now = new Date('2026-07-04T00:00:00Z');
     expect(
-      serializeSubscriptionForAPI(make({ memberCount: FREE_TIER_MEMBER_LIMIT }), null, now)
+      serializeSubscriptionForAPI(make({ memberCount: STARTER_TIER_MEMBER_LIMIT }), null, now)
         .canAddMember
     ).toBe(false);
     expect(

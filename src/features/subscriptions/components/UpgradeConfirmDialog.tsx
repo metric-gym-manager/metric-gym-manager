@@ -14,11 +14,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { useCheckout } from '../hooks/useCheckout';
+import { SaasTier, TIER_DISPLAY_NAME, type PaidTier } from '@/core/utils/constants/SubscriptionConfig';
 
 interface UpgradeConfirmDialogProps {
   open: boolean;
   onClose: () => void;
-  proPriceLkr?: number | null;
+  /** Which paid plan is being purchased (defaults to Growth). */
+  targetTier?: PaidTier;
+  priceLkr?: number | null;
 }
 
 /**
@@ -31,14 +34,16 @@ interface UpgradeConfirmDialogProps {
 export default function UpgradeConfirmDialog({
   open,
   onClose,
-  proPriceLkr,
+  targetTier = SaasTier.Growth,
+  priceLkr,
 }: UpgradeConfirmDialogProps) {
   const [city, setCity] = useState('');
   const checkout = useCheckout();
+  const tierName = TIER_DISPLAY_NAME[targetTier];
 
   const handleConfirm = () => {
     if (!city.trim()) return;
-    checkout.mutate({ city: city.trim() });
+    checkout.mutate({ city: city.trim(), targetTier });
     // On success the browser navigates to PayHere; no local close needed.
   };
 
@@ -54,10 +59,10 @@ export default function UpgradeConfirmDialog({
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Upgrade to Pro</DialogTitle>
+          <DialogTitle>Upgrade to {tierName}</DialogTitle>
           <DialogDescription>
-            {proPriceLkr
-              ? `Rs. ${proPriceLkr.toLocaleString()} will be charged monthly by PayHere until you cancel.`
+            {priceLkr
+              ? `Rs. ${priceLkr.toLocaleString()} will be charged monthly by PayHere until you cancel.`
               : 'A monthly charge will be made by PayHere until you cancel.'}{' '}
             You will be redirected to PayHere to authorize the payment securely — your card details
             never touch this app.

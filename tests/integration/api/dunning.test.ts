@@ -32,9 +32,20 @@ gatedDescribe('process-dunning (integration)', () => {
   ): Promise<TestGym> {
     const gym = await createTestGym(supabase);
     gyms.push(gym);
+    // Seed members BEFORE pushing the subscription into arrears: the quota
+    // matrix (correctly) rejects registrations once a past_due gym is beyond
+    // grace, and the invariant under test is that dunning preserves members
+    // that were registered while the gym could still register them.
+    for (let i = 0; i < memberCount; i++) {
+      const { error } = await supabase.rpc('register_member_guarded', {
+        p_gym_id: gym.gymId,
+        p_member: memberJson(i),
+      });
+      if (error) throw new Error(error.message);
+    }
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'pro',
+      p_tier: 'growth',
       p_status: status,
       p_payhere_subscription_id: `PHSUB-${gym.gymId.slice(0, 8)}`,
       p_payhere_customer_id: null,
@@ -48,13 +59,6 @@ gatedDescribe('process-dunning (integration)', () => {
         ).toISOString(),
       })
       .eq('id', gym.gymId);
-    for (let i = 0; i < memberCount; i++) {
-      const { error } = await supabase.rpc('register_member_guarded', {
-        p_gym_id: gym.gymId,
-        p_member: memberJson(i),
-      });
-      if (error) throw new Error(error.message);
-    }
     return gym;
   }
 
@@ -78,20 +82,20 @@ gatedDescribe('process-dunning (integration)', () => {
     expect(counts.downgraded_past_due).toBeGreaterThanOrEqual(1);
     expect(counts.lapsed_canceled).toBeGreaterThanOrEqual(1);
 
-    expect((await getGymSubscriptionRow(supabase, pastGrace.gymId)).subscription_tier).toBe('free');
+    expect((await getGymSubscriptionRow(supabase, pastGrace.gymId)).subscription_tier).toBe('starter');
     expect(
       (await getGymSubscriptionRow(supabase, pastGrace.gymId)).payhere_subscription_id
     ).toBeNull();
-    expect((await getGymSubscriptionRow(supabase, inGrace.gymId)).subscription_tier).toBe('pro');
+    expect((await getGymSubscriptionRow(supabase, inGrace.gymId)).subscription_tier).toBe('growth');
     expect((await getGymSubscriptionRow(supabase, inGrace.gymId)).subscription_status).toBe(
       'past_due'
     );
 
     const lapsedRow = await getGymSubscriptionRow(supabase, lapsedCancel.gymId);
-    expect(lapsedRow.subscription_tier).toBe('free');
+    expect(lapsedRow.subscription_tier).toBe('starter');
     expect(lapsedRow.subscription_status).toBe('canceled'); // status preserved on lapse
 
-    expect((await getGymSubscriptionRow(supabase, paidCancel.gymId)).subscription_tier).toBe('pro');
+    expect((await getGymSubscriptionRow(supabase, paidCancel.gymId)).subscription_tier).toBe('growth');
     expect((await getGymSubscriptionRow(supabase, activePro.gymId)).subscription_status).toBe(
       'active'
     );
@@ -117,8 +121,8 @@ gatedDescribe('process-dunning (integration)', () => {
     await supabase.from('checkout_intents').insert({
       order_id: `STALE-${Date.now()}`,
       gym_id: gym.gymId,
-      target_tier: 'pro',
-      expected_amount: 4900,
+      target_tier: 'growth',
+      expected_amount: 2990,
       currency: 'LKR',
       status: 'pending',
       expires_at: new Date(Date.now() - 60 * 1000).toISOString(),

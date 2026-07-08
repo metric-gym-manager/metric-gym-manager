@@ -7,10 +7,11 @@ import { classifyRecurringFailure } from '@/core/domain/subscription/classifyRec
 import { serializeSubscriptionForAPI } from '@/features/subscriptions/utils/serializeSubscriptionForAPI';
 import { getPayhereConfig } from '@/lib/payhere/config';
 
-/** Pro price for the pricing UI; null when billing env is not configured. */
-function proPriceOrNull(): number | null {
+/** Per-tier price for the pricing UI; null when billing env is not configured. */
+function priceOrNull(which: 'pro' | 'enterprise'): number | null {
   try {
-    return getPayhereConfig().proPriceLkr;
+    const config = getPayhereConfig();
+    return which === 'pro' ? config.proPriceLkr : config.enterprisePriceLkr;
   } catch {
     return null;
   }
@@ -51,7 +52,8 @@ export async function GET(_request: NextRequest) {
 
     return NextResponse.json(
       ResponseBuilder.success(serializeSubscriptionForAPI(subscription, pastDueReason), {
-        proPriceLkr: proPriceOrNull(),
+        proPriceLkr: priceOrNull('pro'),
+        enterprisePriceLkr: priceOrNull('enterprise'),
       }),
       { status: 200 }
     );

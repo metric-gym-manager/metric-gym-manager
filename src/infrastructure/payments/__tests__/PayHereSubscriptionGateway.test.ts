@@ -9,7 +9,8 @@ const ENV = {
   PAYHERE_MODE: 'sandbox',
   PAYHERE_MERCHANT_ID: '1211149',
   PAYHERE_MERCHANT_SECRET: 'TESTSECRET_1234',
-  PAYHERE_PRO_PRICE_LKR: '4900',
+  PAYHERE_PRO_PRICE_LKR: '2990',
+  PAYHERE_ENTERPRISE_PRICE_LKR: '6990',
   PAYHERE_APP_ID: 'app-id',
   PAYHERE_APP_SECRET: 'app-secret',
   NEXT_PUBLIC_APP_URL: 'https://app.example.com',
@@ -123,13 +124,13 @@ describe('PayHereSubscriptionGateway', () => {
       .mockResolvedValueOnce(
         jsonResponse({
           status: 1,
-          data: [{ payment_id: 320093, date: '2026-07-01', amount: '4900.00', status: 'RECEIVED' }],
+          data: [{ payment_id: 320093, date: '2026-07-01', amount: '2990.00', status: 'RECEIVED' }],
         })
       );
 
     const rows = await new PayHereSubscriptionGateway().listSubscriptionPayments('SUB-123');
     expect(rows).toEqual([
-      { paymentId: '320093', date: '2026-07-01', amount: '4900.00', status: 'RECEIVED' },
+      { paymentId: '320093', date: '2026-07-01', amount: '2990.00', status: 'RECEIVED' },
     ]);
   });
 });
