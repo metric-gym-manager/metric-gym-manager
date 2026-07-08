@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getApiGymProfile } from '@/lib/middleware/api-auth';
 
 // ============================================================
 // GET /api/admin/system-health/sms-failures
@@ -9,8 +10,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 // ============================================================
 
 /**
- * Authorization: Requires ADMIN_API_SECRET header
- * This endpoint is for SaaS admin monitoring only
+ * Authorization: SaaS operator only — requires a valid session whose gym-owner
+ * email matches ADMIN_ALLOWED_EMAIL (server-only env var; no client-held secret)
  *
  * IMPORTANT: This endpoint exposes error_message field which contains
  * technical infrastructure details (stack traces, API errors, etc.).
@@ -28,22 +29,17 @@ import { createAdminClient } from '@/lib/supabase/admin';
  */
 export async function GET(request: NextRequest) {
   try {
-    // CRITICAL: Strict authorization check BEFORE any database queries
-    const authHeader = request.headers.get('authorization');
-    const adminSecret = process.env.ADMIN_API_SECRET;
-
-    if (!adminSecret) {
-      console.error('ADMIN_API_SECRET not configured');
-      return NextResponse.json(
-        { success: false, error: 'Admin API not configured' },
-        { status: 500 }
-      );
+    // CRITICAL: Strict authorization check BEFORE any database queries.
+    const { gymProfile, error: authError } = await getApiGymProfile();
+    if (authError) {
+      return authError; // 401 (no session) or 404 (no gym profile)
     }
 
-    if (authHeader !== `Bearer ${adminSecret}`) {
+    const allowedEmail = process.env.ADMIN_ALLOWED_EMAIL;
+    if (!allowedEmail || gymProfile!.email !== allowedEmail) {
       console.warn('Unauthorized admin API access attempt');
       return NextResponse.json(
-        { success: false, error: 'Forbidden - Invalid admin credentials' },
+        { success: false, error: 'Forbidden' },
         { status: 403 }
       );
     }

@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
+import { getCurrentGymProfile } from '@/lib/middleware/auth';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -8,28 +9,31 @@ interface AdminLayoutProps {
 /**
  * Admin Layout
  *
- * This layout protects admin-only routes.
+ * Restricts the SaaS system-health area to the single designated operator
+ * account. Authorization is entirely server-side: the signed-in gym owner's
+ * email must match ADMIN_ALLOWED_EMAIL (a server-only env var — never prefixed
+ * NEXT_PUBLIC_, so no secret is ever shipped to the browser).
  *
- * SECURITY NOTE: This is a basic protection layer that checks for the
- * NEXT_PUBLIC_ADMIN_API_SECRET environment variable. In a production
- * environment, you should implement proper role-based authentication
- * with user roles stored in the database.
- *
- * Current protection: URL parameter-based (dev/testing only)
- * Production: Should use session-based role checking
+ * Middleware already redirects unauthenticated visitors to /login before they
+ * reach this layout; here we additionally send any non-operator account back to
+ * their own dashboard. The admin API routes enforce the same check
+ * independently (defense in depth).
  */
-export default function AdminLayout({ children }: AdminLayoutProps) {
-  // Basic protection: Check if admin secret is configured
-  // In production, replace this with proper role-based auth
-  const adminSecret = process.env.NEXT_PUBLIC_ADMIN_API_SECRET;
+export default async function AdminLayout({ children }: AdminLayoutProps) {
+  const allowedEmail = process.env.ADMIN_ALLOWED_EMAIL;
 
-  if (!adminSecret) {
-    // If no admin secret is configured, block access entirely
-    redirect('/dashboard');
+  let gymProfile;
+  try {
+    gymProfile = await getCurrentGymProfile();
+  } catch {
+    redirect('/login');
   }
 
-  // Note: The actual authorization happens at the API level
-  // This layout just ensures the admin routes are clearly separated
+  // Fail closed: if the operator email is not configured, or the signed-in
+  // account is not that operator, deny access.
+  if (!allowedEmail || gymProfile.email !== allowedEmail) {
+    redirect('/dashboard');
+  }
 
   return (
     <div className="admin-layout">

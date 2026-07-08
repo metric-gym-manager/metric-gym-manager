@@ -20,8 +20,10 @@ export const metadata: Metadata = {
  * (error messages, stack traces, database errors) that are intentionally
  * hidden from gym managers. Access must be strictly controlled.
  *
- * Access Control: Set NEXT_PUBLIC_ADMIN_API_SECRET environment variable
- * and protect this route with middleware or layout-level authentication.
+ * Access Control: Restricted to the operator account whose email matches the
+ * server-only ADMIN_ALLOWED_EMAIL env var. Enforced in the (admin) layout and
+ * independently in each /api/admin/system-health/* route. No secret is exposed
+ * to the browser.
  */
 export default function SystemHealthPage() {
   return (

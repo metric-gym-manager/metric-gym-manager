@@ -25,12 +25,9 @@ export default function CronStatusGrid() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<CronStatsResponse>({
     queryKey: ['admin-cron-stats'],
     queryFn: async () => {
-      const adminSecret = process.env.NEXT_PUBLIC_ADMIN_API_SECRET || '';
-      const response = await fetch('/api/admin/system-health/cron-stats', {
-        headers: {
-          'Authorization': `Bearer ${adminSecret}`,
-        },
-      });
+      // Authorized by the operator's session cookie (sent automatically on this
+      // same-origin request). No secret is held in the browser.
+      const response = await fetch('/api/admin/system-health/cron-stats');
 
       if (!response.ok) {
         throw new Error('Failed to fetch cron stats');
