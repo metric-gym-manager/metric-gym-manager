@@ -1,14 +1,23 @@
-# SaaS Subscription (Starter/Growth via PayHere) — Reference & Runbook
+# SaaS Subscription (Starter/Growth/Enterprise via PayHere) — Reference & Runbook
 
 **Implemented:** 2026-07-04 · **Plan:** `docs/Payhere_subscritption_integration/payhere-subscription-execution-plan.md`
 (conflict register C-1..C-27 explains every design decision referenced below).
 
-> **Tier rename (2026-07-06):** launched as `free`/`pro` (cap 50); renamed to
-> `starter`/`growth` with a Starter cap of **40** in migration
-> `20260706000002_rename_tiers_starter_growth.sql` (transactional CHECK swap +
-> row backfill + SQL-authority replacement — the C-19 text+CHECK design exists
-> for exactly this). TS mirror: `SubscriptionConfig.ts`
-> (`SaasTier.Starter/Growth`, `STARTER_TIER_MEMBER_LIMIT = 40`).
+> **Tier history:** launched `free`/`pro` (cap 50) → renamed `starter`/`growth`,
+> Starter cap **40** (`20260706000002`) → added **Enterprise** tier + capped
+> Growth at **190** (`20260707000001`). Three tiers now: Starter (free, 40) /
+> Growth (paid, 190) / Enterprise (paid, unlimited). All swaps are transactional
+> CHECK-constraint changes (the C-19 text+CHECK design exists for exactly this).
+> TS mirror: `SubscriptionConfig.ts` (`SaasTier.Starter/Growth/Enterprise`,
+> `STARTER_TIER_MEMBER_LIMIT = 40`, `GROWTH_TIER_MEMBER_LIMIT = 190`,
+> `PAYHERE_ENTERPRISE_PRICE_LKR`).
+>
+> **Complimentary (lifetime) subscriptions:** a paid tier provisioned manually
+> (enterprise/active, no gateway subscription, no period end) — `isComplimentary()`.
+> Never billed, immune to dunning (both WHERE clauses require a period end), and
+> all self-service billing controls are disabled in the UI + rejected by the
+> checkout/cancel APIs. Provision via `save_gym_subscription(gym, 'enterprise',
+> 'active', NULL, NULL, false)`.
 
 ---
 
@@ -18,7 +27,7 @@ Migrations `20260704000001..3`:
 
 | Object | Purpose |
 |---|---|
-| `gyms.subscription_tier` (`text` CHECK `starter\|growth`), `gyms.subscription_status` (`text` CHECK `active\|past_due\|canceled`) | Tenant billing state. Text + CHECK, not enums — tier additions/renames stay transactional (C-19). |
+| `gyms.subscription_tier` (`text` CHECK `starter\|growth\|enterprise`), `gyms.subscription_status` (`text` CHECK `active\|past_due\|canceled`) | Tenant billing state. Text + CHECK, not enums — tier additions/renames stay transactional (C-19). |
 | `gyms.payhere_subscription_id / payhere_customer_id / current_period_end / member_count` | Gateway ids, paid-through boundary (always DB-clock), denormalized quota counter. |
 | `checkout_intents` | order_id → gym attribution for webhooks; one `pending` per gym (partial unique index → concurrent checkout 409s). |
 | `saas_payment_logs` | Webhook audit + idempotency anchor (partial unique on `payhere_payment_id`) + gym billing history. `message_type`/`status_message` promoted for classification (C-22). `raw_payload.md5sig` always `[REDACTED]` (C-24). |
@@ -29,25 +38,32 @@ Migrations `20260704000001..3`:
 
 ## 2. State machine
 
-Five legal `(tier, status)` pairs. Domain entity: `src/core/domain/subscription/Subscription.ts`.
+Legal `(tier, status)` pairs: starter/{active,canceled} + {growth,enterprise}/{active,past_due,canceled}. Domain entity: `src/core/domain/subscription/Subscription.ts`.
+
+Transitions are generalized over the paid tiers (`{paid}` = growth|enterprise);
+`activatePaid(targetTier)` provisions the tier the checkout intent priced.
 
 ```
-starter/active ──activateGrowth──▶ growth/active ◀──renew(recovery)── growth/past_due
-starter/canceled ─activateGrowth─▶     │                                    ▲
-growth/canceled ──activateGrowth─▶     │──markPastDue─────────────────────▶─┘
-                                       │──cancelGrowth──▶ growth/canceled
-growth/past_due ──cancelGrowth───▶ growth/canceled
-growth/past_due (grace over) ──downgradeToStarter──▶ starter/canceled   (dunning cron only)
-growth/canceled (period over) ─downgradeToStarter──▶ starter/canceled   (dunning cron only)
+starter/active ──activatePaid──▶ {paid}/active ◀──renew(recovery)── {paid}/past_due
+starter/canceled ─activatePaid─▶     │                                     ▲
+{paid}/canceled ──activatePaid─▶     │──markPastDue──────────────────────▶─┘
+                                     │──cancelPaid──▶ {paid}/canceled
+{paid}/past_due ──cancelPaid───▶ {paid}/canceled
+{paid}/past_due (grace over) ──downgradeToStarter──▶ starter/canceled   (dunning cron only)
+{paid}/canceled (period over) ─downgradeToStarter──▶ starter/canceled   (dunning cron only)
 ```
 
 - `renew()` is a **non-transition** (§2.5.1): installment success on active/past_due; never from
   canceled (a stale installment must not un-cancel — C-21).
-- Voluntary cancel keeps Growth **until `current_period_end`, no grace**; involuntary failure gets
-  `GRACE_PERIOD_DAYS` (7) of grace after `current_period_end`.
-- Quota matrix (mirrored in SQL and `canAddMember`): growth/active → ∞ · growth/past_due → until
-  period+grace · growth/canceled → until period end · starter → `member_count < 40`.
-- **No code path ever deletes members.** Over-limit Starter gyms keep everything; only new inserts block.
+- Voluntary cancel keeps the paid tier **until `current_period_end`, no grace**; involuntary
+  failure gets `GRACE_PERIOD_DAYS` (7) of grace after `current_period_end`.
+- A live paid subscription blocks a new checkout — a plan change (e.g. Growth→Enterprise) requires
+  cancelling first (PayHere has no in-place plan swap).
+- Quota matrix (mirrored in SQL and `canAddMember`, cap from the PlanRestrictions matrix):
+  starter → `member_count < 40` · growth → `< 190` (subject to live-sub state) · enterprise → ∞ ·
+  paid/past_due → until period+grace · paid/canceled → until period end · **complimentary → ∞,
+  always** (status active, no period end).
+- **No code path ever deletes members.** Over-limit gyms keep everything; only new inserts block.
 
 ## 3. Webhook contract (`POST /api/webhooks/payhere`)
 
@@ -78,8 +94,8 @@ period extension; C-20 hourly cap (100) on signature-invalid audit rows (global,
 
 ## 4. Dunning (`POST /api/cron/process-dunning`, daily 00:45 UTC)
 
-1. `growth/past_due` with `current_period_end + 7d < now()` → `starter/canceled`, gateway id cleared.
-2. `growth/canceled` with `current_period_end < now()` → tier `starter` (status stays `canceled`).
+1. `{growth,enterprise}/past_due` with `current_period_end + 7d < now()` → `starter/canceled`, gateway id cleared.
+2. `{growth,enterprise}/canceled` with `current_period_end < now()` → tier `starter` (status stays `canceled`).
 3. Stale pending checkout intents → `expired`.
 
 All decisions in SQL on the DB clock; idempotent; logged via `CronLogger` (visible in the
@@ -90,7 +106,7 @@ RECURRING_STOPPED`→`hard`. The class drives banner copy only, never state.
 ## 5. Cancel flow
 
 `POST /api/billing/cancel` → `CancelSubscription`: **gateway first** (PayHere OAuth
-`subscription/cancel`, idempotent on already-cancelled), then local `growth/canceled`. Gateway failure
+`subscription/cancel`, idempotent on already-cancelled), then local `{paid}/canceled`. Gateway failure
 leaves local state untouched. Final confirmation via the next `RECURRING_STOPPED` webhook.
 **No manual "retry charge" is exposed** (C-26): card-network retry budgets (Visa 15/30d;
 Mastercard fees past 35/30d) are PayHere's liability only while PayHere owns all retries. If a
@@ -115,7 +131,7 @@ adding a tier to `SaasTier` breaks compilation until the matrix is extended.
 
 | Capability | Starter | Growth | Server authority | UX layer |
 |---|---|---|---|---|
-| `maxMembers` | 40 | ∞ | `register_member_guarded` (SQL, unchanged) | `StarterLimitBar` (site-wide slots counter + Upgrade CTA, hidden on `/settings/*`), quota upsell |
+| `maxMembers` | 40 | 190 (Growth) · ∞ (Enterprise) | `register_member_guarded` (SQL, unchanged) | `StarterLimitBar` (site-wide slots counter + Upgrade CTA, hidden on `/settings/*`), quota upsell |
 | `automatedReminders` | ✗ | ✓ | `SendAutomatedReminders` skips restricted gyms (one tier lookup per distinct gym, fail-closed; `membersSkippedPlanRestricted` in the cron summary) | — |
 | `announcements` | ✗ | ✓ | `POST /api/announcements` → 403 `FEATURE_NOT_AVAILABLE` before any work (fail-closed) | `/make-announcement` renders `FeatureGate` upgrade panel; composer never mounts |
 

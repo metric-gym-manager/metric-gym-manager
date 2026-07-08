@@ -29,7 +29,8 @@ PayHere dashboard. Never commit real values.
 | `PAYHERE_MODE` | `live` | `sandbox` for the preview/staging environment |
 | `PAYHERE_MERCHANT_ID` | *(dashboard)* | Integrations → your merchant id |
 | `PAYHERE_MERCHANT_SECRET` | *(dashboard)* | **per-domain**, server-side only — never `NEXT_PUBLIC_*` |
-| `PAYHERE_PRO_PRICE_LKR` | `4900` | must match the amount asserted in checkout |
+| `PAYHERE_PRO_PRICE_LKR` | `4900` | Growth monthly price; must match the amount asserted in checkout |
+| `PAYHERE_ENTERPRISE_PRICE_LKR` | `6990` | Enterprise monthly price |
 | `PAYHERE_APP_ID` | *(dashboard)* | REST API key (Subscription Manager) |
 | `PAYHERE_APP_SECRET` | *(dashboard)* | REST API secret |
 
