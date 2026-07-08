@@ -31,6 +31,8 @@ DECLARE
   v_failures  text[] := '{}';
   v_user_id   uuid;
   v_gym_id    uuid;
+  v_user2_id  uuid;
+  v_gym2_id   uuid;
   v_member_id uuid;
   v_count     integer;
   v_before    integer;
@@ -48,15 +50,18 @@ BEGIN
   PERFORM pg_temp._acc_log('PASS 0: schema present');
 
   ------------------------------------------------------------------
-  -- 1. Backfill equality: member_count == live count(*) for every gym
+  -- 1. Backfill equality: member_count == live ACTIVE count for every gym
+  --    (the quota counts members with status = 'active' only)
   ------------------------------------------------------------------
   SELECT count(*) INTO v_count
   FROM gyms g
-  WHERE g.member_count <> (SELECT count(*) FROM members m WHERE m.gym_id = g.id);
+  WHERE g.member_count <> (
+    SELECT count(*) FROM members m WHERE m.gym_id = g.id AND m.status = 'active'
+  );
   IF v_count = 0 THEN
-    PERFORM pg_temp._acc_log('PASS 1: member_count backfill equals live counts for all gyms');
+    PERFORM pg_temp._acc_log('PASS 1: member_count backfill equals live ACTIVE counts for all gyms');
   ELSE
-    v_failures := v_failures || format('FAIL 1: %s gyms with mismatched member_count', v_count);
+    v_failures := v_failures || format('FAIL 1: %s gyms with mismatched active member_count', v_count);
   END IF;
 
   ------------------------------------------------------------------
@@ -269,6 +274,118 @@ BEGIN
   ELSE
     v_failures := v_failures || format('FAIL 7c: expected 191 members, got %s', v_count);
   END IF;
+
+  ------------------------------------------------------------------
+  -- 7d–7h. ACTIVE-MEMBER quota semantics (migration 20260708000001).
+  -- Fresh throwaway starter gym so counts are unambiguous.
+  ------------------------------------------------------------------
+  v_user2_id := gen_random_uuid();
+  INSERT INTO auth.users (id, instance_id, aud, role, email,
+                          encrypted_password, email_confirmed_at, created_at, updated_at)
+  VALUES (v_user2_id, '00000000-0000-0000-0000-000000000000', 'authenticated',
+          'authenticated', 'billing-acceptance-' || v_user2_id || '@example.com',
+          '', now(), now(), now());
+  INSERT INTO gyms (user_id, username, email, gym_name)
+  VALUES (v_user2_id, 'acc2-' || left(v_user2_id::text, 8),
+          'billing-acceptance-' || v_user2_id || '@example.com', 'Acceptance Gym 2')
+  RETURNING id INTO v_gym2_id;  -- defaults to starter (cap 40)
+
+  -- 7d. Registering a NON-active member does not consume a slot (count stays 0)
+  PERFORM register_member_guarded(v_gym2_id, jsonb_build_object(
+    'name', 'Inactive Reg', 'phone_number', '+94750000001',
+    'plan_type', 'monthly', 'plan_amount', 2000,
+    'recurring_discount', false, 'status', 'expired',
+    'next_due_date', '2020-01-01'
+  ));
+  SELECT member_count INTO v_count FROM gyms WHERE id = v_gym2_id;
+  IF v_count = 0 THEN
+    PERFORM pg_temp._acc_log('PASS 7d: registering a non-active member does not increment the active count');
+  ELSE
+    v_failures := v_failures || format('FAIL 7d: expected 0 active, got %s', v_count);
+  END IF;
+
+  -- 7e. Registering an ACTIVE member increments by exactly 1
+  v_member_id := register_member_guarded(v_gym2_id, jsonb_build_object(
+    'name', 'Active Reg', 'phone_number', '+94750000002',
+    'plan_type', 'monthly', 'plan_amount', 2000,
+    'recurring_discount', false, 'status', 'active',
+    'next_due_date', '2099-01-01'
+  ));
+  SELECT member_count INTO v_count FROM gyms WHERE id = v_gym2_id;
+  IF v_count = 1 THEN
+    PERFORM pg_temp._acc_log('PASS 7e: registering an active member increments the active count');
+  ELSE
+    v_failures := v_failures || format('FAIL 7e: expected 1 active, got %s', v_count);
+  END IF;
+
+  -- 7f. Fill to exactly 40 active; a non-active registration is NOT quota-blocked
+  FOR i IN 2..40 LOOP
+    PERFORM register_member_guarded(v_gym2_id, jsonb_build_object(
+      'name', 'AFill ' || i, 'phone_number', '+9475' || lpad((1000000 + i)::text, 7, '0'),
+      'plan_type', 'monthly', 'plan_amount', 2000,
+      'recurring_discount', false, 'status', 'active',
+      'next_due_date', '2099-01-01'
+    ));
+  END LOOP;
+  BEGIN
+    PERFORM register_member_guarded(v_gym2_id, jsonb_build_object(
+      'name', 'Inactive At Cap', 'phone_number', '+94750000099',
+      'plan_type', 'monthly', 'plan_amount', 2000,
+      'recurring_discount', false, 'status', 'expired',
+      'next_due_date', '2020-01-01'
+    ));
+    PERFORM pg_temp._acc_log('PASS 7f: non-active registration allowed even at the active cap (unlimited inactive)');
+  EXCEPTION WHEN OTHERS THEN
+    v_failures := v_failures || format('FAIL 7f: non-active registration blocked at cap: %s', SQLERRM);
+  END;
+
+  -- 7g. Flipping an active member to expired decrements the active count
+  UPDATE members SET status = 'expired' WHERE id = v_member_id;
+  SELECT member_count INTO v_count FROM gyms WHERE id = v_gym2_id;
+  IF v_count = 39 THEN
+    PERFORM pg_temp._acc_log('PASS 7g: active->expired flip decremented the active count (40->39)');
+  ELSE
+    v_failures := v_failures || format('FAIL 7g: expected 39 after flip, got %s', v_count);
+  END IF;
+
+  -- 7h. Reactivating (expired->active) below cap succeeds (back to 40); a SECOND
+  --     reactivation at the cap is rejected with MEMBER_LIMIT_REACHED, and the
+  --     blocked member stays non-active (BEFORE trigger — nothing lands).
+  UPDATE members SET status = 'active' WHERE id = v_member_id;
+  SELECT member_count INTO v_count FROM gyms WHERE id = v_gym2_id;
+  IF v_count <> 40 THEN
+    v_failures := v_failures || format('FAIL 7h: reactivation below cap expected 40, got %s', v_count);
+  END IF;
+  -- Grab an inactive member (the 7d/7f expired ones) to reactivate at the cap
+  SELECT id INTO v_member_id FROM members
+   WHERE gym_id = v_gym2_id AND status = 'expired' LIMIT 1;
+  BEGIN
+    UPDATE members SET status = 'active' WHERE id = v_member_id;
+    v_failures := v_failures || 'FAIL 7h: reactivation at the active cap was accepted';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE '%MEMBER_LIMIT_REACHED%' THEN
+      SELECT status INTO v_ok FROM (SELECT status = 'active' AS status FROM members WHERE id = v_member_id) s;
+      IF v_ok THEN
+        v_failures := v_failures || 'FAIL 7h: blocked member was left active despite the raise';
+      ELSE
+        PERFORM pg_temp._acc_log('PASS 7h: reactivation at the active cap rejected (MEMBER_LIMIT_REACHED), member stays inactive');
+      END IF;
+    ELSE
+      v_failures := v_failures || format('FAIL 7h: unexpected error: %s', SQLERRM);
+    END IF;
+  END;
+
+  -- Clean up gym 2 (members cascade via gym delete if FK is ON DELETE CASCADE;
+  -- delete members explicitly first to be safe, exercising the DELETE branch).
+  DELETE FROM members WHERE gym_id = v_gym2_id;
+  SELECT member_count INTO v_count FROM gyms WHERE id = v_gym2_id;
+  IF v_count = 0 THEN
+    PERFORM pg_temp._acc_log('PASS 7i: deleting all members returns the active count to 0');
+  ELSE
+    v_failures := v_failures || format('FAIL 7i: expected 0 after delete, got %s', v_count);
+  END IF;
+  DELETE FROM gyms WHERE id = v_gym2_id;
+  DELETE FROM auth.users WHERE id = v_user2_id;
 
   ------------------------------------------------------------------
   -- 8. Dunning branches via process_dunning_downgrades (server clock)

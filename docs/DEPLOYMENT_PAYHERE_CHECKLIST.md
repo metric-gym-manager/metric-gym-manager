@@ -165,6 +165,18 @@ These are done and need no action — listed so the checklist is self-contained:
   fail-closed column-guard trigger for `authenticated` **and** a fresh
   unenumerated role, EXECUTE lockdown, dunning branches with members preserved,
   duplicate-payment-id / NULL-id index semantics, C-20 cap index-only scan).
+- Migration `20260708000001_active_member_quota` applied to production: the
+  member quota now counts **active** members only. Non-active members
+  (expired/suspended/cancelled) are unlimited on every tier and never quota-gated;
+  the cap only gates registering an active member or flipping one into active
+  (reactivation, pay-to-reactivate), via `assert_gym_can_add_active_member` +
+  the `trg_enforce_active_member_quota` BEFORE trigger. The backfill re-based
+  `gyms.member_count` on the active count — this **lowered** live counts wherever
+  gyms carried inactive members (e.g. a Starter gym reading 33/40 with only 10
+  active now reads 10/40; the two comped Enterprise gyms dropped from their row
+  totals to their active totals). Extended acceptance probes 7d–7i (active-only
+  increment, non-active never blocked, active→expired decrement, reactivation at
+  cap → `MEMBER_LIMIT_REACHED`) all pass, plus the 20 integration tests.
 - Integration suites (webhook idempotency / recovery-anchor / identity-guard /
   flood-cap, 60-way quota race, dunning branches, checkout race, cancel
   ordering) and the E2E billing flows (upgrade, return states, quota upsell,
