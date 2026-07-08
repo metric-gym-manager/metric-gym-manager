@@ -40,15 +40,16 @@ export default function QuotaReachedUpsell() {
         </div>
         <div className="space-y-2">
           <p className="text-sm font-semibold text-blue-900">
-            {TIER_DISPLAY_NAME[tier]} plan limit reached
+            {TIER_DISPLAY_NAME[tier]} plan active-member limit reached
             {limit !== null
-              ? ` (${sub?.memberCount ?? limit}/${limit} members)`
+              ? ` (${sub?.memberCount ?? limit}/${limit} active members)`
               : ''}
           </p>
           <p className="text-sm text-blue-800">
-            Your existing members are unaffected. Upgrade to {nextName} for{' '}
-            {nextIsUnlimited ? 'unlimited members' : 'a higher member limit'} — billed monthly,
-            cancel anytime.
+            Only active members count — expired, suspended and cancelled members are unlimited and
+            unaffected. Upgrade to {nextName} for{' '}
+            {nextIsUnlimited ? 'unlimited active members' : 'a higher active-member limit'} —
+            billed monthly, cancel anytime.
           </p>
           <Button asChild size="sm">
             <Link href="/settings/billing">Upgrade to {nextName}</Link>

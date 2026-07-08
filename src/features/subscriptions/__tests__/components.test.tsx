@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import CurrentPlanCard from '@/features/subscriptions/components/CurrentPlanCard';
 import PastDueBanner from '@/features/subscriptions/components/PastDueBanner';
 import QuotaReachedUpsell from '@/features/subscriptions/components/QuotaReachedUpsell';
+import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog';
 import {
   SaasTier,
   SaasStatus,
@@ -192,7 +193,55 @@ describe('QuotaReachedUpsell', () => {
     render(<QuotaReachedUpsell />);
     const upsell = screen.getByTestId('quota-reached-upsell');
     expect(upsell).toHaveTextContent(`${GROWTH_TIER_MEMBER_LIMIT}/${GROWTH_TIER_MEMBER_LIMIT}`);
-    expect(upsell).toHaveTextContent(/unlimited members/i);
+    expect(upsell).toHaveTextContent(/unlimited active members/i);
+    expect(screen.getByRole('link', { name: /upgrade to enterprise/i })).toHaveAttribute(
+      'href',
+      '/settings/billing'
+    );
+  });
+});
+
+describe('ReactivationLimitDialog', () => {
+  it('renders nothing when closed', () => {
+    mockUseSubscription.mockReturnValue({
+      data: { subscription: makeSerialized() },
+    });
+    render(<ReactivationLimitDialog open={false} onOpenChange={() => {}} />);
+    expect(screen.queryByText(/active member limit reached/i)).not.toBeInTheDocument();
+  });
+
+  it('Starter at limit: explains active-only counting and upsells to Growth', () => {
+    mockUseSubscription.mockReturnValue({
+      data: {
+        subscription: makeSerialized({
+          memberCount: STARTER_TIER_MEMBER_LIMIT,
+          member_count: STARTER_TIER_MEMBER_LIMIT,
+        }),
+      },
+    });
+    render(<ReactivationLimitDialog open onOpenChange={() => {}} />);
+    expect(screen.getByText(/active member limit reached/i)).toBeInTheDocument();
+    // Communicates that only active members count and nothing was charged
+    expect(screen.getByText(/nothing was charged/i)).toBeInTheDocument();
+    expect(screen.getByText(/expired, suspended and cancelled members are unlimited/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /upgrade to growth/i })).toHaveAttribute(
+      'href',
+      '/settings/billing'
+    );
+  });
+
+  it('Growth at limit: upsells to Enterprise', () => {
+    mockUseSubscription.mockReturnValue({
+      data: {
+        subscription: makeSerialized({
+          subscriptionTier: SaasTier.Growth,
+          subscription_tier: SaasTier.Growth,
+          memberLimit: GROWTH_TIER_MEMBER_LIMIT,
+          member_limit: GROWTH_TIER_MEMBER_LIMIT,
+        }),
+      },
+    });
+    render(<ReactivationLimitDialog open onOpenChange={() => {}} />);
     expect(screen.getByRole('link', { name: /upgrade to enterprise/i })).toHaveAttribute(
       'href',
       '/settings/billing'

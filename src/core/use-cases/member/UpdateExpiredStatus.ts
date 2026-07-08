@@ -16,6 +16,7 @@
 
 import { Member } from '@/core/domain/member/Member';
 import { IMemberRepository } from '@/core/ports/repositories';
+import { MEMBER_EXPIRY_GRACE_DAYS } from '@/core/utils/constants/StatusConfig';
 
 /**
  * Summary of status updates
@@ -46,8 +47,10 @@ export interface UpdateExpiredStatusSummary {
  *
  * Automatically expires active members whose payment is overdue.
  *
- * Business Rule: If a member's next_due_date has passed and they haven't paid,
- * their status should be changed from 'active' to 'expired'.
+ * Business Rule: If a member's next_due_date is MEMBER_EXPIRY_GRACE_DAYS (7)
+ * or more days in the past and they haven't paid, their status changes from
+ * 'active' to 'expired' — at which point they stop counting toward the gym's
+ * active-member quota (the DB trigger decrements gyms.member_count).
  *
  * @example
  * const updateExpired = new UpdateExpiredStatus(memberRepository);
@@ -76,17 +79,24 @@ export class UpdateExpiredStatus {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
+      // Grace cutoff: a member expires only once they are unpaid for
+      // MEMBER_EXPIRY_GRACE_DAYS (7) full days past next_due_date. During the
+      // grace window they stay ACTIVE (still counted by the SaaS quota, still
+      // receiving overdue payment reminders).
+      const graceCutoff = new Date(today);
+      graceCutoff.setDate(graceCutoff.getDate() - MEMBER_EXPIRY_GRACE_DAYS);
+
       // Find all active members whose due date has passed
       // Note: This will be implemented at the repository layer
       // For now, we get all active members and filter in memory
       // TODO: Add findOverdueActiveMembers() method to IMemberRepository for efficiency
       const activeMembers = await this.getAllActiveMembersAcrossGyms();
 
-      // Filter members whose next_due_date < today
+      // Filter members whose next_due_date is 7+ days in the past
       const overdueMembers = activeMembers.filter((member) => {
         const dueDate = new Date(member.nextDueDate);
         dueDate.setHours(0, 0, 0, 0);
-        return dueDate < today;
+        return dueDate <= graceCutoff;
       });
 
       console.log(`  Found ${overdueMembers.length} overdue members`);

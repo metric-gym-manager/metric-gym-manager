@@ -41,7 +41,7 @@ describe('MemberLimitBar', () => {
     );
     render(<MemberLimitBar />);
     const bar = screen.getByTestId('member-limit-bar');
-    expect(bar).toHaveTextContent(`7 of ${STARTER_TIER_MEMBER_LIMIT} member slots left on the Starter plan`);
+    expect(bar).toHaveTextContent(`7 of ${STARTER_TIER_MEMBER_LIMIT} active member slots left on the Starter plan`);
     expect(screen.getByRole('link', { name: /upgrade/i })).toHaveAttribute('href', '/settings/billing');
   });
 
@@ -51,7 +51,7 @@ describe('MemberLimitBar', () => {
     );
     render(<MemberLimitBar />);
     expect(screen.getByTestId('member-limit-bar')).toHaveTextContent(
-      `10 of ${GROWTH_TIER_MEMBER_LIMIT} member slots left on the Growth plan`
+      `10 of ${GROWTH_TIER_MEMBER_LIMIT} active member slots left on the Growth plan`
     );
   });
 

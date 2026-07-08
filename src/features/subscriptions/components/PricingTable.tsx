@@ -36,7 +36,7 @@ const COLUMNS: Column[] = [
     tier: SaasTier.Starter,
     priceLabel: () => 'Rs. 0',
     features: [
-      `Up to ${STARTER_TIER_MEMBER_LIMIT} members`,
+      `Up to ${STARTER_TIER_MEMBER_LIMIT} active members`,
       'Payment collection & manual receipts',
       'Revenue analytics',
     ],
@@ -46,7 +46,7 @@ const COLUMNS: Column[] = [
     tier: SaasTier.Growth,
     priceLabel: ({ proPriceLkr }) => (proPriceLkr ? `Rs. ${proPriceLkr.toLocaleString()}` : 'Rs. —'),
     features: [
-      `Up to ${GROWTH_TIER_MEMBER_LIMIT} members`,
+      `Up to ${GROWTH_TIER_MEMBER_LIMIT} active members`,
       'Everything in Starter',
       'Automated SMS reminders',
       'Bulk SMS announcements',
@@ -57,7 +57,7 @@ const COLUMNS: Column[] = [
     tier: SaasTier.Enterprise,
     priceLabel: ({ enterprisePriceLkr }) =>
       enterprisePriceLkr ? `Rs. ${enterprisePriceLkr.toLocaleString()}` : 'Rs. —',
-    features: ['Unlimited members', 'Everything in Growth', 'Priority support'],
+    features: ['Unlimited active members', 'Everything in Growth', 'Priority support'],
     accent: 'border-purple-300',
   },
 ];

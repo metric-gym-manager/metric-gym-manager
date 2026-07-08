@@ -7,13 +7,16 @@ import { useSubscription } from '../hooks/useSubscription';
 import { TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
 
 /**
- * Site-wide member-usage bar: remaining member slots + universal Upgrade CTA.
+ * Site-wide member-usage bar: remaining ACTIVE-member slots + universal
+ * Upgrade CTA.
  *
  * Renders for any CAPPED tier (Starter 40, Growth 190) on every page EXCEPT
  * /settings/* (the billing page lives there — upselling on it is noise).
  * Unlimited tiers (Enterprise), complimentary subs and loading states render
  * nothing, so the bar can never block chrome.
  *
+ * The quota counts members with active status only — the copy says so
+ * explicitly, since expired/suspended/cancelled members are unlimited.
  * Slot math comes from the serializer (`remainingMemberSlots`, computed by the
  * PlanRestrictions container server-side) — never local tier arithmetic.
  */
@@ -49,15 +52,15 @@ export default function MemberLimitBar() {
         <Users className="h-4 w-4 shrink-0" aria-hidden="true" />
         {atLimit ? (
           <span>
-            <span className="font-semibold">Member limit reached</span> ({limit} of {limit} on the{' '}
-            {tierName} plan)
+            <span className="font-semibold">Active member limit reached</span> ({limit} of {limit}{' '}
+            on the {tierName} plan — inactive members don&apos;t count)
           </span>
         ) : (
           <span>
             <span className="font-semibold">
               {remaining} of {limit}
             </span>{' '}
-            member slots left on the {tierName} plan
+            active member slots left on the {tierName} plan
           </span>
         )}
       </p>

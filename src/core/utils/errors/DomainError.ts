@@ -188,13 +188,15 @@ export class ConflictError extends DomainError {
 /**
  * Member limit reached error
  *
- * Thrown by the guarded member registration when the gym's subscription
- * tier does not allow another member (register_member_guarded, plan §QG).
- * Maps to HTTP 403 with the machine-readable code the frontend keys the
- * upgrade prompt on.
+ * Thrown when the gym's subscription tier does not allow another ACTIVE
+ * member: guarded registration (register_member_guarded) and any into-active
+ * status flip (trg_enforce_active_member_quota — reactivation, payment
+ * collection on an expired member). Only active members count; non-active
+ * members are unlimited. Maps to HTTP 403 with the machine-readable code the
+ * frontend keys the upgrade prompt on.
  */
 export class MemberLimitError extends DomainError {
-  constructor(message: string = 'Member limit reached for current plan') {
+  constructor(message: string = 'Active member limit reached for current plan') {
     super(message, 'MEMBER_LIMIT_REACHED', 403);
     this.name = 'MemberLimitError';
   }

@@ -81,12 +81,12 @@ export default function CurrentPlanCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Usage */}
+        {/* Usage — the quota counts ACTIVE members only */}
         <div>
           <div className="flex items-center justify-between text-sm mb-2">
             <span className="flex items-center gap-2 text-gray-600">
               <Users className="h-4 w-4" />
-              Members
+              Active members
             </span>
             <span className={overLimit ? 'font-semibold text-red-600' : 'font-semibold'}>
               {sub.memberCount}
@@ -96,6 +96,11 @@ export default function CurrentPlanCard({
           {capped && (
             <Progress value={usagePercent} className={atLimit ? '[&>div]:bg-red-500' : undefined} />
           )}
+          <p className="mt-2 text-xs text-gray-500">
+            Only members with <span className="font-medium">active</span> status count toward your
+            plan limit. Expired, suspended and cancelled members never use a slot — keep as many as
+            you like.
+          </p>
         </div>
 
         {/* Period / state explanation */}
@@ -119,9 +124,9 @@ export default function CurrentPlanCard({
         )}
         {overLimit && (
           <p className="text-sm text-gray-600">
-            You have more members than the {TIER_DISPLAY_NAME[tier]} limit allows. Existing members
-            are kept and stay fully manageable — adding <span className="font-medium">new</span>{' '}
-            members needs a higher plan.
+            You have more active members than the {TIER_DISPLAY_NAME[tier]} limit allows. Existing
+            members are kept and stay fully manageable — adding or{' '}
+            <span className="font-medium">reactivating</span> members needs a higher plan.
           </p>
         )}
 

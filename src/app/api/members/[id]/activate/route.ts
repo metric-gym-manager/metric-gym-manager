@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { getContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError, InvalidStatusTransitionError } from '@/core/utils/errors';
+import { NotFoundError, InvalidStatusTransitionError, MemberLimitError } from '@/core/utils/errors';
 import { z } from 'zod';
 
 // ============================================================
@@ -65,6 +65,15 @@ export async function POST(
       return NextResponse.json(
         ResponseBuilder.notFound(error.message),
         { status: 404 }
+      );
+    }
+
+    if (error instanceof MemberLimitError) {
+      // Active-member quota exhausted (DB trigger) — the frontend keys the
+      // upgrade pop-up on this machine-readable code
+      return NextResponse.json(
+        ResponseBuilder.error(error.message, 'MEMBER_LIMIT_REACHED'),
+        { status: 403 }
       );
     }
 
