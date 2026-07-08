@@ -18,6 +18,12 @@ export interface GymProfile {
   gym_address: string | null;
   gym_website: string | null;
   profile_image_url: string | null;
+  /**
+   * True only when this authenticated account matches DEMO_TOOLS_ALLOWED_EMAIL.
+   * Computed server-side in /api/auth/profile; used to reveal demo-only tools.
+   * Optional because it is derived at the API boundary, not stored on the row.
+   */
+  isDemoAccount?: boolean;
 }
 
 export interface SessionData {

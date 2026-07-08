@@ -1,20 +1,35 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getCurrentGymProfile } from '@/lib/middleware/auth';
 
 // ============================================================
-// POST /api/demo/reset-rate-limits - Reset Rate Limits (Localhost only)
+// POST /api/demo/reset-rate-limits - Reset Rate Limits (demo account only)
 // ============================================================
 
 /**
  * Demo endpoint for clearing OTP rate limits during demonstrations.
- * SECURITY: Only works on localhost. Rejects all production requests.
+ *
+ * SECURITY: Restricted to the single designated demo account
+ * (DEMO_TOOLS_ALLOWED_EMAIL) — the same gate as /api/demo/send-sms.
+ * Unauthenticated -> 401; any other account or an unset env var -> 403.
  */
-export async function POST(request: NextRequest) {
-  // SECURITY: Only allow localhost
-  const host = request.headers.get('host') || '';
-  if (!host.includes('localhost') && !host.includes('127.0.0.1')) {
+export async function POST() {
+  // --- Authorization: designated demo account only ---
+  const allowedEmail = process.env.DEMO_TOOLS_ALLOWED_EMAIL;
+
+  let gymProfile;
+  try {
+    gymProfile = await getCurrentGymProfile();
+  } catch {
     return NextResponse.json(
-      { success: false, error: 'Demo endpoint only available on localhost' },
+      { success: false, error: 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  if (!allowedEmail || gymProfile.email !== allowedEmail) {
+    return NextResponse.json(
+      { success: false, error: 'This demo tool is not available for your account.' },
       { status: 403 }
     );
   }
