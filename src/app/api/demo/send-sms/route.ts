@@ -21,12 +21,12 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, phone, gymName, type } = body;
+    const { name, phone, gymName, type, fee } = body;
 
     // Validate inputs
-    if (!name || !phone || !gymName || !type) {
+    if (!name || !phone || !gymName || !type || !fee) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: name, phone, gymName, type' },
+        { success: false, error: 'Missing required fields: name, phone, gymName, type, fee' },
         { status: 400 }
       );
     }
@@ -48,8 +48,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate fee (must be a positive number)
+    const feeNumber = parseFloat(fee);
+    if (isNaN(feeNumber) || feeNumber <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid fee. Must be a positive number' },
+        { status: 400 }
+      );
+    }
+
     // Format SMS message based on type
-    const message = formatDemoMessage(type, name, gymName);
+    const message = formatDemoMessage(type, name, gymName, feeNumber);
 
     // Check if real SMS is enabled
     const useRealSms = process.env.ENABLE_REAL_SMS === 'true';
@@ -114,10 +123,12 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Format demo SMS messages with fixed amounts and dates
+ * Format demo SMS messages with custom amounts and dates
  */
-function formatDemoMessage(type: string, name: string, gymName: string): string {
-  const amount = 'Rs.50000.00';
+function formatDemoMessage(type: string, name: string, gymName: string, fee: number): string {
+  // Format amount with thousands separator and 2 decimal places
+  const amount = `Rs.${fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   const dueDate = new Date();
   dueDate.setMonth(dueDate.getMonth() + 1);
   const dueDateStr = dueDate.toLocaleDateString('en-GB');
