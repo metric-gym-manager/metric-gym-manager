@@ -57,7 +57,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     await deleteTestGym(supabase, gym);
   });
 
-  async function createPendingIntent(orderId: string, amount = 4900) {
+  async function createPendingIntent(orderId: string, amount = 2990) {
     const { error } = await supabase.from('checkout_intents').insert({
       order_id: orderId,
       gym_id: gym.gymId,
@@ -78,7 +78,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     const fields = signedNotification({
       order_id: orderId,
       payment_id: paymentId,
-      payhere_amount: '4900.00',
+      payhere_amount: '2990.00',
       status_code: '2',
       subscription_id: nextId('PHSUB'),
     });
@@ -130,7 +130,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
       signedNotification({
         order_id: nextId('SUB'),
         payment_id: nextId('PAY'),
-        payhere_amount: '4900.00',
+        payhere_amount: '2990.00',
         status_code: '-2',
         subscription_id: phsub,
         message_type: 'RECURRING_INSTALLMENT_FAILED',
@@ -157,7 +157,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
       signedNotification({
         order_id: nextId('SUB'),
         payment_id: nextId('PAY'),
-        payhere_amount: '4900.00',
+        payhere_amount: '2990.00',
         status_code: '2',
         subscription_id: phsub,
       })
@@ -174,7 +174,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
 
   it('amount mismatch: intent fails, gym stays Free', async () => {
     const orderId = nextId('SUB');
-    await createPendingIntent(orderId, 4900);
+    await createPendingIntent(orderId, 2990);
 
     const res = await post(
       signedNotification({
@@ -206,7 +206,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
     const fields = signedNotification({
       order_id: orderId,
       payment_id: paymentId,
-      payhere_amount: '4900.00',
+      payhere_amount: '2990.00',
       status_code: '2',
     });
     fields.md5sig = 'F'.repeat(32); // tampered
@@ -232,7 +232,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
       signedNotification({
         order_id: nextId('UNKNOWN'),
         payment_id: paymentId,
-        payhere_amount: '4900.00',
+        payhere_amount: '2990.00',
         status_code: '2',
         subscription_id: nextId('PHSUB-UNKNOWN'),
       })
@@ -264,7 +264,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
       signedNotification({
         order_id: nextId('SUB'),
         payment_id: nextId('PAY'),
-        payhere_amount: '4900.00',
+        payhere_amount: '2990.00',
         status_code: '-1',
         subscription_id: subA,
         message_type: 'RECURRING_STOPPED',
@@ -292,7 +292,7 @@ gatedDescribe('POST /api/webhooks/payhere (integration)', () => {
       signedNotification({
         order_id: nextId('SUB'),
         payment_id: nextId('PAY'),
-        payhere_amount: '4900.00',
+        payhere_amount: '2990.00',
         status_code: '-1',
         subscription_id: subA,
         custom_1: gym.gymId,

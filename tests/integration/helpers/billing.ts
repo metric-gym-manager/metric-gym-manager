@@ -35,7 +35,7 @@ export function setPayhereTestEnv(): void {
   process.env.PAYHERE_MODE = 'sandbox';
   process.env.PAYHERE_MERCHANT_ID = TEST_MERCHANT_ID;
   process.env.PAYHERE_MERCHANT_SECRET = TEST_MERCHANT_SECRET;
-  process.env.PAYHERE_PRO_PRICE_LKR = process.env.PAYHERE_PRO_PRICE_LKR ?? '4900';
+  process.env.PAYHERE_PRO_PRICE_LKR = process.env.PAYHERE_PRO_PRICE_LKR ?? '2990';
   process.env.PAYHERE_ENTERPRISE_PRICE_LKR = process.env.PAYHERE_ENTERPRISE_PRICE_LKR ?? '6990';
   process.env.PAYHERE_APP_ID = 'integration-app-id';
   process.env.PAYHERE_APP_SECRET = 'integration-app-secret';

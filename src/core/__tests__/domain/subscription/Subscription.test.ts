@@ -189,9 +189,13 @@ describe('Subscription entity', () => {
       ).toBe(false);
     });
 
-    it('growth/active: allowed below the 190 cap, blocked at/over it', () => {
+    it('growth/active: allowed below the 150 cap, blocked at/over it', () => {
       expect(
-        sub({ tier: SaasTier.Growth, status: SaasStatus.Active, memberCount: 189 }).canAddMember(now)
+        sub({
+          tier: SaasTier.Growth,
+          status: SaasStatus.Active,
+          memberCount: GROWTH_TIER_MEMBER_LIMIT - 1,
+        }).canAddMember(now)
       ).toBe(true);
       expect(
         sub({

@@ -232,10 +232,10 @@ BEGIN
   END;
 
   ------------------------------------------------------------------
-  -- 7b. Growth cap enforced at exactly 190 (fill 41..190 on growth/active)
+  -- 7b. Growth cap enforced at exactly 150 (fill 41..150 on growth/active)
   ------------------------------------------------------------------
   PERFORM save_gym_subscription(v_gym_id, 'growth', 'active', 'PHSUB-CAP', NULL, true);
-  FOR i IN 41..190 LOOP
+  FOR i IN 41..150 LOOP
     PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
       'name', 'GFill ' || i,
       'phone_number', '+9476' || lpad((2000000 + i)::text, 7, '0'),
@@ -246,33 +246,33 @@ BEGIN
   END LOOP;
   BEGIN
     PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
-      'name', 'Growth Over', 'phone_number', '+94760000191',
+      'name', 'Growth Over', 'phone_number', '+94760000151',
       'plan_type', 'monthly', 'plan_amount', 2000,
       'recurring_discount', false, 'status', 'active',
       'next_due_date', '2099-01-01'
     ));
-    v_failures := v_failures || 'FAIL 7b: 191st member accepted on Growth tier';
+    v_failures := v_failures || 'FAIL 7b: 151st member accepted on Growth tier';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM LIKE '%MEMBER_LIMIT_REACHED%' THEN
-      PERFORM pg_temp._acc_log('PASS 7b: 191st registration rejected on Growth (cap 190)');
+      PERFORM pg_temp._acc_log('PASS 7b: 151st registration rejected on Growth (cap 150)');
     ELSE
       v_failures := v_failures || format('FAIL 7b: unexpected error: %s', SQLERRM);
     END IF;
   END;
 
-  -- 7c. Enterprise: unlimited — the 191st member that Growth rejected goes in
+  -- 7c. Enterprise: unlimited — the 151st member that Growth rejected goes in
   PERFORM save_gym_subscription(v_gym_id, 'enterprise', 'active', 'PHSUB-ENT', NULL, true);
   PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
-    'name', 'Enterprise Over', 'phone_number', '+94760000192',
+    'name', 'Enterprise Over', 'phone_number', '+94760000152',
     'plan_type', 'monthly', 'plan_amount', 2000,
     'recurring_discount', false, 'status', 'active',
     'next_due_date', '2099-01-01'
   ));
   SELECT member_count INTO v_count FROM gyms WHERE id = v_gym_id;
-  IF v_count = 191 THEN
-    PERFORM pg_temp._acc_log('PASS 7c: enterprise accepts beyond 190 (unlimited)');
+  IF v_count = 151 THEN
+    PERFORM pg_temp._acc_log('PASS 7c: enterprise accepts beyond 150 (unlimited)');
   ELSE
-    v_failures := v_failures || format('FAIL 7c: expected 191 members, got %s', v_count);
+    v_failures := v_failures || format('FAIL 7c: expected 151 members, got %s', v_count);
   END IF;
 
   ------------------------------------------------------------------

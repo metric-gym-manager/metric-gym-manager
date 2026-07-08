@@ -100,8 +100,8 @@ export const TIER_DISPLAY_NAME: Record<SaasTier, string> = {
 /** Starter-tier member cap. SQL mirror: register_member_guarded (literal 40). */
 export const STARTER_TIER_MEMBER_LIMIT = 40;
 
-/** Growth-tier member cap. SQL mirror: register_member_guarded (literal 190). */
-export const GROWTH_TIER_MEMBER_LIMIT = 190;
+/** Growth-tier ACTIVE-member cap. SQL mirror: assert_gym_can_add_active_member (literal 150, migration 20260708000002). */
+export const GROWTH_TIER_MEMBER_LIMIT = 150;
 
 /** Days of Growth access after a failed charge before dunning downgrades. SQL mirror: literal 7. */
 export const GRACE_PERIOD_DAYS = 7;

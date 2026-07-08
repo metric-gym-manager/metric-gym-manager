@@ -18,7 +18,7 @@ function fields(overrides: Record<string, string> = {}): Record<string, string> 
     merchant_id: '1211149',
     order_id: 'SUB-gym-1-1',
     payment_id: 'PAY-1',
-    payhere_amount: '4900.00',
+    payhere_amount: '2990.00',
     payhere_currency: 'LKR',
     status_code: '2',
     md5sig: 'SHOULD-NEVER-PERSIST',
@@ -67,7 +67,7 @@ describe('HandlePayHereWebhook (UC-2)', () => {
 
     it('AMOUNT_MISMATCH: tampered/wrong amount fails the intent and provisions nothing', async () => {
       const { subRepo, intentRepo, useCase } = build();
-      intentRepo.findPendingByOrderId.mockResolvedValue(makeIntent({ expectedAmount: 4900 }));
+      intentRepo.findPendingByOrderId.mockResolvedValue(makeIntent({ expectedAmount: 2990 }));
       subRepo.findByGymId.mockResolvedValue(makeSubscription());
 
       const { outcome } = await useCase.execute(fields({ payhere_amount: '1.00' }));

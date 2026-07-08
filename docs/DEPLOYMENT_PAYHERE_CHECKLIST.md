@@ -29,7 +29,7 @@ PayHere dashboard. Never commit real values.
 | `PAYHERE_MODE` | `live` | `sandbox` for the preview/staging environment |
 | `PAYHERE_MERCHANT_ID` | *(dashboard)* | Integrations → your merchant id |
 | `PAYHERE_MERCHANT_SECRET` | *(dashboard)* | **per-domain**, server-side only — never `NEXT_PUBLIC_*` |
-| `PAYHERE_PRO_PRICE_LKR` | `4900` | Growth monthly price; must match the amount asserted in checkout |
+| `PAYHERE_PRO_PRICE_LKR` | `2990` | Growth monthly price (lowered from 4900); must match the amount asserted in checkout |
 | `PAYHERE_ENTERPRISE_PRICE_LKR` | `6990` | Enterprise monthly price |
 | `PAYHERE_APP_ID` | *(dashboard)* | REST API key (Subscription Manager) |
 | `PAYHERE_APP_SECRET` | *(dashboard)* | REST API secret |
@@ -177,6 +177,15 @@ These are done and need no action — listed so the checklist is self-contained:
   totals to their active totals). Extended acceptance probes 7d–7i (active-only
   increment, non-active never blocked, active→expired decrement, reactivation at
   cap → `MEMBER_LIMIT_REACHED`) all pass, plus the 20 integration tests.
+- Migration `20260708000002_growth_cap_150` applied to production: the Growth
+  active-member cap dropped 190 → 150 (single `CREATE OR REPLACE` of
+  `assert_gym_can_add_active_member`; registration + the into-active trigger both
+  delegate to it). Growth's price also dropped to **2990 LKR/month** — that is
+  env config, not a DB literal: **update `PAYHERE_PRO_PRICE_LKR` to `2990` in the
+  production Vercel env and redeploy** (the charged amount is priced server-side
+  from this var and asserted against the signed webhook amount; a stale `4900`
+  would fail every Growth checkout with an amount mismatch). Existing Growth gyms
+  above 150 active keep every member; the cap only gates new/into-active members.
 - Integration suites (webhook idempotency / recovery-anchor / identity-guard /
   flood-cap, 60-way quota race, dunning branches, checkout race, cancel
   ordering) and the E2E billing flows (upgrade, return states, quota upsell,

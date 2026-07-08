@@ -51,7 +51,7 @@ gatedDescribe('checkout race + cancel (integration)', () => {
       new SupabaseGymSubscriptionRepository(supabase),
       new SupabaseCheckoutIntentRepository(supabase),
       new PayHereGateway(),
-      { [SaasTier.Growth]: 4900, [SaasTier.Enterprise]: 6990 }
+      { [SaasTier.Growth]: 2990, [SaasTier.Enterprise]: 6990 }
     );
   }
 

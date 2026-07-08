@@ -19,7 +19,7 @@ jest.mock('../hooks/useSubscription', () => ({
 function subscriptionData(tier: SaasTier, memberCount: number, limit: number | null, remaining: number | null) {
   return {
     data: {
-      proPriceLkr: 4900,
+      proPriceLkr: 2990,
       subscription: {
         subscriptionTier: tier,
         memberCount,
@@ -45,7 +45,7 @@ describe('MemberLimitBar', () => {
     expect(screen.getByRole('link', { name: /upgrade/i })).toHaveAttribute('href', '/settings/billing');
   });
 
-  it('shows Growth (190) usage too', () => {
+  it('shows Growth (150) usage too', () => {
     mockUseSubscription.mockReturnValue(
       subscriptionData(SaasTier.Growth, 180, GROWTH_TIER_MEMBER_LIMIT, 10)
     );

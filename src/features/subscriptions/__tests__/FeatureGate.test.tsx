@@ -10,7 +10,7 @@ function withCapabilities(announcements: boolean) {
   return {
     isLoading: false,
     data: {
-      proPriceLkr: 4900,
+      proPriceLkr: 2990,
       subscription: {
         capabilities: { automatedReminders: announcements, announcements },
       },

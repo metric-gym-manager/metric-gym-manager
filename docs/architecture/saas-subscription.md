@@ -11,7 +11,7 @@ Design rationale (conflict register C-1..C-27):
 
 ## Non-negotiable constraints
 
-1. **Caps are ACTIVE members** (Starter 40 / Growth 190 / Enterprise ∞), **grace = 7 days**
+1. **Caps are ACTIVE members** (Starter 40 / Growth 150 / Enterprise ∞), **grace = 7 days**
    (tiers renamed free/pro -> starter/growth, 20260706000002; active-only quota 20260708000001) —
    single source `src/core/utils/constants/SubscriptionConfig.ts`; SQL literals carry back-reference
    comments. Only members with `status = 'active'` count toward the cap; expired/suspended/cancelled

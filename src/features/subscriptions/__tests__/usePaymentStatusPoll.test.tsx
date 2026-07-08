@@ -18,7 +18,7 @@ const mockGetSubscription = getSubscription as jest.MockedFunction<typeof getSub
 
 function subResult(tier: SaasTier, status: SaasStatus) {
   return {
-    proPriceLkr: 4900,
+    proPriceLkr: 2990,
     enterprisePriceLkr: 6990,
     subscription: {
       subscriptionTier: tier,

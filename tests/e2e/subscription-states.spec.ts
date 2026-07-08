@@ -39,7 +39,7 @@ test('webhook-absent path: verifying times out into PENDING_CONFIRMATION with a 
   await simulateWebhook(request, {
     order_id: orderId,
     payment_id: `E2E-LATE-${Date.now()}`,
-    payhere_amount: Number(process.env.PAYHERE_PRO_PRICE_LKR ?? 4900).toFixed(2),
+    payhere_amount: Number(process.env.PAYHERE_PRO_PRICE_LKR ?? 2990).toFixed(2),
     status_code: '2',
     subscription_id: `E2E-PHSUB-LATE-${Date.now()}`,
   });

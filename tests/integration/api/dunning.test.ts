@@ -122,7 +122,7 @@ gatedDescribe('process-dunning (integration)', () => {
       order_id: `STALE-${Date.now()}`,
       gym_id: gym.gymId,
       target_tier: 'growth',
-      expected_amount: 4900,
+      expected_amount: 2990,
       currency: 'LKR',
       status: 'pending',
       expires_at: new Date(Date.now() - 60 * 1000).toISOString(),

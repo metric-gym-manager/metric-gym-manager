@@ -30,7 +30,7 @@ export function makeIntent(overrides: Partial<CheckoutIntent> = {}): CheckoutInt
     orderId: 'SUB-gym-1-1',
     gymId: 'gym-1',
     targetTier: SaasTier.Growth,
-    expectedAmount: 4900,
+    expectedAmount: 2990,
     currency: 'LKR',
     status: 'pending',
     expiresAt: new Date(Date.now() + 30 * 60 * 1000),

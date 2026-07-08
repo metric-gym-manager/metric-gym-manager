@@ -45,13 +45,13 @@ test('Starter gym: limit bar everywhere except settings; announcements gated', a
   await page.waitForURL('**/settings/billing**');
 });
 
-test('Growth gym: shows the 190-cap usage bar, announcements fully available', async ({ page }) => {
+test('Growth gym: shows the 150-cap usage bar, announcements fully available', async ({ page }) => {
   // Requires the login gym seeded as growth/active (E2E_PRO_GYM=1 confirms)
   test.skip(process.env.E2E_PRO_GYM !== '1', 'requires a gym seeded as growth/active');
 
   await loginAsGym(page);
 
-  // Growth is capped at 190 -> the bar shows on non-settings pages
+  // Growth is capped at 150 -> the bar shows on non-settings pages
   const bar = page.getByTestId('member-limit-bar');
   await expect(bar).toBeVisible();
   await expect(bar).toContainText(/growth plan/i);

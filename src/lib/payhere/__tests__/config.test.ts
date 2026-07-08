@@ -4,7 +4,7 @@ const VALID_ENV = {
   PAYHERE_MODE: 'sandbox',
   PAYHERE_MERCHANT_ID: '1211149',
   PAYHERE_MERCHANT_SECRET: 'TESTSECRET_1234',
-  PAYHERE_PRO_PRICE_LKR: '4900',
+  PAYHERE_PRO_PRICE_LKR: '2990',
   PAYHERE_ENTERPRISE_PRICE_LKR: '6990',
   PAYHERE_APP_ID: 'app-id',
   PAYHERE_APP_SECRET: 'app-secret',
@@ -27,7 +27,7 @@ describe('getPayhereConfig', () => {
   it('parses a valid environment and derives sandbox URLs', () => {
     const cfg = getPayhereConfig();
     expect(cfg.mode).toBe('sandbox');
-    expect(cfg.proPriceLkr).toBe(4900);
+    expect(cfg.proPriceLkr).toBe(2990);
     expect(cfg.checkoutUrl).toBe('https://sandbox.payhere.lk/pay/checkout');
     expect(cfg.restBaseUrl).toBe('https://sandbox.payhere.lk/merchant/v1');
     expect(cfg.returnUrl).toBe('https://app.example.com/settings/billing');

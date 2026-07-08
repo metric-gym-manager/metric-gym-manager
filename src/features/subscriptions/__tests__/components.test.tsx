@@ -84,7 +84,7 @@ describe('CurrentPlanCard (state-to-UI mapping, plan §5.3)', () => {
     expect(screen.getByRole('button', { name: /re-subscribe to growth/i })).toBeInTheDocument();
   });
 
-  it('growth/active: 190 cap meter, renewal date, cancel visible', () => {
+  it('growth/active: 150 cap meter, renewal date, cancel visible', () => {
     render(
       <CurrentPlanCard
         subscription={makeSerialized({

@@ -45,7 +45,7 @@ describe('serializeSubscriptionForAPI', () => {
     expect(out.currentPeriodEnd).toBe('2026-08-15');
   });
 
-  it('exposes the member limit per tier (Starter 40, Growth 190, Enterprise null)', () => {
+  it('exposes the member limit per tier (Starter 40, Growth 150, Enterprise null)', () => {
     expect(serializeSubscriptionForAPI(make()).memberLimit).toBe(STARTER_TIER_MEMBER_LIMIT);
     expect(
       serializeSubscriptionForAPI(make({ tier: SaasTier.Growth, status: SaasStatus.Active }))

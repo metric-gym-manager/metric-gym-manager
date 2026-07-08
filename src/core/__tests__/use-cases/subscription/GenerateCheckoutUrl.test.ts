@@ -19,7 +19,7 @@ const customer = {
 };
 
 describe('GenerateCheckoutUrl (UC-1)', () => {
-  const PRICE = 4900;
+  const PRICE = 2990;
 
   function build() {
     const subRepo = mockSubscriptionRepo();

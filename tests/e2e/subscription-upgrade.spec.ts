@@ -47,7 +47,7 @@ test('upgrade: checkout -> return -> verifying -> webhook -> Pro', async ({ page
   await simulateWebhook(request, {
     order_id: orderId,
     payment_id: `E2E-PAY-${Date.now()}`,
-    payhere_amount: Number(process.env.PAYHERE_PRO_PRICE_LKR ?? 4900).toFixed(2),
+    payhere_amount: Number(process.env.PAYHERE_PRO_PRICE_LKR ?? 2990).toFixed(2),
     status_code: '2',
     subscription_id: `E2E-PHSUB-${Date.now()}`,
   });
