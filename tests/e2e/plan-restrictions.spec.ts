@@ -18,7 +18,7 @@ test('Starter gym: limit bar everywhere except settings; announcements gated', a
   await loginAsGym(page);
 
   // Bar on the dashboard, in the at-limit state, with the upgrade CTA
-  const bar = page.getByTestId('starter-limit-bar');
+  const bar = page.getByTestId('member-limit-bar');
   await expect(bar).toBeVisible();
   await expect(bar).toContainText(/member limit reached/i);
   await expect(bar.getByRole('link', { name: /upgrade/i })).toHaveAttribute(
@@ -28,12 +28,12 @@ test('Starter gym: limit bar everywhere except settings; announcements gated', a
 
   // Bar on another page too (site-wide chrome)
   await page.goto('/members');
-  await expect(page.getByTestId('starter-limit-bar')).toBeVisible();
+  await expect(page.getByTestId('member-limit-bar')).toBeVisible();
 
   // ...but never under /settings
   await page.goto('/settings/billing');
   await expect(page.getByText('Starter Plan')).toBeVisible();
-  await expect(page.getByTestId('starter-limit-bar')).toHaveCount(0);
+  await expect(page.getByTestId('member-limit-bar')).toHaveCount(0);
 
   // Announcements page is replaced by the upgrade panel
   await page.goto('/make-announcement');
@@ -45,16 +45,48 @@ test('Starter gym: limit bar everywhere except settings; announcements gated', a
   await page.waitForURL('**/settings/billing**');
 });
 
-test('Growth gym: no limit bar, announcements page fully available', async ({ page }) => {
+test('Growth gym: shows the 190-cap usage bar, announcements fully available', async ({ page }) => {
   // Requires the login gym seeded as growth/active (E2E_PRO_GYM=1 confirms)
   test.skip(process.env.E2E_PRO_GYM !== '1', 'requires a gym seeded as growth/active');
 
   await loginAsGym(page);
 
-  await expect(page.getByTestId('starter-limit-bar')).toHaveCount(0);
+  // Growth is capped at 190 -> the bar shows on non-settings pages
+  const bar = page.getByTestId('member-limit-bar');
+  await expect(bar).toBeVisible();
+  await expect(bar).toContainText(/growth plan/i);
 
   await page.goto('/make-announcement');
   await expect(page.getByTestId('feature-gate-upsell')).toHaveCount(0);
   // The real composer renders (message box + send controls)
   await expect(page.getByRole('button', { name: /send/i }).first()).toBeVisible();
+});
+
+test('Enterprise (lifetime/comped) gym: no bar, billing controls greyed, features open', async ({
+  page,
+}) => {
+  // Requires the login gym seeded as complimentary enterprise (E2E_ENTERPRISE_GYM=1)
+  test.skip(
+    process.env.E2E_ENTERPRISE_GYM !== '1',
+    'requires a gym seeded as complimentary enterprise'
+  );
+
+  await loginAsGym(page);
+
+  // Unlimited -> no usage bar anywhere
+  await expect(page.getByTestId('member-limit-bar')).toHaveCount(0);
+
+  // Announcements available (Enterprise includes it)
+  await page.goto('/make-announcement');
+  await expect(page.getByTestId('feature-gate-upsell')).toHaveCount(0);
+
+  // Billing page: Lifetime badge + subscription management greyed out, not removed
+  await page.goto('/settings/billing');
+  await expect(page.getByText('Enterprise Plan', { exact: true })).toBeVisible();
+  await expect(page.getByText('Lifetime').first()).toBeVisible();
+  await expect(page.getByText(/managed by us/i).first()).toBeVisible();
+  // No enabled cancel/upgrade actions for a comped gym
+  const managed = page.getByRole('button', { name: /subscription managed by us/i });
+  await expect(managed).toBeVisible();
+  await expect(managed).toBeDisabled();
 });
