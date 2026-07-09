@@ -5,9 +5,16 @@ import { CronLogger } from '@/core/utils/cron';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // ============================================================
-// POST /api/cron/expire-suspended-members - Expire overdue suspended members cron job
+// /api/cron/expire-suspended-members - Expire overdue suspended members cron job
 // Schedule: Daily at midnight (00:00 UTC+5:30)
+//
+// Vercel Cron invokes this path with an HTTP GET request, so the
+// job must run on GET as well as POST. Both verify the CRON_SECRET
+// bearer token.
 // ============================================================
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 /**
  * Expire Suspended Members Cron Job
@@ -22,7 +29,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * This closes the suspension loophole where members could remain suspended
  * indefinitely past their due date without automatic expiration.
  */
-export async function POST(request: NextRequest) {
+async function runExpireSuspendedMembers(request: NextRequest) {
   const supabase = createAdminClient();
   const logger = new CronLogger(supabase);
   let logId: string | null = null;
@@ -100,21 +107,23 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Allow GET for manual testing (only in development)
-export async function GET(_request: NextRequest) {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json(
-      ResponseBuilder.error('Method not allowed in production', 'METHOD_NOT_ALLOWED'),
-      { status: 405 }
-    );
+// Vercel Cron triggers this handler
+export async function GET(request: NextRequest) {
+  // In development, allow GET without auth for easy manual testing
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('🧪 Manual test: Starting expire suspended members cron job...');
+
+    const container = await getAdminContainer();
+    const expireSuspended = container.getExpireSuspendedMembersUseCase();
+    const summary = await expireSuspended.execute();
+
+    return NextResponse.json(ResponseBuilder.success(summary));
   }
 
-  // In development, allow GET without auth for easy testing
-  console.log('🧪 Manual test: Starting expire suspended members cron job...');
+  return runExpireSuspendedMembers(request);
+}
 
-  const container = await getAdminContainer();
-  const expireSuspended = container.getExpireSuspendedMembersUseCase();
-  const summary = await expireSuspended.execute();
-
-  return NextResponse.json(ResponseBuilder.success(summary));
+// Manual/external trigger (e.g. curl with the bearer token)
+export async function POST(request: NextRequest) {
+  return runExpireSuspendedMembers(request);
 }

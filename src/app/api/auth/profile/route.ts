@@ -12,15 +12,10 @@ export async function GET() {
     return error;
   }
 
-  // Expose a safe boolean so the UI can reveal demo-only tools without ever
-  // shipping the allow-listed email to the client. Comparison stays server-side.
-  const allowedEmail = process.env.DEMO_TOOLS_ALLOWED_EMAIL;
-  const isDemoAccount = !!allowedEmail && gymProfile!.email === allowedEmail;
-
   return NextResponse.json(
     {
       success: true,
-      data: { ...gymProfile, isDemoAccount },
+      data: gymProfile,
     },
     {
       status: 200,

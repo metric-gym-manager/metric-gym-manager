@@ -9,6 +9,10 @@
       "schedule": "15 0 * * *"
     },
     {
+      "path": "/api/cron/expire-suspended-members",
+      "schedule": "30 0 * * *"
+    },
+    {
       "path": "/api/cron/send-reminders",
       "schedule": "30 3 * * *"
     },

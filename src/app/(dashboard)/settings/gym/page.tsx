@@ -11,7 +11,6 @@ import { Label } from '@/components/ui/label';
 import { updateGymInfoSchema, type UpdateGymInfoInput } from '@/features/settings/schemas/settings.schemas';
 import { Plus } from 'lucide-react';
 import ProfileImageUpload from '@/components/settings/ProfileImageUpload';
-import DemoSmsPanel from '@/components/settings/DemoSmsPanel';
 
 export default function GymInformationPage() {
   const router = useRouter();
@@ -200,11 +199,6 @@ export default function GymInformationPage() {
             </Button>
           </div>
         </form>
-
-        {/* Demo SMS — visible only to the designated demo account */}
-        {gymProfile?.isDemoAccount && (
-          <DemoSmsPanel gymName={gymProfile.gym_name} />
-        )}
       </div>
     </div>
   );
