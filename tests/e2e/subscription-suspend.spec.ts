@@ -21,10 +21,9 @@ test('suspended gym: suspended copy, subscribe CTA, no cancel, member add blocke
   await loginAsGym(page);
 
   await page.goto('/settings/billing');
-  // Suspended badge + explanation; the tier name is preserved (no Starter)
+  // Suspended badge + explanation; the tier name is preserved
   await expect(page.getByText('Suspended').first()).toBeVisible();
   await expect(page.getByText(/until payment is\s+received/i)).toBeVisible();
-  await expect(page.getByText(/starter/i)).toHaveCount(0);
 
   // Checkout back into the preserved tier is offered; cancel is not
   await expect(

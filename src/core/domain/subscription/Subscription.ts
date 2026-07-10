@@ -13,8 +13,7 @@
  * pro ∞, enterprise ∞).
  *
  * There is NO free tier and NO downgrade landing tier: dunning and trial
- * expiry SUSPEND (status change, tier preserved). suspend() replaced the old
- * downgradeToStarter().
+ * expiry SUSPEND (status change, tier preserved) via suspend().
  *
  * Complimentary (lifetime) subscriptions: a tier with NO gateway
  * subscription and NO period end while ACTIVE (manually provisioned, never
@@ -231,8 +230,6 @@ export class Subscription {
    * subscription id is RETAINED so a late successful PayHere retry can
    * still reactivate (identity guard C-21 matches it); a new checkout
    * replaces it on activate(). Members are NEVER touched by this transition.
-   *
-   * Replaces the removed downgradeToStarter().
    */
   suspend(): Subscription {
     const allowed =

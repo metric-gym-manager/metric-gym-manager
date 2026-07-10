@@ -13,8 +13,7 @@ interface ProAvatarRingProps {
 /**
  * Pro/Enterprise avatar ring — the positive-reinforcement marker for
  * unlimited-tier gyms (Google One-style multi-colored frame around the
- * profile circle). Renamed from GrowthAvatarRing with the Lite/Pro/
- * Enterprise re-anchor.
+ * profile circle).
  *
  * Presentational only: the caller supplies the serialized tier (single source
  * of truth: `useSubscription` / the subscription serializer). Lite gyms and

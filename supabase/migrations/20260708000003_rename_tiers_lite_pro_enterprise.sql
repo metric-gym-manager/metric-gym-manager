@@ -63,9 +63,10 @@ ALTER TABLE gyms ALTER COLUMN subscription_status DROP DEFAULT;
 --                                No silent 2990->4990 charge can occur.
 --                                OPS: notify any BILLED gym of the tier
 --                                change. No-op at migration time: no gym
---                                carries a billed gateway subscription (real
---                                accounts are complimentary/lifetime; growth
---                                rows are operator demo accounts).
+--                                carries a billed gateway subscription (the
+--                                real accounts are complimentary/lifetime;
+--                                the rows this branch matches are operator-
+--                                created demo accounts).
 -- starter (free, any status)  -> lite/trialing with a fresh 14-day trial
 --                                window. Non-paying accounts get a full-
 --                                feature window, then the trial-expiry cron

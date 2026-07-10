@@ -3,19 +3,19 @@
 **Implemented:** 2026-07-04 · **Plan:** `docs/Payhere_subscritption_integration/payhere-subscription-execution-plan.md`
 (conflict register C-1..C-30 explains every design decision referenced below).
 
-> **Tier history:** launched `free`/`pro` (cap 50) → renamed `starter`/`growth`,
-> Starter cap **40** (`20260706000002`) → added **Enterprise** + Growth cap 190
-> (`20260707000001`) → Growth cap 150 (`20260708000002`) → **re-anchored to the
-> PAID-ONLY ladder** Lite (100) / Pro (∞) / Enterprise (∞) (`20260708000003..6`).
-> This last step is not a rename: the free tier is REMOVED. Onboarding is a
-> **trial status** (lite/trialing + 14-day clock), and dunning **suspends**
-> (status change, tier preserved) instead of downgrading. The string `'pro'` is
-> reused for the unlimited mid tier — collision-free because the free-era
-> `'pro'` rows were all renamed to `'growth'` in `20260706000002`. All swaps are
-> transactional CHECK-constraint changes (the C-19 text+CHECK design exists for
-> exactly this). TS mirror: `SubscriptionConfig.ts`
-> (`SaasTier.Lite/Pro/Enterprise`, `SaasStatus` incl. `Trialing`/`Suspended`,
-> `LITE_TIER_MEMBER_LIMIT = 100`, `TRIAL_PERIOD_DAYS = 14`,
+> **Tiers:** the PAID-ONLY ladder Lite (100) / Pro (∞) / Enterprise (∞)
+> (`20260708000003..6`). There is no free tier: onboarding is a **trial
+> status** (lite/trialing + 14-day clock), and dunning **suspends** (status
+> change, tier preserved) instead of downgrading. Two earlier tier renames
+> preceded this ladder — that value lineage (including why reusing the string
+> `'pro'` is collision-free) is recorded in the migration chain
+> (`20260706000002` → `20260707000001` → `20260708000003`) and register
+> entries C-28..C-30; read migration `20260708000003` before touching
+> historical tier data. All swaps are transactional CHECK-constraint changes
+> (the C-19 text+CHECK design exists for exactly this). TS mirror:
+> `SubscriptionConfig.ts` (`SaasTier.Lite/Pro/Enterprise`, `SaasStatus` incl.
+> `Trialing`/`Suspended`, `LITE_TIER_MEMBER_LIMIT = 100`,
+> `TRIAL_PERIOD_DAYS = 14`,
 > `PAYHERE_LITE_PRICE_LKR`/`PAYHERE_PRO_PRICE_LKR`/`PAYHERE_ENTERPRISE_PRICE_LKR`).
 >
 > **Complimentary (lifetime) subscriptions:** a tier provisioned manually
@@ -159,7 +159,7 @@ adding a tier to `SaasTier` breaks compilation until the matrix is extended.
 | Capability | Lite | Pro | Enterprise | Server authority | UX layer |
 |---|---|---|---|---|---|
 | `maxMembers` | 100 | ∞ | ∞ | `assert_gym_can_add_active_member` (SQL) | `MemberLimitBar` (Lite only — the one capped tier), quota upsell → Pro |
-| `automatedReminders` | ✓ | ✓ | ✓ | Universal — `SendAutomatedReminders` gates on billing STATUS only (send trialing/active/past_due-in-grace; halt suspended/canceled, fail-closed; `membersSkippedBillingRestricted` in the cron summary) | — |
+| `automatedReminders` | ✓ | ✓ | ✓ | Universal — `SendAutomatedReminders` gates on billing STATUS only (send trialing/active/past_due-in-grace/canceled-while-paid-through; halt suspended + lapsed windows, fail-closed; `membersSkippedBillingRestricted` in the cron summary) | — |
 | `announcements` | ✓ | ✓ | ✓ | Universal — `POST /api/announcements` keeps the fail-closed matrix check wired for future re-gating (never 403s by tier today) | `FeatureGate` passes through |
 | `accessControlHardware` | ✗ | ✗ | ✓ | The sole remaining per-tier gate | `FeatureGate` upsell → Enterprise |
 
@@ -172,7 +172,7 @@ active subscribers.
 
 1. **Env** (see `.env.example`): `PAYHERE_MODE/MERCHANT_ID/MERCHANT_SECRET/APP_ID/APP_SECRET` +
    **all three prices**: `PAYHERE_LITE_PRICE_LKR=2990` (new), `PAYHERE_PRO_PRICE_LKR=4990`
-   (**repurposed** — history `4900 (pro-original) → 2990 (growth) → 4990 (pro-new)`),
+   (**repurposed** — historical values `4900 → 2990 → 4990`; see migration `20260708000003`),
    `PAYHERE_ENTERPRISE_PRICE_LKR=6990`. Deploy the env flip in the SAME release as migration
    `20260708000003` (see `docs/DEPLOYMENT_PAYHERE_CHECKLIST.md`).
 2. **PayHere dashboard**: whitelist the app domain for the Merchant Secret AND for the API key
@@ -186,11 +186,11 @@ active subscribers.
 5. **Migrations**: apply `20260704000001..3`, then `20260706000002`, `20260707000001`,
    `20260708000001..2`, then the tier-strategy train `20260708000003..6` in order; verify with
    `scripts/billing-acceptance/run.sh`. Grandfathering note (migration `…000003`, precautionary):
-   a billed growth gym with >100 active members would land on Pro but keep paying 2990 on its
+   a billed gym landing on Pro via the >100-active overflow branch would keep paying 2990 on its
    existing gateway subscription (PayHere fixes the recurring amount at creation; no silent
    2990→4990 charge can occur) — notify any such gym of the tier change. No-op at migration
-   time: no gym carries a billed gateway subscription (real accounts are complimentary/lifetime;
-   growth rows are operator demo accounts).
+   time: no gym carries a billed gateway subscription (the real accounts are
+   complimentary/lifetime; the rest are operator-created demo accounts).
 6. **Cron**: `process-trial-expiry` added to `vercel.json` (daily 00:50 UTC) alongside
    `process-dunning` (00:45 UTC); both require `CRON_SECRET`.
 

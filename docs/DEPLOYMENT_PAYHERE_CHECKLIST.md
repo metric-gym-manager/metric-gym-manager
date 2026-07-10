@@ -22,14 +22,14 @@ verified (plan §4 acceptance — all probes pass).
 > `scripts/billing-acceptance/run.sh` and add the `process-trial-expiry` cron
 > env (`vercel.json` already schedules it; it uses the same `CRON_SECRET`).
 >
-> Growth-overflow note (precautionary only): a billed growth gym with >100
-> active members would land on Pro but keep paying 2990 on its existing
-> gateway subscription until it cancels/re-subscribes (PayHere fixes the
-> recurring amount at creation; no silent 2990→4990 charge can occur) — such
-> a gym should be notified of the tier change. **As of this migration this is
-> a no-op:** no gym carries a billed gateway subscription; the only real
-> accounts are complimentary/lifetime, and the remaining growth rows are
-> operator-created demo accounts.
+> Overflow note (precautionary only): a billed gym landing on Pro via the
+> migration's >100-active overflow branch would keep paying 2990 on its
+> existing gateway subscription until it cancels/re-subscribes (PayHere fixes
+> the recurring amount at creation; no silent 2990→4990 charge can occur) —
+> such a gym should be notified of the tier change. **As of this migration
+> this is a no-op:** no gym carries a billed gateway subscription; the only
+> real accounts are complimentary/lifetime, and the rest are operator-created
+> demo accounts.
 
 The rest of this checklist is the gateway/edge configuration that has to happen
 outside the codebase.
@@ -48,7 +48,7 @@ PayHere dashboard. Never commit real values.
 | `PAYHERE_MERCHANT_ID` | *(dashboard)* | Integrations → your merchant id |
 | `PAYHERE_MERCHANT_SECRET` | *(dashboard)* | **per-domain**, server-side only — never `NEXT_PUBLIC_*` |
 | `PAYHERE_LITE_PRICE_LKR` | `2990` | **New** — Lite monthly price. Ship in the SAME release as migration `20260708000003` |
-| `PAYHERE_PRO_PRICE_LKR` | `4990` | **Repurposed** — Pro (unlimited) monthly price. Value history: `4900` (pro-original) → `2990` (growth) → `4990` (pro-new). The var name is stable; its meaning changed with the paid-only ladder. Flip together with `20260708000003` |
+| `PAYHERE_PRO_PRICE_LKR` | `4990` | **Repurposed** — Pro (unlimited) monthly price. Historical values: `4900` → `2990` → `4990` (see migration `20260708000003`). The var name is stable; its meaning changed with the paid-only ladder. Flip together with `20260708000003` |
 | `PAYHERE_ENTERPRISE_PRICE_LKR` | `6990` | Enterprise monthly price (unchanged) |
 | `PAYHERE_APP_ID` | *(dashboard)* | REST API key (Subscription Manager) |
 | `PAYHERE_APP_SECRET` | *(dashboard)* | REST API secret |
@@ -186,28 +186,21 @@ These are done and need no action — listed so the checklist is self-contained:
   fail-closed column-guard trigger for `authenticated` **and** a fresh
   unenumerated role, EXECUTE lockdown, dunning branches with members preserved,
   duplicate-payment-id / NULL-id index semantics, C-20 cap index-only scan).
-- Migration `20260708000001_active_member_quota` applied to production: the
-  member quota now counts **active** members only. Non-active members
-  (expired/suspended/cancelled) are unlimited on every tier and never quota-gated;
-  the cap only gates registering an active member or flipping one into active
+- Migrations `20260708000001..2` applied to production: the member quota
+  counts **active** members only. Non-active members (expired/suspended/
+  cancelled) are unlimited on every tier and never quota-gated; the cap only
+  gates registering an active member or flipping one into active
   (reactivation, pay-to-reactivate), via `assert_gym_can_add_active_member` +
   the `trg_enforce_active_member_quota` BEFORE trigger. The backfill re-based
-  `gyms.member_count` on the active count — this **lowered** live counts wherever
-  gyms carried inactive members (e.g. a Starter gym reading 33/40 with only 10
-  active now reads 10/40; the two comped Enterprise gyms dropped from their row
-  totals to their active totals). Extended acceptance probes 7d–7i (active-only
-  increment, non-active never blocked, active→expired decrement, reactivation at
-  cap → `MEMBER_LIMIT_REACHED`) all pass, plus the 20 integration tests.
-- Migration `20260708000002_growth_cap_150` applied to production: the Growth
-  active-member cap dropped 190 → 150 (single `CREATE OR REPLACE` of
-  `assert_gym_can_add_active_member`; registration + the into-active trigger both
-  delegate to it). Growth's price also dropped to **2990 LKR/month** — that is
-  env config, not a DB literal: **update `PAYHERE_PRO_PRICE_LKR` to `2990` in the
-  production Vercel env and redeploy** (the charged amount is priced server-side
-  from this var and asserted against the signed webhook amount; a stale `4900`
-  would fail every Growth checkout with an amount mismatch). Existing Growth gyms
-  above 150 active keep every member; the cap only gates new/into-active members.
+  `gyms.member_count` on the active count — this **lowered** live counts
+  wherever gyms carried inactive members. Acceptance probes (active-only
+  increment, non-active never blocked, active→expired decrement, reactivation
+  at cap → `MEMBER_LIMIT_REACHED`) all pass, plus the integration tests. The
+  pre-ladder cap/price values these two migrations carried are superseded by
+  the paid-only ladder (`20260708000003..6` + the env table above) — the env
+  table is the only current price source.
 - Integration suites (webhook idempotency / recovery-anchor / identity-guard /
-  flood-cap, 60-way quota race, dunning branches, checkout race, cancel
-  ordering) and the E2E billing flows (upgrade, return states, quota upsell,
-  cancel, past-due banner) pass against a disposable database.
+  flood-cap, 60-way quota race at the Lite cap, dunning-suspend branches,
+  trial expiry, checkout race, cancel ordering) and the E2E billing flows
+  (checkout, return states, quota upsell, cancel, past-due banner, trial and
+  suspended states) pass against a disposable database.

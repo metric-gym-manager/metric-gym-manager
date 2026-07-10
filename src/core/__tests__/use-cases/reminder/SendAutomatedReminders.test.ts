@@ -82,19 +82,34 @@ describe('SendAutomatedReminders — billing-status gate (reminders on every tie
     expect(smsProvider.send).toHaveBeenCalledTimes(1);
   });
 
-  it('halts for suspended and canceled accounts', async () => {
+  it('sends for canceled while paid-through; halts once the period lapses and for suspended', async () => {
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
     const { useCase, smsProvider } = build(
-      [makeMember('gym-s', 'Suspended Member'), makeMember('gym-c', 'Canceled Member')],
+      [
+        makeMember('gym-paid', 'Canceled Paid-Through Member'),
+        makeMember('gym-lapsed', 'Canceled Lapsed Member'),
+        makeMember('gym-s', 'Suspended Member'),
+      ],
       {
+        // Canceled but the paid period still covers today -> reminders flow
+        'gym-paid': makeSubscription({
+          gymId: 'gym-paid',
+          tier: SaasTier.Enterprise,
+          status: SaasStatus.Canceled,
+          currentPeriodEnd: new Date(now + 5 * dayMs),
+        }),
+        // Canceled and the period has ended -> halted (dunning suspends next)
+        'gym-lapsed': makeSubscription({
+          gymId: 'gym-lapsed',
+          tier: SaasTier.Enterprise,
+          status: SaasStatus.Canceled,
+          currentPeriodEnd: new Date(now - 1 * dayMs),
+        }),
         'gym-s': makeSubscription({
           gymId: 'gym-s',
           tier: SaasTier.Pro,
           status: SaasStatus.Suspended,
-        }),
-        'gym-c': makeSubscription({
-          gymId: 'gym-c',
-          tier: SaasTier.Enterprise,
-          status: SaasStatus.Canceled,
         }),
       }
     );
@@ -102,7 +117,7 @@ describe('SendAutomatedReminders — billing-status gate (reminders on every tie
     const summary = await useCase.execute();
 
     expect(summary.membersSkippedBillingRestricted).toBe(2);
-    expect(smsProvider.send).not.toHaveBeenCalled();
+    expect(smsProvider.send).toHaveBeenCalledTimes(1);
   });
 
   it('sends for past_due within grace; halts past grace', async () => {

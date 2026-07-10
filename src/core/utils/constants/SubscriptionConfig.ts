@@ -6,13 +6,10 @@
  * 20260708000005/6 (dunning suspend, trial expiry) carry comments pointing
  * back to the constants here — keep them in lock-step.
  *
- * Tier history: launched as free/pro (migrations 20260704*), renamed to
- * starter/growth in 20260706000002, enterprise added in 20260707000001,
- * re-anchored to the PAID-ONLY Lite/Pro/Enterprise ladder in 20260708000003
- * (starter removed — onboarding is a trial STATUS now, not a free tier; the
- * string 'pro' is REUSED for the unlimited mid tier: the free-era 'pro' rows
- * were all renamed to 'growth' in 20260706000002, so the reuse is
- * collision-free).
+ * Tier value lineage (two renames preceded this ladder) is recorded where it
+ * belongs: the migration chain (20260706000002 → 20260707000001 →
+ * 20260708000003) and conflict-register entries C-28..C-30. Read migration
+ * 20260708000003 before touching historical tier data.
  *
  * Every tier is paid: there is no free tier, no PAID_TIERS subset and no
  * isPaidTier() — dunning SUSPENDS (status change, tier preserved) instead of

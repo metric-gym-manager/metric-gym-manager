@@ -103,10 +103,11 @@ export class SendAutomatedReminders {
   /**
    * Resolve which of the given gyms may receive automated reminders.
    * Reminders exist on every tier — the gate is BILLING STATUS only:
-   * send while trialing, active or past_due within grace; halt for
-   * suspended and canceled accounts. One subscription lookup per DISTINCT
-   * gym; a gym whose subscription cannot be resolved is treated as
-   * restricted (fail closed).
+   * send while trialing, active, past_due within grace, or canceled while
+   * still paid-through (the customer keeps what they paid for until period
+   * end); halt for suspended accounts and lapsed windows. One subscription
+   * lookup per DISTINCT gym; a gym whose subscription cannot be resolved is
+   * treated as restricted (fail closed).
    */
   private async resolveAllowedGyms(gymIds: string[]): Promise<Set<string>> {
     const allowed = new Set<string>();
@@ -117,7 +118,8 @@ export class SendAutomatedReminders {
       const sendable =
         sub.status === SaasStatus.Trialing ||
         sub.status === SaasStatus.Active ||
-        (sub.status === SaasStatus.PastDue && !sub.isGraceExpired(now));
+        (sub.status === SaasStatus.PastDue && !sub.isGraceExpired(now)) ||
+        (sub.status === SaasStatus.Canceled && sub.isPaidThrough(now));
       if (sendable) {
         allowed.add(gymId);
       }
@@ -152,15 +154,16 @@ export class SendAutomatedReminders {
         ? await this.memberRepo.findActiveMembers(input.gymId)
         : await this.memberRepo.findAllActiveMembers();
 
-      // Billing-status gate: reminders exist on every tier, but suspended /
-      // canceled / grace-expired accounts are halted before any reminder
-      // logic runs. One subscription lookup per distinct gym.
+      // Billing-status gate: reminders exist on every tier, but suspended
+      // accounts and lapsed windows (grace-expired past_due, canceled past
+      // period end) are halted before any reminder logic runs. One
+      // subscription lookup per distinct gym.
       const allowedGyms = await this.resolveAllowedGyms(allMembers.map((m) => m.gymId));
       const members = allMembers.filter((m) => allowedGyms.has(m.gymId));
       summary.membersSkippedBillingRestricted = allMembers.length - members.length;
       if (summary.membersSkippedBillingRestricted > 0) {
         console.log(
-          `⏭  Skipping ${summary.membersSkippedBillingRestricted} member(s) of billing-restricted (suspended/canceled) gyms`
+          `⏭  Skipping ${summary.membersSkippedBillingRestricted} member(s) of billing-restricted (suspended/lapsed) gyms`
         );
       }
 

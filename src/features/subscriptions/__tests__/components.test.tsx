@@ -92,7 +92,7 @@ describe('CurrentPlanCard (state-to-UI mapping, plan §5.3)', () => {
     expect(screen.queryByRole('button', { name: /cancel subscription/i })).not.toBeInTheDocument();
   });
 
-  it('suspended: "suspended until payment" copy — NO "reverts to Starter" line', () => {
+  it('suspended: "suspended until payment" copy, subscribe CTA, no cancel', () => {
     render(
       <CurrentPlanCard
         subscription={makeSerialized({
@@ -108,7 +108,6 @@ describe('CurrentPlanCard (state-to-UI mapping, plan §5.3)', () => {
       />
     );
     expect(screen.getByText(/until payment is\s+received/i)).toBeInTheDocument();
-    expect(screen.queryByText(/starter/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /subscribe to pro/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /cancel subscription/i })).not.toBeInTheDocument();
   });
@@ -205,11 +204,10 @@ describe('PastDueBanner (C-22 copy branching)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('2099-01-08');
   });
 
-  it('hard: "won’t be retried … suspended" copy (no Starter fallback)', () => {
+  it('hard: "won’t be retried … suspended" copy', () => {
     render(<PastDueBanner subscription={pastDue(RecurringFailureClass.Hard)} />);
     expect(screen.getByRole('alert')).toHaveTextContent(/won’t be retried/i);
     expect(screen.getByRole('alert')).toHaveTextContent(/suspended/i);
-    expect(screen.getByRole('alert')).not.toHaveTextContent(/starter/i);
   });
 });
 

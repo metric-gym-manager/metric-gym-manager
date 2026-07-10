@@ -13,7 +13,7 @@
 #   1. Apply base migrations 20260704000001..3 (skipped if already applied)
 #   1b. Apply the tier-strategy migrations 20260706000002..20260708000006
 #       (skipped when gyms.trial_ends_at already exists; requires a DB at
-#       either the base state or the growth_cap_150 state)
+#       either the base state or the 20260708000002 state)
 #   2. psql acceptance probes: trigger fail-closed behavior, EXECUTE lockdown,
 #      counter trigger, Lite cap at 100, suspend/trial-expiry branches,
 #      unique indexes

@@ -198,7 +198,7 @@ describe('Subscription entity', () => {
     });
   });
 
-  describe('suspend (replaces downgradeToStarter — tier PRESERVED)', () => {
+  describe('suspend (tier PRESERVED — no landing tier)', () => {
     it.each([
       ['past_due (grace expired)', SaasStatus.PastDue],
       ['canceled (period ended)', SaasStatus.Canceled],

@@ -12,8 +12,8 @@ Design rationale (conflict register C-1..C-30):
 ## Non-negotiable constraints
 
 1. **PAID-ONLY ladder, caps are ACTIVE members** (Lite 100 / Pro ∞ / Enterprise ∞), **grace = 7
-   days**, **trial = 14 days** (tiers re-anchored starter/growth -> lite/pro/enterprise,
-   20260708000003; active-only quota 20260708000001) — single source
+   days**, **trial = 14 days** (paid-only re-anchor 20260708000003 — prior tier-name lineage
+   lives in that migration + C-28..C-30; active-only quota 20260708000001) — single source
    `src/core/utils/constants/SubscriptionConfig.ts`; SQL literals carry back-reference comments.
    Legal pairs: `{lite,pro,enterprise} × {trialing,active,past_due,suspended,canceled}` — no free
    tier exists. Only members with `status = 'active'` count toward the cap; expired/suspended/
