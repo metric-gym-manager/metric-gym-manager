@@ -16,9 +16,10 @@ export { default as CancelSubscriptionDialog } from './components/CancelSubscrip
 export { default as BillingHistoryTable } from './components/BillingHistoryTable';
 export { default as QuotaReachedUpsell } from './components/QuotaReachedUpsell';
 export { default as ReactivationLimitDialog } from './components/ReactivationLimitDialog';
-export { default as GrowthAvatarRing } from './components/GrowthAvatarRing';
+export { default as ProAvatarRing } from './components/ProAvatarRing';
 export { default as MemberLimitBar } from './components/MemberLimitBar';
 export { default as FeatureGate } from './components/FeatureGate';
+export { default as TrialBanner } from './components/TrialBanner';
 export { submitPayHereCheckout } from './components/PayHereRedirectForm';
 
 // Hooks

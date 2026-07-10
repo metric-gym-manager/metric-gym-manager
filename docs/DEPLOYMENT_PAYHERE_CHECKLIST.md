@@ -11,10 +11,23 @@ billing is not live until all of it is done.
 - **Webhook (notify) URL:** `https://metricgymmanager.com/api/webhooks/payhere`
 - **Return / cancel URLs:** `https://metricgymmanager.com/settings/billing`
 
-The DB migrations (`20260704000001..3`) are already applied to the production
-Supabase project and verified (plan §4 acceptance — all probes pass). This
-checklist is only the gateway/edge configuration that has to happen outside the
-codebase.
+The DB migrations (`20260704000001..3`, `20260706000002`, `20260707000001`,
+`20260708000001..2`) are already applied to the production Supabase project and
+verified (plan §4 acceptance — all probes pass).
+
+> **Tier-strategy release train (paid-only Lite/Pro/Enterprise).** Migrations
+> `20260708000003..6` re-anchor the ladder and must ship in the SAME release as
+> the env flip below (`PAYHERE_LITE_PRICE_LKR` new, `PAYHERE_PRO_PRICE_LKR` →
+> `4990`) and the app code that reads them. Post-deploy: re-run
+> `scripts/billing-acceptance/run.sh`, add the `process-trial-expiry` cron env
+> (`vercel.json` already schedules it; it uses the same `CRON_SECRET`), and
+> **send the required member-facing notification to growth-overflow gyms**
+> (>100 active) — they land on Pro but keep paying 2990 on their existing
+> gateway subscription until they cancel/re-subscribe (PayHere fixes the
+> recurring amount at creation; no silent 2990→4990 charge can occur).
+
+The rest of this checklist is the gateway/edge configuration that has to happen
+outside the codebase.
 
 ---
 
@@ -29,8 +42,9 @@ PayHere dashboard. Never commit real values.
 | `PAYHERE_MODE` | `live` | `sandbox` for the preview/staging environment |
 | `PAYHERE_MERCHANT_ID` | *(dashboard)* | Integrations → your merchant id |
 | `PAYHERE_MERCHANT_SECRET` | *(dashboard)* | **per-domain**, server-side only — never `NEXT_PUBLIC_*` |
-| `PAYHERE_PRO_PRICE_LKR` | `2990` | Growth monthly price (lowered from 4900); must match the amount asserted in checkout |
-| `PAYHERE_ENTERPRISE_PRICE_LKR` | `6990` | Enterprise monthly price |
+| `PAYHERE_LITE_PRICE_LKR` | `2990` | **New** — Lite monthly price. Ship in the SAME release as migration `20260708000003` |
+| `PAYHERE_PRO_PRICE_LKR` | `4990` | **Repurposed** — Pro (unlimited) monthly price. Value history: `4900` (pro-original) → `2990` (growth) → `4990` (pro-new). The var name is stable; its meaning changed with the paid-only ladder. Flip together with `20260708000003` |
+| `PAYHERE_ENTERPRISE_PRICE_LKR` | `6990` | Enterprise monthly price (unchanged) |
 | `PAYHERE_APP_ID` | *(dashboard)* | REST API key (Subscription Manager) |
 | `PAYHERE_APP_SECRET` | *(dashboard)* | REST API secret |
 
@@ -49,8 +63,9 @@ end to end (each link is unit/integration-tested):
 
 1. `POST /api/billing/checkout` accepts only customer contact fields
    (`checkoutCustomerSchema`); an injected `amount`/`tier` key is discarded.
-2. `GenerateCheckoutUrl` prices the intent from `PAYHERE_PRO_PRICE_LKR` via DI
-   and persists it as `checkout_intents.expected_amount` — both server-side.
+2. `GenerateCheckoutUrl` prices the intent from the per-tier
+   `PAYHERE_LITE/PRO/ENTERPRISE_PRICE_LKR` map via DI and persists it as
+   `checkout_intents.expected_amount` — both server-side.
 3. The PayHere hand-off `hash` is computed server-side over
    `(merchant_id, order_id, amount, currency)` with the Merchant Secret;
    editing the hidden form's `amount` breaks the hash and PayHere rejects it.
@@ -149,10 +164,11 @@ To revoke, `DELETE FROM saas_admins WHERE user_id = '…'`.
 
 - `notify_url` cannot be `localhost`; tunnel the dev server (e.g. ngrok) and set
   `NEXT_PUBLIC_APP_URL` to the tunnel origin so PayHere can reach the webhook.
-- Drive a sandbox checkout → confirm the signed notify provisions Growth exactly
-  once and a replay is a 200 no-op.
+- Drive a sandbox checkout from a trialing gym → confirm the signed notify
+  converts the trial (provisions the bought tier exactly once) and a replay is
+  a 200 no-op.
 - Drive a sandbox cancel → confirm the gateway call succeeds and local state
-  goes `growth/canceled`.
+  goes `canceled` with the tier retained (dunning suspends at period end).
 
 ---
 

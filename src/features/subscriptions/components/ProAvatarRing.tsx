@@ -3,38 +3,36 @@
 import type { ReactNode } from 'react';
 import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
 
-interface GrowthAvatarRingProps {
-  /** Serialized subscription tier; the ring renders only for Growth. */
+interface ProAvatarRingProps {
+  /** Serialized subscription tier; the ring renders for Pro and Enterprise. */
   tier: SaasTier | string | undefined;
   /** The avatar element (circular) to decorate. */
   children: ReactNode;
 }
 
 /**
- * Growth-subscriber avatar ring — the positive-reinforcement marker for paying
- * gyms (plan: Google One-style multi-colored frame around the profile circle).
+ * Pro/Enterprise avatar ring — the positive-reinforcement marker for
+ * unlimited-tier gyms (Google One-style multi-colored frame around the
+ * profile circle). Renamed from GrowthAvatarRing with the Lite/Pro/
+ * Enterprise re-anchor.
  *
  * Presentational only: the caller supplies the serialized tier (single source
- * of truth: `useSubscription` / the subscription serializer). Starter gyms and
+ * of truth: `useSubscription` / the subscription serializer). Lite gyms and
  * loading states render the avatar untouched, so this component can never
  * block or reflow the header while the subscription query is in flight.
- *
- * The ring stays visible for every Growth state (active, past_due in grace,
- * canceled but paid-through) and disappears only when dunning actually lapses
- * the gym to Starter — mirroring exactly when Growth features stop working.
  *
  * Accessibility: the spinning gradient is decorative (`aria-hidden`) and only
  * animates under `motion-safe`; reduced-motion users get a static ring.
  */
-export default function GrowthAvatarRing({ tier, children }: GrowthAvatarRingProps) {
-  if (tier !== SaasTier.Growth) {
+export default function ProAvatarRing({ tier, children }: ProAvatarRingProps) {
+  if (tier !== SaasTier.Pro && tier !== SaasTier.Enterprise) {
     return <>{children}</>;
   }
 
   return (
     <div
-      data-testid="growth-avatar-ring"
-      title="Growth subscriber"
+      data-testid="pro-avatar-ring"
+      title={tier === SaasTier.Enterprise ? 'Enterprise subscriber' : 'Pro subscriber'}
       className="relative shrink-0 rounded-full"
     >
       <div

@@ -29,9 +29,10 @@ import type { Announcement } from '@/features/announcements/types';
 const MAX_MESSAGE_LENGTH = 160;
 
 export default function MakeAnnouncementPage() {
-  // Plan gate (PlanRestrictions): announcements are a Growth feature. The
-  // composer only mounts when allowed, so none of its queries fire for
-  // Starter gyms. Server authority: POST /api/announcements returns 403.
+  // Plan gate (PlanRestrictions): announcements are enabled on every tier of
+  // the paid-only ladder, so this gate passes today — it stays wired so a
+  // future re-gating of the capability needs no page change. Server
+  // authority: POST /api/announcements returns 403 when restricted.
   return (
     <FeatureGate
       feature="announcements"

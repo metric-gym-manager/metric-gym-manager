@@ -18,7 +18,8 @@ const mockGetSubscription = getSubscription as jest.MockedFunction<typeof getSub
 
 function subResult(tier: SaasTier, status: SaasStatus) {
   return {
-    proPriceLkr: 2990,
+    litePriceLkr: 2990,
+    proPriceLkr: 4990,
     enterprisePriceLkr: 6990,
     subscription: {
       subscriptionTier: tier,
@@ -27,16 +28,22 @@ function subResult(tier: SaasTier, status: SaasStatus) {
       subscription_status: status,
       memberCount: 10,
       member_count: 10,
-      memberLimit: tier === SaasTier.Starter ? 50 : null,
-      member_limit: tier === SaasTier.Starter ? 50 : null,
+      memberLimit: tier === SaasTier.Lite ? 100 : null,
+      member_limit: tier === SaasTier.Lite ? 100 : null,
       currentPeriodEnd: null,
       current_period_end: null,
+      trialEndsAt: null,
+      trial_ends_at: null,
       graceEndsAt: null,
       grace_ends_at: null,
       pastDueReason: null,
       past_due_reason: null,
       canAddMember: true,
-      capabilities: { automatedReminders: false, announcements: false },
+      capabilities: {
+        automatedReminders: true,
+        announcements: true,
+        accessControlHardware: false,
+      },
       remainingMemberSlots: 30,
       remaining_member_slots: 30,
       isComplimentary: false,
@@ -66,20 +73,20 @@ describe('usePaymentStatusPoll', () => {
     expect(mockGetSubscription).not.toHaveBeenCalled();
   });
 
-  it('reaches SUCCESS when the webhook lands mid-poll', async () => {
+  it('reaches SUCCESS when the webhook lands mid-poll (status flips to active)', async () => {
     mockGetSubscription
-      .mockResolvedValueOnce(subResult(SaasTier.Starter, SaasStatus.Active))
-      .mockResolvedValueOnce(subResult(SaasTier.Growth, SaasStatus.Active));
+      .mockResolvedValueOnce(subResult(SaasTier.Lite, SaasStatus.Trialing))
+      .mockResolvedValueOnce(subResult(SaasTier.Lite, SaasStatus.Active));
 
     const { result } = renderHook(() => usePaymentStatusPoll(true), { wrapper });
     expect(result.current).toBe('verifying');
 
-    // first tick (immediate) sees Free
+    // first tick (immediate) still sees trialing
     await act(async () => {
       jest.advanceTimersByTime(1);
       await Promise.resolve();
     });
-    // second tick sees Pro
+    // second tick sees the activated subscription
     await act(async () => {
       jest.advanceTimersByTime(PAYMENT_POLL_INTERVAL_MS + 1);
       await Promise.resolve();
@@ -90,7 +97,7 @@ describe('usePaymentStatusPoll', () => {
   });
 
   it('reaches PENDING (not failure) when the window elapses without the webhook', async () => {
-    mockGetSubscription.mockResolvedValue(subResult(SaasTier.Starter, SaasStatus.Active));
+    mockGetSubscription.mockResolvedValue(subResult(SaasTier.Lite, SaasStatus.Trialing));
 
     const { result } = renderHook(() => usePaymentStatusPoll(true), { wrapper });
 
@@ -108,7 +115,7 @@ describe('usePaymentStatusPoll', () => {
   it('keeps polling through transient fetch failures', async () => {
     mockGetSubscription
       .mockRejectedValueOnce(new Error('network blip'))
-      .mockResolvedValueOnce(subResult(SaasTier.Growth, SaasStatus.Active));
+      .mockResolvedValueOnce(subResult(SaasTier.Pro, SaasStatus.Active));
 
     const { result } = renderHook(() => usePaymentStatusPoll(true), { wrapper });
 

@@ -1,4 +1,8 @@
 -- Billing DB acceptance probes (plan §4, phases DB/QG) — run as postgres.
+-- Tier strategy v2: paid-only Lite (100) / Pro (∞) / Enterprise (∞);
+-- onboarding = lite/trialing + trial clock; dunning and trial expiry SUSPEND
+-- (tier preserved — no downgrade landing tier exists).
+--
 -- Covers what the jest integration suite cannot: role-switching trigger
 -- behavior, EXECUTE lockdown, backfill equality, unique-index semantics.
 -- The concurrency race / dunning branches / webhook contract run in
@@ -38,16 +42,22 @@ DECLARE
   v_before    integer;
   v_rows      integer;
   v_ok        boolean;
+  v_suspended integer;
 BEGIN
   ------------------------------------------------------------------
-  -- 0. Schema presence
+  -- 0. Schema presence (tier strategy v2 requires the trial clock)
   ------------------------------------------------------------------
   PERFORM 1 FROM information_schema.columns
    WHERE table_name = 'gyms' AND column_name = 'subscription_tier';
   IF NOT FOUND THEN
     RAISE EXCEPTION 'MIGRATIONS NOT APPLIED: gyms.subscription_tier missing';
   END IF;
-  PERFORM pg_temp._acc_log('PASS 0: schema present');
+  PERFORM 1 FROM information_schema.columns
+   WHERE table_name = 'gyms' AND column_name = 'trial_ends_at';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'MIGRATIONS NOT APPLIED: gyms.trial_ends_at missing (20260708000003)';
+  END IF;
+  PERFORM pg_temp._acc_log('PASS 0: schema present (incl. trial_ends_at)');
 
   ------------------------------------------------------------------
   -- 1. Backfill equality: member_count == live ACTIVE count for every gym
@@ -64,6 +74,16 @@ BEGIN
     v_failures := v_failures || format('FAIL 1: %s gyms with mismatched active member_count', v_count);
   END IF;
 
+  -- 1b. No row carries a retired tier/status value
+  SELECT count(*) INTO v_count FROM gyms
+  WHERE subscription_tier NOT IN ('lite', 'pro', 'enterprise')
+     OR subscription_status NOT IN ('trialing', 'active', 'past_due', 'suspended', 'canceled');
+  IF v_count = 0 THEN
+    PERFORM pg_temp._acc_log('PASS 1b: every gym carries a v2 tier/status value');
+  ELSE
+    v_failures := v_failures || format('FAIL 1b: %s gyms on retired tier/status values', v_count);
+  END IF;
+
   ------------------------------------------------------------------
   -- Seed a throwaway auth user + gym for the remaining probes
   ------------------------------------------------------------------
@@ -78,6 +98,18 @@ BEGIN
   VALUES (v_user_id, 'acc-' || left(v_user_id::text, 8),
           'billing-acceptance-' || v_user_id || '@example.com', 'Acceptance Gym')
   RETURNING id INTO v_gym_id;
+
+  -- 1c. New-gym defaults: lite/trialing with a trial clock ~14 days out
+  SELECT (subscription_tier = 'lite' AND subscription_status = 'trialing'
+          AND trial_ends_at IS NOT NULL
+          AND trial_ends_at BETWEEN now() + interval '13 days' AND now() + interval '15 days')
+    INTO v_ok
+  FROM gyms WHERE id = v_gym_id;
+  IF v_ok THEN
+    PERFORM pg_temp._acc_log('PASS 1c: new gym defaults to lite/trialing with a ~14-day trial clock');
+  ELSE
+    v_failures := v_failures || 'FAIL 1c: new-gym defaults are not lite/trialing + trial clock';
+  END IF;
 
   -- Impersonate the throwaway owner for the role-switch probes: without these
   -- claims, auth.uid() is NULL and RLS hides the row from non-owner roles.
@@ -129,14 +161,14 @@ BEGIN
     GRANT EXECUTE ON FUNCTION auth.uid() TO billing_acceptance_probe;
     BEGIN
       SET LOCAL ROLE billing_acceptance_probe;
-      UPDATE gyms SET subscription_tier = 'growth' WHERE id = v_gym_id;
+      UPDATE gyms SET subscription_tier = 'pro' WHERE id = v_gym_id;
       GET DIAGNOSTICS v_rows = ROW_COUNT;
       RESET ROLE;
       IF v_rows = 0 THEN
         v_failures := v_failures ||
           'FAIL 3: RLS hid the gym row for the probe role — trigger never probed';
       ELSE
-        v_failures := v_failures || 'FAIL 3: unenumerated role self-upgraded to growth';
+        v_failures := v_failures || 'FAIL 3: unenumerated role self-upgraded to pro';
       END IF;
     EXCEPTION WHEN OTHERS THEN
       RESET ROLE;
@@ -154,7 +186,7 @@ BEGIN
 
   ------------------------------------------------------------------
   -- 4. Column-guard trigger: profile columns still writable by anyone allowed
-  --    (guard only protects the six subscription columns)
+  --    (guard only protects the subscription columns)
   ------------------------------------------------------------------
   UPDATE gyms SET gym_address = 'Acceptance Street 1' WHERE id = v_gym_id;
   PERFORM pg_temp._acc_log('PASS 4: non-subscription column update unaffected by the guard');
@@ -176,7 +208,8 @@ BEGIN
   END;
 
   ------------------------------------------------------------------
-  -- 6. Guarded insert + counter trigger (SECURITY DEFINER paths exempt)
+  -- 6. Guarded insert + counter trigger (SECURITY DEFINER paths exempt);
+  --    trialing grants access (full features during the trial window)
   ------------------------------------------------------------------
   v_member_id := register_member_guarded(v_gym_id, jsonb_build_object(
     'name', 'Acceptance Member',
@@ -189,7 +222,7 @@ BEGIN
   ));
   SELECT member_count INTO v_count FROM gyms WHERE id = v_gym_id;
   IF v_member_id IS NOT NULL AND v_count = 1 THEN
-    PERFORM pg_temp._acc_log('PASS 6: guarded insert works; counter trigger incremented through the guard');
+    PERFORM pg_temp._acc_log('PASS 6: guarded insert works while TRIALING; counter trigger incremented');
   ELSE
     v_failures := v_failures || format('FAIL 6: member=%s count=%s', v_member_id, v_count);
   END IF;
@@ -204,9 +237,10 @@ BEGIN
   END IF;
 
   ------------------------------------------------------------------
-  -- 7. Starter-tier limit enforced at exactly 40 (sequential fill)
+  -- 7. Lite cap enforced at exactly 100 (sequential fill on lite/active)
   ------------------------------------------------------------------
-  FOR i IN 1..40 LOOP
+  PERFORM save_gym_subscription(v_gym_id, 'lite', 'active', 'PHSUB-CAP', NULL, true);
+  FOR i IN 1..100 LOOP
     PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
       'name', 'Fill ' || i,
       'phone_number', '+9477' || lpad((1000000 + i)::text, 7, '0'),
@@ -217,67 +251,90 @@ BEGIN
   END LOOP;
   BEGIN
     PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
-      'name', 'Over Limit', 'phone_number', '+94770000051',
+      'name', 'Over Limit', 'phone_number', '+94770000151',
       'plan_type', 'monthly', 'plan_amount', 2000,
       'recurring_discount', false, 'status', 'active',
       'next_due_date', '2099-01-01'
     ));
-    v_failures := v_failures || 'FAIL 7: 41st member accepted on Starter tier';
+    v_failures := v_failures || 'FAIL 7: 101st member accepted on Lite tier';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM LIKE '%MEMBER_LIMIT_REACHED%' THEN
-      PERFORM pg_temp._acc_log('PASS 7: 41st registration rejected with MEMBER_LIMIT_REACHED');
+      PERFORM pg_temp._acc_log('PASS 7: 101st registration rejected with MEMBER_LIMIT_REACHED (Lite cap 100)');
     ELSE
       v_failures := v_failures || format('FAIL 7: unexpected error: %s', SQLERRM);
     END IF;
   END;
 
-  ------------------------------------------------------------------
-  -- 7b. Growth cap enforced at exactly 150 (fill 41..150 on growth/active)
-  ------------------------------------------------------------------
-  PERFORM save_gym_subscription(v_gym_id, 'growth', 'active', 'PHSUB-CAP', NULL, true);
-  FOR i IN 41..150 LOOP
-    PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
-      'name', 'GFill ' || i,
-      'phone_number', '+9476' || lpad((2000000 + i)::text, 7, '0'),
-      'plan_type', 'monthly', 'plan_amount', 2000,
-      'recurring_discount', false, 'status', 'active',
-      'next_due_date', '2099-01-01'
-    ));
-  END LOOP;
-  BEGIN
-    PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
-      'name', 'Growth Over', 'phone_number', '+94760000151',
-      'plan_type', 'monthly', 'plan_amount', 2000,
-      'recurring_discount', false, 'status', 'active',
-      'next_due_date', '2099-01-01'
-    ));
-    v_failures := v_failures || 'FAIL 7b: 151st member accepted on Growth tier';
-  EXCEPTION WHEN OTHERS THEN
-    IF SQLERRM LIKE '%MEMBER_LIMIT_REACHED%' THEN
-      PERFORM pg_temp._acc_log('PASS 7b: 151st registration rejected on Growth (cap 150)');
-    ELSE
-      v_failures := v_failures || format('FAIL 7b: unexpected error: %s', SQLERRM);
-    END IF;
-  END;
-
-  -- 7c. Enterprise: unlimited — the 151st member that Growth rejected goes in
-  PERFORM save_gym_subscription(v_gym_id, 'enterprise', 'active', 'PHSUB-ENT', NULL, true);
+  -- 7b. Pro: unlimited — the 101st member that Lite rejected goes in
+  PERFORM save_gym_subscription(v_gym_id, 'pro', 'active', 'PHSUB-PRO', NULL, true);
   PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
-    'name', 'Enterprise Over', 'phone_number', '+94760000152',
+    'name', 'Pro Over', 'phone_number', '+94760000101',
     'plan_type', 'monthly', 'plan_amount', 2000,
     'recurring_discount', false, 'status', 'active',
     'next_due_date', '2099-01-01'
   ));
   SELECT member_count INTO v_count FROM gyms WHERE id = v_gym_id;
-  IF v_count = 151 THEN
-    PERFORM pg_temp._acc_log('PASS 7c: enterprise accepts beyond 150 (unlimited)');
+  IF v_count = 101 THEN
+    PERFORM pg_temp._acc_log('PASS 7b: pro accepts beyond 100 (unlimited)');
   ELSE
-    v_failures := v_failures || format('FAIL 7c: expected 151 members, got %s', v_count);
+    v_failures := v_failures || format('FAIL 7b: expected 101 members, got %s', v_count);
   END IF;
 
+  -- 7c. Enterprise: unlimited as well
+  PERFORM save_gym_subscription(v_gym_id, 'enterprise', 'active', 'PHSUB-ENT', NULL, true);
+  PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
+    'name', 'Enterprise Over', 'phone_number', '+94760000102',
+    'plan_type', 'monthly', 'plan_amount', 2000,
+    'recurring_discount', false, 'status', 'active',
+    'next_due_date', '2099-01-01'
+  ));
+  SELECT member_count INTO v_count FROM gyms WHERE id = v_gym_id;
+  IF v_count = 102 THEN
+    PERFORM pg_temp._acc_log('PASS 7c: enterprise accepts beyond 100 (unlimited)');
+  ELSE
+    v_failures := v_failures || format('FAIL 7c: expected 102 members, got %s', v_count);
+  END IF;
+
+  -- 7d. SUSPENDED blocks every into-active write regardless of tier/count
+  UPDATE gyms SET subscription_status = 'suspended' WHERE id = v_gym_id;
+  BEGIN
+    PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
+      'name', 'Suspended Reg', 'phone_number', '+94760000103',
+      'plan_type', 'monthly', 'plan_amount', 2000,
+      'recurring_discount', false, 'status', 'active',
+      'next_due_date', '2099-01-01'
+    ));
+    v_failures := v_failures || 'FAIL 7d: suspended gym accepted an active member';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE '%MEMBER_LIMIT_REACHED%' THEN
+      PERFORM pg_temp._acc_log('PASS 7d: suspended gym rejected an active registration');
+    ELSE
+      v_failures := v_failures || format('FAIL 7d: unexpected error: %s', SQLERRM);
+    END IF;
+  END;
+
+  -- 7e. CANCELED blocks into-active writes even while paid-through (v2 policy)
+  PERFORM save_gym_subscription(v_gym_id, 'enterprise', 'canceled', 'PHSUB-ENT', NULL, false);
+  UPDATE gyms SET current_period_end = now() + interval '5 days' WHERE id = v_gym_id;
+  BEGIN
+    PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
+      'name', 'Canceled Reg', 'phone_number', '+94760000104',
+      'plan_type', 'monthly', 'plan_amount', 2000,
+      'recurring_discount', false, 'status', 'active',
+      'next_due_date', '2099-01-01'
+    ));
+    v_failures := v_failures || 'FAIL 7e: canceled gym accepted an active member';
+  EXCEPTION WHEN OTHERS THEN
+    IF SQLERRM LIKE '%MEMBER_LIMIT_REACHED%' THEN
+      PERFORM pg_temp._acc_log('PASS 7e: canceled gym rejected an active registration (paid-through)');
+    ELSE
+      v_failures := v_failures || format('FAIL 7e: unexpected error: %s', SQLERRM);
+    END IF;
+  END;
+
   ------------------------------------------------------------------
-  -- 7d–7h. ACTIVE-MEMBER quota semantics (migration 20260708000001).
-  -- Fresh throwaway starter gym so counts are unambiguous.
+  -- 7f–7k. ACTIVE-MEMBER quota semantics (migration 20260708000001/4).
+  -- Fresh throwaway gym on lite/active so counts are unambiguous.
   ------------------------------------------------------------------
   v_user2_id := gen_random_uuid();
   INSERT INTO auth.users (id, instance_id, aud, role, email,
@@ -288,9 +345,10 @@ BEGIN
   INSERT INTO gyms (user_id, username, email, gym_name)
   VALUES (v_user2_id, 'acc2-' || left(v_user2_id::text, 8),
           'billing-acceptance-' || v_user2_id || '@example.com', 'Acceptance Gym 2')
-  RETURNING id INTO v_gym2_id;  -- defaults to starter (cap 40)
+  RETURNING id INTO v_gym2_id;  -- defaults to lite/trialing (cap 100)
+  PERFORM save_gym_subscription(v_gym2_id, 'lite', 'active', 'PHSUB-Q', NULL, true);
 
-  -- 7d. Registering a NON-active member does not consume a slot (count stays 0)
+  -- 7f. Registering a NON-active member does not consume a slot (count stays 0)
   PERFORM register_member_guarded(v_gym2_id, jsonb_build_object(
     'name', 'Inactive Reg', 'phone_number', '+94750000001',
     'plan_type', 'monthly', 'plan_amount', 2000,
@@ -299,12 +357,12 @@ BEGIN
   ));
   SELECT member_count INTO v_count FROM gyms WHERE id = v_gym2_id;
   IF v_count = 0 THEN
-    PERFORM pg_temp._acc_log('PASS 7d: registering a non-active member does not increment the active count');
+    PERFORM pg_temp._acc_log('PASS 7f: registering a non-active member does not increment the active count');
   ELSE
-    v_failures := v_failures || format('FAIL 7d: expected 0 active, got %s', v_count);
+    v_failures := v_failures || format('FAIL 7f: expected 0 active, got %s', v_count);
   END IF;
 
-  -- 7e. Registering an ACTIVE member increments by exactly 1
+  -- 7g. Registering an ACTIVE member increments by exactly 1
   v_member_id := register_member_guarded(v_gym2_id, jsonb_build_object(
     'name', 'Active Reg', 'phone_number', '+94750000002',
     'plan_type', 'monthly', 'plan_amount', 2000,
@@ -313,13 +371,13 @@ BEGIN
   ));
   SELECT member_count INTO v_count FROM gyms WHERE id = v_gym2_id;
   IF v_count = 1 THEN
-    PERFORM pg_temp._acc_log('PASS 7e: registering an active member increments the active count');
+    PERFORM pg_temp._acc_log('PASS 7g: registering an active member increments the active count');
   ELSE
-    v_failures := v_failures || format('FAIL 7e: expected 1 active, got %s', v_count);
+    v_failures := v_failures || format('FAIL 7g: expected 1 active, got %s', v_count);
   END IF;
 
-  -- 7f. Fill to exactly 40 active; a non-active registration is NOT quota-blocked
-  FOR i IN 2..40 LOOP
+  -- 7h. Fill to exactly 100 active; a non-active registration is NOT quota-blocked
+  FOR i IN 2..100 LOOP
     PERFORM register_member_guarded(v_gym2_id, jsonb_build_object(
       'name', 'AFill ' || i, 'phone_number', '+9475' || lpad((1000000 + i)::text, 7, '0'),
       'plan_type', 'monthly', 'plan_amount', 2000,
@@ -334,44 +392,44 @@ BEGIN
       'recurring_discount', false, 'status', 'expired',
       'next_due_date', '2020-01-01'
     ));
-    PERFORM pg_temp._acc_log('PASS 7f: non-active registration allowed even at the active cap (unlimited inactive)');
+    PERFORM pg_temp._acc_log('PASS 7h: non-active registration allowed even at the active cap (unlimited inactive)');
   EXCEPTION WHEN OTHERS THEN
-    v_failures := v_failures || format('FAIL 7f: non-active registration blocked at cap: %s', SQLERRM);
+    v_failures := v_failures || format('FAIL 7h: non-active registration blocked at cap: %s', SQLERRM);
   END;
 
-  -- 7g. Flipping an active member to expired decrements the active count
+  -- 7i. Flipping an active member to expired decrements the active count
   UPDATE members SET status = 'expired' WHERE id = v_member_id;
   SELECT member_count INTO v_count FROM gyms WHERE id = v_gym2_id;
-  IF v_count = 39 THEN
-    PERFORM pg_temp._acc_log('PASS 7g: active->expired flip decremented the active count (40->39)');
+  IF v_count = 99 THEN
+    PERFORM pg_temp._acc_log('PASS 7i: active->expired flip decremented the active count (100->99)');
   ELSE
-    v_failures := v_failures || format('FAIL 7g: expected 39 after flip, got %s', v_count);
+    v_failures := v_failures || format('FAIL 7i: expected 99 after flip, got %s', v_count);
   END IF;
 
-  -- 7h. Reactivating (expired->active) below cap succeeds (back to 40); a SECOND
+  -- 7j. Reactivating (expired->active) below cap succeeds (back to 100); a SECOND
   --     reactivation at the cap is rejected with MEMBER_LIMIT_REACHED, and the
   --     blocked member stays non-active (BEFORE trigger — nothing lands).
   UPDATE members SET status = 'active' WHERE id = v_member_id;
   SELECT member_count INTO v_count FROM gyms WHERE id = v_gym2_id;
-  IF v_count <> 40 THEN
-    v_failures := v_failures || format('FAIL 7h: reactivation below cap expected 40, got %s', v_count);
+  IF v_count <> 100 THEN
+    v_failures := v_failures || format('FAIL 7j: reactivation below cap expected 100, got %s', v_count);
   END IF;
-  -- Grab an inactive member (the 7d/7f expired ones) to reactivate at the cap
+  -- Grab an inactive member (the 7f/7h expired ones) to reactivate at the cap
   SELECT id INTO v_member_id FROM members
    WHERE gym_id = v_gym2_id AND status = 'expired' LIMIT 1;
   BEGIN
     UPDATE members SET status = 'active' WHERE id = v_member_id;
-    v_failures := v_failures || 'FAIL 7h: reactivation at the active cap was accepted';
+    v_failures := v_failures || 'FAIL 7j: reactivation at the active cap was accepted';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM LIKE '%MEMBER_LIMIT_REACHED%' THEN
       SELECT status INTO v_ok FROM (SELECT status = 'active' AS status FROM members WHERE id = v_member_id) s;
       IF v_ok THEN
-        v_failures := v_failures || 'FAIL 7h: blocked member was left active despite the raise';
+        v_failures := v_failures || 'FAIL 7j: blocked member was left active despite the raise';
       ELSE
-        PERFORM pg_temp._acc_log('PASS 7h: reactivation at the active cap rejected (MEMBER_LIMIT_REACHED), member stays inactive');
+        PERFORM pg_temp._acc_log('PASS 7j: reactivation at the active cap rejected (MEMBER_LIMIT_REACHED), member stays inactive');
       END IF;
     ELSE
-      v_failures := v_failures || format('FAIL 7h: unexpected error: %s', SQLERRM);
+      v_failures := v_failures || format('FAIL 7j: unexpected error: %s', SQLERRM);
     END IF;
   END;
 
@@ -380,64 +438,66 @@ BEGIN
   DELETE FROM members WHERE gym_id = v_gym2_id;
   SELECT member_count INTO v_count FROM gyms WHERE id = v_gym2_id;
   IF v_count = 0 THEN
-    PERFORM pg_temp._acc_log('PASS 7i: deleting all members returns the active count to 0');
+    PERFORM pg_temp._acc_log('PASS 7k: deleting all members returns the active count to 0');
   ELSE
-    v_failures := v_failures || format('FAIL 7i: expected 0 after delete, got %s', v_count);
+    v_failures := v_failures || format('FAIL 7k: expected 0 after delete, got %s', v_count);
   END IF;
   DELETE FROM gyms WHERE id = v_gym2_id;
   DELETE FROM auth.users WHERE id = v_user2_id;
 
   ------------------------------------------------------------------
-  -- 8. Dunning branches via process_dunning_downgrades (server clock)
+  -- 8. Dunning branches via process_dunning_suspensions (server clock)
+  --    Suspension changes STATUS only — tier and gateway id are preserved.
   ------------------------------------------------------------------
   SELECT count(*) INTO v_before FROM members WHERE gym_id = v_gym_id;
 
-  -- 8a. past_due beyond grace -> free/canceled
-  PERFORM save_gym_subscription(v_gym_id, 'growth', 'past_due', 'PHSUB-ACC', NULL, false);
+  -- 8a. past_due beyond grace -> suspended (tier preserved, id retained)
+  PERFORM save_gym_subscription(v_gym_id, 'pro', 'past_due', 'PHSUB-ACC', NULL, false);
   UPDATE gyms SET current_period_end = now() - interval '9 days' WHERE id = v_gym_id;
-  PERFORM * FROM process_dunning_downgrades(7);
-  SELECT (subscription_tier = 'starter' AND subscription_status = 'canceled'
-          AND payhere_subscription_id IS NULL) INTO v_ok
+  PERFORM * FROM process_dunning_suspensions(7);
+  SELECT (subscription_tier = 'pro' AND subscription_status = 'suspended'
+          AND payhere_subscription_id = 'PHSUB-ACC') INTO v_ok
   FROM gyms WHERE id = v_gym_id;
   IF v_ok THEN
-    PERFORM pg_temp._acc_log('PASS 8a: past-grace past_due downgraded to starter/canceled, id cleared');
+    PERFORM pg_temp._acc_log('PASS 8a: past-grace past_due SUSPENDED — tier preserved, gateway id retained');
   ELSE
-    v_failures := v_failures || 'FAIL 8a: past-grace downgrade did not apply';
+    v_failures := v_failures || 'FAIL 8a: past-grace suspension did not apply as specified';
   END IF;
 
   -- 8b. past_due inside grace -> retained
-  PERFORM save_gym_subscription(v_gym_id, 'growth', 'past_due', 'PHSUB-ACC2', NULL, false);
+  PERFORM save_gym_subscription(v_gym_id, 'pro', 'past_due', 'PHSUB-ACC2', NULL, false);
   UPDATE gyms SET current_period_end = now() - interval '5 days' WHERE id = v_gym_id;
-  PERFORM * FROM process_dunning_downgrades(7);
-  SELECT (subscription_tier = 'growth' AND subscription_status = 'past_due') INTO v_ok
+  PERFORM * FROM process_dunning_suspensions(7);
+  SELECT (subscription_tier = 'pro' AND subscription_status = 'past_due') INTO v_ok
   FROM gyms WHERE id = v_gym_id;
   IF v_ok THEN
     PERFORM pg_temp._acc_log('PASS 8b: in-grace past_due retained');
   ELSE
-    v_failures := v_failures || 'FAIL 8b: in-grace gym was downgraded';
+    v_failures := v_failures || 'FAIL 8b: in-grace gym was suspended early';
   END IF;
 
-  -- 8c. voluntary cancel past period end -> lapses to free, status stays canceled
-  PERFORM save_gym_subscription(v_gym_id, 'growth', 'canceled', 'PHSUB-ACC3', NULL, false);
+  -- 8c. voluntary cancel past period end -> suspended (tier preserved)
+  PERFORM save_gym_subscription(v_gym_id, 'pro', 'canceled', 'PHSUB-ACC3', NULL, false);
   UPDATE gyms SET current_period_end = now() - interval '1 day' WHERE id = v_gym_id;
-  PERFORM * FROM process_dunning_downgrades(7);
-  SELECT (subscription_tier = 'starter' AND subscription_status = 'canceled') INTO v_ok
+  PERFORM * FROM process_dunning_suspensions(7);
+  SELECT (subscription_tier = 'pro' AND subscription_status = 'suspended') INTO v_ok
   FROM gyms WHERE id = v_gym_id;
   IF v_ok THEN
-    PERFORM pg_temp._acc_log('PASS 8c: ended voluntary cancel lapsed to starter (status preserved)');
+    PERFORM pg_temp._acc_log('PASS 8c: ended voluntary cancel SUSPENDED — tier preserved');
   ELSE
-    v_failures := v_failures || 'FAIL 8c: voluntary-cancel lapse did not apply';
+    v_failures := v_failures || 'FAIL 8c: voluntary-cancel suspension did not apply';
   END IF;
 
   -- 8d. paid-through voluntary cancel -> retained
-  PERFORM save_gym_subscription(v_gym_id, 'growth', 'canceled', 'PHSUB-ACC4', NULL, false);
+  PERFORM save_gym_subscription(v_gym_id, 'pro', 'canceled', 'PHSUB-ACC4', NULL, false);
   UPDATE gyms SET current_period_end = now() + interval '5 days' WHERE id = v_gym_id;
-  PERFORM * FROM process_dunning_downgrades(7);
-  SELECT (subscription_tier = 'growth') INTO v_ok FROM gyms WHERE id = v_gym_id;
+  PERFORM * FROM process_dunning_suspensions(7);
+  SELECT (subscription_tier = 'pro' AND subscription_status = 'canceled') INTO v_ok
+  FROM gyms WHERE id = v_gym_id;
   IF v_ok THEN
     PERFORM pg_temp._acc_log('PASS 8d: paid-through voluntary cancel retained');
   ELSE
-    v_failures := v_failures || 'FAIL 8d: paid-through gym was lapsed early';
+    v_failures := v_failures || 'FAIL 8d: paid-through gym was suspended early';
   END IF;
 
   -- 8e. THE invariant: no dunning branch touched members
@@ -449,14 +509,14 @@ BEGIN
   END IF;
 
   -- 8f. idempotence
-  PERFORM * FROM process_dunning_downgrades(7);
+  PERFORM * FROM process_dunning_suspensions(7);
   PERFORM pg_temp._acc_log('PASS 8f: second dunning pass ran (idempotent, no error)');
 
   -- 8g. Complimentary (lifetime) enterprise is immune to dunning:
   --     enterprise/active, NO gateway id, NO period end -> untouched
   PERFORM save_gym_subscription(v_gym_id, 'enterprise', 'active', NULL, NULL, false);
   UPDATE gyms SET current_period_end = NULL WHERE id = v_gym_id;
-  PERFORM * FROM process_dunning_downgrades(7);
+  PERFORM * FROM process_dunning_suspensions(7);
   SELECT (subscription_tier = 'enterprise' AND subscription_status = 'active'
           AND payhere_subscription_id IS NULL AND current_period_end IS NULL) INTO v_ok
   FROM gyms WHERE id = v_gym_id;
@@ -467,13 +527,40 @@ BEGIN
   END IF;
 
   ------------------------------------------------------------------
+  -- 8h. Trial expiry via process_trial_expiry (server clock)
+  ------------------------------------------------------------------
+  -- Expired trial -> suspended (tier preserved)
+  UPDATE gyms SET subscription_tier = 'lite', subscription_status = 'trialing',
+                  trial_ends_at = now() - interval '1 day'
+  WHERE id = v_gym_id;
+  SELECT process_trial_expiry() INTO v_suspended;
+  SELECT (subscription_tier = 'lite' AND subscription_status = 'suspended') INTO v_ok
+  FROM gyms WHERE id = v_gym_id;
+  IF v_ok AND v_suspended >= 1 THEN
+    PERFORM pg_temp._acc_log('PASS 8h: expired trial SUSPENDED — tier preserved');
+  ELSE
+    v_failures := v_failures || 'FAIL 8h: trial expiry did not suspend the expired trial';
+  END IF;
+
+  -- Running trial -> retained
+  UPDATE gyms SET subscription_status = 'trialing', trial_ends_at = now() + interval '5 days'
+  WHERE id = v_gym_id;
+  PERFORM process_trial_expiry();
+  SELECT (subscription_status = 'trialing') INTO v_ok FROM gyms WHERE id = v_gym_id;
+  IF v_ok THEN
+    PERFORM pg_temp._acc_log('PASS 8i: running trial retained by the trial-expiry pass');
+  ELSE
+    v_failures := v_failures || 'FAIL 8i: running trial was suspended early';
+  END IF;
+
+  ------------------------------------------------------------------
   -- 9. One pending intent per gym (23505) + payment-id partial unique
   ------------------------------------------------------------------
   INSERT INTO checkout_intents (order_id, gym_id, target_tier, expected_amount, expires_at)
-  VALUES ('ACC-1-' || v_gym_id, v_gym_id, 'growth', 4900, now() + interval '30 minutes');
+  VALUES ('ACC-1-' || v_gym_id, v_gym_id, 'pro', 4990, now() + interval '30 minutes');
   BEGIN
     INSERT INTO checkout_intents (order_id, gym_id, target_tier, expected_amount, expires_at)
-    VALUES ('ACC-2-' || v_gym_id, v_gym_id, 'growth', 4900, now() + interval '30 minutes');
+    VALUES ('ACC-2-' || v_gym_id, v_gym_id, 'pro', 4990, now() + interval '30 minutes');
     v_failures := v_failures || 'FAIL 9: second pending intent accepted';
   EXCEPTION WHEN unique_violation THEN
     PERFORM pg_temp._acc_log('PASS 9: second pending intent hit 23505');

@@ -1,21 +1,27 @@
 /**
- * Subscription Domain Entity — SaaS Starter/Growth/Enterprise billing state
- * of a gym (tenant).
+ * Subscription Domain Entity — SaaS Lite/Pro/Enterprise billing state
+ * of a gym (tenant). Every tier is paid.
  *
  * Immutable, in the style of Member.ts: private constructor, static create,
  * guarded transition methods throwing InvalidStatusTransitionError, and a
  * NON-TRANSITION renew() per architecture rule §2.5.1 (recurring renewal is a
  * property update / recovery, not a self-transition).
  *
- * State model — legal (tier, status) pairs: starter/{active,canceled} and
- * {growth,enterprise}/{active,past_due,canceled}. Member caps come from the
- * PlanRestrictions capability matrix (starter 40, growth 190, enterprise ∞).
+ * State model — legal (tier, status) pairs:
+ * {lite, pro, enterprise} × {trialing, active, past_due, suspended, canceled}.
+ * Member caps come from the PlanRestrictions capability matrix (lite 100,
+ * pro ∞, enterprise ∞).
  *
- * Complimentary (lifetime) subscriptions: a paid tier with NO gateway
- * subscription and NO period end (manually provisioned, never billed).
- * Dunning can never touch them — both its WHERE clauses require a period end.
+ * There is NO free tier and NO downgrade landing tier: dunning and trial
+ * expiry SUSPEND (status change, tier preserved). suspend() replaced the old
+ * downgradeToStarter().
  *
- * Period arithmetic note: activatePaid()/renew() carry INTENT only. The actual
+ * Complimentary (lifetime) subscriptions: a tier with NO gateway
+ * subscription and NO period end while ACTIVE (manually provisioned, never
+ * billed). Dunning can never touch them — both its WHERE clauses require a
+ * period end.
+ *
+ * Period arithmetic note: activate()/renew() carry INTENT only. The actual
  * current_period_end is computed by the save_gym_subscription RPC on the
  * DATABASE clock — the in-memory value is stale-until-saved and the
  * repository rebuilds the entity from the RPC result. Never do JS date math
@@ -26,8 +32,6 @@ import {
   SaasTier,
   SaasStatus,
   GRACE_PERIOD_DAYS,
-  isPaidTier,
-  type PaidTier,
 } from '@/core/utils/constants/SubscriptionConfig';
 import { getPlanCapabilities } from '@/core/domain/subscription/PlanRestrictions';
 import { InvalidStatusTransitionError } from '@/core/utils/errors';
@@ -38,6 +42,8 @@ export interface SubscriptionProps {
   status: SaasStatus;
   memberCount: number;
   currentPeriodEnd: Date | null;
+  /** Trial clock (set at signup by the DB default); meaningful while trialing. */
+  trialEndsAt: Date | null;
   payhereCustomerId: string | null;
   payhereSubscriptionId: string | null;
 }
@@ -69,6 +75,10 @@ export class Subscription {
     return this.props.currentPeriodEnd;
   }
 
+  get trialEndsAt(): Date | null {
+    return this.props.trialEndsAt;
+  }
+
   get payhereCustomerId(): string | null {
     return this.props.payhereCustomerId;
   }
@@ -86,6 +96,7 @@ export class Subscription {
       currentPeriodEnd: this.props.currentPeriodEnd
         ? new Date(this.props.currentPeriodEnd)
         : null,
+      trialEndsAt: this.props.trialEndsAt ? new Date(this.props.trialEndsAt) : null,
     };
   }
 
@@ -94,29 +105,46 @@ export class Subscription {
   }
 
   /**
-   * starter/* or {paid}/canceled → {targetTier}/active.
-   *
-   * Initial activation, re-subscription after downgrade, re-subscription
-   * after a voluntary cancel, or a plan change AFTER cancel (a NEW PayHere
-   * subscription id replaces the old). Rejects any paid tier active/past_due:
-   * already subscribed — past_due recovery arrives via renew() on the
-   * existing subscription, and a plan change requires cancelling the current
-   * gateway subscription first (PayHere has no in-place plan swap).
+   * suspended | canceled → trialing. Platform-granted (re-)trial: restarts
+   * the onboarding window with a fresh trial clock. New-gym signups get
+   * trialing via the DB defaults (lite/trialing + trial_ends_at default) and
+   * never pass through here.
    */
-  activatePaid(
-    targetTier: PaidTier,
+  startTrial(trialEndsAt: Date): Subscription {
+    const allowed =
+      this.props.status === SaasStatus.Suspended || this.props.status === SaasStatus.Canceled;
+    if (!allowed) {
+      throw new InvalidStatusTransitionError(this.stateKey(), `${this.props.tier}:trialing`);
+    }
+    return new Subscription({
+      ...this.props,
+      status: SaasStatus.Trialing,
+      trialEndsAt: new Date(trialEndsAt),
+    });
+  }
+
+  /**
+   * trialing | suspended | {tier}/canceled → {targetTier}/active.
+   *
+   * Tier-agnostic activation (every tier is paid and checkoutable): trial
+   * conversion, reactivation of a suspended account via a new checkout,
+   * re-subscription after a voluntary cancel, or a plan change AFTER cancel
+   * (a NEW PayHere subscription id replaces the old). Rejects active and
+   * past_due: already subscribed — past_due recovery arrives via renew() on
+   * the existing subscription, and a plan change requires cancelling the
+   * current gateway subscription first (PayHere has no in-place plan swap).
+   */
+  activate(
+    targetTier: SaasTier,
     input: {
       subscriptionId: string | null;
       customerId: string | null;
     }
   ): Subscription {
-    if (!isPaidTier(targetTier)) {
-      // JS callers can bypass the type; the state machine must not.
-      throw new InvalidStatusTransitionError(this.stateKey(), `${targetTier}:active`);
-    }
     const allowed =
-      this.props.tier === SaasTier.Starter ||
-      (isPaidTier(this.props.tier) && this.props.status === SaasStatus.Canceled);
+      this.props.status === SaasStatus.Trialing ||
+      this.props.status === SaasStatus.Suspended ||
+      this.props.status === SaasStatus.Canceled;
 
     if (!allowed) {
       throw new InvalidStatusTransitionError(this.stateKey(), `${targetTier}:active`);
@@ -132,6 +160,24 @@ export class Subscription {
   }
 
   /**
+   * trialing → {targetTier}/active. First successful checkout charge during
+   * the trial window converts the trial. Guarded alias of activate() that
+   * additionally asserts the trialing state.
+   */
+  convertTrialToPaid(
+    targetTier: SaasTier,
+    input: {
+      subscriptionId: string | null;
+      customerId: string | null;
+    }
+  ): Subscription {
+    if (this.props.status !== SaasStatus.Trialing) {
+      throw new InvalidStatusTransitionError(this.stateKey(), `${targetTier}:active`);
+    }
+    return this.activate(targetTier, input);
+  }
+
+  /**
    * NON-TRANSITION (§2.5.1): successful recurring charge on an existing paid
    * subscription. Recovers past_due → active. Requires status active or
    * past_due — a stale installment event must never un-cancel a voluntarily
@@ -142,8 +188,7 @@ export class Subscription {
    */
   renew(): Subscription {
     const allowed =
-      isPaidTier(this.props.tier) &&
-      (this.props.status === SaasStatus.Active || this.props.status === SaasStatus.PastDue);
+      this.props.status === SaasStatus.Active || this.props.status === SaasStatus.PastDue;
 
     if (!allowed) {
       throw new InvalidStatusTransitionError(this.stateKey(), `${this.props.tier}:active`);
@@ -153,24 +198,24 @@ export class Subscription {
   }
 
   /**
-   * {paid}/active → {paid}/past_due. Recurring charge failed; grace begins.
-   * Only the dunning cron performs the hard downgrade later.
+   * active → past_due. Recurring charge failed; grace begins.
+   * Only the dunning cron performs the suspension later.
    */
   markPastDue(): Subscription {
-    if (!isPaidTier(this.props.tier) || this.props.status !== SaasStatus.Active) {
+    if (this.props.status !== SaasStatus.Active) {
       throw new InvalidStatusTransitionError(this.stateKey(), `${this.props.tier}:past_due`);
     }
     return new Subscription({ ...this.props, status: SaasStatus.PastDue });
   }
 
   /**
-   * {paid}/active | {paid}/past_due → {paid}/canceled. Voluntary cancel
-   * confirmed at the gateway; retains tier and currentPeriodEnd (paid-through).
+   * active | past_due → canceled. Voluntary cancel confirmed at the gateway;
+   * retains tier and currentPeriodEnd (paid-through). At period end the
+   * dunning cron suspends.
    */
   cancelPaid(): Subscription {
     const allowed =
-      isPaidTier(this.props.tier) &&
-      (this.props.status === SaasStatus.Active || this.props.status === SaasStatus.PastDue);
+      this.props.status === SaasStatus.Active || this.props.status === SaasStatus.PastDue;
 
     if (!allowed) {
       throw new InvalidStatusTransitionError(this.stateKey(), `${this.props.tier}:canceled`);
@@ -180,38 +225,51 @@ export class Subscription {
   }
 
   /**
-   * {paid}/past_due (grace expired) | {paid}/canceled (period ended) →
-   * starter/canceled. Dunning-cron transition; clears the gateway
-   * subscription id. Members are NEVER touched by this transition.
+   * past_due (grace expired) | canceled (period ended) | trialing (trial
+   * expired) → suspended. Cron-only transition (dunning / trial expiry);
+   * the TIER IS PRESERVED — there is no free landing tier. The gateway
+   * subscription id is RETAINED so a late successful PayHere retry can
+   * still reactivate (identity guard C-21 matches it); a new checkout
+   * replaces it on activate(). Members are NEVER touched by this transition.
+   *
+   * Replaces the removed downgradeToStarter().
    */
-  downgradeToStarter(): Subscription {
+  suspend(): Subscription {
     const allowed =
-      isPaidTier(this.props.tier) &&
-      (this.props.status === SaasStatus.PastDue || this.props.status === SaasStatus.Canceled);
+      this.props.status === SaasStatus.PastDue ||
+      this.props.status === SaasStatus.Canceled ||
+      this.props.status === SaasStatus.Trialing;
 
     if (!allowed) {
-      throw new InvalidStatusTransitionError(this.stateKey(), 'starter:canceled');
+      throw new InvalidStatusTransitionError(this.stateKey(), `${this.props.tier}:suspended`);
     }
 
-    return new Subscription({
-      ...this.props,
-      tier: SaasTier.Starter,
-      status: SaasStatus.Canceled,
-      payhereSubscriptionId: null,
-    });
+    return new Subscription({ ...this.props, status: SaasStatus.Suspended });
   }
 
   /**
-   * Complimentary (lifetime) subscription: a paid tier that was provisioned
+   * suspended → active (tier preserved). Payment received for a suspended
+   * account: a late successful charge on the retained gateway subscription
+   * (webhook renew path cannot apply — renew() rejects suspended) or a
+   * platform recovery op. New checkouts go through activate() instead.
+   */
+  reactivate(): Subscription {
+    if (this.props.status !== SaasStatus.Suspended) {
+      throw new InvalidStatusTransitionError(this.stateKey(), `${this.props.tier}:active`);
+    }
+    return new Subscription({ ...this.props, status: SaasStatus.Active });
+  }
+
+  /**
+   * Complimentary (lifetime) subscription: a tier that was provisioned
    * manually — permanently active, no gateway subscription, no period end.
    * Never billed, never dunned; subscription self-management is disabled in
    * the UI and the checkout/cancel APIs reject it. The status=active
-   * requirement keeps the derivation off canceled billed rows (which retain
-   * their period end in every real path anyway).
+   * requirement keeps the derivation off trialing rows (which also have no
+   * gateway sub/period end) and off canceled billed rows.
    */
   isComplimentary(): boolean {
     return (
-      isPaidTier(this.props.tier) &&
       this.props.status === SaasStatus.Active &&
       this.props.payhereSubscriptionId === null &&
       this.props.currentPeriodEnd === null
@@ -219,37 +277,48 @@ export class Subscription {
   }
 
   /**
-   * Quota allowance — MUST mirror the SQL matrix in register_member_guarded;
-   * integration tests keep the two in lock-step. The cap for every tier comes
-   * from the PlanRestrictions capability matrix (null = unlimited); paid
-   * tiers additionally require the subscription to be live (active, in-grace
-   * past_due, or paid-through canceled). Complimentary subscriptions have no
-   * period end but are always status=active, so they pass unconditionally.
+   * Access-control hardware support (Enterprise only) — the sole remaining
+   * per-tier feature gate, from the PlanRestrictions capability matrix.
+   */
+  hasAccessControlHardware(): boolean {
+    return getPlanCapabilities(this.props.tier).accessControlHardware;
+  }
+
+  /**
+   * Quota allowance — MUST mirror the SQL matrix in
+   * assert_gym_can_add_active_member; integration tests keep the two in
+   * lock-step. The cap for every tier comes from the PlanRestrictions
+   * capability matrix (null = unlimited).
+   *
+   *   trialing  → within cap (full features during the trial window)
+   *   active    → within cap
+   *   past_due  → within cap while the grace window covers `now`
+   *   suspended → never (account is gated pending payment)
+   *   canceled  → never (into-active writes stop at cancel)
+   *
+   * Complimentary subscriptions are always status=active → within cap
+   * (unlimited on their tier).
    */
   canAddMember(now: Date): boolean {
     const cap = getPlanCapabilities(this.props.tier).maxMembers;
     const withinCap = cap === null || this.props.memberCount < cap;
 
-    if (!isPaidTier(this.props.tier)) {
-      return withinCap;
+    switch (this.props.status) {
+      case SaasStatus.Trialing:
+      case SaasStatus.Active:
+        return withinCap;
+      case SaasStatus.PastDue: {
+        const graceEnd = this.graceEndsAt();
+        return graceEnd !== null && now.getTime() <= graceEnd.getTime() && withinCap;
+      }
+      case SaasStatus.Suspended:
+      case SaasStatus.Canceled:
+        return false;
     }
-    if (this.props.status === SaasStatus.Active) {
-      return withinCap;
-    }
-    if (this.props.status === SaasStatus.PastDue) {
-      const graceEnd = this.graceEndsAt();
-      return graceEnd !== null && now.getTime() <= graceEnd.getTime() && withinCap;
-    }
-    // {paid}/canceled: paid-through until period end, NO grace
-    return (
-      this.props.currentPeriodEnd !== null &&
-      now.getTime() <= this.props.currentPeriodEnd.getTime() &&
-      withinCap
-    );
   }
 
   /**
-   * True when past_due and the grace window has elapsed (dunning will downgrade).
+   * True when past_due and the grace window has elapsed (dunning will suspend).
    */
   isGraceExpired(now: Date): boolean {
     if (this.props.status !== SaasStatus.PastDue) {
@@ -257,6 +326,18 @@ export class Subscription {
     }
     const graceEnd = this.graceEndsAt();
     return graceEnd !== null && now.getTime() > graceEnd.getTime();
+  }
+
+  /**
+   * True when trialing and the trial clock has elapsed (trial-expiry cron
+   * will suspend).
+   */
+  isTrialExpired(now: Date): boolean {
+    return (
+      this.props.status === SaasStatus.Trialing &&
+      this.props.trialEndsAt !== null &&
+      now.getTime() > this.props.trialEndsAt.getTime()
+    );
   }
 
   /**

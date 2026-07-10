@@ -7,7 +7,8 @@ const ENV = {
   PAYHERE_MODE: 'sandbox',
   PAYHERE_MERCHANT_ID: '1211149',
   PAYHERE_MERCHANT_SECRET: 'TESTSECRET_1234',
-  PAYHERE_PRO_PRICE_LKR: '4900',
+  PAYHERE_LITE_PRICE_LKR: '2990',
+  PAYHERE_PRO_PRICE_LKR: '4990',
   PAYHERE_ENTERPRISE_PRICE_LKR: '6990',
   PAYHERE_APP_ID: 'app-id',
   PAYHERE_APP_SECRET: 'app-secret',
@@ -42,7 +43,7 @@ describe('PayHereGateway', () => {
       orderId: 'SUB-gym1-1',
       amount: 4900,
       currency: 'LKR',
-      tier: SaasTier.Growth,
+      tier: SaasTier.Pro,
       gymId: 'gym1',
       customer,
     });

@@ -35,17 +35,19 @@ describe('HandlePayHereWebhook (UC-2)', () => {
     return { subRepo, intentRepo, logRepo, useCase };
   }
 
-  describe('initial activation (intent-driven)', () => {
-    it('PROVISIONED: activates a Free gym, completes the intent, extends the period', async () => {
+  describe('activation (intent-driven)', () => {
+    it('PROVISIONED: first charge converts a TRIALING gym to the bought tier (trial -> active)', async () => {
       const { subRepo, intentRepo, logRepo, useCase } = build();
       intentRepo.findPendingByOrderId.mockResolvedValue(makeIntent());
-      subRepo.findByGymId.mockResolvedValue(makeSubscription());
+      subRepo.findByGymId.mockResolvedValue(
+        makeSubscription({ status: SaasStatus.Trialing, trialEndsAt: new Date('2026-07-20') })
+      );
 
       const { outcome } = await useCase.execute(fields({ subscription_id: 'PHSUB-A' }));
 
       expect(outcome).toBe(WebhookOutcome.Provisioned);
       const [savedSub, opts] = subRepo.save.mock.calls[0];
-      expect((savedSub as Subscription).tier).toBe(SaasTier.Growth);
+      expect((savedSub as Subscription).tier).toBe(SaasTier.Lite);
       expect((savedSub as Subscription).status).toBe(SaasStatus.Active);
       expect((savedSub as Subscription).payhereSubscriptionId).toBe('PHSUB-A');
       expect(opts).toEqual({ extendPeriod: true });
@@ -53,10 +55,30 @@ describe('HandlePayHereWebhook (UC-2)', () => {
       expect(logRepo.insertIfNew).toHaveBeenCalledTimes(1);
     });
 
+    it('PROVISIONED: checkout from a SUSPENDED gym activates the bought tier', async () => {
+      const { subRepo, intentRepo, useCase } = build();
+      intentRepo.findPendingByOrderId.mockResolvedValue(
+        makeIntent({ targetTier: SaasTier.Pro, expectedAmount: 4990 })
+      );
+      subRepo.findByGymId.mockResolvedValue(
+        makeSubscription({ tier: SaasTier.Pro, status: SaasStatus.Suspended })
+      );
+
+      const { outcome } = await useCase.execute(
+        fields({ payhere_amount: '4990.00', subscription_id: 'PHSUB-N' })
+      );
+
+      expect(outcome).toBe(WebhookOutcome.Provisioned);
+      const saved = subRepo.save.mock.calls[0][0] as Subscription;
+      expect(saved.tier).toBe(SaasTier.Pro);
+      expect(saved.status).toBe(SaasStatus.Active);
+      expect(saved.payhereSubscriptionId).toBe('PHSUB-N');
+    });
+
     it('redacts md5sig from the persisted raw payload (C-24)', async () => {
       const { subRepo, intentRepo, logRepo, useCase } = build();
       intentRepo.findPendingByOrderId.mockResolvedValue(makeIntent());
-      subRepo.findByGymId.mockResolvedValue(makeSubscription());
+      subRepo.findByGymId.mockResolvedValue(makeSubscription({ status: SaasStatus.Trialing }));
 
       await useCase.execute(fields());
 
@@ -68,7 +90,7 @@ describe('HandlePayHereWebhook (UC-2)', () => {
     it('AMOUNT_MISMATCH: tampered/wrong amount fails the intent and provisions nothing', async () => {
       const { subRepo, intentRepo, useCase } = build();
       intentRepo.findPendingByOrderId.mockResolvedValue(makeIntent({ expectedAmount: 2990 }));
-      subRepo.findByGymId.mockResolvedValue(makeSubscription());
+      subRepo.findByGymId.mockResolvedValue(makeSubscription({ status: SaasStatus.Trialing }));
 
       const { outcome } = await useCase.execute(fields({ payhere_amount: '1.00' }));
 
@@ -77,12 +99,12 @@ describe('HandlePayHereWebhook (UC-2)', () => {
       expect(intentRepo.markStatus).toHaveBeenCalledWith('SUB-gym-1-1', 'failed');
     });
 
-    it('re-subscribe from pro/canceled activates with the NEW subscription id', async () => {
+    it('re-subscribe from canceled activates with the NEW subscription id', async () => {
       const { subRepo, intentRepo, useCase } = build();
       intentRepo.findPendingByOrderId.mockResolvedValue(makeIntent());
       subRepo.findByGymId.mockResolvedValue(
         makeSubscription({
-          tier: SaasTier.Growth,
+          tier: SaasTier.Pro,
           status: SaasStatus.Canceled,
           payhereSubscriptionId: 'PHSUB-A',
         })
@@ -96,10 +118,10 @@ describe('HandlePayHereWebhook (UC-2)', () => {
       expect(saved.status).toBe(SaasStatus.Active);
     });
 
-    it('initial checkout failure (-2) fails the intent and leaves the gym Free', async () => {
+    it('initial checkout failure (-2) fails the intent and leaves the status unchanged', async () => {
       const { subRepo, intentRepo, useCase } = build();
       intentRepo.findPendingByOrderId.mockResolvedValue(makeIntent());
-      subRepo.findByGymId.mockResolvedValue(makeSubscription());
+      subRepo.findByGymId.mockResolvedValue(makeSubscription({ status: SaasStatus.Trialing }));
 
       const { outcome } = await useCase.execute(fields({ status_code: '-2' }));
 
@@ -113,7 +135,7 @@ describe('HandlePayHereWebhook (UC-2)', () => {
     it('ALREADY_PROCESSED: duplicate payment_id changes no state', async () => {
       const { subRepo, intentRepo, logRepo, useCase } = build();
       intentRepo.findPendingByOrderId.mockResolvedValue(makeIntent());
-      subRepo.findByGymId.mockResolvedValue(makeSubscription());
+      subRepo.findByGymId.mockResolvedValue(makeSubscription({ status: SaasStatus.Trialing }));
       logRepo.insertIfNew.mockResolvedValue(false);
 
       const { outcome } = await useCase.execute(fields());
@@ -127,13 +149,13 @@ describe('HandlePayHereWebhook (UC-2)', () => {
   describe('recurring lifecycle (subscription-id-driven)', () => {
     const proActive = () =>
       makeSubscription({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.Active,
         payhereSubscriptionId: 'PHSUB-A',
       });
     const proPastDue = () =>
       makeSubscription({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.PastDue,
         payhereSubscriptionId: 'PHSUB-A',
       });
@@ -163,7 +185,28 @@ describe('HandlePayHereWebhook (UC-2)', () => {
       expect(saved.status).toBe(SaasStatus.Active);
     });
 
-    it('MARKED_PAST_DUE: installment failure (-2) on active starts grace, never downgrades', async () => {
+    it('REACTIVATED: late successful retry on a SUSPENDED account lifts the suspension (tier preserved)', async () => {
+      const { subRepo, useCase } = build();
+      subRepo.findByPayhereSubscriptionId.mockResolvedValue(
+        makeSubscription({
+          tier: SaasTier.Pro,
+          status: SaasStatus.Suspended,
+          payhereSubscriptionId: 'PHSUB-A',
+        })
+      );
+
+      const { outcome } = await useCase.execute(
+        fields({ subscription_id: 'PHSUB-A', payment_id: 'PAY-19' })
+      );
+
+      expect(outcome).toBe(WebhookOutcome.Reactivated);
+      const [saved, opts] = subRepo.save.mock.calls[0];
+      expect((saved as Subscription).status).toBe(SaasStatus.Active);
+      expect((saved as Subscription).tier).toBe(SaasTier.Pro);
+      expect(opts).toEqual({ extendPeriod: true });
+    });
+
+    it('MARKED_PAST_DUE: installment failure (-2) on active starts grace, never suspends directly', async () => {
       const { subRepo, logRepo, useCase } = build();
       subRepo.findByPayhereSubscriptionId.mockResolvedValue(proActive());
 
@@ -180,7 +223,7 @@ describe('HandlePayHereWebhook (UC-2)', () => {
       expect(outcome).toBe(WebhookOutcome.MarkedPastDue);
       const saved = subRepo.save.mock.calls[0][0] as Subscription;
       expect(saved.status).toBe(SaasStatus.PastDue);
-      expect(saved.tier).toBe(SaasTier.Growth); // no downgrade here — dunning cron only
+      expect(saved.tier).toBe(SaasTier.Pro); // no tier write here — dunning cron suspends later
       // classification capture (C-22): message_type/status_message persisted
       const logInput = logRepo.insertIfNew.mock.calls[0][0];
       expect(logInput.messageType).toBe('RECURRING_INSTALLMENT_FAILED');
@@ -213,11 +256,11 @@ describe('HandlePayHereWebhook (UC-2)', () => {
   });
 
   describe('cancel reconciliation + identity guard (C-21)', () => {
-    it('RECONCILED_CANCELED: RECURRING_STOPPED on pro/active applies cancelGrowth', async () => {
+    it('RECONCILED_CANCELED: RECURRING_STOPPED on active applies cancelPaid', async () => {
       const { subRepo, useCase } = build();
       subRepo.findByPayhereSubscriptionId.mockResolvedValue(
         makeSubscription({
-          tier: SaasTier.Growth,
+          tier: SaasTier.Pro,
           status: SaasStatus.Active,
           payhereSubscriptionId: 'PHSUB-A',
         })
@@ -236,14 +279,14 @@ describe('HandlePayHereWebhook (UC-2)', () => {
       expect(outcome).toBe(WebhookOutcome.ReconciledCanceled);
       const saved = subRepo.save.mock.calls[0][0] as Subscription;
       expect(saved.status).toBe(SaasStatus.Canceled);
-      expect(saved.tier).toBe(SaasTier.Growth); // paid-through, tier retained
+      expect(saved.tier).toBe(SaasTier.Pro); // paid-through, tier retained
     });
 
     it('STALE_EVENT: RECURRING_STOPPED replay on already-canceled sub is a no-op', async () => {
       const { subRepo, useCase } = build();
       subRepo.findByPayhereSubscriptionId.mockResolvedValue(
         makeSubscription({
-          tier: SaasTier.Growth,
+          tier: SaasTier.Pro,
           status: SaasStatus.Canceled,
           payhereSubscriptionId: 'PHSUB-A',
         })
@@ -268,7 +311,7 @@ describe('HandlePayHereWebhook (UC-2)', () => {
       subRepo.findByPayhereSubscriptionId.mockResolvedValue(null);
       subRepo.findByGymId.mockResolvedValue(
         makeSubscription({
-          tier: SaasTier.Growth,
+          tier: SaasTier.Pro,
           status: SaasStatus.Active,
           payhereSubscriptionId: 'PHSUB-B',
         })
@@ -293,7 +336,7 @@ describe('HandlePayHereWebhook (UC-2)', () => {
       subRepo.findByPayhereSubscriptionId.mockResolvedValue(null);
       subRepo.findByGymId.mockResolvedValue(
         makeSubscription({
-          tier: SaasTier.Growth,
+          tier: SaasTier.Pro,
           status: SaasStatus.Active,
           payhereSubscriptionId: 'PHSUB-B',
         })
@@ -311,7 +354,7 @@ describe('HandlePayHereWebhook (UC-2)', () => {
       const { subRepo, useCase } = build();
       subRepo.findByPayhereSubscriptionId.mockResolvedValue(
         makeSubscription({
-          tier: SaasTier.Growth,
+          tier: SaasTier.Pro,
           status: SaasStatus.Canceled,
           payhereSubscriptionId: 'PHSUB-A',
         })
@@ -358,7 +401,7 @@ describe('HandlePayHereWebhook (UC-2)', () => {
     it('LOGGED_ONLY: unknown status code', async () => {
       const { subRepo, useCase } = build();
       subRepo.findByGymId.mockResolvedValue(
-        makeSubscription({ tier: SaasTier.Growth, status: SaasStatus.Active, payhereSubscriptionId: 'PHSUB-A' })
+        makeSubscription({ tier: SaasTier.Pro, status: SaasStatus.Active, payhereSubscriptionId: 'PHSUB-A' })
       );
 
       const { outcome } = await useCase.execute(

@@ -19,10 +19,10 @@ import {
 } from '@/lib/payhere/crypto';
 import { getPayhereConfig } from '@/lib/payhere/config';
 import {
-  PRO_BILLING_RECURRENCE,
-  PRO_BILLING_DURATION,
+  BILLING_RECURRENCE,
+  BILLING_DURATION,
   TIER_DISPLAY_NAME,
-  type PaidTier,
+  SaasTier,
 } from '@/core/utils/constants/SubscriptionConfig';
 
 export class PayHereGateway implements IPaymentGateway {
@@ -30,7 +30,7 @@ export class PayHereGateway implements IPaymentGateway {
     orderId: string;
     amount: number;
     currency: 'LKR';
-    tier: PaidTier;
+    tier: SaasTier;
     gymId: string;
     customer: CheckoutCustomer;
   }): CheckoutRedirect {
@@ -53,8 +53,8 @@ export class PayHereGateway implements IPaymentGateway {
       items: `${TIER_DISPLAY_NAME[tier]} Plan — Monthly`,
       currency,
       amount: formatAmount(amount),
-      recurrence: PRO_BILLING_RECURRENCE,
-      duration: PRO_BILLING_DURATION,
+      recurrence: BILLING_RECURRENCE,
+      duration: BILLING_DURATION,
       custom_1: gymId, // webhook attribution fallback (unsigned — see plan C-24)
       hash: generateCheckoutHash(
         config.merchantId,

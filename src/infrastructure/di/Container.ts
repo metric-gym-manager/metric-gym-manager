@@ -48,6 +48,7 @@ import { CancelMember } from '@/core/use-cases/member/CancelMember';
 import { GenerateCheckoutUrl } from '@/core/use-cases/subscription/GenerateCheckoutUrl';
 import { HandlePayHereWebhook } from '@/core/use-cases/subscription/HandlePayHereWebhook';
 import { ProcessDunning } from '@/core/use-cases/subscription/ProcessDunning';
+import { ProcessTrialExpiry } from '@/core/use-cases/subscription/ProcessTrialExpiry';
 import { CancelSubscription } from '@/core/use-cases/subscription/CancelSubscription';
 
 // Interfaces
@@ -282,6 +283,7 @@ export class Container {
 
   /**
    * Get GenerateCheckoutUrl use case (UC-1)
+   * All tiers paid; no free/skip path — the price map covers every SaasTier.
    */
   getGenerateCheckoutUrlUseCase(): GenerateCheckoutUrl {
     const payhere = getPayhereConfig();
@@ -290,7 +292,8 @@ export class Container {
       this.getCheckoutIntentRepository(),
       this.getPaymentGateway(),
       {
-        [SaasTier.Growth]: payhere.proPriceLkr,
+        [SaasTier.Lite]: payhere.litePriceLkr,
+        [SaasTier.Pro]: payhere.proPriceLkr,
         [SaasTier.Enterprise]: payhere.enterprisePriceLkr,
       }
     );
@@ -327,6 +330,13 @@ export class Container {
     );
   }
 
+  /**
+   * Get ProcessTrialExpiry use case (UC-5)
+   */
+  getProcessTrialExpiryUseCase(): ProcessTrialExpiry {
+    return new ProcessTrialExpiry(this.getGymSubscriptionRepository());
+  }
+
   // ============================================================
   // USE CASES - REMINDERS
   // ============================================================
@@ -339,7 +349,7 @@ export class Container {
       this.getMemberRepository(),
       this.getSMSRepository(),
       this.getSMSProvider(),
-      // Plan restriction source: Starter gyms are skipped (PlanRestrictions)
+      // Billing-status source: suspended/canceled gyms are skipped
       this.getGymSubscriptionRepository()
     );
   }

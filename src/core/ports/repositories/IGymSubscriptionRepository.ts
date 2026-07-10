@@ -32,11 +32,21 @@ export interface IGymSubscriptionRepository {
 
   /**
    * Set-based dunning pass, all decisions on the DB server clock:
-   * 1. pro/past_due beyond grace  -> free/canceled (subscription id cleared)
-   * 2. pro/canceled past period   -> free (status stays canceled)
+   * 1. past_due beyond grace     -> suspended (tier preserved)
+   * 2. canceled past period end  -> suspended (tier preserved)
+   * No tier is ever written — there is no downgrade landing tier.
    * Members are NEVER touched.
    *
    * @returns Row counts per branch
    */
-  runDunningDowngrades(): Promise<{ downgradedPastDue: number; lapsedCanceled: number }>;
+  runDunningSuspensions(): Promise<{ suspendedPastDue: number; suspendedCanceled: number }>;
+
+  /**
+   * Set-based trial-expiry pass on the DB server clock: gyms still trialing
+   * past trial_ends_at become suspended (tier preserved). Members are NEVER
+   * touched.
+   *
+   * @returns Number of gyms suspended
+   */
+  runTrialExpiry(): Promise<number>;
 }

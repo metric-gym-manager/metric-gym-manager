@@ -7,69 +7,82 @@ import { Check } from 'lucide-react';
 import {
   SaasStatus,
   SaasTier,
-  STARTER_TIER_MEMBER_LIMIT,
-  GROWTH_TIER_MEMBER_LIMIT,
+  LITE_TIER_MEMBER_LIMIT,
   TIER_DISPLAY_NAME,
-  type PaidTier,
 } from '@/core/utils/constants/SubscriptionConfig';
 import type { SerializedSubscription } from '../types';
 
 interface PricingTableProps {
   subscription: SerializedSubscription;
-  /** Monthly Growth price in LKR, from public config */
+  /** Monthly Lite price in LKR, from public config */
+  litePriceLkr?: number | null;
+  /** Monthly Pro price in LKR, from public config */
   proPriceLkr?: number | null;
   /** Monthly Enterprise price in LKR, from public config */
   enterprisePriceLkr?: number | null;
-  /** Open the upgrade dialog for the chosen paid tier. */
-  onUpgrade: (tier: PaidTier) => void;
+  /** Open the upgrade dialog for the chosen tier. */
+  onUpgrade: (tier: SaasTier) => void;
+}
+
+interface PriceInputs {
+  litePriceLkr?: number | null;
+  proPriceLkr?: number | null;
+  enterprisePriceLkr?: number | null;
 }
 
 interface Column {
   tier: SaasTier;
-  priceLabel: (p: { proPriceLkr?: number | null; enterprisePriceLkr?: number | null }) => string;
+  priceLabel: (p: PriceInputs) => string;
   features: string[];
   accent: string;
 }
 
+const price = (v: number | null | undefined): string =>
+  v ? `Rs. ${v.toLocaleString()}` : 'Rs. —';
+
+/** All three tiers are paid and carry a CTA — there is no free / no-CTA column. */
 const COLUMNS: Column[] = [
   {
-    tier: SaasTier.Starter,
-    priceLabel: () => 'Rs. 0',
+    tier: SaasTier.Lite,
+    priceLabel: ({ litePriceLkr }) => price(litePriceLkr),
     features: [
-      `Up to ${STARTER_TIER_MEMBER_LIMIT} active members`,
+      `Up to ${LITE_TIER_MEMBER_LIMIT} active members`,
       'Payment collection & manual receipts',
       'Revenue analytics',
+      'Automated SMS reminders',
+      'Bulk SMS announcements',
     ],
     accent: 'border-blue-200',
   },
   {
-    tier: SaasTier.Growth,
-    priceLabel: ({ proPriceLkr }) => (proPriceLkr ? `Rs. ${proPriceLkr.toLocaleString()}` : 'Rs. —'),
-    features: [
-      `Up to ${GROWTH_TIER_MEMBER_LIMIT} active members`,
-      'Everything in Starter',
-      'Automated SMS reminders',
-      'Bulk SMS announcements',
-    ],
+    tier: SaasTier.Pro,
+    priceLabel: ({ proPriceLkr }) => price(proPriceLkr),
+    features: ['Unlimited active members', 'Everything in Lite'],
     accent: 'border-amber-300',
   },
   {
     tier: SaasTier.Enterprise,
-    priceLabel: ({ enterprisePriceLkr }) =>
-      enterprisePriceLkr ? `Rs. ${enterprisePriceLkr.toLocaleString()}` : 'Rs. —',
-    features: ['Unlimited active members', 'Everything in Growth', 'Priority support'],
+    priceLabel: ({ enterprisePriceLkr }) => price(enterprisePriceLkr),
+    features: [
+      'Unlimited active members',
+      'Everything in Pro',
+      'Access-control hardware support',
+      'Priority support',
+    ],
     accent: 'border-purple-300',
   },
 ];
 
 /**
- * Starter / Growth / Enterprise comparison (plan §5.2). CTA state per §5.3:
- * an active or past-due paid subscription cannot start a second checkout
+ * Lite / Pro / Enterprise comparison (plan §5.2). CTA state per §5.3:
+ * an active or past-due subscription cannot start a second checkout
  * (a plan change requires cancelling first). Complimentary subscriptions
- * show no purchase CTAs (platform-managed).
+ * show no purchase CTAs (platform-managed). Trialing/suspended/canceled
+ * accounts can check out into any tier.
  */
 export default function PricingTable({
   subscription: sub,
+  litePriceLkr,
   proPriceLkr,
   enterprisePriceLkr,
   onUpgrade,
@@ -77,13 +90,10 @@ export default function PricingTable({
   const currentTier = sub.subscriptionTier;
   const active = sub.subscriptionStatus === SaasStatus.Active;
   const pastDue = sub.subscriptionStatus === SaasStatus.PastDue;
-  // A live paid subscription blocks any new checkout (must cancel to change).
-  const hasLivePaidSub = (currentTier === SaasTier.Growth || currentTier === SaasTier.Enterprise) &&
-    (active || pastDue);
+  // A live subscription blocks any new checkout (must cancel to change).
+  const hasLiveSub = active || pastDue;
 
   function cta(tier: SaasTier) {
-    if (tier === SaasTier.Starter) return null;
-    const paidTier = tier as PaidTier;
     const isCurrent = currentTier === tier && active;
 
     if (sub.isComplimentary) {
@@ -107,14 +117,16 @@ export default function PricingTable({
         </Button>
       );
     }
-    // Different paid tier while a live sub exists -> must cancel first
-    const label = currentTier === tier ? `Re-subscribe to ${TIER_DISPLAY_NAME[tier]}` : `Upgrade to ${TIER_DISPLAY_NAME[tier]}`;
+    const label =
+      currentTier === tier
+        ? `Subscribe to ${TIER_DISPLAY_NAME[tier]}`
+        : `Upgrade to ${TIER_DISPLAY_NAME[tier]}`;
     return (
       <Button
         className="w-full"
-        onClick={() => onUpgrade(paidTier)}
-        disabled={hasLivePaidSub}
-        title={hasLivePaidSub ? 'Cancel your current subscription before changing plans' : undefined}
+        onClick={() => onUpgrade(tier)}
+        disabled={hasLiveSub}
+        title={hasLiveSub ? 'Cancel your current subscription before changing plans' : undefined}
       >
         {label}
       </Button>
@@ -124,7 +136,7 @@ export default function PricingTable({
   return (
     <div className="grid gap-4 md:grid-cols-3">
       {COLUMNS.map((col) => {
-        const isCurrent = currentTier === col.tier && (col.tier === SaasTier.Starter || active);
+        const isCurrent = currentTier === col.tier && active;
         return (
           <Card key={col.tier} className={isCurrent ? col.accent : undefined}>
             <CardHeader>
@@ -132,12 +144,12 @@ export default function PricingTable({
                 <CardTitle>{TIER_DISPLAY_NAME[col.tier]}</CardTitle>
                 {isCurrent && (
                   <Badge className="border-transparent bg-blue-100 text-blue-800">
-                    {sub.isComplimentary && col.tier !== SaasTier.Starter ? 'Lifetime' : 'Current plan'}
+                    {sub.isComplimentary ? 'Lifetime' : 'Current plan'}
                   </Badge>
                 )}
               </div>
               <p className="text-2xl font-bold">
-                {col.priceLabel({ proPriceLkr, enterprisePriceLkr })}
+                {col.priceLabel({ litePriceLkr, proPriceLkr, enterprisePriceLkr })}
                 <span className="text-sm font-normal text-gray-500"> / month</span>
               </p>
             </CardHeader>

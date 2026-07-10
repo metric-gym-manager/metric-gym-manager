@@ -8,10 +8,17 @@ import { serializeSubscriptionForAPI } from '@/features/subscriptions/utils/seri
 import { getPayhereConfig } from '@/lib/payhere/config';
 
 /** Per-tier price for the pricing UI; null when billing env is not configured. */
-function priceOrNull(which: 'pro' | 'enterprise'): number | null {
+function priceOrNull(which: 'lite' | 'pro' | 'enterprise'): number | null {
   try {
     const config = getPayhereConfig();
-    return which === 'pro' ? config.proPriceLkr : config.enterprisePriceLkr;
+    switch (which) {
+      case 'lite':
+        return config.litePriceLkr;
+      case 'pro':
+        return config.proPriceLkr;
+      case 'enterprise':
+        return config.enterprisePriceLkr;
+    }
   } catch {
     return null;
   }
@@ -52,6 +59,7 @@ export async function GET(_request: NextRequest) {
 
     return NextResponse.json(
       ResponseBuilder.success(serializeSubscriptionForAPI(subscription, pastDueReason), {
+        litePriceLkr: priceOrNull('lite'),
         proPriceLkr: priceOrNull('pro'),
         enterprisePriceLkr: priceOrNull('enterprise'),
       }),

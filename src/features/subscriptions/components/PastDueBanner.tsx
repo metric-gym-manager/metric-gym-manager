@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { RecurringFailureClass } from '@/core/utils/constants/SubscriptionConfig';
+import {
+  RecurringFailureClass,
+  TIER_DISPLAY_NAME,
+} from '@/core/utils/constants/SubscriptionConfig';
 import type { SerializedSubscription } from '../types';
 
 interface PastDueBannerProps {
@@ -49,10 +52,10 @@ export default function PastDueBanner({ subscription: sub }: PastDueBannerProps)
             {isHard
               ? 'Your payment method was declined and won’t be retried automatically. '
               : 'PayHere will retry the charge automatically — make sure your card has funds. '}
-            Growth features continue until{' '}
+            {TIER_DISPLAY_NAME[sub.subscriptionTier]} features continue until{' '}
             <span className="font-semibold">{graceEndsAt ?? 'the end of the grace period'}</span>
             {daysLeft !== null && <> ({daysLeft} {daysLeft === 1 ? 'day' : 'days'} left)</>}
-            {isHard && ' — re-subscribe before then to avoid reverting to the Starter plan'}.
+            {isHard && ' — re-subscribe before then to avoid your account being suspended'}.
           </p>
         </div>
       </div>

@@ -2,18 +2,18 @@ import { Subscription, SubscriptionProps } from '@/core/domain/subscription/Subs
 import {
   SaasTier,
   SaasStatus,
-  STARTER_TIER_MEMBER_LIMIT,
-  GROWTH_TIER_MEMBER_LIMIT,
+  LITE_TIER_MEMBER_LIMIT,
   GRACE_PERIOD_DAYS,
 } from '@/core/utils/constants/SubscriptionConfig';
 import { InvalidStatusTransitionError } from '@/core/utils/errors';
 
 const base: SubscriptionProps = {
   gymId: 'gym-1',
-  tier: SaasTier.Starter,
+  tier: SaasTier.Lite,
   status: SaasStatus.Active,
   memberCount: 0,
   currentPeriodEnd: null,
+  trialEndsAt: null,
   payhereCustomerId: null,
   payhereSubscriptionId: null,
 };
@@ -31,17 +31,19 @@ function daysFrom(date: Date, days: number): Date {
 describe('Subscription entity', () => {
   const periodEnd = new Date('2026-07-01T00:00:00Z');
 
-  describe('activateGrowth', () => {
+  describe('activate (tier-agnostic; every tier is paid)', () => {
     it.each([
-      ['free/active', SaasTier.Starter, SaasStatus.Active],
-      ['free/canceled', SaasTier.Starter, SaasStatus.Canceled],
-      ['pro/canceled (re-subscribe)', SaasTier.Growth, SaasStatus.Canceled],
-    ])('activates from %s', (_label, tier, status) => {
-      const next = sub({ tier, status }).activatePaid(SaasTier.Growth, {
+      ['lite/trialing', SaasTier.Lite, SaasStatus.Trialing, SaasTier.Pro],
+      ['lite/suspended', SaasTier.Lite, SaasStatus.Suspended, SaasTier.Lite],
+      ['pro/suspended', SaasTier.Pro, SaasStatus.Suspended, SaasTier.Pro],
+      ['pro/canceled (re-subscribe)', SaasTier.Pro, SaasStatus.Canceled, SaasTier.Pro],
+      ['enterprise/canceled (downgrade after cancel)', SaasTier.Enterprise, SaasStatus.Canceled, SaasTier.Lite],
+    ])('activates from %s', (_label, tier, status, target) => {
+      const next = sub({ tier, status }).activate(target, {
         subscriptionId: 'SUB-B',
         customerId: 'CUST-1',
       });
-      expect(next.tier).toBe(SaasTier.Growth);
+      expect(next.tier).toBe(target);
       expect(next.status).toBe(SaasStatus.Active);
       expect(next.payhereSubscriptionId).toBe('SUB-B');
       expect(next.payhereCustomerId).toBe('CUST-1');
@@ -49,167 +51,218 @@ describe('Subscription entity', () => {
 
     it('replaces the old subscription id on re-subscribe after voluntary cancel', () => {
       const next = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.Canceled,
         payhereSubscriptionId: 'SUB-A',
-      }).activatePaid(SaasTier.Growth, { subscriptionId: 'SUB-B', customerId: null });
+      }).activate(SaasTier.Pro, { subscriptionId: 'SUB-B', customerId: null });
       expect(next.payhereSubscriptionId).toBe('SUB-B');
     });
 
     it('keeps existing ids when input ids are null', () => {
       const next = sub({
-        tier: SaasTier.Starter,
+        tier: SaasTier.Lite,
         status: SaasStatus.Canceled,
         payhereSubscriptionId: 'SUB-A',
         payhereCustomerId: 'CUST-A',
-      }).activatePaid(SaasTier.Growth, { subscriptionId: null, customerId: null });
+      }).activate(SaasTier.Pro, { subscriptionId: null, customerId: null });
       expect(next.payhereSubscriptionId).toBe('SUB-A');
       expect(next.payhereCustomerId).toBe('CUST-A');
     });
 
     it.each([
-      ['pro/active', SaasStatus.Active],
-      ['pro/past_due', SaasStatus.PastDue],
+      ['lite/active', SaasStatus.Active],
+      ['lite/past_due', SaasStatus.PastDue],
     ])('rejects from %s (already subscribed)', (_label, status) => {
       expect(() =>
-        sub({ tier: SaasTier.Growth, status }).activatePaid(SaasTier.Growth, { subscriptionId: 'X', customerId: null })
+        sub({ tier: SaasTier.Lite, status }).activate(SaasTier.Pro, { subscriptionId: 'X', customerId: null })
       ).toThrow(InvalidStatusTransitionError);
+    });
+  });
+
+  describe('convertTrialToPaid', () => {
+    it('converts a trialing account into the bought tier', () => {
+      const next = sub({
+        tier: SaasTier.Lite,
+        status: SaasStatus.Trialing,
+        trialEndsAt: daysFrom(periodEnd, 10),
+      }).convertTrialToPaid(SaasTier.Enterprise, { subscriptionId: 'SUB-T', customerId: 'C-1' });
+      expect(next.tier).toBe(SaasTier.Enterprise);
+      expect(next.status).toBe(SaasStatus.Active);
+      expect(next.payhereSubscriptionId).toBe('SUB-T');
+    });
+
+    it.each([
+      ['active', SaasStatus.Active],
+      ['suspended', SaasStatus.Suspended],
+      ['canceled', SaasStatus.Canceled],
+    ])('rejects from %s (only trialing converts)', (_label, status) => {
+      expect(() =>
+        sub({ status }).convertTrialToPaid(SaasTier.Lite, { subscriptionId: 'X', customerId: null })
+      ).toThrow(InvalidStatusTransitionError);
+    });
+  });
+
+  describe('startTrial (platform re-trial)', () => {
+    it.each([
+      ['suspended', SaasStatus.Suspended],
+      ['canceled', SaasStatus.Canceled],
+    ])('starts a fresh trial clock from %s', (_label, status) => {
+      const clock = new Date('2026-08-01T00:00:00Z');
+      const next = sub({ status }).startTrial(clock);
+      expect(next.status).toBe(SaasStatus.Trialing);
+      expect(next.trialEndsAt).toEqual(clock);
+    });
+
+    it.each([
+      ['active', SaasStatus.Active],
+      ['past_due', SaasStatus.PastDue],
+      ['trialing', SaasStatus.Trialing],
+    ])('rejects from %s', (_label, status) => {
+      expect(() => sub({ status }).startTrial(new Date())).toThrow(InvalidStatusTransitionError);
     });
   });
 
   describe('renew (non-transition, §2.5.1)', () => {
     it('keeps active on on-time renewal', () => {
-      const next = sub({ tier: SaasTier.Growth, status: SaasStatus.Active }).renew();
+      const next = sub({ tier: SaasTier.Pro, status: SaasStatus.Active }).renew();
       expect(next.status).toBe(SaasStatus.Active);
-      expect(next.tier).toBe(SaasTier.Growth);
+      expect(next.tier).toBe(SaasTier.Pro);
     });
 
     it('recovers past_due to active', () => {
-      const next = sub({ tier: SaasTier.Growth, status: SaasStatus.PastDue }).renew();
+      const next = sub({ tier: SaasTier.Lite, status: SaasStatus.PastDue }).renew();
       expect(next.status).toBe(SaasStatus.Active);
     });
 
-    it('rejects on pro/canceled — a stale installment must never un-cancel', () => {
-      expect(() => sub({ tier: SaasTier.Growth, status: SaasStatus.Canceled }).renew()).toThrow(
+    it('rejects on canceled — a stale installment must never un-cancel', () => {
+      expect(() => sub({ tier: SaasTier.Pro, status: SaasStatus.Canceled }).renew()).toThrow(
         InvalidStatusTransitionError
       );
     });
 
-    it('rejects on free tiers', () => {
-      expect(() => sub().renew()).toThrow(InvalidStatusTransitionError);
-      expect(() => sub({ status: SaasStatus.Canceled }).renew()).toThrow(
+    it('rejects on trialing and suspended (those go through convert/activate/reactivate)', () => {
+      expect(() => sub({ status: SaasStatus.Trialing }).renew()).toThrow(
+        InvalidStatusTransitionError
+      );
+      expect(() => sub({ status: SaasStatus.Suspended }).renew()).toThrow(
         InvalidStatusTransitionError
       );
     });
   });
 
   describe('markPastDue', () => {
-    it('transitions pro/active to pro/past_due', () => {
-      const next = sub({ tier: SaasTier.Growth, status: SaasStatus.Active }).markPastDue();
-      expect(next.status).toBe(SaasStatus.PastDue);
-      expect(next.tier).toBe(SaasTier.Growth);
-    });
+    it.each([SaasTier.Lite, SaasTier.Pro, SaasTier.Enterprise])(
+      'transitions %s/active to past_due',
+      (tier) => {
+        const next = sub({ tier, status: SaasStatus.Active }).markPastDue();
+        expect(next.status).toBe(SaasStatus.PastDue);
+        expect(next.tier).toBe(tier);
+      }
+    );
 
     it.each([
-      ['pro/past_due', SaasTier.Growth, SaasStatus.PastDue],
-      ['pro/canceled', SaasTier.Growth, SaasStatus.Canceled],
-      ['free/active', SaasTier.Starter, SaasStatus.Active],
-    ])('rejects from %s', (_label, tier, status) => {
-      expect(() => sub({ tier, status }).markPastDue()).toThrow(InvalidStatusTransitionError);
+      ['past_due', SaasStatus.PastDue],
+      ['canceled', SaasStatus.Canceled],
+      ['trialing', SaasStatus.Trialing],
+      ['suspended', SaasStatus.Suspended],
+    ])('rejects from %s', (_label, status) => {
+      expect(() => sub({ status }).markPastDue()).toThrow(InvalidStatusTransitionError);
     });
   });
 
-  describe('cancelGrowth', () => {
-    it('cancels from pro/active, keeping tier, period end and ids', () => {
+  describe('cancelPaid', () => {
+    it('cancels from active, keeping tier, period end and ids', () => {
       const next = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.Active,
         currentPeriodEnd: periodEnd,
         payhereSubscriptionId: 'SUB-A',
       }).cancelPaid();
       expect(next.status).toBe(SaasStatus.Canceled);
-      expect(next.tier).toBe(SaasTier.Growth);
+      expect(next.tier).toBe(SaasTier.Pro);
       expect(next.currentPeriodEnd).toEqual(periodEnd);
       expect(next.payhereSubscriptionId).toBe('SUB-A');
     });
 
-    it('cancels from pro/past_due', () => {
-      const next = sub({ tier: SaasTier.Growth, status: SaasStatus.PastDue }).cancelPaid();
+    it('cancels from past_due', () => {
+      const next = sub({ tier: SaasTier.Lite, status: SaasStatus.PastDue }).cancelPaid();
       expect(next.status).toBe(SaasStatus.Canceled);
     });
 
     it.each([
-      ['free/active', SaasTier.Starter, SaasStatus.Active],
-      ['pro/canceled (idempotence handled by use case)', SaasTier.Growth, SaasStatus.Canceled],
-    ])('rejects from %s', (_label, tier, status) => {
-      expect(() => sub({ tier, status }).cancelPaid()).toThrow(InvalidStatusTransitionError);
+      ['trialing', SaasStatus.Trialing],
+      ['suspended', SaasStatus.Suspended],
+      ['canceled (idempotence handled by use case)', SaasStatus.Canceled],
+    ])('rejects from %s', (_label, status) => {
+      expect(() => sub({ status }).cancelPaid()).toThrow(InvalidStatusTransitionError);
     });
   });
 
-  describe('downgradeToStarter', () => {
+  describe('suspend (replaces downgradeToStarter — tier PRESERVED)', () => {
     it.each([
-      ['pro/past_due (grace expired)', SaasStatus.PastDue],
-      ['pro/canceled (period ended)', SaasStatus.Canceled],
-    ])('downgrades from %s and clears the subscription id', (_label, status) => {
+      ['past_due (grace expired)', SaasStatus.PastDue],
+      ['canceled (period ended)', SaasStatus.Canceled],
+      ['trialing (trial expired)', SaasStatus.Trialing],
+    ])('suspends from %s keeping tier and gateway id', (_label, status) => {
       const next = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status,
         payhereSubscriptionId: 'SUB-A',
-      }).downgradeToStarter();
-      expect(next.tier).toBe(SaasTier.Starter);
-      expect(next.status).toBe(SaasStatus.Canceled);
-      expect(next.payhereSubscriptionId).toBeNull();
+      }).suspend();
+      expect(next.tier).toBe(SaasTier.Pro); // NO landing tier — tier preserved
+      expect(next.status).toBe(SaasStatus.Suspended);
+      expect(next.payhereSubscriptionId).toBe('SUB-A'); // retained for late-recovery reactivation
     });
 
-    it('rejects from pro/active', () => {
-      expect(() =>
-        sub({ tier: SaasTier.Growth, status: SaasStatus.Active }).downgradeToStarter()
-      ).toThrow(InvalidStatusTransitionError);
-    });
-
-    it('rejects from free tiers', () => {
-      expect(() => sub().downgradeToStarter()).toThrow(InvalidStatusTransitionError);
+    it.each([
+      ['active', SaasStatus.Active],
+      ['suspended', SaasStatus.Suspended],
+    ])('rejects from %s', (_label, status) => {
+      expect(() => sub({ status }).suspend()).toThrow(InvalidStatusTransitionError);
     });
   });
 
-  describe('canAddMember (mirror of register_member_guarded)', () => {
+  describe('reactivate', () => {
+    it('lifts a suspension back to active (tier preserved)', () => {
+      const next = sub({ tier: SaasTier.Enterprise, status: SaasStatus.Suspended }).reactivate();
+      expect(next.status).toBe(SaasStatus.Active);
+      expect(next.tier).toBe(SaasTier.Enterprise);
+    });
+
+    it.each([
+      ['active', SaasStatus.Active],
+      ['past_due', SaasStatus.PastDue],
+      ['canceled', SaasStatus.Canceled],
+      ['trialing', SaasStatus.Trialing],
+    ])('rejects from %s', (_label, status) => {
+      expect(() => sub({ status }).reactivate()).toThrow(InvalidStatusTransitionError);
+    });
+  });
+
+  describe('canAddMember (mirror of assert_gym_can_add_active_member)', () => {
     const now = new Date('2026-07-04T12:00:00Z');
 
-    it('free below limit: allowed', () => {
-      expect(sub({ memberCount: STARTER_TIER_MEMBER_LIMIT - 1 }).canAddMember(now)).toBe(true);
+    it('lite/active below limit: allowed', () => {
+      expect(sub({ memberCount: LITE_TIER_MEMBER_LIMIT - 1 }).canAddMember(now)).toBe(true);
     });
 
-    it('free at limit: blocked', () => {
-      expect(sub({ memberCount: STARTER_TIER_MEMBER_LIMIT }).canAddMember(now)).toBe(false);
+    it('lite/active at limit: blocked', () => {
+      expect(sub({ memberCount: LITE_TIER_MEMBER_LIMIT }).canAddMember(now)).toBe(false);
     });
 
-    it('free far over limit (post-downgrade, e.g. 500): blocked', () => {
+    it('lite/trialing: allowed within cap, blocked at cap (full features during trial)', () => {
       expect(
-        sub({ memberCount: 500, status: SaasStatus.Canceled }).canAddMember(now)
-      ).toBe(false);
-    });
-
-    it('growth/active: allowed below the 150 cap, blocked at/over it', () => {
-      expect(
-        sub({
-          tier: SaasTier.Growth,
-          status: SaasStatus.Active,
-          memberCount: GROWTH_TIER_MEMBER_LIMIT - 1,
-        }).canAddMember(now)
+        sub({ status: SaasStatus.Trialing, memberCount: LITE_TIER_MEMBER_LIMIT - 1 }).canAddMember(now)
       ).toBe(true);
       expect(
-        sub({
-          tier: SaasTier.Growth,
-          status: SaasStatus.Active,
-          memberCount: GROWTH_TIER_MEMBER_LIMIT,
-        }).canAddMember(now)
-      ).toBe(false);
-      expect(
-        sub({ tier: SaasTier.Growth, status: SaasStatus.Active, memberCount: 5000 }).canAddMember(now)
+        sub({ status: SaasStatus.Trialing, memberCount: LITE_TIER_MEMBER_LIMIT }).canAddMember(now)
       ).toBe(false);
     });
 
-    it('enterprise/active: always allowed (unlimited)', () => {
+    it('pro/active and enterprise/active: always allowed (unlimited)', () => {
+      expect(
+        sub({ tier: SaasTier.Pro, status: SaasStatus.Active, memberCount: 5000 }).canAddMember(now)
+      ).toBe(true);
       expect(
         sub({
           tier: SaasTier.Enterprise,
@@ -217,6 +270,27 @@ describe('Subscription entity', () => {
           memberCount: 5000,
         }).canAddMember(now)
       ).toBe(true);
+    });
+
+    it('suspended: blocked on every tier regardless of count', () => {
+      for (const tier of [SaasTier.Lite, SaasTier.Pro, SaasTier.Enterprise]) {
+        expect(sub({ tier, status: SaasStatus.Suspended, memberCount: 0 }).canAddMember(now)).toBe(
+          false
+        );
+      }
+    });
+
+    it('canceled: blocked on every tier (into-active writes stop at cancel)', () => {
+      for (const tier of [SaasTier.Lite, SaasTier.Pro, SaasTier.Enterprise]) {
+        expect(
+          sub({
+            tier,
+            status: SaasStatus.Canceled,
+            memberCount: 0,
+            currentPeriodEnd: daysFrom(now, 10),
+          }).canAddMember(now)
+        ).toBe(false);
+      }
     });
 
     it('complimentary enterprise (no gateway id, no period end): allowed and detected', () => {
@@ -231,7 +305,7 @@ describe('Subscription entity', () => {
       expect(comped.canAddMember(now)).toBe(true);
     });
 
-    it('billed subscriptions are NOT complimentary', () => {
+    it('billed and trialing subscriptions are NOT complimentary', () => {
       expect(
         sub({
           tier: SaasTier.Enterprise,
@@ -240,59 +314,54 @@ describe('Subscription entity', () => {
           currentPeriodEnd: new Date('2099-01-01'),
         }).isComplimentary()
       ).toBe(false);
-      expect(sub({ tier: SaasTier.Starter }).isComplimentary()).toBe(false);
+      // Trialing rows also have no gateway id/period end — status keeps them out.
+      expect(sub({ status: SaasStatus.Trialing }).isComplimentary()).toBe(false);
     });
 
-    it('pro/past_due inside grace (day 6): allowed', () => {
+    it('past_due inside grace (day 6): allowed within cap', () => {
       const s = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.PastDue,
         currentPeriodEnd: daysFrom(now, -6),
       });
       expect(s.canAddMember(now)).toBe(true);
     });
 
-    it('pro/past_due past grace (day GRACE+1): blocked', () => {
+    it('past_due past grace (day GRACE+1): blocked', () => {
       const s = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.PastDue,
         currentPeriodEnd: daysFrom(now, -(GRACE_PERIOD_DAYS + 1)),
       });
       expect(s.canAddMember(now)).toBe(false);
     });
 
-    it('pro/past_due with null period end: blocked', () => {
+    it('past_due with null period end: blocked', () => {
       const s = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.PastDue,
         currentPeriodEnd: null,
       });
       expect(s.canAddMember(now)).toBe(false);
     });
+  });
 
-    it('pro/canceled paid-through: allowed until period end, no grace', () => {
-      const paidThrough = sub({
-        tier: SaasTier.Growth,
-        status: SaasStatus.Canceled,
-        currentPeriodEnd: daysFrom(now, 3),
-      });
-      expect(paidThrough.canAddMember(now)).toBe(true);
-
-      const lapsed = sub({
-        tier: SaasTier.Growth,
-        status: SaasStatus.Canceled,
-        currentPeriodEnd: daysFrom(now, -1),
-      });
-      expect(lapsed.canAddMember(now)).toBe(false);
+  describe('hasAccessControlHardware (Enterprise-only feature gate)', () => {
+    it.each([
+      [SaasTier.Lite, false],
+      [SaasTier.Pro, false],
+      [SaasTier.Enterprise, true],
+    ])('%s -> %s', (tier, expected) => {
+      expect(sub({ tier }).hasAccessControlHardware()).toBe(expected);
     });
   });
 
-  describe('grace helpers', () => {
+  describe('grace and trial helpers', () => {
     const now = new Date('2026-07-04T12:00:00Z');
 
     it('graceEndsAt = periodEnd + GRACE_PERIOD_DAYS when past_due', () => {
       const s = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.PastDue,
         currentPeriodEnd: periodEnd,
       });
@@ -302,7 +371,7 @@ describe('Subscription entity', () => {
     it('graceEndsAt handles month boundaries', () => {
       const endOfMonth = new Date('2026-01-28T00:00:00Z');
       const s = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.PastDue,
         currentPeriodEnd: endOfMonth,
       });
@@ -311,29 +380,45 @@ describe('Subscription entity', () => {
 
     it('graceEndsAt is null when not past_due', () => {
       expect(
-        sub({ tier: SaasTier.Growth, status: SaasStatus.Active, currentPeriodEnd: periodEnd }).graceEndsAt()
+        sub({ tier: SaasTier.Pro, status: SaasStatus.Active, currentPeriodEnd: periodEnd }).graceEndsAt()
       ).toBeNull();
     });
 
     it('isGraceExpired only past the grace boundary', () => {
       const inGrace = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.PastDue,
         currentPeriodEnd: daysFrom(now, -6),
       });
       expect(inGrace.isGraceExpired(now)).toBe(false);
 
       const expired = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.PastDue,
         currentPeriodEnd: daysFrom(now, -(GRACE_PERIOD_DAYS + 1)),
       });
       expect(expired.isGraceExpired(now)).toBe(true);
     });
 
+    it('isTrialExpired tracks the trial clock while trialing', () => {
+      expect(
+        sub({ status: SaasStatus.Trialing, trialEndsAt: daysFrom(now, 1) }).isTrialExpired(now)
+      ).toBe(false);
+      expect(
+        sub({ status: SaasStatus.Trialing, trialEndsAt: daysFrom(now, -1) }).isTrialExpired(now)
+      ).toBe(true);
+      // Only meaningful while trialing
+      expect(
+        sub({ status: SaasStatus.Active, trialEndsAt: daysFrom(now, -1) }).isTrialExpired(now)
+      ).toBe(false);
+      expect(sub({ status: SaasStatus.Trialing, trialEndsAt: null }).isTrialExpired(now)).toBe(
+        false
+      );
+    });
+
     it('isPaidThrough tracks the period boundary', () => {
       const s = sub({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.Canceled,
         currentPeriodEnd: daysFrom(now, 1),
       });
@@ -344,7 +429,7 @@ describe('Subscription entity', () => {
 
   describe('immutability', () => {
     it('transition methods return new instances; the source is untouched', () => {
-      const original = sub({ tier: SaasTier.Growth, status: SaasStatus.Active });
+      const original = sub({ tier: SaasTier.Pro, status: SaasStatus.Active });
       const next = original.markPastDue();
       expect(next).not.toBe(original);
       expect(original.status).toBe(SaasStatus.Active);
@@ -352,10 +437,17 @@ describe('Subscription entity', () => {
     });
 
     it('toProps returns a defensive copy (mutating it does not affect the entity)', () => {
-      const s = sub({ tier: SaasTier.Growth, status: SaasStatus.Active, currentPeriodEnd: periodEnd });
+      const s = sub({
+        tier: SaasTier.Pro,
+        status: SaasStatus.Active,
+        currentPeriodEnd: periodEnd,
+        trialEndsAt: periodEnd,
+      });
       const props = s.toProps();
       props.currentPeriodEnd!.setFullYear(2099);
+      props.trialEndsAt!.setFullYear(2099);
       expect(s.currentPeriodEnd).toEqual(periodEnd);
+      expect(s.trialEndsAt).toEqual(periodEnd);
     });
   });
 });

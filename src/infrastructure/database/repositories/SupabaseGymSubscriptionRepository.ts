@@ -4,8 +4,8 @@
  * Reads the subscription columns on the gyms row; writes go through the
  * save_gym_subscription RPC so current_period_end is always computed on the
  * DATABASE clock (migration 20260704000003 — supabase-js .update() cannot
- * express SQL expressions). Dunning downgrades likewise run in SQL via
- * process_dunning_downgrades.
+ * express SQL expressions). Dunning suspensions and trial expiry likewise
+ * run in SQL via process_dunning_suspensions / process_trial_expiry.
  *
  * Constructed with the service-role client in billing/webhook/cron paths;
  * the RPCs are EXECUTE-granted to service_role only.
@@ -27,12 +27,13 @@ interface GymSubscriptionRow {
   subscription_status: string;
   member_count: number;
   current_period_end: string | null;
+  trial_ends_at: string | null;
   payhere_customer_id: string | null;
   payhere_subscription_id: string | null;
 }
 
 const SUBSCRIPTION_COLUMNS =
-  'id, subscription_tier, subscription_status, member_count, current_period_end, payhere_customer_id, payhere_subscription_id';
+  'id, subscription_tier, subscription_status, member_count, current_period_end, trial_ends_at, payhere_customer_id, payhere_subscription_id';
 
 export class SupabaseGymSubscriptionRepository implements IGymSubscriptionRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -44,6 +45,7 @@ export class SupabaseGymSubscriptionRepository implements IGymSubscriptionReposi
       status: saasStatusSchema.parse(row.subscription_status),
       memberCount: row.member_count,
       currentPeriodEnd: row.current_period_end ? new Date(row.current_period_end) : null,
+      trialEndsAt: row.trial_ends_at ? new Date(row.trial_ends_at) : null,
       payhereCustomerId: row.payhere_customer_id,
       payhereSubscriptionId: row.payhere_subscription_id,
     });
@@ -99,19 +101,32 @@ export class SupabaseGymSubscriptionRepository implements IGymSubscriptionReposi
     return Subscription.create({ ...props, currentPeriodEnd: periodEnd });
   }
 
-  async runDunningDowngrades(): Promise<{ downgradedPastDue: number; lapsedCanceled: number }> {
-    const { data, error } = await this.supabase.rpc('process_dunning_downgrades', {
+  async runDunningSuspensions(): Promise<{
+    suspendedPastDue: number;
+    suspendedCanceled: number;
+  }> {
+    const { data, error } = await this.supabase.rpc('process_dunning_suspensions', {
       p_grace_days: GRACE_PERIOD_DAYS,
     });
 
     if (error) {
-      throw new DatabaseError(`Dunning downgrade pass failed: ${error.message}`);
+      throw new DatabaseError(`Dunning suspension pass failed: ${error.message}`);
     }
 
     const row = Array.isArray(data) ? (data[0] as Record<string, number> | undefined) : undefined;
     return {
-      downgradedPastDue: row?.downgraded_past_due ?? 0,
-      lapsedCanceled: row?.lapsed_canceled ?? 0,
+      suspendedPastDue: row?.suspended_past_due ?? 0,
+      suspendedCanceled: row?.suspended_canceled ?? 0,
     };
+  }
+
+  async runTrialExpiry(): Promise<number> {
+    const { data, error } = await this.supabase.rpc('process_trial_expiry');
+
+    if (error) {
+      throw new DatabaseError(`Trial expiry pass failed: ${error.message}`);
+    }
+
+    return typeof data === 'number' ? data : 0;
   }
 }

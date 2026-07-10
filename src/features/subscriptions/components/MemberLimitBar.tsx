@@ -10,10 +10,10 @@ import { TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
  * Site-wide member-usage bar: remaining ACTIVE-member slots + universal
  * Upgrade CTA.
  *
- * Renders for any CAPPED tier (Starter 40, Growth 190) on every page EXCEPT
- * /settings/* (the billing page lives there — upselling on it is noise).
- * Unlimited tiers (Enterprise), complimentary subs and loading states render
- * nothing, so the bar can never block chrome.
+ * Renders ONLY for Lite — the one capped tier (LITE_TIER_MEMBER_LIMIT = 100)
+ * — on every page EXCEPT /settings/* (the billing page lives there —
+ * upselling on it is noise). Unlimited tiers (Pro/Enterprise), complimentary
+ * subs and loading states render nothing, so the bar can never block chrome.
  *
  * The quota counts members with active status only — the copy says so
  * explicitly, since expired/suspended/cancelled members are unlimited.
@@ -30,7 +30,7 @@ export default function MemberLimitBar() {
 
   const remaining = sub.remainingMemberSlots;
   const limit = sub.memberLimit;
-  // Unlimited (Enterprise) or no data -> nothing to show.
+  // Unlimited (Pro/Enterprise) or no data -> nothing to show.
   if (remaining === null || limit === null) return null;
 
   const tierName = TIER_DISPLAY_NAME[sub.subscriptionTier];

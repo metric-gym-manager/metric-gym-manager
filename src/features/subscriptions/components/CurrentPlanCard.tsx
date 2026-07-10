@@ -9,30 +9,31 @@ import {
   SaasStatus,
   SaasTier,
   TIER_DISPLAY_NAME,
-  isPaidTier,
-  type PaidTier,
 } from '@/core/utils/constants/SubscriptionConfig';
 import type { SerializedSubscription } from '../types';
 
 interface CurrentPlanCardProps {
   subscription: SerializedSubscription;
-  /** Open the upgrade dialog for the chosen paid tier. */
-  onUpgradeClick: (tier: PaidTier) => void;
+  /** Open the upgrade dialog for the chosen tier. */
+  onUpgradeClick: (tier: SaasTier) => void;
   onCancelClick: () => void;
 }
 
 function statusBadge(sub: SerializedSubscription) {
-  if (!isPaidTier(sub.subscriptionTier)) return null;
   if (sub.isComplimentary) {
     return (
       <Badge className="border-transparent bg-purple-100 text-purple-800">Lifetime</Badge>
     );
   }
   switch (sub.subscriptionStatus) {
+    case SaasStatus.Trialing:
+      return <Badge className="border-transparent bg-blue-100 text-blue-800">Trial</Badge>;
     case SaasStatus.Active:
       return <Badge className="border-transparent bg-green-100 text-green-800">Active</Badge>;
     case SaasStatus.PastDue:
       return <Badge className="border-transparent bg-amber-100 text-amber-800">Past due</Badge>;
+    case SaasStatus.Suspended:
+      return <Badge className="border-transparent bg-red-100 text-red-800">Suspended</Badge>;
     case SaasStatus.Canceled:
       return <Badge className="border-transparent bg-gray-100 text-gray-800">Canceled</Badge>;
     default:
@@ -41,10 +42,10 @@ function statusBadge(sub: SerializedSubscription) {
 }
 
 /**
- * Current plan & usage panel (plan §5.3 state-to-UI mapping), generalized for
- * Starter / Growth / Enterprise. Complimentary (lifetime) subscriptions are
- * platform-managed: usage and status show, but every self-service billing
- * control is disabled — never removed.
+ * Current plan & usage panel (plan §5.3 state-to-UI mapping) for the
+ * paid-only Lite / Pro / Enterprise ladder. Complimentary (lifetime)
+ * subscriptions are platform-managed: usage and status show, but every
+ * self-service billing control is disabled — never removed.
  */
 export default function CurrentPlanCard({
   subscription: sub,
@@ -52,18 +53,24 @@ export default function CurrentPlanCard({
   onCancelClick,
 }: CurrentPlanCardProps) {
   const tier = sub.subscriptionTier;
-  const paid = isPaidTier(tier);
   const comped = sub.isComplimentary;
 
-  // Usage meter renders for any capped tier (Starter 40, Growth 190).
+  // Usage meter renders for the capped tier (Lite 100); Pro/Enterprise are unlimited.
   const capped = sub.memberLimit !== null;
   const overLimit = capped && sub.memberCount > sub.memberLimit!;
   const atLimit = capped && sub.memberCount >= sub.memberLimit!;
   const usagePercent = capped ? Math.min((sub.memberCount / sub.memberLimit!) * 100, 100) : 0;
 
-  const canceled = paid && sub.subscriptionStatus === SaasStatus.Canceled;
-  // Cancel only for a live, self-managed paid sub.
-  const showCancel = paid && !comped && sub.subscriptionStatus !== SaasStatus.Canceled;
+  const trialing = sub.subscriptionStatus === SaasStatus.Trialing;
+  const suspended = sub.subscriptionStatus === SaasStatus.Suspended;
+  const canceled = sub.subscriptionStatus === SaasStatus.Canceled;
+  // Checkout CTA whenever no live gateway subscription is charging.
+  const canCheckout = !comped && (trialing || suspended || canceled);
+  // Cancel only for a live, self-managed sub.
+  const showCancel =
+    !comped &&
+    (sub.subscriptionStatus === SaasStatus.Active ||
+      sub.subscriptionStatus === SaasStatus.PastDue);
 
   return (
     <Card>
@@ -73,7 +80,7 @@ export default function CurrentPlanCard({
             {tier === SaasTier.Enterprise ? (
               <Sparkles className="h-5 w-5 text-purple-500" />
             ) : (
-              paid && <Crown className="h-5 w-5 text-amber-500" />
+              <Crown className="h-5 w-5 text-amber-500" />
             )}
             {TIER_DISPLAY_NAME[tier]} Plan
           </CardTitle>
@@ -110,7 +117,19 @@ export default function CurrentPlanCard({
             Billing is managed on your behalf.
           </p>
         )}
-        {!comped && paid && sub.subscriptionStatus === SaasStatus.Active && sub.currentPeriodEnd && (
+        {!comped && trialing && (
+          <p className="text-sm text-gray-600">
+            You&apos;re on a free trial with full {TIER_DISPLAY_NAME[tier]} features
+            {sub.trialEndsAt && (
+              <>
+                {' '}
+                until <span className="font-medium">{sub.trialEndsAt}</span>
+              </>
+            )}
+            . Subscribe before it ends to keep your account active.
+          </p>
+        )}
+        {!comped && sub.subscriptionStatus === SaasStatus.Active && sub.currentPeriodEnd && (
           <p className="text-sm text-gray-600">
             Renews on <span className="font-medium">{sub.currentPeriodEnd}</span>.
           </p>
@@ -119,7 +138,14 @@ export default function CurrentPlanCard({
           <p className="text-sm text-gray-600">
             Subscription canceled — {TIER_DISPLAY_NAME[tier]} features continue until{' '}
             <span className="font-medium">{sub.currentPeriodEnd ?? 'the end of the paid period'}</span>,
-            then your account reverts to the Starter plan.
+            then your account is suspended until payment is received.
+          </p>
+        )}
+        {!comped && suspended && (
+          <p className="text-sm text-gray-600">
+            Your account is <span className="font-medium">suspended</span> until payment is
+            received. Your members and data are untouched — subscribe to any plan to pick up right
+            where you left off.
           </p>
         )}
         {overLimit && (
@@ -139,11 +165,11 @@ export default function CurrentPlanCard({
           </div>
         ) : (
           <div className="flex gap-2 pt-2">
-            {/* Primary CTA to (re)subscribe to Growth; cross-tier upgrades
-                (e.g. Growth -> Enterprise) live in the pricing table below. */}
-            {(!paid || canceled) && (
-              <Button onClick={() => onUpgradeClick(SaasTier.Growth)}>
-                {canceled || overLimit ? 'Re-subscribe to Growth' : 'Upgrade to Growth'}
+            {/* Primary CTA (re)subscribes to the CURRENT tier; cross-tier
+                changes live in the pricing table below. */}
+            {canCheckout && (
+              <Button onClick={() => onUpgradeClick(tier)}>
+                Subscribe to {TIER_DISPLAY_NAME[tier]}
               </Button>
             )}
             {showCancel && (

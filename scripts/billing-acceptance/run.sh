@@ -10,9 +10,13 @@
 # use case, webhook always-200 contract) in step 3.
 #
 # Steps:
-#   1. Apply migrations 20260704000001..3 (skipped if already applied)
+#   1. Apply base migrations 20260704000001..3 (skipped if already applied)
+#   1b. Apply the tier-strategy migrations 20260706000002..20260708000006
+#       (skipped when gyms.trial_ends_at already exists; requires a DB at
+#       either the base state or the growth_cap_150 state)
 #   2. psql acceptance probes: trigger fail-closed behavior, EXECUTE lockdown,
-#      counter trigger, sequential limit at 50, dunning branches, unique indexes
+#      counter trigger, Lite cap at 100, suspend/trial-expiry branches,
+#      unique indexes
 #   3. (env-gated) jest integration suites incl. the parallel concurrency race
 #
 # Run against a project you own; probes create and clean up their own test data.
@@ -33,14 +37,35 @@ else
   for f in \
     supabase/migrations/20260704000001_create_saas_subscriptions.sql \
     supabase/migrations/20260704000002_saas_subscriptions_rls.sql \
-    supabase/migrations/20260704000003_member_count_trigger_and_guarded_insert.sql; do
+    supabase/migrations/20260704000003_member_count_trigger_and_guarded_insert.sql \
+    supabase/migrations/20260706000002_rename_tiers_starter_growth.sql \
+    supabase/migrations/20260707000001_add_enterprise_tier_growth_cap.sql \
+    supabase/migrations/20260708000001_active_member_quota.sql \
+    supabase/migrations/20260708000002_growth_cap_150.sql; do
     echo "   applying $f"
     "${PSQL[@]}" -f "$f"
   done
-  echo "   migrations applied"
+  echo "   base migrations applied"
 fi
 
-echo "== Step 2: DB acceptance probes (trigger behavior, dunning branches, limits) =="
+echo "== Step 1b: tier-strategy migrations (lite/pro/enterprise, trial, suspend) =="
+TIER_V2=$("${PSQL[@]}" -tAc \
+  "SELECT count(*) FROM information_schema.columns WHERE table_name='gyms' AND column_name='trial_ends_at'")
+if [ "$TIER_V2" = "1" ]; then
+  echo "   already applied (gyms.trial_ends_at exists) — skipping"
+else
+  for f in \
+    supabase/migrations/20260708000003_rename_tiers_lite_pro_enterprise.sql \
+    supabase/migrations/20260708000004_tier_strategy_lite_pro_enterprise.sql \
+    supabase/migrations/20260708000005_dunning_suspend_no_free.sql \
+    supabase/migrations/20260708000006_trial_expiry_cron.sql; do
+    echo "   applying $f"
+    "${PSQL[@]}" -f "$f"
+  done
+  echo "   tier-strategy migrations applied"
+fi
+
+echo "== Step 2: DB acceptance probes (trigger behavior, suspend/trial branches, limits) =="
 "${PSQL[@]}" -f scripts/billing-acceptance/acceptance.sql
 
 echo "== Step 3: jest integration suites (concurrency race, dunning, webhook) =="

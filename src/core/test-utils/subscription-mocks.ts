@@ -15,10 +15,11 @@ import type { IPaymentGateway, ISubscriptionGateway } from '@/core/ports/service
 export function makeSubscription(overrides: Partial<SubscriptionProps> = {}): Subscription {
   return Subscription.create({
     gymId: 'gym-1',
-    tier: SaasTier.Starter,
+    tier: SaasTier.Lite,
     status: SaasStatus.Active,
     memberCount: 0,
     currentPeriodEnd: null,
+    trialEndsAt: null,
     payhereCustomerId: null,
     payhereSubscriptionId: null,
     ...overrides,
@@ -29,7 +30,7 @@ export function makeIntent(overrides: Partial<CheckoutIntent> = {}): CheckoutInt
   return {
     orderId: 'SUB-gym-1-1',
     gymId: 'gym-1',
-    targetTier: SaasTier.Growth,
+    targetTier: SaasTier.Lite,
     expectedAmount: 2990,
     currency: 'LKR',
     status: 'pending',
@@ -43,7 +44,8 @@ export function mockSubscriptionRepo(): jest.Mocked<IGymSubscriptionRepository> 
     findByGymId: jest.fn(),
     findByPayhereSubscriptionId: jest.fn(),
     save: jest.fn().mockImplementation(async (sub: Subscription) => sub),
-    runDunningDowngrades: jest.fn(),
+    runDunningSuspensions: jest.fn(),
+    runTrialExpiry: jest.fn(),
   };
 }
 

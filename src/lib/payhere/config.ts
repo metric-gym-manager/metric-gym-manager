@@ -15,6 +15,10 @@ const payhereEnvSchema = z.object({
   PAYHERE_MODE: z.enum(['sandbox', 'live']),
   PAYHERE_MERCHANT_ID: z.string().min(1),
   PAYHERE_MERCHANT_SECRET: z.string().min(1),
+  PAYHERE_LITE_PRICE_LKR: z.coerce.number().positive(),
+  // Repurposed variable: 4900 (pro-original) -> 2990 (growth) -> 4990
+  // (pro-new). The NAME is stable; the MEANING changed with the Lite/Pro/
+  // Enterprise re-anchor — see docs/DEPLOYMENT_PAYHERE_CHECKLIST.md.
   PAYHERE_PRO_PRICE_LKR: z.coerce.number().positive(),
   PAYHERE_ENTERPRISE_PRICE_LKR: z.coerce.number().positive(),
   PAYHERE_APP_ID: z.string().min(1),
@@ -26,6 +30,7 @@ export interface PayhereConfig {
   mode: 'sandbox' | 'live';
   merchantId: string;
   merchantSecret: string;
+  litePriceLkr: number;
   proPriceLkr: number;
   enterprisePriceLkr: number;
   appId: string;
@@ -71,6 +76,7 @@ export function getPayhereConfig(): PayhereConfig {
     mode: env.PAYHERE_MODE,
     merchantId: env.PAYHERE_MERCHANT_ID,
     merchantSecret: env.PAYHERE_MERCHANT_SECRET,
+    litePriceLkr: env.PAYHERE_LITE_PRICE_LKR,
     proPriceLkr: env.PAYHERE_PRO_PRICE_LKR,
     enterprisePriceLkr: env.PAYHERE_ENTERPRISE_PRICE_LKR,
     appId: env.PAYHERE_APP_ID,

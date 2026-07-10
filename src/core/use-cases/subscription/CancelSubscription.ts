@@ -10,13 +10,16 @@
  * analysis): a RECURRING_STOPPED for the current id in that window is the
  * intended reconciliation and converges idempotently, and no replacement
  * subscription can be created inside it because GenerateCheckoutUrl rejects
- * while the row still reads pro/active|past_due.
+ * while the row still reads active|past_due.
+ *
+ * After the local canceled write, the tier stays paid-through until
+ * current_period_end; the dunning cron then SUSPENDS (tier preserved).
  */
 
 import type { IGymSubscriptionRepository } from '@/core/ports/repositories';
 import type { ISubscriptionGateway } from '@/core/ports/services';
 import { Subscription } from '@/core/domain/subscription/Subscription';
-import { SaasStatus, isPaidTier } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
 import { ConflictError, NotFoundError } from '@/core/utils/errors';
 
 export class CancelSubscription {
@@ -31,7 +34,9 @@ export class CancelSubscription {
       throw new NotFoundError('Gym');
     }
 
-    if (!isPaidTier(sub.tier)) {
+    // trialing/suspended: nothing live is charging at the gateway — there is
+    // no recurring subscription to stop.
+    if (sub.status === SaasStatus.Trialing || sub.status === SaasStatus.Suspended) {
       throw new ConflictError('No active subscription to cancel');
     }
 
@@ -46,7 +51,7 @@ export class CancelSubscription {
     }
 
     if (!sub.payhereSubscriptionId) {
-      // A billed paid tier without a gateway id is a data inconsistency —
+      // A billed subscription without a gateway id is a data inconsistency —
       // surface it rather than silently cancel locally while an unknown
       // gateway sub may charge.
       throw new ConflictError('No payment gateway subscription on record — contact support');

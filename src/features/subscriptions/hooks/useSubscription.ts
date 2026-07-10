@@ -6,9 +6,10 @@ import { getSubscription, type SubscriptionWithPrice } from '../services/subscri
 export const SUBSCRIPTION_QUERY_KEY = ['subscription'] as const;
 
 /**
- * Current gym's subscription state (tier, status, usage, grace dates) plus
- * the Growth price for the pricing UI. Serialized server-side; `canAddMember`
- * is display-only — the FOR UPDATE-locked RPC is the real quota authority.
+ * Current gym's subscription state (tier, status, usage, grace/trial dates)
+ * plus the per-tier prices for the pricing UI. Serialized server-side;
+ * `canAddMember` is display-only — the FOR UPDATE-locked RPC is the real
+ * quota authority.
  */
 export function useSubscription() {
   return useQuery<SubscriptionWithPrice>({

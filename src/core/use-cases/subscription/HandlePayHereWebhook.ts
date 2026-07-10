@@ -14,6 +14,12 @@
  * Re-ordering any step re-opens a closed hole — see plan §2 Phase UC.
  * Period extension anchors at the charge-processing DB clock via the save
  * RPC (extendPeriod: true) — never at the stale pre-failure boundary (C-23).
+ *
+ * Paid-only tier model: a successful intent charge converts a TRIAL to
+ * active (convertTrialToPaid), activates a suspended/canceled account
+ * (activate — tier-agnostic), or renews a live one. A successful recurring
+ * charge on a SUSPENDED account (late gateway retry on the retained
+ * subscription id) reactivates it.
  */
 
 import type {
@@ -23,11 +29,12 @@ import type {
   CheckoutIntent,
 } from '@/core/ports/repositories';
 import { Subscription } from '@/core/domain/subscription/Subscription';
-import { SaasTier, SaasStatus, isPaidTier } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
 
 export enum WebhookOutcome {
   Provisioned = 'PROVISIONED',
   Renewed = 'RENEWED',
+  Reactivated = 'REACTIVATED',
   MarkedPastDue = 'MARKED_PAST_DUE',
   ReconciledCanceled = 'RECONCILED_CANCELED',
   LoggedPending = 'LOGGED_PENDING',
@@ -131,7 +138,6 @@ export class HandlePayHereWebhook {
     if (messageType === 'RECURRING_STOPPED' || fields.item_rec_status === '-1') {
       if (
         idMatches &&
-        isPaidTier(sub.tier) &&
         (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue)
       ) {
         await this.subscriptionRepo.save(sub.cancelPaid(), { extendPeriod: false });
@@ -153,21 +159,20 @@ export class HandlePayHereWebhook {
         }
 
         // The intent's target tier (priced server-side at checkout) is what
-        // gets provisioned. A non-paid target can only exist via manual data
-        // tampering — fail the intent, never the state machine (always-200).
-        if (!isPaidTier(intent.targetTier)) {
-          await this.checkoutIntentRepo.markStatus(intent.orderId, 'failed');
-          return { outcome: WebhookOutcome.AmountMismatch }; // no provisioning
-        }
-
+        // gets provisioned. Every tier is paid and checkoutable:
+        //   trialing            -> trial converts on the first charge
+        //   suspended|canceled  -> (re)activation into the bought tier
+        //   active|past_due     -> rare: intent completed while already live
+        const gatewayIds = {
+          subscriptionId: fields.subscription_id ?? null,
+          customerId: fields.customer_token ?? null,
+        };
         const next =
-          sub.tier === SaasTier.Starter ||
-          (isPaidTier(sub.tier) && sub.status === SaasStatus.Canceled)
-            ? sub.activatePaid(intent.targetTier, {
-                subscriptionId: fields.subscription_id ?? null,
-                customerId: fields.customer_token ?? null,
-              })
-            : sub.renew(); // rare: intent completed while already active|past_due
+          sub.status === SaasStatus.Trialing
+            ? sub.convertTrialToPaid(intent.targetTier, gatewayIds)
+            : sub.status === SaasStatus.Suspended || sub.status === SaasStatus.Canceled
+              ? sub.activate(intent.targetTier, gatewayIds)
+              : sub.renew();
 
         await this.subscriptionRepo.save(next, { extendPeriod: true });
         await this.checkoutIntentRepo.markStatus(intent.orderId, 'completed');
@@ -178,12 +183,15 @@ export class HandlePayHereWebhook {
       if (!idMatches) {
         return { outcome: WebhookOutcome.StaleEvent }; // late event for a replaced subscription
       }
-      if (
-        isPaidTier(sub.tier) &&
-        (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue)
-      ) {
+      if (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue) {
         await this.subscriptionRepo.save(sub.renew(), { extendPeriod: true }); // anchor = now() (C-23)
         return { outcome: WebhookOutcome.Renewed };
+      }
+      if (sub.status === SaasStatus.Suspended) {
+        // Late successful gateway retry on the retained subscription id:
+        // payment received -> the suspension lifts (tier preserved).
+        await this.subscriptionRepo.save(sub.reactivate(), { extendPeriod: true });
+        return { outcome: WebhookOutcome.Reactivated };
       }
       return { outcome: WebhookOutcome.StaleEvent }; // canceled: never un-cancel
     }
@@ -195,14 +203,14 @@ export class HandlePayHereWebhook {
     if (statusCode === -1 || statusCode === -2 || statusCode === -3) {
       if (intent) {
         await this.checkoutIntentRepo.markStatus(intent.orderId, 'failed');
-        return { outcome: WebhookOutcome.LoggedOnly }; // initial checkout failed; gym stays Free
+        return { outcome: WebhookOutcome.LoggedOnly }; // initial checkout failed; status unchanged
       }
       if (!idMatches) {
         return { outcome: WebhookOutcome.StaleEvent };
       }
-      if (isPaidTier(sub.tier) && sub.status === SaasStatus.Active) {
+      if (sub.status === SaasStatus.Active) {
         await this.subscriptionRepo.save(sub.markPastDue(), { extendPeriod: false });
-        return { outcome: WebhookOutcome.MarkedPastDue }; // grace starts; dunning cron downgrades later
+        return { outcome: WebhookOutcome.MarkedPastDue }; // grace starts; dunning cron suspends later
       }
       return { outcome: WebhookOutcome.LoggedOnly }; // past_due already known / canceled stale
     }

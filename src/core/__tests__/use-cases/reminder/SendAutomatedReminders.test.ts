@@ -7,6 +7,7 @@ import { makeSubscription, mockSubscriptionRepo } from '@/core/test-utils/subscr
 import type { IMemberRepository } from '@/core/ports/repositories/IMemberRepository';
 import type { ISMSRepository } from '@/core/ports/repositories/ISMSRepository';
 import type { ISMSProvider } from '@/core/ports/services/ISMSProvider';
+import type { Subscription } from '@/core/domain/subscription/Subscription';
 
 function makeMember(gymId: string, name: string): Member {
   return Member.create({
@@ -25,11 +26,8 @@ function makeMember(gymId: string, name: string): Member {
   });
 }
 
-describe('SendAutomatedReminders — Starter plan restriction (PlanRestrictions)', () => {
-  const starterGym = 'gym-starter';
-  const growthGym = 'gym-growth';
-
-  function build(members: Member[]) {
+describe('SendAutomatedReminders — billing-status gate (reminders on every tier)', () => {
+  function build(members: Member[], subs: Record<string, Subscription>) {
     const memberRepo = {
       findAllActiveMembers: jest.fn().mockResolvedValue(members),
       findActiveMembers: jest.fn(
@@ -47,37 +45,101 @@ describe('SendAutomatedReminders — Starter plan restriction (PlanRestrictions)
     } as unknown as jest.Mocked<ISMSProvider>;
 
     const subscriptionRepo = mockSubscriptionRepo();
-    subscriptionRepo.findByGymId.mockImplementation(async (gymId: string) =>
-      makeSubscription({
-        gymId,
-        tier: gymId === growthGym ? SaasTier.Growth : SaasTier.Starter,
-        status: SaasStatus.Active,
-      })
-    );
+    subscriptionRepo.findByGymId.mockImplementation(async (gymId: string) => subs[gymId] ?? null);
 
     const useCase = new SendAutomatedReminders(memberRepo, smsRepo, smsProvider, subscriptionRepo);
     return { useCase, memberRepo, smsRepo, smsProvider, subscriptionRepo };
   }
 
-  it('skips members of Starter gyms and counts them as plan-restricted', async () => {
-    const { useCase, smsProvider } = build([
-      makeMember(starterGym, 'Starter Member'),
-      makeMember(growthGym, 'Growth Member'),
-    ]);
+  it('sends for every tier — Lite, Pro and Enterprise members all get reminders', async () => {
+    const { useCase, smsProvider } = build(
+      [
+        makeMember('gym-lite', 'Lite Member'),
+        makeMember('gym-pro', 'Pro Member'),
+        makeMember('gym-ent', 'Enterprise Member'),
+      ],
+      {
+        'gym-lite': makeSubscription({ gymId: 'gym-lite', tier: SaasTier.Lite }),
+        'gym-pro': makeSubscription({ gymId: 'gym-pro', tier: SaasTier.Pro }),
+        'gym-ent': makeSubscription({ gymId: 'gym-ent', tier: SaasTier.Enterprise }),
+      }
+    );
 
     const summary = await useCase.execute();
 
-    expect(summary.membersSkippedPlanRestricted).toBe(1);
-    // Only the growth gym's member ever reaches the SMS provider
+    expect(summary.membersSkippedBillingRestricted).toBe(0);
+    expect(smsProvider.send).toHaveBeenCalledTimes(3);
+  });
+
+  it('sends while trialing (full features during the trial window)', async () => {
+    const { useCase, smsProvider } = build([makeMember('gym-t', 'Trial Member')], {
+      'gym-t': makeSubscription({ gymId: 'gym-t', status: SaasStatus.Trialing }),
+    });
+
+    const summary = await useCase.execute();
+
+    expect(summary.membersSkippedBillingRestricted).toBe(0);
     expect(smsProvider.send).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves each distinct gym tier once, not per member', async () => {
-    const { useCase, subscriptionRepo } = build([
-      makeMember(growthGym, 'Member A'),
-      makeMember(growthGym, 'Member B'),
-      makeMember(starterGym, 'Member C'),
-    ]);
+  it('halts for suspended and canceled accounts', async () => {
+    const { useCase, smsProvider } = build(
+      [makeMember('gym-s', 'Suspended Member'), makeMember('gym-c', 'Canceled Member')],
+      {
+        'gym-s': makeSubscription({
+          gymId: 'gym-s',
+          tier: SaasTier.Pro,
+          status: SaasStatus.Suspended,
+        }),
+        'gym-c': makeSubscription({
+          gymId: 'gym-c',
+          tier: SaasTier.Enterprise,
+          status: SaasStatus.Canceled,
+        }),
+      }
+    );
+
+    const summary = await useCase.execute();
+
+    expect(summary.membersSkippedBillingRestricted).toBe(2);
+    expect(smsProvider.send).not.toHaveBeenCalled();
+  });
+
+  it('sends for past_due within grace; halts past grace', async () => {
+    const now = Date.now();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const { useCase, smsProvider } = build(
+      [makeMember('gym-grace', 'In Grace'), makeMember('gym-lapsed', 'Past Grace')],
+      {
+        'gym-grace': makeSubscription({
+          gymId: 'gym-grace',
+          tier: SaasTier.Lite,
+          status: SaasStatus.PastDue,
+          currentPeriodEnd: new Date(now - 2 * dayMs), // 2 days past due, inside 7-day grace
+        }),
+        'gym-lapsed': makeSubscription({
+          gymId: 'gym-lapsed',
+          tier: SaasTier.Lite,
+          status: SaasStatus.PastDue,
+          currentPeriodEnd: new Date(now - 30 * dayMs), // far past grace
+        }),
+      }
+    );
+
+    const summary = await useCase.execute();
+
+    expect(summary.membersSkippedBillingRestricted).toBe(1);
+    expect(smsProvider.send).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves each distinct gym once, not per member', async () => {
+    const { useCase, subscriptionRepo } = build(
+      [makeMember('gym-a', 'Member A'), makeMember('gym-a', 'Member B'), makeMember('gym-b', 'Member C')],
+      {
+        'gym-a': makeSubscription({ gymId: 'gym-a' }),
+        'gym-b': makeSubscription({ gymId: 'gym-b' }),
+      }
+    );
 
     await useCase.execute();
 
@@ -85,21 +147,22 @@ describe('SendAutomatedReminders — Starter plan restriction (PlanRestrictions)
   });
 
   it('fails closed: a gym with no resolvable subscription row is treated as restricted', async () => {
-    const { useCase, subscriptionRepo, smsProvider } = build([makeMember(starterGym, 'Member X')]);
-    subscriptionRepo.findByGymId.mockResolvedValue(null);
+    const { useCase, smsProvider } = build([makeMember('gym-x', 'Member X')], {});
 
     const summary = await useCase.execute();
 
-    expect(summary.membersSkippedPlanRestricted).toBe(1);
+    expect(summary.membersSkippedBillingRestricted).toBe(1);
     expect(smsProvider.send).not.toHaveBeenCalled();
   });
 
-  it('single-gym run (gymId input) is skipped entirely for a Starter gym', async () => {
-    const { useCase, smsProvider } = build([makeMember(starterGym, 'Member Y')]);
+  it('single-gym run (gymId input) is skipped entirely for a suspended gym', async () => {
+    const { useCase, smsProvider } = build([makeMember('gym-s', 'Member Y')], {
+      'gym-s': makeSubscription({ gymId: 'gym-s', status: SaasStatus.Suspended }),
+    });
 
-    const summary = await useCase.execute({ gymId: starterGym });
+    const summary = await useCase.execute({ gymId: 'gym-s' });
 
-    expect(summary.membersSkippedPlanRestricted).toBe(1);
+    expect(summary.membersSkippedBillingRestricted).toBe(1);
     expect(summary.totalSent).toBe(0);
     expect(smsProvider.send).not.toHaveBeenCalled();
   });

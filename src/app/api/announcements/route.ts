@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getAdminContainer } from '@/infrastructure/di';
 import { isFeatureEnabled } from '@/core/domain/subscription/PlanRestrictions';
-import { SaasTier, TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
 import { getAnnouncements, createAndSendAnnouncement } from '@/features/announcements/services/announcement.service';
 import { createAnnouncementSchema } from '@/features/announcements/schemas/announcement.schemas';
 
@@ -93,9 +92,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Plan restriction (PlanRestrictions matrix): announcements are a Growth
-    // feature. Enforced HERE, before any validation or work — the client-side
-    // page gate is UX only. Fail closed if the subscription cannot be loaded.
+    // Plan restriction (PlanRestrictions matrix): announcements are enabled
+    // on every tier of the paid-only ladder, so this check passes today —
+    // it stays wired (fail closed) so a future re-gating of the capability
+    // is enforced HERE, before any validation or work; the client-side page
+    // gate is UX only.
     const container = await getAdminContainer();
     const subscription = await container
       .getGymSubscriptionRepository()
@@ -104,7 +105,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `Announcements are a ${TIER_DISPLAY_NAME[SaasTier.Growth]} feature. Upgrade to send SMS announcements to your members.`,
+          error: 'Announcements are not available on your plan. Upgrade to send SMS announcements to your members.',
           errorCode: 'FEATURE_NOT_AVAILABLE',
         },
         { status: 403 }
