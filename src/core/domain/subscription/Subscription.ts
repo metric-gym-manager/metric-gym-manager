@@ -293,8 +293,10 @@ export class Subscription {
    *   trialing  → within cap (full features during the trial window)
    *   active    → within cap
    *   past_due  → within cap while the grace window covers `now`
+   *   canceled  → within cap while paid-through (until period end, NO
+   *               grace — the customer keeps what they paid for; dunning
+   *               suspends at period end)
    *   suspended → never (account is gated pending payment)
-   *   canceled  → never (into-active writes stop at cancel)
    *
    * Complimentary subscriptions are always status=active → within cap
    * (unlimited on their tier).
@@ -311,8 +313,13 @@ export class Subscription {
         const graceEnd = this.graceEndsAt();
         return graceEnd !== null && now.getTime() <= graceEnd.getTime() && withinCap;
       }
-      case SaasStatus.Suspended:
       case SaasStatus.Canceled:
+        return (
+          this.props.currentPeriodEnd !== null &&
+          now.getTime() <= this.props.currentPeriodEnd.getTime() &&
+          withinCap
+        );
+      case SaasStatus.Suspended:
         return false;
     }
   }

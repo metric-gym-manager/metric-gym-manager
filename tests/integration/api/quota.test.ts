@@ -3,7 +3,8 @@
  * Proves the FOR UPDATE-locked quota authority is race-free and that the
  * SQL allowance matrix (assert_gym_can_add_active_member) matches
  * Subscription.canAddMember: Lite capped at 100, Pro/Enterprise unlimited,
- * suspended/canceled blocked on every tier.
+ * canceled paid-through until period end (no grace), suspended blocked on
+ * every tier.
  */
 
 import {
@@ -157,13 +158,18 @@ gatedDescribe('register_member_guarded (integration)', () => {
     expect(blocked.error?.message).toContain('MEMBER_LIMIT_REACHED');
   });
 
-  it('canceled: into-active writes blocked even while paid-through (v2 policy)', async () => {
+  it('canceled: allowed while paid-through, blocked after period end (no grace)', async () => {
     gym = await createTestGym(supabase);
     await setSubscription('pro', 'canceled', 'PHSUB-C');
 
     const future = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString();
     await supabase.from('gyms').update({ current_period_end: future }).eq('id', gym.gymId);
-    const blocked = await registerOne(1);
+    const ok = await registerOne(1);
+    expect(ok.error).toBeNull();
+
+    const past = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString();
+    await supabase.from('gyms').update({ current_period_end: past }).eq('id', gym.gymId);
+    const blocked = await registerOne(2);
     expect(blocked.error?.message).toContain('MEMBER_LIMIT_REACHED');
   });
 

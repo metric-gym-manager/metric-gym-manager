@@ -57,12 +57,15 @@ ALTER TABLE gyms ALTER COLUMN subscription_status DROP DEFAULT;
 --                                tightens 150->100 but these gyms fit)
 -- growth, active count  > 100 -> pro   (cap removed). GRANDFATHERED AT THE
 --                                LITE PRICE: PayHere fixes a recurring
---                                subscription's amount at creation, so the
+--                                subscription's amount at creation, so an
 --                                existing gateway subscription keeps charging
 --                                2990 until the gym cancels or re-subscribes.
 --                                No silent 2990->4990 charge can occur.
---                                OPS: notify these gyms of the tier change
---                                (required member-facing notification).
+--                                OPS: notify any BILLED gym of the tier
+--                                change. No-op at migration time: no gym
+--                                carries a billed gateway subscription (real
+--                                accounts are complimentary/lifetime; growth
+--                                rows are operator demo accounts).
 -- starter (free, any status)  -> lite/trialing with a fresh 14-day trial
 --                                window. Non-paying accounts get a full-
 --                                feature window, then the trial-expiry cron

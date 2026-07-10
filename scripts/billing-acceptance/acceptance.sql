@@ -313,7 +313,8 @@ BEGIN
     END IF;
   END;
 
-  -- 7e. CANCELED blocks into-active writes even while paid-through (v2 policy)
+  -- 7e. CANCELED: paid-through allowance — allowed within cap until period
+  --     end (the customer keeps what they paid for), blocked after (no grace)
   PERFORM save_gym_subscription(v_gym_id, 'enterprise', 'canceled', 'PHSUB-ENT', NULL, false);
   UPDATE gyms SET current_period_end = now() + interval '5 days' WHERE id = v_gym_id;
   BEGIN
@@ -323,12 +324,25 @@ BEGIN
       'recurring_discount', false, 'status', 'active',
       'next_due_date', '2099-01-01'
     ));
-    v_failures := v_failures || 'FAIL 7e: canceled gym accepted an active member';
+    PERFORM pg_temp._acc_log('PASS 7e: canceled gym accepts active members while paid-through');
+  EXCEPTION WHEN OTHERS THEN
+    v_failures := v_failures || format('FAIL 7e: paid-through canceled gym rejected a registration: %s', SQLERRM);
+  END;
+
+  UPDATE gyms SET current_period_end = now() - interval '1 day' WHERE id = v_gym_id;
+  BEGIN
+    PERFORM register_member_guarded(v_gym_id, jsonb_build_object(
+      'name', 'Lapsed Canceled Reg', 'phone_number', '+94760000105',
+      'plan_type', 'monthly', 'plan_amount', 2000,
+      'recurring_discount', false, 'status', 'active',
+      'next_due_date', '2099-01-01'
+    ));
+    v_failures := v_failures || 'FAIL 7e2: canceled gym past period end accepted an active member';
   EXCEPTION WHEN OTHERS THEN
     IF SQLERRM LIKE '%MEMBER_LIMIT_REACHED%' THEN
-      PERFORM pg_temp._acc_log('PASS 7e: canceled gym rejected an active registration (paid-through)');
+      PERFORM pg_temp._acc_log('PASS 7e2: canceled gym past period end rejected an active registration (no grace)');
     ELSE
-      v_failures := v_failures || format('FAIL 7e: unexpected error: %s', SQLERRM);
+      v_failures := v_failures || format('FAIL 7e2: unexpected error: %s', SQLERRM);
     END IF;
   END;
 

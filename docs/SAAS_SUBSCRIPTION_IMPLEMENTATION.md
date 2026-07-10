@@ -75,7 +75,9 @@ lite/trialing (trial over) ────suspend──▶ lite/suspended     (tria
   check out into any tier.
 - Quota matrix (mirrored in SQL and `canAddMember`, cap from the PlanRestrictions matrix):
   trialing/active → within cap (lite < 100; pro/enterprise ∞) · past_due → within cap until
-  period+grace · **suspended/canceled → blocked on every tier** · **complimentary → ∞, always**
+  period+grace · canceled → within cap while paid-through (until period end, NO grace — the
+  customer keeps what they paid for) · **suspended → blocked on every tier** ·
+  **complimentary → ∞, always**
   (status active, no period end).
 - **No code path ever deletes members.** Over-limit gyms keep everything; only new into-active
   writes block.
@@ -183,10 +185,12 @@ active subscribers.
    set `NEXT_PUBLIC_APP_URL` to the tunnel origin.
 5. **Migrations**: apply `20260704000001..3`, then `20260706000002`, `20260707000001`,
    `20260708000001..2`, then the tier-strategy train `20260708000003..6` in order; verify with
-   `scripts/billing-acceptance/run.sh`. Grandfathering note (migration `…000003`): growth gyms
-   with >100 active members land on Pro but keep paying 2990 on their existing gateway
-   subscription (PayHere fixes the recurring amount at creation) — **notify these gyms** of the
-   tier change; no silent 2990→4990 charge can occur.
+   `scripts/billing-acceptance/run.sh`. Grandfathering note (migration `…000003`, precautionary):
+   a billed growth gym with >100 active members would land on Pro but keep paying 2990 on its
+   existing gateway subscription (PayHere fixes the recurring amount at creation; no silent
+   2990→4990 charge can occur) — notify any such gym of the tier change. No-op at migration
+   time: no gym carries a billed gateway subscription (real accounts are complimentary/lifetime;
+   growth rows are operator demo accounts).
 6. **Cron**: `process-trial-expiry` added to `vercel.json` (daily 00:50 UTC) alongside
    `process-dunning` (00:45 UTC); both require `CRON_SECRET`.
 

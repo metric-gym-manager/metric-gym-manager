@@ -31,7 +31,8 @@ Design rationale (conflict register C-1..C-30):
    (via `register_member_guarded`) and any status flip into active (via the
    `trg_enforce_active_member_quota` BEFORE trigger — reactivation, payment-collection on an
    expired member). Matrix: trialing/active → within cap; past_due → within cap while in grace;
-   **suspended and canceled → blocked on every tier**. At the cap it raises
+   canceled → within cap while paid-through (until period end, NO grace — the customer keeps
+   what they paid for); **suspended → blocked on every tier**. At the cap it raises
    `MEMBER_LIMIT_REACHED` (→ `MemberLimitError` → 403). Serialized `canAddMember` is display-only.
    Registering or keeping a NON-active member is never quota-blocked. Never add a second
    allowance path.

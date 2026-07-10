@@ -11,8 +11,10 @@
 --   status:  trialing  -> within cap (full features during the trial window)
 --            active    -> within cap
 --            past_due  -> within cap while now() <= period end + 7d grace
+--            canceled  -> within cap while paid-through (now() <= period end,
+--                         NO grace — the customer keeps what they paid for;
+--                         dunning suspends at period end)
 --            suspended -> BLOCKED (account gated pending payment)
---            canceled  -> BLOCKED (into-active writes stop at cancel)
 --
 -- register_member_guarded v5: delegation unchanged — quota only when the
 -- insert IS active; re-issued for the updated COMMENT only.
@@ -50,8 +52,12 @@ BEGIN
     -- 7 = GRACE_PERIOD_DAYS (SubscriptionConfig.ts)
     allowed := within_cap AND (g.current_period_end IS NOT NULL
                 AND now() <= g.current_period_end + (interval '1 day' * 7));
+  ELSIF g.subscription_status = 'canceled' THEN
+    -- voluntary cancel: paid-through until period end, NO grace
+    allowed := within_cap AND
+               (g.current_period_end IS NOT NULL AND now() <= g.current_period_end);
   ELSE
-    -- suspended | canceled: all into-active writes are blocked on every tier
+    -- suspended: all into-active writes are blocked on every tier
     allowed := false;
   END IF;
 
@@ -62,7 +68,7 @@ $$;
 REVOKE ALL ON FUNCTION assert_gym_can_add_active_member(uuid) FROM PUBLIC, anon, authenticated;
 
 COMMENT ON FUNCTION assert_gym_can_add_active_member IS
-  'FOR UPDATE-locked active-member quota gate (lite 100 / pro unlimited / enterprise unlimited; suspended+canceled block; trialing/active within cap; past_due within cap while in grace). Called by register_member_guarded and the members BEFORE trigger; raises MEMBER_LIMIT_REACHED.';
+  'FOR UPDATE-locked active-member quota gate (lite 100 / pro unlimited / enterprise unlimited; trialing/active within cap; past_due within cap while in grace; canceled within cap while paid-through, no grace; suspended blocks). Called by register_member_guarded and the members BEFORE trigger; raises MEMBER_LIMIT_REACHED.';
 
 -- ============================================================
 -- PART 2: register_member_guarded v5 — delegation unchanged

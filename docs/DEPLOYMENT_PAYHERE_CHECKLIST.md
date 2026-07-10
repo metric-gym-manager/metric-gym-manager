@@ -19,12 +19,17 @@ verified (plan §4 acceptance — all probes pass).
 > `20260708000003..6` re-anchor the ladder and must ship in the SAME release as
 > the env flip below (`PAYHERE_LITE_PRICE_LKR` new, `PAYHERE_PRO_PRICE_LKR` →
 > `4990`) and the app code that reads them. Post-deploy: re-run
-> `scripts/billing-acceptance/run.sh`, add the `process-trial-expiry` cron env
-> (`vercel.json` already schedules it; it uses the same `CRON_SECRET`), and
-> **send the required member-facing notification to growth-overflow gyms**
-> (>100 active) — they land on Pro but keep paying 2990 on their existing
-> gateway subscription until they cancel/re-subscribe (PayHere fixes the
-> recurring amount at creation; no silent 2990→4990 charge can occur).
+> `scripts/billing-acceptance/run.sh` and add the `process-trial-expiry` cron
+> env (`vercel.json` already schedules it; it uses the same `CRON_SECRET`).
+>
+> Growth-overflow note (precautionary only): a billed growth gym with >100
+> active members would land on Pro but keep paying 2990 on its existing
+> gateway subscription until it cancels/re-subscribes (PayHere fixes the
+> recurring amount at creation; no silent 2990→4990 charge can occur) — such
+> a gym should be notified of the tier change. **As of this migration this is
+> a no-op:** no gym carries a billed gateway subscription; the only real
+> accounts are complimentary/lifetime, and the remaining growth rows are
+> operator-created demo accounts.
 
 The rest of this checklist is the gateway/edge configuration that has to happen
 outside the codebase.

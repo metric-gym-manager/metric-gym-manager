@@ -280,17 +280,37 @@ describe('Subscription entity', () => {
       }
     });
 
-    it('canceled: blocked on every tier (into-active writes stop at cancel)', () => {
-      for (const tier of [SaasTier.Lite, SaasTier.Pro, SaasTier.Enterprise]) {
-        expect(
-          sub({
-            tier,
-            status: SaasStatus.Canceled,
-            memberCount: 0,
-            currentPeriodEnd: daysFrom(now, 10),
-          }).canAddMember(now)
-        ).toBe(false);
-      }
+    it('canceled: allowed within cap while paid-through, blocked after period end (no grace)', () => {
+      const paidThrough = sub({
+        tier: SaasTier.Pro,
+        status: SaasStatus.Canceled,
+        currentPeriodEnd: daysFrom(now, 3),
+      });
+      expect(paidThrough.canAddMember(now)).toBe(true);
+
+      const lapsed = sub({
+        tier: SaasTier.Pro,
+        status: SaasStatus.Canceled,
+        currentPeriodEnd: daysFrom(now, -1),
+      });
+      expect(lapsed.canAddMember(now)).toBe(false);
+
+      const noPeriod = sub({
+        tier: SaasTier.Pro,
+        status: SaasStatus.Canceled,
+        currentPeriodEnd: null,
+      });
+      expect(noPeriod.canAddMember(now)).toBe(false);
+
+      // The tier cap still applies inside the paid-through window
+      expect(
+        sub({
+          tier: SaasTier.Lite,
+          status: SaasStatus.Canceled,
+          memberCount: LITE_TIER_MEMBER_LIMIT,
+          currentPeriodEnd: daysFrom(now, 3),
+        }).canAddMember(now)
+      ).toBe(false);
     });
 
     it('complimentary enterprise (no gateway id, no period end): allowed and detected', () => {
