@@ -1,6 +1,10 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from '@/lib/auth-config'
+import {
+  REMEMBER_ME_COOKIE,
+  REMEMBER_ME_MAX_AGE,
+  AUTH_COOKIE_DOMAIN,
+} from '@/lib/auth-config'
 
 interface CreateClientOptions {
   /** Override the "remember me" preference for this client instance.
@@ -42,6 +46,13 @@ export async function createClient(opts?: CreateClientOptions) {
                 path: '/',
                 sameSite: 'lax',
                 secure: process.env.NODE_ENV === 'production',
+              }
+
+              // Scope auth cookies to an explicit host when configured, so
+              // staging and production on sibling subdomains can't overwrite
+              // each other's session.
+              if (AUTH_COOKIE_DOMAIN) {
+                cookieOpts.domain = AUTH_COOKIE_DOMAIN
               }
 
               if (rememberSession) {

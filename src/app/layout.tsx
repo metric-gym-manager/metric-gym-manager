@@ -5,6 +5,7 @@ import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Toaster } from 'sonner'
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration'
+import { AuthRecovery } from '@/components/auth/AuthRecovery'
 import { PWA_VERSION } from '@/lib/pwa-version'
 
 const inter = Inter({
@@ -62,6 +63,7 @@ export default function RootLayout({
           <Toaster position="top-right" richColors />
         </QueryProvider>
         <ServiceWorkerRegistration />
+        <AuthRecovery />
         {process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' && (
           <Script
             src="https://t.contentsquare.net/uxa/2337d6ffa89d1.js"

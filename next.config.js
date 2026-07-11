@@ -34,6 +34,21 @@ const nextConfig = {
   async headers() {
     return [
       {
+        // HTML entry points (all app pages): never reuse a cached copy
+        // without revalidating with the server. This prevents "zombie"
+        // deployments where a browser/CDN serves stale HTML that references
+        // JS chunks deleted by a newer deploy. Excludes /_next/* assets,
+        // API routes and static files (dotted paths), which keep their own
+        // caching rules below.
+        source: '/((?!_next/|api/|.*\\..*).*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          },
+        ],
+      },
+      {
         // Service worker: never cache — browsers must always check for updates
         source: '/service-worker.js',
         headers: [

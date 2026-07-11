@@ -97,9 +97,14 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event: Network-first for navigation, cache-first for static assets
+// Fetch event: network-first for navigations; cache-first ONLY for the
+// small set of pre-cached static assets. Everything else (JS bundles, CSS,
+// API calls, third-party requests) is deliberately NOT intercepted so a
+// stale worker can never serve outdated application code ("zombie cache").
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+
+  if (request.method !== 'GET') return;
 
   // Navigation requests (HTML pages): always go to network so middleware
   // redirects work correctly. Fall back to cache only if offline.
@@ -112,7 +117,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets: serve from cache, fall back to network
+  // Only same-origin, explicitly pre-cached assets are served cache-first.
+  let isPrecached = false;
+  try {
+    const url = new URL(request.url);
+    isPrecached =
+      url.origin === self.location.origin &&
+      STATIC_ASSETS.includes(url.pathname + url.search);
+  } catch {
+    return; // Unparseable URL — let the browser handle it.
+  }
+  if (!isPrecached) return; // Default browser handling — no interception.
+
   event.respondWith(
     caches.match(request).then((cached) => {
       return cached || fetch(request);
