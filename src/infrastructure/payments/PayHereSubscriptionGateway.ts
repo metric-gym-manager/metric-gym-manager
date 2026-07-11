@@ -15,9 +15,12 @@
 import type {
   ISubscriptionGateway,
   GatewaySubscriptionPayment,
+  TokenChargeInput,
+  TokenChargeResult,
 } from '@/core/ports/services';
 import { ExternalServiceError } from '@/core/utils/errors';
 import { getPayhereConfig } from '@/lib/payhere/config';
+import { verifyNotificationSignature, formatAmount } from '@/lib/payhere/crypto';
 
 interface TokenCache {
   token: string;
@@ -75,6 +78,90 @@ interface PayhereRestEnvelope {
 }
 
 export class PayHereSubscriptionGateway implements ISubscriptionGateway {
+  async chargeCustomerToken(input: TokenChargeInput): Promise<TokenChargeResult> {
+    const config = getPayhereConfig();
+    const token = await getAccessToken();
+
+    let res: Response;
+    let body: PayhereRestEnvelope;
+    try {
+      res = await fetch(`${config.restBaseUrl}/payment/charge`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          type: 'PAYMENT',
+          order_id: input.orderId,
+          items: input.items,
+          currency: input.currency,
+          amount: formatAmount(input.amount),
+          customer_token: input.customerToken,
+          custom_1: input.gymId, // webhook attribution for the async confirmation
+          notify_url: config.notifyUrl,
+        }),
+      });
+      body = (await res.json()) as PayhereRestEnvelope;
+    } catch (e) {
+      // Transport fault: the charge outcome is UNKNOWN. The caller must leave
+      // the pending charge attempt open — the notify webhook (or attempt
+      // expiry) resolves it. Never retry inline: double-charge risk.
+      throw new ExternalServiceError(
+        'PayHere',
+        `payment/charge transport failure (outcome unknown): ${
+          e instanceof Error ? e.message : 'unknown'
+        }`
+      );
+    }
+
+    if (!res.ok) {
+      throw new ExternalServiceError('PayHere', `payment/charge HTTP ${res.status}`);
+    }
+
+    // Envelope status -1/-2 with no payment data = the charge was REJECTED
+    // before processing (invalid token, auth error) — a definite failure.
+    const data = (body.data ?? null) as Record<string, unknown> | null;
+    if (body.status !== 1 && !data) {
+      return {
+        paymentId: null,
+        statusCode: -2,
+        statusMessage: body.msg ?? `payment/charge rejected (status ${body.status ?? 'unknown'})`,
+        signatureValid: false,
+        rawPayload: { status: body.status ?? null, msg: body.msg ?? null },
+      };
+    }
+
+    const statusCode = Number.parseInt(String(data?.status_code ?? ''), 10);
+    const paymentId =
+      typeof data?.payment_id === 'string' || typeof data?.payment_id === 'number'
+        ? String(data.payment_id)
+        : null;
+    const md5sig = typeof data?.md5sig === 'string' ? data.md5sig : '';
+
+    // Verify the response signature against OUR request tuple (same 5-tuple
+    // formula as notifications). A charge outcome with a bad signature is
+    // never acted on.
+    const signatureValid = verifyNotificationSignature(config.merchantSecret, {
+      merchant_id: config.merchantId,
+      order_id: input.orderId,
+      payhere_amount: formatAmount(input.amount),
+      payhere_currency: input.currency,
+      status_code: String(data?.status_code ?? ''),
+      md5sig,
+    });
+
+    const rawPayload: Record<string, unknown> = { ...(data ?? {}), md5sig: '[REDACTED]' };
+
+    return {
+      paymentId,
+      statusCode: Number.isNaN(statusCode) ? -2 : statusCode,
+      statusMessage: typeof data?.status_message === 'string' ? data.status_message : null,
+      signatureValid,
+      rawPayload,
+    };
+  }
+
   async cancelSubscription(payhereSubscriptionId: string): Promise<void> {
     const config = getPayhereConfig();
     const token = await getAccessToken();

@@ -46,6 +46,13 @@ export interface SerializedSubscription {
   /** Lifetime/complimentary subscription — platform-managed; self-service billing controls are disabled. */
   isComplimentary: boolean;
   is_complimentary: boolean;
+  /**
+   * A stored card token exists — one-click plan changes/reactivation are
+   * available (POST /api/billing/change-plan). Boolean ONLY: the token
+   * itself never reaches any client (C-24).
+   */
+  hasSavedCard: boolean;
+  has_saved_card: boolean;
 }
 
 const toDateString = (d: Date | null): string | null =>
@@ -101,5 +108,7 @@ export function serializeSubscriptionForAPI(
     remaining_member_slots: remaining,
     isComplimentary: sub.isComplimentary(),
     is_complimentary: sub.isComplimentary(),
+    hasSavedCard: sub.payhereCustomerId !== null,
+    has_saved_card: sub.payhereCustomerId !== null,
   };
 }

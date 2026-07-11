@@ -27,7 +27,7 @@ test('checkout: trial -> return -> verifying -> webhook -> active Pro', async ({
   // auto-submitted form navigation, which evicts the response body.
   let checkoutPosted = false;
   let orderId = '';
-  await page.route('**/pay/checkout', (route) => {
+  await page.route('**/pay/preapprove', (route) => {
     checkoutPosted = true;
     orderId = new URLSearchParams(route.request().postData() ?? '').get('order_id') ?? '';
     return route.fulfill({ status: 200, body: 'intercepted' });

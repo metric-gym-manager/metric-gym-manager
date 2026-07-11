@@ -1,16 +1,17 @@
 /**
  * Cancel Subscription Use Case (UC-4)
  *
- * Gateway-first ordering is the invariant: PayHere is told to stop charging
- * BEFORE any local write. If the gateway call throws, local state is
- * untouched and the user retries; the inverse order could stop billing
- * locally while PayHere keeps charging the card.
+ * TOKEN-BILLED subscriptions (stored card, no gateway-side schedule): the
+ * local write IS the cancellation — this application initiates every charge,
+ * so setting `canceled` (which clears next_charge_at in the save RPC) stops
+ * billing authoritatively. Nothing to call at PayHere; the saved card token
+ * is retained for one-click re-subscription.
  *
- * The gateway-success -> local-write window is safe (plan C-21 window
- * analysis): a RECURRING_STOPPED for the current id in that window is the
- * intended reconciliation and converges idempotently, and no replacement
- * subscription can be created inside it because GenerateCheckoutUrl rejects
- * while the row still reads active|past_due.
+ * LEGACY recurring subscriptions keep the gateway-first invariant: PayHere
+ * is told to stop charging BEFORE any local write. If the gateway call
+ * throws, local state is untouched and the user retries; the inverse order
+ * could stop billing locally while PayHere keeps charging the card. The
+ * gateway-success -> local-write window is safe (plan C-21 window analysis).
  *
  * After the local canceled write, the tier stays paid-through until
  * current_period_end; the dunning cron then SUSPENDS (tier preserved).
@@ -50,15 +51,18 @@ export class CancelSubscription {
       return sub; // idempotent: a retried cancel is not an error
     }
 
-    if (!sub.payhereSubscriptionId) {
-      // A billed subscription without a gateway id is a data inconsistency —
-      // surface it rather than silently cancel locally while an unknown
-      // gateway sub may charge.
+    if (sub.payhereSubscriptionId) {
+      // LEGACY recurring: gateway FIRST; throws ExternalServiceError on
+      // failure (local state untouched).
+      await this.subscriptionGateway.cancelSubscription(sub.payhereSubscriptionId);
+    } else if (!sub.payhereCustomerId) {
+      // Billed with neither a gateway subscription nor a stored token is a
+      // data inconsistency — surface it rather than silently cancel locally
+      // while an unknown gateway sub may charge.
       throw new ConflictError('No payment gateway subscription on record — contact support');
     }
-
-    // Gateway FIRST; throws ExternalServiceError on failure (local state untouched)
-    await this.subscriptionGateway.cancelSubscription(sub.payhereSubscriptionId);
+    // Token-billed: nothing scheduled at the gateway — the local write stops
+    // billing (the save RPC clears next_charge_at for canceled).
 
     return this.subscriptionRepo.save(sub.cancelPaid(), { extendPeriod: false });
   }

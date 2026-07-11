@@ -17,7 +17,7 @@ export interface CheckoutCustomer {
 }
 
 export interface CheckoutRedirect {
-  /** Gateway form-POST target (mode-derived checkout URL) */
+  /** Gateway form-POST target (mode-derived preapproval URL) */
   checkoutUrl: string;
   /** Complete form field set incl. hash — safe for the client (no secrets) */
   params: Record<string, string>;
@@ -25,9 +25,13 @@ export interface CheckoutRedirect {
 
 export interface IPaymentGateway {
   /**
-   * Assemble the recurring-checkout redirect (fields + signed hash).
+   * Assemble the Preapproval redirect (fields + signed hash): the customer
+   * authorizes their card on PayHere, the first month's price is captured
+   * as a payment alongside the preapproval, and the notification returns
+   * the reusable `customer_token` that powers all subsequent
+   * server-initiated charges (Charging API).
    */
-  buildCheckoutRedirect(input: {
+  buildPreapprovalRedirect(input: {
     orderId: string;
     amount: number;
     currency: 'LKR';

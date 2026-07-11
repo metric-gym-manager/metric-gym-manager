@@ -48,6 +48,8 @@ function subResult(tier: SaasTier, status: SaasStatus) {
       remaining_member_slots: 30,
       isComplimentary: false,
       is_complimentary: false,
+      hasSavedCard: false,
+      has_saved_card: false,
     },
   };
 }

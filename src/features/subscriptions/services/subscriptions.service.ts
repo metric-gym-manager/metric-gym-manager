@@ -71,6 +71,30 @@ export async function startCheckout(input: {
   return data;
 }
 
+export interface ChangePlanResult {
+  subscription: SerializedSubscription;
+  /** 'applied' = charged + provisioned; 'pending_confirmation' = charge in flight. */
+  outcome: 'applied' | 'pending_confirmation';
+}
+
+/**
+ * One-click tier change against the stored card token. Throws
+ * ApiRequestError with code NO_SAVED_CARD when no token exists (fall back
+ * to startCheckout) or CHARGE_FAILED when the card declined.
+ */
+export async function changePlan(targetTier: SaasTier): Promise<ChangePlanResult> {
+  const response = await fetch('/api/billing/change-plan', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ targetTier }),
+  });
+  const { data, meta } = await unwrap<SerializedSubscription>(response);
+  return {
+    subscription: data,
+    outcome: meta?.outcome === 'pending_confirmation' ? 'pending_confirmation' : 'applied',
+  };
+}
+
 export async function cancelSubscription(): Promise<SerializedSubscription> {
   const response = await fetch('/api/billing/cancel', { method: 'POST' });
   const { data } = await unwrap<SerializedSubscription>(response);

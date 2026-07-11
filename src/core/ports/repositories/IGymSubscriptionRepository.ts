@@ -49,4 +49,20 @@ export interface IGymSubscriptionRepository {
    * @returns Number of gyms suspended
    */
   runTrialExpiry(): Promise<number>;
+
+  /**
+   * Token-billed gyms whose billing clock is due: status active|past_due,
+   * stored card token present, next_charge_at <= now. Legacy recurring gyms
+   * (PayHere-driven) never appear — their next_charge_at is NULL.
+   */
+  findDueForCharge(now: Date, limit: number): Promise<Subscription[]>;
+
+  /**
+   * After a failed token charge: schedule the next automatic attempt
+   * RENEWAL_RETRY_INTERVAL_DAYS out via the schedule_charge_retry RPC —
+   * unless that lands past period end + grace (dunning suspends there).
+   *
+   * @returns The scheduled time, or null when no further attempts remain
+   */
+  scheduleChargeRetry(gymId: string): Promise<Date | null>;
 }

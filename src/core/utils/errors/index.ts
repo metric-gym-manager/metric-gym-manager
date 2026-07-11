@@ -10,6 +10,8 @@ export {
   BusinessRuleViolationError,
   ConflictError,
   MemberLimitError,
+  ChargeFailedError,
+  NoSavedCardError,
   DatabaseError,
   ExternalServiceError,
   SMSSendError,

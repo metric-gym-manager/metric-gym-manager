@@ -4,6 +4,7 @@ import {
 } from '@/infrastructure/payments/PayHereSubscriptionGateway';
 import { __resetPayhereConfigForTests } from '@/lib/payhere/config';
 import { ExternalServiceError } from '@/core/utils/errors';
+import { createHash } from 'crypto';
 
 const ENV = {
   PAYHERE_MODE: 'sandbox',
@@ -44,6 +45,121 @@ describe('PayHereSubscriptionGateway', () => {
   });
 
   const tokenResponse = jsonResponse({ access_token: 'TOK1', expires_in: 599 });
+
+  const md5U = (x: string) => createHash('md5').update(x, 'utf8').digest('hex').toUpperCase();
+  /** Response md5sig over our request tuple (same 5-tuple as notifications). */
+  const chargeSig = (orderId: string, amount: string, statusCode: string) =>
+    md5U('1211149' + orderId + amount + 'LKR' + statusCode + md5U('TESTSECRET_1234'));
+
+  const chargeInput = {
+    orderId: 'REN-gym-1-1',
+    amount: 4990,
+    currency: 'LKR' as const,
+    customerToken: 'CUST-TOKEN-1',
+    items: 'Pro Plan — Monthly',
+    gymId: 'gym-1',
+  };
+
+  describe('chargeCustomerToken (Charging API)', () => {
+    it('POSTs the charge with Bearer auth and returns a verified success', async () => {
+      fetchMock
+        .mockResolvedValueOnce(tokenResponse)
+        .mockResolvedValueOnce(
+          jsonResponse({
+            status: 1,
+            msg: 'Payment success',
+            data: {
+              payment_id: 320025300,
+              status_code: '2',
+              status_message: 'Successfully completed the payment.',
+              md5sig: chargeSig('REN-gym-1-1', '4990.00', '2'),
+            },
+          })
+        );
+
+      const result = await new PayHereSubscriptionGateway().chargeCustomerToken(chargeInput);
+
+      const [chargeUrl, chargeInit] = fetchMock.mock.calls[1];
+      expect(chargeUrl).toBe('https://sandbox.payhere.lk/merchant/v1/payment/charge');
+      expect(chargeInit.headers.Authorization).toBe('Bearer TOK1');
+      const body = JSON.parse(chargeInit.body);
+      expect(body).toMatchObject({
+        type: 'PAYMENT',
+        order_id: 'REN-gym-1-1',
+        amount: '4990.00',
+        currency: 'LKR',
+        customer_token: 'CUST-TOKEN-1',
+        custom_1: 'gym-1',
+      });
+
+      expect(result.statusCode).toBe(2);
+      expect(result.paymentId).toBe('320025300');
+      expect(result.signatureValid).toBe(true);
+      expect(result.rawPayload.md5sig).toBe('[REDACTED]');
+    });
+
+    it('flags a tampered response signature (never act on it)', async () => {
+      fetchMock
+        .mockResolvedValueOnce(tokenResponse)
+        .mockResolvedValueOnce(
+          jsonResponse({
+            status: 1,
+            data: {
+              payment_id: 1,
+              status_code: '2',
+              md5sig: 'F'.repeat(32),
+            },
+          })
+        );
+
+      const result = await new PayHereSubscriptionGateway().chargeCustomerToken(chargeInput);
+      expect(result.statusCode).toBe(2);
+      expect(result.signatureValid).toBe(false);
+    });
+
+    it('maps a declined charge (data.status_code -2) to a definite failure result', async () => {
+      fetchMock
+        .mockResolvedValueOnce(tokenResponse)
+        .mockResolvedValueOnce(
+          jsonResponse({
+            status: -1,
+            msg: 'Payment failed',
+            data: {
+              payment_id: 2,
+              status_code: '-2',
+              status_message: 'Insufficient funds',
+              md5sig: chargeSig('REN-gym-1-1', '4990.00', '-2'),
+            },
+          })
+        );
+
+      const result = await new PayHereSubscriptionGateway().chargeCustomerToken(chargeInput);
+      expect(result.statusCode).toBe(-2);
+      expect(result.statusMessage).toBe('Insufficient funds');
+      expect(result.signatureValid).toBe(true);
+    });
+
+    it('maps a pre-processing rejection (no data envelope) to a failure result', async () => {
+      fetchMock
+        .mockResolvedValueOnce(tokenResponse)
+        .mockResolvedValueOnce(jsonResponse({ status: -1, msg: 'Invalid customer token' }));
+
+      const result = await new PayHereSubscriptionGateway().chargeCustomerToken(chargeInput);
+      expect(result.statusCode).toBe(-2);
+      expect(result.paymentId).toBeNull();
+      expect(result.statusMessage).toContain('Invalid customer token');
+    });
+
+    it('throws ExternalServiceError on transport faults (outcome unknown — caller must not retry inline)', async () => {
+      fetchMock
+        .mockResolvedValueOnce(tokenResponse)
+        .mockRejectedValueOnce(new Error('socket hang up'));
+
+      await expect(
+        new PayHereSubscriptionGateway().chargeCustomerToken(chargeInput)
+      ).rejects.toThrow(ExternalServiceError);
+    });
+  });
 
   it('fetches an OAuth token with Basic auth then cancels with Bearer', async () => {
     fetchMock

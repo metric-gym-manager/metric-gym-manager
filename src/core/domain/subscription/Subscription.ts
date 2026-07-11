@@ -177,6 +177,24 @@ export class Subscription {
   }
 
   /**
+   * NON-TRANSITION (§2.5.1): in-place plan change on a LIVE subscription —
+   * a tier property update, not a status transition. Requires status active
+   * (past_due must resolve its failed payment first; every other status goes
+   * through activate()/convertTrialToPaid()). Requires an actual change.
+   * Gateway ids are untouched: the same stored card token keeps billing.
+   *
+   * Used by ChangePlan after the new tier's price was successfully charged
+   * to the stored token; the period credit (unused days banked) is applied
+   * by save_gym_subscription's GREATEST rule, not here.
+   */
+  switchPlan(targetTier: SaasTier): Subscription {
+    if (this.props.status !== SaasStatus.Active || targetTier === this.props.tier) {
+      throw new InvalidStatusTransitionError(this.stateKey(), `${targetTier}:active`);
+    }
+    return new Subscription({ ...this.props, tier: targetTier });
+  }
+
+  /**
    * NON-TRANSITION (§2.5.1): successful recurring charge on an existing paid
    * subscription. Recovers past_due → active. Requires status active or
    * past_due — a stale installment event must never un-cancel a voluntarily

@@ -7,9 +7,11 @@ import { Subscription } from '@/core/domain/subscription/Subscription';
 import {
   makeSubscription,
   makeIntent,
+  makeChargeAttempt,
   mockSubscriptionRepo,
   mockIntentRepo,
   mockLogRepo,
+  mockChargeAttemptRepo,
 } from '@/core/test-utils/subscription-mocks';
 
 /** Base signed-and-verified notification fields (route verified md5sig already). */
@@ -31,8 +33,9 @@ describe('HandlePayHereWebhook (UC-2)', () => {
     const subRepo = mockSubscriptionRepo();
     const intentRepo = mockIntentRepo();
     const logRepo = mockLogRepo();
-    const useCase = new HandlePayHereWebhook(subRepo, intentRepo, logRepo);
-    return { subRepo, intentRepo, logRepo, useCase };
+    const attemptRepo = mockChargeAttemptRepo();
+    const useCase = new HandlePayHereWebhook(subRepo, intentRepo, logRepo, attemptRepo);
+    return { subRepo, intentRepo, logRepo, attemptRepo, useCase };
   }
 
   describe('activation (intent-driven)', () => {
@@ -252,6 +255,127 @@ describe('HandlePayHereWebhook (UC-2)', () => {
 
       expect(outcome).toBe(WebhookOutcome.LoggedPending);
       expect(subRepo.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('server-initiated charge attempts (token billing, C-32)', () => {
+    const tokenPro = (status: SaasStatus) =>
+      makeSubscription({
+        tier: SaasTier.Pro,
+        status,
+        payhereCustomerId: 'TOKEN-1',
+        payhereSubscriptionId: null,
+      });
+
+    it('RENEWED: late confirmation of a renewal charge whose sync response was lost', async () => {
+      const { subRepo, attemptRepo, useCase } = build();
+      attemptRepo.findPendingByOrderId.mockResolvedValue(
+        makeChargeAttempt({ orderId: 'REN-gym-1-9', targetTier: SaasTier.Pro, expectedAmount: 4990 })
+      );
+      subRepo.findByGymId.mockResolvedValue(tokenPro(SaasStatus.Active));
+
+      const { outcome } = await useCase.execute(
+        fields({ order_id: 'REN-gym-1-9', payment_id: 'PAY-REN', payhere_amount: '4990.00' })
+      );
+
+      expect(outcome).toBe(WebhookOutcome.Renewed);
+      expect(subRepo.save).toHaveBeenCalledWith(expect.anything(), { extendPeriod: true });
+      expect(attemptRepo.markStatus).toHaveBeenCalledWith('REN-gym-1-9', 'succeeded', 'PAY-REN');
+    });
+
+    it('REACTIVATED: renewal confirmation landing after dunning suspended the gym', async () => {
+      const { subRepo, attemptRepo, useCase } = build();
+      attemptRepo.findPendingByOrderId.mockResolvedValue(
+        makeChargeAttempt({ orderId: 'REN-gym-1-9', targetTier: SaasTier.Pro, expectedAmount: 4990 })
+      );
+      subRepo.findByGymId.mockResolvedValue(tokenPro(SaasStatus.Suspended));
+
+      const { outcome } = await useCase.execute(
+        fields({ order_id: 'REN-gym-1-9', payment_id: 'PAY-REN2', payhere_amount: '4990.00' })
+      );
+
+      expect(outcome).toBe(WebhookOutcome.Reactivated);
+      const saved = subRepo.save.mock.calls[0][0] as Subscription;
+      expect(saved.status).toBe(SaasStatus.Active);
+      expect(saved.tier).toBe(SaasTier.Pro);
+    });
+
+    it('PROVISIONED: late confirmation of a plan-change charge applies the tier switch', async () => {
+      const { subRepo, attemptRepo, useCase } = build();
+      attemptRepo.findPendingByOrderId.mockResolvedValue(
+        makeChargeAttempt({
+          orderId: 'CHG-gym-1-9',
+          kind: 'plan_change',
+          targetTier: SaasTier.Enterprise,
+          expectedAmount: 6990,
+        })
+      );
+      subRepo.findByGymId.mockResolvedValue(tokenPro(SaasStatus.Active));
+
+      const { outcome } = await useCase.execute(
+        fields({ order_id: 'CHG-gym-1-9', payment_id: 'PAY-CHG', payhere_amount: '6990.00' })
+      );
+
+      expect(outcome).toBe(WebhookOutcome.Provisioned);
+      const saved = subRepo.save.mock.calls[0][0] as Subscription;
+      expect(saved.tier).toBe(SaasTier.Enterprise);
+      expect(saved.status).toBe(SaasStatus.Active);
+      expect(attemptRepo.markStatus).toHaveBeenCalledWith('CHG-gym-1-9', 'succeeded', 'PAY-CHG');
+    });
+
+    it('AMOUNT_MISMATCH: a charge confirmation whose signed amount differs fails the attempt', async () => {
+      const { subRepo, attemptRepo, useCase } = build();
+      attemptRepo.findPendingByOrderId.mockResolvedValue(
+        makeChargeAttempt({ orderId: 'REN-gym-1-9', targetTier: SaasTier.Pro, expectedAmount: 4990 })
+      );
+      subRepo.findByGymId.mockResolvedValue(tokenPro(SaasStatus.Active));
+
+      const { outcome } = await useCase.execute(
+        fields({ order_id: 'REN-gym-1-9', payment_id: 'PAY-BAD', payhere_amount: '1.00' })
+      );
+
+      expect(outcome).toBe(WebhookOutcome.AmountMismatch);
+      expect(subRepo.save).not.toHaveBeenCalled();
+      expect(attemptRepo.markStatus).toHaveBeenCalledWith('REN-gym-1-9', 'failed', 'PAY-BAD');
+    });
+
+    it('MARKED_PAST_DUE: late decline of a renewal charge starts grace and closes the attempt', async () => {
+      const { subRepo, attemptRepo, useCase } = build();
+      attemptRepo.findPendingByOrderId.mockResolvedValue(
+        makeChargeAttempt({ orderId: 'REN-gym-1-9', targetTier: SaasTier.Pro, expectedAmount: 4990 })
+      );
+      subRepo.findByGymId.mockResolvedValue(tokenPro(SaasStatus.Active));
+
+      const { outcome } = await useCase.execute(
+        fields({
+          order_id: 'REN-gym-1-9',
+          payment_id: 'PAY-DEC',
+          payhere_amount: '4990.00',
+          status_code: '-2',
+        })
+      );
+
+      expect(outcome).toBe(WebhookOutcome.MarkedPastDue);
+      const saved = subRepo.save.mock.calls[0][0] as Subscription;
+      expect(saved.status).toBe(SaasStatus.PastDue);
+      expect(attemptRepo.markStatus).toHaveBeenCalledWith('REN-gym-1-9', 'failed', 'PAY-DEC');
+    });
+
+    it('STALE_EVENT: renewal confirmation for a gym that voluntarily canceled never un-cancels', async () => {
+      const { subRepo, attemptRepo, useCase } = build();
+      attemptRepo.findPendingByOrderId.mockResolvedValue(
+        makeChargeAttempt({ orderId: 'REN-gym-1-9', targetTier: SaasTier.Pro, expectedAmount: 4990 })
+      );
+      subRepo.findByGymId.mockResolvedValue(tokenPro(SaasStatus.Canceled));
+
+      const { outcome } = await useCase.execute(
+        fields({ order_id: 'REN-gym-1-9', payment_id: 'PAY-ST', payhere_amount: '4990.00' })
+      );
+
+      expect(outcome).toBe(WebhookOutcome.StaleEvent);
+      expect(subRepo.save).not.toHaveBeenCalled();
+      // The money moved: attempt closed as succeeded, log row is the trail
+      expect(attemptRepo.markStatus).toHaveBeenCalledWith('REN-gym-1-9', 'succeeded', 'PAY-ST');
     });
   });
 

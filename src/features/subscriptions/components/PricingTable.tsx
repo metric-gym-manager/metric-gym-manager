@@ -75,10 +75,16 @@ const COLUMNS: Column[] = [
 
 /**
  * Lite / Pro / Enterprise comparison (plan §5.2). CTA state per §5.3:
- * an active or past-due subscription cannot start a second checkout
- * (a plan change requires cancelling first). Complimentary subscriptions
- * show no purchase CTAs (platform-managed). Trialing/suspended/canceled
- * accounts can check out into any tier.
+ *
+ * - Active WITH a saved card: other tiers get a live one-click "Switch to X"
+ *   CTA — the dialog charges the stored token and the change applies
+ *   immediately (unused days banked, C-33).
+ * - Active WITHOUT a saved card (legacy recurring): a plan change still
+ *   requires cancelling first (PayHere has no in-place swap on recurring
+ *   subscriptions) — CTAs disabled with the explanation.
+ * - past_due blocks everything until the payment resolves.
+ * - Complimentary subscriptions show no purchase CTAs (platform-managed).
+ * - Trialing/suspended/canceled accounts can buy into any tier.
  */
 export default function PricingTable({
   subscription: sub,
@@ -90,8 +96,10 @@ export default function PricingTable({
   const currentTier = sub.subscriptionTier;
   const active = sub.subscriptionStatus === SaasStatus.Active;
   const pastDue = sub.subscriptionStatus === SaasStatus.PastDue;
-  // A live subscription blocks any new checkout (must cancel to change).
-  const hasLiveSub = active || pastDue;
+  // One-click switching needs a stored card token; without one, a live
+  // subscription blocks new checkouts (must cancel to change).
+  const canInstantChange = active && sub.hasSavedCard && !sub.isComplimentary;
+  const blocked = (active && !canInstantChange) || pastDue;
 
   function cta(tier: SaasTier) {
     const isCurrent = currentTier === tier && active;
@@ -110,23 +118,24 @@ export default function PricingTable({
         </Button>
       );
     }
-    if (currentTier === tier && pastDue) {
+    if (pastDue) {
       return (
         <Button className="w-full" disabled>
           Resolve payment first
         </Button>
       );
     }
-    const label =
-      currentTier === tier
+    const label = canInstantChange
+      ? `Switch to ${TIER_DISPLAY_NAME[tier]}`
+      : currentTier === tier
         ? `Subscribe to ${TIER_DISPLAY_NAME[tier]}`
         : `Upgrade to ${TIER_DISPLAY_NAME[tier]}`;
     return (
       <Button
         className="w-full"
         onClick={() => onUpgrade(tier)}
-        disabled={hasLiveSub}
-        title={hasLiveSub ? 'Cancel your current subscription before changing plans' : undefined}
+        disabled={blocked}
+        title={blocked ? 'Cancel your current subscription before changing plans' : undefined}
       >
         {label}
       </Button>

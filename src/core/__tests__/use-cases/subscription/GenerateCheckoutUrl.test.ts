@@ -50,7 +50,7 @@ describe('GenerateCheckoutUrl (UC-1)', () => {
         currency: 'LKR',
       })
     );
-    expect(gateway.buildCheckoutRedirect).toHaveBeenCalledWith(
+    expect(gateway.buildPreapprovalRedirect).toHaveBeenCalledWith(
       expect.objectContaining({ amount: LITE_PRICE, gymId: 'gym-1', currency: 'LKR' })
     );
     expect(out.checkoutUrl).toContain('payhere');
@@ -135,7 +135,7 @@ describe('GenerateCheckoutUrl (UC-1)', () => {
     expect(intentRepo.createPending).toHaveBeenCalledWith(
       expect.objectContaining({ targetTier: tier, expectedAmount: price })
     );
-    expect(gateway.buildCheckoutRedirect).toHaveBeenCalledWith(
+    expect(gateway.buildPreapprovalRedirect).toHaveBeenCalledWith(
       expect.objectContaining({ amount: price, tier })
     );
   });

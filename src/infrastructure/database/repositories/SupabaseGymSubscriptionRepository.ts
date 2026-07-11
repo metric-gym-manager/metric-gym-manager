@@ -18,6 +18,7 @@ import {
   saasTierSchema,
   saasStatusSchema,
   GRACE_PERIOD_DAYS,
+  RENEWAL_RETRY_INTERVAL_DAYS,
 } from '@/core/utils/constants/SubscriptionConfig';
 import { NotFoundError, DatabaseError } from '@/core/utils/errors';
 
@@ -128,5 +129,34 @@ export class SupabaseGymSubscriptionRepository implements IGymSubscriptionReposi
     }
 
     return typeof data === 'number' ? data : 0;
+  }
+
+  async findDueForCharge(now: Date, limit: number): Promise<Subscription[]> {
+    const { data, error } = await this.supabase
+      .from('gyms')
+      .select(SUBSCRIPTION_COLUMNS)
+      .in('subscription_status', ['active', 'past_due'])
+      .not('payhere_customer_id', 'is', null)
+      .lte('next_charge_at', now.toISOString())
+      .order('next_charge_at', { ascending: true })
+      .limit(limit);
+
+    if (error) {
+      throw new DatabaseError(`Failed to load gyms due for charge: ${error.message}`);
+    }
+    return (data ?? []).map((row) => this.toDomain(row as GymSubscriptionRow));
+  }
+
+  async scheduleChargeRetry(gymId: string): Promise<Date | null> {
+    const { data, error } = await this.supabase.rpc('schedule_charge_retry', {
+      p_gym_id: gymId,
+      p_retry_interval_days: RENEWAL_RETRY_INTERVAL_DAYS,
+      p_grace_days: GRACE_PERIOD_DAYS,
+    });
+
+    if (error) {
+      throw new DatabaseError(`Failed to schedule charge retry: ${error.message}`);
+    }
+    return data ? new Date(data as string) : null;
   }
 }

@@ -141,6 +141,15 @@ describe('serializeSubscriptionForAPI', () => {
     expect(active.pastDueReason).toBeNull();
   });
 
+  it('exposes hasSavedCard as a boolean only (token itself never serialized)', () => {
+    const withToken = serializeSubscriptionForAPI(make());
+    expect(withToken.hasSavedCard).toBe(true);
+    expect(withToken.has_saved_card).toBe(true);
+
+    const without = serializeSubscriptionForAPI(make({ payhereCustomerId: null }));
+    expect(without.hasSavedCard).toBe(false);
+  });
+
   it('NEVER serializes gateway identifiers (C-24)', () => {
     const json = JSON.stringify(serializeSubscriptionForAPI(make()));
     expect(json).not.toContain('PHSUB-SECRET');

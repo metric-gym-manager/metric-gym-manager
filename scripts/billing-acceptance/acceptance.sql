@@ -57,7 +57,12 @@ BEGIN
   IF NOT FOUND THEN
     RAISE EXCEPTION 'MIGRATIONS NOT APPLIED: gyms.trial_ends_at missing (20260708000003)';
   END IF;
-  PERFORM pg_temp._acc_log('PASS 0: schema present (incl. trial_ends_at)');
+  PERFORM 1 FROM information_schema.columns
+   WHERE table_name = 'gyms' AND column_name = 'next_charge_at';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'MIGRATIONS NOT APPLIED: gyms.next_charge_at missing (20260709000001)';
+  END IF;
+  PERFORM pg_temp._acc_log('PASS 0: schema present (incl. trial_ends_at, next_charge_at)');
 
   ------------------------------------------------------------------
   -- 1. Backfill equality: member_count == live ACTIVE count for every gym
@@ -568,6 +573,86 @@ BEGIN
   END IF;
 
   ------------------------------------------------------------------
+  -- 8j–8n. TOKEN BILLING (migration 20260709000001): credit-preserving
+  -- period math + billing-clock maintenance in save_gym_subscription
+  ------------------------------------------------------------------
+  -- 8j. Banked credit: activation while 10 paid days remain -> new period
+  --     end = old boundary + 1 month (GREATEST rule), and the billing clock
+  --     lands on the same boundary for a token-billed active gym.
+  UPDATE gyms SET subscription_status = 'canceled',
+                  current_period_end = now() + interval '10 days'
+  WHERE id = v_gym_id;
+  PERFORM save_gym_subscription(v_gym_id, 'pro', 'active', NULL, 'ACC-TOKEN-1', true);
+  SELECT (current_period_end BETWEEN now() + interval '1 month' + interval '9 days'
+                                 AND now() + interval '1 month' + interval '11 days'
+          AND next_charge_at = current_period_end) INTO v_ok
+  FROM gyms WHERE id = v_gym_id;
+  IF v_ok THEN
+    PERFORM pg_temp._acc_log('PASS 8j: unused days BANKED into the new period; next_charge_at = period end');
+  ELSE
+    v_failures := v_failures || 'FAIL 8j: credit-preserving extension / billing clock not applied';
+  END IF;
+
+  -- 8k. Recovery anchor preserved (C-23): extension from a PAST boundary
+  --     anchors at the charge date, not the stale boundary.
+  UPDATE gyms SET subscription_status = 'past_due',
+                  current_period_end = now() - interval '5 days'
+  WHERE id = v_gym_id;
+  PERFORM save_gym_subscription(v_gym_id, 'pro', 'active', NULL, 'ACC-TOKEN-1', true);
+  SELECT (current_period_end BETWEEN now() + interval '27 days' AND now() + interval '32 days')
+    INTO v_ok
+  FROM gyms WHERE id = v_gym_id;
+  IF v_ok THEN
+    PERFORM pg_temp._acc_log('PASS 8k: past-boundary extension anchors at the charge date (C-23)');
+  ELSE
+    v_failures := v_failures || 'FAIL 8k: recovery anchor changed';
+  END IF;
+
+  -- 8l. Cancel clears the billing clock (no further token charges)
+  PERFORM save_gym_subscription(v_gym_id, 'pro', 'canceled', NULL, 'ACC-TOKEN-1', false);
+  SELECT (next_charge_at IS NULL) INTO v_ok FROM gyms WHERE id = v_gym_id;
+  IF v_ok THEN
+    PERFORM pg_temp._acc_log('PASS 8l: canceled clears next_charge_at');
+  ELSE
+    v_failures := v_failures || 'FAIL 8l: canceled left a scheduled charge';
+  END IF;
+
+  -- 8m. Dunning suspension clears the billing clock
+  UPDATE gyms SET subscription_status = 'past_due',
+                  current_period_end = now() - interval '9 days',
+                  next_charge_at = now()
+  WHERE id = v_gym_id;
+  PERFORM * FROM process_dunning_suspensions(7);
+  SELECT (subscription_status = 'suspended' AND next_charge_at IS NULL) INTO v_ok
+  FROM gyms WHERE id = v_gym_id;
+  IF v_ok THEN
+    PERFORM pg_temp._acc_log('PASS 8m: dunning suspension clears next_charge_at');
+  ELSE
+    v_failures := v_failures || 'FAIL 8m: suspension left a scheduled charge';
+  END IF;
+
+  -- 8n. schedule_charge_retry: inside grace -> +interval; beyond -> NULL
+  UPDATE gyms SET subscription_status = 'past_due',
+                  current_period_end = now() - interval '1 day'
+  WHERE id = v_gym_id;
+  PERFORM schedule_charge_retry(v_gym_id, 2, 7);
+  SELECT (next_charge_at BETWEEN now() + interval '47 hours' AND now() + interval '49 hours')
+    INTO v_ok FROM gyms WHERE id = v_gym_id;
+  IF v_ok THEN
+    PERFORM pg_temp._acc_log('PASS 8n: retry scheduled 2 days out inside grace');
+  ELSE
+    v_failures := v_failures || 'FAIL 8n: retry not scheduled as specified';
+  END IF;
+  UPDATE gyms SET current_period_end = now() - interval '6 days' WHERE id = v_gym_id;
+  PERFORM schedule_charge_retry(v_gym_id, 2, 7);
+  SELECT (next_charge_at IS NULL) INTO v_ok FROM gyms WHERE id = v_gym_id;
+  IF v_ok THEN
+    PERFORM pg_temp._acc_log('PASS 8n2: retry landing beyond grace -> no further attempts (NULL)');
+  ELSE
+    v_failures := v_failures || 'FAIL 8n2: retry scheduled beyond the grace boundary';
+  END IF;
+
+  ------------------------------------------------------------------
   -- 9. One pending intent per gym (23505) + payment-id partial unique
   ------------------------------------------------------------------
   INSERT INTO checkout_intents (order_id, gym_id, target_tier, expected_amount, expires_at)
@@ -589,6 +674,18 @@ BEGIN
   EXCEPTION WHEN unique_violation THEN
     PERFORM pg_temp._acc_log('PASS 9b: duplicate payhere_payment_id hit 23505');
   END;
+  -- 9c2. one PENDING charge attempt per gym (23505)
+  INSERT INTO saas_charge_attempts (order_id, gym_id, kind, target_tier, expected_amount)
+  VALUES ('ACC-CHG-1-' || v_gym_id, v_gym_id, 'renewal', 'pro', 4990);
+  BEGIN
+    INSERT INTO saas_charge_attempts (order_id, gym_id, kind, target_tier, expected_amount)
+    VALUES ('ACC-CHG-2-' || v_gym_id, v_gym_id, 'plan_change', 'enterprise', 6990);
+    v_failures := v_failures || 'FAIL 9c2: second pending charge attempt accepted';
+  EXCEPTION WHEN unique_violation THEN
+    PERFORM pg_temp._acc_log('PASS 9c2: second pending charge attempt hit 23505');
+  END;
+  DELETE FROM saas_charge_attempts WHERE gym_id = v_gym_id;
+
   -- two NULL payment ids must coexist (invalid-signature audit rows)
   INSERT INTO saas_payment_logs (gym_id, payhere_payment_id, status_code, signature_valid, raw_payload)
   VALUES (v_gym_id, NULL, 0, false, '{}'::jsonb),

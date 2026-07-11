@@ -22,6 +22,18 @@ verified (plan §4 acceptance — all probes pass).
 > `scripts/billing-acceptance/run.sh` and add the `process-trial-expiry` cron
 > env (`vercel.json` already schedules it; it uses the same `CRON_SECRET`).
 >
+> **Token-billing release (Automated Charging).** Migration `20260709000001`
+> ships with the same train. Checkout becomes a PayHere **Preapproval** and
+> renewals are charged by OUR `charge-renewals` cron (00:30 UTC) via the REST
+> Charging API — three owner actions are REQUIRED before this earns money:
+> 1. **Ask PayHere to enable Automated Charging (Preapproval + Charging API)**
+>    on the merchant account — it is approval-gated; sandbox first.
+> 2. The API key (`PAYHERE_APP_ID`) needs the Charging permission, and live
+>    REST **server IP whitelisting is now REVENUE-critical** (every renewal is
+>    a REST charge, not just cancels) — see §3.
+> 3. Watch `charge-renewals` in the system-health CronStatusGrid: a silently
+>    failing billing cron is missed revenue, not a cosmetic error.
+>
 > Overflow note (precautionary only): a billed gym landing on Pro via the
 > migration's >100-active overflow branch would keep paying 2990 on its
 > existing gateway subscription until it cancels/re-subscribes (PayHere fixes
@@ -169,9 +181,16 @@ To revoke, `DELETE FROM saas_admins WHERE user_id = '…'`.
 
 - `notify_url` cannot be `localhost`; tunnel the dev server (e.g. ngrok) and set
   `NEXT_PUBLIC_APP_URL` to the tunnel origin so PayHere can reach the webhook.
-- Drive a sandbox checkout from a trialing gym → confirm the signed notify
-  converts the trial (provisions the bought tier exactly once) and a replay is
-  a 200 no-op.
+- Drive a sandbox checkout (preapproval) from a trialing gym → confirm the
+  signed notify converts the trial exactly once, stores the card token
+  (`hasSavedCard: true` in GET /api/settings/subscription), and a replay is a
+  200 no-op.
+- Drive a sandbox one-click plan change → confirm the Charging API charge
+  lands, the tier switches immediately, and `current_period_end` gained the
+  unused days (banked credit).
+- Trigger the `charge-renewals` cron GET (dev) against a gym with
+  `next_charge_at` in the past → confirm renewal, and a declined sandbox card
+  → past_due + retry scheduled.
 - Drive a sandbox cancel → confirm the gateway call succeeds and local state
   goes `canceled` with the tier retained (dunning suspends at period end).
 

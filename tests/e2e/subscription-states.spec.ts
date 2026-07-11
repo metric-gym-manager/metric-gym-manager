@@ -21,7 +21,7 @@ test('webhook-absent path: verifying times out into PENDING_CONFIRMATION with a 
   // Order id comes from the intercepted PayHere hand-off body — reading the
   // checkout API response races the auto-submitted form navigation.
   let orderId = '';
-  await page.route('**/pay/checkout', (route) => {
+  await page.route('**/pay/preapprove', (route) => {
     orderId = new URLSearchParams(route.request().postData() ?? '').get('order_id') ?? '';
     return route.fulfill({ status: 200, body: 'ok' });
   });

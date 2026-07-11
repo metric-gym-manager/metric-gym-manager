@@ -28,6 +28,7 @@ export { usePaymentStatusPoll } from './hooks/usePaymentStatusPoll';
 export { useBillingHistory } from './hooks/useBillingHistory';
 export { useCheckout } from './hooks/useCheckout';
 export { useCancelSubscription } from './hooks/useCancelSubscription';
+export { useChangePlan } from './hooks/useChangePlan';
 
 // Serialization (used by API routes)
 export { serializeSubscriptionForAPI } from './utils/serializeSubscriptionForAPI';

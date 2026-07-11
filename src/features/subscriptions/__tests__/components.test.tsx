@@ -44,6 +44,8 @@ function makeSerialized(
     remaining_member_slots: LITE_TIER_MEMBER_LIMIT - 10,
     isComplimentary: false,
     is_complimentary: false,
+    hasSavedCard: false,
+    has_saved_card: false,
     ...overrides,
   };
 }

@@ -24,6 +24,7 @@ import { SupabaseSMSRepository } from '@/infrastructure/database/repositories/Su
 import { SupabaseGymSubscriptionRepository } from '@/infrastructure/database/repositories/SupabaseGymSubscriptionRepository';
 import { SupabaseCheckoutIntentRepository } from '@/infrastructure/database/repositories/SupabaseCheckoutIntentRepository';
 import { SupabaseSaasPaymentLogRepository } from '@/infrastructure/database/repositories/SupabaseSaasPaymentLogRepository';
+import { SupabaseChargeAttemptRepository } from '@/infrastructure/database/repositories/SupabaseChargeAttemptRepository';
 
 // Payment gateways
 import { PayHereGateway } from '@/infrastructure/payments/PayHereGateway';
@@ -50,6 +51,8 @@ import { HandlePayHereWebhook } from '@/core/use-cases/subscription/HandlePayHer
 import { ProcessDunning } from '@/core/use-cases/subscription/ProcessDunning';
 import { ProcessTrialExpiry } from '@/core/use-cases/subscription/ProcessTrialExpiry';
 import { CancelSubscription } from '@/core/use-cases/subscription/CancelSubscription';
+import { ChangePlan } from '@/core/use-cases/subscription/ChangePlan';
+import { ChargeDueRenewals } from '@/core/use-cases/subscription/ChargeDueRenewals';
 
 // Interfaces
 import type { IMemberRepository } from '@/core/ports/repositories/IMemberRepository';
@@ -58,6 +61,7 @@ import type { ISMSRepository } from '@/core/ports/repositories/ISMSRepository';
 import type { IGymSubscriptionRepository } from '@/core/ports/repositories/IGymSubscriptionRepository';
 import type { ICheckoutIntentRepository } from '@/core/ports/repositories/ICheckoutIntentRepository';
 import type { ISaasPaymentLogRepository } from '@/core/ports/repositories/ISaasPaymentLogRepository';
+import type { IChargeAttemptRepository } from '@/core/ports/repositories/IChargeAttemptRepository';
 import type { ISMSProvider } from '@/core/ports/services/ISMSProvider';
 import type { IPaymentGateway, ISubscriptionGateway } from '@/core/ports/services';
 
@@ -87,6 +91,7 @@ export class Container {
   private gymSubscriptionRepo?: IGymSubscriptionRepository;
   private checkoutIntentRepo?: ICheckoutIntentRepository;
   private saasPaymentLogRepo?: ISaasPaymentLogRepository;
+  private chargeAttemptRepo?: IChargeAttemptRepository;
   private paymentGateway?: IPaymentGateway;
   private subscriptionGateway?: ISubscriptionGateway;
 
@@ -156,6 +161,26 @@ export class Container {
       this.saasPaymentLogRepo = new SupabaseSaasPaymentLogRepository(this.supabase);
     }
     return this.saasPaymentLogRepo;
+  }
+
+  /**
+   * Get Charge Attempt Repository (server-initiated token-charge ledger)
+   */
+  getChargeAttemptRepository(): IChargeAttemptRepository {
+    if (!this.chargeAttemptRepo) {
+      this.chargeAttemptRepo = new SupabaseChargeAttemptRepository(this.supabase);
+    }
+    return this.chargeAttemptRepo;
+  }
+
+  /** Per-tier monthly prices from config — the single injection point (amount authority). */
+  private getTierPricesLkr(): Record<SaasTier, number> {
+    const payhere = getPayhereConfig();
+    return {
+      [SaasTier.Lite]: payhere.litePriceLkr,
+      [SaasTier.Pro]: payhere.proPriceLkr,
+      [SaasTier.Enterprise]: payhere.enterprisePriceLkr,
+    };
   }
 
   // ============================================================
@@ -286,16 +311,11 @@ export class Container {
    * All tiers paid; no free/skip path — the price map covers every SaasTier.
    */
   getGenerateCheckoutUrlUseCase(): GenerateCheckoutUrl {
-    const payhere = getPayhereConfig();
     return new GenerateCheckoutUrl(
       this.getGymSubscriptionRepository(),
       this.getCheckoutIntentRepository(),
       this.getPaymentGateway(),
-      {
-        [SaasTier.Lite]: payhere.litePriceLkr,
-        [SaasTier.Pro]: payhere.proPriceLkr,
-        [SaasTier.Enterprise]: payhere.enterprisePriceLkr,
-      }
+      this.getTierPricesLkr()
     );
   }
 
@@ -306,7 +326,8 @@ export class Container {
     return new HandlePayHereWebhook(
       this.getGymSubscriptionRepository(),
       this.getCheckoutIntentRepository(),
-      this.getSaasPaymentLogRepository()
+      this.getSaasPaymentLogRepository(),
+      this.getChargeAttemptRepository()
     );
   }
 
@@ -335,6 +356,34 @@ export class Container {
    */
   getProcessTrialExpiryUseCase(): ProcessTrialExpiry {
     return new ProcessTrialExpiry(this.getGymSubscriptionRepository());
+  }
+
+  /**
+   * Get ChangePlan use case (UC-6) — one-click tier change / reactivation
+   * against the stored card token.
+   */
+  getChangePlanUseCase(): ChangePlan {
+    return new ChangePlan(
+      this.getGymSubscriptionRepository(),
+      this.getChargeAttemptRepository(),
+      this.getSubscriptionGateway(),
+      this.getSaasPaymentLogRepository(),
+      this.getTierPricesLkr()
+    );
+  }
+
+  /**
+   * Get ChargeDueRenewals use case (UC-7) — the token-billing engine
+   * (daily charge-renewals cron).
+   */
+  getChargeDueRenewalsUseCase(): ChargeDueRenewals {
+    return new ChargeDueRenewals(
+      this.getGymSubscriptionRepository(),
+      this.getChargeAttemptRepository(),
+      this.getSubscriptionGateway(),
+      this.getSaasPaymentLogRepository(),
+      this.getTierPricesLkr()
+    );
   }
 
   // ============================================================

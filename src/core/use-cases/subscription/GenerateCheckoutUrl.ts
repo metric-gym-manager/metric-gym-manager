@@ -2,8 +2,14 @@
  * Generate Checkout URL Use Case (UC-1)
  *
  * Creates a pending checkout intent (the webhook's order_id -> gym resolver)
- * and assembles the PayHere recurring-checkout redirect. Every tier is paid
- * and checkoutable — no tier is structurally excluded.
+ * and assembles the PayHere PREAPPROVAL redirect: the customer authorizes
+ * their card on PayHere, the first month's tier price is captured alongside,
+ * and the notification returns the reusable customer_token that powers all
+ * subsequent server-initiated charges. Every tier is paid and checkoutable.
+ *
+ * Needed only when no valid saved card exists (first purchase, or after a
+ * token invalidates) — gyms with a stored token change/reactivate plans
+ * one-click via ChangePlan instead.
  *
  * Concurrency: the one-pending-per-gym partial unique index makes a second
  * concurrent call fail with ConflictError — propagate it (route maps to 409).
@@ -76,7 +82,7 @@ export class GenerateCheckoutUrl {
       expiresAt,
     });
 
-    const redirect = this.paymentGateway.buildCheckoutRedirect({
+    const redirect = this.paymentGateway.buildPreapprovalRedirect({
       orderId,
       amount,
       currency: 'LKR',

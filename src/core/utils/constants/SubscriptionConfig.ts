@@ -117,11 +117,22 @@ export const TRIAL_PERIOD_DAYS = 14;
 /** Days of paid access after a failed charge before dunning SUSPENDS. SQL mirror: literal 7. */
 export const GRACE_PERIOD_DAYS = 7;
 
-/** PayHere Recurring API `recurrence` param. SQL mirror: interval '1 month'. */
-export const BILLING_RECURRENCE = '1 Month';
+/**
+ * Days between automatic token-charge retries after a failed renewal.
+ * SQL mirror: schedule_charge_retry (migration 20260709000001). With the
+ * 7-day grace this bounds a past_due episode to ~4 attempts — inside every
+ * card-network retry budget (C-26; the budgets are OURS now that this app
+ * initiates charges).
+ */
+export const RENEWAL_RETRY_INTERVAL_DAYS = 2;
 
-/** PayHere Recurring API `duration` param. */
-export const BILLING_DURATION = 'Forever';
+/**
+ * A pending charge attempt older than this is expired by the charge cron.
+ * A lost synchronous response leaves the attempt pending; the notify webhook
+ * usually completes it — past this window it is abandoned (ambiguous outcome,
+ * surfaced in system health) and the schedule may try again.
+ */
+export const CHARGE_ATTEMPT_TTL_HOURS = 48;
 
 /** Pending checkout intents older than this are expired by the dunning cron. */
 export const CHECKOUT_INTENT_TTL_MINUTES = 30;

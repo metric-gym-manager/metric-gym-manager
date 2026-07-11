@@ -198,6 +198,43 @@ describe('Subscription entity', () => {
     });
   });
 
+  describe('switchPlan (in-place tier change, §2.5.1 non-transition)', () => {
+    it('changes the tier on an active subscription, keeping status, ids and period', () => {
+      const next = sub({
+        tier: SaasTier.Lite,
+        status: SaasStatus.Active,
+        currentPeriodEnd: periodEnd,
+        payhereCustomerId: 'TOKEN-1',
+      }).switchPlan(SaasTier.Pro);
+      expect(next.tier).toBe(SaasTier.Pro);
+      expect(next.status).toBe(SaasStatus.Active);
+      expect(next.currentPeriodEnd).toEqual(periodEnd);
+      expect(next.payhereCustomerId).toBe('TOKEN-1');
+    });
+
+    it('allows downgrades too (Pro -> Lite)', () => {
+      const next = sub({ tier: SaasTier.Pro, status: SaasStatus.Active }).switchPlan(SaasTier.Lite);
+      expect(next.tier).toBe(SaasTier.Lite);
+    });
+
+    it('rejects a no-op change to the same tier', () => {
+      expect(() =>
+        sub({ tier: SaasTier.Pro, status: SaasStatus.Active }).switchPlan(SaasTier.Pro)
+      ).toThrow(InvalidStatusTransitionError);
+    });
+
+    it.each([
+      ['trialing', SaasStatus.Trialing],
+      ['past_due', SaasStatus.PastDue],
+      ['suspended', SaasStatus.Suspended],
+      ['canceled', SaasStatus.Canceled],
+    ])('rejects from %s (only active switches in place)', (_label, status) => {
+      expect(() => sub({ status }).switchPlan(SaasTier.Pro)).toThrow(
+        InvalidStatusTransitionError
+      );
+    });
+  });
+
   describe('suspend (tier PRESERVED — no landing tier)', () => {
     it.each([
       ['past_due (grace expired)', SaasStatus.PastDue],

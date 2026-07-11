@@ -39,6 +39,8 @@ export interface PayhereConfig {
   baseUrl: string;
   /** Redirect/form checkout endpoint: {baseUrl}/pay/checkout */
   checkoutUrl: string;
+  /** Preapproval (card tokenization + first payment) endpoint: {baseUrl}/pay/preapprove */
+  preapproveUrl: string;
   /** OAuth REST base: {baseUrl}/merchant/v1 */
   restBaseUrl: string;
   /** Browser return target after payment (gateway appends ?order=) */
@@ -83,6 +85,7 @@ export function getPayhereConfig(): PayhereConfig {
     appSecret: env.PAYHERE_APP_SECRET,
     baseUrl,
     checkoutUrl: `${baseUrl}/pay/checkout`,
+    preapproveUrl: `${baseUrl}/pay/preapprove`,
     restBaseUrl: `${baseUrl}/merchant/v1`,
     returnUrl: `${appUrl}/settings/billing`,
     cancelUrl: `${appUrl}/settings/billing?canceled=1`,

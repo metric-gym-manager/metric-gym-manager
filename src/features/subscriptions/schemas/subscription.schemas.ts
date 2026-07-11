@@ -36,6 +36,17 @@ export const checkoutCustomerSchema = z.object({
 export type CheckoutCustomerInput = z.infer<typeof checkoutCustomerSchema>;
 
 /**
+ * One-click plan change body (POST /api/billing/change-plan). Only the
+ * target tier — the price is resolved server-side (amount authority) and the
+ * charge goes to the stored card token.
+ */
+export const changePlanSchema = z.object({
+  targetTier: saasTierSchema,
+});
+
+export type ChangePlanInputBody = z.infer<typeof changePlanSchema>;
+
+/**
  * Billing-history query params.
  */
 export const billingHistoryQuerySchema = z.object({

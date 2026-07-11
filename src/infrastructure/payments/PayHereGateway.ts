@@ -1,10 +1,15 @@
 /**
  * PayHere redirect/form gateway — implements IPaymentGateway.
  *
- * Assembles the Recurring-checkout field set (Checkout API + recurrence
- * fields) and verifies inbound notification signatures. The Merchant Secret
- * never leaves this module: the returned params contain only what PayHere's
- * form needs, and the signature helpers receive the secret as an argument.
+ * Assembles the Preapproval field set (`POST /pay/preapprove`): the customer
+ * authorizes their card on PayHere, the passed `amount` (first month's tier
+ * price) is captured as a payment alongside the preapproval, and the
+ * notification returns the reusable `customer_token` that powers all
+ * subsequent server-initiated charges (Charging API).
+ *
+ * The Merchant Secret never leaves this module: the returned params contain
+ * only what PayHere's form needs, and the signature helpers receive the
+ * secret as an argument. The `hash` formula is identical to Checkout's.
  */
 
 import type {
@@ -18,15 +23,10 @@ import {
   formatAmount,
 } from '@/lib/payhere/crypto';
 import { getPayhereConfig } from '@/lib/payhere/config';
-import {
-  BILLING_RECURRENCE,
-  BILLING_DURATION,
-  TIER_DISPLAY_NAME,
-  SaasTier,
-} from '@/core/utils/constants/SubscriptionConfig';
+import { TIER_DISPLAY_NAME, SaasTier } from '@/core/utils/constants/SubscriptionConfig';
 
 export class PayHereGateway implements IPaymentGateway {
-  buildCheckoutRedirect(input: {
+  buildPreapprovalRedirect(input: {
     orderId: string;
     amount: number;
     currency: 'LKR';
@@ -52,9 +52,9 @@ export class PayHereGateway implements IPaymentGateway {
       order_id: orderId,
       items: `${TIER_DISPLAY_NAME[tier]} Plan — Monthly`,
       currency,
+      // A real amount on /pay/preapprove is captured as a payment alongside
+      // the tokenization — first month paid AND card saved in one step.
       amount: formatAmount(amount),
-      recurrence: BILLING_RECURRENCE,
-      duration: BILLING_DURATION,
       custom_1: gymId, // webhook attribution fallback (unsigned — see plan C-24)
       hash: generateCheckoutHash(
         config.merchantId,
@@ -65,7 +65,7 @@ export class PayHereGateway implements IPaymentGateway {
       ),
     };
 
-    return { checkoutUrl: config.checkoutUrl, params };
+    return { checkoutUrl: config.preapproveUrl, params };
   }
 
   verifyNotificationSignature(fields: Record<string, string>): boolean {

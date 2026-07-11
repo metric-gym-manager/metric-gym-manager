@@ -65,6 +65,17 @@ else
   echo "   tier-strategy migrations applied"
 fi
 
+echo "== Step 1c: token-billing migration (charge ledger, billing clock, credit rule) =="
+TOKEN_V1=$("${PSQL[@]}" -tAc \
+  "SELECT count(*) FROM information_schema.columns WHERE table_name='gyms' AND column_name='next_charge_at'")
+if [ "$TOKEN_V1" = "1" ]; then
+  echo "   already applied (gyms.next_charge_at exists) — skipping"
+else
+  echo "   applying supabase/migrations/20260709000001_token_billing.sql"
+  "${PSQL[@]}" -f supabase/migrations/20260709000001_token_billing.sql
+  echo "   token-billing migration applied"
+fi
+
 echo "== Step 2: DB acceptance probes (trigger behavior, suspend/trial branches, limits) =="
 "${PSQL[@]}" -f scripts/billing-acceptance/acceptance.sql
 
