@@ -1,31 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { createClient } from '@/lib/supabase/server';
-import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from '@/lib/auth-config';
+import {
+  REMEMBER_ME_COOKIE,
+  REMEMBER_ME_MAX_AGE,
+  AUTH_COOKIE_DOMAIN,
+  AUTH_FAILED_COOKIE,
+  AUTH_FAILED_HEADER,
+  AUTH_LOOP_COOKIE,
+  AUTH_LOOP_MAX_REDIRECTS,
+  AUTH_LOOP_WINDOW_SECONDS,
+  isPublicRoute as isPublicRoutePath,
+  isAuthRoute as isAuthRoutePath,
+} from '@/lib/auth-config';
+import {
+  findCorruptSessionCookieNames,
+  isSupabaseAuthCookie,
+  isSupabaseSessionCookie,
+  isRetryableAuthError,
+} from '@/lib/client-state/auth-token-guard';
 
-// Public routes that don't require authentication
-const publicRoutes = [
-  '/',
-  '/login',
-  '/register',
-  '/verify-email',
-  '/forgot-password',
-  '/reset-password',
-  '/auth/verify-email',
-  '/auth/forgot-password',
-  '/auth/reset-password',
-  '/auth/callback',
-];
-
-// Auth routes that authenticated users shouldn't access
-// Note: /register is excluded to allow authenticated users to view registration page
-const authRoutes = [
-  '/login',
-  '/forgot-password',
-  '/reset-password',
-  '/auth/forgot-password',
-  '/auth/reset-password',
-];
+function parseLoopCount(raw: string | undefined): number {
+  const count = Number.parseInt(raw ?? '', 10);
+  return Number.isFinite(count) && count > 0 ? count : 0;
+}
 
 export async function authMiddleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -44,6 +42,11 @@ export async function authMiddleware(request: NextRequest) {
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
     };
+    // Scope auth cookies to an explicit host when configured, so staging and
+    // production on sibling subdomains can't overwrite each other's session.
+    if (AUTH_COOKIE_DOMAIN) {
+      opts.domain = AUTH_COOKIE_DOMAIN;
+    }
     if (rememberSession) {
       opts.maxAge = REMEMBER_ME_MAX_AGE;
     } else {
@@ -52,6 +55,22 @@ export async function authMiddleware(request: NextRequest) {
     }
     return opts;
   }
+
+  // --- Fail-safe: detect rotten Supabase session cookies before they reach
+  // the auth client. A malformed/partially-overwritten cookie would otherwise
+  // be rejected by the server on every request while the browser keeps
+  // resending it — the exact state that produces redirect loops.
+  const requestCookies = request.cookies.getAll();
+  const allAuthCookieNames = requestCookies
+    .filter((cookie) => isSupabaseAuthCookie(cookie.name))
+    .map((cookie) => cookie.name);
+  const sessionCookieNames = requestCookies
+    .filter((cookie) => isSupabaseSessionCookie(cookie.name))
+    .map((cookie) => cookie.name);
+  const corruptCookieNames = findCorruptSessionCookieNames(requestCookies);
+  // Strip corrupt cookies from the request so downstream code sees a clean
+  // signed-out state instead of choking on rot.
+  corruptCookieNames.forEach((name) => request.cookies.delete(name));
 
   // IMPORTANT: This variable is reassigned inside setAll() when tokens are
   // refreshed. Always return this variable — never create a separate response.
@@ -105,11 +124,27 @@ export async function authMiddleware(request: NextRequest) {
   // Do NOT add any logic between creating the client and calling getUser().
   const {
     data: { user },
+    error: authError,
   } = await supabase.auth.getUser();
 
   const isAuthenticated = !!user;
-  const isPublicRoute = publicRoutes.some((route) => pathname === route);
-  const isAuthRoute = authRoutes.some((route) => pathname.startsWith(route));
+  const isPublicRoute = isPublicRoutePath(pathname);
+  const isAuthRoute = isAuthRoutePath(pathname);
+
+  // Token rot: session cookies were presented (or were corrupt) but produced
+  // no user, and the failure is NOT a transient network error. The cookies
+  // are dead — keeping them only makes the browser resend them forever.
+  const sessionRotted =
+    !isAuthenticated &&
+    (corruptCookieNames.length > 0 ||
+      (sessionCookieNames.length > 0 && !isRetryableAuthError(authError)));
+
+  // Redirect-loop guard: count consecutive auth redirects within a short
+  // window. When the browser is bouncing (rotten cookie the server rejects
+  // but the client keeps sending), stop redirecting and serve a page —
+  // that's what breaks ERR_TOO_MANY_REDIRECTS.
+  const loopCount = parseLoopCount(request.cookies.get(AUTH_LOOP_COOKIE)?.value);
+  const loopDetected = loopCount >= AUTH_LOOP_MAX_REDIRECTS;
 
   // Helper: copy refreshed cookies onto a redirect response so they
   // are not lost when we return a new NextResponse.redirect().
@@ -119,24 +154,101 @@ export async function authMiddleware(request: NextRequest) {
     });
   }
 
+  // Helper: expire every Supabase auth cookie the browser sent (plus any
+  // corrupt ones already stripped) so it stops resending dead tokens.
+  function expireAuthCookies(target: NextResponse) {
+    const names = new Set([...allAuthCookieNames, ...corruptCookieNames]);
+    names.forEach((name) => {
+      target.cookies.set(name, '', { ...cookieOptions(), maxAge: 0 });
+    });
+  }
+
+  // Helper: flag the response as an auth failure. The header is for
+  // logs/CDN observability; the (JS-readable) cookie lets the client show a
+  // single "session expired" message after the clean redirect.
+  function markAuthFailed(target: NextResponse) {
+    target.headers.set(AUTH_FAILED_HEADER, 'true');
+    target.cookies.set(AUTH_FAILED_COOKIE, '1', {
+      path: '/',
+      maxAge: 60,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
+
+  function bumpLoopCookie(target: NextResponse) {
+    target.cookies.set(AUTH_LOOP_COOKIE, String(loopCount + 1), {
+      path: '/',
+      maxAge: AUTH_LOOP_WINDOW_SECONDS,
+      sameSite: 'lax',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
+
+  function clearLoopCookie(target: NextResponse) {
+    if (request.cookies.get(AUTH_LOOP_COOKIE)) {
+      target.cookies.set(AUTH_LOOP_COOKIE, '', { path: '/', maxAge: 0 });
+    }
+  }
+
   // Redirect authenticated users away from auth pages.
   if (isAuthenticated && isAuthRoute) {
+    if (loopDetected) {
+      // Bouncing login↔dashboard hasn't converged — serve the requested page
+      // instead of another 3xx hop.
+      clearLoopCookie(supabaseResponse);
+      return supabaseResponse;
+    }
     const redirectResponse = NextResponse.redirect(
       new URL('/dashboard', request.url)
     );
     copyAuthCookies(redirectResponse);
+    bumpLoopCookie(redirectResponse);
     return redirectResponse;
   }
 
-  // Redirect unauthenticated users to login for protected routes.
+  // Unauthenticated users on protected routes.
   if (!isAuthenticated && !isPublicRoute) {
+    if (loopDetected) {
+      // Break the loop: rewrite to the login page so the browser receives a
+      // clean 200 at the current URL instead of yet another redirect, wipe
+      // the dead cookies, and flag the failure for the client to explain.
+      const rewriteResponse = NextResponse.rewrite(
+        new URL('/login', request.url),
+        { request }
+      );
+      markAuthFailed(rewriteResponse);
+      expireAuthCookies(rewriteResponse);
+      clearLoopCookie(rewriteResponse);
+      return rewriteResponse;
+    }
+
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     const redirectResponse = NextResponse.redirect(loginUrl);
     copyAuthCookies(redirectResponse);
+    if (sessionRotted) {
+      // Expire AFTER copyAuthCookies so the deletion wins: the browser must
+      // stop resending the rotten tokens or it will bounce forever.
+      markAuthFailed(redirectResponse);
+      expireAuthCookies(redirectResponse);
+    }
+    bumpLoopCookie(redirectResponse);
     return redirectResponse;
   }
 
+  // Pass-through. Reset the loop counter and quietly clean up any rot that
+  // didn't require a redirect (e.g. a corrupt cookie on a public page, or a
+  // stale group next to a valid session).
+  clearLoopCookie(supabaseResponse);
+  if (sessionRotted) {
+    expireAuthCookies(supabaseResponse);
+  } else if (corruptCookieNames.length > 0) {
+    corruptCookieNames.forEach((name) => {
+      supabaseResponse.cookies.set(name, '', { ...cookieOptions(), maxAge: 0 });
+    });
+  }
   return supabaseResponse;
 }
 
