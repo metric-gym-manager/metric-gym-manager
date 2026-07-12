@@ -10,10 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import {
-  STARTER_TIER_MEMBER_LIMIT,
-  TIER_DISPLAY_NAME,
-} from '@/core/utils/constants/SubscriptionConfig';
+import { TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
 import { useCancelSubscription } from '../hooks/useCancelSubscription';
 import type { SerializedSubscription } from '../types';
 
@@ -32,7 +29,6 @@ export default function CancelSubscriptionDialog({
   subscription: sub,
 }: CancelSubscriptionDialogProps) {
   const cancel = useCancelSubscription();
-  const overLimit = sub.memberCount > STARTER_TIER_MEMBER_LIMIT;
   const tierName = TIER_DISPLAY_NAME[sub.subscriptionTier];
 
   const handleConfirm = () => {
@@ -54,20 +50,10 @@ export default function CancelSubscriptionDialog({
                 .
               </li>
               <li>
-                After that, your account reverts to the Starter plan ({STARTER_TIER_MEMBER_LIMIT}-member
-                limit).
+                After that, your account is <span className="font-semibold">suspended</span> until
+                you subscribe again — no new or reactivated members while suspended.
               </li>
-              <li>
-                Your {sub.memberCount} members and all data are kept
-                {overLimit && (
-                  <>
-                    {' '}
-                    — since you&apos;re over {STARTER_TIER_MEMBER_LIMIT}, you won&apos;t be able to add{' '}
-                    <span className="font-semibold">new</span> members until you re-subscribe
-                  </>
-                )}
-                .
-              </li>
+              <li>Your {sub.memberCount} members and all data are kept.</li>
               <li>No further charges will be made.</li>
               <li>
                 This cannot be undone from here — re-subscribing starts a new billing cycle.

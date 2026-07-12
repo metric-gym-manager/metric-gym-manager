@@ -6,27 +6,28 @@ import { Users } from 'lucide-react';
 import { useSubscription } from '../hooks/useSubscription';
 import { SaasTier, TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
 
-/** Next paid tier to upsell from a capped tier (Starter -> Growth -> Enterprise). */
+/**
+ * Next tier to upsell from the capped tier: Lite (100) -> Pro (unlimited).
+ * Pro/Enterprise are uncapped and can never trigger a quota upsell.
+ */
 const NEXT_TIER: Partial<Record<SaasTier, SaasTier>> = {
-  [SaasTier.Starter]: SaasTier.Growth,
-  [SaasTier.Growth]: SaasTier.Enterprise,
+  [SaasTier.Lite]: SaasTier.Pro,
 };
 
 /**
  * Inline upsell rendered when member registration hits the current tier's cap
- * (403 MEMBER_LIMIT_REACHED — plan §5.4 flow 3). Tier-aware: Starter (40) →
- * Growth, Growth (190) → Enterprise (unlimited). Consumed by the members
+ * (403 MEMBER_LIMIT_REACHED — plan §5.4 flow 3). Only Lite is capped, so the
+ * upsell always targets Pro (removes the cap). Consumed by the members
  * feature via this feature's public index.
  */
 export default function QuotaReachedUpsell() {
   const { data } = useSubscription();
   const sub = data?.subscription;
 
-  const tier = sub?.subscriptionTier ?? SaasTier.Starter;
+  const tier = sub?.subscriptionTier ?? SaasTier.Lite;
   const limit = sub?.memberLimit ?? null;
-  const nextTier = NEXT_TIER[tier] ?? SaasTier.Growth;
+  const nextTier = NEXT_TIER[tier] ?? SaasTier.Pro;
   const nextName = TIER_DISPLAY_NAME[nextTier];
-  const nextIsUnlimited = nextTier === SaasTier.Enterprise;
 
   return (
     <div
@@ -47,9 +48,8 @@ export default function QuotaReachedUpsell() {
           </p>
           <p className="text-sm text-blue-800">
             Only active members count — expired, suspended and cancelled members are unlimited and
-            unaffected. Upgrade to {nextName} for{' '}
-            {nextIsUnlimited ? 'unlimited active members' : 'a higher active-member limit'} —
-            billed monthly, cancel anytime.
+            unaffected. Upgrade to {nextName} for unlimited active members — billed monthly,
+            cancel anytime.
           </p>
           <Button asChild size="sm">
             <Link href="/settings/billing">Upgrade to {nextName}</Link>

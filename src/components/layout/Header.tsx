@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { LogOut, Loader2 } from 'lucide-react';
-import { GrowthAvatarRing, useSubscription } from '@/features/subscriptions';
+import { ProAvatarRing, useSubscription } from '@/features/subscriptions';
 import type { GymProfile } from '@/features/auth/types';
 
 export default function Header() {
@@ -13,7 +13,7 @@ export default function Header() {
   const queryClient = useQueryClient();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Growth-subscriber avatar ring: tier from the shared subscription query
+  // Pro/Enterprise-subscriber avatar ring: tier from the shared subscription query
   // (invalidated by upgrade/cancel mutations, so the ring appears/disappears
   // without a reload). Loading/error → undefined → ring simply not shown.
   const { data: subscription } = useSubscription();
@@ -86,8 +86,8 @@ export default function Header() {
         <div className="flex h-16 items-center justify-between px-4 lg:px-8">
           {/* Gym name with profile picture */}
           <div className="flex items-center gap-3">
-            {/* Profile Picture — Growth subscribers get the animated ring */}
-            <GrowthAvatarRing tier={subscription?.subscription.subscriptionTier}>
+            {/* Profile Picture — Pro/Enterprise subscribers get the animated ring */}
+            <ProAvatarRing tier={subscription?.subscription.subscriptionTier}>
               <div className="h-10 w-10 rounded-full border-2 border-gray-200 overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shrink-0">
                 {gymProfile.profile_image_url ? (
                   <img
@@ -99,7 +99,7 @@ export default function Header() {
                   <span className="text-white text-sm font-bold">{getInitials()}</span>
                 )}
               </div>
-            </GrowthAvatarRing>
+            </ProAvatarRing>
 
             <h2 className="text-lg font-semibold text-gray-900">
               {gymProfile.gym_name}

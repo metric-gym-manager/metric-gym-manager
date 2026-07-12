@@ -15,6 +15,10 @@ const payhereEnvSchema = z.object({
   PAYHERE_MODE: z.enum(['sandbox', 'live']),
   PAYHERE_MERCHANT_ID: z.string().min(1),
   PAYHERE_MERCHANT_SECRET: z.string().min(1),
+  PAYHERE_LITE_PRICE_LKR: z.coerce.number().positive(),
+  // Repurposed variable: historical values 4900 -> 2990 -> 4990. The NAME is
+  // stable; the MEANING changed with the Lite/Pro/Enterprise re-anchor
+  // (migration 20260708000003) — see docs/DEPLOYMENT_PAYHERE_CHECKLIST.md.
   PAYHERE_PRO_PRICE_LKR: z.coerce.number().positive(),
   PAYHERE_ENTERPRISE_PRICE_LKR: z.coerce.number().positive(),
   PAYHERE_APP_ID: z.string().min(1),
@@ -26,6 +30,7 @@ export interface PayhereConfig {
   mode: 'sandbox' | 'live';
   merchantId: string;
   merchantSecret: string;
+  litePriceLkr: number;
   proPriceLkr: number;
   enterprisePriceLkr: number;
   appId: string;
@@ -34,6 +39,8 @@ export interface PayhereConfig {
   baseUrl: string;
   /** Redirect/form checkout endpoint: {baseUrl}/pay/checkout */
   checkoutUrl: string;
+  /** Preapproval (card tokenization + first payment) endpoint: {baseUrl}/pay/preapprove */
+  preapproveUrl: string;
   /** OAuth REST base: {baseUrl}/merchant/v1 */
   restBaseUrl: string;
   /** Browser return target after payment (gateway appends ?order=) */
@@ -71,12 +78,14 @@ export function getPayhereConfig(): PayhereConfig {
     mode: env.PAYHERE_MODE,
     merchantId: env.PAYHERE_MERCHANT_ID,
     merchantSecret: env.PAYHERE_MERCHANT_SECRET,
+    litePriceLkr: env.PAYHERE_LITE_PRICE_LKR,
     proPriceLkr: env.PAYHERE_PRO_PRICE_LKR,
     enterprisePriceLkr: env.PAYHERE_ENTERPRISE_PRICE_LKR,
     appId: env.PAYHERE_APP_ID,
     appSecret: env.PAYHERE_APP_SECRET,
     baseUrl,
     checkoutUrl: `${baseUrl}/pay/checkout`,
+    preapproveUrl: `${baseUrl}/pay/preapprove`,
     restBaseUrl: `${baseUrl}/merchant/v1`,
     returnUrl: `${appUrl}/settings/billing`,
     cancelUrl: `${appUrl}/settings/billing?canceled=1`,

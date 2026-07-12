@@ -11,10 +11,11 @@ export const runtime = 'nodejs';
 // POST /api/cron/process-dunning — SaaS billing dunning pass
 // Schedule: daily 00:45 UTC (vercel.json)
 //
-// 1. pro/past_due beyond grace  -> free/canceled (hard downgrade)
-// 2. pro/canceled past period   -> free (voluntary cancel lapses)
+// 1. past_due beyond grace     -> suspended (tier preserved)
+// 2. canceled past period end  -> suspended (voluntary cancel lapses)
 // 3. stale pending checkout intents -> expired
-// All downgrade decisions in SQL on the DB clock; members NEVER touched.
+// No downgrade landing tier exists — dunning changes STATUS only.
+// All decisions in SQL on the DB clock; members NEVER touched.
 // ============================================================
 
 export async function POST(request: NextRequest) {
@@ -44,8 +45,8 @@ export async function POST(request: NextRequest) {
     console.log(`⏱️  Dunning cron completed in ${duration}ms`);
 
     await logger.logSuccess(logId, {
-      downgradedPastDue: summary.downgradedPastDue,
-      lapsedCanceled: summary.lapsedCanceled,
+      suspendedPastDue: summary.suspendedPastDue,
+      suspendedCanceled: summary.suspendedCanceled,
       intentsExpired: summary.intentsExpired,
       duration: `${duration}ms`,
     });

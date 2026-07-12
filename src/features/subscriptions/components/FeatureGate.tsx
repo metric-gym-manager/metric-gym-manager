@@ -11,7 +11,7 @@ import { SaasTier, TIER_DISPLAY_NAME } from '@/core/utils/constants/Subscription
 interface FeatureGateProps {
   /** Capability key from the PlanRestrictions matrix. */
   feature: RestrictedFeature;
-  /** Human name shown in the upgrade panel ("Announcements", ...). */
+  /** Human name shown in the upgrade panel ("Access control", ...). */
   featureLabel: string;
   /** Optional extra line under the headline. */
   description?: string;
@@ -24,8 +24,14 @@ interface FeatureGateProps {
  * local tier math — and renders the upgrade panel instead of the feature for
  * plans that lack it.
  *
+ * With the paid-only ladder the only tier-gated capability left is
+ * `accessControlHardware` (Enterprise); `automatedReminders`/`announcements`
+ * are true on every tier, so this gate passes them through unchanged. The
+ * member CAP has its own surfaces (MemberLimitBar, QuotaReachedUpsell —
+ * upsell target Pro).
+ *
  * UX layer only: every gated feature MUST also be enforced at its API/cron
- * entry point (e.g. POST /api/announcements returns 403 FEATURE_NOT_AVAILABLE).
+ * entry point.
  */
 export default function FeatureGate({
   feature,
@@ -42,7 +48,10 @@ export default function FeatureGate({
     return <>{children}</>;
   }
 
-  const growth = TIER_DISPLAY_NAME[SaasTier.Growth];
+  // Hardware support is the Enterprise differentiator; everything else
+  // (the member cap) upsells to Pro.
+  const upsellTier = feature === 'accessControlHardware' ? SaasTier.Enterprise : SaasTier.Pro;
+  const upsellName = TIER_DISPLAY_NAME[upsellTier];
 
   return (
     <Card
@@ -54,7 +63,7 @@ export default function FeatureGate({
       </div>
       <div>
         <h2 className="text-lg font-semibold text-gray-900">
-          {featureLabel} is a {growth} feature
+          {featureLabel} is a {upsellName} feature
         </h2>
         <p className="mt-1 text-sm text-gray-600">
           Upgrade to use this feature.
@@ -66,7 +75,7 @@ export default function FeatureGate({
         className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
       >
         <ArrowUpCircle className="h-4 w-4" aria-hidden="true" />
-        Upgrade to {growth}
+        Upgrade to {upsellName}
       </Link>
     </Card>
   );

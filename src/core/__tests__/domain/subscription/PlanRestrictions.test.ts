@@ -4,31 +4,34 @@ import {
   isFeatureEnabled,
   remainingMemberSlots,
 } from '@/core/domain/subscription/PlanRestrictions';
-import { SaasTier, STARTER_TIER_MEMBER_LIMIT, GROWTH_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasTier, LITE_TIER_MEMBER_LIMIT } from '@/core/utils/constants/SubscriptionConfig';
 
-describe('PlanRestrictions (the single source of Starter restriction rules)', () => {
+describe('PlanRestrictions (the single source of tier capability rules)', () => {
   describe('capability matrix', () => {
-    it('Starter: capped members, no automated reminders, no announcements', () => {
-      expect(PLAN_CAPABILITIES[SaasTier.Starter]).toEqual({
-        maxMembers: STARTER_TIER_MEMBER_LIMIT,
-        automatedReminders: false,
-        announcements: false,
-      });
-    });
-
-    it('Growth: capped members (150), everything else enabled', () => {
-      expect(PLAN_CAPABILITIES[SaasTier.Growth]).toEqual({
-        maxMembers: GROWTH_TIER_MEMBER_LIMIT,
+    it('Lite: capped members (100); reminders and announcements universal; no hardware', () => {
+      expect(PLAN_CAPABILITIES[SaasTier.Lite]).toEqual({
+        maxMembers: LITE_TIER_MEMBER_LIMIT,
         automatedReminders: true,
         announcements: true,
+        accessControlHardware: false,
       });
     });
 
-    it('Enterprise: unlimited members, everything enabled', () => {
+    it('Pro: unlimited members; no hardware', () => {
+      expect(PLAN_CAPABILITIES[SaasTier.Pro]).toEqual({
+        maxMembers: null,
+        automatedReminders: true,
+        announcements: true,
+        accessControlHardware: false,
+      });
+    });
+
+    it('Enterprise: unlimited members + access-control hardware', () => {
       expect(PLAN_CAPABILITIES[SaasTier.Enterprise]).toEqual({
         maxMembers: null,
         automatedReminders: true,
         announcements: true,
+        accessControlHardware: true,
       });
     });
 
@@ -41,37 +44,41 @@ describe('PlanRestrictions (the single source of Starter restriction rules)', ()
 
   describe('getPlanCapabilities', () => {
     it('returns the matrix row for a tier', () => {
-      expect(getPlanCapabilities(SaasTier.Starter).announcements).toBe(false);
-      expect(getPlanCapabilities(SaasTier.Growth).announcements).toBe(true);
+      expect(getPlanCapabilities(SaasTier.Lite).maxMembers).toBe(LITE_TIER_MEMBER_LIMIT);
+      expect(getPlanCapabilities(SaasTier.Pro).maxMembers).toBeNull();
     });
   });
 
   describe('isFeatureEnabled', () => {
     it.each([
-      [SaasTier.Starter, 'automatedReminders', false],
-      [SaasTier.Starter, 'announcements', false],
-      [SaasTier.Growth, 'automatedReminders', true],
+      // Reminders and announcements are universal on the paid-only ladder.
+      [SaasTier.Lite, 'automatedReminders', true],
+      [SaasTier.Lite, 'announcements', true],
+      [SaasTier.Pro, 'automatedReminders', true],
+      [SaasTier.Pro, 'announcements', true],
       [SaasTier.Enterprise, 'announcements', true],
-      [SaasTier.Growth, 'announcements', true],
+      // Access-control hardware is the sole remaining tier gate.
+      [SaasTier.Lite, 'accessControlHardware', false],
+      [SaasTier.Pro, 'accessControlHardware', false],
+      [SaasTier.Enterprise, 'accessControlHardware', true],
     ] as const)('%s / %s -> %s', (tier, feature, expected) => {
       expect(isFeatureEnabled(tier, feature)).toBe(expected);
     });
   });
 
   describe('remainingMemberSlots', () => {
-    it('Starter: limit minus current count', () => {
-      expect(remainingMemberSlots(SaasTier.Starter, 0)).toBe(STARTER_TIER_MEMBER_LIMIT);
-      expect(remainingMemberSlots(SaasTier.Starter, 33)).toBe(STARTER_TIER_MEMBER_LIMIT - 33);
+    it('Lite: limit minus current count', () => {
+      expect(remainingMemberSlots(SaasTier.Lite, 0)).toBe(LITE_TIER_MEMBER_LIMIT);
+      expect(remainingMemberSlots(SaasTier.Lite, 33)).toBe(LITE_TIER_MEMBER_LIMIT - 33);
     });
 
-    it('Starter at/over the limit: clamps to zero (over-limit gyms keep members but add none)', () => {
-      expect(remainingMemberSlots(SaasTier.Starter, STARTER_TIER_MEMBER_LIMIT)).toBe(0);
-      expect(remainingMemberSlots(SaasTier.Starter, 218)).toBe(0);
+    it('Lite at/over the limit: clamps to zero (over-limit gyms keep members but add none)', () => {
+      expect(remainingMemberSlots(SaasTier.Lite, LITE_TIER_MEMBER_LIMIT)).toBe(0);
+      expect(remainingMemberSlots(SaasTier.Lite, 218)).toBe(0);
     });
 
-    it('Growth: capped at 150; Enterprise: null (unlimited)', () => {
-      expect(remainingMemberSlots(SaasTier.Growth, 100)).toBe(GROWTH_TIER_MEMBER_LIMIT - 100);
-      expect(remainingMemberSlots(SaasTier.Growth, 250)).toBe(0);
+    it('Pro and Enterprise: null (unlimited)', () => {
+      expect(remainingMemberSlots(SaasTier.Pro, 250)).toBeNull();
       expect(remainingMemberSlots(SaasTier.Enterprise, 999)).toBeNull();
     });
   });

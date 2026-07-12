@@ -2,7 +2,14 @@
  * Generate Checkout URL Use Case (UC-1)
  *
  * Creates a pending checkout intent (the webhook's order_id -> gym resolver)
- * and assembles the PayHere recurring-checkout redirect.
+ * and assembles the PayHere PREAPPROVAL redirect: the customer authorizes
+ * their card on PayHere, the first month's tier price is captured alongside,
+ * and the notification returns the reusable customer_token that powers all
+ * subsequent server-initiated charges. Every tier is paid and checkoutable.
+ *
+ * Needed only when no valid saved card exists (first purchase, or after a
+ * token invalidates) — gyms with a stored token change/reactivate plans
+ * one-click via ChangePlan instead.
  *
  * Concurrency: the one-pending-per-gym partial unique index makes a second
  * concurrent call fail with ConflictError — propagate it (route maps to 409).
@@ -15,16 +22,15 @@ import type {
 import type { IPaymentGateway, CheckoutCustomer, CheckoutRedirect } from '@/core/ports/services';
 import {
   SaasStatus,
+  SaasTier,
   CHECKOUT_INTENT_TTL_MINUTES,
-  isPaidTier,
-  type PaidTier,
 } from '@/core/utils/constants/SubscriptionConfig';
 import { ConflictError, NotFoundError } from '@/core/utils/errors';
 
 export interface GenerateCheckoutUrlInput {
   gymId: string;
-  /** Which paid tier the gym is buying. Priced server-side — never a request amount. */
-  targetTier: PaidTier;
+  /** Which tier the gym is buying. Priced server-side — never a request amount. */
+  targetTier: SaasTier;
   customer: CheckoutCustomer;
 }
 
@@ -38,7 +44,7 @@ export class GenerateCheckoutUrl {
     private readonly checkoutIntentRepo: ICheckoutIntentRepository,
     private readonly paymentGateway: IPaymentGateway,
     /** Per-tier monthly prices, injected from config by the DI container — the core never reads env */
-    private readonly pricesLkr: Record<PaidTier, number>
+    private readonly pricesLkr: Record<SaasTier, number>
   ) {}
 
   async execute(input: GenerateCheckoutUrlInput): Promise<GenerateCheckoutUrlOutput> {
@@ -53,15 +59,13 @@ export class GenerateCheckoutUrl {
       throw new ConflictError('Your subscription is managed by us');
     }
 
-    // {paid}/active: already subscribed — a plan change requires cancelling
-    // the current gateway subscription first (PayHere has no in-place swap).
-    // {paid}/past_due: recovery arrives via PayHere retry on the EXISTING
+    // active: already subscribed — a plan change requires cancelling the
+    // current gateway subscription first (PayHere has no in-place swap).
+    // past_due: recovery arrives via PayHere retry on the EXISTING
     // subscription — a second checkout would double-bill under two
-    // subscription ids. {paid}/canceled and starter/* may proceed.
-    if (
-      isPaidTier(sub.tier) &&
-      (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue)
-    ) {
+    // subscription ids. trialing/suspended/canceled may proceed (trial
+    // conversion, reactivation, re-subscription).
+    if (sub.status === SaasStatus.Active || sub.status === SaasStatus.PastDue) {
       throw new ConflictError('Already subscribed');
     }
 
@@ -78,7 +82,7 @@ export class GenerateCheckoutUrl {
       expiresAt,
     });
 
-    const redirect = this.paymentGateway.buildCheckoutRedirect({
+    const redirect = this.paymentGateway.buildPreapprovalRedirect({
       orderId,
       amount,
       currency: 'LKR',

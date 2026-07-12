@@ -14,13 +14,13 @@ describe('CancelSubscription (UC-4)', () => {
 
   const proActive = () =>
     makeSubscription({
-      tier: SaasTier.Growth,
+      tier: SaasTier.Pro,
       status: SaasStatus.Active,
       payhereSubscriptionId: 'PHSUB-A',
       currentPeriodEnd: new Date('2026-08-01T00:00:00Z'),
     });
 
-  it('cancels gateway-first, then persists pro/canceled', async () => {
+  it('cancels gateway-first, then persists canceled', async () => {
     const { subRepo, gateway, useCase } = build();
     subRepo.findByGymId.mockResolvedValue(proActive());
 
@@ -38,15 +38,15 @@ describe('CancelSubscription (UC-4)', () => {
     expect(callOrder).toEqual(['gateway', 'save']); // gateway BEFORE local write
     expect(gateway.cancelSubscription).toHaveBeenCalledWith('PHSUB-A');
     expect(result.status).toBe(SaasStatus.Canceled);
-    expect(result.tier).toBe(SaasTier.Growth); // paid-through until period end
+    expect(result.tier).toBe(SaasTier.Pro); // paid-through until period end
     expect(subRepo.save).toHaveBeenCalledWith(expect.anything(), { extendPeriod: false });
   });
 
-  it('cancels from pro/past_due as well', async () => {
+  it('cancels from past_due as well', async () => {
     const { subRepo, useCase } = build();
     subRepo.findByGymId.mockResolvedValue(
       makeSubscription({
-        tier: SaasTier.Growth,
+        tier: SaasTier.Pro,
         status: SaasStatus.PastDue,
         payhereSubscriptionId: 'PHSUB-A',
       })
@@ -59,7 +59,7 @@ describe('CancelSubscription (UC-4)', () => {
   it('is idempotent: already-canceled returns current state without a gateway call', async () => {
     const { subRepo, gateway, useCase } = build();
     const canceled = makeSubscription({
-      tier: SaasTier.Growth,
+      tier: SaasTier.Pro,
       status: SaasStatus.Canceled,
       payhereSubscriptionId: 'PHSUB-A',
     });
@@ -83,18 +83,21 @@ describe('CancelSubscription (UC-4)', () => {
     expect(subRepo.save).not.toHaveBeenCalled();
   });
 
-  it('rejects Free gyms with ConflictError', async () => {
+  it.each([
+    ['trialing (nothing charging at the gateway)', SaasStatus.Trialing],
+    ['suspended (nothing live to stop)', SaasStatus.Suspended],
+  ])('rejects %s with ConflictError', async (_label, status) => {
     const { subRepo, gateway, useCase } = build();
-    subRepo.findByGymId.mockResolvedValue(makeSubscription());
+    subRepo.findByGymId.mockResolvedValue(makeSubscription({ status }));
 
     await expect(useCase.execute({ gymId: 'gym-1' })).rejects.toThrow(ConflictError);
     expect(gateway.cancelSubscription).not.toHaveBeenCalled();
   });
 
-  it('rejects Pro without a gateway subscription id (data inconsistency)', async () => {
+  it('rejects an active sub without a gateway subscription id (data inconsistency)', async () => {
     const { subRepo, useCase } = build();
     subRepo.findByGymId.mockResolvedValue(
-      makeSubscription({ tier: SaasTier.Growth, status: SaasStatus.Active })
+      makeSubscription({ tier: SaasTier.Pro, status: SaasStatus.Active, currentPeriodEnd: new Date('2026-08-01') })
     );
 
     await expect(useCase.execute({ gymId: 'gym-1' })).rejects.toThrow(ConflictError);
@@ -122,7 +125,7 @@ describe('CancelSubscription (UC-4)', () => {
     expect(gateway.cancelSubscription).not.toHaveBeenCalled();
   });
 
-  it('cancels a billed Enterprise subscription like any paid tier', async () => {
+  it('cancels a billed Enterprise subscription like any tier', async () => {
     const { subRepo, gateway, useCase } = build();
     subRepo.findByGymId.mockResolvedValue(
       makeSubscription({

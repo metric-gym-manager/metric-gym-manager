@@ -11,10 +11,40 @@ billing is not live until all of it is done.
 - **Webhook (notify) URL:** `https://metricgymmanager.com/api/webhooks/payhere`
 - **Return / cancel URLs:** `https://metricgymmanager.com/settings/billing`
 
-The DB migrations (`20260704000001..3`) are already applied to the production
-Supabase project and verified (plan §4 acceptance — all probes pass). This
-checklist is only the gateway/edge configuration that has to happen outside the
-codebase.
+The DB migrations (`20260704000001..3`, `20260706000002`, `20260707000001`,
+`20260708000001..2`) are already applied to the production Supabase project and
+verified (plan §4 acceptance — all probes pass).
+
+> **Tier-strategy release train (paid-only Lite/Pro/Enterprise).** Migrations
+> `20260708000003..6` re-anchor the ladder and must ship in the SAME release as
+> the env flip below (`PAYHERE_LITE_PRICE_LKR` new, `PAYHERE_PRO_PRICE_LKR` →
+> `4990`) and the app code that reads them. Post-deploy: re-run
+> `scripts/billing-acceptance/run.sh` and add the `process-trial-expiry` cron
+> env (`vercel.json` already schedules it; it uses the same `CRON_SECRET`).
+>
+> **Token-billing release (Automated Charging).** Migration `20260709000001`
+> ships with the same train. Checkout becomes a PayHere **Preapproval** and
+> renewals are charged by OUR `charge-renewals` cron (00:30 UTC) via the REST
+> Charging API — three owner actions are REQUIRED before this earns money:
+> 1. **Ask PayHere to enable Automated Charging (Preapproval + Charging API)**
+>    on the merchant account — it is approval-gated; sandbox first.
+> 2. The API key (`PAYHERE_APP_ID`) needs the Charging permission, and live
+>    REST **server IP whitelisting is now REVENUE-critical** (every renewal is
+>    a REST charge, not just cancels) — see §3.
+> 3. Watch `charge-renewals` in the system-health CronStatusGrid: a silently
+>    failing billing cron is missed revenue, not a cosmetic error.
+>
+> Overflow note (precautionary only): a billed gym landing on Pro via the
+> migration's >100-active overflow branch would keep paying 2990 on its
+> existing gateway subscription until it cancels/re-subscribes (PayHere fixes
+> the recurring amount at creation; no silent 2990→4990 charge can occur) —
+> such a gym should be notified of the tier change. **As of this migration
+> this is a no-op:** no gym carries a billed gateway subscription; the only
+> real accounts are complimentary/lifetime, and the rest are operator-created
+> demo accounts.
+
+The rest of this checklist is the gateway/edge configuration that has to happen
+outside the codebase.
 
 ---
 
@@ -29,8 +59,9 @@ PayHere dashboard. Never commit real values.
 | `PAYHERE_MODE` | `live` | `sandbox` for the preview/staging environment |
 | `PAYHERE_MERCHANT_ID` | *(dashboard)* | Integrations → your merchant id |
 | `PAYHERE_MERCHANT_SECRET` | *(dashboard)* | **per-domain**, server-side only — never `NEXT_PUBLIC_*` |
-| `PAYHERE_PRO_PRICE_LKR` | `2990` | Growth monthly price (lowered from 4900); must match the amount asserted in checkout |
-| `PAYHERE_ENTERPRISE_PRICE_LKR` | `6990` | Enterprise monthly price |
+| `PAYHERE_LITE_PRICE_LKR` | `2990` | **New** — Lite monthly price. Ship in the SAME release as migration `20260708000003` |
+| `PAYHERE_PRO_PRICE_LKR` | `4990` | **Repurposed** — Pro (unlimited) monthly price. Historical values: `4900` → `2990` → `4990` (see migration `20260708000003`). The var name is stable; its meaning changed with the paid-only ladder. Flip together with `20260708000003` |
+| `PAYHERE_ENTERPRISE_PRICE_LKR` | `6990` | Enterprise monthly price (unchanged) |
 | `PAYHERE_APP_ID` | *(dashboard)* | REST API key (Subscription Manager) |
 | `PAYHERE_APP_SECRET` | *(dashboard)* | REST API secret |
 
@@ -49,8 +80,9 @@ end to end (each link is unit/integration-tested):
 
 1. `POST /api/billing/checkout` accepts only customer contact fields
    (`checkoutCustomerSchema`); an injected `amount`/`tier` key is discarded.
-2. `GenerateCheckoutUrl` prices the intent from `PAYHERE_PRO_PRICE_LKR` via DI
-   and persists it as `checkout_intents.expected_amount` — both server-side.
+2. `GenerateCheckoutUrl` prices the intent from the per-tier
+   `PAYHERE_LITE/PRO/ENTERPRISE_PRICE_LKR` map via DI and persists it as
+   `checkout_intents.expected_amount` — both server-side.
 3. The PayHere hand-off `hash` is computed server-side over
    `(merchant_id, order_id, amount, currency)` with the Merchant Secret;
    editing the hidden form's `amount` breaks the hash and PayHere rejects it.
@@ -149,10 +181,18 @@ To revoke, `DELETE FROM saas_admins WHERE user_id = '…'`.
 
 - `notify_url` cannot be `localhost`; tunnel the dev server (e.g. ngrok) and set
   `NEXT_PUBLIC_APP_URL` to the tunnel origin so PayHere can reach the webhook.
-- Drive a sandbox checkout → confirm the signed notify provisions Growth exactly
-  once and a replay is a 200 no-op.
+- Drive a sandbox checkout (preapproval) from a trialing gym → confirm the
+  signed notify converts the trial exactly once, stores the card token
+  (`hasSavedCard: true` in GET /api/settings/subscription), and a replay is a
+  200 no-op.
+- Drive a sandbox one-click plan change → confirm the Charging API charge
+  lands, the tier switches immediately, and `current_period_end` gained the
+  unused days (banked credit).
+- Trigger the `charge-renewals` cron GET (dev) against a gym with
+  `next_charge_at` in the past → confirm renewal, and a declined sandbox card
+  → past_due + retry scheduled.
 - Drive a sandbox cancel → confirm the gateway call succeeds and local state
-  goes `growth/canceled`.
+  goes `canceled` with the tier retained (dunning suspends at period end).
 
 ---
 
@@ -165,28 +205,21 @@ These are done and need no action — listed so the checklist is self-contained:
   fail-closed column-guard trigger for `authenticated` **and** a fresh
   unenumerated role, EXECUTE lockdown, dunning branches with members preserved,
   duplicate-payment-id / NULL-id index semantics, C-20 cap index-only scan).
-- Migration `20260708000001_active_member_quota` applied to production: the
-  member quota now counts **active** members only. Non-active members
-  (expired/suspended/cancelled) are unlimited on every tier and never quota-gated;
-  the cap only gates registering an active member or flipping one into active
+- Migrations `20260708000001..2` applied to production: the member quota
+  counts **active** members only. Non-active members (expired/suspended/
+  cancelled) are unlimited on every tier and never quota-gated; the cap only
+  gates registering an active member or flipping one into active
   (reactivation, pay-to-reactivate), via `assert_gym_can_add_active_member` +
   the `trg_enforce_active_member_quota` BEFORE trigger. The backfill re-based
-  `gyms.member_count` on the active count — this **lowered** live counts wherever
-  gyms carried inactive members (e.g. a Starter gym reading 33/40 with only 10
-  active now reads 10/40; the two comped Enterprise gyms dropped from their row
-  totals to their active totals). Extended acceptance probes 7d–7i (active-only
-  increment, non-active never blocked, active→expired decrement, reactivation at
-  cap → `MEMBER_LIMIT_REACHED`) all pass, plus the 20 integration tests.
-- Migration `20260708000002_growth_cap_150` applied to production: the Growth
-  active-member cap dropped 190 → 150 (single `CREATE OR REPLACE` of
-  `assert_gym_can_add_active_member`; registration + the into-active trigger both
-  delegate to it). Growth's price also dropped to **2990 LKR/month** — that is
-  env config, not a DB literal: **update `PAYHERE_PRO_PRICE_LKR` to `2990` in the
-  production Vercel env and redeploy** (the charged amount is priced server-side
-  from this var and asserted against the signed webhook amount; a stale `4900`
-  would fail every Growth checkout with an amount mismatch). Existing Growth gyms
-  above 150 active keep every member; the cap only gates new/into-active members.
+  `gyms.member_count` on the active count — this **lowered** live counts
+  wherever gyms carried inactive members. Acceptance probes (active-only
+  increment, non-active never blocked, active→expired decrement, reactivation
+  at cap → `MEMBER_LIMIT_REACHED`) all pass, plus the integration tests. The
+  pre-ladder cap/price values these two migrations carried are superseded by
+  the paid-only ladder (`20260708000003..6` + the env table above) — the env
+  table is the only current price source.
 - Integration suites (webhook idempotency / recovery-anchor / identity-guard /
-  flood-cap, 60-way quota race, dunning branches, checkout race, cancel
-  ordering) and the E2E billing flows (upgrade, return states, quota upsell,
-  cancel, past-due banner) pass against a disposable database.
+  flood-cap, 60-way quota race at the Lite cap, dunning-suspend branches,
+  trial expiry, checkout race, cancel ordering) and the E2E billing flows
+  (checkout, return states, quota upsell, cancel, past-due banner, trial and
+  suspended states) pass against a disposable database.

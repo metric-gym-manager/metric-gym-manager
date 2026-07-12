@@ -1,9 +1,12 @@
 /**
- * Starter plan restriction integration tests (PlanRestrictions matrix).
+ * Plan restriction integration tests (PlanRestrictions matrix + billing
+ * status gates, paid-only Lite/Pro/Enterprise ladder).
  *
  * Server-side enforcement is the authority:
- *  - POST /api/announcements -> 403 FEATURE_NOT_AVAILABLE for Starter gyms
- *  - SendAutomatedReminders (via the DI container) skips Starter gyms
+ *  - POST /api/announcements is enabled on EVERY tier (the capability gate
+ *    stays wired for future re-gating and must not 403 today)
+ *  - SendAutomatedReminders (via the DI container) halts for suspended
+ *    accounts — reminders are tier-universal, status-gated
  *
  * The route reads the caller's session via @/lib/supabase/server (cookies);
  * in jest there is no request context, so ONLY that cookie plumbing is
@@ -66,7 +69,7 @@ async function postAnnouncement(message: string) {
   return { status: response.status, json: await response.json() };
 }
 
-gatedDescribe('Starter plan restrictions (integration)', () => {
+gatedDescribe('plan restrictions + billing-status gates (integration)', () => {
   const supabase = adminClient();
   let gym: TestGym;
   let email: string;
@@ -83,22 +86,22 @@ gatedDescribe('Starter plan restrictions (integration)', () => {
     await deleteTestGym(supabase, gym);
   });
 
-  it('announcements POST: 403 FEATURE_NOT_AVAILABLE for a Starter gym, before any work', async () => {
-    const { status, json } = await postAnnouncement('Starter gyms cannot send this');
-    expect(status).toBe(403);
-    expect(json.errorCode).toBe('FEATURE_NOT_AVAILABLE');
+  it('announcements POST: passes the gate for a trialing Lite gym (announcements are universal)', async () => {
+    // The service requires at least one recipient
+    await supabase.rpc('register_member_guarded', {
+      p_gym_id: gym.gymId,
+      p_member: memberJson(1),
+    });
 
-    const { count } = await supabase
-      .from('announcements')
-      .select('id', { count: 'exact', head: true })
-      .eq('gym_id', gym.gymId);
-    expect(count).toBe(0); // nothing was created
+    const { status, json } = await postAnnouncement('Trialing Lite gym announcement');
+    expect(status).not.toBe(403);
+    expect(json.errorCode).not.toBe('FEATURE_NOT_AVAILABLE');
   });
 
-  it('announcements POST: passes the gate for a Growth gym', async () => {
+  it('announcements POST: passes the gate for a Pro gym', async () => {
     await supabase.rpc('save_gym_subscription', {
       p_gym_id: gym.gymId,
-      p_tier: 'growth',
+      p_tier: 'pro',
       p_status: 'active',
       p_payhere_subscription_id: 'PHSUB-RESTRICT',
       p_payhere_customer_id: null,
@@ -110,13 +113,13 @@ gatedDescribe('Starter plan restrictions (integration)', () => {
       p_member: memberJson(1),
     });
 
-    const { status, json } = await postAnnouncement('Growth gym announcement');
+    const { status, json } = await postAnnouncement('Pro gym announcement');
     expect(status).not.toBe(403);
     expect(json.errorCode).not.toBe('FEATURE_NOT_AVAILABLE');
   });
 
-  it('reminder cron use case (via DI container) skips Starter gyms end-to-end', async () => {
-    // Overdue member in a Starter gym -> would get a reminder if allowed
+  it('reminder cron use case (via DI container) halts for a suspended gym end-to-end', async () => {
+    // Overdue member registered while the gym could still register members
     await supabase.rpc('register_member_guarded', {
       p_gym_id: gym.gymId,
       p_member: {
@@ -125,6 +128,11 @@ gatedDescribe('Starter plan restrictions (integration)', () => {
         next_due_date: '2026-01-01', // long overdue
       },
     });
+    // Suspend the account (trial expiry / dunning outcome)
+    await supabase
+      .from('gyms')
+      .update({ subscription_status: 'suspended' })
+      .eq('id', gym.gymId);
 
     const { getAdminContainer } = require('@/infrastructure/di');
     const container = await getAdminContainer();
@@ -132,7 +140,7 @@ gatedDescribe('Starter plan restrictions (integration)', () => {
       .getSendAutomatedRemindersUseCase()
       .execute({ gymId: gym.gymId });
 
-    expect(summary.membersSkippedPlanRestricted).toBe(1);
+    expect(summary.membersSkippedBillingRestricted).toBe(1);
     expect(summary.totalSent).toBe(0);
   });
 });

@@ -8,7 +8,6 @@ import type { PaymentPollState } from '../types';
 import {
   PAYMENT_POLL_INTERVAL_MS,
   PAYMENT_POLL_TIMEOUT_MS,
-  SaasTier,
   SaasStatus,
 } from '@/core/utils/constants/SubscriptionConfig';
 
@@ -16,9 +15,10 @@ import {
  * Post-redirect verification poll (TOCTOU mitigation, plan §5.4 flow 1).
  *
  * While `active`, polls the subscription every PAYMENT_POLL_INTERVAL_MS up to
- * PAYMENT_POLL_TIMEOUT_MS. pro/active -> 'success'. Window elapsed ->
- * 'pending' (NOT failure: the webhook is the source of truth and may arrive
- * later — the caller renders PENDING_CONFIRMATION with a manual refresh).
+ * PAYMENT_POLL_TIMEOUT_MS. Subscription status active (any tier — all are
+ * paid) -> 'success'. Window elapsed -> 'pending' (NOT failure: the webhook
+ * is the source of truth and may arrive later — the caller renders
+ * PENDING_CONFIRMATION with a manual refresh).
  */
 export function usePaymentStatusPoll(active: boolean): PaymentPollState {
   const [state, setState] = useState<PaymentPollState>(active ? 'verifying' : 'idle');
@@ -42,10 +42,7 @@ export function usePaymentStatusPoll(active: boolean): PaymentPollState {
       try {
         const result = await getSubscription();
         if (cancelled) return;
-        if (
-          result.subscription.subscriptionTier === SaasTier.Growth &&
-          result.subscription.subscriptionStatus === SaasStatus.Active
-        ) {
+        if (result.subscription.subscriptionStatus === SaasStatus.Active) {
           queryClient.setQueryData(SUBSCRIPTION_QUERY_KEY, result);
           setState('success');
           return;

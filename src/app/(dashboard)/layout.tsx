@@ -20,8 +20,9 @@ export default function DashboardLayout({
         {/* Header - Fetches gym profile via React Query for real-time updates */}
         <Header />
 
-        {/* Starter usage: remaining member slots + universal upgrade CTA.
-            Shows Starter (40) and Growth (190) usage; hides for Enterprise/comped and under /settings. */}
+        {/* Member usage: remaining active-member slots + universal upgrade CTA.
+            Shows for Lite (100, the only capped tier); Pro/Enterprise are
+            uncapped — hidden for them, for comped subs and under /settings. */}
         <MemberLimitBar />
 
         {/* Page content - Add top padding for mobile header and bottom padding for mobile nav */}

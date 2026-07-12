@@ -31,6 +31,9 @@ export interface SerializedSubscription {
   member_limit: number | null;
   currentPeriodEnd: string | null;
   current_period_end: string | null;
+  /** Trial-window boundary; non-null only while trialing. */
+  trialEndsAt: string | null;
+  trial_ends_at: string | null;
   graceEndsAt: string | null;
   grace_ends_at: string | null;
   pastDueReason: RecurringFailureClass | null;
@@ -43,6 +46,13 @@ export interface SerializedSubscription {
   /** Lifetime/complimentary subscription — platform-managed; self-service billing controls are disabled. */
   isComplimentary: boolean;
   is_complimentary: boolean;
+  /**
+   * A stored card token exists — one-click plan changes/reactivation are
+   * available (POST /api/billing/change-plan). Boolean ONLY: the token
+   * itself never reaches any client (C-24).
+   */
+  hasSavedCard: boolean;
+  has_saved_card: boolean;
 }
 
 const toDateString = (d: Date | null): string | null =>
@@ -65,6 +75,9 @@ export function serializeSubscriptionForAPI(
   const remaining = remainingMemberSlots(sub.tier, sub.memberCount);
   const graceEndsAt = toDateString(sub.graceEndsAt());
   const currentPeriodEnd = toDateString(sub.currentPeriodEnd);
+  // Like pastDueReason, the trial clock is only meaningful in its status.
+  const trialEndsAt =
+    sub.status === SaasStatus.Trialing ? toDateString(sub.trialEndsAt) : null;
   const reason = sub.status === SaasStatus.PastDue ? pastDueReason : null;
 
   return {
@@ -78,6 +91,8 @@ export function serializeSubscriptionForAPI(
     member_limit: memberLimit,
     currentPeriodEnd,
     current_period_end: currentPeriodEnd,
+    trialEndsAt,
+    trial_ends_at: trialEndsAt,
     graceEndsAt,
     grace_ends_at: graceEndsAt,
     pastDueReason: reason,
@@ -87,10 +102,13 @@ export function serializeSubscriptionForAPI(
     capabilities: {
       automatedReminders: capabilities.automatedReminders,
       announcements: capabilities.announcements,
+      accessControlHardware: capabilities.accessControlHardware,
     },
     remainingMemberSlots: remaining,
     remaining_member_slots: remaining,
     isComplimentary: sub.isComplimentary(),
     is_complimentary: sub.isComplimentary(),
+    hasSavedCard: sub.payhereCustomerId !== null,
+    has_saved_card: sub.payhereCustomerId !== null,
   };
 }

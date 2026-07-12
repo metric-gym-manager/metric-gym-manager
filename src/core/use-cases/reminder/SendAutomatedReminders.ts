@@ -19,7 +19,7 @@ import { Member } from '@/core/domain/member/Member';
 import { IMemberRepository, ISMSRepository } from '@/core/ports/repositories';
 import type { IGymSubscriptionRepository } from '@/core/ports/repositories/IGymSubscriptionRepository';
 import { ISMSProvider } from '@/core/ports/services';
-import { isFeatureEnabled } from '@/core/domain/subscription/PlanRestrictions';
+import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
 import { getDaysUntilDue } from '@/core/utils/date';
 import { formatDateForDisplay } from '@/core/utils/date';
 import { shouldSendReminder, ReminderType } from '@/core/utils/constants/ReminderConfig';
@@ -67,10 +67,11 @@ export interface ReminderSummary {
   membersSkipped: number;
 
   /**
-   * Members skipped because their gym's plan does not include automated
-   * reminders (PlanRestrictions matrix — Starter tier)
+   * Members skipped because their gym's billing status halts reminders
+   * (suspended / canceled / past_due beyond grace). Reminders are available
+   * on EVERY tier — only the account status gates them.
    */
-  membersSkippedPlanRestricted: number;
+  membersSkippedBillingRestricted: number;
 }
 
 /**
@@ -100,15 +101,26 @@ export class SendAutomatedReminders {
   ) {}
 
   /**
-   * Resolve which of the given gyms may use automated reminders.
-   * One subscription lookup per DISTINCT gym; a gym whose subscription
-   * cannot be resolved is treated as restricted (fail closed).
+   * Resolve which of the given gyms may receive automated reminders.
+   * Reminders exist on every tier — the gate is BILLING STATUS only:
+   * send while trialing, active, past_due within grace, or canceled while
+   * still paid-through (the customer keeps what they paid for until period
+   * end); halt for suspended accounts and lapsed windows. One subscription
+   * lookup per DISTINCT gym; a gym whose subscription cannot be resolved is
+   * treated as restricted (fail closed).
    */
   private async resolveAllowedGyms(gymIds: string[]): Promise<Set<string>> {
     const allowed = new Set<string>();
+    const now = new Date();
     for (const gymId of new Set(gymIds)) {
       const sub = await this.gymSubscriptionRepo.findByGymId(gymId);
-      if (sub && isFeatureEnabled(sub.tier, 'automatedReminders')) {
+      if (!sub) continue;
+      const sendable =
+        sub.status === SaasStatus.Trialing ||
+        sub.status === SaasStatus.Active ||
+        (sub.status === SaasStatus.PastDue && !sub.isGraceExpired(now)) ||
+        (sub.status === SaasStatus.Canceled && sub.isPaidThrough(now));
+      if (sendable) {
         allowed.add(gymId);
       }
     }
@@ -133,7 +145,7 @@ export class SendAutomatedReminders {
       errors: [],
       membersProcessed: 0,
       membersSkipped: 0,
-      membersSkippedPlanRestricted: 0,
+      membersSkippedBillingRestricted: 0,
     };
 
     try {
@@ -142,15 +154,16 @@ export class SendAutomatedReminders {
         ? await this.memberRepo.findActiveMembers(input.gymId)
         : await this.memberRepo.findAllActiveMembers();
 
-      // Plan restriction (PlanRestrictions matrix): automated reminders are a
-      // Growth feature — members of Starter gyms are excluded before any
-      // reminder logic runs. One tier lookup per distinct gym.
+      // Billing-status gate: reminders exist on every tier, but suspended
+      // accounts and lapsed windows (grace-expired past_due, canceled past
+      // period end) are halted before any reminder logic runs. One
+      // subscription lookup per distinct gym.
       const allowedGyms = await this.resolveAllowedGyms(allMembers.map((m) => m.gymId));
       const members = allMembers.filter((m) => allowedGyms.has(m.gymId));
-      summary.membersSkippedPlanRestricted = allMembers.length - members.length;
-      if (summary.membersSkippedPlanRestricted > 0) {
+      summary.membersSkippedBillingRestricted = allMembers.length - members.length;
+      if (summary.membersSkippedBillingRestricted > 0) {
         console.log(
-          `⏭  Skipping ${summary.membersSkippedPlanRestricted} member(s) of plan-restricted (Starter) gyms`
+          `⏭  Skipping ${summary.membersSkippedBillingRestricted} member(s) of billing-restricted (suspended/lapsed) gyms`
         );
       }
 

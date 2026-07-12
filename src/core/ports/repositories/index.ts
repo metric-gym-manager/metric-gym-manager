@@ -28,6 +28,13 @@ export {
 } from './ICheckoutIntentRepository';
 
 export {
+  type IChargeAttemptRepository,
+  type ChargeAttempt,
+  type ChargeAttemptKind,
+  type ChargeAttemptStatus,
+} from './IChargeAttemptRepository';
+
+export {
   type ISaasPaymentLogRepository,
   type SaasPaymentLogInput,
   type SaasPaymentLogRow,

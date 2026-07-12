@@ -15,10 +15,12 @@ import {
 import { useSubscription } from '../hooks/useSubscription';
 import { SaasTier, TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
 
-/** Next paid tier to upsell from a capped tier (Starter -> Growth -> Enterprise). */
+/**
+ * Next tier to upsell from the capped tier: Lite (100) -> Pro (unlimited).
+ * Pro/Enterprise are uncapped and can never trigger a quota upsell.
+ */
 const NEXT_TIER: Partial<Record<SaasTier, SaasTier>> = {
-  [SaasTier.Starter]: SaasTier.Growth,
-  [SaasTier.Growth]: SaasTier.Enterprise,
+  [SaasTier.Lite]: SaasTier.Pro,
 };
 
 interface ReactivationLimitDialogProps {
@@ -43,9 +45,9 @@ export default function ReactivationLimitDialog({
   const { data } = useSubscription();
   const sub = data?.subscription;
 
-  const tier = sub?.subscriptionTier ?? SaasTier.Starter;
+  const tier = sub?.subscriptionTier ?? SaasTier.Lite;
   const limit = sub?.memberLimit ?? null;
-  const nextTier = NEXT_TIER[tier] ?? SaasTier.Growth;
+  const nextTier = NEXT_TIER[tier] ?? SaasTier.Pro;
   const nextName = TIER_DISPLAY_NAME[nextTier];
 
   return (

@@ -21,4 +21,6 @@ export {
 export {
   type ISubscriptionGateway,
   type GatewaySubscriptionPayment,
+  type TokenChargeInput,
+  type TokenChargeResult,
 } from './ISubscriptionGateway';

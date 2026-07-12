@@ -1,14 +1,19 @@
 /**
- * SaaS Subscription Configuration — Starter/Growth tiers (PayHere billing)
+ * SaaS Subscription Configuration — Lite/Pro/Enterprise tiers (PayHere billing)
  *
  * Single source of truth for the SaaS billing domain enums and limits.
- * SQL literals in supabase/migrations/20260704000003_* (as replaced by
- * 20260706000002_rename_tiers_starter_growth.sql) carry comments pointing
+ * SQL literals in supabase/migrations/20260708000004_* (quota authority) and
+ * 20260708000005/6 (dunning suspend, trial expiry) carry comments pointing
  * back to the constants here — keep them in lock-step.
  *
- * Tier history: launched as free/pro (migrations 20260704*), renamed to
- * starter/growth in 20260706000002 (values, rows and SQL functions swapped
- * transactionally — the text + CHECK design exists for exactly this).
+ * Tier value lineage (two renames preceded this ladder) is recorded where it
+ * belongs: the migration chain (20260706000002 → 20260707000001 →
+ * 20260708000003) and conflict-register entries C-28..C-30. Read migration
+ * 20260708000003 before touching historical tier data.
+ *
+ * Every tier is paid: there is no free tier, no PAID_TIERS subset and no
+ * isPaidTier() — dunning SUSPENDS (status change, tier preserved) instead of
+ * downgrading to a free landing tier.
  *
  * Plan: docs/Payhere_subscritption_integration/payhere-subscription-execution-plan.md
  */
@@ -16,56 +21,62 @@
 import { z } from 'zod';
 
 /**
- * SaaS billing tier of a gym (tenant).
- * DB mirror: gyms.subscription_tier (text + CHECK, migration 20260706000002)
+ * SaaS billing tier of a gym (tenant). All tiers are paid.
+ * DB mirror: gyms.subscription_tier (text + CHECK, migration 20260708000003)
  */
 export enum SaasTier {
   /**
-   * Starter tier (free): up to STARTER_TIER_MEMBER_LIMIT members, no recurring billing
+   * Lite tier: up to LITE_TIER_MEMBER_LIMIT active members, billed monthly
+   * via PayHere Recurring. The only capped tier.
    */
-  Starter = 'starter',
+  Lite = 'lite',
 
   /**
-   * Growth tier (paid): up to GROWTH_TIER_MEMBER_LIMIT members, billed monthly
-   * via PayHere Recurring
+   * Pro tier: unlimited active members, billed monthly via PayHere Recurring.
    */
-  Growth = 'growth',
+  Pro = 'pro',
 
   /**
-   * Enterprise tier (paid): unlimited members, billed monthly via PayHere
-   * Recurring. May also be granted complimentary (lifetime): no gateway
-   * subscription and no period end — see Subscription.isComplimentary().
+   * Enterprise tier: unlimited active members + access-control hardware
+   * support, billed monthly via PayHere Recurring. May also be granted
+   * complimentary (lifetime): no gateway subscription and no period end —
+   * see Subscription.isComplimentary().
    */
   Enterprise = 'enterprise',
 }
 
-/** Tiers that carry a PayHere recurring subscription. */
-export const PAID_TIERS = [SaasTier.Growth, SaasTier.Enterprise] as const;
-
-export type PaidTier = (typeof PAID_TIERS)[number];
-
-export function isPaidTier(tier: SaasTier): tier is PaidTier {
-  return (PAID_TIERS as readonly SaasTier[]).includes(tier);
-}
-
 /**
  * SaaS billing status of a gym.
- * DB mirror: gyms.subscription_status (text + CHECK, migration 20260704000001)
+ * DB mirror: gyms.subscription_status (text + CHECK, migration 20260708000003)
  */
 export enum SaasStatus {
   /**
-   * Billing in good standing (also the default state for Starter gyms)
+   * New-gym onboarding window: full features for TRIAL_PERIOD_DAYS, no
+   * gateway subscription yet. Checkout into any tier converts to active;
+   * the trial-expiry cron suspends trials that never check out.
+   */
+  Trialing = 'trialing',
+
+  /**
+   * Billing in good standing
    */
   Active = 'active',
 
   /**
-   * A recurring charge failed; grace period running (Growth only)
+   * A recurring charge failed; grace period running
    */
   PastDue = 'past_due',
 
   /**
-   * Voluntarily canceled (Growth: paid-through until period end) or
-   * downgraded by dunning (Starter: terminal record of the downgrade)
+   * Account gated pending payment: set by the dunning cron (grace expired or
+   * voluntary cancel lapsed) or the trial-expiry cron. Tier is PRESERVED —
+   * there is no free landing tier. Repayment/checkout reactivates.
+   */
+  Suspended = 'suspended',
+
+  /**
+   * Voluntarily canceled: paid-through until period end, then the dunning
+   * cron suspends.
    */
   Canceled = 'canceled',
 }
@@ -92,25 +103,36 @@ export enum RecurringFailureClass {
 
 /** Human display names for the tiers — the ONLY place UI copy derives them. */
 export const TIER_DISPLAY_NAME: Record<SaasTier, string> = {
-  [SaasTier.Starter]: 'Starter',
-  [SaasTier.Growth]: 'Growth',
+  [SaasTier.Lite]: 'Lite',
+  [SaasTier.Pro]: 'Pro',
   [SaasTier.Enterprise]: 'Enterprise',
 };
 
-/** Starter-tier member cap. SQL mirror: register_member_guarded (literal 40). */
-export const STARTER_TIER_MEMBER_LIMIT = 40;
+/** Lite-tier ACTIVE-member cap. SQL mirror: assert_gym_can_add_active_member (literal 100, migration 20260708000004). */
+export const LITE_TIER_MEMBER_LIMIT = 100;
 
-/** Growth-tier ACTIVE-member cap. SQL mirror: assert_gym_can_add_active_member (literal 150, migration 20260708000002). */
-export const GROWTH_TIER_MEMBER_LIMIT = 150;
+/** New-gym trial window. SQL mirror: trial_ends_at DEFAULT now() + 14 days (migration 20260708000003). */
+export const TRIAL_PERIOD_DAYS = 14;
 
-/** Days of Growth access after a failed charge before dunning downgrades. SQL mirror: literal 7. */
+/** Days of paid access after a failed charge before dunning SUSPENDS. SQL mirror: literal 7. */
 export const GRACE_PERIOD_DAYS = 7;
 
-/** PayHere Recurring API `recurrence` param. SQL mirror: interval '1 month'. */
-export const PRO_BILLING_RECURRENCE = '1 Month';
+/**
+ * Days between automatic token-charge retries after a failed renewal.
+ * SQL mirror: schedule_charge_retry (migration 20260709000001). With the
+ * 7-day grace this bounds a past_due episode to ~4 attempts — inside every
+ * card-network retry budget (C-26; the budgets are OURS now that this app
+ * initiates charges).
+ */
+export const RENEWAL_RETRY_INTERVAL_DAYS = 2;
 
-/** PayHere Recurring API `duration` param. */
-export const PRO_BILLING_DURATION = 'Forever';
+/**
+ * A pending charge attempt older than this is expired by the charge cron.
+ * A lost synchronous response leaves the attempt pending; the notify webhook
+ * usually completes it — past this window it is abandoned (ambiguous outcome,
+ * surfaced in system health) and the schedule may try again.
+ */
+export const CHARGE_ATTEMPT_TTL_HOURS = 48;
 
 /** Pending checkout intents older than this are expired by the dunning cron. */
 export const CHECKOUT_INTENT_TTL_MINUTES = 30;

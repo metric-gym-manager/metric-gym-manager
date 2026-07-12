@@ -35,7 +35,8 @@ export function setPayhereTestEnv(): void {
   process.env.PAYHERE_MODE = 'sandbox';
   process.env.PAYHERE_MERCHANT_ID = TEST_MERCHANT_ID;
   process.env.PAYHERE_MERCHANT_SECRET = TEST_MERCHANT_SECRET;
-  process.env.PAYHERE_PRO_PRICE_LKR = process.env.PAYHERE_PRO_PRICE_LKR ?? '2990';
+  process.env.PAYHERE_LITE_PRICE_LKR = process.env.PAYHERE_LITE_PRICE_LKR ?? '2990';
+  process.env.PAYHERE_PRO_PRICE_LKR = process.env.PAYHERE_PRO_PRICE_LKR ?? '4990';
   process.env.PAYHERE_ENTERPRISE_PRICE_LKR = process.env.PAYHERE_ENTERPRISE_PRICE_LKR ?? '6990';
   process.env.PAYHERE_APP_ID = 'integration-app-id';
   process.env.PAYHERE_APP_SECRET = 'integration-app-secret';
@@ -155,7 +156,7 @@ export async function getGymSubscriptionRow(supabase: SupabaseClient, gymId: str
   const { data, error } = await supabase
     .from('gyms')
     .select(
-      'subscription_tier, subscription_status, payhere_subscription_id, current_period_end, member_count'
+      'subscription_tier, subscription_status, payhere_subscription_id, current_period_end, trial_ends_at, member_count'
     )
     .eq('id', gymId)
     .single();

@@ -203,6 +203,35 @@ export class MemberLimitError extends DomainError {
 }
 
 /**
+ * Charge failed error
+ *
+ * Thrown when a server-initiated PayHere token charge is declined
+ * (Charging API status -1/-2). Maps to HTTP 402 with the machine-readable
+ * code the frontend keys the "payment failed" state on. Carries only the
+ * sanitized outcome — raw gateway text stays admin-side.
+ */
+export class ChargeFailedError extends DomainError {
+  constructor(message: string = 'The payment could not be completed with your saved card') {
+    super(message, 'CHARGE_FAILED', 402);
+    this.name = 'ChargeFailedError';
+  }
+}
+
+/**
+ * No saved card error
+ *
+ * Thrown when a one-click billing operation (plan change, reactivation)
+ * needs a stored card token and the gym has none. The frontend keys the
+ * fallback to the full PayHere checkout on this code.
+ */
+export class NoSavedCardError extends DomainError {
+  constructor(message: string = 'No saved card on file — complete a checkout first') {
+    super(message, 'NO_SAVED_CARD', 409);
+    this.name = 'NoSavedCardError';
+  }
+}
+
+/**
  * Database error
  *
  * Thrown when database operations fail.

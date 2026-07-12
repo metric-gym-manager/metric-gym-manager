@@ -62,9 +62,9 @@ export default function ReturnStatusPanel({
         <CardContent className="flex items-center gap-3 py-6">
           <CheckCircle2 className="h-6 w-6 text-green-600 shrink-0" />
           <div>
-            <p className="font-medium text-green-800">You&apos;re on Growth!</p>
+            <p className="font-medium text-green-800">Your subscription is active!</p>
             <p className="text-sm text-green-700">
-              Your subscription is active — member limits no longer apply.
+              Payment confirmed — your plan&apos;s features are live.
             </p>
           </div>
         </CardContent>

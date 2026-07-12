@@ -7,7 +7,8 @@ const ENV = {
   PAYHERE_MODE: 'sandbox',
   PAYHERE_MERCHANT_ID: '1211149',
   PAYHERE_MERCHANT_SECRET: 'TESTSECRET_1234',
-  PAYHERE_PRO_PRICE_LKR: '4900',
+  PAYHERE_LITE_PRICE_LKR: '2990',
+  PAYHERE_PRO_PRICE_LKR: '4990',
   PAYHERE_ENTERPRISE_PRICE_LKR: '6990',
   PAYHERE_APP_ID: 'app-id',
   PAYHERE_APP_SECRET: 'app-secret',
@@ -36,29 +37,30 @@ describe('PayHereGateway', () => {
     city: 'Colombo',
   };
 
-  it('assembles the recurring checkout params with a valid hash and no secret', () => {
+  it('assembles the preapproval params (first month captured + tokenization) with a valid hash and no secret', () => {
     const gateway = new PayHereGateway();
-    const { checkoutUrl, params } = gateway.buildCheckoutRedirect({
+    const { checkoutUrl, params } = gateway.buildPreapprovalRedirect({
       orderId: 'SUB-gym1-1',
-      amount: 4900,
+      amount: 4990,
       currency: 'LKR',
-      tier: SaasTier.Growth,
+      tier: SaasTier.Pro,
       gymId: 'gym1',
       customer,
     });
 
-    expect(checkoutUrl).toBe('https://sandbox.payhere.lk/pay/checkout');
+    expect(checkoutUrl).toBe('https://sandbox.payhere.lk/pay/preapprove');
     expect(params.merchant_id).toBe('1211149');
-    expect(params.amount).toBe('4900.00');
+    expect(params.amount).toBe('4990.00');
     expect(params.currency).toBe('LKR');
-    expect(params.recurrence).toBe('1 Month');
-    expect(params.duration).toBe('Forever');
+    // Preapproval has NO recurrence schedule — this app owns the billing clock
+    expect(params.recurrence).toBeUndefined();
+    expect(params.duration).toBeUndefined();
     expect(params.country).toBe('Sri Lanka');
     expect(params.custom_1).toBe('gym1');
     expect(params.notify_url).toBe('https://app.example.com/api/webhooks/payhere');
     expect(params.return_url).toBe('https://app.example.com/settings/billing?order=SUB-gym1-1');
     expect(params.hash).toBe(
-      generateCheckoutHash('1211149', 'TESTSECRET_1234', 'SUB-gym1-1', 4900, 'LKR')
+      generateCheckoutHash('1211149', 'TESTSECRET_1234', 'SUB-gym1-1', 4990, 'LKR')
     );
 
     // The Merchant Secret must never appear in any param value
