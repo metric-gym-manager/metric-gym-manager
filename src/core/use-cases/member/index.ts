@@ -6,6 +6,11 @@ export {
 } from './RegisterMember';
 
 export {
+  VerifyMember,
+  type VerifyMemberInput,
+} from './VerifyMember';
+
+export {
   UpdateExpiredStatus,
   type UpdateExpiredStatusSummary,
 } from './UpdateExpiredStatus';

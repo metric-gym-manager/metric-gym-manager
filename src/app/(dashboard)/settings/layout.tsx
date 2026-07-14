@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 
 const settingsNavigation = [
   { name: 'Gym Information', href: '/settings/gym' },
+  { name: 'Member Registration', href: '/settings/registration' },
   { name: 'Account Security', href: '/settings/security' },
 ];
 
