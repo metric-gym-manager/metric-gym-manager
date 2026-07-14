@@ -25,7 +25,7 @@ export default function PrivacyPolicyPage() {
       <main className="max-w-4xl mx-auto px-6 py-12">
         <div className="prose prose-gray max-w-none">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">Privacy Policy</h1>
-          <p className="text-gray-500 mb-8">Last updated: March 2025</p>
+          <p className="text-gray-500 mb-8">Last updated: July 2026</p>
 
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">1. Introduction</h2>
@@ -189,7 +189,7 @@ export default function PrivacyPolicyPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">9. Changes to This Privacy Policy</h2>
             <p className="text-gray-700 leading-relaxed mb-4">
-              We may update this Privacy Policy from time to time to reflect changes in our practices, technology, or legal requirements. When we make material changes, we will update the "Last updated" date at the top of this document and, where appropriate, notify you through the platform or via email.
+              We may update this Privacy Policy from time to time to reflect changes in our practices, technology, or legal requirements. When we make material changes, we will update the &quot;Last updated&quot; date at the top of this document and, where appropriate, notify you through the platform or via email.
             </p>
             <p className="text-gray-700 leading-relaxed">
               We encourage you to review this policy periodically to stay informed about how we protect your information.
@@ -202,9 +202,11 @@ export default function PrivacyPolicyPage() {
               If you have any questions, concerns, or requests regarding this Privacy Policy or how we handle your personal data, please contact us:
             </p>
             <ul className="list-none text-gray-700 space-y-2">
-              <li><strong>Email:</strong> privacy@metricgym.lk</li>
-              <li><strong>Website:</strong> www.metricgym.lk</li>
-              <li><strong>Address:</strong> Colombo, Sri Lanka</li>
+              <li><strong>Business:</strong> Capitalist One (Pvt) Ltd</li>
+              <li><strong>Email:</strong> privacy@metricgymmanager.com</li>
+              <li><strong>Phone:</strong> +94 70 437 9967</li>
+              <li><strong>Website:</strong> www.metricgymmanager.com</li>
+              <li><strong>Address:</strong> 150/1, 3rd Baptist Rd, Beddagana North, Kotte, Sri Lanka</li>
             </ul>
           </section>
         </div>
@@ -224,7 +226,7 @@ export default function PrivacyPolicyPage() {
       <footer className="border-t border-gray-200 mt-12">
         <div className="max-w-4xl mx-auto px-6 py-8">
           <p className="text-sm text-gray-500 text-center">
-            © 2026 Metric Gym Manager · Proudly built in Sri Lanka
+            © 2026 Capitalist One (Pvt) Ltd. All rights reserved.
           </p>
         </div>
       </footer>

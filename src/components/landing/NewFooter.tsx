@@ -1,11 +1,6 @@
 'use client';
 
-import { useState } from 'react';
-import { ContactModal } from './ContactModal';
-
 export function NewFooter() {
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
-
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
     if (element) {
@@ -40,12 +35,12 @@ export function NewFooter() {
               color: '#6e6e73',
             }}
           >
-            © 2026 Metric Gym Manager · Proudly built in Sri Lanka
+            © 2026 Capitalist One (Pvt) Ltd. All rights reserved.
           </div>
         </div>
 
         {/* Right Side Links */}
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center justify-center gap-6">
           <button
             onClick={() => scrollToSection('features')}
             className="footer-link"
@@ -96,21 +91,60 @@ export function NewFooter() {
           >
             Terms
           </a>
-          <button
-            onClick={() => setIsContactModalOpen(true)}
+          <a
+            href="/refund-policy"
             className="footer-link"
             style={{
               fontSize: '13px',
               color: '#6e6e73',
               transition: 'color 0.2s ease',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
+            }}
+          >
+            Refund Policy
+          </a>
+          <a
+            href="/contact"
+            className="footer-link"
+            style={{
+              fontSize: '13px',
+              color: '#6e6e73',
+              transition: 'color 0.2s ease',
             }}
           >
             Contact
-          </button>
+          </a>
         </div>
+      </div>
+
+      {/* Trademark & legal disclosure */}
+      <div
+        className="max-w-[1400px] mx-auto mt-8 pt-6 text-center md:text-left"
+        style={{
+          borderTop: '1px solid rgba(0, 0, 0, 0.06)',
+        }}
+      >
+        <p
+          style={{
+            fontSize: '12px',
+            color: '#86868b',
+            lineHeight: 1.6,
+            margin: 0,
+          }}
+        >
+          Metric Gym Manager &amp; its logo are trademarks of Capitalist One (Pvt) Ltd. Use of this
+          product and related services is subject to applicable laws and our{' '}
+          <a
+            href="/terms"
+            className="footer-link"
+            style={{
+              color: '#86868b',
+              textDecoration: 'underline',
+            }}
+          >
+            Terms of Service
+          </a>
+          .
+        </p>
       </div>
 
       <style jsx>{`
@@ -118,11 +152,6 @@ export function NewFooter() {
           color: #1d1d1f !important;
         }
       `}</style>
-
-      <ContactModal
-        isOpen={isContactModalOpen}
-        onClose={() => setIsContactModalOpen(false)}
-      />
     </footer>
   );
 }

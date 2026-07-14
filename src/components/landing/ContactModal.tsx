@@ -1,6 +1,6 @@
 'use client';
 
-import { Phone, MessageCircle, X } from 'lucide-react';
+import { Phone, MessageCircle, Mail, X } from 'lucide-react';
 import { useEffect } from 'react';
 
 interface ContactModalProps {
@@ -12,6 +12,8 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
   const phoneNumber = '+94704379967';
   const whatsappUrl = `https://wa.me/94704379967`;
   const telUrl = `tel:${phoneNumber}`;
+  const emailAddress = 'support@metricgymmanager.com';
+  const mailtoUrl = `mailto:${emailAddress}`;
 
   // Close on escape key
   useEffect(() => {
@@ -151,7 +153,49 @@ export function ContactModal({ isOpen, onClose }: ContactModalProps) {
                 <MessageCircle size={20} />
                 <span>WhatsApp</span>
               </a>
+
+              {/* Email Button */}
+              <a
+                href={mailtoUrl}
+                className="flex items-center justify-center gap-3 w-full"
+                style={{
+                  padding: '16px 24px',
+                  background: '#ffffff',
+                  color: '#1d1d1f',
+                  border: '1px solid rgba(0, 0, 0, 0.15)',
+                  borderRadius: '980px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  textDecoration: 'none',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.1)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <Mail size={20} />
+                <span>Email Us</span>
+              </a>
             </div>
+
+            {/* Full contact details link */}
+            <p
+              style={{
+                fontSize: '13px',
+                color: '#6e6e73',
+                marginTop: '24px',
+                textAlign: 'center',
+              }}
+            >
+              <a href="/contact" style={{ textDecoration: 'underline', color: '#6e6e73' }}>
+                View all contact details
+              </a>
+            </p>
           </div>
         </div>
       </div>

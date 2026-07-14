@@ -4,7 +4,6 @@ import {
   NewFeaturesSection,
   LankaSection,
   NewPricingSection,
-  NewTestimonialsSection,
   FinalCTASection,
   NewFooter,
 } from '@/components/landing';
@@ -17,7 +16,6 @@ export default function HomePage() {
       <NewFeaturesSection />
       <LankaSection />
       <NewPricingSection />
-      <NewTestimonialsSection />
       <FinalCTASection />
       <NewFooter />
     </main>
