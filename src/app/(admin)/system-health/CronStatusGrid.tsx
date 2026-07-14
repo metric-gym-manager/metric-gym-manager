@@ -25,8 +25,8 @@ export default function CronStatusGrid() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<CronStatsResponse>({
     queryKey: ['admin-cron-stats'],
     queryFn: async () => {
-      // Authorized by the operator's session cookie (sent automatically on this
-      // same-origin request). No secret is held in the browser.
+      // Same-origin fetch: the Supabase session cookie authenticates the
+      // request; the API route checks saas_admins membership. No secret in JS.
       const response = await fetch('/api/admin/system-health/cron-stats');
 
       if (!response.ok) {

@@ -175,6 +175,21 @@ export interface IMemberRepository {
   create(member: Member): Promise<Member>;
 
   /**
+   * Create a new member through the FOR UPDATE-locked quota gate
+   * (register_member_guarded RPC — the single member-quota authority).
+   *
+   * Requires a service-role client; the API layer authenticates the caller
+   * and pins gymId before invoking.
+   *
+   * @param gymId - JWT-derived gym id (per-tenant mutex row)
+   * @param member - Member entity to create
+   * @returns Created member with assigned ID
+   * @throws MemberLimitError when the subscription tier blocks the insert
+   * @throws NotFoundError when the gym does not exist
+   */
+  createGuarded(gymId: string, member: Member): Promise<Member>;
+
+  /**
    * Update an existing member
    *
    * @param member - Member entity with updates

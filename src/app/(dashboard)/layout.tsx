@@ -1,5 +1,6 @@
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
+import { MemberLimitBar } from '@/features/subscriptions';
 import { MemberModalProvider } from '@/contexts/member-modal.context';
 
 export default function DashboardLayout({
@@ -18,6 +19,11 @@ export default function DashboardLayout({
       <div className="lg:pl-64">
         {/* Header - Fetches gym profile via React Query for real-time updates */}
         <Header />
+
+        {/* Member usage: remaining active-member slots + universal upgrade CTA.
+            Shows for Lite (100, the only capped tier); Pro/Enterprise are
+            uncapped — hidden for them, for comped subs and under /settings. */}
+        <MemberLimitBar />
 
         {/* Page content - Add top padding for mobile header and bottom padding for mobile nav */}
         <main className="px-4 py-6 lg:px-8 pt-16 lg:pt-6 pb-20 lg:pb-6">

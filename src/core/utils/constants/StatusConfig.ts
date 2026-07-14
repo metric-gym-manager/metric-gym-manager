@@ -6,6 +6,17 @@
  */
 
 /**
+ * Days an ACTIVE member may stay unpaid past next_due_date before the daily
+ * cron (update-expired-status) flips them to Expired.
+ *
+ * Billing-critical: the SaaS quota counts ACTIVE members only, so this is the
+ * exact moment an unpaid member stops consuming an active-member slot.
+ * SQL mirror: none (the cron drives the transition; the DB trigger
+ * sync_gym_member_count reacts to the status flip).
+ */
+export const MEMBER_EXPIRY_GRACE_DAYS = 7;
+
+/**
  * Member status values
  */
 export enum MemberStatus {

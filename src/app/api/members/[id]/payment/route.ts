@@ -3,7 +3,7 @@ import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { collectPaymentSchema } from '@/features/members/schemas/member.schemas';
 import { getContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError, ValidationError, InvalidStatusTransitionError } from '@/core/utils/errors';
+import { NotFoundError, ValidationError, InvalidStatusTransitionError, MemberLimitError } from '@/core/utils/errors';
 
 // ============================================================
 // POST /api/members/[id]/payment - Collect payment
@@ -92,6 +92,17 @@ export async function POST(
       return NextResponse.json(
         ResponseBuilder.error(error.message, 'INVALID_STATUS_TRANSITION'),
         { status: 400 }
+      );
+    }
+
+    if (error instanceof MemberLimitError) {
+      // Collecting payment from an expired/suspended member reactivates them;
+      // at the active-member cap the DB trigger blocks that flip BEFORE the
+      // payment is recorded (CollectPayment flips first by design), so this
+      // 403 means: nothing was written — upgrade to reactivate.
+      return NextResponse.json(
+        ResponseBuilder.error(error.message, 'MEMBER_LIMIT_REACHED'),
+        { status: 403 }
       );
     }
 

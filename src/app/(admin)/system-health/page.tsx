@@ -1,6 +1,7 @@
 import { Metadata } from 'next';
 import CronStatusGrid from './CronStatusGrid';
 import RawSMSFailureTable from './RawSMSFailureTable';
+import BillingFailuresTable from './BillingFailuresTable';
 import { Shield, Activity } from 'lucide-react';
 
 export const metadata: Metadata = {
@@ -20,10 +21,9 @@ export const metadata: Metadata = {
  * (error messages, stack traces, database errors) that are intentionally
  * hidden from gym managers. Access must be strictly controlled.
  *
- * Access Control: Restricted to the operator account whose email matches the
- * server-only ADMIN_ALLOWED_EMAIL env var. Enforced in the (admin) layout and
- * independently in each /api/admin/system-health/* route. No secret is exposed
- * to the browser.
+ * Access Control: the (admin) layout gates this route on a Supabase session +
+ * saas_admins membership; the /api/admin/* routes enforce the same server-side.
+ * No admin secret is shipped to the browser.
  */
 export default function SystemHealthPage() {
   return (
@@ -73,6 +73,11 @@ export default function SystemHealthPage() {
           {/* SMS Failures Table */}
           <section>
             <RawSMSFailureTable />
+          </section>
+
+          {/* PayHere Billing Failures Table */}
+          <section>
+            <BillingFailuresTable />
           </section>
 
           {/* Footer Info */}

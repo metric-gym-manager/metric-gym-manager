@@ -48,12 +48,12 @@ export default function RawSMSFailureTable() {
   const { data, isLoading, error, refetch, isFetching } = useQuery<SMSFailuresResponse>({
     queryKey: ['admin-sms-failures', activeGymId],
     queryFn: async () => {
-      // Authorized by the operator's session cookie (sent automatically on this
-      // same-origin request). No secret is held in the browser.
       const url = activeGymId
         ? `/api/admin/system-health/sms-failures?gymId=${activeGymId}`
         : '/api/admin/system-health/sms-failures';
 
+      // Same-origin fetch: the Supabase session cookie authenticates the
+      // request; the API route checks saas_admins membership. No secret in JS.
       const response = await fetch(url);
 
       if (!response.ok) {

@@ -23,11 +23,28 @@ import {
 } from '@/components/ui/dialog';
 import { Send, Megaphone, Clock } from 'lucide-react';
 import AnnouncementProgress from '@/components/announcements/AnnouncementProgress';
+import { FeatureGate } from '@/features/subscriptions';
 import type { Announcement } from '@/features/announcements/types';
 
 const MAX_MESSAGE_LENGTH = 160;
 
 export default function MakeAnnouncementPage() {
+  // Plan gate (PlanRestrictions): announcements are enabled on every tier of
+  // the paid-only ladder, so this gate passes today — it stays wired so a
+  // future re-gating of the capability needs no page change. Server
+  // authority: POST /api/announcements returns 403 when restricted.
+  return (
+    <FeatureGate
+      feature="announcements"
+      featureLabel="Announcements"
+      description="Send bulk SMS announcements to all of your members at once."
+    >
+      <AnnouncementComposer />
+    </FeatureGate>
+  );
+}
+
+function AnnouncementComposer() {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState('');
   const [audience, setAudience] = useState<'all' | 'active' | 'expired'>('all');

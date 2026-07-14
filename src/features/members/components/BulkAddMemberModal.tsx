@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Plus, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
 import { parseApiError } from '@/lib/utils/api-error';
+import QuotaReachedUpsell from '@/features/subscriptions/components/QuotaReachedUpsell';
 
 interface Discount {
   id: string;
@@ -72,6 +73,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<BulkRow[]>([createEmptyRow(), createEmptyRow(), createEmptyRow()]);
   const [submitted, setSubmitted] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
   const tableEndRef = useRef<HTMLDivElement>(null);
 
   // Apply-to-all: plan
@@ -177,6 +179,13 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
           if (!match) return row;
           return { ...row, status: match.success ? 'success' : 'error', errorMessage: match.error };
         })
+      );
+
+      // Free-tier quota hit on one or more rows: show the upgrade path
+      setLimitReached(
+        results.some(
+          (r: { errorCode?: string }) => r.errorCode === 'MEMBER_LIMIT_REACHED'
+        )
       );
 
       setSubmitted(true);
@@ -300,6 +309,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
 
     setRows(freshRows);
     setSubmitted(false);
+    setLimitReached(false);
     setGlobalPlanType(defaultPlanType);
     setGlobalPlanAmount(defaultAmount);
     setGlobalStartDate(TODAY);
@@ -312,6 +322,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
     if (!rows.some((r) => r.status === 'error')) return;
     setRows((prev) => prev.map((r) => r.status === 'error' ? { ...r, status: 'idle', errorMessage: undefined } : r));
     setSubmitted(false);
+    setLimitReached(false);
   };
 
   const successCount = rows.filter((r) => r.status === 'success').length;
@@ -356,6 +367,7 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
                 <XCircle className="h-4 w-4" /> {errorCount} failed
               </span>
             )}
+            {limitReached && <QuotaReachedUpsell />}
             {errorCount > 0 && (
               <Button variant="outline" size="sm" onClick={handleRetryFailed}>
                 Retry Failed

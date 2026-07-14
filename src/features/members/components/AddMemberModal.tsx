@@ -25,6 +25,7 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { HelpCircle } from 'lucide-react';
 import { addMemberSchema, type AddMemberInput } from '@/features/members/schemas/member.schemas';
+import QuotaReachedUpsell from '@/features/subscriptions/components/QuotaReachedUpsell';
 
 interface Discount {
   id: string;
@@ -141,8 +142,13 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create member');
+        // ApiResponse envelope: {success:false, error:{message, code}}
+        const body = await response.json().catch(() => null);
+        const err = new Error(
+          body?.error?.message || 'Failed to create member'
+        ) as Error & { code?: string };
+        err.code = body?.error?.code;
+        throw err;
       }
 
       return response.json();
@@ -153,9 +159,17 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
       handleClose();
     },
     onError: (error) => {
+      // MEMBER_LIMIT_REACHED renders the inline upsell instead of a toast
+      if ((error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED') {
+        return;
+      }
       toast.error(error instanceof Error ? error.message : 'Failed to create member');
     },
   });
+
+  const memberLimitReached =
+    (createMemberMutation.error as (Error & { code?: string }) | null)?.code ===
+    'MEMBER_LIMIT_REACHED';
 
   const onSubmit = (data: AddMemberInput) => {
     createMemberMutation.mutate(data);
@@ -239,6 +253,9 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             </span>
           </div>
         </div>
+
+        {/* Free-tier quota reached: keep the form (data preserved), show the upgrade path */}
+        {memberLimitReached && <QuotaReachedUpsell />}
 
         {planTypesData && planTypesData.filter((pt) => pt.is_active).length === 0 && (
           <div className="rounded-md bg-yellow-50 border border-yellow-200 p-4">

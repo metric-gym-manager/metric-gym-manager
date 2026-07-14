@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getApiGymProfile } from '@/lib/middleware/api-auth';
+import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin';
 
 // ============================================================
 // GET /api/admin/system-health/cron-stats
@@ -8,27 +8,23 @@ import { getApiGymProfile } from '@/lib/middleware/api-auth';
 // ============================================================
 
 /**
- * Authorization: SaaS operator only. Requires a valid session whose gym-owner
- * email matches ADMIN_ALLOWED_EMAIL (server-only env var). No client-held secret.
+ * Authorization: Supabase session + saas_admins membership.
+ * This endpoint is for SaaS admin monitoring only.
  */
 export async function GET() {
   try {
-    // CRITICAL: Strict authorization check BEFORE any database queries.
-    const { gymProfile, error: authError } = await getApiGymProfile();
-    if (authError) {
-      return authError; // 401 (no session) or 404 (no gym profile)
-    }
-
-    const allowedEmail = process.env.ADMIN_ALLOWED_EMAIL;
-    if (!allowedEmail || gymProfile!.email !== allowedEmail) {
+    // CRITICAL: Strict authorization BEFORE any DB query — Supabase session +
+    // saas_admins membership (replaces the retired ADMIN_API_SECRET Bearer).
+    const admin = await getSaasAdmin();
+    if (!admin) {
       console.warn('Unauthorized admin API access attempt');
       return NextResponse.json(
-        { success: false, error: 'Forbidden' },
+        { success: false, error: 'Forbidden - SaaS admin access required' },
         { status: 403 }
       );
     }
 
-    // Fetch cron logs from database
+    // Fetch cron logs from database (cross-tenant read needs the service role)
     const supabase = createAdminClient();
 
     // Get distinct job names

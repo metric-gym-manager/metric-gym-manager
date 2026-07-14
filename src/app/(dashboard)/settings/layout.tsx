@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils';
 const settingsNavigation = [
   { name: 'Gym Information', href: '/settings/gym' },
   { name: 'Account Security', href: '/settings/security' },
+  // "Subscription", not "Billing" — the sidebar's Billing Setup is member
+  // plan-type config; this is the gym's own SaaS plan (plan conflict C-7)
+  { name: 'Subscription', href: '/settings/billing' },
 ];
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {

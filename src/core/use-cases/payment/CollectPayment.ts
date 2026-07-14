@@ -9,8 +9,9 @@
  * 1. Fetching member from repository
  * 2. Validating member exists
  * 3. Calculating next due date (with deductOverduePeriod option)
- * 4. Creating payment record
- * 5. Activating member (state machine enforced)
+ * 4. Activating/renewing member (state machine + active-member quota enforced;
+ *    a quota block fails BEFORE any write — see step-4 comment in execute())
+ * 5. Creating payment record
  * 6. Resetting reminder flags for new billing period
  * 7. Sending receipt SMS and logging it (awaited so serverless
  *    freeze after the response cannot drop the sms_logs write)
@@ -167,7 +168,25 @@ export class CollectPayment {
       deductOverduePeriod: input.deductOverduePeriod ?? true,
     });
 
-    // 4. Create payment record
+    // 4. Activate or renew member based on current status (state machine enforced)
+    // - If member is already Active: renew (early payment/extension)
+    // - If member is Expired/Suspended: activate (reactivation)
+    // Note: Reminder flags will be reset by the repository when updating a member
+    // (this keeps the domain model clean from SMS tracking concerns)
+    //
+    // ORDER MATTERS: the member flip runs BEFORE the payment insert because a
+    // reactivation can be rejected by the active-member quota (DB trigger
+    // raises MEMBER_LIMIT_REACHED -> MemberLimitError). Failing here first
+    // means a quota block records nothing — no orphaned payment row, and a
+    // retry after upgrading cannot double-record the payment.
+    const processedMember =
+      member.status === 'active'
+        ? member.renew(nextDueDate)  // Early renewal for active members
+        : member.activate(nextDueDate); // Reactivation for expired/suspended
+
+    const updatedMember = await this.memberRepo.update(processedMember);
+
+    // 5. Create payment record
     const payment = Payment.create({
       memberId: input.memberId,
       gymId: input.gymId,
@@ -179,18 +198,6 @@ export class CollectPayment {
     });
 
     const savedPayment = await this.paymentRepo.create(payment);
-
-    // 5. Activate or renew member based on current status (state machine enforced)
-    // - If member is already Active: renew (early payment/extension)
-    // - If member is Expired/Suspended: activate (reactivation)
-    // Note: Reminder flags will be reset by the repository when updating a member
-    // (this keeps the domain model clean from SMS tracking concerns)
-    const processedMember =
-      member.status === 'active'
-        ? member.renew(nextDueDate)  // Early renewal for active members
-        : member.activate(nextDueDate); // Reactivation for expired/suspended
-
-    const updatedMember = await this.memberRepo.update(processedMember);
 
     // 6. Send receipt SMS and log it BEFORE returning.
     // On serverless runtimes the function can be frozen as soon as the

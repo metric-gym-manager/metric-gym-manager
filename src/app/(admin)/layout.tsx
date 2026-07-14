@@ -1,44 +1,29 @@
 import { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
+import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin';
 
 interface AdminLayoutProps {
   children: ReactNode;
 }
 
 /**
- * Admin Layout
+ * Admin Layout — real authorization gate for SaaS-operator routes.
  *
- * Restricts the SaaS system-health area to the single designated operator
- * account. Authorization is entirely server-side: the signed-in gym owner's
- * email must match ADMIN_ALLOWED_EMAIL (a server-only env var — never prefixed
- * NEXT_PUBLIC_, so no secret is ever shipped to the browser).
+ * Access requires a Supabase session (enforced by middleware) AND membership in
+ * the `saas_admins` allow-list. A signed-in non-admin is bounced to their
+ * dashboard; an unauthenticated visitor is already redirected to /login by
+ * middleware before reaching here.
  *
- * Middleware already redirects unauthenticated visitors to /login before they
- * reach this layout; here we additionally send any non-operator account back to
- * their own dashboard. The admin API routes enforce the same check
- * independently (defense in depth).
+ * This replaces the previous NEXT_PUBLIC_ADMIN_API_SECRET existence check, which
+ * only verified the secret was configured (not that the *viewer* was authorized)
+ * and shipped that secret to every browser via the client bundle.
  */
 export default async function AdminLayout({ children }: AdminLayoutProps) {
-  const allowedEmail = process.env.ADMIN_ALLOWED_EMAIL;
+  const admin = await getSaasAdmin();
 
-  let gymProfile;
-  try {
-    gymProfile = await getCurrentGymProfile();
-  } catch {
-    redirect('/login');
-  }
-
-  // Fail closed: if the operator email is not configured, or the signed-in
-  // account is not that operator, deny access.
-  if (!allowedEmail || gymProfile.email !== allowedEmail) {
+  if (!admin) {
     redirect('/dashboard');
   }
 
-  return (
-    <div className="admin-layout">
-      {/* Admin-specific header or navigation can go here */}
-      {children}
-    </div>
-  );
+  return <div className="admin-layout">{children}</div>;
 }

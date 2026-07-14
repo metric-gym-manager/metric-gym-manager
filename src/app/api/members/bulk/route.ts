@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { addMemberSchema } from '@/features/members/schemas/member.schemas';
-import { getContainer } from '@/infrastructure/di';
+import { getAdminContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { MemberLimitError } from '@/core/utils/errors';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { z } from 'zod';
 
@@ -16,6 +17,8 @@ interface BulkResult {
   name: string;
   memberId?: string;
   error?: string;
+  /** Machine-readable code (e.g. MEMBER_LIMIT_REACHED) for the upgrade prompt */
+  errorCode?: string;
 }
 
 // POST /api/members/bulk
@@ -37,8 +40,10 @@ export async function POST(request: NextRequest) {
       throw err;
     }
 
-    // Get use case via DI container
-    const container = await getContainer();
+    // Admin container on purpose: each row goes through the guarded quota RPC
+    // (service_role-only EXECUTE); the caller's gym id was pinned above (plan C-15).
+    // The per-gym row lock serializes the parallel inserts correctly.
+    const container = await getAdminContainer();
     const registerMember = container.getRegisterMemberUseCase();
 
     // Process all members in parallel
@@ -68,6 +73,8 @@ export async function POST(request: NextRequest) {
           name: validated.members[index].name,
           error:
             result.reason instanceof Error ? result.reason.message : 'Failed to create',
+          errorCode:
+            result.reason instanceof MemberLimitError ? 'MEMBER_LIMIT_REACHED' : undefined,
         };
       })
     );
