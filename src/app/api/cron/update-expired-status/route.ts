@@ -5,11 +5,18 @@ import { CronLogger } from '@/core/utils/cron';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // ============================================================
-// POST /api/cron/update-expired-status - Update expired members cron job
+// /api/cron/update-expired-status - Update expired members cron job
 // Schedule: Daily at midnight (00:00 UTC+5:30)
+//
+// Vercel Cron invokes this path with an HTTP GET request, so the
+// job must run on GET as well as POST. Both verify the CRON_SECRET
+// bearer token.
 // ============================================================
 
-export async function POST(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
+
+async function runUpdateExpiredStatus(request: NextRequest) {
   const supabase = createAdminClient();
   const logger = new CronLogger(supabase);
   let logId: string | null = null;
@@ -17,7 +24,15 @@ export async function POST(request: NextRequest) {
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET || 'dev-secret-key';
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+      console.error('CRON_SECRET is not configured — refusing to run cron job');
+      return NextResponse.json(
+        { success: false, error: 'Server misconfigured' },
+        { status: 500 }
+      );
+    }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
       console.error('Unauthorized cron request');
@@ -79,21 +94,23 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Allow GET for manual testing (only in development)
-export async function GET(_request: NextRequest) {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json(
-      ResponseBuilder.error('Method not allowed in production', 'METHOD_NOT_ALLOWED'),
-      { status: 405 }
-    );
+// Vercel Cron triggers this handler
+export async function GET(request: NextRequest) {
+  // In development, allow GET without auth for easy manual testing
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('🧪 Manual test: Starting update expired status cron job...');
+
+    const container = await getAdminContainer();
+    const updateExpired = container.getUpdateExpiredStatusUseCase();
+    const summary = await updateExpired.execute();
+
+    return NextResponse.json(ResponseBuilder.success(summary));
   }
 
-  // In development, allow GET without auth for easy testing
-  console.log('🧪 Manual test: Starting update expired status cron job...');
+  return runUpdateExpiredStatus(request);
+}
 
-  const container = await getAdminContainer();
-  const updateExpired = container.getUpdateExpiredStatusUseCase();
-  const summary = await updateExpired.execute();
-
-  return NextResponse.json(ResponseBuilder.success(summary));
+// Manual/external trigger (e.g. curl with the bearer token)
+export async function POST(request: NextRequest) {
+  return runUpdateExpiredStatus(request);
 }

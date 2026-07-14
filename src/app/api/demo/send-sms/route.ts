@@ -1,32 +1,54 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { sendSmsViaTextLk } from '@/features/sms/services/textlk.service';
 
 // ============================================================
-// POST /api/demo/send-sms - Demo SMS Sending (Localhost only)
+// POST /api/demo/send-sms - Demo SMS Sending (demo account only)
 // ============================================================
 
 /**
- * Demo endpoint for testing SMS functionality during gym manager visits.
- * SECURITY: Only works on localhost. Rejects all production requests.
+ * Demo endpoint for showcasing the SMS system during in-person gym visits.
+ *
+ * SECURITY: Restricted to the single designated demo account. The request must
+ * carry a valid session whose gym-owner email matches DEMO_TOOLS_ALLOWED_EMAIL:
+ *   - no session             -> 401
+ *   - any other gym account  -> 403
+ *   - env var unset           -> 403 (fail closed / disabled)
+ *
+ * This replaces the previous Host-header check, which was spoofable (a substring
+ * match on a client-supplied header) and only incidentally blocked production.
+ * The gate is now a real, verified identity, so the endpoint safely works from
+ * both the live app and localhost — but only for the demo account.
  */
 export async function POST(request: NextRequest) {
-  // SECURITY: Only allow localhost
-  const host = request.headers.get('host') || '';
-  if (!host.includes('localhost') && !host.includes('127.0.0.1')) {
+  // --- Authorization: designated demo account only ---
+  const allowedEmail = process.env.DEMO_TOOLS_ALLOWED_EMAIL;
+
+  let gymProfile;
+  try {
+    gymProfile = await getCurrentGymProfile();
+  } catch {
     return NextResponse.json(
-      { success: false, error: 'Demo endpoint only available on localhost' },
+      { success: false, error: 'Unauthorized' },
+      { status: 401 }
+    );
+  }
+
+  if (!allowedEmail || gymProfile.email !== allowedEmail) {
+    return NextResponse.json(
+      { success: false, error: 'This demo tool is not available for your account.' },
       { status: 403 }
     );
   }
 
   try {
     const body = await request.json();
-    const { name, phone, gymName, type } = body;
+    const { name, phone, gymName, type, fee } = body;
 
     // Validate inputs
-    if (!name || !phone || !gymName || !type) {
+    if (!name || !phone || !gymName || !type || !fee) {
       return NextResponse.json(
-        { success: false, error: 'Missing required fields: name, phone, gymName, type' },
+        { success: false, error: 'Missing required fields: name, phone, gymName, type, fee' },
         { status: 400 }
       );
     }
@@ -48,8 +70,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate fee (must be a positive number)
+    const feeNumber = parseFloat(fee);
+    if (isNaN(feeNumber) || feeNumber <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid fee. Must be a positive number' },
+        { status: 400 }
+      );
+    }
+
     // Format SMS message based on type
-    const message = formatDemoMessage(type, name, gymName);
+    const message = formatDemoMessage(type, name, gymName, feeNumber);
 
     // Check if real SMS is enabled
     const useRealSms = process.env.ENABLE_REAL_SMS === 'true';
@@ -114,10 +145,12 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Format demo SMS messages with fixed amounts and dates
+ * Format demo SMS messages with custom amounts and dates
  */
-function formatDemoMessage(type: string, name: string, gymName: string): string {
-  const amount = 'Rs.50000.00';
+function formatDemoMessage(type: string, name: string, gymName: string, fee: number): string {
+  // Format amount with thousands separator and 2 decimal places
+  const amount = `Rs.${fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   const dueDate = new Date();
   dueDate.setMonth(dueDate.getMonth() + 1);
   const dueDateStr = dueDate.toLocaleDateString('en-GB');

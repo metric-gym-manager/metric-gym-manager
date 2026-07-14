@@ -13,7 +13,8 @@
  *    a quota block fails BEFORE any write — see step-4 comment in execute())
  * 5. Creating payment record
  * 6. Resetting reminder flags for new billing period
- * 7. Sending receipt SMS (fire-and-forget)
+ * 7. Sending receipt SMS and logging it (awaited so serverless
+ *    freeze after the response cannot drop the sms_logs write)
  */
 
 import { Member } from '@/core/domain/member/Member';
@@ -198,17 +199,22 @@ export class CollectPayment {
 
     const savedPayment = await this.paymentRepo.create(payment);
 
-    // 6. Send receipt SMS (fire-and-forget)
-    // We don't await this to avoid blocking the response
-    this.sendReceiptSMS(
-      updatedMember,
-      input.paymentAmount,
-      nextDueDate,
-      input.discount
-    ).catch((error) => {
+    // 6. Send receipt SMS and log it BEFORE returning.
+    // On serverless runtimes the function can be frozen as soon as the
+    // response is sent, so a fire-and-forget send drops the sms_logs
+    // write (and sometimes the SMS itself) mid-flight. sendReceiptSMS
+    // handles provider failures internally, so a failed SMS never
+    // fails the payment.
+    try {
+      await this.sendReceiptSMS(
+        updatedMember,
+        input.paymentAmount,
+        nextDueDate,
+        input.discount
+      );
+    } catch (error) {
       console.error('Failed to send receipt SMS:', error);
-      // TODO: Log to monitoring service
-    });
+    }
 
     return {
       member: updatedMember,

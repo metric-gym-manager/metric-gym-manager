@@ -5,11 +5,20 @@ import { CronLogger } from '@/core/utils/cron';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // ============================================================
-// POST /api/cron/send-reminders - Daily SMS reminder cron job
+// /api/cron/send-reminders - Daily SMS reminder cron job
 // Schedule: Daily at 9:00 AM Sri Lanka Time (3:30 AM UTC)
+//
+// Vercel Cron invokes this path with an HTTP GET request, so the
+// job must run on GET as well as POST. Both verify the CRON_SECRET
+// bearer token (Vercel attaches it automatically when the
+// CRON_SECRET environment variable is set on the project).
 // ============================================================
 
-export async function POST(request: NextRequest) {
+export const dynamic = 'force-dynamic';
+// Sending SMS to many members takes well over the 10s default timeout
+export const maxDuration = 60;
+
+async function runSendReminders(request: NextRequest) {
   const supabase = createAdminClient();
   const logger = new CronLogger(supabase);
   let logId: string | null = null;
@@ -17,7 +26,15 @@ export async function POST(request: NextRequest) {
   try {
     // Verify cron secret for security
     const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET || 'dev-secret-key';
+    const cronSecret = process.env.CRON_SECRET;
+
+    if (!cronSecret) {
+      console.error('CRON_SECRET is not configured — refusing to run cron job');
+      return NextResponse.json(
+        { success: false, error: 'Server misconfigured' },
+        { status: 500 }
+      );
+    }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
       console.error('Unauthorized cron request');
@@ -83,21 +100,23 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Allow GET for manual testing (only in development)
-export async function GET(_request: NextRequest) {
-  if (process.env.NODE_ENV === 'production') {
-    return NextResponse.json(
-      { success: false, error: 'Method not allowed in production' },
-      { status: 405 }
-    );
+// Vercel Cron triggers this handler
+export async function GET(request: NextRequest) {
+  // In development, allow GET without auth for easy manual testing
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('🧪 Manual test: Starting automated reminder cron job...');
+
+    const container = await getAdminContainer();
+    const sendReminders = container.getSendAutomatedRemindersUseCase();
+    const summary = await sendReminders.execute();
+
+    return NextResponse.json(ResponseBuilder.success(summary));
   }
 
-  // In development, allow GET without auth for easy testing
-  console.log('🧪 Manual test: Starting automated reminder cron job...');
+  return runSendReminders(request);
+}
 
-  const container = await getAdminContainer();
-  const sendReminders = container.getSendAutomatedRemindersUseCase();
-  const summary = await sendReminders.execute();
-
-  return NextResponse.json(ResponseBuilder.success(summary));
+// Manual/external trigger (e.g. curl with the bearer token)
+export async function POST(request: NextRequest) {
+  return runSendReminders(request);
 }
