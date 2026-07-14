@@ -6,6 +6,17 @@
  */
 
 /**
+ * Kind of payment being recorded
+ *
+ * - plan_payment: regular plan registration/renewal payment
+ * - day_pass: single-day access fee (e.g. expired member visiting for a day)
+ */
+export enum PaymentType {
+  PlanPayment = 'plan_payment',
+  DayPass = 'day_pass',
+}
+
+/**
  * Payment properties interface
  */
 export interface PaymentProps {
@@ -18,6 +29,12 @@ export interface PaymentProps {
   discountPercentage: number | null;
   nextDueDateCalculated: Date;
   createdAt: Date;
+
+  /**
+   * Kind of payment. Optional for backward compatibility; normalized to
+   * PlanPayment in the constructor.
+   */
+  paymentType?: PaymentType;
 }
 
 /**
@@ -43,11 +60,18 @@ export type CreatePaymentProps = Omit<PaymentProps, 'id' | 'createdAt'>;
  * });
  */
 export class Payment {
-  private constructor(private readonly props: PaymentProps) {
+  private readonly props: PaymentProps;
+
+  private constructor(props: PaymentProps) {
     // Validate required fields
     if (!props.memberId) throw new Error('memberId is required');
     if (!props.gymId) throw new Error('gymId is required');
     if (props.amountPaid <= 0) throw new Error('amountPaid must be positive');
+
+    this.props = {
+      ...props,
+      paymentType: props.paymentType ?? PaymentType.PlanPayment,
+    };
   }
 
   // ============================================================
@@ -116,6 +140,19 @@ export class Payment {
 
   get createdAt(): Date {
     return this.props.createdAt;
+  }
+
+  get paymentType(): PaymentType {
+    return this.props.paymentType ?? PaymentType.PlanPayment;
+  }
+
+  /**
+   * Check if this payment is a day pass
+   *
+   * @returns True if payment type is DayPass
+   */
+  isDayPass(): boolean {
+    return this.paymentType === PaymentType.DayPass;
   }
 
   // ============================================================

@@ -5,7 +5,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Payment } from '@/core/domain/payment/Payment';
+import { Payment, PaymentType } from '@/core/domain/payment/Payment';
 import {
   IPaymentRepository,
   type PaymentFilters,
@@ -26,6 +26,7 @@ interface PaymentRow {
   discount_percentage: number | null;
   next_due_date_calculated: string;
   created_at: string;
+  payment_type: string;
 }
 
 /**
@@ -334,6 +335,7 @@ export class SupabasePaymentRepository implements IPaymentRepository {
       discountPercentage: row.discount_percentage,
       nextDueDateCalculated: new Date(row.next_due_date_calculated),
       createdAt: new Date(row.created_at),
+      paymentType: (row.payment_type as PaymentType) ?? PaymentType.PlanPayment,
     });
   }
 
@@ -356,6 +358,7 @@ export class SupabasePaymentRepository implements IPaymentRepository {
       discount_percentage: props.discountPercentage,
       next_due_date_calculated: props.nextDueDateCalculated.toISOString().split('T')[0],
       created_at: props.createdAt.toISOString(),
+      payment_type: props.paymentType ?? PaymentType.PlanPayment,
     };
   }
 }
