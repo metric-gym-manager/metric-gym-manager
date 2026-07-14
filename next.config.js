@@ -2,6 +2,19 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
 });
 
+// Cloudflare R2 public bucket host (member photos). Derived from
+// NEXT_PUBLIC_R2_PUBLIC_URL so staging/production can point at different
+// buckets without touching this file.
+const r2PublicHostname = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_R2_PUBLIC_URL
+      ? new URL(process.env.NEXT_PUBLIC_R2_PUBLIC_URL).hostname
+      : null;
+  } catch {
+    return null;
+  }
+})();
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -15,6 +28,16 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      ...(r2PublicHostname
+        ? [
+            {
+              protocol: 'https',
+              hostname: r2PublicHostname,
+              port: '',
+              pathname: '/**',
+            },
+          ]
+        : []),
     ],
   },
   experimental: {
