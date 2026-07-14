@@ -1,6 +1,6 @@
 ﻿Metric Gym Manager
 Terms of Service
-Last updated: March 2025
+Last updated: July 2026
 
 1. Agreement to Terms
 By accessing or using Metric Gym Manager, including our web dashboard, mobile applications, and any related integrations, you agree to be bound by these Terms of Service. If you do not agree to any part of these terms, you must not access or use our platform. These terms apply to gym owners, administrators, and staff members who use the platform to manage their fitness business.
@@ -25,11 +25,14 @@ Each account is for use by a single gym business. You are responsible for all ac
 
 4. Subscription and Payment
 Metric Gym Manager is offered on a subscription basis with a flat monthly fee per gym. By subscribing, you agree to the following:
-• Subscriptions are billed in advance on a recurring monthly or annual cycle
+• Every new account starts with a 14-day free trial; no charges are made until you subscribe to a paid plan
+• Subscriptions are billed in advance on a recurring monthly cycle through PayHere, our authorized payment gateway
 • Payments are non-refundable except where required by applicable law
 • You may cancel your subscription at any time; access continues until the end of the current billing period
 • We reserve the right to adjust pricing with at least 30 days written notice
 • All fees are exclusive of applicable taxes unless otherwise stated
+
+For full details on cancellations and refunds, please see our Refund & Cancellation Policy.
 
 We are not responsible for fees charged by your bank or payment provider in connection with your subscription.
 
@@ -52,7 +55,7 @@ You agree not to use Metric Gym Manager to:
 • Collect or harvest data from the platform for purposes beyond your own gym's management
 
 7. Intellectual Property
-Metric Gym Manager and all associated content, features, design, and functionality are the exclusive property of Systems Engineering Pvt Ltd and its licensors. The platform is protected by copyright, trademark, and other applicable laws.
+Metric Gym Manager and all associated content, features, design, and functionality are the exclusive property of Capitalist One (Pvt) Ltd and its licensors. The platform is protected by copyright, trademark, and other applicable laws.
 
 You retain ownership of all member data you input into the platform. By using the platform, you grant us a limited license to store and process that data solely for the purpose of providing our services to you.
 
@@ -70,12 +73,12 @@ Metric Gym Manager enables gym operators to send automated SMS payment reminders
 We reserve the right to suspend SMS functionality if we have reason to believe it is being misused.
 
 10. Limitation of Liability
-To the fullest extent permitted by law, Systems Engineering Pvt Ltd and its directors, employees, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of - or inability to use - Metric Gym Manager. This includes but is not limited to loss of data, loss of revenue, or loss of business.
+To the fullest extent permitted by law, Capitalist One (Pvt) Ltd and its directors, employees, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of - or inability to use - Metric Gym Manager. This includes but is not limited to loss of data, loss of revenue, or loss of business.
 
 Our total liability to you for any claim arising from these terms or your use of the platform shall not exceed the amount you paid us in the three months preceding the claim.
 
 11. Indemnification
-You agree to indemnify and hold harmless Systems Engineering Pvt Ltd, its affiliates, officers, directors, employees, and agents from and against any claims, damages, liabilities, losses, or expenses (including reasonable legal fees) arising out of or related to your use of the platform, your breach of these terms, or your violation of any third-party rights.
+You agree to indemnify and hold harmless Capitalist One (Pvt) Ltd, its affiliates, officers, directors, employees, and agents from and against any claims, damages, liabilities, losses, or expenses (including reasonable legal fees) arising out of or related to your use of the platform, your breach of these terms, or your violation of any third-party rights.
 
 12. Termination
 Either party may terminate the service relationship at any time. We reserve the right to suspend or terminate your account immediately, without prior notice, if we determine that you have breached these Terms of Service.
@@ -94,6 +97,8 @@ Your continued use of the platform after any changes constitutes your acceptance
 15. Contact Us
 If you have any questions about these Terms of Service, please reach out to us:
 
-• Email: legal@metricgym.lk
-• Website: www.metricgym.lk
-• Address: Colombo, Sri Lanka
+• Business: Capitalist One (Pvt) Ltd
+• Email: privacy@metricgymmanager.com
+• Phone: +94 70 437 9967
+• Website: www.metricgymmanager.com
+• Address: 150/1, 3rd Baptist Rd, Beddagana North, Kotte, Sri Lanka

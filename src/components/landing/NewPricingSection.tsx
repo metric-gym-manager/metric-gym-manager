@@ -4,38 +4,49 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { ContactModal } from './ContactModal';
 
+// Display prices must match the PAYHERE_*_PRICE_LKR values billing charges with
+// (src/lib/payhere/config.ts) and the tier ladder in SubscriptionConfig.ts.
 const pricingTiers = [
   {
-    name: 'Starter',
-    price: '6,500',
-    description: 'Perfect for starting out',
+    name: 'Lite',
+    price: '2,990',
+    description: 'Everything you need to run your gym',
     features: [
-      'Unlimited Members',
+      'Up to 100 active members',
       'Member Registration & Directory',
-      'Payment Tracking',
-      'Revenue Tracking',
-      'Automated Payment Reminders',
-      'Automated Receipt and Welcome Email',
+      'Payment Tracking & Receipts',
+      'Revenue Analytics',
+      'Automated SMS Payment Reminders',
+      'Bulk SMS Announcements',
       'Mobile app included',
       'Email Support',
     ],
     cta: 'Get Started',
-    ctaStyle: 'primary',
+    ctaStyle: 'secondary',
     featured: false,
   },
   {
-    name: 'Ultimate',
-    price: '17,500',
-    description: 'For unparalleled operational efficiency and member satisfaction',
+    name: 'Pro',
+    price: '4,990',
+    description: 'For growing gyms with larger member bases',
     features: [
-      'Everything in Starter plan',
+      'Everything in Lite plan',
+      'Unlimited active members',
+    ],
+    cta: 'Get Started',
+    ctaStyle: 'primary',
+    featured: true,
+  },
+  {
+    name: 'Enterprise',
+    price: '6,990',
+    description: 'Full automation with access control hardware',
+    features: [
+      'Everything in Pro plan',
       'Access Control Hardware Integration',
       'Automated Gatekeeping (Entry Control)',
       'Automated Attendance Tracking',
-      'Staff Attendance Tracking',
-      'Trainer Profiles',
-      'Admin + 3 Role-Based User Accounts',
-      'Priority 24/7 + On-Site Support',
+      'Priority Support',
       'Installation and Hardware Fees Apply',
     ],
     cta: 'Contact Sales',
@@ -121,7 +132,7 @@ export function NewPricingSection() {
         </p>
 
         {/* Pricing Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-[900px] mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-[1120px] mx-auto">
           {pricingTiers.map((tier, index) => (
             <div
               key={index}
