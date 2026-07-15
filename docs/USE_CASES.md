@@ -355,8 +355,8 @@ Active → Expired
 **Effects**:
 - Status changed to `Expired`
 - Member cannot check in
-- No automatic reminders sent
-- Can be reactivated by payment
+- Member still receives the "membership expires today" SMS later that morning (reminders job); no further reminders after that day
+- Can be reactivated by payment (receipt SMS sent as usual), or granted single-day access via a day pass
 
 ---
 
@@ -739,7 +739,7 @@ Thank you for your payment!
 
 **File**: `src/core/use-cases/reminder/SendAutomatedReminders.ts`
 
-**Purpose**: Sends payment reminders to active members based on plan-specific business rules.
+**Purpose**: Sends payment reminders to active members based on plan-specific business rules. Also includes expired members whose `next_due_date` is today, so members flipped to `expired` by the same-day expiry cron still receive their "membership expires today" (`due_today`) notice.
 
 #### Dependencies
 
@@ -795,11 +795,23 @@ graph TD
 
 #### Detailed Steps
 
-1. **Fetch Active Members**
+1. **Fetch Active Members (plus members that expired today)**
    ```typescript
-   const members = input.gymId
+   const activeMembers = input.gymId
      ? await this.memberRepo.findActiveMembers(input.gymId)
      : await this.memberRepo.findAllActiveMembers(); // Admin only
+
+   // Members expire the day the membership lapses (no grace period), so
+   // anyone due today was already flipped to 'expired' by the midnight
+   // cron — include them for the "expires today" notice.
+   const expiredMembers = input.gymId
+     ? await this.memberRepo.findExpiredMembers(input.gymId)
+     : await this.memberRepo.findAllExpiredMembers();
+   const expiringToday = expiredMembers.filter(
+     (member) => getDaysUntilDue(member.nextDueDate) === 0
+   );
+
+   const members = [...activeMembers, ...expiringToday];
    ```
 
 2. **For Each Member, Calculate Days Until Due**

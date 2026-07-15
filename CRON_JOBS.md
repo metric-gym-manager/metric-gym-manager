@@ -30,12 +30,12 @@ All times are configured for **Sri Lanka Time (UTC+5:30)**:
 **Endpoint:** `GET|POST /api/cron/send-reminders`
 
 ### What It Does
-Automatically sends payment reminders to all active members based on their due dates:
+Automatically sends payment reminders based on members' due dates:
 
 - **7-Day Notice**: Sent 7 days before due date
 - **3-Day Notice**: Sent 3 days before due date
-- **Due Today**: Sent on the due date (only if the member is still active — since members now expire the moment their membership lapses, this rarely fires)
-- **Overdue**: Sent for active members past their due date (edge case only — e.g. if the expiry cron did not run; reminders are never sent to expired members)
+- **Expires Today** (`due_today`): Sent on the due date — "your membership expires today". Members are flipped to `expired` by the midnight expiry cron before this job runs, so this notice is sent to expired members whose `next_due_date` is today (and to any still-active member due today)
+- **Overdue**: Sent for active members past their due date (edge case only — e.g. if the expiry cron did not run; members expired before today are never re-messaged)
 
 ### Process Flow
 1. Fetch all gyms from database
@@ -66,9 +66,14 @@ Automatically sends payment reminders to all active members based on their due d
 
 ### SMS Message Formats
 
-**7-Day/3-Day/Due Today:**
+**7-Day/3-Day:**
 ```
 Dear John Doe, your Monthly membership at PowerFit Gym is due on 20/02/2026. Amount: Rs.5000.00. Thank you.
+```
+
+**Expires Today:**
+```
+Dear John Doe, your Monthly membership expires today. Amount: Rs.5000.00. Please make payment to continue. Thank you.
 ```
 
 **Overdue:**
@@ -105,7 +110,8 @@ Updates member status from "Active" to "Expired" as soon as the membership lapse
 ### Business Logic
 - Members expire immediately when their membership lapses (`next_due_date` reached) — there is no overdue grace window
 - Expired members can still be reactivated by collecting payment, or granted single-day access via a day pass
-- Because this job runs before the reminders job, the "Due Today" and "Overdue" reminder types generally no longer fire (those members are already expired by the time reminders run); the 7-day and 3-day advance reminders are unaffected
+- Members flipped to expired still receive their "membership expires today" SMS: the reminders job (which runs later the same morning) includes expired members whose `next_due_date` is today
+- Receipt SMS are unaffected — they are sent on every payment collection and day pass regardless of member status
 
 ## 3. Archive Old Members
 

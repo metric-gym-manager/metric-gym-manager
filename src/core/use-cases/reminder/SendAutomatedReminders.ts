@@ -6,7 +6,9 @@
  * Extracted from: src/features/sms/services/reminder.service.ts (lines 106-309)
  *
  * This use case orchestrates:
- * 1. Fetching active members
+ * 1. Fetching active members, plus expired members whose due date is today
+ *    (members flip to 'expired' the day the membership lapses — before this
+ *    job runs — but still get their "membership expires today" notice)
  * 2. Calculating days until due for each member
  * 3. Determining if reminder should be sent (using centralized rules)
  * 4. Checking for duplicate reminders (already sent today)
@@ -77,7 +79,8 @@ export interface ReminderSummary {
 /**
  * Send Automated Reminders Use Case
  *
- * Processes active members and sends payment reminder SMS based on:
+ * Processes active members (plus members that expired today) and sends
+ * payment reminder SMS based on:
  * - Days until due date
  * - Plan type (daily members excluded, monthly skips 7-day)
  * - Duplicate prevention (one reminder per type per day)
@@ -150,9 +153,23 @@ export class SendAutomatedReminders {
 
     try {
       // Get active members
-      const allMembers = input.gymId
+      const activeMembers = input.gymId
         ? await this.memberRepo.findActiveMembers(input.gymId)
         : await this.memberRepo.findAllActiveMembers();
+
+      // Members expire the moment their membership lapses (no grace), so the
+      // nightly expiry cron has already flipped anyone due today to
+      // 'expired' before this job runs. Include them so they still receive
+      // the "membership expires today" notice. Members expired on earlier
+      // days are NOT re-messaged.
+      const expiredMembers = input.gymId
+        ? await this.memberRepo.findExpiredMembers(input.gymId)
+        : await this.memberRepo.findAllExpiredMembers();
+      const expiringToday = expiredMembers.filter(
+        (member) => getDaysUntilDue(member.nextDueDate) === 0
+      );
+
+      const allMembers = [...activeMembers, ...expiringToday];
 
       // Billing-status gate: reminders exist on every tier, but suspended
       // accounts and lapsed windows (grace-expired past_due, canceled past
@@ -167,7 +184,9 @@ export class SendAutomatedReminders {
         );
       }
 
-      console.log(`📊 Processing ${members.length} active members for reminders`);
+      console.log(
+        `📊 Processing ${members.length} members for reminders (${expiringToday.length} expired today)`
+      );
 
       // Process each member
       for (const member of members) {
@@ -343,8 +362,8 @@ export class SendAutomatedReminders {
 
       case ReminderType.DueToday:
         return (
-          `Dear ${member.name}, your ${planType} membership payment is due today. ` +
-          `Amount: ${amount}. Please make payment. Thank you.`
+          `Dear ${member.name}, your ${planType} membership expires today. ` +
+          `Amount: ${amount}. Please make payment to continue. Thank you.`
         );
 
       case ReminderType.ThreeDay:
