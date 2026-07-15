@@ -29,7 +29,7 @@ export function EmailVerificationBanner({ email }: EmailVerificationBannerProps)
       } else {
         toast.error(result.error || 'Failed to resend verification email');
       }
-    } catch (error) {
+    } catch {
       toast.error('Failed to resend verification email');
     } finally {
       setIsResending(false);

@@ -298,7 +298,7 @@ export class SupabaseMemberRepository implements IMemberRepository {
     const row = this.toDatabase(member);
 
     // Remove id, created_at, updated_at - these are auto-generated
-    const { id, created_at, updated_at, ...insertData } = row;
+    const { id: _id, created_at: _createdAt, updated_at: _updatedAt, ...insertData } = row;
 
     const { data, error } = await this.supabase
       .from('members')
@@ -320,7 +320,7 @@ export class SupabaseMemberRepository implements IMemberRepository {
     const row = this.toDatabase(member);
 
     // Remove created_at - it should never be updated
-    const { created_at, ...updateData } = row;
+    const { created_at: _createdAt, ...updateData } = row;
 
     // Ensure updated_at is set to now
     updateData.updated_at = new Date().toISOString();

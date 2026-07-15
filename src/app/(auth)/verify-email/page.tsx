@@ -84,7 +84,7 @@ function VerifyEmailContent() {
             setStatus('error');
             setMessage(data.error || 'Failed to verify email. The link may be expired or invalid.');
           }
-        } catch (error) {
+        } catch {
           setStatus('error');
           setMessage('An unexpected error occurred while verifying your email.');
         }
@@ -134,7 +134,7 @@ function VerifyEmailContent() {
       } else {
         setResendMessage(result.error || 'Failed to resend email');
       }
-    } catch (error) {
+    } catch {
       setResendMessage('An unexpected error occurred. Please try again.');
     } finally {
       setIsResending(false);

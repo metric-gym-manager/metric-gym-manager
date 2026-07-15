@@ -14,8 +14,8 @@ import { NextRequest } from 'next/server';
 // MOCK SETUP - Using Jest Factory Pattern (Properly Hoisted)
 // ============================================================================
 
-let mockSupabaseClient: any;
-let mockGymProfile: any;
+let mockSupabaseClient: unknown;
+let mockGymProfile: { id: string; gym_name: string };
 let mockCreateMember: jest.Mock;
 
 // Mock @/lib/supabase/server
@@ -56,7 +56,7 @@ const mockSendSMS = sendSMS as jest.Mock;
 // HELPER FUNCTIONS
 // ============================================================================
 
-function createMockRequest(body: any): NextRequest {
+function createMockRequest(body: unknown): NextRequest {
   return {
     json: jest.fn(() => Promise.resolve(body)),
     nextUrl: { searchParams: new URLSearchParams() },

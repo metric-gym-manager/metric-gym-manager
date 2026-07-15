@@ -158,7 +158,7 @@ export default function GymInformationPage() {
                 <p className="text-sm text-red-600 mt-1">{errors.gym_website.message}</p>
               )}
               <p className="text-xs text-gray-500 mt-1">
-                Optional: Include your gym's website URL
+                Optional: Include your gym&apos;s website URL
               </p>
             </div>
           </div>

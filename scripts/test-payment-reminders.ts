@@ -256,7 +256,14 @@ async function testFrontendDisplay(memberIds: Map<string, string>): Promise<void
 
   for (const testCase of testCases) {
     const memberId = memberIds.get(testCase.name);
-    const reminder = reminders.find((r: any) => r.id === memberId);
+    const reminder = (
+      reminders as Array<{
+        id: string;
+        plan_type: string;
+        days_until_due: number;
+        last_reminder_type: string | null;
+      }>
+    ).find((r) => r.id === memberId);
 
     if (!reminder) {
       console.log(`⚠️  ${testCase.name}: Not found in reminders list`);
@@ -357,13 +364,13 @@ async function testSMSHistoryModal(memberIds: Map<string, string>): Promise<void
   console.log(`  Total SMS logs: ${totalCount}`);
 
   // Filter payment reminders
-  const paymentReminders = smsLogs.filter((log: any) =>
+  const paymentReminders = smsLogs.filter((log: { sms_type: string }) =>
     ['reminder_7day', 'reminder_3day', 'due_today', 'overdue'].includes(log.sms_type)
   );
 
   console.log(`  Payment reminders: ${paymentReminders.length}`);
 
-  paymentReminders.forEach((log: any) => {
+  paymentReminders.forEach((log: { sms_type: string; delivery_status: string; sent_at: string }) => {
     console.log(`    - ${log.sms_type}: ${log.delivery_status} at ${new Date(log.sent_at).toLocaleString()}`);
   });
 

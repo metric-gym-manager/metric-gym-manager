@@ -603,7 +603,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                   <p className="text-xs text-gray-400">Try adjusting your filters or search term</p>
                 ) : (
                   <p className="text-xs text-gray-400">
-                    Get started by adding your first member using the "+ Add Member" button above, or register multiple members at once with "Bulk Register".
+                    Get started by adding your first member using the &quot;+ Add Member&quot; button above, or register multiple members at once with &quot;Bulk Register&quot;.
                   </p>
                 )}
               </div>

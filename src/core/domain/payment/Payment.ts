@@ -230,7 +230,7 @@ export class Payment {
    *
    * @returns Plain object with all properties
    */
-  toJSON(): Record<string, any> {
+  toJSON(): Record<string, unknown> {
     return {
       id: this.props.id,
       memberId: this.props.memberId,

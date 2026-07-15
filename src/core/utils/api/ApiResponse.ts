@@ -37,7 +37,7 @@ export interface ResponseMeta {
   /**
    * Additional metadata
    */
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -57,7 +57,7 @@ export interface ApiErrorResponse {
   error: {
     message: string;
     code: string;
-    details?: Record<string, any>;
+    details?: Record<string, unknown>;
     stack?: string; // Only in development
   };
 }
@@ -125,7 +125,7 @@ export class ResponseBuilder {
   static error(
     message: string,
     code: string = 'INTERNAL_ERROR',
-    details?: Record<string, any>,
+    details?: Record<string, unknown>,
     stack?: string
   ): ApiErrorResponse {
     const response: ApiErrorResponse = {
@@ -201,7 +201,7 @@ export class ResponseBuilder {
    * @param details - Additional details
    * @returns Error response object
    */
-  static badRequest(message: string, details?: Record<string, any>): ApiErrorResponse {
+  static badRequest(message: string, details?: Record<string, unknown>): ApiErrorResponse {
     return this.error(message, 'BAD_REQUEST', details);
   }
 
@@ -212,7 +212,7 @@ export class ResponseBuilder {
    * @param details - Additional details
    * @returns Error response object
    */
-  static conflict(message: string, details?: Record<string, any>): ApiErrorResponse {
+  static conflict(message: string, details?: Record<string, unknown>): ApiErrorResponse {
     return this.error(message, 'CONFLICT', details);
   }
 
@@ -238,11 +238,13 @@ export class ResponseBuilder {
   static fromError(error: Error): ApiErrorResponse {
     // Map known error types
     if (error.name === 'ValidationError') {
-      return this.validationError((error as any).errors || {});
+      return this.validationError(
+        (error as { errors?: Record<string, string[]> }).errors || {}
+      );
     }
 
     if (error.name === 'NotFoundError') {
-      return this.notFound((error as any).resource || 'Resource');
+      return this.notFound((error as { resource?: string }).resource || 'Resource');
     }
 
     if (error.name === 'UnauthorizedError') {

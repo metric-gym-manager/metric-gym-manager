@@ -18,7 +18,7 @@ export interface TextLkResponse {
   error?: string;
   balance?: number;
   cost?: number;
-  data?: any; // For text.lk v3 API response data
+  data?: { uid?: string; balance?: number; cost?: number; [key: string]: unknown }; // For text.lk v3 API response data
 }
 
 /**

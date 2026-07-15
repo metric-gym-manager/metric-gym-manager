@@ -51,7 +51,17 @@ export async function GET() {
     );
 
     // Fetch latest 10 executions for each job
-    const cronStats: Record<string, any[]> = {};
+    interface CronExecutionRow {
+      id: string;
+      job_name: string;
+      started_at: string;
+      completed_at: string | null;
+      status: string;
+      summary: Record<string, unknown> | null;
+      errors: string[] | null;
+    }
+
+    const cronStats: Record<string, CronExecutionRow[]> = {};
 
     for (const jobName of uniqueJobNames) {
       const { data: executions, error: executionsError } = await supabase

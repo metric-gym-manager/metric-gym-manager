@@ -204,7 +204,7 @@ export default function DiscountsTab() {
             <div className="text-center">
               <p className="text-sm text-gray-500">No discounts created yet</p>
               <p className="text-xs text-gray-400 mt-1">
-                Click "Add Discount" to create your first discount
+                Click &quot;Add Discount&quot; to create your first discount
               </p>
             </div>
           </div>

@@ -419,7 +419,7 @@ describe('PHASE 3: State Machine Inviolability', () => {
         const expiredMember = activeMember.expire();
         transitionSucceeded = true;
         newStatus = expiredMember.status;
-      } catch (error) {
+      } catch {
         transitionSucceeded = false;
       }
 
@@ -450,7 +450,7 @@ describe('PHASE 3: State Machine Inviolability', () => {
         const activeMember = expiredMember.activate(new Date('2024-03-01'));
         transitionSucceeded = true;
         newStatus = activeMember.status;
-      } catch (error) {
+      } catch {
         transitionSucceeded = false;
       }
 
@@ -501,7 +501,7 @@ describe('PHASE 4: Schema & Rule Configuration Binding', () => {
         const member = Member.create(props);
         memberCreated = true;
         planType = member.planType;
-      } catch (error) {
+      } catch {
         memberCreated = false;
       }
 

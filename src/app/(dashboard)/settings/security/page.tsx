@@ -1,6 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useSyncExternalStore } from 'react';
+import { useNow } from '@/hooks/useNow';
+
+// localStorage never notifies subscribers — snapshot-only external store
+const emptyStoreSubscribe = () => () => {};
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -382,7 +386,7 @@ function EmailUpdateModal({
         <DialogHeader>
           <DialogTitle>Update Email Address</DialogTitle>
           <DialogDescription>
-            Enter your new email address. You'll need to verify it before the change takes
+            Enter your new email address. You&apos;ll need to verify it before the change takes
             effect.
           </DialogDescription>
         </DialogHeader>
@@ -702,7 +706,7 @@ export default function AccountSecurityPage() {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [phoneModalOpen, setPhoneModalOpen] = useState(false);
   const [usernameModalOpen, setUsernameModalOpen] = useState(false);
-  const [showPasswordReminder, setShowPasswordReminder] = useState(false);
+  const [passwordReminderDismissed, setPasswordReminderDismissed] = useState(false);
 
   // Fetch current gym profile
   const { data: gymProfile } = useQuery({
@@ -715,24 +719,29 @@ export default function AccountSecurityPage() {
     },
   });
 
-  // Check for recent password change (within last 3 days)
-  useEffect(() => {
-    const passwordChangedAt = localStorage.getItem('password_changed_at');
-    if (passwordChangedAt) {
-      const changeDate = new Date(passwordChangedAt);
-      const daysSinceChange = (new Date().getTime() - changeDate.getTime()) / (1000 * 60 * 60 * 24);
+  // Check for recent password change (within last 3 days). Reading the
+  // client-only marker through useSyncExternalStore avoids setState-in-effect.
+  const passwordChangedAt = useSyncExternalStore(
+    emptyStoreSubscribe,
+    () => localStorage.getItem('password_changed_at'),
+    () => null
+  );
+  const now = useNow();
+  const daysSincePasswordChange = passwordChangedAt
+    ? (now - new Date(passwordChangedAt).getTime()) / (1000 * 60 * 60 * 24)
+    : Infinity;
+  const showPasswordReminder =
+    !passwordReminderDismissed && daysSincePasswordChange < 3;
 
-      if (daysSinceChange < 3) {
-        setShowPasswordReminder(true);
-      } else {
-        // Clean up old reminder
-        localStorage.removeItem('password_changed_at');
-      }
+  // Clean up the marker once the reminder window has passed
+  useEffect(() => {
+    if (passwordChangedAt && daysSincePasswordChange >= 3) {
+      localStorage.removeItem('password_changed_at');
     }
-  }, []);
+  }, [passwordChangedAt, daysSincePasswordChange]);
 
   const dismissPasswordReminder = () => {
-    setShowPasswordReminder(false);
+    setPasswordReminderDismissed(true);
     localStorage.removeItem('password_changed_at');
   };
 

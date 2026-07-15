@@ -130,7 +130,7 @@ export class SupabasePaymentRepository implements IPaymentRepository {
     const row = this.toDatabase(payment);
 
     // Remove id and created_at - these are auto-generated
-    const { id, created_at, ...insertData } = row;
+    const { id: _id, created_at: _createdAt, ...insertData } = row;
 
     const { data, error } = await this.supabase
       .from('payments')
@@ -205,8 +205,14 @@ export class SupabasePaymentRepository implements IPaymentRepository {
     // Group by plan type and sum revenue
     const revenueMap = new Map<PlanType, { totalRevenue: number; paymentCount: number }>();
 
-    (data || []).forEach((row: any) => {
-      const planType = row.members?.plan_type as PlanType;
+    interface RevenueJoinRow {
+      amount_paid: number | null;
+      members: { plan_type: string } | { plan_type: string }[] | null;
+    }
+
+    ((data || []) as RevenueJoinRow[]).forEach((row) => {
+      const memberRelation = Array.isArray(row.members) ? row.members[0] : row.members;
+      const planType = memberRelation?.plan_type as PlanType;
       const amount = row.amount_paid || 0;
 
       if (planType) {

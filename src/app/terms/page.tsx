@@ -108,7 +108,7 @@ export default function TermsOfServicePage() {
               <li>Disrupt, degrade, or interfere with the platform or its underlying infrastructure</li>
               <li>Transmit malicious code, viruses, or harmful data</li>
               <li>Impersonate any person, entity, or gym business</li>
-              <li>Collect or harvest data from the platform for purposes beyond your own gym's management</li>
+              <li>Collect or harvest data from the platform for purposes beyond your own gym&apos;s management</li>
             </ul>
           </section>
 
@@ -184,7 +184,7 @@ export default function TermsOfServicePage() {
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">14. Changes to These Terms</h2>
             <p className="text-gray-700 leading-relaxed mb-4">
-              We reserve the right to update or modify these Terms of Service at any time. When we make material changes, we will update the "Last updated" date at the top of this document and notify you through the platform or via email with at least 14 days notice before changes take effect.
+              We reserve the right to update or modify these Terms of Service at any time. When we make material changes, we will update the &quot;Last updated&quot; date at the top of this document and notify you through the platform or via email with at least 14 days notice before changes take effect.
             </p>
             <p className="text-gray-700 leading-relaxed">
               Your continued use of the platform after any changes constitutes your acceptance of the revised terms.

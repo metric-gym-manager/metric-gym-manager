@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/button';
 import { Download } from 'lucide-react';
 
@@ -9,10 +9,27 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
+// iOS never fires beforeinstallprompt, so the manual instructions are shown
+// based on a static user-agent snapshot (never changes within a session)
+const emptySubscribe = () => () => {};
+const getServerIosSnapshot = () => false;
+const getIosPromptSnapshot = () => {
+  const userAgent = window.navigator.userAgent.toLowerCase();
+  const isIos = /iphone|ipad|ipod/.test(userAgent);
+  const isStandalone =
+    'standalone' in window.navigator &&
+    !!(window.navigator as Navigator & { standalone?: boolean }).standalone;
+  return isIos && !isStandalone;
+};
+
 export function InstallButton() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
-  const [showIosPrompt, setShowIosPrompt] = useState(false);
+  const showIosPrompt = useSyncExternalStore(
+    emptySubscribe,
+    getIosPromptSnapshot,
+    getServerIosSnapshot
+  );
 
   useEffect(() => {
     const handleBeforeInstall = (e: Event) => {
@@ -26,17 +43,6 @@ export function InstallButton() {
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
     window.addEventListener('appinstalled', handleAppInstalled);
-
-    // iOS detection
-    const userAgent = window.navigator.userAgent.toLowerCase();
-    const isIos = /iphone|ipad|ipod/.test(userAgent);
-    const isStandalone =
-      'standalone' in window.navigator &&
-      (window.navigator as Navigator & { standalone?: boolean }).standalone;
-
-    if (isIos && !isStandalone) {
-      setShowIosPrompt(true);
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall);

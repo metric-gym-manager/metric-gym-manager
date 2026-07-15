@@ -136,7 +136,7 @@ function LoginContent() {
       } else {
         setError(result.error || 'Failed to resend verification email');
       }
-    } catch (error) {
+    } catch {
       setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsResending(false);
@@ -357,7 +357,7 @@ function LoginContent() {
                     marginTop: '24px',
                   }}
                 >
-                  Don't have an account?{' '}
+                  Don&apos;t have an account?{' '}
                   <Link
                     href="/register"
                     style={{

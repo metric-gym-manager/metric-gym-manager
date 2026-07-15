@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -34,12 +34,15 @@ export default function MarkPaidDialog({
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(today);
 
-  // Reset to today when dialog opens
-  useEffect(() => {
+  // Reset to today when the dialog (re)opens — render-time adjustment
+  // (React "storing information from previous renders" pattern)
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
     if (open) {
       setSelectedDate(today);
     }
-  }, [open, today]);
+  }
 
   const nextDueDate = calculateNextDueDate(selectedDate, planType);
   const isFutureDate = new Date(selectedDate) > new Date(today);
@@ -113,7 +116,7 @@ export default function MarkPaidDialog({
                 Next Due Date
               </p>
               <p className="text-xs text-blue-700 mt-0.5">
-                Member's next payment will be due on {formatDate(nextDueDate)}
+                Member&apos;s next payment will be due on {formatDate(nextDueDate)}
               </p>
             </div>
           </div>
