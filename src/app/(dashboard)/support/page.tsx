@@ -73,7 +73,7 @@ export default function SupportPage() {
           </div>
           <h1 className="text-3xl font-bold text-gray-900">Support</h1>
           <p className="text-gray-500 mt-2">
-            We're here to help with any technical difficulties, failures, or suggestions
+            We&apos;re here to help with any technical difficulties, failures, or suggestions
           </p>
         </div>
 
@@ -185,7 +185,7 @@ export default function SupportPage() {
                   className="mt-1.5"
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Provide your email if you'd like us to follow up with you.
+                  Provide your email if you&apos;d like us to follow up with you.
                 </p>
               </div>
 

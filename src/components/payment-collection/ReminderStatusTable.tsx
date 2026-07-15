@@ -23,9 +23,12 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, Clock, AlertCircle } from 'lucide-react';
 import type { ReminderStatusResponse, MemberReminderStatus } from '@/features/sms/types';
+import { useNow } from '@/hooks/useNow';
 
 export default function ReminderStatusTable() {
   const { openMember } = useMemberModal();
+  // Minute-ticking timestamp: Date.now() during render is impure
+  const now = useNow();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('due_date_asc');
@@ -131,7 +134,7 @@ export default function ReminderStatusTable() {
   // Recently-sent indicator: was a reminder sent in the last 24 hours?
   const getRecentlySentLabel = (lastSent: string | null): string | null => {
     if (!lastSent) return null;
-    const minutesAgo = Math.floor((Date.now() - new Date(lastSent).getTime()) / 60000);
+    const minutesAgo = Math.floor((now - new Date(lastSent).getTime()) / 60000);
     if (minutesAgo > 1440) return null; // older than 24h — no indicator
     if (minutesAgo < 60) return `Sent ${minutesAgo}m ago`;
     return `Sent ${Math.floor(minutesAgo / 60)}h ago`;
@@ -280,7 +283,7 @@ export default function ReminderStatusTable() {
                 <p className="text-xs text-gray-400">Try adjusting your filters</p>
               ) : (
                 <p className="text-xs text-gray-400">
-                  Payment reminders are sent automatically 7 days, 3 days, and on the due date. Manual reminders can be sent anytime using the "Send Reminder" button.
+                  Payment reminders are sent automatically 7 days, 3 days, and on the due date. Manual reminders can be sent anytime using the &quot;Send Reminder&quot; button.
                 </p>
               )}
             </div>

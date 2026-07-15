@@ -4,6 +4,18 @@ import type { Announcement } from '../types';
 import type { CreateAnnouncementInput } from '../schemas/announcement.schemas';
 import { sendSmsViaTextLk } from '@/features/sms/services/textlk.service';
 
+/**
+ * Entry in the announcements.session_failures JSON column
+ */
+interface SessionFailureEntry {
+  id: string;
+  member_id: string;
+  phone_number: string;
+  retry_count: number;
+  last_error: string;
+  last_attempt_at: string;
+}
+
 // ============================================================
 // GET ANNOUNCEMENTS
 // ============================================================
@@ -219,7 +231,7 @@ async function sendAnnouncementSmsInBackground(
             .eq('id', announcementId)
             .single();
 
-          const failures = (currentAnnouncement?.session_failures || []) as any[];
+          const failures = (currentAnnouncement?.session_failures || []) as SessionFailureEntry[];
 
           // Add new failure to the array
           failures.push({
@@ -317,7 +329,7 @@ export async function retryFailedAnnouncements(
     throw new Error(`Failed to fetch failures: ${failuresError.message}`);
   }
 
-  const allFailures = (announcementData?.session_failures || []) as any[];
+  const allFailures = (announcementData?.session_failures || []) as SessionFailureEntry[];
   const failures = allFailures.filter((f) => f.retry_count < 3);
 
   if (failures.length === 0) {
@@ -388,7 +400,7 @@ export async function retryFailedAnnouncements(
 
     // Process results and update session_failures
     const successfulFailureIds: string[] = [];
-    const updatedFailures: any[] = [];
+    const updatedFailures: SessionFailureEntry[] = [];
 
     for (const result of results) {
       if (result.status === 'fulfilled' && result.value.success) {
@@ -421,7 +433,7 @@ export async function retryFailedAnnouncements(
       .eq('id', announcementId)
       .single();
 
-    let updatedSessionFailures = (currentAnnouncement?.session_failures || []) as any[];
+    let updatedSessionFailures = (currentAnnouncement?.session_failures || []) as SessionFailureEntry[];
 
     // Remove successful failures
     updatedSessionFailures = updatedSessionFailures.filter(
@@ -466,7 +478,7 @@ export async function retryFailedAnnouncements(
     .eq('id', announcementId)
     .single();
 
-  const finalFailures = (finalAnnouncement?.session_failures || []) as any[];
+  const finalFailures = (finalAnnouncement?.session_failures || []) as SessionFailureEntry[];
   const maxAttemptsCount = finalFailures.filter((f) => f.retry_count >= 3).length;
 
   console.log(`🔄 [RETRY] Complete: ${successCount} succeeded, ${failedCount} failed, ${maxAttemptsCount} reached max attempts`);

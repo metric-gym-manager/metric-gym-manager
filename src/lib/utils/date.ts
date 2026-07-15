@@ -28,7 +28,7 @@ export function formatDate(dateInput: string | Date): string {
       month: 'short',
       year: 'numeric',
     });
-  } catch (error) {
+  } catch {
     return 'Invalid Date';
   }
 }
@@ -57,7 +57,7 @@ export function formatDateShort(dateInput: string | Date): string {
       day: '2-digit',
       month: 'short',
     });
-  } catch (error) {
+  } catch {
     return 'Invalid Date';
   }
 }

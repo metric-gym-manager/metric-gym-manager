@@ -10,7 +10,7 @@
 // ============================================================================
 
 // Create a mock that will be populated by each test
-let mockSupabaseClient: any;
+let mockSupabaseClient: unknown;
 
 // Mock @/lib/supabase/server with async function that returns current mock
 jest.mock('@/lib/supabase/server', () => ({
@@ -39,13 +39,13 @@ const mockSendSmsViaTextLk = sendSmsViaTextLk as jest.Mock;
 // ============================================================================
 
 function createMockSupabaseClient(config: {
-  member?: { data: any; error: any };
-  smsLogInsert?: { data: any; error: any };
+  member?: { data: unknown; error: unknown };
+  smsLogInsert?: { data: unknown; error: unknown };
 }) {
   const fromMock = jest.fn((table: string) => {
     // Members table
     if (table === 'members') {
-      const chainable: any = {
+      const chainable: { select: jest.Mock; eq: jest.Mock; single: jest.Mock } = {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         single: jest.fn(),
@@ -60,7 +60,7 @@ function createMockSupabaseClient(config: {
 
     // SMS logs table
     if (table === 'sms_logs') {
-      const chainable: any = {
+      const chainable: { insert: jest.Mock; select: jest.Mock; single: jest.Mock } = {
         insert: jest.fn().mockReturnThis(),
         select: jest.fn().mockReturnThis(),
         single: jest.fn(),
@@ -115,7 +115,7 @@ describe('SMS Service - Welcome SMS', () => {
         }
         if (table === 'sms_logs') {
           return {
-            insert: jest.fn((data: any) => {
+            insert: jest.fn((data: { message_body: string }) => {
               capturedMessage = data.message_body;
               return {
                 select: jest.fn().mockReturnThis(),
@@ -165,7 +165,7 @@ describe('SMS Service - Welcome SMS', () => {
         }
         if (table === 'sms_logs') {
           return {
-            insert: jest.fn((data: any) => {
+            insert: jest.fn((data: { message_body: string }) => {
               capturedMessage = data.message_body;
               return {
                 select: jest.fn().mockReturnThis(),
@@ -212,7 +212,7 @@ describe('SMS Service - Welcome SMS', () => {
         }
         if (table === 'sms_logs') {
           return {
-            insert: jest.fn((data: any) => {
+            insert: jest.fn((data: { message_body: string }) => {
               capturedMessage = data.message_body;
               return {
                 select: jest.fn().mockReturnThis(),
@@ -245,7 +245,7 @@ describe('SMS Service - Welcome SMS', () => {
       gyms: { gym_name: 'Health Hub' },
     };
 
-    let capturedSmsLog: any;
+    let capturedSmsLog: Record<string, unknown> = {};
 
     mockSupabaseClient = {
       from: jest.fn((table: string) => {
@@ -258,7 +258,7 @@ describe('SMS Service - Welcome SMS', () => {
         }
         if (table === 'sms_logs') {
           return {
-            insert: jest.fn((data: any) => {
+            insert: jest.fn((data: Record<string, unknown>) => {
               capturedSmsLog = data;
               return {
                 select: jest.fn().mockReturnThis(),
@@ -406,7 +406,7 @@ describe('SMS Service - Real SMS Integration', () => {
       gyms: { gym_name: 'FitLife Gym' },
     };
 
-    let capturedSmsLog: any;
+    let capturedSmsLog: Record<string, unknown> = {};
 
     mockSupabaseClient = {
       from: jest.fn((table: string) => {
@@ -419,7 +419,7 @@ describe('SMS Service - Real SMS Integration', () => {
         }
         if (table === 'sms_logs') {
           return {
-            insert: jest.fn((data: any) => {
+            insert: jest.fn((data: Record<string, unknown>) => {
               capturedSmsLog = data;
               return {
                 select: jest.fn().mockReturnThis(),
@@ -458,7 +458,7 @@ describe('SMS Service - Real SMS Integration', () => {
       gyms: { gym_name: 'FitLife Gym' },
     };
 
-    let capturedSmsLog: any;
+    let capturedSmsLog: Record<string, unknown> = {};
 
     mockSupabaseClient = {
       from: jest.fn((table: string) => {
@@ -471,7 +471,7 @@ describe('SMS Service - Real SMS Integration', () => {
         }
         if (table === 'sms_logs') {
           return {
-            insert: jest.fn((data: any) => {
+            insert: jest.fn((data: Record<string, unknown>) => {
               capturedSmsLog = data;
               return {
                 select: jest.fn().mockReturnThis(),

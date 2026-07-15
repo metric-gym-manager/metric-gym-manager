@@ -35,6 +35,44 @@ export interface UploadOptions {
 }
 
 /**
+ * Options for generating a presigned upload URL
+ */
+export interface PresignedUploadOptions {
+  /**
+   * Content type the client must send with the PUT request.
+   * The signature binds this value, so a different Content-Type is rejected.
+   * Example: 'image/webp', 'image/jpeg'
+   */
+  contentType: string;
+
+  /**
+   * URL validity window in seconds
+   * Default: 300 (5 minutes)
+   */
+  expiresInSeconds?: number;
+}
+
+/**
+ * Presigned upload URL result
+ */
+export interface PresignedUpload {
+  /**
+   * Temporary URL the client PUTs the file to
+   */
+  uploadUrl: string;
+
+  /**
+   * Object path the file will be stored at (e.g. 'profiles/{memberId}.webp')
+   */
+  path: string;
+
+  /**
+   * Seconds until the URL expires
+   */
+  expiresInSeconds: number;
+}
+
+/**
  * File upload result
  */
 export interface UploadResult {
@@ -85,6 +123,21 @@ export interface UploadResult {
  * await storageProvider.delete('gym-profiles/gym-123.jpg');
  */
 export interface IStorageProvider {
+  /**
+   * Generate a temporary presigned PUT URL for direct client uploads.
+   *
+   * The client uploads the file straight to object storage (bypassing our
+   * servers) using this URL. The signature binds the path and content type.
+   *
+   * @param path - Destination path (e.g. 'profiles/{memberId}.webp')
+   * @param options - Content type and expiry
+   * @returns Presigned upload URL and metadata
+   */
+  getPresignedUploadUrl(
+    path: string,
+    options: PresignedUploadOptions
+  ): Promise<PresignedUpload>;
+
   /**
    * Upload a file
    *

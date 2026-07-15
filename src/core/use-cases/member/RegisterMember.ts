@@ -23,6 +23,7 @@ import { SMSDeliveryStatus } from '@/core/ports/repositories/ISMSRepository';
 import { calculateNextDueDate } from '@/core/utils/date';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberStatus } from '@/core/utils/constants/StatusConfig';
+import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
 import { formatDateForDisplay } from '@/core/utils/date';
 import { ConflictError } from '@/core/utils/errors';
 
@@ -79,6 +80,15 @@ export interface RegisterMemberInput {
    * Discount information (for payment record)
    */
   discount?: DiscountInfo | null;
+
+  /**
+   * How this member is being registered.
+   *
+   * - Manual (default): standard front-desk form, considered verified.
+   * - Qr: public QR self-registration; shows a NEW badge until the gym
+   *   verifies the entry.
+   */
+  registrationSource?: RegistrationSource;
 }
 
 /**
@@ -172,6 +182,7 @@ export class RegisterMember {
       registeredDate: input.membershipStartDate,
       membershipStartDate: input.membershipStartDate,
       nextDueDate: nextDueDate,
+      registrationSource: input.registrationSource ?? RegistrationSource.Manual,
     });
 
     // 5. Persist member through the FOR UPDATE-locked quota gate

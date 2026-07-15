@@ -22,6 +22,7 @@ import {
 } from '@/core/ports/repositories/IMemberRepository';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberStatus } from '@/core/utils/constants/StatusConfig';
+import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
 import { NotFoundError, MemberLimitError, DatabaseError } from '@/core/utils/errors';
 
 /**
@@ -42,6 +43,10 @@ interface MemberRow {
   next_due_date: string;
   created_at: string;
   updated_at: string;
+  photo_path: string | null;
+  photo_updated_at: string | null;
+  registration_source: string;
+  verified_at: string | null;
   discount?: {
     id: string;
     discount_name: string;
@@ -293,7 +298,7 @@ export class SupabaseMemberRepository implements IMemberRepository {
     const row = this.toDatabase(member);
 
     // Remove id, created_at, updated_at - these are auto-generated
-    const { id, created_at, updated_at, ...insertData } = row;
+    const { id: _id, created_at: _createdAt, updated_at: _updatedAt, ...insertData } = row;
 
     const { data, error } = await this.supabase
       .from('members')
@@ -368,7 +373,7 @@ export class SupabaseMemberRepository implements IMemberRepository {
     const row = this.toDatabase(member);
 
     // Remove created_at - it should never be updated
-    const { created_at, ...updateData } = row;
+    const { created_at: _createdAt, ...updateData } = row;
 
     // Ensure updated_at is set to now
     updateData.updated_at = new Date().toISOString();
@@ -553,6 +558,10 @@ export class SupabaseMemberRepository implements IMemberRepository {
       nextDueDate: new Date(row.next_due_date),
       createdAt: new Date(row.created_at),
       updatedAt: new Date(row.updated_at),
+      photoPath: row.photo_path ?? null,
+      photoUpdatedAt: row.photo_updated_at ? new Date(row.photo_updated_at) : null,
+      registrationSource: (row.registration_source as RegistrationSource) ?? RegistrationSource.Manual,
+      verifiedAt: row.verified_at ? new Date(row.verified_at) : null,
     });
   }
 
@@ -582,6 +591,10 @@ export class SupabaseMemberRepository implements IMemberRepository {
       next_due_date: props.nextDueDate.toISOString().split('T')[0],
       created_at: props.createdAt.toISOString(),
       updated_at: props.updatedAt.toISOString(),
+      photo_path: props.photoPath ?? null,
+      photo_updated_at: props.photoUpdatedAt?.toISOString() ?? null,
+      registration_source: props.registrationSource ?? RegistrationSource.Manual,
+      verified_at: props.verifiedAt?.toISOString() ?? null,
     };
   }
 }

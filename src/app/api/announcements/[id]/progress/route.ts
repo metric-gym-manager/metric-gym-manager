@@ -55,7 +55,13 @@ export async function GET(
     }
 
     // Get failures from session_failures JSON column
-    const sessionFailures = (announcement.session_failures || []) as any[];
+    interface SessionFailure {
+      member_id: string;
+      retry_count: number;
+      [key: string]: unknown;
+    }
+
+    const sessionFailures = (announcement.session_failures || []) as SessionFailure[];
 
     // Get member names for failures
     const failuresWithNames = await Promise.all(

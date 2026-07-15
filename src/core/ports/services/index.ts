@@ -10,6 +10,8 @@ export {
   type IStorageProvider,
   type UploadOptions,
   type UploadResult,
+  type PresignedUpload,
+  type PresignedUploadOptions,
 } from './IStorageProvider';
 
 export {

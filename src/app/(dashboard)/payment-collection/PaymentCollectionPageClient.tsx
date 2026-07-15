@@ -68,7 +68,7 @@ export default function PaymentCollectionPageClient() {
         <div className="space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
-              <span className="font-semibold">About Reminders:</span> SMS reminders are sent automatically based on your schedule (7 days, 3 days, and due date). You can also send manual reminders at any time using the "Send Reminder" button.
+              <span className="font-semibold">About Reminders:</span> SMS reminders are sent automatically based on your schedule (7 days, 3 days, and due date). You can also send manual reminders at any time using the &quot;Send Reminder&quot; button.
             </p>
           </div>
           <PaymentRemindersTable />

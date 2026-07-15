@@ -35,10 +35,14 @@ import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
 // Services
 import { TextLkSMSProvider } from '@/infrastructure/sms/providers/TextLkSMSProvider';
 import { MockSMSProvider } from '@/infrastructure/sms/providers/MockSMSProvider';
+import { R2StorageProvider } from '@/infrastructure/storage/R2StorageProvider';
+import { MockStorageProvider } from '@/infrastructure/storage/MockStorageProvider';
 
 // Use Cases
 import { RegisterMember } from '@/core/use-cases/member/RegisterMember';
+import { VerifyMember } from '@/core/use-cases/member/VerifyMember';
 import { CollectPayment } from '@/core/use-cases/payment/CollectPayment';
+import { IssueDayPass } from '@/core/use-cases/payment/IssueDayPass';
 import { SendAutomatedReminders } from '@/core/use-cases/reminder/SendAutomatedReminders';
 import { UpdateExpiredStatus } from '@/core/use-cases/member/UpdateExpiredStatus';
 import { CancelOverdueMembers } from '@/core/use-cases/member/CancelOverdueMembers';
@@ -64,6 +68,7 @@ import type { ISaasPaymentLogRepository } from '@/core/ports/repositories/ISaasP
 import type { IChargeAttemptRepository } from '@/core/ports/repositories/IChargeAttemptRepository';
 import type { ISMSProvider } from '@/core/ports/services/ISMSProvider';
 import type { IPaymentGateway, ISubscriptionGateway } from '@/core/ports/services';
+import type { IStorageProvider } from '@/core/ports/services/IStorageProvider';
 
 /**
  * Dependency Injection Container
@@ -94,6 +99,7 @@ export class Container {
   private chargeAttemptRepo?: IChargeAttemptRepository;
   private paymentGateway?: IPaymentGateway;
   private subscriptionGateway?: ISubscriptionGateway;
+  private storageProvider?: IStorageProvider;
 
   constructor(supabase: SupabaseClient) {
     this.supabase = supabase;
@@ -228,6 +234,30 @@ export class Container {
     return this.smsProvider;
   }
 
+  /**
+   * Get Storage Provider
+   *
+   * Returns the Cloudflare R2 provider when R2 credentials are configured,
+   * otherwise falls back to the in-memory mock (development/tests).
+   */
+  getStorageProvider(): IStorageProvider {
+    if (!this.storageProvider) {
+      const r2Configured =
+        !!process.env.R2_ACCOUNT_ID &&
+        !!process.env.R2_ACCESS_KEY_ID &&
+        !!process.env.R2_SECRET_ACCESS_KEY &&
+        !!process.env.R2_BUCKET_NAME;
+
+      if (r2Configured) {
+        this.storageProvider = new R2StorageProvider();
+      } else {
+        this.storageProvider = new MockStorageProvider();
+        console.log('🗄️ Using Mock Storage Provider (R2 env vars not set)');
+      }
+    }
+    return this.storageProvider;
+  }
+
   // ============================================================
   // USE CASES - MEMBER
   // ============================================================
@@ -242,6 +272,13 @@ export class Container {
       this.getSMSProvider(),
       this.getSMSRepository()
     );
+  }
+
+  /**
+   * Get VerifyMember use case
+   */
+  getVerifyMemberUseCase(): VerifyMember {
+    return new VerifyMember(this.getMemberRepository());
   }
 
   /**
@@ -295,6 +332,18 @@ export class Container {
    */
   getCollectPaymentUseCase(): CollectPayment {
     return new CollectPayment(
+      this.getMemberRepository(),
+      this.getPaymentRepository(),
+      this.getSMSProvider(),
+      this.getSMSRepository()
+    );
+  }
+
+  /**
+   * Get IssueDayPass use case
+   */
+  getIssueDayPassUseCase(): IssueDayPass {
+    return new IssueDayPass(
       this.getMemberRepository(),
       this.getPaymentRepository(),
       this.getSMSProvider(),

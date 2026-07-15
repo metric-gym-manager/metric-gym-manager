@@ -20,6 +20,14 @@ export interface Member {
   next_due_date: string;
   created_at: string;
   updated_at: string;
+  /** R2 object key of the member photo (null = no photo) */
+  photo_path: string | null;
+  /** Last photo upload time; used as ?v= cache-buster */
+  photo_updated_at: string | null;
+  /** 'manual' (desk form) or 'qr' (self-registration) */
+  registration_source: 'manual' | 'qr';
+  /** Verification timestamp for QR registrations; null = NEW badge */
+  verified_at: string | null;
 }
 
 export interface MemberWithDiscount extends Member {
@@ -47,6 +55,8 @@ export interface Payment {
   discount_percentage: number | null;
   next_due_date_calculated: string;
   created_at: string;
+  /** 'plan_payment' (default) or 'day_pass' */
+  payment_type?: 'plan_payment' | 'day_pass';
 }
 
 export interface PaymentWithMember extends Payment {

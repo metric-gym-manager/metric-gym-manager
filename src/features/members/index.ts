@@ -23,6 +23,19 @@ export { default as MemberDetailModalResponsive } from './components/MemberDetai
 export { default as MembersTable } from './components/MembersTable';
 export { default as PaymentCollectionModal } from './components/PaymentCollectionModal';
 export { PaymentDetailsModal } from './components/PaymentDetailsModal';
+export { default as MemberAvatar } from './components/MemberAvatar';
+export { default as MemberPhotoSection } from './components/MemberPhotoSection';
+export { default as DayPassModal } from './components/DayPassModal';
+
+// ============================================================
+// SERVICES
+// ============================================================
+
+export {
+  uploadMemberPhoto,
+  removeMemberPhoto,
+  uploadToPresignedUrl,
+} from './services/photo-upload';
 
 // ============================================================
 // SCHEMAS

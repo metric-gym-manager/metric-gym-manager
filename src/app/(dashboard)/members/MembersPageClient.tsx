@@ -15,11 +15,16 @@ const BulkAddMemberModal = dynamic(
   () => import('@/features/members').then(mod => ({ default: mod.BulkAddMemberModal })),
   { ssr: false }
 );
+const DayPassModal = dynamic(
+  () => import('@/features/members').then(mod => ({ default: mod.DayPassModal })),
+  { ssr: false }
+);
 
 export default function MembersPageClient() {
   const { openMember } = useMemberModal();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
+  const [dayPassModalOpen, setDayPassModalOpen] = useState(false);
 
   const handleMemberClick = (member: MemberWithDiscount) => {
     openMember(member.id);
@@ -29,6 +34,12 @@ export default function MembersPageClient() {
     <>
       {/* Action buttons */}
       <div className="flex items-center justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={() => setDayPassModalOpen(true)}
+        >
+          Create Day Pass
+        </Button>
         <Button
           variant="outline"
           onClick={() => setBulkModalOpen(true)}
@@ -59,6 +70,12 @@ export default function MembersPageClient() {
       <BulkAddMemberModal
         open={bulkModalOpen}
         onClose={() => setBulkModalOpen(false)}
+      />
+
+      {/* Day Pass Modal */}
+      <DayPassModal
+        open={dayPassModalOpen}
+        onClose={() => setDayPassModalOpen(false)}
       />
     </>
   );

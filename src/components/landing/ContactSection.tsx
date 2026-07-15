@@ -36,7 +36,7 @@ export function ContactSection() {
         {/* Section heading */}
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-4xl font-bold text-brand-charcoal mb-4">
-            Let's Grow Your Gym Together
+            Let&apos;s Grow Your Gym Together
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
             Ready to transform your gym operations? Get in touch with our team.
@@ -84,7 +84,7 @@ export function ContactSection() {
                   {/* Interested In */}
                   <div>
                     <label htmlFor="interested" className="block text-sm font-medium text-gray-700 mb-2">
-                      I'm Interested In
+                      I&apos;m Interested In
                     </label>
                     <select
                       id="interested"

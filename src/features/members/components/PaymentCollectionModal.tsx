@@ -162,18 +162,11 @@ export default function PaymentCollectionModal({ open, onClose, member }: Paymen
     });
   };
 
-  if (!member) return null;
-
-  // Format currency
-  const formatCurrency = (amount: number) => {
-    return `LKR ${amount.toFixed(2)}`;
-  };
-
   // Fetch next due date preview from API
   const paymentDate = watch('paymentDate');
   const deductOverduePeriod = watch('deductOverduePeriod');
 
-  const { data: previewData } = useMutation({
+  const previewMutation = useMutation({
     mutationFn: async () => {
       if (!member || !paymentDate) return null;
 
@@ -193,14 +186,23 @@ export default function PaymentCollectionModal({ open, onClose, member }: Paymen
     },
   });
 
+  const { mutate: fetchPreview } = previewMutation;
+
   // Trigger preview calculation when relevant fields change
   useEffect(() => {
     if (member && paymentDate) {
-      previewData.mutate();
+      fetchPreview();
     }
-  }, [member, paymentDate, deductOverduePeriod]);
+  }, [member, paymentDate, deductOverduePeriod, fetchPreview]);
 
-  const nextDueDatePreview = previewData.data?.nextDueDateFormatted || 'Calculating...';
+  const nextDueDatePreview = previewMutation.data?.nextDueDateFormatted || 'Calculating...';
+
+  if (!member) return null;
+
+  // Format currency
+  const formatCurrency = (amount: number) => {
+    return `LKR ${amount.toFixed(2)}`;
+  };
 
   return (
     <Dialog open={open} onOpenChange={onClose}>

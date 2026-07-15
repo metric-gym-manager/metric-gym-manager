@@ -17,38 +17,45 @@ interface RevenueChartProps {
   viewType: 'monthly' | 'yearly';
 }
 
-export default function RevenueChart({ data, viewType }: RevenueChartProps) {
-  // Format currency for tooltip
-  const formatCurrency = (value: number) => {
-    return `LKR ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+// Format currency for tooltip
+const formatCurrency = (value: number) => {
+  return `LKR ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
+interface RevenueTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}
+
+// Module-scope component: creating it inside RevenueChart's render would
+// remount it (and lose its DOM) on every parent render
+function CustomTooltip({ active, payload, label }: RevenueTooltipProps) {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-lg border bg-white p-4 shadow-lg">
+        <p className="font-semibold mb-2">{label}</p>
+        <div className="space-y-1">
+          <p className="text-sm text-green-600">
+            Collected: {formatCurrency(payload[0].value)}
+          </p>
+          <p className="text-sm text-blue-600">
+            Projected: {formatCurrency(payload[1].value)}
+          </p>
+        </div>
+      </div>
+    );
+  }
+  return null;
+}
+
+export default function RevenueChart({ data, viewType }: RevenueChartProps) {
   // Prepare chart data
   const chartData = data.map((item) => ({
     label: viewType === 'monthly' ? (item as MonthlyRevenue).monthLabel : `${(item as YearlyRevenue).year}`,
     Collected: item.collectedRevenue,
     Projected: item.projectedRevenue,
   }));
-
-  // Custom tooltip
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="rounded-lg border bg-white p-4 shadow-lg">
-          <p className="font-semibold mb-2">{label}</p>
-          <div className="space-y-1">
-            <p className="text-sm text-green-600">
-              Collected: {formatCurrency(payload[0].value)}
-            </p>
-            <p className="text-sm text-blue-600">
-              Projected: {formatCurrency(payload[1].value)}
-            </p>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   if (data.length === 0) {
     return (

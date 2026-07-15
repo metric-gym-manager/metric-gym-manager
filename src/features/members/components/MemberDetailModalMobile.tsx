@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog';
+import MemberPhotoSection from './MemberPhotoSection';
 import type { MemberWithDiscount, Payment } from '@/features/members/types';
 import { parseApiError } from '@/lib/utils/api-error';
 
@@ -296,6 +297,9 @@ export default function MemberDetailModalMobile({
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+            {/* Member Photo & Verification */}
+            <MemberPhotoSection member={member} />
+
             {/* Basic Info */}
             <div className="space-y-3">
               <div>

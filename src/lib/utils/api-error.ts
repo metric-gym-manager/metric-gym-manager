@@ -62,12 +62,12 @@ export async function parseApiError(response: Response): Promise<string> {
 
     // Fallback to top-level message (legacy compatibility)
     if ('message' in data) {
-      return (data as any).message;
+      return (data as { message: string }).message;
     }
 
     // Last resort - use HTTP status text
     return `Request failed with status ${response.status}: ${response.statusText}`;
-  } catch (parseError) {
+  } catch {
     // JSON parsing failed or response body already consumed
     return `Request failed with status ${response.status}: ${response.statusText}`;
   }

@@ -11,11 +11,13 @@
 import { randomUUID } from 'crypto';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberStatus, canTransition } from '@/core/utils/constants/StatusConfig';
+import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
 import { getDaysUntilDue } from '@/core/utils/date/getDaysUntilDue';
 import { InvalidStatusTransitionError, ValidationError } from '@/core/utils/errors';
 
-// Re-export MemberStatus for consumers
+// Re-export MemberStatus and RegistrationSource for consumers
 export { MemberStatus } from '@/core/utils/constants/StatusConfig';
+export { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
 
 /**
  * Member properties interface
@@ -57,6 +59,32 @@ export interface MemberProps {
   nextDueDate: Date;
   createdAt: Date;
   updatedAt: Date;
+
+  /**
+   * R2 object key of the member's face photo (e.g. 'profiles/{id}.webp').
+   * NULL when no photo has been uploaded. Optional for backward
+   * compatibility; normalized to null in the constructor.
+   */
+  photoPath?: string | null;
+
+  /**
+   * When the photo was last uploaded/replaced. Used as a CDN cache-busting
+   * version parameter since replacements overwrite the same object key.
+   */
+  photoUpdatedAt?: Date | null;
+
+  /**
+   * How the member was registered (manual desk form vs QR self-registration).
+   * Defaults to Manual for backward compatibility.
+   */
+  registrationSource?: RegistrationSource;
+
+  /**
+   * When the gym verified a QR self-registration. NULL for unverified QR
+   * members (rendered as a NEW badge). Manual registrations are considered
+   * verified by definition and keep this null.
+   */
+  verifiedAt?: Date | null;
 }
 
 /**
@@ -97,7 +125,9 @@ export type CreateMemberProps = Omit<MemberProps, 'id' | 'createdAt' | 'updatedA
  * const reactivatedMember = expiredMember.activate(new Date('2024-03-15'));
  */
 export class Member {
-  private constructor(private readonly props: MemberProps) {
+  private readonly props: MemberProps;
+
+  private constructor(props: MemberProps) {
     // Validate required fields
     if (!props.gymId) throw new Error('gymId is required');
     if (!props.name || props.name.trim().length < 2) {
@@ -105,6 +135,15 @@ export class Member {
     }
     if (!props.phoneNumber) throw new Error('phoneNumber is required');
     if (props.planAmount <= 0) throw new Error('planAmount must be positive');
+
+    // Normalize optional fields so downstream code can rely on their presence
+    this.props = {
+      ...props,
+      photoPath: props.photoPath ?? null,
+      photoUpdatedAt: props.photoUpdatedAt ?? null,
+      registrationSource: props.registrationSource ?? RegistrationSource.Manual,
+      verifiedAt: props.verifiedAt ?? null,
+    };
   }
 
   // ============================================================
@@ -207,6 +246,22 @@ export class Member {
     return this.props.registeredDate;
   }
 
+  get photoPath(): string | null {
+    return this.props.photoPath ?? null;
+  }
+
+  get photoUpdatedAt(): Date | null {
+    return this.props.photoUpdatedAt ?? null;
+  }
+
+  get registrationSource(): RegistrationSource {
+    return this.props.registrationSource ?? RegistrationSource.Manual;
+  }
+
+  get verifiedAt(): Date | null {
+    return this.props.verifiedAt ?? null;
+  }
+
   // ============================================================
   // DOMAIN METHODS (Business logic queries)
   // ============================================================
@@ -301,6 +356,30 @@ export class Member {
    */
   hasRecurringDiscount(): boolean {
     return this.props.recurringDiscount && this.hasDiscount();
+  }
+
+  /**
+   * Check if member has a photo
+   *
+   * @returns True if a photo path is set
+   */
+  hasPhoto(): boolean {
+    return this.photoPath !== null;
+  }
+
+  /**
+   * Check if this member is an unverified QR self-registration.
+   *
+   * Manual registrations never need verification; QR registrations need it
+   * until the gym taps "verify" (verified_at set). Rendered as a NEW badge.
+   *
+   * @returns True if the registration still needs front-desk verification
+   */
+  needsVerification(): boolean {
+    return (
+      this.registrationSource === RegistrationSource.Qr &&
+      this.verifiedAt === null
+    );
   }
 
   // ============================================================
@@ -605,6 +684,64 @@ export class Member {
     });
   }
 
+  /**
+   * Set or replace the member's photo.
+   *
+   * photoUpdatedAt is refreshed so cached CDN copies of the overwritten
+   * object key are busted via the ?v= query parameter.
+   *
+   * @param photoPath - R2 object key (e.g. 'profiles/{id}.webp')
+   * @returns New Member instance with updated photo
+   */
+  updatePhoto(photoPath: string): Member {
+    if (!photoPath || photoPath.trim().length === 0) {
+      throw new ValidationError('photoPath is required');
+    }
+
+    return new Member({
+      ...this.props,
+      photoPath: photoPath.trim(),
+      photoUpdatedAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
+  /**
+   * Remove the member's photo reference.
+   *
+   * The caller is responsible for deleting the underlying storage object.
+   *
+   * @returns New Member instance without photo
+   */
+  removePhoto(): Member {
+    return new Member({
+      ...this.props,
+      photoPath: null,
+      photoUpdatedAt: null,
+      updatedAt: new Date(),
+    });
+  }
+
+  /**
+   * Verify a QR self-registration.
+   *
+   * Idempotent: verifying an already-verified or manually registered member
+   * returns the same instance unchanged.
+   *
+   * @returns New Member instance with verifiedAt set
+   */
+  verify(): Member {
+    if (!this.needsVerification()) {
+      return this;
+    }
+
+    return new Member({
+      ...this.props,
+      verifiedAt: new Date(),
+      updatedAt: new Date(),
+    });
+  }
+
   // ============================================================
   // PERSISTENCE METHODS
   // ============================================================
@@ -669,6 +806,10 @@ export class Member {
       nextDueDate: this.props.nextDueDate.toISOString(),
       createdAt: this.props.createdAt.toISOString(),
       updatedAt: this.props.updatedAt.toISOString(),
+      photoPath: this.photoPath,
+      photoUpdatedAt: this.photoUpdatedAt?.toISOString() ?? null,
+      registrationSource: this.registrationSource,
+      verifiedAt: this.verifiedAt?.toISOString() ?? null,
     };
   }
 }

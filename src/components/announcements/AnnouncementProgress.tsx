@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -65,7 +65,6 @@ export default function AnnouncementProgress({
   onDismiss,
 }: AnnouncementProgressProps) {
   const queryClient = useQueryClient();
-  const [isPolling, setIsPolling] = useState(true);
 
   // Dismiss mutation - clears session failures
   const dismissMutation = useMutation({
@@ -96,14 +95,17 @@ export default function AnnouncementProgress({
       const result = await response.json();
       return result.data;
     },
-    refetchInterval: isPolling ? 2000 : false, // Poll every 2 seconds while sending
+    // Poll every 2 seconds while sending; stop once finished
+    refetchInterval: (query) => {
+      const status = query.state.data?.announcement.status;
+      return status === 'completed' || status === 'failed' ? false : 2000;
+    },
     enabled: !!announcementId,
   });
 
-  // Stop polling when complete or failed
+  // Notify the parent when complete or failed (polling stops via refetchInterval)
   useEffect(() => {
     if (data?.announcement.status === 'completed' || data?.announcement.status === 'failed') {
-      setIsPolling(false);
       if (onComplete) {
         onComplete();
       }
@@ -128,10 +130,8 @@ export default function AnnouncementProgress({
       toast.success(
         `Retry complete: ${result.data.successCount} succeeded, ${result.data.failedCount} failed`
       );
-      // Restart polling if there are still retryable failures
-      if (result.data.failedCount > 0) {
-        setIsPolling(true);
-      }
+      // Polling resumes automatically: the invalidation above refetches,
+      // and refetchInterval re-evaluates from the announcement status.
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to retry');
