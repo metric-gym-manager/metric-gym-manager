@@ -34,8 +34,8 @@ Automatically sends payment reminders to all active members based on their due d
 
 - **7-Day Notice**: Sent 7 days before due date
 - **3-Day Notice**: Sent 3 days before due date
-- **Due Today**: Sent on the due date
-- **Overdue**: Sent for members past their due date
+- **Due Today**: Sent on the due date (only if the member is still active — since members now expire the moment their membership lapses, this rarely fires)
+- **Overdue**: Sent for active members past their due date (edge case only — e.g. if the expiry cron did not run; reminders are never sent to expired members)
 
 ### Process Flow
 1. Fetch all gyms from database
@@ -81,11 +81,11 @@ Dear John Doe, your Monthly membership at PowerFit Gym was due on 13/02/2026. Am
 **Endpoint:** `GET|POST /api/cron/update-expired-status`
 
 ### What It Does
-Updates member status from "Active" to "Expired" for members who are more than 7 days overdue.
+Updates member status from "Active" to "Expired" as soon as the membership lapses — i.e. for members whose `next_due_date` is today or earlier. There is **no grace period**.
 
 ### Process Flow
-1. Calculate cutoff date (7 days ago)
-2. Find all active members with `next_due_date < cutoff_date`
+1. Get today's date (00:00:00)
+2. Find all active members with `next_due_date <= today`
 3. Update their status to "expired"
 4. Update `updated_at` timestamp
 5. Return count of updated members
@@ -103,9 +103,9 @@ Updates member status from "Active" to "Expired" for members who are more than 7
 ```
 
 ### Business Logic
-- Members remain "Active" even if overdue, up to 7 days
-- After 7 days overdue, status automatically changes to "Expired"
-- Expired members can still be reactivated by collecting payment
+- Members expire immediately when their membership lapses (`next_due_date` reached) — there is no overdue grace window
+- Expired members can still be reactivated by collecting payment, or granted single-day access via a day pass
+- Because this job runs before the reminders job, the "Due Today" and "Overdue" reminder types generally no longer fire (those members are already expired by the time reminders run); the 7-day and 3-day advance reminders are unaffected
 
 ## 3. Archive Old Members
 

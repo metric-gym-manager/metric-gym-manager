@@ -1250,8 +1250,8 @@ Dear Rajesh Perera, payment of Rs.2700 received (Discount: Student Discount 10% 
 
 ### 16.1 Glossary
 - **Active Member:** Member with status "Active" and payment up-to-date
-- **Overdue Member:** Member past due date but still within 7-day grace period
-- **Expired Member:** Member overdue by >7 days, status automatically changed to "Expired"
+- **Overdue Member:** Expired member with an unpaid balance (past due date)
+- **Expired Member:** Member whose membership has lapsed (due date reached without payment); status is changed to "Expired" automatically the same day — there is no grace period
 - **Recurring Discount:** Discount that applies to all future payments for a member
 - **Plan Type:** Membership duration category (Monthly, Daily, Annual)
 - **OTP:** One-Time Password sent via SMS for login verification

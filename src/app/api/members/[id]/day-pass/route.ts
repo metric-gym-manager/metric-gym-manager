@@ -30,7 +30,8 @@ const dayPassSchema = z.object({
  * Day Pass Endpoint
  *
  * Records a single-day access fee for a member whose membership period has
- * ended (expired, or overdue-active within the pre-cron grace window).
+ * ended (expired, or a due/overdue member the nightly cron has not flipped
+ * to expired yet).
  * Sets next_due_date to tomorrow without changing plan_type; revenue lands
  * in payments as payment_type='day_pass'. Receipt SMS is sent and logged.
  *

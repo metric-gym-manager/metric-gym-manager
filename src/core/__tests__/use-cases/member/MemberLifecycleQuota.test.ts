@@ -2,8 +2,8 @@
  * Active-member quota lifecycle — use-case level.
  *
  * Covers the app-layer half of migration 20260708000001:
- *  - UpdateExpiredStatus: unpaid actives expire only after
- *    MEMBER_EXPIRY_GRACE_DAYS (7) full days past next_due_date
+ *  - UpdateExpiredStatus: unpaid actives expire immediately once
+ *    next_due_date arrives (no grace period)
  *  - CollectPayment: the member flip runs BEFORE the payment insert, so a
  *    quota block (MemberLimitError from the DB trigger) records nothing
  *  - ReactivateMember: propagates MemberLimitError untouched (the route maps
@@ -14,7 +14,7 @@ import { UpdateExpiredStatus } from '@/core/use-cases/member/UpdateExpiredStatus
 import { ReactivateMember } from '@/core/use-cases/member/ReactivateMember';
 import { CollectPayment } from '@/core/use-cases/payment/CollectPayment';
 import { Member } from '@/core/domain/member/Member';
-import { MemberStatus, MEMBER_EXPIRY_GRACE_DAYS } from '@/core/utils/constants/StatusConfig';
+import { MemberStatus } from '@/core/utils/constants/StatusConfig';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberLimitError } from '@/core/utils/errors';
 import type { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
@@ -57,25 +57,12 @@ function mockMemberRepo(overrides: Partial<jest.Mocked<IMemberRepository>> = {})
   } as unknown as jest.Mocked<IMemberRepository>;
 }
 
-describe('UpdateExpiredStatus — 7-day unpaid grace before expiry', () => {
-  it('does NOT expire a member inside the grace window (6 days overdue)', async () => {
+describe('UpdateExpiredStatus — immediate expiry once next_due_date arrives (no grace)', () => {
+  it('expires a member on their due date (due today, boundary)', async () => {
     const memberRepo = mockMemberRepo({
       findAllActiveMembers: jest
         .fn()
-        .mockResolvedValue([makeMember(MemberStatus.Active, daysAgo(MEMBER_EXPIRY_GRACE_DAYS - 1))]),
-    } as Partial<jest.Mocked<IMemberRepository>>);
-
-    const summary = await new UpdateExpiredStatus(memberRepo).execute();
-
-    expect(summary.totalUpdated).toBe(0);
-    expect(memberRepo.update).not.toHaveBeenCalled();
-  });
-
-  it('expires a member exactly at the grace boundary (7 days overdue)', async () => {
-    const memberRepo = mockMemberRepo({
-      findAllActiveMembers: jest
-        .fn()
-        .mockResolvedValue([makeMember(MemberStatus.Active, daysAgo(MEMBER_EXPIRY_GRACE_DAYS))]),
+        .mockResolvedValue([makeMember(MemberStatus.Active, daysAgo(0))]),
     } as Partial<jest.Mocked<IMemberRepository>>);
 
     const summary = await new UpdateExpiredStatus(memberRepo).execute();
@@ -84,6 +71,33 @@ describe('UpdateExpiredStatus — 7-day unpaid grace before expiry', () => {
     expect(memberRepo.update).toHaveBeenCalledTimes(1);
     const persisted = memberRepo.update.mock.calls[0][0];
     expect(persisted.status).toBe(MemberStatus.Expired);
+  });
+
+  it('expires a member who is 1 day overdue', async () => {
+    const memberRepo = mockMemberRepo({
+      findAllActiveMembers: jest
+        .fn()
+        .mockResolvedValue([makeMember(MemberStatus.Active, daysAgo(1))]),
+    } as Partial<jest.Mocked<IMemberRepository>>);
+
+    const summary = await new UpdateExpiredStatus(memberRepo).execute();
+
+    expect(summary.totalUpdated).toBe(1);
+    const persisted = memberRepo.update.mock.calls[0][0];
+    expect(persisted.status).toBe(MemberStatus.Expired);
+  });
+
+  it('does NOT expire a member whose membership is still running (due tomorrow)', async () => {
+    const memberRepo = mockMemberRepo({
+      findAllActiveMembers: jest
+        .fn()
+        .mockResolvedValue([makeMember(MemberStatus.Active, daysAgo(-1))]),
+    } as Partial<jest.Mocked<IMemberRepository>>);
+
+    const summary = await new UpdateExpiredStatus(memberRepo).execute();
+
+    expect(summary.totalUpdated).toBe(0);
+    expect(memberRepo.update).not.toHaveBeenCalled();
   });
 
   it('does NOT expire members who are not yet due', async () => {

@@ -212,7 +212,7 @@ Thank you for joining us!
 
 **File**: `src/core/use-cases/member/UpdateExpiredStatus.ts`
 
-**Purpose**: Automated cron job that transitions active members to expired status when their due date has passed.
+**Purpose**: Automated cron job that transitions active members to expired status as soon as their membership lapses (`next_due_date` is today or earlier). There is no grace period.
 
 #### Dependencies
 
@@ -249,7 +249,7 @@ graph TD
     C --> D{Gym-Specific?}
     D -->|Yes| E[Get Members for Gym]
     D -->|No| F[Get All Active Members]
-    E --> G[Filter: next_due_date < today]
+    E --> G[Filter: next_due_date <= today]
     F --> G
     G --> H{Any Expired?}
     H -->|No| I[Return: totalUpdated = 0]
@@ -280,7 +280,7 @@ graph TD
    ```typescript
    const expiredMembers = members.filter((member) => {
      return member.status === MemberStatus.Active &&
-            member.nextDueDate < today;
+            member.nextDueDate <= today; // due today or earlier — no grace period
    });
    ```
 
@@ -350,7 +350,7 @@ Active → Expired
 
 **Conditions**:
 - Current status is `Active`
-- `next_due_date < today` (00:00:00)
+- `next_due_date <= today` (00:00:00) — members expire the day their membership lapses; there is no grace period
 
 **Effects**:
 - Status changed to `Expired`

@@ -3,8 +3,8 @@
  *
  * Eligibility rules:
  * - Allowed when next_due_date is today or past AND status is active/expired
- *   (covers the pre-cron grace window where an overdue member is still
- *   'active').
+ *   (covers a due/overdue member the nightly expiry cron has not flipped
+ *   to 'expired' yet).
  * - Rejected while the membership period is still running.
  * - Rejected for suspended/cancelled members.
  *

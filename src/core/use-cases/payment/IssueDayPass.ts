@@ -7,8 +7,9 @@
  *
  * Business rules:
  * - Allowed when the member's next_due_date is today or in the past AND the
- *   member is 'active' (overdue grace window before the nightly cron flips
- *   them) or 'expired'.
+ *   member is 'active' (due/overdue but the nightly expiry cron has not
+ *   flipped them yet — members now expire as soon as the membership lapses)
+ *   or 'expired'.
  * - Rejected when the member is still within their membership period
  *   (next_due_date in the future) — they don't need a day pass.
  * - Rejected for suspended/cancelled members — those have dedicated
