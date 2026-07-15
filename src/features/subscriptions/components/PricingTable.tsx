@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -66,8 +67,8 @@ const COLUMNS: Column[] = [
     features: [
       'Unlimited active members',
       'Everything in Pro',
-      'Access-control hardware support',
-      'Priority support',
+      'Custom access-control hardware integration',
+      'On-site installation & priority support',
     ],
     accent: 'border-purple-300',
   },
@@ -76,7 +77,12 @@ const COLUMNS: Column[] = [
 /**
  * Lite / Pro / Enterprise comparison (plan §5.2). CTA state per §5.3:
  *
- * - Active WITH a saved card: other tiers get a live one-click "Switch to X"
+ * - Enterprise is SALES-LED: its access-control hardware is a custom,
+ *   installed solution scoped per gym, so there is no self-serve checkout —
+ *   the column always routes to /contact ("Contact sales") rather than
+ *   charging the saved card. (A gym only lands ON Enterprise via a
+ *   platform-managed / complimentary grant, which shows "Current plan".)
+ * - Active WITH a saved card: Lite/Pro get a live one-click "Switch to X"
  *   CTA — the dialog charges the stored token and the change applies
  *   immediately (unused days banked, C-33).
  * - Active WITHOUT a saved card (legacy recurring): a plan change still
@@ -84,7 +90,7 @@ const COLUMNS: Column[] = [
  *   subscriptions) — CTAs disabled with the explanation.
  * - past_due blocks everything until the payment resolves.
  * - Complimentary subscriptions show no purchase CTAs (platform-managed).
- * - Trialing/suspended/canceled accounts can buy into any tier.
+ * - Trialing/suspended/canceled accounts can buy into Lite or Pro.
  */
 export default function PricingTable({
   subscription: sub,
@@ -115,6 +121,16 @@ export default function PricingTable({
       return (
         <Button className="w-full" disabled>
           Current plan
+        </Button>
+      );
+    }
+    // Enterprise is sales-led — no self-serve checkout. Its access-control
+    // hardware is a custom, installed engagement, so send buyers to sales
+    // instead of charging the saved card for a tier we can't provision instantly.
+    if (tier === SaasTier.Enterprise) {
+      return (
+        <Button asChild variant="outline" className="w-full">
+          <Link href="/contact">Contact sales</Link>
         </Button>
       );
     }
