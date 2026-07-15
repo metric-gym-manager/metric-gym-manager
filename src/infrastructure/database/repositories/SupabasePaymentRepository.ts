@@ -5,7 +5,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Payment } from '@/core/domain/payment/Payment';
+import { Payment, PaymentType } from '@/core/domain/payment/Payment';
 import {
   IPaymentRepository,
   type PaymentFilters,
@@ -26,6 +26,7 @@ interface PaymentRow {
   discount_percentage: number | null;
   next_due_date_calculated: string;
   created_at: string;
+  payment_type: string;
 }
 
 /**
@@ -129,7 +130,7 @@ export class SupabasePaymentRepository implements IPaymentRepository {
     const row = this.toDatabase(payment);
 
     // Remove id and created_at - these are auto-generated
-    const { id, created_at, ...insertData } = row;
+    const { id: _id, created_at: _createdAt, ...insertData } = row;
 
     const { data, error } = await this.supabase
       .from('payments')
@@ -204,8 +205,14 @@ export class SupabasePaymentRepository implements IPaymentRepository {
     // Group by plan type and sum revenue
     const revenueMap = new Map<PlanType, { totalRevenue: number; paymentCount: number }>();
 
-    (data || []).forEach((row: any) => {
-      const planType = row.members?.plan_type as PlanType;
+    interface RevenueJoinRow {
+      amount_paid: number | null;
+      members: { plan_type: string } | { plan_type: string }[] | null;
+    }
+
+    ((data || []) as RevenueJoinRow[]).forEach((row) => {
+      const memberRelation = Array.isArray(row.members) ? row.members[0] : row.members;
+      const planType = memberRelation?.plan_type as PlanType;
       const amount = row.amount_paid || 0;
 
       if (planType) {
@@ -334,6 +341,7 @@ export class SupabasePaymentRepository implements IPaymentRepository {
       discountPercentage: row.discount_percentage,
       nextDueDateCalculated: new Date(row.next_due_date_calculated),
       createdAt: new Date(row.created_at),
+      paymentType: (row.payment_type as PaymentType) ?? PaymentType.PlanPayment,
     });
   }
 
@@ -356,6 +364,7 @@ export class SupabasePaymentRepository implements IPaymentRepository {
       discount_percentage: props.discountPercentage,
       next_due_date_calculated: props.nextDueDateCalculated.toISOString().split('T')[0],
       created_at: props.createdAt.toISOString(),
+      payment_type: props.paymentType ?? PaymentType.PlanPayment,
     };
   }
 }

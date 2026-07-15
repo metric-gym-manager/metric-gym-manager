@@ -31,7 +31,7 @@ export function useCountUp<T extends HTMLElement = HTMLDivElement>(
   const [count, setCount] = useState(0);
   const ref = useRef<T>(null);
   const [isVisible, setIsVisible] = useState(!startOnView);
-  const [hasStarted, setHasStarted] = useState(false);
+  const hasStartedRef = useRef(false);
 
   // Intersection Observer for start on view
   useEffect(() => {
@@ -60,9 +60,9 @@ export function useCountUp<T extends HTMLElement = HTMLDivElement>(
     if (startOnView && !isVisible) return;
 
     // Don't restart if already completed
-    if (hasStarted) return;
+    if (hasStartedRef.current) return;
 
-    setHasStarted(true);
+    hasStartedRef.current = true;
 
     let startTime: number | null = null;
     let animationFrame: number;
@@ -87,7 +87,7 @@ export function useCountUp<T extends HTMLElement = HTMLDivElement>(
         cancelAnimationFrame(animationFrame);
       }
     };
-  }, [end, duration, isVisible, startOnView, hasStarted]);
+  }, [end, duration, isVisible, startOnView]);
 
   return { ref, count };
 }

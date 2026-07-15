@@ -50,13 +50,13 @@ describe('Badge Color Utilities', () => {
     });
 
     it('should return default gray color for unknown plan types', () => {
-      expect(getPlanBadgeColor('unknown' as any)).toBe(
+      expect(getPlanBadgeColor('unknown' as never)).toBe(
         'bg-gray-100 text-gray-800 border-gray-200'
       );
-      expect(getPlanBadgeColor(null as any)).toBe(
+      expect(getPlanBadgeColor(null as never)).toBe(
         'bg-gray-100 text-gray-800 border-gray-200'
       );
-      expect(getPlanBadgeColor(undefined as any)).toBe(
+      expect(getPlanBadgeColor(undefined as never)).toBe(
         'bg-gray-100 text-gray-800 border-gray-200'
       );
     });
@@ -71,10 +71,10 @@ describe('Badge Color Utilities', () => {
     });
 
     it('should return default gray color for unknown status types', () => {
-      expect(getStatusBadgeColor('unknown' as any)).toBe(
+      expect(getStatusBadgeColor('unknown' as never)).toBe(
         'bg-gray-100 text-gray-800 border-gray-200'
       );
-      expect(getStatusBadgeColor(null as any)).toBe(
+      expect(getStatusBadgeColor(null as never)).toBe(
         'bg-gray-100 text-gray-800 border-gray-200'
       );
     });

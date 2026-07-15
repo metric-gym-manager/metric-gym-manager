@@ -29,7 +29,7 @@ export function TestimonialCard({ quote, name, role, gymName, rating }: Testimon
 
         {/* Quote */}
         <blockquote className="text-gray-700 italic leading-relaxed">
-          "{quote}"
+          &quot;{quote}&quot;
         </blockquote>
 
         {/* Author info */}

@@ -51,6 +51,14 @@ function serializeMemberForAPI(
     created_at: props.createdAt.toISOString(), // Include snake_case for backward compatibility
     updatedAt: props.updatedAt.toISOString(),
     updated_at: props.updatedAt.toISOString(), // Include snake_case for backward compatibility
+    photoPath: member.photoPath,
+    photo_path: member.photoPath, // Include snake_case for backward compatibility
+    photoUpdatedAt: member.photoUpdatedAt?.toISOString() ?? null,
+    photo_updated_at: member.photoUpdatedAt?.toISOString() ?? null, // Include snake_case for backward compatibility
+    registrationSource: member.registrationSource,
+    registration_source: member.registrationSource, // Include snake_case for backward compatibility
+    verifiedAt: member.verifiedAt?.toISOString() ?? null,
+    verified_at: member.verifiedAt?.toISOString() ?? null, // Include snake_case for backward compatibility
     discount: discount || null, // Include joined discount data if available
   };
 }

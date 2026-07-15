@@ -132,8 +132,23 @@ export async function getReminderStatus(
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
+  interface ReminderLogRow {
+    sms_type: SMSType;
+    sent_at: string;
+    delivery_status: NonNullable<MemberReminderStatus['last_delivery_status']>;
+  }
+
+  interface ReminderMemberRow {
+    id: string;
+    name: string;
+    phone_number: string;
+    plan_type: MemberReminderStatus['plan_type'];
+    next_due_date: string;
+    sms_logs: ReminderLogRow[] | null;
+  }
+
   // Process members and calculate days until due
-  let reminderStatuses: MemberReminderStatus[] = (members || []).map((member: any) => {
+  let reminderStatuses: MemberReminderStatus[] = ((members || []) as ReminderMemberRow[]).map((member) => {
     const dueDate = new Date(member.next_due_date);
     dueDate.setHours(0, 0, 0, 0);
     const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
@@ -142,16 +157,16 @@ export async function getReminderStatus(
     // and must not affect the auto-status indicator or the "Sent Xm ago" label.
     const REMINDER_TYPES = ['reminder_7day', 'reminder_3day', 'due_today', 'overdue'];
     const reminderLogs = (member.sms_logs || [])
-      .filter((log: { sms_type: string }) => REMINDER_TYPES.includes(log.sms_type))
-      .sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+      .filter((log) => REMINDER_TYPES.includes(log.sms_type))
+      .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
 
     const lastLog = reminderLogs.length > 0 ? reminderLogs[0] : null;
 
     // Query each reminder type's most recent log (now sorted by sent_at DESC)
-    const reminder7Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_7day');
-    const reminder3Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_3day');
-    const dueToday = reminderLogs.find((log: any) => log.sms_type === 'due_today');
-    const overdue = reminderLogs.find((log: any) => log.sms_type === 'overdue');
+    const reminder7Day = reminderLogs.find((log) => log.sms_type === 'reminder_7day');
+    const reminder3Day = reminderLogs.find((log) => log.sms_type === 'reminder_3day');
+    const dueToday = reminderLogs.find((log) => log.sms_type === 'due_today');
+    const overdue = reminderLogs.find((log) => log.sms_type === 'overdue');
 
     // Check for delivery failures (system errors) for each reminder type
     const reminder7DayError = reminder7Day?.delivery_status === 'failed' || false;
@@ -217,9 +232,16 @@ export async function getReminderStatus(
 // FORMAT SMS MESSAGES
 // ============================================================
 
+interface SMSMemberFields {
+  name: string;
+  next_due_date: string;
+  plan_amount: number;
+  plan_type: string;
+}
+
 function formatSMSMessage(
   smsType: SMSType,
-  member: any,
+  member: SMSMemberFields,
   gymName: string,
   paymentAmount?: number
 ): string {

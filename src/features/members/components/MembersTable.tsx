@@ -33,6 +33,11 @@ import { formatDate } from '@/lib/utils/date';
 import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
 import UrgencyBadge from '@/components/common/UrgencyBadge';
 import { PaymentDetailsModal } from './PaymentDetailsModal';
+import MemberAvatar from './MemberAvatar';
+
+/** True when the member is an unverified QR self-registration (NEW badge) */
+const isNewMember = (member: MemberWithDiscount) =>
+  member.registration_source === 'qr' && !member.verified_at;
 
 interface MembersListResponse {
   members: MemberWithDiscount[];
@@ -486,8 +491,16 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                   >
                     <TableCell>
                       <span className="flex items-center gap-2 font-medium" title={member.status}>
+                        <MemberAvatar
+                          name={member.name}
+                          photoPath={member.photo_path}
+                          photoUpdatedAt={member.photo_updated_at}
+                        />
                         <span className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`} />
                         {member.name}
+                        {isNewMember(member) && (
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">NEW</Badge>
+                        )}
                       </span>
                     </TableCell>
                     <TableCell>{formatPhone(member.phone_number)}</TableCell>
@@ -549,8 +562,16 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                   >
                     <TableCell>
                       <span className="flex items-center gap-2 font-medium" title={member.status}>
+                        <MemberAvatar
+                          name={member.name}
+                          photoPath={member.photo_path}
+                          photoUpdatedAt={member.photo_updated_at}
+                        />
                         <span className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`} />
                         {member.name}
+                        {isNewMember(member) && (
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">NEW</Badge>
+                        )}
                       </span>
                     </TableCell>
                     <TableCell>{formatPhone(member.phone_number)}</TableCell>
@@ -582,7 +603,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                   <p className="text-xs text-gray-400">Try adjusting your filters or search term</p>
                 ) : (
                   <p className="text-xs text-gray-400">
-                    Get started by adding your first member using the "+ Add Member" button above, or register multiple members at once with "Bulk Register".
+                    Get started by adding your first member using the &quot;+ Add Member&quot; button above, or register multiple members at once with &quot;Bulk Register&quot;.
                   </p>
                 )}
               </div>

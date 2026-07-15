@@ -12,7 +12,7 @@ interface CronExecution {
   started_at: string;
   completed_at: string | null;
   status: 'running' | 'success' | 'failure';
-  summary: Record<string, any> | null;
+  summary: Record<string, unknown> | null;
   errors: string[] | null;
 }
 

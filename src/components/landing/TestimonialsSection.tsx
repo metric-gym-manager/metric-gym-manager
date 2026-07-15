@@ -56,7 +56,7 @@ export function TestimonialsSection() {
             What Our Clients Say
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Hear from gym owners who've transformed their business with Metric Gym Manager
+            Hear from gym owners who&apos;ve transformed their business with Metric Gym Manager
           </p>
         </div>
 

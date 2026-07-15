@@ -71,7 +71,7 @@ describe('Phone Utils - normalizePhoneNumber', () => {
   });
 
   it('should return null for non-string input', () => {
-    const result = normalizePhoneNumber(null as any);
+    const result = normalizePhoneNumber(null as never);
     expect(result).toBeNull();
   });
 
@@ -137,7 +137,7 @@ describe('Phone Utils - isValidSriLankanPhone', () => {
   });
 
   it('should reject null input', () => {
-    const result = isValidSriLankanPhone(null as any);
+    const result = isValidSriLankanPhone(null as never);
     expect(result).toBe(false);
   });
 
@@ -210,7 +210,7 @@ describe('Phone Utils - maskPhoneNumber', () => {
   });
 
   it('should return "Invalid phone" for null input', () => {
-    const result = maskPhoneNumber(null as any);
+    const result = maskPhoneNumber(null as never);
     expect(result).toBe('Invalid phone');
   });
 

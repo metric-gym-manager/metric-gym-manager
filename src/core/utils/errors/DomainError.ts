@@ -279,7 +279,7 @@ export class SMSSendError extends ExternalServiceError {
  * @param error - Error to check
  * @returns True if domain error
  */
-export function isDomainError(error: any): error is DomainError {
+export function isDomainError(error: unknown): error is DomainError {
   return error instanceof DomainError;
 }
 
@@ -289,7 +289,7 @@ export function isDomainError(error: any): error is DomainError {
  * @param error - Error to check
  * @returns True if validation error
  */
-export function isValidationError(error: any): error is ValidationError {
+export function isValidationError(error: unknown): error is ValidationError {
   return error instanceof ValidationError;
 }
 
@@ -299,7 +299,7 @@ export function isValidationError(error: any): error is ValidationError {
  * @param error - Error to check
  * @returns True if not found error
  */
-export function isNotFoundError(error: any): error is NotFoundError {
+export function isNotFoundError(error: unknown): error is NotFoundError {
   return error instanceof NotFoundError;
 }
 
@@ -309,7 +309,7 @@ export function isNotFoundError(error: any): error is NotFoundError {
  * @param error - Error object
  * @returns Error code
  */
-export function getErrorCode(error: any): string {
+export function getErrorCode(error: unknown): string {
   if (isDomainError(error)) {
     return error.code;
   }
@@ -322,7 +322,7 @@ export function getErrorCode(error: any): string {
  * @param error - Error object
  * @returns HTTP status code
  */
-export function getErrorStatusCode(error: any): number {
+export function getErrorStatusCode(error: unknown): number {
   if (isDomainError(error)) {
     return error.statusCode;
   }

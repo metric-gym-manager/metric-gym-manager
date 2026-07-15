@@ -30,9 +30,12 @@ import {
 import { CheckCircle2, Clock, AlertCircle, XCircle, History, Info, AlertOctagon } from 'lucide-react';
 import type { ReminderStatusResponse, MemberReminderStatus } from '@/features/sms/types';
 import SMSHistoryModal from './SMSHistoryModal';
+import { useNow } from '@/hooks/useNow';
 
 export default function PaymentRemindersTable() {
   const { openMember } = useMemberModal();
+  // Minute-ticking timestamp: Date.now() during render is impure
+  const now = useNow();
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('due_date_asc');
@@ -230,7 +233,7 @@ export default function PaymentRemindersTable() {
   // Recently-sent indicator: was a reminder sent in the last 24 hours?
   const getRecentlySentLabel = (lastSent: string | null): string | null => {
     if (!lastSent) return null;
-    const minutesAgo = Math.floor((Date.now() - new Date(lastSent).getTime()) / 60000);
+    const minutesAgo = Math.floor((now - new Date(lastSent).getTime()) / 60000);
     if (minutesAgo > 1440) return null; // older than 24h — no indicator
     if (minutesAgo < 60) return `Sent ${minutesAgo}m ago`;
     return `Sent ${Math.floor(minutesAgo / 60)}h ago`;
@@ -272,7 +275,7 @@ export default function PaymentRemindersTable() {
         <p className="text-sm text-blue-800">
           <span className="font-semibold">About Automatic Reminders:</span> The table below shows the status of automatic payment reminders only.
           These are sent automatically by the system based on due dates (7-day, 3-day, and due-today reminders).
-          Manual reminders sent via the "Send Now" button are tracked separately and do not appear in these columns.
+          Manual reminders sent via the &quot;Send Now&quot; button are tracked separately and do not appear in these columns.
         </p>
       </div>
 

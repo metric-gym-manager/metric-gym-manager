@@ -65,6 +65,17 @@ export function NewTestimonialsSection() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const scrollToIndex = (index: number) => {
+    if (!containerRef.current) return;
+    const cardWidth = 320 + 16; // card width + gap
+    const scrollPosition = index * cardWidth;
+    containerRef.current.scrollTo({
+      left: scrollPosition,
+      behavior: 'smooth',
+    });
+    setActiveIndex(index);
+  };
+
   // Auto-scroll functionality for mobile
   useEffect(() => {
     if (!isMobile || !containerRef.current) return;
@@ -107,17 +118,6 @@ export function NewTestimonialsSection() {
     container.addEventListener('scroll', handleScroll);
     return () => container.removeEventListener('scroll', handleScroll);
   }, [isMobile]);
-
-  const scrollToIndex = (index: number) => {
-    if (!containerRef.current) return;
-    const cardWidth = 320 + 16; // card width + gap
-    const scrollPosition = index * cardWidth;
-    containerRef.current.scrollTo({
-      left: scrollPosition,
-      behavior: 'smooth',
-    });
-    setActiveIndex(index);
-  };
 
   const handleDotClick = (index: number) => {
     userInteractedRef.current = true;

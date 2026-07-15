@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
@@ -105,13 +105,20 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
     },
   });
 
-  // Initialize with first available plan type when data loads
-  useEffect(() => {
+  // Render-time state adjustments (React "storing information from previous
+  // renders" pattern) instead of setState-in-effect.
+  const [prevPlanTypesData, setPrevPlanTypesData] = useState<PlanType[] | undefined>(undefined);
+  const [prevGlobalPlanType, setPrevGlobalPlanType] = useState<BulkRow['planType'] | null>(null);
+
+  if (planTypesData !== prevPlanTypesData) {
+    // Initialize with first available plan type when data loads
+    setPrevPlanTypesData(planTypesData);
     if (planTypesData && planTypesData.length > 0) {
       const activePlans = planTypesData.filter((pt) => pt.is_active);
       if (activePlans.length > 0) {
         const firstPlan = activePlans[0];
         setGlobalPlanType(firstPlan.plan_type);
+        setPrevGlobalPlanType(firstPlan.plan_type);
         setGlobalPlanAmount(firstPlan.default_amount);
 
         // Initialize all rows with first plan
@@ -124,17 +131,16 @@ export default function BulkAddMemberModal({ open, onClose }: BulkAddMemberModal
         );
       }
     }
-  }, [planTypesData]); // Only run when planTypesData first loads
-
-  // Auto-fill global plan amount when global plan type changes
-  useEffect(() => {
+  } else if (globalPlanType !== prevGlobalPlanType) {
+    // Auto-fill global plan amount when global plan type changes
+    setPrevGlobalPlanType(globalPlanType);
     if (globalPlanType && planTypesData) {
       const planType = planTypesData.find((pt) => pt.plan_type === globalPlanType);
       if (planType && planType.default_amount > 0) {
         setGlobalPlanAmount(planType.default_amount);
       }
     }
-  }, [globalPlanType, planTypesData]);
+  }
 
   // Derive discounted amount for a row
   const getRowDiscountPct = (row: BulkRow): number => {

@@ -35,6 +35,7 @@ import {
 import { Label } from '@/components/ui/label';
 import MarkPaidDialog from '@/components/payment-collection/MarkPaidDialog';
 import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog';
+import MemberPhotoSection from './MemberPhotoSection';
 import type { MemberWithDiscount, Payment } from '@/features/members/types';
 import { parseApiError } from '@/lib/utils/api-error';
 
@@ -337,6 +338,9 @@ export default function MemberDetailModal({
         </DialogHeader>
 
         <div className="space-y-6">
+          {/* Member Photo & Verification */}
+          <MemberPhotoSection member={member} />
+
           {/* Member Information */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -499,7 +503,16 @@ export default function MemberDetailModal({
                     <TableBody>
                       {payments.map((payment) => (
                         <TableRow key={payment.id}>
-                          <TableCell>{formatDate(payment.payment_date)}</TableCell>
+                          <TableCell>
+                            <span className="flex items-center gap-2">
+                              {formatDate(payment.payment_date)}
+                              {payment.payment_type === 'day_pass' && (
+                                <Badge className="border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100">
+                                  Day Pass
+                                </Badge>
+                              )}
+                            </span>
+                          </TableCell>
                           <TableCell className="font-medium">
                             {formatCurrency(payment.amount_paid)}
                           </TableCell>

@@ -47,6 +47,13 @@ export const PUBLIC_ROUTES = [
 ] as const;
 
 /**
+ * Public route prefixes (dynamic segments). /join/{token} is the QR
+ * self-registration form filled by gym members on their own phones —
+ * they never have an account.
+ */
+export const PUBLIC_ROUTE_PREFIXES = ['/join/'] as const;
+
+/**
  * Auth routes that authenticated users shouldn't access (prefix match).
  * Note: /register is excluded to allow authenticated users to view it.
  */
@@ -60,7 +67,10 @@ export const AUTH_ROUTES = [
 
 /** True when the pathname is public and never requires a session. */
 export function isPublicRoute(pathname: string): boolean {
-  return PUBLIC_ROUTES.some((route) => pathname === route);
+  return (
+    PUBLIC_ROUTES.some((route) => pathname === route) ||
+    PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+  );
 }
 
 /** True when the pathname is an auth page authenticated users get bounced from. */
