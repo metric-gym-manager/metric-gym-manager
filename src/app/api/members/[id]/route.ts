@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiGymProfile } from '@/lib/middleware/api-auth';
 import { updateMemberSchema } from '@/features/members/schemas/member.schemas';
-import { getContainer } from '@/infrastructure/di';
+import { createClient } from '@/lib/supabase/server';
+import { createMemberRepository } from '@/features/members';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { NotFoundError } from '@/utils/errors';
 import { PlanType } from '@/features/members/config/PlanConfig';
@@ -23,8 +24,7 @@ export async function GET(
     }
 
     // Use repository to get member
-    const container = await getContainer();
-    const memberRepo = container.getMemberRepository();
+    const memberRepo = createMemberRepository(await createClient());
     const member = await memberRepo.findById(id, gymProfile!.id);
 
     if (!member) {
@@ -70,8 +70,7 @@ export async function PATCH(
     const validatedData = updateMemberSchema.parse(body);
 
     // Get member and update via repository
-    const container = await getContainer();
-    const memberRepo = container.getMemberRepository();
+    const memberRepo = createMemberRepository(await createClient());
     const member = await memberRepo.findById(id, gymProfile!.id);
 
     if (!member) {
@@ -153,8 +152,7 @@ export async function DELETE(
     }
 
     // Use repository to delete member
-    const container = await getContainer();
-    const memberRepo = container.getMemberRepository();
+    const memberRepo = createMemberRepository(await createClient());
     await memberRepo.delete(id, gymProfile!.id);
 
     return NextResponse.json(

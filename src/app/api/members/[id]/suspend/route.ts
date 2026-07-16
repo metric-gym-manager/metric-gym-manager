@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
+import { createClient } from '@/lib/supabase/server';
+import { createSuspendMember } from '@/features/members';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { NotFoundError, InvalidStatusTransitionError } from '@/utils/errors';
 
@@ -27,8 +28,7 @@ export async function POST(
     const gymProfile = await getCurrentGymProfile();
 
     // Execute suspend via use case
-    const container = await getContainer();
-    const suspendMember = container.getSuspendMemberUseCase();
+    const suspendMember = createSuspendMember(await createClient());
 
     const suspendedMember = await suspendMember.execute({
       memberId: id,

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getAdminContainer } from '@/infrastructure/di';
+import { createRegisterMember, createMemberRepository } from '@/features/members';
+import { createStorageProvider } from '@/lib/storage/factory';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { ConflictError, ValidationError } from '@/utils/errors';
 import { PlanType, getPlanLabel } from '@/features/members/config/PlanConfig';
@@ -96,8 +97,7 @@ export async function POST(request: NextRequest) {
 
     // Create the member through the standard registration use case
     // (admin container: anonymous callers have no RLS session)
-    const container = await getAdminContainer();
-    const registerMember = container.getRegisterMemberUseCase();
+    const registerMember = createRegisterMember(supabase);
 
     const result = await registerMember.execute({
       gymId,
@@ -125,12 +125,13 @@ export async function POST(request: NextRequest) {
       const contentType = input.photoContentType as MemberPhotoContentType;
       photoPath = memberPhotoPath(member.id, contentType);
 
-      const presign = await container
-        .getStorageProvider()
-        .getPresignedUploadUrl(photoPath, { contentType });
+      const presign = await createStorageProvider().getPresignedUploadUrl(
+        photoPath,
+        { contentType }
+      );
       uploadUrl = presign.uploadUrl;
 
-      await container.getMemberRepository().update(member.updatePhoto(photoPath));
+      await createMemberRepository(supabase).update(member.updatePhoto(photoPath));
     }
 
     return NextResponse.json(

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
+import { createClient } from '@/lib/supabase/server';
+import { createMemberRepository } from '@/features/members';
+import { createStorageProvider } from '@/lib/storage/factory';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import {
   MEMBER_PHOTO_CONTENT_TYPES,
@@ -41,10 +43,11 @@ export async function POST(request: NextRequest) {
     const { memberId, contentType } = generateUploadUrlSchema.parse(body);
 
     // Tenant check: the member must exist in the caller's gym
-    const container = await getContainer();
-    const member = await container
-      .getMemberRepository()
-      .findById(memberId, gymProfile.id);
+    const supabase = await createClient();
+    const member = await createMemberRepository(supabase).findById(
+      memberId,
+      gymProfile.id
+    );
 
     if (!member) {
       return NextResponse.json(ResponseBuilder.notFound('Member'), {
@@ -54,12 +57,10 @@ export async function POST(request: NextRequest) {
 
     const path = memberPhotoPath(memberId, contentType as MemberPhotoContentType);
 
-    const presign = await container
-      .getStorageProvider()
-      .getPresignedUploadUrl(path, {
-        contentType,
-        expiresInSeconds: UPLOAD_URL_EXPIRY_SECONDS,
-      });
+    const presign = await createStorageProvider().getPresignedUploadUrl(path, {
+      contentType,
+      expiresInSeconds: UPLOAD_URL_EXPIRY_SECONDS,
+    });
 
     return NextResponse.json(
       ResponseBuilder.success({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
+import { createClient } from '@/lib/supabase/server';
+import { createReactivateMember } from '@/features/members';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { NotFoundError, InvalidStatusTransitionError, MemberLimitError } from '@/utils/errors';
 import { z } from 'zod';
@@ -42,8 +43,7 @@ export async function POST(
     const validatedData = activateMemberSchema.parse(body);
 
     // Execute activate via use case
-    const container = await getContainer();
-    const reactivateMember = container.getReactivateMemberUseCase();
+    const reactivateMember = createReactivateMember(await createClient());
 
     const activatedMember = await reactivateMember.execute({
       memberId: id,

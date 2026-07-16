@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
+import { createClient } from '@/lib/supabase/server';
+import { createMemberRepository } from '@/features/members';
+import { createStorageProvider } from '@/lib/storage/factory';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { ValidationError } from '@/utils/errors';
 import { isPhotoPathForMember } from '@/utils/member-photo';
@@ -39,9 +41,8 @@ export async function POST(
       throw new ValidationError('Photo path does not match this member');
     }
 
-    const container = await getContainer();
-    const memberRepo = container.getMemberRepository();
-    const storage = container.getStorageProvider();
+    const memberRepo = createMemberRepository(await createClient());
+    const storage = createStorageProvider();
 
     const member = await memberRepo.findById(id, gymProfile.id);
     if (!member) {
@@ -112,8 +113,7 @@ export async function DELETE(
     const { id } = await params;
     const gymProfile = await getCurrentGymProfile();
 
-    const container = await getContainer();
-    const memberRepo = container.getMemberRepository();
+    const memberRepo = createMemberRepository(await createClient());
 
     const member = await memberRepo.findById(id, gymProfile.id);
     if (!member) {
@@ -126,7 +126,7 @@ export async function DELETE(
     if (photoPath) {
       await memberRepo.update(member.removePhoto());
       // Best-effort object cleanup after the reference is gone
-      await container.getStorageProvider().delete(photoPath);
+      await createStorageProvider().delete(photoPath);
     }
 
     return NextResponse.json(

@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { addMemberSchema, memberFiltersSchema } from '@/features/members/schemas/member.schemas';
-import { getContainer, getAdminContainer } from '@/infrastructure/di';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createMemberRepository, createRegisterMember } from '@/features/members';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { ConflictError, MemberLimitError, ValidationError } from '@/utils/errors';
 import { PlanType } from '@/features/members/config/PlanConfig';
@@ -86,8 +88,7 @@ export async function GET(request: NextRequest) {
     const validatedFilters = memberFiltersSchema.parse(filters);
 
     // Get members via repository
-    const container = await getContainer();
-    const memberRepo = container.getMemberRepository();
+    const memberRepo = createMemberRepository(await createClient());
 
     const result = await memberRepo.findAll({
       gymId: gymProfile.id,
@@ -185,8 +186,7 @@ export async function POST(request: NextRequest) {
     // Register member via use case. Admin container on purpose: the guarded
     // quota RPC is EXECUTE-granted to service_role only, and the caller's
     // gym id was already pinned by getCurrentGymProfile() above (plan C-15).
-    const container = await getAdminContainer();
-    const registerMember = container.getRegisterMemberUseCase();
+    const registerMember = createRegisterMember(createAdminClient());
 
     const result = await registerMember.execute({
       gymId: gymProfile.id,
