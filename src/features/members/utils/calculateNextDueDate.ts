@@ -165,13 +165,3 @@ export function calculateNextDueDateFromPayment(
   const baseDate = deductOverduePeriod ? paymentDate : currentDueDate;
   return calculateNextDueDate(baseDate, planType, { deductOverduePeriod });
 }
-
-/**
- * Format date for database storage (YYYY-MM-DD)
- *
- * @param date - The date to format
- * @returns Date string in YYYY-MM-DD format
- */
-export function formatDateForDB(date: Date): string {
-  return date.toISOString().split('T')[0];
-}

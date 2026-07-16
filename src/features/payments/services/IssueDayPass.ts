@@ -29,7 +29,7 @@ import { ISMSRepository } from '@/features/sms/services/ISMSRepository';
 import { ISMSProvider } from '@/features/sms/services/ISMSProvider';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate';
-import { formatDateForDisplay } from '@/utils/date/formatDate';
+import { formatDateForDisplay } from '@/utils/date/date';
 import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue';
 import { PlanType } from '@/features/members/config/PlanConfig';
 import { MemberStatus } from '@/features/members/config/StatusConfig';

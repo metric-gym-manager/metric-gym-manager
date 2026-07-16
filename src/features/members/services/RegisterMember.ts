@@ -26,7 +26,7 @@ import { calculateNextDueDate } from '../utils/calculateNextDueDate';
 import { PlanType } from '@/features/members/config/PlanConfig';
 import { MemberStatus } from '@/features/members/config/StatusConfig';
 import { RegistrationSource } from '@/features/members/config/RegistrationConfig';
-import { formatDateForDisplay } from '@/utils/date/formatDate';
+import { formatDateForDisplay } from '@/utils/date/date';
 import { ConflictError } from '@/utils/errors';
 
 /**

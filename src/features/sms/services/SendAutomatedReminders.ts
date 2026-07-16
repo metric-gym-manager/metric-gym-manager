@@ -22,7 +22,7 @@ import type { IGymSubscriptionRepository } from '@/features/subscriptions/servic
 import { ISMSProvider } from './ISMSProvider';
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig';
 import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue';
-import { formatDateForDisplay } from '@/utils/date/formatDate';
+import { formatDateForDisplay } from '@/utils/date/date';
 import { shouldSendReminder, ReminderType } from '@/features/sms/config/ReminderConfig';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import { PlanType } from '@/features/members/config/PlanConfig';

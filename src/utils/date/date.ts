@@ -63,8 +63,14 @@ export function formatDateShort(dateInput: string | Date): string {
 }
 
 /**
- * Calculate next due date based on payment date and plan type.
- * Mirrors backend logic from payment.service.ts
+ * Client-side next-due-date estimate using CALENDAR arithmetic
+ * (e.g. 'monthly' = +1 calendar month: 03-15 -> 04-15).
+ *
+ * NOT the billing authority. The server computes the actual due date with
+ * `features/members/utils/calculateNextDueDate.ts`, which uses per-plan
+ * cycle configuration from PlanConfig and can produce different results.
+ * This helper only pre-fills UI previews; the value persisted always comes
+ * from the API response.
  *
  * @param paymentDate - Payment date in YYYY-MM-DD format
  * @param planType - Plan type ('daily' | 'weekly' | 'monthly' | '3-months' | '6-months' | 'annual')
@@ -103,4 +109,16 @@ export function calculateNextDueDate(
   }
 
   return date.toISOString().split('T')[0];
+}
+
+/**
+ * Format date for display in en-GB (DD/MM/YYYY) format.
+ * Used by server-side use-cases for SMS message dates.
+ *
+ * @example
+ * formatDateForDisplay(new Date('2024-01-15')) // '15/01/2024'
+ */
+export function formatDateForDisplay(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  return d.toLocaleDateString('en-GB'); // DD/MM/YYYY format
 }
