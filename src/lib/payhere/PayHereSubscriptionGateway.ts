@@ -17,7 +17,7 @@ import type {
   GatewaySubscriptionPayment,
   TokenChargeInput,
   TokenChargeResult,
-} from '@/core/ports/services';
+} from '@/lib/payhere/ISubscriptionGateway';
 import { ExternalServiceError } from '@/utils/errors';
 import { getPayhereConfig } from '@/lib/payhere/config';
 import { verifyNotificationSignature, formatAmount } from '@/lib/payhere/crypto';

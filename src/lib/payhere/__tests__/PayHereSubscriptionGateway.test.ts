@@ -1,7 +1,7 @@
 import {
   PayHereSubscriptionGateway,
   __resetPayhereTokenCacheForTests,
-} from '@/infrastructure/payments/PayHereSubscriptionGateway';
+} from '@/lib/payhere/PayHereSubscriptionGateway';
 import { __resetPayhereConfigForTests } from '@/lib/payhere/config';
 import { ExternalServiceError } from '@/utils/errors';
 import { createHash } from 'crypto';

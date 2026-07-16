@@ -29,7 +29,7 @@ import type {
   PresignedUploadOptions,
   UploadOptions,
   UploadResult,
-} from '@/core/ports/services/IStorageProvider';
+} from '@/lib/storage/IStorageProvider';
 
 /** Default presigned URL validity: 5 minutes */
 const DEFAULT_PRESIGN_EXPIRY_SECONDS = 300;

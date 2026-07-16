@@ -12,7 +12,7 @@ import type {
   PresignedUploadOptions,
   UploadOptions,
   UploadResult,
-} from '@/core/ports/services/IStorageProvider';
+} from '@/lib/storage/IStorageProvider';
 
 export class MockStorageProvider implements IStorageProvider {
   /** Object paths "stored" via upload(), inspectable in tests */

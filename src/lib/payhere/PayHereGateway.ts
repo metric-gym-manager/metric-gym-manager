@@ -16,7 +16,7 @@ import type {
   IPaymentGateway,
   CheckoutCustomer,
   CheckoutRedirect,
-} from '@/core/ports/services';
+} from '@/lib/payhere/IPaymentGateway';
 import {
   generateCheckoutHash,
   verifyNotificationSignature,

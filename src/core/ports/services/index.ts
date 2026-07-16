@@ -1,4 +1,5 @@
-// Service interfaces exports
+// Service interfaces.
+// ISMSProvider stays here until Phase 5 (-> features/sms).
 export {
   type ISMSProvider,
   type ISMSTemplate,
@@ -6,23 +7,17 @@ export {
   type SMSSendResult,
 } from './ISMSProvider';
 
-export {
-  type IStorageProvider,
-  type UploadOptions,
-  type UploadResult,
-  type PresignedUpload,
-  type PresignedUploadOptions,
-} from './IStorageProvider';
-
+// Gateway interfaces relocated to @/lib/payhere in Phase 4; bridged here for
+// the subscription use-cases and DI container until they move in Phase 5.
 export {
   type IPaymentGateway,
   type CheckoutCustomer,
   type CheckoutRedirect,
-} from './IPaymentGateway';
+} from '@/lib/payhere/IPaymentGateway';
 
 export {
   type ISubscriptionGateway,
   type GatewaySubscriptionPayment,
   type TokenChargeInput,
   type TokenChargeResult,
-} from './ISubscriptionGateway';
+} from '@/lib/payhere/ISubscriptionGateway';

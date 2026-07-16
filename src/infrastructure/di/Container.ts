@@ -27,16 +27,16 @@ import { SupabaseSaasPaymentLogRepository } from '@/infrastructure/database/repo
 import { SupabaseChargeAttemptRepository } from '@/infrastructure/database/repositories/SupabaseChargeAttemptRepository';
 
 // Payment gateways
-import { PayHereGateway } from '@/infrastructure/payments/PayHereGateway';
-import { PayHereSubscriptionGateway } from '@/infrastructure/payments/PayHereSubscriptionGateway';
+import { PayHereGateway } from '@/lib/payhere/PayHereGateway';
+import { PayHereSubscriptionGateway } from '@/lib/payhere/PayHereSubscriptionGateway';
 import { getPayhereConfig } from '@/lib/payhere/config';
 import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
 
 // Services
 import { TextLkSMSProvider } from '@/infrastructure/sms/providers/TextLkSMSProvider';
 import { MockSMSProvider } from '@/infrastructure/sms/providers/MockSMSProvider';
-import { R2StorageProvider } from '@/infrastructure/storage/R2StorageProvider';
-import { MockStorageProvider } from '@/infrastructure/storage/MockStorageProvider';
+import { R2StorageProvider } from '@/lib/storage/R2StorageProvider';
+import { MockStorageProvider } from '@/lib/storage/MockStorageProvider';
 
 // Use Cases
 import { RegisterMember } from '@/core/use-cases/member/RegisterMember';
@@ -68,7 +68,7 @@ import type { ISaasPaymentLogRepository } from '@/core/ports/repositories/ISaasP
 import type { IChargeAttemptRepository } from '@/core/ports/repositories/IChargeAttemptRepository';
 import type { ISMSProvider } from '@/core/ports/services/ISMSProvider';
 import type { IPaymentGateway, ISubscriptionGateway } from '@/core/ports/services';
-import type { IStorageProvider } from '@/core/ports/services/IStorageProvider';
+import type { IStorageProvider } from '@/lib/storage/IStorageProvider';
 
 /**
  * Dependency Injection Container

@@ -23,7 +23,7 @@ const {
 } = require('@/infrastructure/database/repositories/SupabaseCheckoutIntentRepository');
 const { GenerateCheckoutUrl } = require('@/core/use-cases/subscription/GenerateCheckoutUrl');
 const { CancelSubscription } = require('@/core/use-cases/subscription/CancelSubscription');
-const { PayHereGateway } = require('@/infrastructure/payments/PayHereGateway');
+const { PayHereGateway } = require('@/lib/payhere/PayHereGateway');
 
 const customer = {
   firstName: 'IT Gym',
