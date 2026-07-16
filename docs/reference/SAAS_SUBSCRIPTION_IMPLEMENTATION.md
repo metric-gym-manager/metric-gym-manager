@@ -66,7 +66,7 @@ briefly unguarded between 20260708000003 and this migration).
 
 Legal `(tier, status)` pairs: `{lite,pro,enterprise} × {trialing,active,past_due,suspended,canceled}`.
 Every tier is paid; there is no free tier and no downgrade landing tier.
-Domain entity: `src/core/domain/subscription/Subscription.ts`.
+Domain entity: `src/features/subscriptions/domain/Subscription.ts`.
 
 `activate(targetTier)` is tier-agnostic and provisions the tier the checkout
 intent priced; `convertTrialToPaid()` is its trialing-guarded alias.
@@ -200,7 +200,7 @@ retry button is ever added, cap it (≤1/24h per subscription, ≤2 per past_due
 
 ## 6.1 Plan restrictions (capability matrix)
 
-**Single source of truth: `src/core/domain/subscription/PlanRestrictions.ts`**
+**Single source of truth: `src/features/subscriptions/domain/PlanRestrictions.ts`**
 (the capability matrix). Tier conditionals are never written anywhere else;
 adding a tier to `SaasTier` breaks compilation until the matrix is extended.
 

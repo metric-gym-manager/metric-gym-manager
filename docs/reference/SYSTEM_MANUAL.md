@@ -1,4 +1,13 @@
 # SYSTEM MANUAL: Gym Management SaaS
+
+> **⚠️ Architecture note (2026-07):** this manual predates the feature-first
+> refactor. Behavior, flows, and business rules described here remain accurate,
+> but layer paths in code examples are historical: `src/core/use-cases/*` and
+> `src/infrastructure/*` now live under `src/features/<domain>/services/`, the
+> DI container (`getContainer`/`getAdminContainer`) was replaced by per-feature
+> `create<UseCase>(supabase)` factories, and shared utilities moved to
+> `src/utils` / `src/lib`. See `.claude/rules/architecture.md` for the current
+> structure.
 ## Comprehensive Technical Audit & Operational Documentation
 
 **Generated**: 2026-03-26

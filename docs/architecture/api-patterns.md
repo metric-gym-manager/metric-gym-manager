@@ -55,7 +55,7 @@ return NextResponse.json(
 
 #### ✅ CORRECT: ResponseBuilder Usage
 
-**Location:** `src/core/utils/api/ApiResponse.ts`
+**Location:** `src/utils/api/ApiResponse.ts`
 
 **Step 1: Import ResponseBuilder**
 

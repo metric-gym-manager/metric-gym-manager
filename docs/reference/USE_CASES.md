@@ -21,7 +21,7 @@ This document provides detailed documentation for all use cases in the Gym Manag
 
 ### RegisterMember
 
-**File**: `src/core/use-cases/member/RegisterMember.ts`
+**File**: `src/features/members/services/RegisterMember.ts`
 
 **Purpose**: Orchestrates the complete member registration workflow including validation, payment recording, and welcome SMS.
 
@@ -164,8 +164,7 @@ export async function POST(request: NextRequest) {
   const gymProfile = await getCurrentGymProfile();
   const validatedData = addMemberSchema.parse(await request.json());
 
-  const container = await getContainer();
-  const registerMember = container.getRegisterMemberUseCase();
+  const registerMember = createRegisterMember(await createClient());
 
   const result = await registerMember.execute({
     gymId: gymProfile.id,
@@ -210,7 +209,7 @@ Thank you for joining us!
 
 ### UpdateExpiredStatus
 
-**File**: `src/core/use-cases/member/UpdateExpiredStatus.ts`
+**File**: `src/features/members/services/UpdateExpiredStatus.ts`
 
 **Purpose**: Automated cron job that transitions active members to expired status when their due date has passed.
 
@@ -362,7 +361,7 @@ Active → Expired
 
 ### CancelOverdueMembers
 
-**File**: `src/core/use-cases/member/CancelOverdueMembers.ts`
+**File**: `src/features/members/services/CancelOverdueMembers.ts`
 
 **Purpose**: Automated cron job that cancels members who have been overdue for 45+ days.
 
@@ -522,7 +521,7 @@ Expired → Cancelled
 
 ### CollectPayment
 
-**File**: `src/core/use-cases/payment/CollectPayment.ts`
+**File**: `src/features/payments/services/CollectPayment.ts`
 
 **Purpose**: Handles payment collection and member renewal. This is a **REVENUE-CRITICAL** use case.
 
@@ -678,8 +677,7 @@ export async function POST(
   const gymProfile = await getCurrentGymProfile();
   const validatedData = collectPaymentSchema.parse(await request.json());
 
-  const container = await getContainer();
-  const collectPayment = container.getCollectPaymentUseCase();
+  const collectPayment = createCollectPayment(await createClient());
 
   const result = await collectPayment.execute({
     gymId: gymProfile.id,
@@ -737,7 +735,7 @@ Thank you for your payment!
 
 ### SendAutomatedReminders
 
-**File**: `src/core/use-cases/reminder/SendAutomatedReminders.ts`
+**File**: `src/features/sms/services/SendAutomatedReminders.ts`
 
 **Purpose**: Sends payment reminders to active members based on plan-specific business rules.
 
@@ -1293,5 +1291,5 @@ This document provides comprehensive documentation for all use cases in the Clea
 - **Reliable**: Error accumulation, partial success handling
 
 For implementation details on infrastructure adapters and domain entities, see:
-- [CLEAN_ARCHITECTURE.md](./CLEAN_ARCHITECTURE.md)
+- [.claude/rules/architecture.md](../../.claude/rules/architecture.md) — feature-first architecture rules
 - [TESTING_GUIDE.md](./TESTING_GUIDE.md)

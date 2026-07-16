@@ -4,7 +4,7 @@
  * Provides centralized error message extraction from standardized API responses.
  * This utility ensures consistent error handling across all frontend components.
  *
- * @see src/core/utils/api/ApiResponse.ts - Backend response structure
+ * @see src/utils/api/ApiResponse.ts - Backend response structure
  */
 
 import { ApiErrorResponse } from '@/utils/api/ApiResponse';
