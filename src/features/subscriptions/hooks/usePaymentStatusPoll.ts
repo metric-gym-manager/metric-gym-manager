@@ -9,7 +9,7 @@ import {
   PAYMENT_POLL_INTERVAL_MS,
   PAYMENT_POLL_TIMEOUT_MS,
   SaasStatus,
-} from '@/core/utils/constants/SubscriptionConfig';
+} from '@/features/subscriptions/config/SubscriptionConfig';
 
 /**
  * Post-redirect verification poll (TOCTOU mitigation, plan §5.4 flow 1).

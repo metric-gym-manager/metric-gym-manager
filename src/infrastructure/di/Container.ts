@@ -21,16 +21,16 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { SupabaseMemberRepository } from '@/features/members/services/SupabaseMemberRepository';
 import { SupabasePaymentRepository } from '@/features/payments/services/SupabasePaymentRepository';
 import { SupabaseSMSRepository } from '@/features/sms/services/SupabaseSMSRepository';
-import { SupabaseGymSubscriptionRepository } from '@/infrastructure/database/repositories/SupabaseGymSubscriptionRepository';
-import { SupabaseCheckoutIntentRepository } from '@/infrastructure/database/repositories/SupabaseCheckoutIntentRepository';
-import { SupabaseSaasPaymentLogRepository } from '@/infrastructure/database/repositories/SupabaseSaasPaymentLogRepository';
-import { SupabaseChargeAttemptRepository } from '@/infrastructure/database/repositories/SupabaseChargeAttemptRepository';
+import { SupabaseGymSubscriptionRepository } from '@/features/subscriptions/services/SupabaseGymSubscriptionRepository';
+import { SupabaseCheckoutIntentRepository } from '@/features/subscriptions/services/SupabaseCheckoutIntentRepository';
+import { SupabaseSaasPaymentLogRepository } from '@/features/subscriptions/services/SupabaseSaasPaymentLogRepository';
+import { SupabaseChargeAttemptRepository } from '@/features/subscriptions/services/SupabaseChargeAttemptRepository';
 
 // Payment gateways
 import { PayHereGateway } from '@/lib/payhere/PayHereGateway';
 import { PayHereSubscriptionGateway } from '@/lib/payhere/PayHereSubscriptionGateway';
 import { getPayhereConfig } from '@/lib/payhere/config';
-import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasTier } from '@/features/subscriptions/config/SubscriptionConfig';
 
 // Services
 import { TextLkSMSProvider } from '@/features/sms/services/providers/TextLkSMSProvider';
@@ -50,22 +50,22 @@ import { ExpireSuspendedMembers } from '@/features/members/services/ExpireSuspen
 import { SuspendMember } from '@/features/members/services/SuspendMember';
 import { ReactivateMember } from '@/features/members/services/ReactivateMember';
 import { CancelMember } from '@/features/members/services/CancelMember';
-import { GenerateCheckoutUrl } from '@/core/use-cases/subscription/GenerateCheckoutUrl';
-import { HandlePayHereWebhook } from '@/core/use-cases/subscription/HandlePayHereWebhook';
-import { ProcessDunning } from '@/core/use-cases/subscription/ProcessDunning';
-import { ProcessTrialExpiry } from '@/core/use-cases/subscription/ProcessTrialExpiry';
-import { CancelSubscription } from '@/core/use-cases/subscription/CancelSubscription';
-import { ChangePlan } from '@/core/use-cases/subscription/ChangePlan';
-import { ChargeDueRenewals } from '@/core/use-cases/subscription/ChargeDueRenewals';
+import { GenerateCheckoutUrl } from '@/features/subscriptions/services/GenerateCheckoutUrl';
+import { HandlePayHereWebhook } from '@/features/subscriptions/services/HandlePayHereWebhook';
+import { ProcessDunning } from '@/features/subscriptions/services/ProcessDunning';
+import { ProcessTrialExpiry } from '@/features/subscriptions/services/ProcessTrialExpiry';
+import { CancelSubscription } from '@/features/subscriptions/services/CancelSubscription';
+import { ChangePlan } from '@/features/subscriptions/services/ChangePlan';
+import { ChargeDueRenewals } from '@/features/subscriptions/services/ChargeDueRenewals';
 
 // Interfaces
 import type { IMemberRepository } from '@/features/members/services/IMemberRepository';
 import type { IPaymentRepository } from '@/features/payments/services/IPaymentRepository';
 import type { ISMSRepository } from '@/features/sms/services/ISMSRepository';
-import type { IGymSubscriptionRepository } from '@/core/ports/repositories/IGymSubscriptionRepository';
-import type { ICheckoutIntentRepository } from '@/core/ports/repositories/ICheckoutIntentRepository';
-import type { ISaasPaymentLogRepository } from '@/core/ports/repositories/ISaasPaymentLogRepository';
-import type { IChargeAttemptRepository } from '@/core/ports/repositories/IChargeAttemptRepository';
+import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository';
+import type { ICheckoutIntentRepository } from '@/features/subscriptions/services/ICheckoutIntentRepository';
+import type { ISaasPaymentLogRepository } from '@/features/subscriptions/services/ISaasPaymentLogRepository';
+import type { IChargeAttemptRepository } from '@/features/subscriptions/services/IChargeAttemptRepository';
 import type { ISMSProvider } from '@/features/sms/services/ISMSProvider';
 import type { IPaymentGateway, ISubscriptionGateway } from '@/core/ports/services';
 import type { IStorageProvider } from '@/lib/storage/IStorageProvider';

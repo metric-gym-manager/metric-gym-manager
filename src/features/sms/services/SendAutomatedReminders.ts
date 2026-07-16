@@ -17,9 +17,9 @@
 
 import { Member } from '@/features/members/domain/Member';
 import { IMemberRepository, ISMSRepository } from '@/core/ports/repositories';
-import type { IGymSubscriptionRepository } from '@/core/ports/repositories/IGymSubscriptionRepository';
+import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository';
 import { ISMSProvider } from '@/core/ports/services';
-import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig';
 import { getDaysUntilDue } from '@/core/utils/date';
 import { formatDateForDisplay } from '@/core/utils/date';
 import { shouldSendReminder, ReminderType } from '@/features/sms/config/ReminderConfig';

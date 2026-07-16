@@ -23,7 +23,7 @@ import {
   formatAmount,
 } from '@/lib/payhere/crypto';
 import { getPayhereConfig } from '@/lib/payhere/config';
-import { TIER_DISPLAY_NAME, SaasTier } from '@/core/utils/constants/SubscriptionConfig';
+import { TIER_DISPLAY_NAME, SaasTier } from '@/features/subscriptions/config/SubscriptionConfig';
 
 export class PayHereGateway implements IPaymentGateway {
   buildPreapprovalRedirect(input: {

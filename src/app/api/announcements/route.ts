@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { getAdminContainer } from '@/infrastructure/di';
-import { isFeatureEnabled } from '@/core/domain/subscription/PlanRestrictions';
+import { isFeatureEnabled } from '@/features/subscriptions/domain/PlanRestrictions';
 import { getAnnouncements, createAndSendAnnouncement } from '@/features/announcements/services/announcement.service';
 import { createAnnouncementSchema } from '@/features/announcements/schemas/announcement.schemas';
 

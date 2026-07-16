@@ -13,7 +13,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { useSubscription } from '../hooks/useSubscription';
-import { SaasTier, TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasTier, TIER_DISPLAY_NAME } from '@/features/subscriptions/config/SubscriptionConfig';
 
 /**
  * Next tier to upsell from the capped tier: Lite (100) -> Pro (unlimited).

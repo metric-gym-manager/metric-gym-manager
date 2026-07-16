@@ -17,7 +17,7 @@ import { useCheckout } from '../hooks/useCheckout';
 import { useChangePlan } from '../hooks/useChangePlan';
 import { useSubscription } from '../hooks/useSubscription';
 import { ApiRequestError } from '../services/subscriptions.service';
-import { SaasTier, TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasTier, TIER_DISPLAY_NAME } from '@/features/subscriptions/config/SubscriptionConfig';
 
 interface UpgradeConfirmDialogProps {
   open: boolean;

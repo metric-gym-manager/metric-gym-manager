@@ -9,7 +9,7 @@ import {
   SaasStatus,
   SaasTier,
   TIER_DISPLAY_NAME,
-} from '@/core/utils/constants/SubscriptionConfig';
+} from '@/features/subscriptions/config/SubscriptionConfig';
 import type { SerializedSubscription } from '../types';
 
 interface CurrentPlanCardProps {

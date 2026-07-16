@@ -2,7 +2,7 @@
  * Checkout race + cancel integration tests (plan §6.2).
  */
 
-import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasTier } from '@/features/subscriptions/config/SubscriptionConfig';
 import {
   gatedDescribe,
   setPayhereTestEnv,
@@ -17,12 +17,12 @@ setPayhereTestEnv();
 
 const {
   SupabaseGymSubscriptionRepository,
-} = require('@/infrastructure/database/repositories/SupabaseGymSubscriptionRepository');
+} = require('@/features/subscriptions/services/SupabaseGymSubscriptionRepository');
 const {
   SupabaseCheckoutIntentRepository,
-} = require('@/infrastructure/database/repositories/SupabaseCheckoutIntentRepository');
-const { GenerateCheckoutUrl } = require('@/core/use-cases/subscription/GenerateCheckoutUrl');
-const { CancelSubscription } = require('@/core/use-cases/subscription/CancelSubscription');
+} = require('@/features/subscriptions/services/SupabaseCheckoutIntentRepository');
+const { GenerateCheckoutUrl } = require('@/features/subscriptions/services/GenerateCheckoutUrl');
+const { CancelSubscription } = require('@/features/subscriptions/services/CancelSubscription');
 const { PayHereGateway } = require('@/lib/payhere/PayHereGateway');
 
 const customer = {

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { getContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
-import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
-import { classifyRecurringFailure } from '@/core/domain/subscription/classifyRecurringFailure';
+import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig';
+import { classifyRecurringFailure } from '@/features/subscriptions/domain/classifyRecurringFailure';
 import { serializeSubscriptionForAPI } from '@/features/subscriptions/utils/serializeSubscriptionForAPI';
 import { getPayhereConfig } from '@/lib/payhere/config';
 

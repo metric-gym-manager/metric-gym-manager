@@ -2,12 +2,12 @@ import { SendAutomatedReminders } from '@/features/sms/services/SendAutomatedRem
 import { Member } from '@/features/members/domain/Member';
 import { MemberStatus } from '@/features/members/config/StatusConfig';
 import { PlanType } from '@/features/members/config/PlanConfig';
-import { SaasTier, SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
-import { makeSubscription, mockSubscriptionRepo } from '@/core/test-utils/subscription-mocks';
+import { SaasTier, SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig';
+import { makeSubscription, mockSubscriptionRepo } from '@/features/subscriptions/tests/subscription-mocks';
 import type { IMemberRepository } from '@/features/members/services/IMemberRepository';
 import type { ISMSRepository } from '@/features/sms/services/ISMSRepository';
 import type { ISMSProvider } from '@/features/sms/services/ISMSProvider';
-import type { Subscription } from '@/core/domain/subscription/Subscription';
+import type { Subscription } from '@/features/subscriptions/domain/Subscription';
 
 function makeMember(gymId: string, name: string): Member {
   return Member.create({

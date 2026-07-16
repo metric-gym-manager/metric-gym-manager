@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
-import { SaasStatus, SaasTier } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasStatus, SaasTier } from '@/features/subscriptions/config/SubscriptionConfig';
 import CurrentPlanCard from '@/features/subscriptions/components/CurrentPlanCard';
 import PricingTable from '@/features/subscriptions/components/PricingTable';
 import TrialBanner from '@/features/subscriptions/components/TrialBanner';

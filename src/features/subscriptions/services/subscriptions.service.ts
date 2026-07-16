@@ -11,7 +11,7 @@ import type {
   BillingHistoryPage,
   CheckoutRedirectResponse,
 } from '../types';
-import type { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
+import type { SaasTier } from '@/features/subscriptions/config/SubscriptionConfig';
 
 export class ApiRequestError extends Error {
   constructor(

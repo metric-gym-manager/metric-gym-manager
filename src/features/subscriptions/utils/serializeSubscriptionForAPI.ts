@@ -8,17 +8,17 @@
  * gym clients — only the sanitized RecurringFailureClass token (plan C-22).
  */
 
-import { Subscription } from '@/core/domain/subscription/Subscription';
+import { Subscription } from '@/features/subscriptions/domain/Subscription';
 import {
   getPlanCapabilities,
   remainingMemberSlots,
   type RestrictedFeature,
-} from '@/core/domain/subscription/PlanRestrictions';
+} from '@/features/subscriptions/domain/PlanRestrictions';
 import {
   SaasTier,
   SaasStatus,
   RecurringFailureClass,
-} from '@/core/utils/constants/SubscriptionConfig';
+} from '@/features/subscriptions/config/SubscriptionConfig';
 
 export interface SerializedSubscription {
   subscriptionTier: SaasTier;

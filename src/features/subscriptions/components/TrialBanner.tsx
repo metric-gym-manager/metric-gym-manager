@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Clock, ArrowUpCircle } from 'lucide-react';
-import { SaasStatus, TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasStatus, TIER_DISPLAY_NAME } from '@/features/subscriptions/config/SubscriptionConfig';
 import type { SerializedSubscription } from '../types';
 
 interface TrialBannerProps {

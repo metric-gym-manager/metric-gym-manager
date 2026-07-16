@@ -14,7 +14,7 @@ import { TextLkSMSProvider } from './providers/TextLkSMSProvider';
 import { MockSMSProvider } from './providers/MockSMSProvider';
 import { SendAutomatedReminders } from './SendAutomatedReminders';
 import { SupabaseMemberRepository } from '@/features/members/services/SupabaseMemberRepository';
-import { SupabaseGymSubscriptionRepository } from '@/infrastructure/database/repositories/SupabaseGymSubscriptionRepository';
+import { SupabaseGymSubscriptionRepository } from '@/features/subscriptions/services/SupabaseGymSubscriptionRepository';
 
 /**
  * SMS provider: real provider (Text.lk) if ENABLE_REAL_SMS=true,

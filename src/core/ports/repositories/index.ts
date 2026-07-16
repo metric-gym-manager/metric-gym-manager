@@ -20,22 +20,22 @@ export {
   SMSDeliveryStatus,
 } from '@/features/sms/services/ISMSRepository';
 
-export { type IGymSubscriptionRepository } from './IGymSubscriptionRepository';
+export { type IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository';
 
 export {
   type ICheckoutIntentRepository,
   type CheckoutIntent,
-} from './ICheckoutIntentRepository';
+} from '@/features/subscriptions/services/ICheckoutIntentRepository';
 
 export {
   type IChargeAttemptRepository,
   type ChargeAttempt,
   type ChargeAttemptKind,
   type ChargeAttemptStatus,
-} from './IChargeAttemptRepository';
+} from '@/features/subscriptions/services/IChargeAttemptRepository';
 
 export {
   type ISaasPaymentLogRepository,
   type SaasPaymentLogInput,
   type SaasPaymentLogRow,
-} from './ISaasPaymentLogRepository';
+} from '@/features/subscriptions/services/ISaasPaymentLogRepository';

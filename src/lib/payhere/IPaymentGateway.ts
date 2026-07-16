@@ -5,7 +5,7 @@
  * Merchant Secret; it receives ready-made form params + target URL.
  */
 
-import type { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
+import type { SaasTier } from '@/features/subscriptions/config/SubscriptionConfig';
 
 export interface CheckoutCustomer {
   firstName: string;

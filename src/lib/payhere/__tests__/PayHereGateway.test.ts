@@ -1,4 +1,4 @@
-import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasTier } from '@/features/subscriptions/config/SubscriptionConfig';
 import { PayHereGateway } from '@/lib/payhere/PayHereGateway';
 import { __resetPayhereConfigForTests } from '@/lib/payhere/config';
 import { generateCheckoutHash } from '@/lib/payhere/crypto';
