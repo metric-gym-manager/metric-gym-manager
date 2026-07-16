@@ -33,7 +33,7 @@ jest.mock('@/lib/supabase/admin', () => ({
   createAdminClient: jest.fn(() => ({})),
 }));
 
-jest.mock('@/core/utils/cron', () => ({
+jest.mock('@/lib/cron', () => ({
   CronLogger: jest.fn().mockImplementation(() => ({
     logStart: jest.fn().mockResolvedValue('cron-log-id'),
     logSuccess: jest.fn().mockResolvedValue(undefined),

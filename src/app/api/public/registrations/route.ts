@@ -8,7 +8,7 @@ import { PlanType, getPlanLabel } from '@/core/utils/constants/PlanConfig';
 import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
 import { publicRegistrationSchema } from '@/features/registration/schemas/registration.schemas';
 import { resolveRegistrationToken } from '@/features/registration/services/registration-link.service';
-import { checkRateLimit } from '@/lib/utils/rate-limit';
+import { checkRateLimit } from '@/lib/rate-limit';
 import {
   memberPhotoPath,
   type MemberPhotoContentType,
