@@ -65,7 +65,7 @@ src/features/
 
 ### Business Domain
 The `instructions.md` file contains comprehensive business requirements including:
-- Member lifecycle (registration, active, frozen, expired, cancelled)
+- Member lifecycle (registration, active, expired, cancelled)
 - Membership plans (drop-in, class packs, monthly, annual, custom)
 - Multi-tenant isolation (each gym operates independently via RLS)
 - Authentication and authorization (Supabase Auth + RLS policies)
