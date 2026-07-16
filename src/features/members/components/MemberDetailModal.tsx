@@ -33,7 +33,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Label } from '@/components/ui/label';
-import MarkPaidDialog from '@/components/payment-collection/MarkPaidDialog';
+import MarkPaidDialog from '@/features/payments/components/MarkPaidDialog';
 import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog';
 import MemberPhotoSection from './MemberPhotoSection';
 import type { MemberWithDiscount, Payment } from '@/features/members/types';

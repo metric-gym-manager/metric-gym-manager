@@ -10,11 +10,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import MetricCard from '@/components/revenue/MetricCard';
+import MetricCard from '@/features/revenue/components/RevenueMetricCard';
 import type { MonthlyRevenueResponse, YearlyRevenueResponse } from '@/features/revenue/types';
 
 const RevenueChart = dynamic(
-  () => import('@/components/revenue/RevenueChart'),
+  () => import('@/features/revenue/components/RevenueChart'),
   {
     ssr: false,
     loading: () => (

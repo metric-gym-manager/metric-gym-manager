@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import MarkPaidDialog from '@/components/payment-collection/MarkPaidDialog';
+import MarkPaidDialog from '@/features/payments/components/MarkPaidDialog';
 import { formatDate } from '@/utils/date/date';
 import { getPlanBadgeColor } from '@/utils/badge-colors';
 import { parseApiError } from '@/utils/api-error';

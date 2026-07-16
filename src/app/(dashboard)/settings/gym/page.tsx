@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { updateGymInfoSchema, type UpdateGymInfoInput } from '@/features/settings/schemas/settings.schemas';
 import { Plus } from 'lucide-react';
-import ProfileImageUpload from '@/components/settings/ProfileImageUpload';
+import ProfileImageUpload from '@/features/settings/components/ProfileImageUpload';
 
 export default function GymInformationPage() {
   const router = useRouter();

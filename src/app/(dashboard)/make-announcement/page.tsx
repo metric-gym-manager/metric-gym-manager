@@ -22,7 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Send, Megaphone, Clock } from 'lucide-react';
-import AnnouncementProgress from '@/components/announcements/AnnouncementProgress';
+import AnnouncementProgress from '@/features/announcements/components/AnnouncementProgress';
 import { FeatureGate } from '@/features/subscriptions';
 import type { Announcement } from '@/features/announcements/types';
 

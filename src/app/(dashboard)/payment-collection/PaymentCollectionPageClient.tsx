@@ -2,17 +2,17 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
-import PaymentRemindersTable from '@/components/payment-collection/PaymentRemindersTable';
+import PaymentRemindersTable from '@/features/payments/components/PaymentRemindersTable';
 
 const RegularPaymentTable = dynamic(
-  () => import('@/components/payment-collection/RegularPaymentTable'),
+  () => import('@/features/payments/components/RegularPaymentTable'),
   {
     loading: () => <div className="h-64 animate-pulse rounded bg-gray-100" />,
   }
 );
 
 const PaymentCollectedTable = dynamic(
-  () => import('@/components/payment-collection/PaymentCollectedTable'),
+  () => import('@/features/payments/components/PaymentCollectedTable'),
   {
     loading: () => <div className="h-64 animate-pulse rounded bg-gray-100" />,
   }
