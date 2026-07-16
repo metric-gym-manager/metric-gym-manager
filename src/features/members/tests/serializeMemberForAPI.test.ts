@@ -8,11 +8,11 @@ describe('serializeMemberForAPI', () => {
     gymId: 'gym-1',
     name: 'Test Member',
     phoneNumber: '+94771234567',
-    planType: PlanType.MONTHLY,
+    planType: PlanType.Monthly,
     planAmount: 5000,
     discountId: null,
     recurringDiscount: false,
-    status: MemberStatus.ACTIVE,
+    status: MemberStatus.Active,
     registeredDate: new Date('2026-01-15T00:00:00Z'),
     membershipStartDate: new Date('2026-01-15T00:00:00Z'),
     nextDueDate: new Date('2026-02-14T00:00:00Z'),
@@ -30,8 +30,8 @@ describe('serializeMemberForAPI', () => {
     expect(out.registered_date).toBe('2026-01-15');
     expect(out.phoneNumber).toBe('+94771234567');
     expect(out.phone_number).toBe('+94771234567');
-    expect(out.planType).toBe(PlanType.MONTHLY);
-    expect(out.plan_type).toBe(PlanType.MONTHLY);
+    expect(out.planType).toBe(PlanType.Monthly);
+    expect(out.plan_type).toBe(PlanType.Monthly);
     expect(out.discount).toBeNull();
   });
 

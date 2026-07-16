@@ -1,7 +1,9 @@
 /**
  * Text.lk SMS Provider Implementation
  *
- * Implements ISMSProvider using Text.lk API (Sri Lankan SMS provider).
+ * Implements ISMSProvider by delegating to the single text.lk HTTP transport
+ * (features/sms/services/textlk.service.ts) — the endpoint, payload shape,
+ * validation, and error handling live there and are not duplicated here.
  *
  * API Documentation: https://www.text.lk/apidocs
  *
@@ -10,20 +12,8 @@
  * - TEXT_LK_SENDER_ID: Your registered sender ID (default: "GymSaaS")
  */
 
-import { ISMSProvider, type SMSMessage, type SMSSendResult } from '@/features/sms/services/ISMSProvider';
-
-/**
- * Text.lk API response interface
- */
-interface TextLkApiResponse {
-  status: string;
-  message?: string;
-  data?: {
-    uid?: string;
-    balance?: number;
-    cost?: number;
-  };
-}
+import { ISMSProvider, type SMSMessage, type SMSSendResult } from '../ISMSProvider';
+import { sendSmsViaTextLk } from '../textlk.service';
 
 /**
  * Text.lk SMS Provider
@@ -37,13 +27,10 @@ interface TextLkApiResponse {
  * });
  */
 export class TextLkSMSProvider implements ISMSProvider {
-  private readonly apiUrl = 'https://app.text.lk/api/v3/sms/send';
   private readonly apiKey: string;
-  private readonly senderId: string;
 
   constructor() {
     this.apiKey = process.env.TEXT_LK_API_KEY || '';
-    this.senderId = process.env.TEXT_LK_SENDER_ID || 'GymSaaS';
 
     if (!this.apiKey) {
       console.warn('⚠️  TEXT_LK_API_KEY environment variable is not set. SMS sending will fail.');
@@ -51,93 +38,29 @@ export class TextLkSMSProvider implements ISMSProvider {
   }
 
   /**
-   * Send a single SMS message
+   * Send a single SMS message via the shared text.lk transport
    */
   async send(message: SMSMessage): Promise<SMSSendResult> {
-    try {
-      // Validate API key
-      if (!this.apiKey) {
-        return {
-          success: false,
-          error: 'SMS service not configured (TEXT_LK_API_KEY missing)',
-        };
-      }
+    console.log(`📱 [TEXT.LK] Sending SMS to ${message.to}...`);
 
-      // Validate phone number format
-      if (!this.isValidPhoneNumber(message.to)) {
-        return {
-          success: false,
-          error: 'Invalid phone number format. Expected +94XXXXXXXXX',
-        };
-      }
+    const result = await sendSmsViaTextLk({
+      to: message.to,
+      message: message.message,
+    });
 
-      // Warn if message exceeds single SMS length
-      if (message.message.length > 160) {
-        console.warn(
-          `⚠️  SMS message exceeds 160 characters (${message.message.length} chars). Will be sent as multiple SMS.`
-        );
-      }
-
-      // Remove '+' from phone number (text.lk expects format: 94XXXXXXXXX)
-      const cleanPhone = message.to.replace(/^\+/, '');
-
-      console.log(`📱 [TEXT.LK] Sending SMS to ${message.to}...`);
-
-      // Make API request
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          Authorization: `Bearer ${this.apiKey}`,
-        },
-        body: JSON.stringify({
-          recipient: cleanPhone,
-          sender_id: this.senderId,
-          type: 'plain',
-          message: message.message,
-        }),
-      });
-
-      // Handle non-200 responses
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`✗ text.lk API error: HTTP ${response.status}`, errorText);
-
-        return {
-          success: false,
-          error: `HTTP ${response.status}: Failed to send SMS`,
-        };
-      }
-
-      // Parse response
-      const data: TextLkApiResponse = await response.json();
-
-      // Check if text.lk returned success
-      if (data.status === 'success') {
-        console.log(`✓ SMS sent successfully (ID: ${data.data?.uid || 'N/A'})`);
-
-        return {
-          success: true,
-          messageId: data.data?.uid,
-          sentAt: new Date(),
-        };
-      } else {
-        console.error(`✗ text.lk API returned error: ${data.message}`);
-
-        return {
-          success: false,
-          error: data.message || 'SMS sending failed',
-        };
-      }
-    } catch (error) {
-      console.error('✗ text.lk API exception:', error);
-
+    if (result.success) {
+      console.log(`✓ SMS sent successfully (ID: ${result.message_id || 'N/A'})`);
       return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to connect to SMS service',
+        success: true,
+        messageId: result.message_id,
+        sentAt: new Date(),
       };
     }
+
+    return {
+      success: false,
+      error: result.error || 'SMS sending failed',
+    };
   }
 
   /**
@@ -145,7 +68,6 @@ export class TextLkSMSProvider implements ISMSProvider {
    */
   async sendBatch(messages: SMSMessage[]): Promise<SMSSendResult[]> {
     // Text.lk doesn't have a native batch API, so we send individually
-    // This could be optimized with Promise.all for parallel sending
     console.log(`📱 [TEXT.LK] Sending batch of ${messages.length} SMS messages...`);
 
     const results = await Promise.all(
@@ -170,15 +92,5 @@ export class TextLkSMSProvider implements ISMSProvider {
    */
   getProviderName(): string {
     return 'Text.lk';
-  }
-
-  /**
-   * Validate phone number format
-   *
-   * @param phoneNumber - Phone number to validate
-   * @returns True if valid format (+94XXXXXXXXX)
-   */
-  private isValidPhoneNumber(phoneNumber: string): boolean {
-    return /^\+94\d{9}$/.test(phoneNumber);
   }
 }
