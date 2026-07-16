@@ -7,7 +7,7 @@ import {
   MEMBER_PHOTO_CONTENT_TYPES,
   memberPhotoPath,
   type MemberPhotoContentType,
-} from '@/lib/utils/member-photo';
+} from '@/utils/member-photo';
 
 // ============================================================
 // POST /api/members/generate-upload-url

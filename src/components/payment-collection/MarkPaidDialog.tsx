@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, Info } from 'lucide-react';
-import { calculateNextDueDate, formatDate } from '@/lib/utils/date';
+import { calculateNextDueDate, formatDate } from '@/utils/date/date';
 
 interface MarkPaidDialogProps {
   open: boolean;

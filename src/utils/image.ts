@@ -9,7 +9,7 @@
  * encoder actually produced WebP and fall back to JPEG otherwise.
  */
 
-import type { MemberPhotoContentType } from '@/lib/utils/member-photo';
+import type { MemberPhotoContentType } from '@/utils/member-photo';
 
 export interface CompressedImage {
   blob: Blob;

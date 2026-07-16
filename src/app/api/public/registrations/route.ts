@@ -12,7 +12,7 @@ import { checkRateLimit } from '@/lib/utils/rate-limit';
 import {
   memberPhotoPath,
   type MemberPhotoContentType,
-} from '@/lib/utils/member-photo';
+} from '@/utils/member-photo';
 
 // ============================================================
 // POST /api/public/registrations - QR self-registration (no auth)

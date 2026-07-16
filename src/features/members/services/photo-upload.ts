@@ -8,8 +8,8 @@
  * 4. Confirm the upload so the object path is saved on the member record
  */
 
-import { compressImageForUpload } from '@/lib/utils/image';
-import type { MemberPhotoContentType } from '@/lib/utils/member-photo';
+import { compressImageForUpload } from '@/utils/image';
+import type { MemberPhotoContentType } from '@/utils/member-photo';
 
 export interface MemberPhotoUploadResult {
   photoPath: string;

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Trash2, Plus, CheckCircle, XCircle, HelpCircle } from 'lucide-react';
-import { parseApiError } from '@/lib/utils/api-error';
+import { parseApiError } from '@/utils/api-error';
 import QuotaReachedUpsell from '@/features/subscriptions/components/QuotaReachedUpsell';
 
 interface Discount {

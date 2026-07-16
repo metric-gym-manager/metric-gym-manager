@@ -11,7 +11,7 @@ import {
   isValidSriLankanPhone,
   formatPhoneDisplay,
   formatPhoneForSMS,
-} from '@/lib/utils/phone';
+} from '@/utils/phone/phone';
 
 /**
  * Phone Number Value Object

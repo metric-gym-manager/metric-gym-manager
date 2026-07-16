@@ -37,7 +37,7 @@ import MarkPaidDialog from '@/components/payment-collection/MarkPaidDialog';
 import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog';
 import MemberPhotoSection from './MemberPhotoSection';
 import type { MemberWithDiscount, Payment } from '@/features/members/types';
-import { parseApiError } from '@/lib/utils/api-error';
+import { parseApiError } from '@/utils/api-error';
 
 interface MemberDetailModalProps {
   open: boolean;

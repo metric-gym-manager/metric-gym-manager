@@ -20,8 +20,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { formatDate } from '@/lib/utils/date';
-import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
+import { formatDate } from '@/utils/date/date';
+import { getPlanBadgeColor } from '@/utils/badge-colors';
 import { Banknote, Users, TrendingUp } from 'lucide-react';
 
 interface PaymentCollectedRow {

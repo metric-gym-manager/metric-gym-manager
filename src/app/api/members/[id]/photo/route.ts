@@ -4,7 +4,7 @@ import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { getContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { ValidationError } from '@/utils/errors';
-import { isPhotoPathForMember } from '@/lib/utils/member-photo';
+import { isPhotoPathForMember } from '@/utils/member-photo';
 
 // ============================================================
 // POST   /api/members/[id]/photo - Confirm uploaded photo

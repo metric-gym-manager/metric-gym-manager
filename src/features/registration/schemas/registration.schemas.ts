@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { normalizePhoneNumber, isValidSriLankanPhone } from '@/lib/utils/phone';
-import { MEMBER_PHOTO_CONTENT_TYPES } from '@/lib/utils/member-photo';
+import { normalizePhoneNumber, isValidSriLankanPhone } from '@/utils/phone/phone';
+import { MEMBER_PHOTO_CONTENT_TYPES } from '@/utils/member-photo';
 
 // ============================================================
 // PUBLIC QR SELF-REGISTRATION SCHEMA

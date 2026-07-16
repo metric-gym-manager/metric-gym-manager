@@ -28,8 +28,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Calendar } from 'lucide-react';
-import { formatDate } from '@/lib/utils/date';
-import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
+import { formatDate } from '@/utils/date/date';
+import { getPlanBadgeColor } from '@/utils/badge-colors';
 import UrgencyBadge from '@/components/common/UrgencyBadge';
 import { useConfirmDialog } from '@/hooks/use-confirm-dialog';
 import type { OverdueMember, MemberDetailResponse, Payment } from '@/features/members/types';

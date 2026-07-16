@@ -22,9 +22,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import MarkPaidDialog from '@/components/payment-collection/MarkPaidDialog';
-import { formatDate } from '@/lib/utils/date';
-import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
-import { parseApiError } from '@/lib/utils/api-error';
+import { formatDate } from '@/utils/date/date';
+import { getPlanBadgeColor } from '@/utils/badge-colors';
+import { parseApiError } from '@/utils/api-error';
 
 interface RegularPaymentRow {
   id: string;

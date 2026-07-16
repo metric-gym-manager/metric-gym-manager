@@ -16,8 +16,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import MemberAvatar from './MemberAvatar';
-import { formatDate } from '@/lib/utils/date';
-import { getPlanBadgeColor } from '@/lib/utils/badge-colors';
+import { formatDate } from '@/utils/date/date';
+import { getPlanBadgeColor } from '@/utils/badge-colors';
 import type { MemberWithDiscount } from '@/features/members/types';
 import type { PlanType } from '@/features/settings/types';
 
