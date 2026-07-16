@@ -8,7 +8,7 @@
 import { VerifyMember } from '../VerifyMember';
 import { Member, MemberStatus, RegistrationSource } from '@/core/domain/member/Member';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { NotFoundError } from '@/core/utils/errors';
+import { NotFoundError } from '@/utils/errors';
 
 function buildMember(overrides: Partial<Parameters<typeof Member.create>[0]> = {}): Member {
   return Member.create({

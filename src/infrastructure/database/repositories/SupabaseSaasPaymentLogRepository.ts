@@ -14,7 +14,7 @@ import type {
   SaasPaymentLogRow,
 } from '@/core/ports/repositories';
 import { INVALID_WEBHOOK_LOG_HOURLY_CAP } from '@/core/utils/constants/SubscriptionConfig';
-import { DatabaseError } from '@/core/utils/errors';
+import { DatabaseError } from '@/utils/errors';
 
 interface DbRow {
   id: string;

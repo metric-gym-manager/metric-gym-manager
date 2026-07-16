@@ -7,7 +7,7 @@
 
 import { Member, MemberStatus, RegistrationSource } from '../Member';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { ValidationError } from '@/core/utils/errors';
+import { ValidationError } from '@/utils/errors';
 
 function buildMember(overrides: Partial<Parameters<typeof Member.create>[0]> = {}): Member {
   return Member.create({

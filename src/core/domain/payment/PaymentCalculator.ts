@@ -5,7 +5,7 @@
  * This ensures consistent calculations across the application.
  */
 
-import { PaymentCalculationError } from '@/core/utils/errors';
+import { PaymentCalculationError } from '@/utils/errors';
 
 /**
  * Discount information

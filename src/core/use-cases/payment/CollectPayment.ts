@@ -24,7 +24,7 @@ import { ISMSProvider } from '@/core/ports/services';
 import { SMSDeliveryStatus } from '@/core/ports/repositories/ISMSRepository';
 import { calculateNextDueDate } from '@/core/utils/date';
 import { formatDateForDisplay } from '@/core/utils/date';
-import { NotFoundError, ValidationError } from '@/core/utils/errors';
+import { NotFoundError, ValidationError } from '@/utils/errors';
 
 /**
  * Discount information for payment

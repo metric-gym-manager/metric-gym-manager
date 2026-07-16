@@ -11,7 +11,7 @@ import { CollectPayment } from '../CollectPayment';
 import { Member, MemberStatus } from '@/core/domain/member/Member';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { SMSDeliveryStatus } from '@/core/ports/repositories/ISMSRepository';
-import { NotFoundError, ValidationError } from '@/core/utils/errors';
+import { NotFoundError, ValidationError } from '@/utils/errors';
 
 function buildMember(overrides: Partial<Parameters<typeof Member.create>[0]> = {}): Member {
   return Member.create({

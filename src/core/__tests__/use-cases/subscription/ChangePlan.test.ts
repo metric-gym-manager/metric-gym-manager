@@ -7,7 +7,7 @@ import {
   ExternalServiceError,
   NoSavedCardError,
   NotFoundError,
-} from '@/core/utils/errors';
+} from '@/utils/errors';
 import {
   makeSubscription,
   mockSubscriptionRepo,

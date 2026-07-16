@@ -5,7 +5,7 @@
  * This is an immutable value object that ensures phone number validity.
  */
 
-import { ValidationError } from '@/core/utils/errors';
+import { ValidationError } from '@/utils/errors';
 import {
   normalizePhoneNumber,
   isValidSriLankanPhone,

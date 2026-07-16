@@ -20,7 +20,7 @@ import {
   GRACE_PERIOD_DAYS,
   RENEWAL_RETRY_INTERVAL_DAYS,
 } from '@/core/utils/constants/SubscriptionConfig';
-import { NotFoundError, DatabaseError } from '@/core/utils/errors';
+import { NotFoundError, DatabaseError } from '@/utils/errors';
 
 interface GymSubscriptionRow {
   id: string;

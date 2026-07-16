@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import {
   ChargeFailedError,
   ConflictError,
   NoSavedCardError,
   NotFoundError,
-} from '@/core/utils/errors';
+} from '@/utils/errors';
 import { changePlanSchema } from '@/features/subscriptions/schemas/subscription.schemas';
 import { serializeSubscriptionForAPI } from '@/features/subscriptions/utils/serializeSubscriptionForAPI';
 

@@ -36,7 +36,7 @@ import {
   TIER_DISPLAY_NAME,
   CHARGE_ATTEMPT_TTL_HOURS,
 } from '@/core/utils/constants/SubscriptionConfig';
-import { ConflictError } from '@/core/utils/errors';
+import { ConflictError } from '@/utils/errors';
 
 export interface ChargeRenewalsSummary {
   due: number;

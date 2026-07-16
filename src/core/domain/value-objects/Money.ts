@@ -8,7 +8,7 @@
  * floating-point precision issues.
  */
 
-import { ValidationError } from '@/core/utils/errors';
+import { ValidationError } from '@/utils/errors';
 
 /**
  * Currency codes

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getApiGymProfile } from '@/lib/middleware/api-auth';
 import { updateMemberSchema } from '@/features/members/schemas/member.schemas';
 import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError } from '@/core/utils/errors';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { NotFoundError } from '@/utils/errors';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 
 // ============================================================

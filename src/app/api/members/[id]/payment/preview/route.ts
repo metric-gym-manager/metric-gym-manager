@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { z } from 'zod';
 import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError } from '@/core/utils/errors';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { NotFoundError } from '@/utils/errors';
 import { calculateNextDueDate } from '@/core/utils/date';
 
 // ============================================================

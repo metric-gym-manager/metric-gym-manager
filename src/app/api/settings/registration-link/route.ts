@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { getOrCreateRegistrationLink } from '@/features/registration/services/registration-link.service';
 
 // ============================================================

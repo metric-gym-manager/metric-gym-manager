@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { ConflictError, ExternalServiceError, NotFoundError } from '@/core/utils/errors';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { ConflictError, ExternalServiceError, NotFoundError } from '@/utils/errors';
 import { serializeSubscriptionForAPI } from '@/features/subscriptions/utils/serializeSubscriptionForAPI';
 
 export const runtime = 'nodejs';

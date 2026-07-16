@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { ValidationError } from '@/core/utils/errors';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { ValidationError } from '@/utils/errors';
 import { isPhotoPathForMember } from '@/lib/utils/member-photo';
 
 // ============================================================

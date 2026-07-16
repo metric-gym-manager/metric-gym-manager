@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { addMemberSchema, memberFiltersSchema } from '@/features/members/schemas/member.schemas';
 import { getContainer, getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { ConflictError, MemberLimitError, ValidationError } from '@/core/utils/errors';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { ConflictError, MemberLimitError, ValidationError } from '@/utils/errors';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import type { Member } from '@/core/domain/member/Member';
 

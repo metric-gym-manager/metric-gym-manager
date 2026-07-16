@@ -40,7 +40,7 @@ import {
   ConflictError,
   NoSavedCardError,
   NotFoundError,
-} from '@/core/utils/errors';
+} from '@/utils/errors';
 
 export interface ChangePlanInput {
   gymId: string;

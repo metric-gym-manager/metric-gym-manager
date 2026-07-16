@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
 import { classifyRecurringFailure } from '@/core/domain/subscription/classifyRecurringFailure';
 import { serializeSubscriptionForAPI } from '@/features/subscriptions/utils/serializeSubscriptionForAPI';

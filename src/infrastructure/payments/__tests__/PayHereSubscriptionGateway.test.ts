@@ -3,7 +3,7 @@ import {
   __resetPayhereTokenCacheForTests,
 } from '@/infrastructure/payments/PayHereSubscriptionGateway';
 import { __resetPayhereConfigForTests } from '@/lib/payhere/config';
-import { ExternalServiceError } from '@/core/utils/errors';
+import { ExternalServiceError } from '@/utils/errors';
 import { createHash } from 'crypto';
 
 const ENV = {

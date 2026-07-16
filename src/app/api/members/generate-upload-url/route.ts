@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import {
   MEMBER_PHOTO_CONTENT_TYPES,
   memberPhotoPath,

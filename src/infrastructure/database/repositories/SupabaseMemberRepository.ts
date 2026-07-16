@@ -23,7 +23,7 @@ import {
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberStatus } from '@/core/utils/constants/StatusConfig';
 import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
-import { NotFoundError, MemberLimitError, DatabaseError } from '@/core/utils/errors';
+import { NotFoundError, MemberLimitError, DatabaseError } from '@/utils/errors';
 
 /**
  * Database row interface (snake_case from Supabase)

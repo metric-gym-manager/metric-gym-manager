@@ -12,7 +12,7 @@ import type {
   CheckoutIntent,
 } from '@/core/ports/repositories';
 import { saasTierSchema } from '@/core/utils/constants/SubscriptionConfig';
-import { ConflictError, DatabaseError } from '@/core/utils/errors';
+import { ConflictError, DatabaseError } from '@/utils/errors';
 
 interface CheckoutIntentRow {
   order_id: string;

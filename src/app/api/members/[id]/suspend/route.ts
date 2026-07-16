@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError, InvalidStatusTransitionError } from '@/core/utils/errors';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { NotFoundError, InvalidStatusTransitionError } from '@/utils/errors';
 
 // ============================================================
 // POST /api/members/[id]/suspend - Suspend member

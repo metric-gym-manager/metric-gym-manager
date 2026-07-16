@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin';
 
 export const runtime = 'nodejs';

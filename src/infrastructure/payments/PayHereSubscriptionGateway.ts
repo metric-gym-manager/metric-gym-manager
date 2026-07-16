@@ -18,7 +18,7 @@ import type {
   TokenChargeInput,
   TokenChargeResult,
 } from '@/core/ports/services';
-import { ExternalServiceError } from '@/core/utils/errors';
+import { ExternalServiceError } from '@/utils/errors';
 import { getPayhereConfig } from '@/lib/payhere/config';
 import { verifyNotificationSignature, formatAmount } from '@/lib/payhere/crypto';
 

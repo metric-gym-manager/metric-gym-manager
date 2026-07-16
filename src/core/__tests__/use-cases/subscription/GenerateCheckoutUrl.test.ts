@@ -1,6 +1,6 @@
 import { GenerateCheckoutUrl } from '@/core/use-cases/subscription/GenerateCheckoutUrl';
 import { SaasTier, SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
-import { ConflictError, NotFoundError } from '@/core/utils/errors';
+import { ConflictError, NotFoundError } from '@/utils/errors';
 import {
   makeSubscription,
   makeIntent,

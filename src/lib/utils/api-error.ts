@@ -7,7 +7,7 @@
  * @see src/core/utils/api/ApiResponse.ts - Backend response structure
  */
 
-import { ApiErrorResponse } from '@/core/utils/api/ApiResponse';
+import { ApiErrorResponse } from '@/utils/api/ApiResponse';
 
 /**
  * Parse API error response and extract human-readable message

@@ -25,7 +25,7 @@ import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberStatus } from '@/core/utils/constants/StatusConfig';
 import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
 import { formatDateForDisplay } from '@/core/utils/date';
-import { ConflictError } from '@/core/utils/errors';
+import { ConflictError } from '@/utils/errors';
 
 /**
  * Input for member registration

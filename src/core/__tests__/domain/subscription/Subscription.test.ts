@@ -5,7 +5,7 @@ import {
   LITE_TIER_MEMBER_LIMIT,
   GRACE_PERIOD_DAYS,
 } from '@/core/utils/constants/SubscriptionConfig';
-import { InvalidStatusTransitionError } from '@/core/utils/errors';
+import { InvalidStatusTransitionError } from '@/utils/errors';
 
 const base: SubscriptionProps = {
   gymId: 'gym-1',

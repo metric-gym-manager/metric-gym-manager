@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { collectPaymentSchema } from '@/features/members/schemas/member.schemas';
 import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError, ValidationError, InvalidStatusTransitionError, MemberLimitError } from '@/core/utils/errors';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { NotFoundError, ValidationError, InvalidStatusTransitionError, MemberLimitError } from '@/utils/errors';
 
 // ============================================================
 // POST /api/members/[id]/payment - Collect payment

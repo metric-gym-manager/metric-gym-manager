@@ -25,7 +25,7 @@ import {
   SaasTier,
   CHECKOUT_INTENT_TTL_MINUTES,
 } from '@/core/utils/constants/SubscriptionConfig';
-import { ConflictError, NotFoundError } from '@/core/utils/errors';
+import { ConflictError, NotFoundError } from '@/utils/errors';
 
 export interface GenerateCheckoutUrlInput {
   gymId: string;

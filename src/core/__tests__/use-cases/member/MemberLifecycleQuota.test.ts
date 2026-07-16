@@ -16,7 +16,7 @@ import { CollectPayment } from '@/core/use-cases/payment/CollectPayment';
 import { Member } from '@/core/domain/member/Member';
 import { MemberStatus, MEMBER_EXPIRY_GRACE_DAYS } from '@/core/utils/constants/StatusConfig';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { MemberLimitError } from '@/core/utils/errors';
+import { MemberLimitError } from '@/utils/errors';
 import type { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
 import type { ISMSProvider } from '@/core/ports/services';
 

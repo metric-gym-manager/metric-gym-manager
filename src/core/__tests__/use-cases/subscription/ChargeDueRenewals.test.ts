@@ -1,7 +1,7 @@
 import { ChargeDueRenewals } from '@/core/use-cases/subscription/ChargeDueRenewals';
 import { SaasTier, SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
 import { Subscription } from '@/core/domain/subscription/Subscription';
-import { ConflictError, ExternalServiceError } from '@/core/utils/errors';
+import { ConflictError, ExternalServiceError } from '@/utils/errors';
 import {
   makeSubscription,
   mockSubscriptionRepo,

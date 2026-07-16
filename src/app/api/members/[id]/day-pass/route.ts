@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import {
   BusinessRuleViolationError,
   InvalidStatusTransitionError,
   NotFoundError,
   ValidationError,
-} from '@/core/utils/errors';
+} from '@/utils/errors';
 
 // ============================================================
 // POST /api/members/[id]/day-pass - Issue a day pass

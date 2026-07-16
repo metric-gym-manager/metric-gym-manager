@@ -21,7 +21,7 @@ import {
   BusinessRuleViolationError,
   NotFoundError,
   ValidationError,
-} from '@/core/utils/errors';
+} from '@/utils/errors';
 
 function daysFromToday(days: number): Date {
   const date = new Date();

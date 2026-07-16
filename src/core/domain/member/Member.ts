@@ -13,7 +13,7 @@ import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberStatus, canTransition } from '@/core/utils/constants/StatusConfig';
 import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
 import { getDaysUntilDue } from '@/core/utils/date/getDaysUntilDue';
-import { InvalidStatusTransitionError, ValidationError } from '@/core/utils/errors';
+import { InvalidStatusTransitionError, ValidationError } from '@/utils/errors';
 
 // Re-export MemberStatus and RegistrationSource for consumers
 export { MemberStatus } from '@/core/utils/constants/StatusConfig';

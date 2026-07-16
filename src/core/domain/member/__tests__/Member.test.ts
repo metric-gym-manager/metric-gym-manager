@@ -10,7 +10,7 @@
 
 import { Member, MemberStatus, type MemberProps, type CreateMemberProps } from '../Member';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { InvalidStatusTransitionError, ValidationError } from '@/core/utils/errors';
+import { InvalidStatusTransitionError, ValidationError } from '@/utils/errors';
 
 describe('Member Domain Entity', () => {
   const validMemberProps: CreateMemberProps = {

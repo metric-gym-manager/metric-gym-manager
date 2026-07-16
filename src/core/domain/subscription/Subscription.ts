@@ -33,7 +33,7 @@ import {
   GRACE_PERIOD_DAYS,
 } from '@/core/utils/constants/SubscriptionConfig';
 import { getPlanCapabilities } from '@/core/domain/subscription/PlanRestrictions';
-import { InvalidStatusTransitionError } from '@/core/utils/errors';
+import { InvalidStatusTransitionError } from '@/utils/errors';
 
 export interface SubscriptionProps {
   gymId: string;

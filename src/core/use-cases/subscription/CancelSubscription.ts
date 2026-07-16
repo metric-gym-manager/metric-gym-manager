@@ -21,7 +21,7 @@ import type { IGymSubscriptionRepository } from '@/core/ports/repositories';
 import type { ISubscriptionGateway } from '@/core/ports/services';
 import { Subscription } from '@/core/domain/subscription/Subscription';
 import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
-import { ConflictError, NotFoundError } from '@/core/utils/errors';
+import { ConflictError, NotFoundError } from '@/utils/errors';
 
 export class CancelSubscription {
   constructor(

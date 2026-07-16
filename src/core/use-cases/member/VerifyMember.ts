@@ -14,7 +14,7 @@
 
 import { Member } from '@/core/domain/member/Member';
 import { IMemberRepository } from '@/core/ports/repositories';
-import { NotFoundError } from '@/core/utils/errors';
+import { NotFoundError } from '@/utils/errors';
 
 /**
  * Input for verifying a member

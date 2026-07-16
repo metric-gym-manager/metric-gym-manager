@@ -34,7 +34,7 @@ import {
   BusinessRuleViolationError,
   NotFoundError,
   ValidationError,
-} from '@/core/utils/errors';
+} from '@/utils/errors';
 
 /**
  * Input for issuing a day pass

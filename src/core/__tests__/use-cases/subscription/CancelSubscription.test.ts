@@ -1,7 +1,7 @@
 import { CancelSubscription } from '@/core/use-cases/subscription/CancelSubscription';
 import { SaasTier, SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
 import { Subscription } from '@/core/domain/subscription/Subscription';
-import { ConflictError, ExternalServiceError, NotFoundError } from '@/core/utils/errors';
+import { ConflictError, ExternalServiceError, NotFoundError } from '@/utils/errors';
 import { makeSubscription, mockSubscriptionRepo, mockSubscriptionGateway } from '@/core/test-utils/subscription-mocks';
 
 describe('CancelSubscription (UC-4)', () => {

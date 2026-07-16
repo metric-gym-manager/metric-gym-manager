@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { addMemberSchema } from '@/features/members/schemas/member.schemas';
 import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { MemberLimitError } from '@/core/utils/errors';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { MemberLimitError } from '@/utils/errors';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { z } from 'zod';
 
