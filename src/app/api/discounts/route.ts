@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { createClient } from '@/lib/supabase/server';
+import { getActiveDiscounts } from '@/features/settings/services/settings.service';
 
 // ============================================================
 // GET /api/discounts - Get active discounts for the gym
@@ -9,24 +9,13 @@ import { createClient } from '@/lib/supabase/server';
 export async function GET() {
   try {
     const gymProfile = await getCurrentGymProfile();
-    const supabase = await createClient();
 
-    const { data: discounts, error } = await supabase
-      .from('discounts')
-      .select('id, discount_name, discount_percentage')
-      .eq('gym_id', gymProfile.id)
-      .eq('is_active', true)
-      .order('discount_name');
-
-    if (error) {
-      console.error('Fetch discounts error:', error);
-      throw error;
-    }
+    const discounts = await getActiveDiscounts(gymProfile.id);
 
     return NextResponse.json(
       {
         success: true,
-        data: discounts || [],
+        data: discounts,
       },
       { status: 200 }
     );
