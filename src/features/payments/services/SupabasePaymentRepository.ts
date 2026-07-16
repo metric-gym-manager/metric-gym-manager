@@ -5,12 +5,12 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Payment, PaymentType } from '@/core/domain/payment/Payment';
+import { Payment, PaymentType } from '@/features/payments/domain/Payment';
 import {
   IPaymentRepository,
   type PaymentFilters,
   type RevenueByPlanType,
-} from '@/core/ports/repositories/IPaymentRepository';
+} from '@/features/payments/services/IPaymentRepository';
 import { PlanType } from '@/features/members/config/PlanConfig';
 
 /**

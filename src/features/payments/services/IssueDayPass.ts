@@ -22,7 +22,7 @@
  */
 
 import { Member } from '@/features/members/domain/Member';
-import { Payment, PaymentType } from '@/core/domain/payment/Payment';
+import { Payment, PaymentType } from '@/features/payments/domain/Payment';
 import { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
 import { ISMSProvider } from '@/core/ports/services';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';

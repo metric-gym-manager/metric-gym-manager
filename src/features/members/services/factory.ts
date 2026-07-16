@@ -18,7 +18,7 @@ import { UpdateExpiredStatus } from './UpdateExpiredStatus';
 import { CancelOverdueMembers } from './CancelOverdueMembers';
 import { ExpireSuspendedMembers } from './ExpireSuspendedMembers';
 import { createSMSProvider, createSMSRepository } from '@/features/sms/services/factory';
-import { SupabasePaymentRepository } from '@/infrastructure/database/repositories/SupabasePaymentRepository';
+import { SupabasePaymentRepository } from '@/features/payments/services/SupabasePaymentRepository';
 
 export function createMemberRepository(supabase: SupabaseClient): IMemberRepository {
   return new SupabaseMemberRepository(supabase);

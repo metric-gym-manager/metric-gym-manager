@@ -9,7 +9,7 @@ export {
   type IPaymentRepository,
   type PaymentFilters,
   type RevenueByPlanType,
-} from './IPaymentRepository';
+} from '@/features/payments/services/IPaymentRepository';
 
 export {
   type ISMSRepository,

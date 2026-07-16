@@ -7,7 +7,7 @@
  * insert (and sometimes the send) mid-flight.
  */
 
-import { CollectPayment } from '../CollectPayment';
+import { CollectPayment } from '../services/CollectPayment';
 import { Member, MemberStatus } from '@/features/members/domain/Member';
 import { PlanType } from '@/features/members/config/PlanConfig';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';

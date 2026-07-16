@@ -12,9 +12,9 @@
  * after payment, plan_type untouched, receipt SMS sent and logged.
  */
 
-import { IssueDayPass } from '../IssueDayPass';
+import { IssueDayPass } from '../services/IssueDayPass';
 import { Member, MemberStatus } from '@/features/members/domain/Member';
-import { Payment, PaymentType } from '@/core/domain/payment/Payment';
+import { Payment, PaymentType } from '@/features/payments/domain/Payment';
 import { PlanType } from '@/features/members/config/PlanConfig';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import {

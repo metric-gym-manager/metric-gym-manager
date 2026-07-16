@@ -4,7 +4,7 @@
  * Defines the contract for payment data access.
  */
 
-import { Payment } from '@/core/domain/payment/Payment';
+import { Payment } from '@/features/payments/domain/Payment';
 import { PlanType } from '@/features/members/config/PlanConfig';
 
 /**

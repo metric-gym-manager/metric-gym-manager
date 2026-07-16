@@ -18,7 +18,7 @@
  */
 
 import { Member } from '@/features/members/domain/Member';
-import { Payment } from '@/core/domain/payment/Payment';
+import { Payment } from '@/features/payments/domain/Payment';
 import { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
 import { ISMSProvider } from '@/core/ports/services';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';

@@ -19,7 +19,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Repositories
 import { SupabaseMemberRepository } from '@/features/members/services/SupabaseMemberRepository';
-import { SupabasePaymentRepository } from '@/infrastructure/database/repositories/SupabasePaymentRepository';
+import { SupabasePaymentRepository } from '@/features/payments/services/SupabasePaymentRepository';
 import { SupabaseSMSRepository } from '@/features/sms/services/SupabaseSMSRepository';
 import { SupabaseGymSubscriptionRepository } from '@/infrastructure/database/repositories/SupabaseGymSubscriptionRepository';
 import { SupabaseCheckoutIntentRepository } from '@/infrastructure/database/repositories/SupabaseCheckoutIntentRepository';
@@ -41,8 +41,8 @@ import { MockStorageProvider } from '@/lib/storage/MockStorageProvider';
 // Use Cases
 import { RegisterMember } from '@/features/members/services/RegisterMember';
 import { VerifyMember } from '@/features/members/services/VerifyMember';
-import { CollectPayment } from '@/core/use-cases/payment/CollectPayment';
-import { IssueDayPass } from '@/core/use-cases/payment/IssueDayPass';
+import { CollectPayment } from '@/features/payments/services/CollectPayment';
+import { IssueDayPass } from '@/features/payments/services/IssueDayPass';
 import { SendAutomatedReminders } from '@/features/sms/services/SendAutomatedReminders';
 import { UpdateExpiredStatus } from '@/features/members/services/UpdateExpiredStatus';
 import { CancelOverdueMembers } from '@/features/members/services/CancelOverdueMembers';
@@ -60,7 +60,7 @@ import { ChargeDueRenewals } from '@/core/use-cases/subscription/ChargeDueRenewa
 
 // Interfaces
 import type { IMemberRepository } from '@/features/members/services/IMemberRepository';
-import type { IPaymentRepository } from '@/core/ports/repositories/IPaymentRepository';
+import type { IPaymentRepository } from '@/features/payments/services/IPaymentRepository';
 import type { ISMSRepository } from '@/features/sms/services/ISMSRepository';
 import type { IGymSubscriptionRepository } from '@/core/ports/repositories/IGymSubscriptionRepository';
 import type { ICheckoutIntentRepository } from '@/core/ports/repositories/ICheckoutIntentRepository';
