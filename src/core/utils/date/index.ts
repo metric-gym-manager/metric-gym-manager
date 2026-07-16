@@ -20,7 +20,7 @@ export {
   formatDateTimeForDisplay,
   formatRelativeTime,
   parseDate,
-} from './formatDate';
+} from '@/utils/date/formatDate';
 
 // Re-export PlanType from its actual source
 export { PlanType } from '../constants/PlanConfig';

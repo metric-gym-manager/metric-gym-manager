@@ -15,7 +15,7 @@
 
 import { Member } from '@/core/domain/member/Member';
 import { Payment } from '@/core/domain/payment/Payment';
-import { PhoneNumber } from '@/core/domain/value-objects/PhoneNumber';
+import { PhoneNumber } from '@/utils/phone/PhoneNumber';
 import { PaymentCalculator, type DiscountInfo } from '@/core/domain/payment/PaymentCalculator';
 import { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
 import { ISMSProvider } from '@/core/ports/services';
