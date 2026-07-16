@@ -56,3 +56,29 @@ export async function getMemberSmsHistory(
     totalCount: smsLogs?.length || 0,
   };
 }
+
+/**
+ * Delivery-report update from the text.lk webhook. Returns false when the
+ * update fails (the webhook route responds 500 so text.lk retries).
+ */
+export async function updateSmsDeliveryStatus(
+  messageId: string,
+  deliveryStatus: 'sent' | 'delivered' | 'failed'
+): Promise<boolean> {
+  const supabase = await createClient();
+
+  const { error: updateError } = await supabase
+    .from('sms_logs')
+    .update({
+      delivery_status: deliveryStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('text_lk_message_id', messageId);
+
+  if (updateError) {
+    console.error('text.lk webhook: Failed to update SMS log:', updateError);
+    return false;
+  }
+
+  return true;
+}

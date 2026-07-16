@@ -16,7 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { updateSmsDeliveryStatus } from '@/features/sms/services/sms-history.service';
 import crypto from 'crypto';
 
 /**
@@ -94,18 +94,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Update SMS log in database
-    const supabase = await createClient();
+    const updated = await updateSmsDeliveryStatus(message_id, deliveryStatus);
 
-    const { error: updateError } = await supabase
-      .from('sms_logs')
-      .update({
-        delivery_status: deliveryStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('text_lk_message_id', message_id);
-
-    if (updateError) {
-      console.error('text.lk webhook: Failed to update SMS log:', updateError);
+    if (!updated) {
       return NextResponse.json(
         { error: 'Failed to update SMS log' },
         { status: 500 }
