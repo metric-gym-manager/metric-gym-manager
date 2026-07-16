@@ -8,8 +8,8 @@
  */
 
 import { CollectPayment } from '../CollectPayment';
-import { Member, MemberStatus } from '@/core/domain/member/Member';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { Member, MemberStatus } from '@/features/members/domain/Member';
+import { PlanType } from '@/features/members/config/PlanConfig';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import { NotFoundError, ValidationError } from '@/utils/errors';
 

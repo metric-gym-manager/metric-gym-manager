@@ -11,7 +11,7 @@ import {
   type PaymentFilters,
   type RevenueByPlanType,
 } from '@/core/ports/repositories/IPaymentRepository';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
 
 /**
  * Database row interface (snake_case from Supabase)

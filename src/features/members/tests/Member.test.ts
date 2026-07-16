@@ -8,8 +8,8 @@
  * - Factory methods
  */
 
-import { Member, MemberStatus, type MemberProps, type CreateMemberProps } from '../Member';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { Member, MemberStatus, type MemberProps, type CreateMemberProps } from '../domain/Member';
+import { PlanType } from '@/features/members/config/PlanConfig';
 import { InvalidStatusTransitionError, ValidationError } from '@/utils/errors';
 
 describe('Member Domain Entity', () => {

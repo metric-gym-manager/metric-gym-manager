@@ -37,6 +37,21 @@ export {
   uploadToPresignedUrl,
 } from './services/photo-upload';
 
+// Factories (compose use-cases for routes/cron; wiring mirrors the old DI container).
+// The domain entity and configs are imported directly:
+//   @/features/members/domain/Member, @/features/members/config/*
+export {
+  createMemberRepository,
+  createRegisterMember,
+  createVerifyMember,
+  createSuspendMember,
+  createReactivateMember,
+  createCancelMember,
+  createUpdateExpiredStatus,
+  createCancelOverdueMembers,
+  createExpireSuspendedMembers,
+} from './services/factory';
+
 // ============================================================
 // SCHEMAS
 // ============================================================

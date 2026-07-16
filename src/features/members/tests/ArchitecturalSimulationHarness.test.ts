@@ -8,11 +8,11 @@
  * Date: 2026-03-25
  */
 
-import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { MemberStatus } from '@/core/utils/constants/StatusConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
+import { MemberStatus } from '@/features/members/config/StatusConfig';
 import { shouldSendReminder, getReminderType, ReminderType } from '@/features/sms/config/ReminderConfig';
-import { calculateNextDueDate } from '@/core/utils/date/calculateNextDueDate';
-import { Member, CreateMemberProps } from '@/core/domain/member/Member';
+import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate';
+import { Member, CreateMemberProps } from '@/features/members/domain/Member';
 
 // ============================================================
 // SIMULATION HARNESS UTILITIES

@@ -13,7 +13,7 @@ import { SupabaseSMSRepository } from './SupabaseSMSRepository';
 import { TextLkSMSProvider } from './providers/TextLkSMSProvider';
 import { MockSMSProvider } from './providers/MockSMSProvider';
 import { SendAutomatedReminders } from './SendAutomatedReminders';
-import { SupabaseMemberRepository } from '@/infrastructure/database/repositories/SupabaseMemberRepository';
+import { SupabaseMemberRepository } from '@/features/members/services/SupabaseMemberRepository';
 import { SupabaseGymSubscriptionRepository } from '@/infrastructure/database/repositories/SupabaseGymSubscriptionRepository';
 
 /**

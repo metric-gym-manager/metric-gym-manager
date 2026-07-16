@@ -10,7 +10,7 @@
 import { randomBytes } from 'crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getPlanLabel } from '@/core/utils/constants/PlanConfig';
+import { getPlanLabel } from '@/features/members/config/PlanConfig';
 import type { PublicGymInfo, RegistrationLink } from '../types';
 
 /** Generate an unguessable URL token (32 hex chars = 128 bits) */

@@ -10,7 +10,7 @@
  * CRITICAL: This is the ONLY place where reminder rules should be defined.
  */
 
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
 
 /**
  * SMS reminder types

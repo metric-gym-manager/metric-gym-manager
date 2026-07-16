@@ -5,9 +5,9 @@
  * idempotent and a no-op for manual registrations.
  */
 
-import { VerifyMember } from '../VerifyMember';
-import { Member, MemberStatus, RegistrationSource } from '@/core/domain/member/Member';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { VerifyMember } from '../services/VerifyMember';
+import { Member, MemberStatus, RegistrationSource } from '@/features/members/domain/Member';
+import { PlanType } from '@/features/members/config/PlanConfig';
 import { NotFoundError } from '@/utils/errors';
 
 function buildMember(overrides: Partial<Parameters<typeof Member.create>[0]> = {}): Member {

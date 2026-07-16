@@ -9,7 +9,7 @@ export {
   fromDatabasePlanType,
   type PlanConfiguration,
   type DurationMethod,
-} from './PlanConfig';
+} from '@/features/members/config/PlanConfig';
 
 export {
   ReminderType,
@@ -36,4 +36,4 @@ export {
   getStatusColor,
   isValidMemberStatus,
   type StatusTransition,
-} from './StatusConfig';
+} from '@/features/members/config/StatusConfig';

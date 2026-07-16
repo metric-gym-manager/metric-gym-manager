@@ -16,7 +16,7 @@
  * Note: Cancelled is a terminal state with no outgoing transitions.
  */
 
-import { Member } from '@/core/domain/member/Member';
+import { Member } from '@/features/members/domain/Member';
 import { IMemberRepository } from '@/core/ports/repositories';
 import { NotFoundError } from '@/utils/errors';
 

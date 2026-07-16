@@ -14,9 +14,9 @@
  * This is typically run as a daily cron job.
  */
 
-import { Member } from '@/core/domain/member/Member';
+import { Member } from '@/features/members/domain/Member';
 import { IMemberRepository } from '@/core/ports/repositories';
-import { MEMBER_EXPIRY_GRACE_DAYS } from '@/core/utils/constants/StatusConfig';
+import { MEMBER_EXPIRY_GRACE_DAYS } from '@/features/members/config/StatusConfig';
 
 /**
  * Summary of status updates

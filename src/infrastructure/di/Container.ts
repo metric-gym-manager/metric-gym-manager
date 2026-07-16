@@ -18,7 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Repositories
-import { SupabaseMemberRepository } from '@/infrastructure/database/repositories/SupabaseMemberRepository';
+import { SupabaseMemberRepository } from '@/features/members/services/SupabaseMemberRepository';
 import { SupabasePaymentRepository } from '@/infrastructure/database/repositories/SupabasePaymentRepository';
 import { SupabaseSMSRepository } from '@/features/sms/services/SupabaseSMSRepository';
 import { SupabaseGymSubscriptionRepository } from '@/infrastructure/database/repositories/SupabaseGymSubscriptionRepository';
@@ -39,17 +39,17 @@ import { R2StorageProvider } from '@/lib/storage/R2StorageProvider';
 import { MockStorageProvider } from '@/lib/storage/MockStorageProvider';
 
 // Use Cases
-import { RegisterMember } from '@/core/use-cases/member/RegisterMember';
-import { VerifyMember } from '@/core/use-cases/member/VerifyMember';
+import { RegisterMember } from '@/features/members/services/RegisterMember';
+import { VerifyMember } from '@/features/members/services/VerifyMember';
 import { CollectPayment } from '@/core/use-cases/payment/CollectPayment';
 import { IssueDayPass } from '@/core/use-cases/payment/IssueDayPass';
 import { SendAutomatedReminders } from '@/features/sms/services/SendAutomatedReminders';
-import { UpdateExpiredStatus } from '@/core/use-cases/member/UpdateExpiredStatus';
-import { CancelOverdueMembers } from '@/core/use-cases/member/CancelOverdueMembers';
-import { ExpireSuspendedMembers } from '@/core/use-cases/member/ExpireSuspendedMembers';
-import { SuspendMember } from '@/core/use-cases/member/SuspendMember';
-import { ReactivateMember } from '@/core/use-cases/member/ReactivateMember';
-import { CancelMember } from '@/core/use-cases/member/CancelMember';
+import { UpdateExpiredStatus } from '@/features/members/services/UpdateExpiredStatus';
+import { CancelOverdueMembers } from '@/features/members/services/CancelOverdueMembers';
+import { ExpireSuspendedMembers } from '@/features/members/services/ExpireSuspendedMembers';
+import { SuspendMember } from '@/features/members/services/SuspendMember';
+import { ReactivateMember } from '@/features/members/services/ReactivateMember';
+import { CancelMember } from '@/features/members/services/CancelMember';
 import { GenerateCheckoutUrl } from '@/core/use-cases/subscription/GenerateCheckoutUrl';
 import { HandlePayHereWebhook } from '@/core/use-cases/subscription/HandlePayHereWebhook';
 import { ProcessDunning } from '@/core/use-cases/subscription/ProcessDunning';
@@ -59,7 +59,7 @@ import { ChangePlan } from '@/core/use-cases/subscription/ChangePlan';
 import { ChargeDueRenewals } from '@/core/use-cases/subscription/ChargeDueRenewals';
 
 // Interfaces
-import type { IMemberRepository } from '@/core/ports/repositories/IMemberRepository';
+import type { IMemberRepository } from '@/features/members/services/IMemberRepository';
 import type { IPaymentRepository } from '@/core/ports/repositories/IPaymentRepository';
 import type { ISMSRepository } from '@/features/sms/services/ISMSRepository';
 import type { IGymSubscriptionRepository } from '@/core/ports/repositories/IGymSubscriptionRepository';

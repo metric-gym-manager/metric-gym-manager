@@ -4,7 +4,7 @@ import { updateMemberSchema } from '@/features/members/schemas/member.schemas';
 import { getContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { NotFoundError } from '@/utils/errors';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
 
 // ============================================================
 // GET /api/members/[id] - Get member by ID

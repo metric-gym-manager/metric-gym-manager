@@ -9,15 +9,15 @@
  */
 
 import { randomUUID } from 'crypto';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { MemberStatus, canTransition } from '@/core/utils/constants/StatusConfig';
-import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
-import { getDaysUntilDue } from '@/core/utils/date/getDaysUntilDue';
+import { PlanType } from '@/features/members/config/PlanConfig';
+import { MemberStatus, canTransition } from '@/features/members/config/StatusConfig';
+import { RegistrationSource } from '@/features/members/config/RegistrationConfig';
+import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue';
 import { InvalidStatusTransitionError, ValidationError } from '@/utils/errors';
 
 // Re-export MemberStatus and RegistrationSource for consumers
-export { MemberStatus } from '@/core/utils/constants/StatusConfig';
-export { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
+export { MemberStatus } from '@/features/members/config/StatusConfig';
+export { RegistrationSource } from '@/features/members/config/RegistrationConfig';
 
 /**
  * Member properties interface

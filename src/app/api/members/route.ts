@@ -4,8 +4,8 @@ import { addMemberSchema, memberFiltersSchema } from '@/features/members/schemas
 import { getContainer, getAdminContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { ConflictError, MemberLimitError, ValidationError } from '@/utils/errors';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
-import type { Member } from '@/core/domain/member/Member';
+import { PlanType } from '@/features/members/config/PlanConfig';
+import type { Member } from '@/features/members/domain/Member';
 
 // ============================================================
 // Helper: Serialize Member for API Response

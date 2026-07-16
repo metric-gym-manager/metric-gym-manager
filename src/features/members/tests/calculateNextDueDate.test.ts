@@ -5,8 +5,8 @@
  * duplicated across member.service.ts, payment.service.ts, and PaymentCollectionModal.tsx
  */
 
-import { calculateNextDueDate } from '../calculateNextDueDate';
-import { PlanType } from '../../constants/PlanConfig';
+import { calculateNextDueDate } from '../utils/calculateNextDueDate';
+import { PlanType } from '../config/PlanConfig';
 
 describe('calculateNextDueDate', () => {
   const baseDate = new Date('2024-01-15T00:00:00.000Z');

@@ -21,15 +21,15 @@
  *   (single source of truth for revenue reports).
  */
 
-import { Member } from '@/core/domain/member/Member';
+import { Member } from '@/features/members/domain/Member';
 import { Payment, PaymentType } from '@/core/domain/payment/Payment';
 import { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
 import { ISMSProvider } from '@/core/ports/services';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import { calculateNextDueDate, formatDateForDisplay } from '@/core/utils/date';
-import { getDaysUntilDue } from '@/core/utils/date/getDaysUntilDue';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { MemberStatus } from '@/core/utils/constants/StatusConfig';
+import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue';
+import { PlanType } from '@/features/members/config/PlanConfig';
+import { MemberStatus } from '@/features/members/config/StatusConfig';
 import {
   BusinessRuleViolationError,
   NotFoundError,

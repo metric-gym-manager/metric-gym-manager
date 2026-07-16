@@ -15,7 +15,7 @@
  * 7. Aggregating results
  */
 
-import { Member } from '@/core/domain/member/Member';
+import { Member } from '@/features/members/domain/Member';
 import { IMemberRepository, ISMSRepository } from '@/core/ports/repositories';
 import type { IGymSubscriptionRepository } from '@/core/ports/repositories/IGymSubscriptionRepository';
 import { ISMSProvider } from '@/core/ports/services';
@@ -24,7 +24,7 @@ import { getDaysUntilDue } from '@/core/utils/date';
 import { formatDateForDisplay } from '@/core/utils/date';
 import { shouldSendReminder, ReminderType } from '@/features/sms/config/ReminderConfig';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
 
 /**
  * Input for sending automated reminders

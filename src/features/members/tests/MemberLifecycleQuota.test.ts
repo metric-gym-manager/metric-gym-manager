@@ -10,12 +10,12 @@
  *    it to 403 MEMBER_LIMIT_REACHED)
  */
 
-import { UpdateExpiredStatus } from '@/core/use-cases/member/UpdateExpiredStatus';
-import { ReactivateMember } from '@/core/use-cases/member/ReactivateMember';
+import { UpdateExpiredStatus } from '@/features/members/services/UpdateExpiredStatus';
+import { ReactivateMember } from '@/features/members/services/ReactivateMember';
 import { CollectPayment } from '@/core/use-cases/payment/CollectPayment';
-import { Member } from '@/core/domain/member/Member';
-import { MemberStatus, MEMBER_EXPIRY_GRACE_DAYS } from '@/core/utils/constants/StatusConfig';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { Member } from '@/features/members/domain/Member';
+import { MemberStatus, MEMBER_EXPIRY_GRACE_DAYS } from '@/features/members/config/StatusConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
 import { MemberLimitError } from '@/utils/errors';
 import type { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
 import type { ISMSProvider } from '@/core/ports/services';

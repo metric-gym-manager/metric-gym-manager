@@ -1,10 +1,10 @@
 import { SendAutomatedReminders } from '@/features/sms/services/SendAutomatedReminders';
-import { Member } from '@/core/domain/member/Member';
-import { MemberStatus } from '@/core/utils/constants/StatusConfig';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { Member } from '@/features/members/domain/Member';
+import { MemberStatus } from '@/features/members/config/StatusConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
 import { SaasTier, SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
 import { makeSubscription, mockSubscriptionRepo } from '@/core/test-utils/subscription-mocks';
-import type { IMemberRepository } from '@/core/ports/repositories/IMemberRepository';
+import type { IMemberRepository } from '@/features/members/services/IMemberRepository';
 import type { ISMSRepository } from '@/features/sms/services/ISMSRepository';
 import type { ISMSProvider } from '@/features/sms/services/ISMSProvider';
 import type { Subscription } from '@/core/domain/subscription/Subscription';

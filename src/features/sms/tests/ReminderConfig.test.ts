@@ -11,7 +11,7 @@ import {
   REMINDER_RULES,
   ReminderType,
 } from '../config/ReminderConfig';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
 
 describe('ReminderConfig', () => {
   describe('REMINDER_RULES Configuration', () => {

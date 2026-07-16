@@ -5,7 +5,7 @@
  */
 
 import { Payment } from '@/core/domain/payment/Payment';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
 
 /**
  * Payment query filters

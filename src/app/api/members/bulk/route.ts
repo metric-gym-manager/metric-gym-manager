@@ -4,7 +4,7 @@ import { addMemberSchema } from '@/features/members/schemas/member.schemas';
 import { getAdminContainer } from '@/infrastructure/di';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { MemberLimitError } from '@/utils/errors';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
 import { z } from 'zod';
 
 const bulkCreateSchema = z.object({

@@ -12,7 +12,7 @@
  * - Feb 29 + 1 year = Feb 28 in non-leap year
  */
 
-import { PlanType, PLAN_CONFIGS } from '../constants/PlanConfig';
+import { PlanType, PLAN_CONFIGS } from '../config/PlanConfig';
 
 export interface CalculateNextDueDateOptions {
   /**

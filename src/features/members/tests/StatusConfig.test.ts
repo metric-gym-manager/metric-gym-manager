@@ -11,7 +11,7 @@ import {
   VALID_TRANSITIONS,
   StatusTransition,
   MemberStatus,
-} from '../StatusConfig';
+} from '../config/StatusConfig';
 
 describe('StatusConfig', () => {
   describe('VALID_TRANSITIONS Configuration', () => {

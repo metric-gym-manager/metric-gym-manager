@@ -9,9 +9,9 @@
  * (no Supabase, no SQL, no database-specific logic).
  */
 
-import { Member } from '@/core/domain/member/Member';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { MemberStatus } from '@/core/utils/constants/StatusConfig';
+import { Member } from '@/features/members/domain/Member';
+import { PlanType } from '@/features/members/config/PlanConfig';
+import { MemberStatus } from '@/features/members/config/StatusConfig';
 
 /**
  * Member query filters

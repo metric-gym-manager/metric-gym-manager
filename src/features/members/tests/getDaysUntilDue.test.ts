@@ -4,7 +4,7 @@
  * Tests the calculation of days remaining until a due date
  */
 
-import { getDaysUntilDue } from '../getDaysUntilDue';
+import { getDaysUntilDue } from '../utils/getDaysUntilDue';
 
 describe('getDaysUntilDue', () => {
   // Mock current date for consistent testing

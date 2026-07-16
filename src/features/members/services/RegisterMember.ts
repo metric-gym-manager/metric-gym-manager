@@ -13,7 +13,7 @@
  * 5. Welcome SMS sending
  */
 
-import { Member } from '@/core/domain/member/Member';
+import { Member } from '@/features/members/domain/Member';
 import { Payment } from '@/core/domain/payment/Payment';
 import { PhoneNumber } from '@/utils/phone/PhoneNumber';
 import { PaymentCalculator, type DiscountInfo } from '@/core/domain/payment/PaymentCalculator';
@@ -21,9 +21,9 @@ import { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/po
 import { ISMSProvider } from '@/core/ports/services';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import { calculateNextDueDate } from '@/core/utils/date';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { MemberStatus } from '@/core/utils/constants/StatusConfig';
-import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
+import { PlanType } from '@/features/members/config/PlanConfig';
+import { MemberStatus } from '@/features/members/config/StatusConfig';
+import { RegistrationSource } from '@/features/members/config/RegistrationConfig';
 import { formatDateForDisplay } from '@/core/utils/date';
 import { ConflictError } from '@/utils/errors';
 

@@ -17,7 +17,7 @@
  * This is typically run as a daily cron job.
  */
 
-import { Member } from '@/core/domain/member/Member';
+import { Member } from '@/features/members/domain/Member';
 import { IMemberRepository } from '@/core/ports/repositories';
 
 /**

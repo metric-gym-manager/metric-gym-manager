@@ -12,7 +12,7 @@
  * a no-op that returns the member unchanged.
  */
 
-import { Member } from '@/core/domain/member/Member';
+import { Member } from '@/features/members/domain/Member';
 import { IMemberRepository } from '@/core/ports/repositories';
 import { NotFoundError } from '@/utils/errors';
 

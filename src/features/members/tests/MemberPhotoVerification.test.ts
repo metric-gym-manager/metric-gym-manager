@@ -5,8 +5,8 @@
  * pre-photo records) and must normalize to safe defaults.
  */
 
-import { Member, MemberStatus, RegistrationSource } from '../Member';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { Member, MemberStatus, RegistrationSource } from '../domain/Member';
+import { PlanType } from '@/features/members/config/PlanConfig';
 import { ValidationError } from '@/utils/errors';
 
 function buildMember(overrides: Partial<Parameters<typeof Member.create>[0]> = {}): Member {

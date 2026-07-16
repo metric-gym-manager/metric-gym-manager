@@ -3,7 +3,7 @@ export {
   type IMemberRepository,
   type MemberFilters,
   type PaginatedResult,
-} from './IMemberRepository';
+} from '@/features/members/services/IMemberRepository';
 
 export {
   type IPaymentRepository,

@@ -17,7 +17,7 @@
  *    freeze after the response cannot drop the sms_logs write)
  */
 
-import { Member } from '@/core/domain/member/Member';
+import { Member } from '@/features/members/domain/Member';
 import { Payment } from '@/core/domain/payment/Payment';
 import { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
 import { ISMSProvider } from '@/core/ports/services';

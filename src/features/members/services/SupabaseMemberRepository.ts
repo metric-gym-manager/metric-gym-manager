@@ -14,15 +14,15 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { Member } from '@/core/domain/member/Member';
+import { Member } from '@/features/members/domain/Member';
 import {
   IMemberRepository,
   type MemberFilters,
   type PaginatedResult,
-} from '@/core/ports/repositories/IMemberRepository';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { MemberStatus } from '@/core/utils/constants/StatusConfig';
-import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
+} from '@/features/members/services/IMemberRepository';
+import { PlanType } from '@/features/members/config/PlanConfig';
+import { MemberStatus } from '@/features/members/config/StatusConfig';
+import { RegistrationSource } from '@/features/members/config/RegistrationConfig';
 import { NotFoundError, MemberLimitError, DatabaseError } from '@/utils/errors';
 
 /**
