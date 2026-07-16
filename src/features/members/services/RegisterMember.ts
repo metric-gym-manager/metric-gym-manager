@@ -14,9 +14,9 @@
  */
 
 import { Member } from '@/features/members/domain/Member';
-import { Payment } from '@/core/domain/payment/Payment';
+import { Payment } from '@/features/payments/domain/Payment';
 import { PhoneNumber } from '@/utils/phone/PhoneNumber';
-import { PaymentCalculator, type DiscountInfo } from '@/core/domain/payment/PaymentCalculator';
+import { PaymentCalculator, type DiscountInfo } from '@/features/payments/domain/PaymentCalculator';
 import { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
 import { ISMSProvider } from '@/core/ports/services';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';

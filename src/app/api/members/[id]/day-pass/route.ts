@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
+import { createClient } from '@/lib/supabase/server';
+import { createIssueDayPass } from '@/features/payments';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import {
   BusinessRuleViolationError,
@@ -48,8 +49,7 @@ export async function POST(
 
     const validated = dayPassSchema.parse(body);
 
-    const container = await getContainer();
-    const issueDayPass = container.getIssueDayPassUseCase();
+    const issueDayPass = createIssueDayPass(await createClient());
 
     const result = await issueDayPass.execute({
       gymId: gymProfile.id,

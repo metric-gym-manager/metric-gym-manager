@@ -12,7 +12,7 @@
 
 import { UpdateExpiredStatus } from '@/features/members/services/UpdateExpiredStatus';
 import { ReactivateMember } from '@/features/members/services/ReactivateMember';
-import { CollectPayment } from '@/core/use-cases/payment/CollectPayment';
+import { CollectPayment } from '@/features/payments/services/CollectPayment';
 import { Member } from '@/features/members/domain/Member';
 import { MemberStatus, MEMBER_EXPIRY_GRACE_DAYS } from '@/features/members/config/StatusConfig';
 import { PlanType } from '@/features/members/config/PlanConfig';
