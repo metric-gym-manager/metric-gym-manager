@@ -14,7 +14,7 @@ const { execSync } = require('child_process');
 const HOOKS_SOURCE_DIR = path.join(__dirname, 'hooks');
 const HOOKS_TARGET_DIR = path.join(__dirname, '../.git/hooks');
 
-const HOOKS = ['commit-msg', 'post-merge'];
+const HOOKS = ['pre-commit', 'commit-msg', 'post-merge'];
 
 console.log('📦 Installing Git Hooks...\n');
 
@@ -67,6 +67,7 @@ if (skipped > 0) {
 
 console.log(`\n✨ Git hooks installed successfully!\n`);
 console.log(`Active hooks:`);
+console.log(`   pre-commit  - Runs lint-staged (eslint --fix, prettier, related tests)`);
 console.log(`   commit-msg  - Validates commit message format`);
 console.log(`   post-merge  - Generates draft changelog after merge\n`);
 
