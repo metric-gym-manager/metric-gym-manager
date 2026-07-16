@@ -1,13 +1,12 @@
 # SYSTEM MANUAL: Gym Management SaaS
 
 > **⚠️ Architecture note (2026-07):** this manual predates the feature-first
-> refactor. Behavior, flows, and business rules described here remain accurate,
-> but layer paths in code examples are historical: `src/core/use-cases/*` and
-> `src/infrastructure/*` now live under `src/features/<domain>/services/`, the
-> DI container (`getContainer`/`getAdminContainer`) was replaced by per-feature
-> `create<UseCase>(supabase)` factories, and shared utilities moved to
-> `src/utils` / `src/lib`. See `.claude/rules/architecture.md` for the current
-> structure.
+> refactor; file paths in its current-state sections have been updated to the
+> new layout. Its dated CHANGELOG-style sections intentionally keep the
+> original `src/core/*` / `src/infrastructure/*` / DI-container wording — they
+> are historical records. The DI container was replaced by per-feature
+> `create<UseCase>(supabase)` factories. See `.claude/rules/architecture.md`
+> for the current structure.
 ## Comprehensive Technical Audit & Operational Documentation
 
 **Generated**: 2026-03-26
@@ -33,7 +32,7 @@
 ## 1.1 Member Status State Machine
 
 ### Status Enum Definition
-**Location**: `src/core/utils/constants/StatusConfig.ts:11-34`
+**Location**: `src/features/members/config/StatusConfig.ts:11-34`
 
 ```typescript
 enum MemberStatus {
@@ -96,7 +95,7 @@ export type MemberFiltersInput = z.infer<typeof memberFiltersSchema>;
 
 ### Valid Transitions (7 Total)
 
-**Source**: `src/core/utils/constants/StatusConfig.ts:81-133`
+**Source**: `src/features/members/config/StatusConfig.ts:81-133`
 
 ```mermaid
 stateDiagram-v2
@@ -135,7 +134,7 @@ stateDiagram-v2
 ## 1.2.1 Early Renewal Operation (Active → Active)
 
 ### Definition
-**Location**: `src/core/domain/member/Member.ts:320-333`
+**Location**: `src/features/members/domain/Member.ts:320-333`
 
 Early renewal is **not a state transition** but a subscription extension operation for already active members. This allows members to pay before their due date and extend their subscription without changing their status.
 
@@ -212,7 +211,7 @@ renew(newDueDate: Date): Member {
 
 **Status**: ✅ **100% Coverage Achieved** (2026-03-30)
 
-**Test File**: `src/core/domain/member/__tests__/Member.test.ts:714-954`
+**Test File**: `src/features/members/domain/__tests__/Member.test.ts:714-954`
 
 - **13 comprehensive unit tests** covering:
   - Happy Path (1 test)
@@ -277,7 +276,7 @@ const processedMember =
 ## 1.3 SUSPENDED Status: Comprehensive Overview
 
 ### Definition
-**Location**: `src/core/utils/constants/StatusConfig.ts:23-27`
+**Location**: `src/features/members/config/StatusConfig.ts:23-27`
 
 ```typescript
 /**
@@ -304,12 +303,12 @@ Suspended = 'suspended'
 **Manual Trigger - Admin Action**
 - **UI Location**: `src/components/members/EditMemberModal.tsx` (Status dropdown)
 - **API Route**: `PATCH /api/members/[id]` with `{ status: 'suspended' }`
-- **Domain Method**: `Member.suspend()` in `src/core/domain/member/Member.ts:337`
+- **Domain Method**: `Member.suspend()` in `src/features/members/domain/Member.ts:337`
 - **State Machine Check**: `canTransition(Active, Suspended)` → returns `true`
 
 ### Database Mutations When Applied
 
-**Location**: `src/infrastructure/database/repositories/SupabaseMemberRepository.ts:293-319`
+**Location**: `src/features/members/services/SupabaseMemberRepository.ts:293-319`
 
 ```sql
 UPDATE members
@@ -354,7 +353,7 @@ WHERE id = ? AND gym_id = ?;
 ### Cron Job Handling of Suspended Status
 
 #### 1. Send Reminders Cron (`/api/cron/send-reminders`)
-**Location**: `src/core/use-cases/reminder/SendAutomatedReminders.ts:119-122`
+**Location**: `src/features/sms/services/SendAutomatedReminders.ts:119-122`
 
 ```typescript
 // Get ACTIVE members only
@@ -366,7 +365,7 @@ const members = input.gymId
 **Result**: Suspended members receive **ZERO** payment reminders (not in active list).
 
 #### 2. Update Expired Status Cron (`/api/cron/update-expired-status`)
-**Location**: `src/core/use-cases/member/UpdateExpiredStatus.ts:84-91`
+**Location**: `src/features/members/services/UpdateExpiredStatus.ts:84-91`
 
 ```typescript
 // Filter members whose next_due_date < today
@@ -382,7 +381,7 @@ const overdueMembers = activeMembers.filter((member) => {
 **However**: If a suspended member's `next_due_date` passes, they can transition to expired via the `Suspended → Expired` path, but this is **not currently automated**. This is a potential gap for members suspended for extended periods.
 
 #### 3. Cancel Overdue Members Cron (`/api/cron/cancel-overdue-members`)
-**Location**: `src/core/use-cases/member/CancelOverdueMembers.ts:103`
+**Location**: `src/features/members/services/CancelOverdueMembers.ts:103`
 
 ```typescript
 const expiredMembers = await this.getAllExpiredMembersAcrossGyms();
@@ -392,7 +391,7 @@ const expiredMembers = await this.getAllExpiredMembersAcrossGyms();
 
 ### Transitions Out of Suspended
 
-**Location**: `src/core/utils/constants/StatusConfig.ts:111-133`
+**Location**: `src/features/members/config/StatusConfig.ts:111-133`
 
 | To | Method | Trigger | Files Involved |
 |----|--------|---------|----------------|
@@ -405,7 +404,7 @@ const expiredMembers = await this.getAllExpiredMembersAcrossGyms();
 ## 1.4 Plan Type Configuration
 
 ### Plan Enum Definition
-**Location**: `src/core/utils/constants/PlanConfig.ts:11-19`
+**Location**: `src/features/members/config/PlanConfig.ts:11-19`
 
 ```typescript
 enum PlanType {
@@ -431,7 +430,7 @@ ALTER TYPE member_plan_type ADD VALUE IF NOT EXISTS 'custom';
 
 ### Plan Configuration Matrix
 
-**Location**: `src/core/utils/constants/PlanConfig.ts:79-142`
+**Location**: `src/features/members/config/PlanConfig.ts:79-142`
 
 | Plan Type | Duration (Days) | Duration Method | Duration Value | Suggested Min (LKR) | Recurring Discount |
 |-----------|----------------|-----------------|----------------|-------------------|-------------------|
@@ -443,7 +442,7 @@ ALTER TYPE member_plan_type ADD VALUE IF NOT EXISTS 'custom';
 | **Annual** | ~365 | `year` | 1 | 14,000 | Yes |
 | **Custom** | 30 (default) | `month` | 1 | 1,000 | Yes |
 
-**Duration Calculation Logic**: `src/core/utils/date/calculateNextDueDate.ts`
+**Duration Calculation Logic**: `src/utils/date/calculateNextDueDate.ts`
 
 ```typescript
 function calculateNextDueDate(baseDate: Date, planType: PlanType): Date {
@@ -469,7 +468,7 @@ function calculateNextDueDate(baseDate: Date, planType: PlanType): Date {
 
 ## 1.5 Reminder Rules by Plan Type
 
-**Location**: `src/core/utils/constants/ReminderConfig.ts:56-123`
+**Location**: `src/features/sms/config/ReminderConfig.ts:56-123`
 
 ### Reminder Matrix
 
@@ -569,16 +568,16 @@ sequenceDiagram
 | Step | File | Line Range | Function | Description |
 |------|------|-----------|----------|-------------|
 | 1 | `src/app/api/cron/send-reminders/route.ts` | 10-59 | `POST()` | Cron endpoint, auth verification |
-| 2 | `src/infrastructure/di/index.ts` | - | `getAdminContainer()` | Dependency injection container |
-| 3 | `src/core/use-cases/reminder/SendAutomatedReminders.ts` | 104-161 | `execute()` | Main orchestration logic |
-| 4 | `src/infrastructure/database/repositories/SupabaseMemberRepository.ts` | 174-185 | `findAllActiveMembers()` | Query active members |
-| 5 | `src/core/utils/date/getDaysUntilDue.ts` | - | `getDaysUntilDue()` | Calculate days until due |
-| 6 | `src/core/utils/constants/ReminderConfig.ts` | 155-175 | `shouldSendReminder()` | Check if reminder needed |
-| 7 | `src/core/use-cases/reminder/SendAutomatedReminders.ts` | 220-231 | `determineSMSType()` | Map days to SMS type |
-| 8 | `src/infrastructure/database/repositories/SupabaseSMSRepository.ts` | - | `existsForToday()` | Duplicate check |
-| 9 | `src/core/use-cases/reminder/SendAutomatedReminders.ts` | 285-316 | `generateReminderMessage()` | SMS body generation |
-| 10 | `src/infrastructure/external/TextLKSMSProvider.ts` | - | `send()` | External API call |
-| 11 | `src/infrastructure/database/repositories/SupabaseSMSRepository.ts` | - | `create()` | Log to sms_logs table |
+| 2 | `src/features/<domain>/services/factory.ts` | - | `create<UseCase>(adminClient)` | Feature factory composition |
+| 3 | `src/features/sms/services/SendAutomatedReminders.ts` | 104-161 | `execute()` | Main orchestration logic |
+| 4 | `src/features/members/services/SupabaseMemberRepository.ts` | 174-185 | `findAllActiveMembers()` | Query active members |
+| 5 | `src/utils/date/getDaysUntilDue.ts` | - | `getDaysUntilDue()` | Calculate days until due |
+| 6 | `src/features/sms/config/ReminderConfig.ts` | 155-175 | `shouldSendReminder()` | Check if reminder needed |
+| 7 | `src/features/sms/services/SendAutomatedReminders.ts` | 220-231 | `determineSMSType()` | Map days to SMS type |
+| 8 | `src/features/sms/services/SupabaseSMSRepository.ts` | - | `existsForToday()` | Duplicate check |
+| 9 | `src/features/sms/services/SendAutomatedReminders.ts` | 285-316 | `generateReminderMessage()` | SMS body generation |
+| 10 | `src/features/sms/services/providers/TextLkSMSProvider.ts` | - | `send()` | External API call |
+| 11 | `src/features/sms/services/SupabaseSMSRepository.ts` | - | `create()` | Log to sms_logs table |
 
 ### Database Mutations
 
@@ -685,13 +684,13 @@ sequenceDiagram
 | 2 | `src/app/api/members/[id]/payment/route.ts` | 12-110 | `POST()` | API endpoint |
 | 3 | `src/lib/middleware/auth.ts` | - | `getCurrentGymProfile()` | Supabase auth check |
 | 4 | `src/features/members/schemas/member.schemas.ts` | - | `collectPaymentSchema` | Zod validation |
-| 5 | `src/core/use-cases/payment/CollectPayment.ts` | 144-204 | `execute()` | Main business logic (with renew/activate conditional) |
-| 6 | `src/infrastructure/database/repositories/SupabaseMemberRepository.ts` | 64-81 | `findById()` | Member lookup |
-| 7 | `src/core/utils/date/calculateNextDueDate.ts` | - | `calculateNextDueDate()` | Date calculation |
-| 8 | `src/infrastructure/database/repositories/SupabasePaymentRepository.ts` | - | `create()` | Payment insert |
-| 9 | `src/core/domain/member/Member.ts` | 288-298, 320-333 | `activate()` / `renew()` | State transition or renewal |
-| 10 | `src/infrastructure/database/repositories/SupabaseMemberRepository.ts` | 293-319 | `update()` | Member status update |
-| 11 | `src/infrastructure/external/TextLKSMSProvider.ts` | - | `send()` | Receipt SMS (async) |
+| 5 | `src/features/payments/services/CollectPayment.ts` | 144-204 | `execute()` | Main business logic (with renew/activate conditional) |
+| 6 | `src/features/members/services/SupabaseMemberRepository.ts` | 64-81 | `findById()` | Member lookup |
+| 7 | `src/utils/date/calculateNextDueDate.ts` | - | `calculateNextDueDate()` | Date calculation |
+| 8 | `src/features/payments/services/SupabasePaymentRepository.ts` | - | `create()` | Payment insert |
+| 9 | `src/features/members/domain/Member.ts` | 288-298, 320-333 | `activate()` / `renew()` | State transition or renewal |
+| 10 | `src/features/members/services/SupabaseMemberRepository.ts` | 293-319 | `update()` | Member status update |
+| 11 | `src/features/sms/services/providers/TextLkSMSProvider.ts` | - | `send()` | Receipt SMS (async) |
 
 ### Database Mutations
 
@@ -750,7 +749,7 @@ INSERT INTO sms_logs (
 
 ### Business Logic: Early Renewal vs Reactivation
 
-**Location**: `src/core/use-cases/payment/CollectPayment.ts:187-190`
+**Location**: `src/features/payments/services/CollectPayment.ts:187-190`
 
 ```typescript
 const processedMember =
@@ -839,14 +838,14 @@ sequenceDiagram
 | 2 | `src/app/api/members/route.ts` | 73-161 | `POST()` | API endpoint |
 | 3 | `src/lib/middleware/auth.ts` | - | `getCurrentGymProfile()` | Auth verification |
 | 4 | `src/features/members/schemas/member.schemas.ts` | - | `addMemberSchema` | Zod validation |
-| 5 | `src/core/use-cases/member/RegisterMember.ts` | 137-202 | `execute()` | Main orchestration |
-| 6 | `src/core/domain/value-objects/PhoneNumber.ts` | - | `PhoneNumber.create()` | Phone validation |
-| 7 | `src/infrastructure/database/repositories/SupabaseMemberRepository.ts` | - | `findByPhoneNumber()` | Duplicate check |
-| 8 | `src/core/utils/date/calculateNextDueDate.ts` | - | `calculateNextDueDate()` | Next due calculation |
-| 9 | `src/core/domain/member/Member.ts` | 100-107 | `Member.create()` | Domain entity creation |
-| 10 | `src/infrastructure/database/repositories/SupabaseMemberRepository.ts` | 271-288 | `create()` | Member insert |
-| 11 | `src/infrastructure/database/repositories/SupabasePaymentRepository.ts` | - | `create()` | Initial payment record |
-| 12 | `src/infrastructure/external/TextLKSMSProvider.ts` | - | `send()` | Welcome SMS (async) |
+| 5 | `src/features/members/services/RegisterMember.ts` | 137-202 | `execute()` | Main orchestration |
+| 6 | `src/utils/phone/PhoneNumber.ts` | - | `PhoneNumber.create()` | Phone validation |
+| 7 | `src/features/members/services/SupabaseMemberRepository.ts` | - | `findByPhoneNumber()` | Duplicate check |
+| 8 | `src/utils/date/calculateNextDueDate.ts` | - | `calculateNextDueDate()` | Next due calculation |
+| 9 | `src/features/members/domain/Member.ts` | 100-107 | `Member.create()` | Domain entity creation |
+| 10 | `src/features/members/services/SupabaseMemberRepository.ts` | 271-288 | `create()` | Member insert |
+| 11 | `src/features/payments/services/SupabasePaymentRepository.ts` | - | `create()` | Initial payment record |
+| 12 | `src/features/sms/services/providers/TextLkSMSProvider.ts` | - | `send()` | Welcome SMS (async) |
 
 ### Database Mutations
 
@@ -1320,7 +1319,7 @@ All member status transitions now occur through dedicated operational endpoints 
 
 ### Use Cases Created
 
-**Location**: `src/core/use-cases/member/`
+**Location**: `src/features/members/services/`
 
 1. **SuspendMember.ts**
    - Validates transition via `member.suspend()`
@@ -1336,7 +1335,7 @@ All member status transitions now occur through dedicated operational endpoints 
    - Throws `InvalidStatusTransitionError` if current status is not `Expired` or `Suspended`
 
 **Dependency Injection**:
-All use cases are registered in `src/infrastructure/di/Container.ts`:
+Use cases are composed by per-feature factories (`src/features/<domain>/services/factory.ts`), e.g.:
 - `getSuspendMemberUseCase(): SuspendMember`
 - `getReactivateMemberUseCase(): ReactivateMember`
 - `getCancelMemberUseCase(): CancelMember`
@@ -1574,9 +1573,9 @@ queryClient.invalidateQueries({
 - **Removed** `status` field from `updateMemberSchema` validation schema
 - **Removed** all status update logic from `PATCH /api/members/[id]` endpoint
 - **Created** three dedicated use cases with full state machine validation:
-  - `SuspendMember` (lines in `src/core/use-cases/member/SuspendMember.ts`)
-  - `ReactivateMember` (lines in `src/core/use-cases/member/ReactivateMember.ts`)
-  - `CancelMember` (lines in `src/core/use-cases/member/CancelMember.ts`)
+  - `SuspendMember` (lines in `src/features/members/services/SuspendMember.ts`)
+  - `ReactivateMember` (lines in `src/features/members/services/ReactivateMember.ts`)
+  - `CancelMember` (lines in `src/features/members/services/CancelMember.ts`)
 - **Created** three dedicated API endpoints:
   - `POST /api/members/:id/suspend`
   - `POST /api/members/:id/activate`
@@ -1600,7 +1599,7 @@ queryClient.invalidateQueries({
 **Original Issue**: No cron job handled the `Suspended → Expired` transition when suspended members' `next_due_date` passes.
 
 **Resolution**:
-- **Created** new use case: `ExpireSuspendedMembers` (`src/core/use-cases/member/ExpireSuspendedMembers.ts`)
+- **Created** new use case: `ExpireSuspendedMembers` (`src/features/members/services/ExpireSuspendedMembers.ts`)
 - **Created** new cron job: `POST /api/cron/expire-suspended-members` (`src/app/api/cron/expire-suspended-members/route.ts`)
 - **Added** repository method: `findAllSuspendedMembers()` to `IMemberRepository` interface
 - **Implemented** repository method in `SupabaseMemberRepository` (lines 220-234)
@@ -1666,7 +1665,7 @@ queryClient.invalidateQueries({
 - **Created** migration: `20260328000002_drop_reminder_rules_table.sql`
   - Drops the unused `reminder_rules` table
   - Application relies entirely on static `REMINDER_RULES` constant
-- **Cleaned** `ReminderConfig.ts` (src/core/utils/constants/ReminderConfig.ts)
+- **Cleaned** `ReminderConfig.ts` (src/features/sms/config/ReminderConfig.ts)
   - Removed `shouldSendReminderDB()` function (former lines 281-332)
   - Removed `getReminderRuleDB()` function (former lines 344-389)
   - Removed entire "DATABASE-BACKED REMINDER RULES" section
@@ -1686,7 +1685,7 @@ queryClient.invalidateQueries({
 
 **Status**: ✅ **RESOLVED** (2026-03-28)
 
-**Original Location**: `src/core/use-cases/payment/CollectPayment.ts:188-197`
+**Original Location**: `src/features/payments/services/CollectPayment.ts:188-197`
 
 **Original Issue**: Receipt SMS was fire-and-forget with only console logging.
 
@@ -1712,7 +1711,7 @@ queryClient.invalidateQueries({
 
 **Status**: ✅ **RESOLVED** (2026-03-28)
 
-**Original Location**: `src/core/use-cases/member/RegisterMember.ts:193-196`
+**Original Location**: `src/features/members/services/RegisterMember.ts:193-196`
 
 **Original Issue**: Same as receipt SMS - fire-and-forget with console logging only.
 
@@ -1747,7 +1746,7 @@ queryClient.invalidateQueries({
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   );
   ```
-- **Created** `CronLogger` utility service (`src/core/utils/cron/CronLogger.ts`) with methods:
+- **Created** `CronLogger` utility service (`src/lib/cron/CronLogger.ts`) with methods:
   - `logStart(jobName)` - Insert record with status='running', returns log ID
   - `logComplete(logId, status, summary, errors)` - Update record with completion data
   - `logSuccess(logId, summary)` - Convenience method for success
@@ -1946,7 +1945,7 @@ const overdue = reminderLogs.find((log: any) => log.sms_type === 'overdue');
 CONSTRAINT valid_phone CHECK (phone_number ~* '^\+94[0-9]{9}$')
 ```
 
-**Application**: `src/core/domain/value-objects/PhoneNumber.ts`
+**Application**: `src/utils/phone/PhoneNumber.ts`
 - Validates and normalizes phone numbers
 - Enforces `+94XXXXXXXXX` format
 
@@ -1961,7 +1960,7 @@ CONSTRAINT valid_phone CHECK (phone_number ~* '^\+94[0-9]{9}$')
 CONSTRAINT positive_amount CHECK (plan_amount > 0)
 ```
 
-**Application**: `src/core/domain/member/Member.ts:84`
+**Application**: `src/features/members/domain/Member.ts:84`
 ```typescript
 if (props.planAmount <= 0) throw new Error('planAmount must be positive');
 ```
@@ -2916,7 +2915,7 @@ interface SMSFailure {
     - `idx_cron_logs_job_started` - Composite index (job_name, started_at DESC)
   - **Enabled** RLS with policies for `service_role` access
 - **Part 3: Cron Persistence**
-  - **Created** `CronLogger` utility service (`src/core/utils/cron/CronLogger.ts`)
+  - **Created** `CronLogger` utility service (`src/lib/cron/CronLogger.ts`)
     - `logStart(jobName)` - Insert record with status='running', returns log ID
     - `logComplete(logId, status, summary, errors)` - Update record with results
     - `logSuccess(logId, summary)` - Convenience method for success
@@ -2957,13 +2956,13 @@ interface SMSFailure {
   - **Created** database migration: `20260328000001_add_error_message_to_sms_logs.sql`
     - Added `error_message TEXT` column to `sms_logs` table
     - Enables detailed error logging for SMS provider failures
-  - **Refactored** `CollectPayment.ts` (src/core/use-cases/payment/CollectPayment.ts:215-283)
+  - **Refactored** `CollectPayment.ts` (src/features/payments/services/CollectPayment.ts:215-283)
     - Added `ISMSRepository` dependency to constructor
     - Rewrote `sendReceiptSMS()` method with comprehensive error logging:
       - **Success case**: Logs to database with `delivery_status='sent'`, `error_message=null`
       - **Failure case**: Logs with `delivery_status='failed'`, `error_message` populated
       - **Exception case**: Nested try/catch ensures logging even when database write fails
-  - **Refactored** `RegisterMember.ts` (src/core/use-cases/member/RegisterMember.ts:212-270)
+  - **Refactored** `RegisterMember.ts` (src/features/members/services/RegisterMember.ts:212-270)
     - Added `ISMSRepository` dependency to constructor
     - Rewrote `sendWelcomeSMS()` method with same error logging pattern
   - **Updated** DI Container: Added `this.getSMSRepository()` to both use case constructors
@@ -2971,7 +2970,7 @@ interface SMSFailure {
   - **Created** migration: `20260328000002_drop_reminder_rules_table.sql`
     - Drops unused `reminder_rules` table
     - Application relies entirely on static `REMINDER_RULES` constant
-  - **Cleaned** `ReminderConfig.ts` (src/core/utils/constants/ReminderConfig.ts)
+  - **Cleaned** `ReminderConfig.ts` (src/features/sms/config/ReminderConfig.ts)
     - Removed `shouldSendReminderDB()` function (lines 281-332)
     - Removed `getReminderRuleDB()` function (lines 344-389)
     - Removed entire "DATABASE-BACKED REMINDER RULES" section
@@ -3404,7 +3403,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 
 **Files Modified**: 2 total
 - `src/app/api/members/route.ts` (added `serializeMemberForAPI()` helper, discount fetching logic)
-- `src/infrastructure/database/repositories/SupabaseMemberRepository.ts` (added discount JOIN, updated `MemberRow` interface)
+- `src/features/members/services/SupabaseMemberRepository.ts` (added discount JOIN, updated `MemberRow` interface)
 
 **Documentation**: Added Section 2.11 to `.claude/rules/architecture.md` documenting the "Domain Entity API Serialization Pattern"
 
