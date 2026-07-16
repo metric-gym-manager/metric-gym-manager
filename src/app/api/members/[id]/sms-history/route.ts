@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { createClient } from '@/lib/supabase/server';
+import { getMemberSmsHistory } from '@/features/sms/services/sms-history.service';
 
 // ============================================================
 // GET /api/members/[id]/sms-history - Get SMS history for a member
@@ -13,34 +13,17 @@ export async function GET(
   try {
     const { id: memberId } = await params;
     const gymProfile = await getCurrentGymProfile();
-    const supabase = await createClient();
 
-    // Verify member belongs to gym and get plan details for grouping
-    const { data: member, error: memberError } = await supabase
-      .from('members')
-      .select('id, name, phone_number, plan_type, membership_start_date, next_due_date')
-      .eq('id', memberId)
-      .eq('gym_id', gymProfile.id)
-      .single();
+    const result = await getMemberSmsHistory(gymProfile.id, memberId);
 
-    if (memberError || !member) {
+    if (result.status === 'member_not_found') {
       return NextResponse.json(
         { success: false, error: 'Member not found' },
         { status: 404 }
       );
     }
 
-    // Fetch SMS logs for this member, ordered by most recent first
-    // NOTE: Explicitly exclude 'error_message' to prevent exposing technical infrastructure details to gym managers
-    const { data: smsLogs, error: logsError } = await supabase
-      .from('sms_logs')
-      .select('id, sms_type, phone_number, message_body, sent_at, delivery_status, text_lk_message_id, created_at')
-      .eq('member_id', memberId)
-      .eq('gym_id', gymProfile.id)
-      .order('sent_at', { ascending: false });
-
-    if (logsError) {
-      console.error('Fetch SMS logs error:', logsError);
+    if (result.status === 'logs_error') {
       return NextResponse.json(
         { success: false, error: 'Failed to fetch SMS history' },
         { status: 500 }
@@ -51,9 +34,9 @@ export async function GET(
       {
         success: true,
         data: {
-          member,
-          smsLogs: smsLogs || [],
-          totalCount: smsLogs?.length || 0,
+          member: result.member,
+          smsLogs: result.smsLogs,
+          totalCount: result.totalCount,
         },
       },
       { status: 200 }

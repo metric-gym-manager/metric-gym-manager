@@ -506,3 +506,84 @@ export async function clearSessionFailures(announcementId: string): Promise<void
 
   console.log(`🧹 [CLEANUP] Cleared session failures for announcement ${announcementId}`);
 }
+
+// ============================================================
+// Announcement progress (read model for the progress modal)
+// Query text extracted verbatim from api/announcements/[id]/progress.
+// ============================================================
+
+interface SessionFailure {
+  member_id: string;
+  retry_count: number;
+  [key: string]: unknown;
+}
+
+export interface AnnouncementProgressData {
+  announcement: {
+    id: string;
+    message: string;
+    recipientCount: number;
+    sentCount: number;
+    failedCount: number;
+    status: string;
+    sentAt: string;
+    createdAt: string;
+  };
+  failures: {
+    retryable: (SessionFailure & { member_name: string })[];
+    maxAttempts: (SessionFailure & { member_name: string })[];
+  };
+}
+
+/** Returns null when the announcement does not exist in the caller's gym. */
+export async function getAnnouncementProgress(
+  gymId: string,
+  announcementId: string
+): Promise<AnnouncementProgressData | null> {
+  const adminSupabase = createAdminClient();
+  const { data: announcement, error: announcementError } = await adminSupabase
+    .from('announcements')
+    .select('id, message, recipient_count, sent_count, failed_count, status, sent_at, created_at, session_failures')
+    .eq('id', announcementId)
+    .eq('gym_id', gymId)
+    .single();
+
+  if (announcementError || !announcement) {
+    return null;
+  }
+
+  const sessionFailures = (announcement.session_failures || []) as SessionFailure[];
+
+  // Get member names for failures
+  const failuresWithNames = await Promise.all(
+    sessionFailures.map(async (failure) => {
+      const { data: member } = await adminSupabase
+        .from('members')
+        .select('name')
+        .eq('id', failure.member_id)
+        .single();
+
+      return {
+        ...failure,
+        member_name: member?.name || 'Unknown',
+      };
+    })
+  );
+
+  return {
+    announcement: {
+      id: announcement.id,
+      message: announcement.message,
+      recipientCount: announcement.recipient_count,
+      sentCount: announcement.sent_count || 0,
+      failedCount: announcement.failed_count || 0,
+      status: announcement.status,
+      sentAt: announcement.sent_at,
+      createdAt: announcement.created_at,
+    },
+    failures: {
+      retryable: failuresWithNames.filter((f) => f.retry_count < 3),
+      maxAttempts: failuresWithNames.filter((f) => f.retry_count >= 3),
+    },
+  };
+}
