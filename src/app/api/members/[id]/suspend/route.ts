@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createSuspendMember } from '@/features/members';
+import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { NotFoundError, InvalidStatusTransitionError } from '@/utils/errors';
 
@@ -37,7 +38,7 @@ export async function POST(
 
     return NextResponse.json(
       ResponseBuilder.success(
-        suspendedMember.toDatabase(),
+        serializeMemberForAPI(suspendedMember),
         { message: 'Member suspended successfully' }
       ),
       { status: 200 }

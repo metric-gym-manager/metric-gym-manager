@@ -4,6 +4,7 @@ import { collectPaymentSchema } from '@/features/members/schemas/member.schemas'
 import { createClient } from '@/lib/supabase/server';
 import { createCollectPayment } from '@/features/payments';
 import { getDiscountInfoById } from '@/features/settings/services/settings.service';
+import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { NotFoundError, ValidationError, InvalidStatusTransitionError, MemberLimitError } from '@/utils/errors';
 
@@ -46,7 +47,7 @@ export async function POST(
     });
 
     // Convert domain entities to database format for API response
-    const memberData = result.member.toDatabase();
+    const memberData = serializeMemberForAPI(result.member);
     const paymentData = result.payment.toDatabase();
 
     return NextResponse.json(

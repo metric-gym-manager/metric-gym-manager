@@ -3,6 +3,7 @@ import { getApiGymProfile } from '@/lib/middleware/api-auth';
 import { updateMemberSchema } from '@/features/members/schemas/member.schemas';
 import { createClient } from '@/lib/supabase/server';
 import { createMemberRepository } from '@/features/members';
+import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { NotFoundError } from '@/utils/errors';
 import { PlanType } from '@/features/members/config/PlanConfig';
@@ -35,7 +36,7 @@ export async function GET(
     }
 
     return NextResponse.json(
-      ResponseBuilder.success(member.toDatabase()),
+      ResponseBuilder.success(serializeMemberForAPI(member)),
       { status: 200 }
     );
   } catch (error) {
@@ -108,7 +109,7 @@ export async function PATCH(
     const saved = await memberRepo.update(updatedMember);
 
     return NextResponse.json(
-      ResponseBuilder.success(saved.toDatabase()),
+      ResponseBuilder.success(serializeMemberForAPI(saved)),
       { status: 200 }
     );
   } catch (error) {

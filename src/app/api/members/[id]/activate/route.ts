@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createReactivateMember } from '@/features/members';
+import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { NotFoundError, InvalidStatusTransitionError, MemberLimitError } from '@/utils/errors';
 import { z } from 'zod';
@@ -53,7 +54,7 @@ export async function POST(
 
     return NextResponse.json(
       ResponseBuilder.success(
-        activatedMember.toDatabase(),
+        serializeMemberForAPI(activatedMember),
         { message: 'Member activated successfully' }
       ),
       { status: 200 }
