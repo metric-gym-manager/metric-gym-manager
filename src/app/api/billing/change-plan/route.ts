@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getAdminContainer } from '@/infrastructure/di';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createChangePlan } from '@/features/subscriptions';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import {
   ChargeFailedError,
@@ -32,10 +33,9 @@ export async function POST(request: NextRequest) {
     // RLS'd to service_role only, and the caller's gym id was pinned by
     // getCurrentGymProfile() above. targetTier is a validated enum; the PRICE
     // is always looked up server-side (amount-authority invariant).
-    const container = await getAdminContainer();
-    const result = await container
-      .getChangePlanUseCase()
-      .execute({ gymId: gymProfile.id, targetTier: validated.targetTier });
+    const result = await createChangePlan(
+      createAdminClient()
+    ).execute({ gymId: gymProfile.id, targetTier: validated.targetTier });
 
     return NextResponse.json(
       ResponseBuilder.success(serializeSubscriptionForAPI(result.subscription), {
