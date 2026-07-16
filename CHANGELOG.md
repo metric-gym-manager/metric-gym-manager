@@ -29,6 +29,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - migrate entire application from PostgreSQL+JWT to Supabase ([b270ebc](../../commit/b270ebc))
 - initial commit - Phase 1 MVP implementation ([8c50266](../../commit/8c50266))
 
+### Changed
+
+- **auth**: the gym profile is now created immediately at registration so
+  users can log in before verifying their email; unverified users see a
+  dismissible verification banner with a resend action
+
 ### Fixed
 
 - **auth**: persist sessions across deployments and implement remember-me ([65a4437](../../commit/65a4437))

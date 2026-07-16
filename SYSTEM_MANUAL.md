@@ -3407,7 +3407,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 - **State Machine**: Reduced from 11 to 7 transitions
 - **Badge Colors**: Suspended now shows yellow (requires attention) instead of gray
 - **Database Migration**: `20260326000001_remove_frozen_status.sql` converts all frozen → suspended
-- **Files Modified**: 9 files (see `FROZEN_STATUS_REMOVAL_SUMMARY.md`)
+- **Files Modified**: 9 files
 
 ---
 
