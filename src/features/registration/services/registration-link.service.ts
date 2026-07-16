@@ -249,3 +249,25 @@ export async function listGymsWithRegistrationLinks(): Promise<GymQrCodeItem[]> 
     };
   });
 }
+
+/**
+ * Amount authority for public registration: the chosen plan must be one of
+ * the gym's ACTIVE plans and the charged amount always comes from the DB,
+ * never from client input. Admin client — the public join flow has no session.
+ */
+export async function getActivePlanForGym(
+  gymId: string,
+  planType: string
+): Promise<{ plan_type: string; default_amount: number } | null> {
+  const supabase = createAdminClient();
+  const { data: plan, error: planError } = await supabase
+    .from('plan_types')
+    .select('plan_type, default_amount')
+    .eq('gym_id', gymId)
+    .eq('plan_type', planType)
+    .eq('is_active', true)
+    .maybeSingle();
+
+  if (planError || !plan) return null;
+  return plan;
+}
