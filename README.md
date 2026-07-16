@@ -57,15 +57,18 @@ A production-grade, multi-tenant SaaS platform for gym and fitness center manage
 
 ```
 src/
-├── app/              # Next.js App Router
-├── components/       # Reusable UI components
-├── features/         # Feature-first modules
-├── lib/              # Third-party configs
-├── services/         # Business logic layer
-├── hooks/            # React hooks
-├── types/            # TypeScript definitions
-└── utils/            # Pure utility functions
+├── app/              # Next.js App Router (thin routes: auth + validation + service call)
+├── components/       # Shared UI only (ui, common, layout, landing, providers, pwa, dashboard)
+├── features/         # Feature-first modules — ALL business logic
+│                     #   members, payments, subscriptions, sms, auth,
+│                     #   announcements, registration, revenue, settings
+├── lib/              # Third-party glue (supabase, payhere, storage, cron, auth, middleware)
+├── hooks/            # Shared React hooks
+└── utils/            # Pure utilities (ResponseBuilder, errors, date, phone, money)
 ```
+
+Docs are organized under [`docs/`](./docs/README.md) by purpose
+(product / reference / setup / ops / architecture / integrations / legal).
 
 ## Documentation
 
