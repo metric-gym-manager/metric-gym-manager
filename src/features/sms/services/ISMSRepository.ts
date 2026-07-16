@@ -5,7 +5,7 @@
  * This stores records of all SMS messages sent by the system.
  */
 
-import { ReminderType } from '@/core/utils/constants/ReminderConfig';
+import { ReminderType } from '@/features/sms/config/ReminderConfig';
 
 /**
  * SMS types

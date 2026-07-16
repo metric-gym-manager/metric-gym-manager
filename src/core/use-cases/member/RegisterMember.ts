@@ -19,7 +19,7 @@ import { PhoneNumber } from '@/utils/phone/PhoneNumber';
 import { PaymentCalculator, type DiscountInfo } from '@/core/domain/payment/PaymentCalculator';
 import { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
 import { ISMSProvider } from '@/core/ports/services';
-import { SMSDeliveryStatus } from '@/core/ports/repositories/ISMSRepository';
+import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import { calculateNextDueDate } from '@/core/utils/date';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberStatus } from '@/core/utils/constants/StatusConfig';

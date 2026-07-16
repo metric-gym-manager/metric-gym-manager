@@ -18,7 +18,7 @@ jest.mock('@/lib/supabase/server', () => ({
 }));
 
 // Mock text.lk SMS service
-jest.mock('../textlk.service', () => ({
+jest.mock('../services/textlk.service', () => ({
   sendSmsViaTextLk: jest.fn(() =>
     Promise.resolve({
       success: true,
@@ -29,8 +29,8 @@ jest.mock('../textlk.service', () => ({
 }));
 
 // Import AFTER mocks are defined
-import { sendSMS, formatReceiptSMS } from '../sms.service';
-import { sendSmsViaTextLk } from '../textlk.service';
+import { sendSMS, formatReceiptSMS } from '../services/sms.service';
+import { sendSmsViaTextLk } from '../services/textlk.service';
 
 const mockSendSmsViaTextLk = sendSmsViaTextLk as jest.Mock;
 

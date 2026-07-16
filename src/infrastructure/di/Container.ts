@@ -20,7 +20,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // Repositories
 import { SupabaseMemberRepository } from '@/infrastructure/database/repositories/SupabaseMemberRepository';
 import { SupabasePaymentRepository } from '@/infrastructure/database/repositories/SupabasePaymentRepository';
-import { SupabaseSMSRepository } from '@/infrastructure/database/repositories/SupabaseSMSRepository';
+import { SupabaseSMSRepository } from '@/features/sms/services/SupabaseSMSRepository';
 import { SupabaseGymSubscriptionRepository } from '@/infrastructure/database/repositories/SupabaseGymSubscriptionRepository';
 import { SupabaseCheckoutIntentRepository } from '@/infrastructure/database/repositories/SupabaseCheckoutIntentRepository';
 import { SupabaseSaasPaymentLogRepository } from '@/infrastructure/database/repositories/SupabaseSaasPaymentLogRepository';
@@ -33,8 +33,8 @@ import { getPayhereConfig } from '@/lib/payhere/config';
 import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
 
 // Services
-import { TextLkSMSProvider } from '@/infrastructure/sms/providers/TextLkSMSProvider';
-import { MockSMSProvider } from '@/infrastructure/sms/providers/MockSMSProvider';
+import { TextLkSMSProvider } from '@/features/sms/services/providers/TextLkSMSProvider';
+import { MockSMSProvider } from '@/features/sms/services/providers/MockSMSProvider';
 import { R2StorageProvider } from '@/lib/storage/R2StorageProvider';
 import { MockStorageProvider } from '@/lib/storage/MockStorageProvider';
 
@@ -43,7 +43,7 @@ import { RegisterMember } from '@/core/use-cases/member/RegisterMember';
 import { VerifyMember } from '@/core/use-cases/member/VerifyMember';
 import { CollectPayment } from '@/core/use-cases/payment/CollectPayment';
 import { IssueDayPass } from '@/core/use-cases/payment/IssueDayPass';
-import { SendAutomatedReminders } from '@/core/use-cases/reminder/SendAutomatedReminders';
+import { SendAutomatedReminders } from '@/features/sms/services/SendAutomatedReminders';
 import { UpdateExpiredStatus } from '@/core/use-cases/member/UpdateExpiredStatus';
 import { CancelOverdueMembers } from '@/core/use-cases/member/CancelOverdueMembers';
 import { ExpireSuspendedMembers } from '@/core/use-cases/member/ExpireSuspendedMembers';
@@ -61,12 +61,12 @@ import { ChargeDueRenewals } from '@/core/use-cases/subscription/ChargeDueRenewa
 // Interfaces
 import type { IMemberRepository } from '@/core/ports/repositories/IMemberRepository';
 import type { IPaymentRepository } from '@/core/ports/repositories/IPaymentRepository';
-import type { ISMSRepository } from '@/core/ports/repositories/ISMSRepository';
+import type { ISMSRepository } from '@/features/sms/services/ISMSRepository';
 import type { IGymSubscriptionRepository } from '@/core/ports/repositories/IGymSubscriptionRepository';
 import type { ICheckoutIntentRepository } from '@/core/ports/repositories/ICheckoutIntentRepository';
 import type { ISaasPaymentLogRepository } from '@/core/ports/repositories/ISaasPaymentLogRepository';
 import type { IChargeAttemptRepository } from '@/core/ports/repositories/IChargeAttemptRepository';
-import type { ISMSProvider } from '@/core/ports/services/ISMSProvider';
+import type { ISMSProvider } from '@/features/sms/services/ISMSProvider';
 import type { IPaymentGateway, ISubscriptionGateway } from '@/core/ports/services';
 import type { IStorageProvider } from '@/lib/storage/IStorageProvider';
 

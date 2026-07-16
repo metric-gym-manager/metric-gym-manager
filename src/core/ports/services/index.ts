@@ -5,7 +5,7 @@ export {
   type ISMSTemplate,
   type SMSMessage,
   type SMSSendResult,
-} from './ISMSProvider';
+} from '@/features/sms/services/ISMSProvider';
 
 // Gateway interfaces relocated to @/lib/payhere in Phase 4; bridged here for
 // the subscription use-cases and DI container until they move in Phase 5.

@@ -21,7 +21,7 @@ import { Member } from '@/core/domain/member/Member';
 import { Payment } from '@/core/domain/payment/Payment';
 import { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
 import { ISMSProvider } from '@/core/ports/services';
-import { SMSDeliveryStatus } from '@/core/ports/repositories/ISMSRepository';
+import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import { calculateNextDueDate } from '@/core/utils/date';
 import { formatDateForDisplay } from '@/core/utils/date';
 import { NotFoundError, ValidationError } from '@/utils/errors';

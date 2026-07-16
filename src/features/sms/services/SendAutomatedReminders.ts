@@ -22,8 +22,8 @@ import { ISMSProvider } from '@/core/ports/services';
 import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
 import { getDaysUntilDue } from '@/core/utils/date';
 import { formatDateForDisplay } from '@/core/utils/date';
-import { shouldSendReminder, ReminderType } from '@/core/utils/constants/ReminderConfig';
-import { SMSDeliveryStatus } from '@/core/ports/repositories/ISMSRepository';
+import { shouldSendReminder, ReminderType } from '@/features/sms/config/ReminderConfig';
+import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 
 /**

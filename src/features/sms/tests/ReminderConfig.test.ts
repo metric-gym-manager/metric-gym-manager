@@ -10,8 +10,8 @@ import {
   getReminderType,
   REMINDER_RULES,
   ReminderType,
-} from '../ReminderConfig';
-import { PlanType } from '../PlanConfig';
+} from '../config/ReminderConfig';
+import { PlanType } from '@/core/utils/constants/PlanConfig';
 
 describe('ReminderConfig', () => {
   describe('REMINDER_RULES Configuration', () => {

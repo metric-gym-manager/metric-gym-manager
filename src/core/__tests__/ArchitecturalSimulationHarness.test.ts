@@ -10,7 +10,7 @@
 
 import { PlanType } from '@/core/utils/constants/PlanConfig';
 import { MemberStatus } from '@/core/utils/constants/StatusConfig';
-import { shouldSendReminder, getReminderType, ReminderType } from '@/core/utils/constants/ReminderConfig';
+import { shouldSendReminder, getReminderType, ReminderType } from '@/features/sms/config/ReminderConfig';
 import { calculateNextDueDate } from '@/core/utils/date/calculateNextDueDate';
 import { Member, CreateMemberProps } from '@/core/domain/member/Member';
 

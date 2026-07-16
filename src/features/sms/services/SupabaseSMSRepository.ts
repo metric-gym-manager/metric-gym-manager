@@ -12,7 +12,7 @@ import {
   type SMSFilters,
   SMSDeliveryStatus,
   type SMSType,
-} from '@/core/ports/repositories/ISMSRepository';
+} from '@/features/sms/services/ISMSRepository';
 
 /**
  * Database row interface (snake_case from Supabase)

@@ -10,7 +10,7 @@
  * - TEXT_LK_SENDER_ID: Your registered sender ID (default: "GymSaaS")
  */
 
-import { ISMSProvider, type SMSMessage, type SMSSendResult } from '@/core/ports/services/ISMSProvider';
+import { ISMSProvider, type SMSMessage, type SMSSendResult } from '@/features/sms/services/ISMSProvider';
 
 /**
  * Text.lk API response interface

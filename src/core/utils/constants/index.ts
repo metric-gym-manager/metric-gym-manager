@@ -22,7 +22,7 @@ export {
   hasReminders,
   getReminderTypeLabel,
   type ReminderRule,
-} from './ReminderConfig';
+} from '@/features/sms/config/ReminderConfig';
 
 export {
   MemberStatus,

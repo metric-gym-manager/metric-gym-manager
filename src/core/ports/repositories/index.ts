@@ -18,7 +18,7 @@ export {
   type SMSFilters,
   type SMSType,
   SMSDeliveryStatus,
-} from './ISMSRepository';
+} from '@/features/sms/services/ISMSRepository';
 
 export { type IGymSubscriptionRepository } from './IGymSubscriptionRepository';
 

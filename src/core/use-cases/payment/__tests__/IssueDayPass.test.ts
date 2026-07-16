@@ -16,7 +16,7 @@ import { IssueDayPass } from '../IssueDayPass';
 import { Member, MemberStatus } from '@/core/domain/member/Member';
 import { Payment, PaymentType } from '@/core/domain/payment/Payment';
 import { PlanType } from '@/core/utils/constants/PlanConfig';
-import { SMSDeliveryStatus } from '@/core/ports/repositories/ISMSRepository';
+import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import {
   BusinessRuleViolationError,
   NotFoundError,

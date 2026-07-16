@@ -1,27 +1,60 @@
 // ============================================================
-// SMS FEATURE EXPORTS
+// SMS FEATURE EXPORTS (public API)
 // ============================================================
 
-// NOTE: Old service-layer exports have been deprecated in favor of Clean Architecture.
-// Use cases and repositories should be accessed via the DI container.
-// See: src/infrastructure/di/Container.ts
+// Factories (compose services for routes/cron; wiring mirrors the old DI container)
+export {
+  createSMSProvider,
+  createSMSRepository,
+  createSendAutomatedReminders,
+} from './services/factory';
 
-// Legacy exports (to be removed in future version)
-// These are kept temporarily for backward compatibility with existing code
+// Use case
+export {
+  SendAutomatedReminders,
+  type SendAutomatedRemindersInput,
+  type ReminderSummary,
+} from './services/SendAutomatedReminders';
+
+// Ports (interfaces) owned by this feature
+export type {
+  ISMSProvider,
+  ISMSTemplate,
+  SMSMessage,
+  SMSSendResult,
+} from './services/ISMSProvider';
+export {
+  type ISMSRepository,
+  type SMSLog as SMSLogRecord,
+  type CreateSMSLogProps,
+  type SMSFilters,
+  type SMSType as SMSLogType,
+  SMSDeliveryStatus,
+} from './services/ISMSRepository';
+
+// Providers
+export { TextLkSMSProvider, MockSMSProvider } from './services/providers';
+
+// Reminder configuration (windows/types for automated reminders)
+export {
+  ReminderType,
+  type ReminderRule,
+  REMINDER_RULES,
+  getReminderRule,
+  shouldSendReminder,
+  getReminderType,
+  getEnabledReminders,
+  getReminderDays,
+  hasReminders,
+  getReminderTypeLabel,
+} from './config/ReminderConfig';
+
+// Browser/server API-client services
 export {
   sendSMS,
   getReminderStatus,
   formatReceiptSMS,
 } from './services/sms.service';
-
-// Deprecated: Use SendAutomatedReminders use case via DI container
-// export { sendAutomatedReminders } from './services/reminder.service';
-
-// Deprecated: Use UpdateExpiredStatus use case via DI container
-// export { updateExpiredMemberStatus } from './services/reminder.service';
-
-// Deprecated: ArchiveOldMembers use case not yet implemented
-// export { archiveOldMembers } from './services/reminder.service';
 
 export {
   sendSmsViaTextLk,
@@ -29,7 +62,7 @@ export {
   getTextLkBalance,
 } from './services/textlk.service';
 
-// Export SMS types
+// Types
 export type {
   SMSType,
   DeliveryStatus,
@@ -40,7 +73,7 @@ export type {
   ReminderStatusResponse,
 } from './types';
 
-// Export SMS schemas
+// Schemas
 export {
   sendSMSSchema,
   reminderFiltersSchema,

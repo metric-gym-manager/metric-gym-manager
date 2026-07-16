@@ -10,7 +10,7 @@
  * - CI/CD pipelines
  */
 
-import { ISMSProvider, type SMSMessage, type SMSSendResult } from '@/core/ports/services/ISMSProvider';
+import { ISMSProvider, type SMSMessage, type SMSSendResult } from '@/features/sms/services/ISMSProvider';
 
 /**
  * Mock SMS Provider
