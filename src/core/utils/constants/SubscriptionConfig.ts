@@ -15,7 +15,7 @@
  * isPaidTier() — dunning SUSPENDS (status change, tier preserved) instead of
  * downgrading to a free landing tier.
  *
- * Plan: docs/Payhere_subscritption_integration/payhere-subscription-execution-plan.md
+ * Plan: docs/integrations/payhere/payhere-subscription-execution-plan.md
  */
 
 import { z } from 'zod';

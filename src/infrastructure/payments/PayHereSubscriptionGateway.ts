@@ -9,7 +9,7 @@
  * per-request fetching would triple latency and hammer the token endpoint.
  *
  * Live REST additionally requires server IP whitelisting (deployment config;
- * see docs/SAAS_SUBSCRIPTION_IMPLEMENTATION.md runbook).
+ * see docs/reference/SAAS_SUBSCRIPTION_IMPLEMENTATION.md runbook).
  */
 
 import type {

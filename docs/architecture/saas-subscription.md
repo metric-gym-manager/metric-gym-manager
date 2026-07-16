@@ -5,9 +5,9 @@
 > quota has exactly one authority (`assert_gym_can_add_active_member`); PayHere webhooks are
 > synchronous, idempotent, and always return 200 for business outcomes.
 
-Full contract, threat model and runbook: `docs/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`.
+Full contract, threat model and runbook: `docs/reference/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`.
 Design rationale (conflict register C-1..C-33):
-`docs/Payhere_subscritption_integration/payhere-subscription-execution-plan.md`.
+`docs/integrations/payhere/payhere-subscription-execution-plan.md`.
 
 ## Non-negotiable constraints
 

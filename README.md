@@ -71,7 +71,7 @@ src/
 
 - See [CLAUDE.md](./CLAUDE.md) for Claude Code guidance
 - See [instructions.md](./instructions.md) for business requirements
-- See [docs/multi-gym-implementation-blueprint.md](./docs/multi-gym-implementation-blueprint.md) for future multi-gym feature implementation
+- See [docs/multi-gym-implementation-blueprint.md](./docs/product/multi-gym-implementation-blueprint.md) for future multi-gym feature implementation
 
 ## Engineering Standards
 
@@ -89,7 +89,7 @@ Complete implementation blueprint available for adding multi-location gym manage
 - Aggregated analytics dashboard
 - Separate billing per gym location
 
-**Documentation**: [Multi-Gym Implementation Blueprint](./docs/multi-gym-implementation-blueprint.md)
+**Documentation**: [Multi-Gym Implementation Blueprint](./docs/product/multi-gym-implementation-blueprint.md)
 **Status**: Design complete, ready for implementation
 **Estimated Effort**: 6 weeks
 
