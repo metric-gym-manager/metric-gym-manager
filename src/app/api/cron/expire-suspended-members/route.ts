@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminContainer } from '@/infrastructure/di';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createExpireSuspendedMembers } from '@/features/members';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { CronLogger } from '@/lib/cron';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 // ============================================================
 // /api/cron/expire-suspended-members - Expire overdue suspended members cron job
@@ -62,8 +62,7 @@ async function runExpireSuspendedMembers(request: NextRequest) {
     logId = await logger.logStart('expire-suspended-members');
 
     // Expire overdue suspended members via use case
-    const container = await getAdminContainer();
-    const expireSuspended = container.getExpireSuspendedMembersUseCase();
+    const expireSuspended = createExpireSuspendedMembers(createAdminClient());
     const summary = await expireSuspended.execute();
 
     const duration = Date.now() - startTime;
@@ -113,8 +112,7 @@ export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV !== 'production') {
     console.log('🧪 Manual test: Starting expire suspended members cron job...');
 
-    const container = await getAdminContainer();
-    const expireSuspended = container.getExpireSuspendedMembersUseCase();
+    const expireSuspended = createExpireSuspendedMembers(createAdminClient());
     const summary = await expireSuspended.execute();
 
     return NextResponse.json(ResponseBuilder.success(summary));

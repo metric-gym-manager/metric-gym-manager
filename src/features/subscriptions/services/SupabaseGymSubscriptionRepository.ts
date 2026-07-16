@@ -13,7 +13,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { Subscription } from '@/features/subscriptions/domain/Subscription';
-import type { IGymSubscriptionRepository } from '@/core/ports/repositories';
+import type { IGymSubscriptionRepository } from './IGymSubscriptionRepository';
 import {
   saasTierSchema,
   saasStatusSchema,

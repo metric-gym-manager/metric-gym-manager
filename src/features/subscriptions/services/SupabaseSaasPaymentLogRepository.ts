@@ -12,7 +12,7 @@ import type {
   ISaasPaymentLogRepository,
   SaasPaymentLogInput,
   SaasPaymentLogRow,
-} from '@/core/ports/repositories';
+} from './ISaasPaymentLogRepository';
 import { INVALID_WEBHOOK_LOG_HOURLY_CAP } from '@/features/subscriptions/config/SubscriptionConfig';
 import { DatabaseError } from '@/utils/errors';
 

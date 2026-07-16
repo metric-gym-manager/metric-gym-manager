@@ -17,8 +17,10 @@ import { Member } from '@/features/members/domain/Member';
 import { MemberStatus, MEMBER_EXPIRY_GRACE_DAYS } from '@/features/members/config/StatusConfig';
 import { PlanType } from '@/features/members/config/PlanConfig';
 import { MemberLimitError } from '@/utils/errors';
-import type { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
-import type { ISMSProvider } from '@/core/ports/services';
+import type { IMemberRepository } from '../services/IMemberRepository';
+import type { IPaymentRepository } from '@/features/payments/services/IPaymentRepository';
+import type { ISMSRepository } from '@/features/sms/services/ISMSRepository';
+import type { ISMSProvider } from '@/features/sms/services/ISMSProvider';
 
 const GYM_ID = 'gym-1';
 

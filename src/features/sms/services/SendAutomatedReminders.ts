@@ -16,12 +16,13 @@
  */
 
 import { Member } from '@/features/members/domain/Member';
-import { IMemberRepository, ISMSRepository } from '@/core/ports/repositories';
+import { IMemberRepository } from '@/features/members/services/IMemberRepository';
+import { ISMSRepository } from './ISMSRepository';
 import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository';
-import { ISMSProvider } from '@/core/ports/services';
+import { ISMSProvider } from './ISMSProvider';
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig';
-import { getDaysUntilDue } from '@/core/utils/date';
-import { formatDateForDisplay } from '@/core/utils/date';
+import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue';
+import { formatDateForDisplay } from '@/utils/date/formatDate';
 import { shouldSendReminder, ReminderType } from '@/features/sms/config/ReminderConfig';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
 import { PlanType } from '@/features/members/config/PlanConfig';

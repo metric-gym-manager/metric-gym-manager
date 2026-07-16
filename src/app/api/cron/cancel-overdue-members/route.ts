@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminContainer } from '@/infrastructure/di';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createCancelOverdueMembers } from '@/features/members';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { CronLogger } from '@/lib/cron';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 // ============================================================
 // /api/cron/cancel-overdue-members - Cancel members overdue by 45+ days
@@ -49,8 +49,7 @@ async function runCancelOverdueMembers(request: NextRequest) {
     logId = await logger.logStart('cancel-overdue-members');
 
     // Cancel overdue members via use case
-    const container = await getAdminContainer();
-    const cancelOverdue = container.getCancelOverdueMembersUseCase();
+    const cancelOverdue = createCancelOverdueMembers(createAdminClient());
     const summary = await cancelOverdue.execute();
 
     const duration = Date.now() - startTime;
@@ -100,8 +99,7 @@ export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV !== 'production') {
     console.log('🧪 Manual test: Starting cancel overdue members cron job...');
 
-    const container = await getAdminContainer();
-    const cancelOverdue = container.getCancelOverdueMembersUseCase();
+    const cancelOverdue = createCancelOverdueMembers(createAdminClient());
     const summary = await cancelOverdue.execute();
 
     return NextResponse.json(ResponseBuilder.success(summary));

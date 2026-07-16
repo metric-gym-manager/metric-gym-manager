@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminContainer } from '@/infrastructure/di';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createUpdateExpiredStatus } from '@/features/members';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { CronLogger } from '@/lib/cron';
-import { createAdminClient } from '@/lib/supabase/admin';
 
 // ============================================================
 // /api/cron/update-expired-status - Update expired members cron job
@@ -49,8 +49,7 @@ async function runUpdateExpiredStatus(request: NextRequest) {
     logId = await logger.logStart('update-expired-status');
 
     // Update expired member status via use case
-    const container = await getAdminContainer();
-    const updateExpired = container.getUpdateExpiredStatusUseCase();
+    const updateExpired = createUpdateExpiredStatus(createAdminClient());
     const summary = await updateExpired.execute();
 
     const duration = Date.now() - startTime;
@@ -100,8 +99,7 @@ export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV !== 'production') {
     console.log('🧪 Manual test: Starting update expired status cron job...');
 
-    const container = await getAdminContainer();
-    const updateExpired = container.getUpdateExpiredStatusUseCase();
+    const updateExpired = createUpdateExpiredStatus(createAdminClient());
     const summary = await updateExpired.execute();
 
     return NextResponse.json(ResponseBuilder.success(summary));

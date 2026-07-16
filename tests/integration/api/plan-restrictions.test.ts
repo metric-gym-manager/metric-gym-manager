@@ -134,11 +134,11 @@ gatedDescribe('plan restrictions + billing-status gates (integration)', () => {
       .update({ subscription_status: 'suspended' })
       .eq('id', gym.gymId);
 
-    const { getAdminContainer } = require('@/infrastructure/di');
-    const container = await getAdminContainer();
-    const summary = await container
-      .getSendAutomatedRemindersUseCase()
-      .execute({ gymId: gym.gymId });
+    const { createSendAutomatedReminders } = require('@/features/sms');
+    const { createAdminClient } = require('@/lib/supabase/admin');
+    const summary = await createSendAutomatedReminders(createAdminClient()).execute({
+      gymId: gym.gymId,
+    });
 
     expect(summary.membersSkippedBillingRestricted).toBe(1);
     expect(summary.totalSent).toBe(0);

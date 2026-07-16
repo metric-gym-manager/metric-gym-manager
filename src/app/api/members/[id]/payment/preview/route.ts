@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createMemberRepository } from '@/features/members';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { NotFoundError } from '@/utils/errors';
-import { calculateNextDueDate } from '@/core/utils/date';
+import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate';
 
 // ============================================================
 // POST /api/members/[id]/payment/preview - Preview payment calculation

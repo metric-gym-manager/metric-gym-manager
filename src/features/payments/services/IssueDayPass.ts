@@ -23,10 +23,13 @@
 
 import { Member } from '@/features/members/domain/Member';
 import { Payment, PaymentType } from '@/features/payments/domain/Payment';
-import { IMemberRepository, IPaymentRepository, ISMSRepository } from '@/core/ports/repositories';
-import { ISMSProvider } from '@/core/ports/services';
+import { IMemberRepository } from '@/features/members/services/IMemberRepository';
+import { IPaymentRepository } from './IPaymentRepository';
+import { ISMSRepository } from '@/features/sms/services/ISMSRepository';
+import { ISMSProvider } from '@/features/sms/services/ISMSProvider';
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
-import { calculateNextDueDate, formatDateForDisplay } from '@/core/utils/date';
+import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate';
+import { formatDateForDisplay } from '@/utils/date/formatDate';
 import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue';
 import { PlanType } from '@/features/members/config/PlanConfig';
 import { MemberStatus } from '@/features/members/config/StatusConfig';

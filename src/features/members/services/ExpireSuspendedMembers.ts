@@ -18,7 +18,7 @@
  */
 
 import { Member } from '@/features/members/domain/Member';
-import { IMemberRepository } from '@/core/ports/repositories';
+import { IMemberRepository } from './IMemberRepository';
 
 /**
  * Summary of suspended member expirations

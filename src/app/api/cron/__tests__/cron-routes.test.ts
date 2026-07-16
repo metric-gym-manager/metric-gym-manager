@@ -18,15 +18,14 @@ const mockExecuteUpdateExpired = jest.fn();
 const mockExecuteCancelOverdue = jest.fn();
 const mockExecuteExpireSuspended = jest.fn();
 
-jest.mock('@/infrastructure/di', () => ({
-  getAdminContainer: jest.fn(() =>
-    Promise.resolve({
-      getSendAutomatedRemindersUseCase: () => ({ execute: mockExecuteReminders }),
-      getUpdateExpiredStatusUseCase: () => ({ execute: mockExecuteUpdateExpired }),
-      getCancelOverdueMembersUseCase: () => ({ execute: mockExecuteCancelOverdue }),
-      getExpireSuspendedMembersUseCase: () => ({ execute: mockExecuteExpireSuspended }),
-    })
-  ),
+jest.mock('@/features/sms', () => ({
+  createSendAutomatedReminders: jest.fn(() => ({ execute: mockExecuteReminders })),
+}));
+
+jest.mock('@/features/members', () => ({
+  createUpdateExpiredStatus: jest.fn(() => ({ execute: mockExecuteUpdateExpired })),
+  createCancelOverdueMembers: jest.fn(() => ({ execute: mockExecuteCancelOverdue })),
+  createExpireSuspendedMembers: jest.fn(() => ({ execute: mockExecuteExpireSuspended })),
 }));
 
 jest.mock('@/lib/supabase/admin', () => ({

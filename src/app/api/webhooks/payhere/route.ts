@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminContainer } from '@/infrastructure/di';
+import { createAdminClient } from '@/lib/supabase/admin';
+import {
+  getPayHereGateway,
+  createSaasPaymentLogRepository,
+  createHandlePayHereWebhook,
+} from '@/features/subscriptions';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 
 // Node crypto (md5sig verification) + service-role writes
@@ -33,15 +38,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(ResponseBuilder.success({ received: true }), { status: 200 });
   }
 
-  const container = await getAdminContainer();
+  const supabase = createAdminClient();
 
   // --- Signature gate (before any state read/write) ---
-  const signatureValid = container.getPaymentGateway().verifyNotificationSignature(fields);
+  const signatureValid = getPayHereGateway().verifyNotificationSignature(fields);
 
   if (!signatureValid) {
     // Best-effort capped audit (plan C-20); never throws, never leaks md5sig
     const statusCode = Number.parseInt(fields.status_code ?? '', 10);
-    await container.getSaasPaymentLogRepository().insertInvalid({
+    await createSaasPaymentLogRepository(supabase).insertInvalid({
       gymId: null,
       orderId: fields.order_id ?? null,
       payherePaymentId: fields.payment_id ?? null,
@@ -58,7 +63,7 @@ export async function POST(request: NextRequest) {
   // --- Synchronous, idempotent processing (plan C-25: conscious deviation
   //     from verify-enqueue-ack; PayHere retry-on-non-2xx is the durability layer) ---
   try {
-    const { outcome } = await container.getHandlePayHereWebhookUseCase().execute(fields);
+    const { outcome } = await createHandlePayHereWebhook(supabase).execute(fields);
     return NextResponse.json(
       ResponseBuilder.success({ received: true, outcome }),
       { status: 200 }

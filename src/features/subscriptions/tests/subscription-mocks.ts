@@ -4,15 +4,12 @@
 
 import { Subscription, SubscriptionProps } from '@/features/subscriptions/domain/Subscription';
 import { SaasTier, SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig';
-import type {
-  IGymSubscriptionRepository,
-  ICheckoutIntentRepository,
-  ISaasPaymentLogRepository,
-  IChargeAttemptRepository,
-  CheckoutIntent,
-  ChargeAttempt,
-} from '@/core/ports/repositories';
-import type { IPaymentGateway, ISubscriptionGateway } from '@/core/ports/services';
+import type { IGymSubscriptionRepository } from '../services/IGymSubscriptionRepository';
+import type { ICheckoutIntentRepository, CheckoutIntent } from '../services/ICheckoutIntentRepository';
+import type { ISaasPaymentLogRepository } from '../services/ISaasPaymentLogRepository';
+import type { IChargeAttemptRepository, ChargeAttempt } from '../services/IChargeAttemptRepository';
+import type { IPaymentGateway } from '@/lib/payhere/IPaymentGateway';
+import type { ISubscriptionGateway } from '@/lib/payhere/ISubscriptionGateway';
 
 export function makeSubscription(overrides: Partial<SubscriptionProps> = {}): Subscription {
   return Subscription.create({

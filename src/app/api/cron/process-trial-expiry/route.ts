@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminContainer } from '@/infrastructure/di';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createProcessTrialExpiry } from '@/features/subscriptions';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { CronLogger } from '@/lib/cron';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { safeEqual } from '@/lib/auth/safeEqual';
 
 export const runtime = 'nodejs';
@@ -37,8 +37,7 @@ export async function POST(request: NextRequest) {
 
     logId = await logger.logStart('process-trial-expiry');
 
-    const container = await getAdminContainer();
-    const summary = await container.getProcessTrialExpiryUseCase().execute();
+    const summary = await createProcessTrialExpiry(createAdminClient()).execute();
 
     const duration = Date.now() - startTime;
     console.log(`⏱️  Trial-expiry cron completed in ${duration}ms`);
@@ -82,8 +81,7 @@ export async function GET(_request: NextRequest) {
 
   console.log('🧪 Manual test: Starting process-trial-expiry cron job...');
 
-  const container = await getAdminContainer();
-  const summary = await container.getProcessTrialExpiryUseCase().execute();
+  const summary = await createProcessTrialExpiry(createAdminClient()).execute();
 
   return NextResponse.json(ResponseBuilder.success(summary));
 }

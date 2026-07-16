@@ -12,7 +12,7 @@ import type {
   IChargeAttemptRepository,
   ChargeAttempt,
   ChargeAttemptStatus,
-} from '@/core/ports/repositories';
+} from './IChargeAttemptRepository';
 import { saasTierSchema } from '@/features/subscriptions/config/SubscriptionConfig';
 import { ConflictError, DatabaseError } from '@/utils/errors';
 

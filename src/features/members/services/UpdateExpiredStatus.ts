@@ -15,7 +15,7 @@
  */
 
 import { Member } from '@/features/members/domain/Member';
-import { IMemberRepository } from '@/core/ports/repositories';
+import { IMemberRepository } from './IMemberRepository';
 import { MEMBER_EXPIRY_GRACE_DAYS } from '@/features/members/config/StatusConfig';
 
 /**

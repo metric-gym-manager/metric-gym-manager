@@ -30,14 +30,10 @@
  * identity guard, RECURRING_STOPPED reconciliation) remain supported.
  */
 
-import type {
-  IGymSubscriptionRepository,
-  ICheckoutIntentRepository,
-  ISaasPaymentLogRepository,
-  IChargeAttemptRepository,
-  CheckoutIntent,
-  ChargeAttempt,
-} from '@/core/ports/repositories';
+import type { IGymSubscriptionRepository } from './IGymSubscriptionRepository';
+import type { ICheckoutIntentRepository, CheckoutIntent } from './ICheckoutIntentRepository';
+import type { ISaasPaymentLogRepository } from './ISaasPaymentLogRepository';
+import type { IChargeAttemptRepository, ChargeAttempt } from './IChargeAttemptRepository';
 import { Subscription } from '@/features/subscriptions/domain/Subscription';
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig';
 

@@ -11,10 +11,8 @@
  * Members are NEVER touched by any dunning branch.
  */
 
-import type {
-  IGymSubscriptionRepository,
-  ICheckoutIntentRepository,
-} from '@/core/ports/repositories';
+import type { IGymSubscriptionRepository } from './IGymSubscriptionRepository';
+import type { ICheckoutIntentRepository } from './ICheckoutIntentRepository';
 
 export interface DunningSummary {
   suspendedPastDue: number;

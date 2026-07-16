@@ -23,12 +23,10 @@
  * charge until then (C-32).
  */
 
-import type {
-  IGymSubscriptionRepository,
-  IChargeAttemptRepository,
-  ISaasPaymentLogRepository,
-} from '@/core/ports/repositories';
-import type { ISubscriptionGateway } from '@/core/ports/services';
+import type { IGymSubscriptionRepository } from './IGymSubscriptionRepository';
+import type { IChargeAttemptRepository } from './IChargeAttemptRepository';
+import type { ISaasPaymentLogRepository } from './ISaasPaymentLogRepository';
+import type { ISubscriptionGateway } from '@/lib/payhere/ISubscriptionGateway';
 import { Subscription } from '@/features/subscriptions/domain/Subscription';
 import {
   SaasTier,

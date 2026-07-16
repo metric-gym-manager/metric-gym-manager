@@ -15,11 +15,9 @@
  * concurrent call fail with ConflictError — propagate it (route maps to 409).
  */
 
-import type {
-  IGymSubscriptionRepository,
-  ICheckoutIntentRepository,
-} from '@/core/ports/repositories';
-import type { IPaymentGateway, CheckoutCustomer, CheckoutRedirect } from '@/core/ports/services';
+import type { IGymSubscriptionRepository } from './IGymSubscriptionRepository';
+import type { ICheckoutIntentRepository } from './ICheckoutIntentRepository';
+import type { IPaymentGateway, CheckoutCustomer, CheckoutRedirect } from '@/lib/payhere/IPaymentGateway';
 import {
   SaasStatus,
   SaasTier,

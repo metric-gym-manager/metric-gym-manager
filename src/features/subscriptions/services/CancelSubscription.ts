@@ -17,8 +17,8 @@
  * current_period_end; the dunning cron then SUSPENDS (tier preserved).
  */
 
-import type { IGymSubscriptionRepository } from '@/core/ports/repositories';
-import type { ISubscriptionGateway } from '@/core/ports/services';
+import type { IGymSubscriptionRepository } from './IGymSubscriptionRepository';
+import type { ISubscriptionGateway } from '@/lib/payhere/ISubscriptionGateway';
 import { Subscription } from '@/features/subscriptions/domain/Subscription';
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig';
 import { ConflictError, NotFoundError } from '@/utils/errors';

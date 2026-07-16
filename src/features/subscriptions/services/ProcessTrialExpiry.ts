@@ -10,7 +10,7 @@
  * Members are NEVER touched.
  */
 
-import type { IGymSubscriptionRepository } from '@/core/ports/repositories';
+import type { IGymSubscriptionRepository } from './IGymSubscriptionRepository';
 
 export interface TrialExpirySummary {
   suspendedTrials: number;

@@ -10,7 +10,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   ICheckoutIntentRepository,
   CheckoutIntent,
-} from '@/core/ports/repositories';
+} from './ICheckoutIntentRepository';
 import { saasTierSchema } from '@/features/subscriptions/config/SubscriptionConfig';
 import { ConflictError, DatabaseError } from '@/utils/errors';
 
