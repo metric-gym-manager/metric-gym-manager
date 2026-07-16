@@ -340,3 +340,49 @@ export async function getActiveDiscounts(
 
   return discounts || [];
 }
+
+export interface DiscountRow {
+  id: string;
+  discount_name: string;
+  discount_percentage: number;
+}
+
+/** Batch discount lookup keyed by id (member-list serialization join). */
+export async function getDiscountsByIds(
+  ids: string[]
+): Promise<Record<string, DiscountRow>> {
+  if (ids.length === 0) return {};
+
+  const supabase = await createClient();
+  const { data: discounts } = await supabase
+    .from('discounts')
+    .select('id, discount_name, discount_percentage')
+    .in('id', ids);
+
+  if (!discounts) return {};
+
+  return discounts.reduce((acc, discount) => {
+    acc[discount.id] = discount;
+    return acc;
+  }, {} as Record<string, DiscountRow>);
+}
+
+/** Single discount lookup in the camelCase shape the registration/payment flows use. */
+export async function getDiscountInfoById(
+  id: string
+): Promise<{ discountId: string; discountName: string; discountPercentage: number } | null> {
+  const supabase = await createClient();
+  const { data: discountData } = await supabase
+    .from('discounts')
+    .select('id, discount_name, discount_percentage')
+    .eq('id', id)
+    .single();
+
+  if (!discountData) return null;
+
+  return {
+    discountId: discountData.id,
+    discountName: discountData.discount_name,
+    discountPercentage: discountData.discount_percentage,
+  };
+}

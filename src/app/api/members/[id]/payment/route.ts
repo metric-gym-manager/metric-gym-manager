@@ -3,6 +3,7 @@ import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { collectPaymentSchema } from '@/features/members/schemas/member.schemas';
 import { createClient } from '@/lib/supabase/server';
 import { createCollectPayment } from '@/features/payments';
+import { getDiscountInfoById } from '@/features/settings/services/settings.service';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { NotFoundError, ValidationError, InvalidStatusTransitionError, MemberLimitError } from '@/utils/errors';
 
@@ -28,20 +29,7 @@ export async function POST(
     // Get discount info if applicable
     let discount = null;
     if (validatedData.discountId) {
-      const supabase = (await import('@/lib/supabase/server')).createClient();
-      const { data: discountData } = await (await supabase)
-        .from('discounts')
-        .select('id, discount_name, discount_percentage')
-        .eq('id', validatedData.discountId)
-        .single();
-
-      if (discountData) {
-        discount = {
-          discountId: discountData.id,
-          discountName: discountData.discount_name,
-          discountPercentage: discountData.discount_percentage,
-        };
-      }
+      discount = await getDiscountInfoById(validatedData.discountId);
     }
 
     // Collect payment via use case

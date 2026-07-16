@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { clearSessionFailures } from '@/features/announcements/services/announcement.service';
+import { clearSessionFailures, verifyAnnouncementOwnership } from '@/features/announcements/services/announcement.service';
 
 // ============================================================
 // POST /api/announcements/[id]/dismiss - Clear session failures
@@ -39,14 +39,9 @@ export async function POST(
     }
 
     // Verify announcement belongs to this gym
-    const { data: announcement, error: announcementError } = await supabase
-      .from('announcements')
-      .select('id')
-      .eq('id', id)
-      .eq('gym_id', gymProfile.id)
-      .single();
+    const owns = await verifyAnnouncementOwnership(gymProfile.id, id);
 
-    if (announcementError || !announcement) {
+    if (!owns) {
       return NextResponse.json(
         { success: false, error: 'Announcement not found' },
         { status: 404 }

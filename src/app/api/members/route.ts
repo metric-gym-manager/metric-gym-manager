@@ -8,6 +8,7 @@ import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { ConflictError, MemberLimitError, ValidationError } from '@/utils/errors';
 import { PlanType } from '@/features/members/config/PlanConfig';
 import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
+import { getDiscountsByIds, getDiscountInfoById } from '@/features/settings/services/settings.service';
 
 // ============================================================
 // GET /api/members - Get members list
@@ -50,18 +51,7 @@ export async function GET(request: NextRequest) {
     let discountsMap: Record<string, { id: string; discount_name: string; discount_percentage: number }> = {};
 
     if (uniqueDiscountIds.length > 0) {
-      const supabase = (await import('@/lib/supabase/server')).createClient();
-      const { data: discounts } = await (await supabase)
-        .from('discounts')
-        .select('id, discount_name, discount_percentage')
-        .in('id', uniqueDiscountIds);
-
-      if (discounts) {
-        discountsMap = discounts.reduce((acc, discount) => {
-          acc[discount.id] = discount;
-          return acc;
-        }, {} as Record<string, { id: string; discount_name: string; discount_percentage: number }>);
-      }
+      discountsMap = await getDiscountsByIds(uniqueDiscountIds);
     }
 
     // Serialize domain entities for API response with properly formatted dates and discount data
@@ -111,20 +101,7 @@ export async function POST(request: NextRequest) {
     // Get discount info if applicable
     let discount = null;
     if (validatedData.discountId) {
-      const supabase = (await import('@/lib/supabase/server')).createClient();
-      const { data: discountData } = await (await supabase)
-        .from('discounts')
-        .select('id, discount_name, discount_percentage')
-        .eq('id', validatedData.discountId)
-        .single();
-
-      if (discountData) {
-        discount = {
-          discountId: discountData.id,
-          discountName: discountData.discount_name,
-          discountPercentage: discountData.discount_percentage,
-        };
-      }
+      discount = await getDiscountInfoById(validatedData.discountId);
     }
 
     // Register member via use case. Admin container on purpose: the guarded

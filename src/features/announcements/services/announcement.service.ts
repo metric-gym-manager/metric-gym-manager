@@ -587,3 +587,20 @@ export async function getAnnouncementProgress(
     },
   };
 }
+
+/** True when the announcement exists and belongs to the gym (session client → RLS applies). */
+export async function verifyAnnouncementOwnership(
+  gymId: string,
+  announcementId: string
+): Promise<boolean> {
+  const supabase = await createClient();
+
+  const { data: announcement, error } = await supabase
+    .from('announcements')
+    .select('id')
+    .eq('id', announcementId)
+    .eq('gym_id', gymId)
+    .single();
+
+  return !error && !!announcement;
+}
