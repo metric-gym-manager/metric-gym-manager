@@ -22,7 +22,9 @@ CREATE TABLE IF NOT EXISTS members (
   -- Membership details
   plan_type member_plan_type NOT NULL,
   plan_amount DECIMAL(10, 2) NOT NULL,
-  discount_id UUID REFERENCES discounts(id) ON DELETE SET NULL,
+  -- FK constraint added in 20260211000004 (discounts table is created there;
+  -- the inline REFERENCES made this file unreplayable on a fresh database)
+  discount_id UUID,
   recurring_discount BOOLEAN DEFAULT FALSE,
   status member_status DEFAULT 'active' NOT NULL,
 

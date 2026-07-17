@@ -67,6 +67,13 @@ CREATE TABLE IF NOT EXISTS discounts (
 CREATE INDEX idx_discounts_gym_id ON discounts(gym_id);
 CREATE INDEX idx_discounts_active ON discounts(gym_id, is_active);
 
+-- Wire the members.discount_id FK now that discounts exists (moved here from
+-- 20260211000002 to make the chain replayable; same auto-generated name and
+-- semantics as the original inline REFERENCES, so existing databases match).
+ALTER TABLE members
+  ADD CONSTRAINT members_discount_id_fkey
+  FOREIGN KEY (discount_id) REFERENCES discounts(id) ON DELETE SET NULL;
+
 -- Create trigger for discounts table
 CREATE TRIGGER update_discounts_updated_at
   BEFORE UPDATE ON discounts
