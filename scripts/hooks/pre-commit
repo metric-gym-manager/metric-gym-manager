@@ -1,8 +1,12 @@
 #!/bin/sh
 
 # pre-commit hook
-# Runs lint-staged (eslint --fix, prettier --write, and jest --findRelatedTests)
-# against staged files. Configured under "lint-staged" in package.json.
+# 1. Enforces the feature-first structure invariants (docs/architecture/
+#    feature-first-growth-rules.md) — fast, dependency-free, whole-tree check.
+# 2. Runs lint-staged (eslint --fix, prettier --write, and jest --findRelatedTests)
+#    against staged files. Configured under "lint-staged" in package.json.
 # To bypass in an emergency: git commit --no-verify
+
+node scripts/check-architecture.mjs || exit 1
 
 npx lint-staged
