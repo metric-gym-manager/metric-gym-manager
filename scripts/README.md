@@ -22,7 +22,33 @@ npm run dev:clear-limits
 
 ---
 
-### 🗑️ Delete Test Users
+### 💾 Backup Supabase (pre-refactor safety net)
+
+Create a timestamped local copy of your remote Supabase database (schema + data + auth).
+
+```bash
+npm run backup:supabase
+```
+
+**Prerequisites:**
+1. Add `SUPABASE_DB_URL` to `.env.local` (see `.env.example`)
+   - Supabase Dashboard → **Project Settings** → **Database** → **Connection string** (URI, direct)
+2. Or link the project: `npx supabase login` then `npx supabase link --project-ref <ref>`, then run:
+   ```bash
+   powershell -ExecutionPolicy Bypass -File scripts/backup-supabase.ps1 -Linked
+   ```
+
+**Output:** `backups/supabase/<timestamp>/` (gitignored — may contain production data)
+
+**Includes:**
+- `schema.sql` — live remote schema
+- `data.sql` — application data
+- `auth-data.sql` — auth users/identities
+- `migrations/` — copy of repo migrations at backup time
+
+**Not included:** Cloudflare R2 member photos, PayHere config, dashboard auth/SMTP settings.
+
+---
 Permanently delete all test users and their data.
 
 ```bash
