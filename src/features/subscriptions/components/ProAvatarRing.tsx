@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { SaasTier } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasTier } from '@/features/subscriptions/config/SubscriptionConfig';
 
 interface ProAvatarRingProps {
   /** Serialized subscription tier; the ring renders for Pro and Enterprise. */

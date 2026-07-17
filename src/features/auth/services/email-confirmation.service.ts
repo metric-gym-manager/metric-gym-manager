@@ -209,3 +209,51 @@ export async function getEmailConfirmationStatus(
     return null;
   }
 }
+
+// ============================================================
+// Email-change verification (extracted verbatim from api/auth/verify-email)
+// ============================================================
+
+export type VerifyEmailChangeResult =
+  | { status: 'invalid' }
+  | { status: 'no_user' }
+  | { status: 'ok' };
+
+/**
+ * Verifies an email-change token via Supabase Auth, then mirrors the new
+ * verified email onto the gyms row. The mirror update is best-effort — a
+ * failure there never fails the verification itself.
+ */
+export async function verifyEmailChange(token: string): Promise<VerifyEmailChangeResult> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.auth.verifyOtp({
+    token_hash: token,
+    type: 'email_change',
+  });
+
+  if (error) {
+    console.error('Email verification error:', error);
+    return { status: 'invalid' };
+  }
+
+  if (!data.user) {
+    return { status: 'no_user' };
+  }
+
+  const { error: updateError } = await supabase
+    .from('gyms')
+    .update({
+      email: data.user.email,
+      email_verified: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', data.user.id);
+
+  if (updateError) {
+    console.error('Failed to update gym email verification status:', updateError);
+    // Don't fail the request - Supabase verified the email successfully
+  }
+
+  return { status: 'ok' };
+}

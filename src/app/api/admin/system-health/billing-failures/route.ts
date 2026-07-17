@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createSaasPaymentLogRepository } from '@/features/subscriptions';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin';
 
 export const runtime = 'nodejs';
@@ -32,10 +33,10 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 1), 200);
     const offset = Math.max(parseInt(searchParams.get('offset') ?? '0', 10) || 0, 0);
 
-    const container = await getAdminContainer();
-    const { rows, totalCount } = await container
-      .getSaasPaymentLogRepository()
-      .listFailures(limit, offset);
+    const supabase = createAdminClient();
+    const { rows, totalCount } = await createSaasPaymentLogRepository(
+      supabase
+    ).listFailures(limit, offset);
 
     const failures = rows.map((row) => ({
       id: row.id,

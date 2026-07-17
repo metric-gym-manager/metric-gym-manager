@@ -107,6 +107,6 @@ CREATE POLICY "Gym owners can update own registration link"
 -- ============================================================
 
 INSERT INTO gym_registration_links (gym_id, token)
-SELECT g.id, encode(gen_random_bytes(16), 'hex')
+SELECT g.id, encode(extensions.gen_random_bytes(16), 'hex')
 FROM gyms g
 ON CONFLICT (gym_id) DO NOTHING;

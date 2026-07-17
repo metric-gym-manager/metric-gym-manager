@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-// TODO: Create ArchiveOldMembers use case following Clean Architecture pattern
+// TODO: Create an ArchiveOldMembers service in features/members
 // For now, this functionality is temporarily disabled pending use case implementation
 
 // ============================================================
@@ -43,7 +43,7 @@ async function runArchiveOldMembers(request: NextRequest) {
       {
         success: false,
         error: 'Archive old members functionality temporarily disabled',
-        message: 'Pending Clean Architecture use case implementation',
+        message: 'Pending ArchiveOldMembers service implementation',
       },
       { status: 501 } // Not Implemented
     );
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: false,
       error: 'Archive old members functionality temporarily disabled',
-      message: 'Pending Clean Architecture use case implementation',
+      message: 'Pending ArchiveOldMembers service implementation',
     });
   }
 

@@ -17,8 +17,7 @@
 export { default as AddMemberModal } from './components/AddMemberModal';
 export { default as BulkAddMemberModal } from './components/BulkAddMemberModal';
 export { default as EditMemberModal } from './components/EditMemberModal';
-export { default as MemberDetailModal } from './components/MemberDetailModal';
-export { default as MemberDetailModalMobile } from './components/MemberDetailModalMobile';
+// Desktop/mobile variants are internals of the responsive wrapper — not public API
 export { default as MemberDetailModalResponsive } from './components/MemberDetailModalResponsive';
 export { default as MembersTable } from './components/MembersTable';
 export { default as PaymentCollectionModal } from './components/PaymentCollectionModal';
@@ -36,6 +35,21 @@ export {
   removeMemberPhoto,
   uploadToPresignedUrl,
 } from './services/photo-upload';
+
+// Factories (compose use-cases for routes/cron; wiring mirrors the old DI container).
+// The domain entity and configs are imported directly:
+//   @/features/members/domain/Member, @/features/members/config/*
+export {
+  createMemberRepository,
+  createRegisterMember,
+  createVerifyMember,
+  createSuspendMember,
+  createReactivateMember,
+  createCancelMember,
+  createUpdateExpiredStatus,
+  createCancelOverdueMembers,
+  createExpireSuspendedMembers,
+} from './services/factory';
 
 // ============================================================
 // SCHEMAS

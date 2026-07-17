@@ -10,7 +10,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
+import { TIER_DISPLAY_NAME } from '@/features/subscriptions/config/SubscriptionConfig';
 import { useCancelSubscription } from '../hooks/useCancelSubscription';
 import type { SerializedSubscription } from '../types';
 

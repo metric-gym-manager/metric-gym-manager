@@ -57,21 +57,30 @@ A production-grade, multi-tenant SaaS platform for gym and fitness center manage
 
 ```
 src/
-├── app/              # Next.js App Router
-├── components/       # Reusable UI components
-├── features/         # Feature-first modules
-├── lib/              # Third-party configs
-├── services/         # Business logic layer
-├── hooks/            # React hooks
-├── types/            # TypeScript definitions
-└── utils/            # Pure utility functions
+├── app/              # Next.js App Router (thin routes: auth + validation + service call)
+├── components/       # Shared UI only (ui, common, layout, landing, providers, pwa, dashboard)
+├── features/         # Feature-first modules — ALL business logic
+│                     #   members, payments, subscriptions, sms, auth,
+│                     #   announcements, registration, revenue, settings
+├── lib/              # Third-party glue (supabase, payhere, storage, cron, auth, middleware)
+├── hooks/            # Shared React hooks
+└── utils/            # Pure utilities (ResponseBuilder, errors, date, phone, money)
 ```
+
+Docs are organized under [`docs/`](./docs/README.md) by purpose
+(product / reference / setup / ops / architecture / integrations / legal).
+
+> **Growing the codebase?** Feature-first is the sole architecture and it is
+> enforced. Read [`CONTRIBUTING.md`](./CONTRIBUTING.md) and the binding rulebook
+> [`docs/architecture/feature-first-growth-rules.md`](./docs/architecture/feature-first-growth-rules.md)
+> before adding or moving code. Structure invariants are checked by
+> `npm run arch:check` (also in the pre-commit hook).
 
 ## Documentation
 
 - See [CLAUDE.md](./CLAUDE.md) for Claude Code guidance
 - See [instructions.md](./instructions.md) for business requirements
-- See [docs/multi-gym-implementation-blueprint.md](./docs/multi-gym-implementation-blueprint.md) for future multi-gym feature implementation
+- See [docs/multi-gym-implementation-blueprint.md](./docs/product/multi-gym-implementation-blueprint.md) for future multi-gym feature implementation
 
 ## Engineering Standards
 
@@ -89,7 +98,7 @@ Complete implementation blueprint available for adding multi-location gym manage
 - Aggregated analytics dashboard
 - Separate billing per gym location
 
-**Documentation**: [Multi-Gym Implementation Blueprint](./docs/multi-gym-implementation-blueprint.md)
+**Documentation**: [Multi-Gym Implementation Blueprint](./docs/product/multi-gym-implementation-blueprint.md)
 **Status**: Design complete, ready for implementation
 **Estimated Effort**: 6 weeks
 

@@ -51,7 +51,11 @@ async function loginAs(email: string): Promise<string> {
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // Supabase's gateway rejects any request without the anon apikey
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      },
       body: JSON.stringify({ email, password: 'integration-test-password-123' }),
     }
   );
@@ -134,11 +138,11 @@ gatedDescribe('plan restrictions + billing-status gates (integration)', () => {
       .update({ subscription_status: 'suspended' })
       .eq('id', gym.gymId);
 
-    const { getAdminContainer } = require('@/infrastructure/di');
-    const container = await getAdminContainer();
-    const summary = await container
-      .getSendAutomatedRemindersUseCase()
-      .execute({ gymId: gym.gymId });
+    const { createSendAutomatedReminders } = require('@/features/sms');
+    const { createAdminClient } = require('@/lib/supabase/admin');
+    const summary = await createSendAutomatedReminders(createAdminClient()).execute({
+      gymId: gym.gymId,
+    });
 
     expect(summary.membersSkippedBillingRestricted).toBe(1);
     expect(summary.totalSent).toBe(0);

@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { ConflictError, ValidationError } from '@/core/utils/errors';
-import { PlanType, getPlanLabel } from '@/core/utils/constants/PlanConfig';
-import { RegistrationSource } from '@/core/utils/constants/RegistrationConfig';
+import { createRegisterMember, createMemberRepository } from '@/features/members';
+import { createStorageProvider } from '@/lib/storage/factory';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { ConflictError, ValidationError } from '@/utils/errors';
+import { PlanType, getPlanLabel } from '@/features/members/config/PlanConfig';
+import { RegistrationSource } from '@/features/members/config/RegistrationConfig';
 import { publicRegistrationSchema } from '@/features/registration/schemas/registration.schemas';
-import { resolveRegistrationToken } from '@/features/registration/services/registration-link.service';
-import { checkRateLimit } from '@/lib/utils/rate-limit';
+import {
+  resolveRegistrationToken,
+  getActivePlanForGym,
+} from '@/features/registration/services/registration-link.service';
+import { checkRateLimit } from '@/lib/rate-limit';
 import {
   memberPhotoPath,
   type MemberPhotoContentType,
-} from '@/lib/utils/member-photo';
+} from '@/utils/member-photo';
 
 // ============================================================
 // POST /api/public/registrations - QR self-registration (no auth)
@@ -74,16 +78,9 @@ export async function POST(request: NextRequest) {
     }
 
     // The plan must be one of THIS gym's active plans; amount comes from the DB
-    const supabase = createAdminClient();
-    const { data: plan, error: planError } = await supabase
-      .from('plan_types')
-      .select('plan_type, default_amount')
-      .eq('gym_id', gymId)
-      .eq('plan_type', input.planType)
-      .eq('is_active', true)
-      .maybeSingle();
+    const plan = await getActivePlanForGym(gymId, input.planType);
 
-    if (planError || !plan) {
+    if (!plan) {
       return NextResponse.json(
         ResponseBuilder.validationError({
           planType: ['Selected plan is not available'],
@@ -95,9 +92,9 @@ export async function POST(request: NextRequest) {
     const planAmount = Number(plan.default_amount);
 
     // Create the member through the standard registration use case
-    // (admin container: anonymous callers have no RLS session)
-    const container = await getAdminContainer();
-    const registerMember = container.getRegisterMemberUseCase();
+    // (admin client: anonymous callers have no RLS session)
+    const supabase = createAdminClient();
+    const registerMember = createRegisterMember(supabase);
 
     const result = await registerMember.execute({
       gymId,
@@ -125,12 +122,13 @@ export async function POST(request: NextRequest) {
       const contentType = input.photoContentType as MemberPhotoContentType;
       photoPath = memberPhotoPath(member.id, contentType);
 
-      const presign = await container
-        .getStorageProvider()
-        .getPresignedUploadUrl(photoPath, { contentType });
+      const presign = await createStorageProvider().getPresignedUploadUrl(
+        photoPath,
+        { contentType }
+      );
       uploadUrl = presign.uploadUrl;
 
-      await container.getMemberRepository().update(member.updatePhoto(photoPath));
+      await createMemberRepository(supabase).update(member.updatePhoto(photoPath));
     }
 
     return NextResponse.json(

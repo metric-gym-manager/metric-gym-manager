@@ -8,7 +8,7 @@ import {
   type SubscriptionWithPrice,
 } from '../services/subscriptions.service';
 import { SUBSCRIPTION_QUERY_KEY } from './useSubscription';
-import { TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
+import { TIER_DISPLAY_NAME } from '@/features/subscriptions/config/SubscriptionConfig';
 
 /**
  * One-click plan change against the stored card token. On success the

@@ -47,3 +47,21 @@ export type {
   CheckoutRedirectResponse,
   PaymentPollState,
 } from './types';
+
+// Factories (compose billing use-cases for routes/cron; wiring mirrors the
+// old DI container, including per-tier price injection)
+export {
+  createGymSubscriptionRepository,
+  createCheckoutIntentRepository,
+  createSaasPaymentLogRepository,
+  createChargeAttemptRepository,
+  getPayHereGateway,
+  getPayHereSubscriptionGateway,
+  createGenerateCheckoutUrl,
+  createHandlePayHereWebhook,
+  createProcessDunning,
+  createCancelSubscription,
+  createProcessTrialExpiry,
+  createChangePlan,
+  createChargeDueRenewals,
+} from './services/factory';

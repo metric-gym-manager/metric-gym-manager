@@ -19,7 +19,7 @@ import {
 import {
   LITE_TIER_MEMBER_LIMIT,
   GRACE_PERIOD_DAYS,
-} from '@/core/utils/constants/SubscriptionConfig';
+} from '@/features/subscriptions/config/SubscriptionConfig';
 
 gatedDescribe('register_member_guarded (integration)', () => {
   const supabase = adminClient();

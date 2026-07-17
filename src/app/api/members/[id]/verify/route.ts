@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError } from '@/core/utils/errors';
+import { createClient } from '@/lib/supabase/server';
+import { createVerifyMember } from '@/features/members';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { NotFoundError } from '@/utils/errors';
 
 // ============================================================
 // POST /api/members/[id]/verify - Verify a QR self-registration
@@ -22,8 +23,7 @@ export async function POST(
     const { id } = await params;
     const gymProfile = await getCurrentGymProfile();
 
-    const container = await getContainer();
-    const verifyMember = container.getVerifyMemberUseCase();
+    const verifyMember = createVerifyMember(await createClient());
 
     const verifiedMember = await verifyMember.execute({
       memberId: id,

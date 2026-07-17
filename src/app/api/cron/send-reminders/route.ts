@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { CronLogger } from '@/core/utils/cron';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createSendAutomatedReminders } from '@/features/sms';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { CronLogger } from '@/lib/cron';
 
 // ============================================================
 // /api/cron/send-reminders - Daily SMS reminder cron job
@@ -51,8 +51,7 @@ async function runSendReminders(request: NextRequest) {
     logId = await logger.logStart('send-reminders');
 
     // Send automated reminders via use case
-    const container = await getAdminContainer();
-    const sendReminders = container.getSendAutomatedRemindersUseCase();
+    const sendReminders = createSendAutomatedReminders(createAdminClient());
     const summary = await sendReminders.execute();
 
     const duration = Date.now() - startTime;
@@ -106,8 +105,7 @@ export async function GET(request: NextRequest) {
   if (process.env.NODE_ENV !== 'production') {
     console.log('🧪 Manual test: Starting automated reminder cron job...');
 
-    const container = await getAdminContainer();
-    const sendReminders = container.getSendAutomatedRemindersUseCase();
+    const sendReminders = createSendAutomatedReminders(createAdminClient());
     const summary = await sendReminders.execute();
 
     return NextResponse.json(ResponseBuilder.success(summary));

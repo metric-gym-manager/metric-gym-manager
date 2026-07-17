@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { Camera, CheckCircle2, Loader2, RefreshCw } from 'lucide-react';
-import { compressImageForUpload, type CompressedImage } from '@/lib/utils/image';
+import { compressImageForUpload, type CompressedImage } from '@/utils/image';
 import { uploadToPresignedUrl } from '@/features/members/services/photo-upload';
 import type { PublicPlanOption, PublicRegistrationResult } from '../types';
 

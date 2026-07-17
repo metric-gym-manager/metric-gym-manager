@@ -56,3 +56,6 @@ yarn-error.log*
 
 # Local Playwright override (environment-specific browser pinning)
 playwright.local.config.ts
+
+# Dev server / build logs
+*.log

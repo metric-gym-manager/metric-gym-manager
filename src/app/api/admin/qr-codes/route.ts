@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { randomBytes } from 'crypto';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { getApiGymProfile } from '@/lib/middleware/api-auth';
-import { buildJoinUrl } from '@/features/registration/services/registration-link.service';
+import { listGymsWithRegistrationLinks } from '@/features/registration/services/registration-link.service';
 
 // ============================================================
 // GET /api/admin/qr-codes
@@ -30,62 +28,16 @@ export async function GET() {
       );
     }
 
-    const supabase = createAdminClient();
+    const items = await listGymsWithRegistrationLinks();
 
-    const { data: gyms, error: gymsError } = await supabase
-      .from('gyms')
-      .select(
-        'id, gym_name, username, email, gym_registration_links(token, is_active, created_at, rotated_at)'
-      )
-      .order('gym_name', { ascending: true });
-
-    if (gymsError) {
-      console.error('Failed to fetch gyms for QR dashboard:', gymsError);
+    return NextResponse.json({ success: true, data: items });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Failed to fetch gyms') {
       return NextResponse.json(
         { success: false, error: 'Failed to fetch gyms' },
         { status: 500 }
       );
     }
-
-    // Backfill links for any gym that doesn't have one yet (gyms created
-    // before the migration backfill, or edge cases)
-    const gymsWithoutLink = (gyms ?? []).filter(
-      (gym) =>
-        !gym.gym_registration_links ||
-        (Array.isArray(gym.gym_registration_links) &&
-          gym.gym_registration_links.length === 0)
-    );
-
-    const backfilledTokens = new Map<string, string>();
-    for (const gym of gymsWithoutLink) {
-      const token = randomBytes(16).toString('hex');
-      const { error: insertError } = await supabase
-        .from('gym_registration_links')
-        .insert({ gym_id: gym.id, token });
-      if (!insertError) {
-        backfilledTokens.set(gym.id, token);
-      }
-    }
-
-    const items = (gyms ?? []).map((gym) => {
-      const linkRelation = gym.gym_registration_links;
-      const link = Array.isArray(linkRelation) ? linkRelation[0] : linkRelation;
-      const token = (link?.token as string | undefined) ?? backfilledTokens.get(gym.id) ?? null;
-
-      return {
-        gymId: gym.id,
-        gymName: gym.gym_name,
-        username: gym.username,
-        email: gym.email,
-        token,
-        joinUrl: token ? buildJoinUrl(token) : null,
-        isActive: link?.is_active ?? true,
-        rotatedAt: link?.rotated_at ?? null,
-      };
-    });
-
-    return NextResponse.json({ success: true, data: items });
-  } catch (error) {
     console.error('Admin QR codes API error:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch QR codes' },

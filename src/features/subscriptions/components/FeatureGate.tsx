@@ -5,8 +5,8 @@ import Link from 'next/link';
 import { Lock, ArrowUpCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useSubscription } from '../hooks/useSubscription';
-import type { RestrictedFeature } from '@/core/domain/subscription/PlanRestrictions';
-import { SaasTier, TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
+import type { RestrictedFeature } from '@/features/subscriptions/domain/PlanRestrictions';
+import { SaasTier, TIER_DISPLAY_NAME } from '@/features/subscriptions/config/SubscriptionConfig';
 
 interface FeatureGateProps {
   /** Capability key from the PlanRestrictions matrix. */

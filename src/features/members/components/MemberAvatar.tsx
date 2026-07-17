@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { getMemberPhotoUrl } from '@/lib/utils/member-photo';
+import { getMemberPhotoUrl } from '@/utils/member-photo';
 
 interface MemberAvatarProps {
   name: string;

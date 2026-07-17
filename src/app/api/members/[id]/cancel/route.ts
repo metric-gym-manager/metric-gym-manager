@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError, InvalidStatusTransitionError } from '@/core/utils/errors';
+import { createClient } from '@/lib/supabase/server';
+import { createCancelMember } from '@/features/members';
+import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { NotFoundError, InvalidStatusTransitionError } from '@/utils/errors';
 
 // ============================================================
 // POST /api/members/[id]/cancel - Cancel member
@@ -30,8 +32,7 @@ export async function POST(
     const gymProfile = await getCurrentGymProfile();
 
     // Execute cancel via use case
-    const container = await getContainer();
-    const cancelMember = container.getCancelMemberUseCase();
+    const cancelMember = createCancelMember(await createClient());
 
     const cancelledMember = await cancelMember.execute({
       memberId: id,
@@ -40,7 +41,7 @@ export async function POST(
 
     return NextResponse.json(
       ResponseBuilder.success(
-        cancelledMember.toDatabase(),
+        serializeMemberForAPI(cancelledMember),
         { message: 'Member cancelled successfully' }
       ),
       { status: 200 }

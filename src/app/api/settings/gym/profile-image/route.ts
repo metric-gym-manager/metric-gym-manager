@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { updateGymProfileImage } from '@/features/settings/services/settings.service';
 
 // ============================================================
 // POST /api/settings/gym/profile-image - Upload profile image
@@ -59,15 +60,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update gym profile with image URL
-    const { error: updateError } = await supabase
-      .from('gyms')
-      .update({ profile_image_url: imageUrl })
-      .eq('id', gymProfile.id);
-
-    if (updateError) {
-      throw new Error(`Failed to update profile image: ${updateError.message}`);
-    }
+    await updateGymProfileImage(gymProfile.id, imageUrl);
 
     return NextResponse.json(
       {

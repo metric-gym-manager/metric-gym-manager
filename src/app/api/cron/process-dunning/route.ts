@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { CronLogger } from '@/core/utils/cron';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createProcessDunning } from '@/features/subscriptions';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { CronLogger } from '@/lib/cron';
 import { safeEqual } from '@/lib/auth/safeEqual';
 
 export const runtime = 'nodejs';
@@ -38,8 +38,7 @@ export async function POST(request: NextRequest) {
 
     logId = await logger.logStart('process-dunning');
 
-    const container = await getAdminContainer();
-    const summary = await container.getProcessDunningUseCase().execute();
+    const summary = await createProcessDunning(createAdminClient()).execute();
 
     const duration = Date.now() - startTime;
     console.log(`⏱️  Dunning cron completed in ${duration}ms`);
@@ -85,8 +84,7 @@ export async function GET(_request: NextRequest) {
 
   console.log('🧪 Manual test: Starting process-dunning cron job...');
 
-  const container = await getAdminContainer();
-  const summary = await container.getProcessDunningUseCase().execute();
+  const summary = await createProcessDunning(createAdminClient()).execute();
 
   return NextResponse.json(ResponseBuilder.success(summary));
 }

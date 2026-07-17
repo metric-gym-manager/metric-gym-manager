@@ -259,3 +259,130 @@ export async function deleteDiscount(
     throw new Error(`Failed to delete discount: ${error.message}`);
   }
 }
+
+// ============================================================
+// Gym profile settings (extracted verbatim from the settings routes)
+// ============================================================
+
+/** Persist a validated profile-image data URL on the gym row. Throws on failure. */
+export async function updateGymProfileImage(gymId: string, imageUrl: string): Promise<void> {
+  const supabase = await createClient();
+
+  const { error: updateError } = await supabase
+    .from('gyms')
+    .update({ profile_image_url: imageUrl })
+    .eq('id', gymId);
+
+  if (updateError) {
+    throw new Error(`Failed to update profile image: ${updateError.message}`);
+  }
+}
+
+export type UpdateUsernameResult =
+  | { status: 'taken' }
+  | { status: 'error' }
+  | { status: 'ok'; profile: Record<string, unknown> };
+
+/** Update the gym's login username after a cross-tenant uniqueness check. */
+export async function updateGymUsername(
+  gymId: string,
+  username: string
+): Promise<UpdateUsernameResult> {
+  const supabase = await createClient();
+
+  // Check if username is already taken by another gym
+  const { data: existingGym } = await supabase
+    .from('gyms')
+    .select('id')
+    .eq('username', username)
+    .neq('id', gymId)
+    .single();
+
+  if (existingGym) {
+    return { status: 'taken' };
+  }
+
+  const { data: updatedProfile, error: updateError } = await supabase
+    .from('gyms')
+    .update({
+      username,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', gymId)
+    .select()
+    .single();
+
+  if (updateError) {
+    console.error('Update username error:', updateError);
+    return { status: 'error' };
+  }
+
+  return { status: 'ok', profile: updatedProfile };
+}
+
+/** Active discount presets for the gym, ordered by name. Throws on failure. */
+export async function getActiveDiscounts(
+  gymId: string
+): Promise<{ id: string; discount_name: string; discount_percentage: number }[]> {
+  const supabase = await createClient();
+
+  const { data: discounts, error } = await supabase
+    .from('discounts')
+    .select('id, discount_name, discount_percentage')
+    .eq('gym_id', gymId)
+    .eq('is_active', true)
+    .order('discount_name');
+
+  if (error) {
+    console.error('Fetch discounts error:', error);
+    throw error;
+  }
+
+  return discounts || [];
+}
+
+export interface DiscountRow {
+  id: string;
+  discount_name: string;
+  discount_percentage: number;
+}
+
+/** Batch discount lookup keyed by id (member-list serialization join). */
+export async function getDiscountsByIds(
+  ids: string[]
+): Promise<Record<string, DiscountRow>> {
+  if (ids.length === 0) return {};
+
+  const supabase = await createClient();
+  const { data: discounts } = await supabase
+    .from('discounts')
+    .select('id, discount_name, discount_percentage')
+    .in('id', ids);
+
+  if (!discounts) return {};
+
+  return discounts.reduce((acc, discount) => {
+    acc[discount.id] = discount;
+    return acc;
+  }, {} as Record<string, DiscountRow>);
+}
+
+/** Single discount lookup in the camelCase shape the registration/payment flows use. */
+export async function getDiscountInfoById(
+  id: string
+): Promise<{ discountId: string; discountName: string; discountPercentage: number } | null> {
+  const supabase = await createClient();
+  const { data: discountData } = await supabase
+    .from('discounts')
+    .select('id, discount_name, discount_percentage')
+    .eq('id', id)
+    .single();
+
+  if (!discountData) return null;
+
+  return {
+    discountId: discountData.id,
+    discountName: discountData.discount_name,
+    discountPercentage: discountData.discount_percentage,
+  };
+}

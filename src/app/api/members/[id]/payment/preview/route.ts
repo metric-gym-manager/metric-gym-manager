@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { z } from 'zod';
-import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError } from '@/core/utils/errors';
-import { calculateNextDueDate } from '@/core/utils/date';
+import { createClient } from '@/lib/supabase/server';
+import { createMemberRepository } from '@/features/members';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { NotFoundError } from '@/utils/errors';
+import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate';
 
 // ============================================================
 // POST /api/members/[id]/payment/preview - Preview payment calculation
@@ -28,8 +29,7 @@ export async function POST(
     const validatedData = previewSchema.parse(body);
 
     // Get member
-    const container = await getContainer();
-    const memberRepo = container.getMemberRepository();
+    const memberRepo = createMemberRepository(await createClient());
     const member = await memberRepo.findById(id, gymProfile.id);
 
     if (!member) {

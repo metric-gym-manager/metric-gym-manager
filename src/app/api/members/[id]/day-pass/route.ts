@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { createClient } from '@/lib/supabase/server';
+import { createIssueDayPass } from '@/features/payments';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import {
   BusinessRuleViolationError,
   InvalidStatusTransitionError,
   NotFoundError,
   ValidationError,
-} from '@/core/utils/errors';
+} from '@/utils/errors';
 
 // ============================================================
 // POST /api/members/[id]/day-pass - Issue a day pass
@@ -48,8 +49,7 @@ export async function POST(
 
     const validated = dayPassSchema.parse(body);
 
-    const container = await getContainer();
-    const issueDayPass = container.getIssueDayPassUseCase();
+    const issueDayPass = createIssueDayPass(await createClient());
 
     const result = await issueDayPass.execute({
       gymId: gymProfile.id,

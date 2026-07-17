@@ -21,7 +21,7 @@ import { Label } from '@/components/ui/label';
 import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog';
 import MemberPhotoSection from './MemberPhotoSection';
 import type { MemberWithDiscount, Payment } from '@/features/members/types';
-import { parseApiError } from '@/lib/utils/api-error';
+import { parseApiError } from '@/utils/api-error';
 
 interface MemberDetailModalMobileProps {
   open: boolean;

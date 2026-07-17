@@ -11,7 +11,7 @@ import {
   saasStatusSchema,
   recurringFailureClassSchema,
   SaasTier,
-} from '@/core/utils/constants/SubscriptionConfig';
+} from '@/features/subscriptions/config/SubscriptionConfig';
 
 export { saasTierSchema, saasStatusSchema, recurringFailureClassSchema };
 

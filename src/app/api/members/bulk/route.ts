@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { addMemberSchema } from '@/features/members/schemas/member.schemas';
-import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { MemberLimitError } from '@/core/utils/errors';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createRegisterMember } from '@/features/members';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { MemberLimitError } from '@/utils/errors';
+import { PlanType } from '@/features/members/config/PlanConfig';
 import { z } from 'zod';
 
 const bulkCreateSchema = z.object({
@@ -43,8 +44,7 @@ export async function POST(request: NextRequest) {
     // Admin container on purpose: each row goes through the guarded quota RPC
     // (service_role-only EXECUTE); the caller's gym id was pinned above (plan C-15).
     // The per-gym row lock serializes the parallel inserts correctly.
-    const container = await getAdminContainer();
-    const registerMember = container.getRegisterMemberUseCase();
+    const registerMember = createRegisterMember(createAdminClient());
 
     // Process all members in parallel
     const results: BulkResult[] = await Promise.allSettled(

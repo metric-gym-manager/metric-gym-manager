@@ -5,7 +5,7 @@ import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Toaster } from 'sonner'
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration'
-import { AuthRecovery } from '@/components/auth/AuthRecovery'
+import { AuthRecovery } from '@/features/auth/components/AuthRecovery'
 import { PWA_VERSION } from '@/lib/pwa-version'
 
 const inter = Inter({

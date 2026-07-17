@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { ConflictError, NotFoundError } from '@/core/utils/errors';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createGenerateCheckoutUrl } from '@/features/subscriptions';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { ConflictError, NotFoundError } from '@/utils/errors';
 import { checkoutCustomerSchema } from '@/features/subscriptions/schemas/subscription.schemas';
 
 // Node crypto (PayHere hash) — never edge runtime
@@ -35,10 +36,9 @@ export async function POST(request: NextRequest) {
     // only, and the caller's gym id was pinned by getCurrentGymProfile() above.
     // targetTier is a validated enum; the PRICE is always looked up server-side
     // in the use case (amount-authority invariant — never from the request).
-    const container = await getAdminContainer();
-    const result = await container
-      .getGenerateCheckoutUrlUseCase()
-      .execute({ gymId: gymProfile.id, targetTier: validated.targetTier, customer });
+    const result = await createGenerateCheckoutUrl(
+      createAdminClient()
+    ).execute({ gymId: gymProfile.id, targetTier: validated.targetTier, customer });
 
     return NextResponse.json(
       ResponseBuilder.success({

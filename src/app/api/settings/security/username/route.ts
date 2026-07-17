@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
+import { updateGymUsername } from '@/features/settings/services/settings.service';
 import { z } from 'zod';
 
 // ============================================================
@@ -26,36 +26,16 @@ export async function POST(request: NextRequest) {
     // Validate request body
     const validatedData = updateUsernameSchema.parse(body);
 
-    const supabase = await createClient();
+    const result = await updateGymUsername(gymProfile.id, validatedData.username);
 
-    // Check if username is already taken by another gym
-    const { data: existingGym } = await supabase
-      .from('gyms')
-      .select('id')
-      .eq('username', validatedData.username)
-      .neq('id', gymProfile.id)
-      .single();
-
-    if (existingGym) {
+    if (result.status === 'taken') {
       return NextResponse.json(
         { success: false, error: 'Username is already taken' },
         { status: 400 }
       );
     }
 
-    // Update username
-    const { data: updatedProfile, error: updateError } = await supabase
-      .from('gyms')
-      .update({
-        username: validatedData.username,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', gymProfile.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error('Update username error:', updateError);
+    if (result.status === 'error') {
       return NextResponse.json(
         { success: false, error: 'Failed to update username' },
         { status: 500 }
@@ -66,7 +46,7 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         message: 'Username updated successfully',
-        data: updatedProfile,
+        data: result.profile,
       },
       { status: 200 }
     );

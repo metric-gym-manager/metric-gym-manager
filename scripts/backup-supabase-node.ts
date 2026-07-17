@@ -9,11 +9,16 @@ import { Client } from 'pg';
 
 config({ path: '.env.local' });
 
-const DATABASE_URL = process.env.SUPABASE_DB_URL;
-if (!DATABASE_URL) {
-  console.error('SUPABASE_DB_URL is missing from .env.local');
-  process.exit(1);
+function requireDatabaseUrl(): string {
+  const url = process.env.SUPABASE_DB_URL;
+  if (!url) {
+    console.error('SUPABASE_DB_URL is missing from .env.local');
+    process.exit(1);
+  }
+  return url;
 }
+
+const DATABASE_URL = requireDatabaseUrl();
 
 function parsePostgresUrl(connectionString: string): {
   user: string;

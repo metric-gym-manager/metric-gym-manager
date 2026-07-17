@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Users } from 'lucide-react';
 import { useSubscription } from '../hooks/useSubscription';
-import { SaasTier, TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
+import { SaasTier, TIER_DISPLAY_NAME } from '@/features/subscriptions/config/SubscriptionConfig';
 
 /**
  * Next tier to upsell from the capped tier: Lite (100) -> Pro (unlimited).

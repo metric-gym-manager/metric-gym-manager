@@ -18,7 +18,7 @@ const payhereEnvSchema = z.object({
   PAYHERE_LITE_PRICE_LKR: z.coerce.number().positive(),
   // Repurposed variable: historical values 4900 -> 2990 -> 4990. The NAME is
   // stable; the MEANING changed with the Lite/Pro/Enterprise re-anchor
-  // (migration 20260708000003) — see docs/DEPLOYMENT_PAYHERE_CHECKLIST.md.
+  // (migration 20260708000003) — see docs/setup/DEPLOYMENT_PAYHERE_CHECKLIST.md.
   PAYHERE_PRO_PRICE_LKR: z.coerce.number().positive(),
   PAYHERE_ENTERPRISE_PRICE_LKR: z.coerce.number().positive(),
   PAYHERE_APP_ID: z.string().min(1),

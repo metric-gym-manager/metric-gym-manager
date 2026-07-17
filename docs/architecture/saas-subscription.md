@@ -5,16 +5,16 @@
 > quota has exactly one authority (`assert_gym_can_add_active_member`); PayHere webhooks are
 > synchronous, idempotent, and always return 200 for business outcomes.
 
-Full contract, threat model and runbook: `docs/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`.
+Full contract, threat model and runbook: `docs/reference/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`.
 Design rationale (conflict register C-1..C-33):
-`docs/Payhere_subscritption_integration/payhere-subscription-execution-plan.md`.
+`docs/integrations/payhere/payhere-subscription-execution-plan.md`.
 
 ## Non-negotiable constraints
 
 1. **PAID-ONLY ladder, caps are ACTIVE members** (Lite 100 / Pro ∞ / Enterprise ∞), **grace = 7
    days**, **trial = 14 days** (paid-only re-anchor 20260708000003 — prior tier-name lineage
    lives in that migration + C-28..C-30; active-only quota 20260708000001) — single source
-   `src/core/utils/constants/SubscriptionConfig.ts`; SQL literals carry back-reference comments.
+   `src/features/subscriptions/config/SubscriptionConfig.ts`; SQL literals carry back-reference comments.
    Legal pairs: `{lite,pro,enterprise} × {trialing,active,past_due,suspended,canceled}` — no free
    tier exists. Only members with `status = 'active'` count toward the cap; expired/suspended/
    cancelled members are unlimited on every tier (gyms are never pressured to delete history).

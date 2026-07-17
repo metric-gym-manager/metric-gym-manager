@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { ConflictError, ExternalServiceError, NotFoundError } from '@/core/utils/errors';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createCancelSubscription } from '@/features/subscriptions';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { ConflictError, ExternalServiceError, NotFoundError } from '@/utils/errors';
 import { serializeSubscriptionForAPI } from '@/features/subscriptions/utils/serializeSubscriptionForAPI';
 
 export const runtime = 'nodejs';
@@ -17,10 +18,9 @@ export async function POST(_request: NextRequest) {
   try {
     const gymProfile = await getCurrentGymProfile();
 
-    const container = await getAdminContainer();
-    const subscription = await container
-      .getCancelSubscriptionUseCase()
-      .execute({ gymId: gymProfile.id });
+    const subscription = await createCancelSubscription(
+      createAdminClient()
+    ).execute({ gymId: gymProfile.id });
 
     return NextResponse.json(
       ResponseBuilder.success(serializeSubscriptionForAPI(subscription)),

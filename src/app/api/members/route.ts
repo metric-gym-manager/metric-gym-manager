@@ -1,67 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { addMemberSchema, memberFiltersSchema } from '@/features/members/schemas/member.schemas';
-import { getContainer, getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { ConflictError, MemberLimitError, ValidationError } from '@/core/utils/errors';
-import { PlanType } from '@/core/utils/constants/PlanConfig';
-import type { Member } from '@/core/domain/member/Member';
-
-// ============================================================
-// Helper: Serialize Member for API Response
-// ============================================================
-
-/**
- * Serializes a Member domain entity to API response format
- *
- * Converts Date objects to YYYY-MM-DD strings to ensure proper JSON serialization.
- * This prevents NextResponse.json() from converting dates to ISO timestamps.
- *
- * @param member - Member domain entity
- * @param discount - Optional discount information from repository join
- */
-function serializeMemberForAPI(
-  member: Member,
-  discount?: { id: string; discount_name: string; discount_percentage: number } | null
-) {
-  const props = member.toDatabase();
-
-  return {
-    id: props.id,
-    gymId: props.gymId,
-    name: props.name,
-    phoneNumber: props.phoneNumber,
-    phone_number: props.phoneNumber, // Include snake_case for backward compatibility
-    planType: props.planType,
-    plan_type: props.planType, // Include snake_case for backward compatibility
-    planAmount: props.planAmount,
-    plan_amount: props.planAmount, // Include snake_case for backward compatibility
-    discountId: props.discountId,
-    discount_id: props.discountId, // Include snake_case for backward compatibility
-    recurringDiscount: props.recurringDiscount,
-    recurring_discount: props.recurringDiscount, // Include snake_case for backward compatibility
-    status: props.status,
-    registeredDate: props.registeredDate.toISOString().split('T')[0],
-    registered_date: props.registeredDate.toISOString().split('T')[0], // Include snake_case for backward compatibility
-    membershipStartDate: props.membershipStartDate.toISOString().split('T')[0],
-    membership_start_date: props.membershipStartDate.toISOString().split('T')[0], // Include snake_case for backward compatibility
-    nextDueDate: props.nextDueDate.toISOString().split('T')[0],
-    next_due_date: props.nextDueDate.toISOString().split('T')[0], // Include snake_case for backward compatibility
-    createdAt: props.createdAt.toISOString(),
-    created_at: props.createdAt.toISOString(), // Include snake_case for backward compatibility
-    updatedAt: props.updatedAt.toISOString(),
-    updated_at: props.updatedAt.toISOString(), // Include snake_case for backward compatibility
-    photoPath: member.photoPath,
-    photo_path: member.photoPath, // Include snake_case for backward compatibility
-    photoUpdatedAt: member.photoUpdatedAt?.toISOString() ?? null,
-    photo_updated_at: member.photoUpdatedAt?.toISOString() ?? null, // Include snake_case for backward compatibility
-    registrationSource: member.registrationSource,
-    registration_source: member.registrationSource, // Include snake_case for backward compatibility
-    verifiedAt: member.verifiedAt?.toISOString() ?? null,
-    verified_at: member.verifiedAt?.toISOString() ?? null, // Include snake_case for backward compatibility
-    discount: discount || null, // Include joined discount data if available
-  };
-}
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createMemberRepository, createRegisterMember } from '@/features/members';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { ConflictError, MemberLimitError, ValidationError } from '@/utils/errors';
+import { PlanType } from '@/features/members/config/PlanConfig';
+import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
+import { getDiscountsByIds, getDiscountInfoById } from '@/features/settings/services/settings.service';
 
 // ============================================================
 // GET /api/members - Get members list
@@ -86,8 +33,7 @@ export async function GET(request: NextRequest) {
     const validatedFilters = memberFiltersSchema.parse(filters);
 
     // Get members via repository
-    const container = await getContainer();
-    const memberRepo = container.getMemberRepository();
+    const memberRepo = createMemberRepository(await createClient());
 
     const result = await memberRepo.findAll({
       gymId: gymProfile.id,
@@ -105,18 +51,7 @@ export async function GET(request: NextRequest) {
     let discountsMap: Record<string, { id: string; discount_name: string; discount_percentage: number }> = {};
 
     if (uniqueDiscountIds.length > 0) {
-      const supabase = (await import('@/lib/supabase/server')).createClient();
-      const { data: discounts } = await (await supabase)
-        .from('discounts')
-        .select('id, discount_name, discount_percentage')
-        .in('id', uniqueDiscountIds);
-
-      if (discounts) {
-        discountsMap = discounts.reduce((acc, discount) => {
-          acc[discount.id] = discount;
-          return acc;
-        }, {} as Record<string, { id: string; discount_name: string; discount_percentage: number }>);
-      }
+      discountsMap = await getDiscountsByIds(uniqueDiscountIds);
     }
 
     // Serialize domain entities for API response with properly formatted dates and discount data
@@ -166,27 +101,13 @@ export async function POST(request: NextRequest) {
     // Get discount info if applicable
     let discount = null;
     if (validatedData.discountId) {
-      const supabase = (await import('@/lib/supabase/server')).createClient();
-      const { data: discountData } = await (await supabase)
-        .from('discounts')
-        .select('id, discount_name, discount_percentage')
-        .eq('id', validatedData.discountId)
-        .single();
-
-      if (discountData) {
-        discount = {
-          discountId: discountData.id,
-          discountName: discountData.discount_name,
-          discountPercentage: discountData.discount_percentage,
-        };
-      }
+      discount = await getDiscountInfoById(validatedData.discountId);
     }
 
     // Register member via use case. Admin container on purpose: the guarded
     // quota RPC is EXECUTE-granted to service_role only, and the caller's
     // gym id was already pinned by getCurrentGymProfile() above (plan C-15).
-    const container = await getAdminContainer();
-    const registerMember = container.getRegisterMemberUseCase();
+    const registerMember = createRegisterMember(createAdminClient());
 
     const result = await registerMember.execute({
       gymId: gymProfile.id,

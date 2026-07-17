@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError, InvalidStatusTransitionError } from '@/core/utils/errors';
+import { createClient } from '@/lib/supabase/server';
+import { createSuspendMember } from '@/features/members';
+import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { NotFoundError, InvalidStatusTransitionError } from '@/utils/errors';
 
 // ============================================================
 // POST /api/members/[id]/suspend - Suspend member
@@ -27,8 +29,7 @@ export async function POST(
     const gymProfile = await getCurrentGymProfile();
 
     // Execute suspend via use case
-    const container = await getContainer();
-    const suspendMember = container.getSuspendMemberUseCase();
+    const suspendMember = createSuspendMember(await createClient());
 
     const suspendedMember = await suspendMember.execute({
       memberId: id,
@@ -37,7 +38,7 @@ export async function POST(
 
     return NextResponse.json(
       ResponseBuilder.success(
-        suspendedMember.toDatabase(),
+        serializeMemberForAPI(suspendedMember),
         { message: 'Member suspended successfully' }
       ),
       { status: 200 }

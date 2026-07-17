@@ -1,6 +1,6 @@
 import { z } from 'zod';
-import { normalizePhoneNumber, isValidSriLankanPhone } from '@/lib/utils/phone';
-import { MemberStatus } from '@/core/utils/constants/StatusConfig';
+import { normalizePhoneNumber, isValidSriLankanPhone } from '@/utils/phone/phone';
+import { MemberStatus } from '@/features/members/config/StatusConfig';
 
 // ============================================================
 // MEMBER ENUMS

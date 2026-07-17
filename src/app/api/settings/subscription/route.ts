@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { SaasStatus } from '@/core/utils/constants/SubscriptionConfig';
-import { classifyRecurringFailure } from '@/core/domain/subscription/classifyRecurringFailure';
+import { createClient } from '@/lib/supabase/server';
+import { createGymSubscriptionRepository, createSaasPaymentLogRepository } from '@/features/subscriptions';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig';
+import { classifyRecurringFailure } from '@/features/subscriptions/domain/classifyRecurringFailure';
 import { serializeSubscriptionForAPI } from '@/features/subscriptions/utils/serializeSubscriptionForAPI';
 import { getPayhereConfig } from '@/lib/payhere/config';
 
@@ -27,17 +28,17 @@ function priceOrNull(which: 'lite' | 'pro' | 'enterprise'): number | null {
 // ============================================================
 // GET /api/settings/subscription — current gym's subscription (JWT)
 // Powers the billing page and the post-redirect verification poll.
-// Session container on purpose: RLS scopes the reads (defense in depth).
+// Session client on purpose: RLS scopes the reads (defense in depth).
 // ============================================================
 
 export async function GET(_request: NextRequest) {
   try {
     const gymProfile = await getCurrentGymProfile();
 
-    const container = await getContainer();
-    const subscription = await container
-      .getGymSubscriptionRepository()
-      .findByGymId(gymProfile.id);
+    const supabase = await createClient();
+    const subscription = await createGymSubscriptionRepository(supabase).findByGymId(
+      gymProfile.id
+    );
 
     if (!subscription) {
       return NextResponse.json(ResponseBuilder.notFound('Subscription'), { status: 404 });
@@ -46,9 +47,9 @@ export async function GET(_request: NextRequest) {
     // Sanitized past-due reason (plan C-22): class token only, never raw text
     let pastDueReason = null;
     if (subscription.status === SaasStatus.PastDue) {
-      const latestFailure = await container
-        .getSaasPaymentLogRepository()
-        .findLatestFailure(gymProfile.id);
+      const latestFailure = await createSaasPaymentLogRepository(
+        supabase
+      ).findLatestFailure(gymProfile.id);
       if (latestFailure) {
         pastDueReason = classifyRecurringFailure(
           latestFailure.statusCode,

@@ -14,7 +14,7 @@ import {
   getGymSubscriptionRow,
   type TestGym,
 } from '../helpers/billing';
-import { INVALID_WEBHOOK_LOG_HOURLY_CAP } from '@/core/utils/constants/SubscriptionConfig';
+import { INVALID_WEBHOOK_LOG_HOURLY_CAP } from '@/features/subscriptions/config/SubscriptionConfig';
 
 setPayhereTestEnv();
 

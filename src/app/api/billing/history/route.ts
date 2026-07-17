@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { createClient } from '@/lib/supabase/server';
+import { createSaasPaymentLogRepository } from '@/features/subscriptions';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { billingHistoryQuerySchema } from '@/features/subscriptions/schemas/subscription.schemas';
 
 // ============================================================
 // GET /api/billing/history — gym-facing SaaS billing history (JWT)
-// Source of truth: saas_payment_logs (plan C-12). Session container:
+// Source of truth: saas_payment_logs (plan C-12). Session client:
 // the gym-owner SELECT RLS policy scopes the rows.
 // Field WHITELIST only — never the raw payload (§2.8 sanitization).
 // ============================================================
@@ -29,10 +30,10 @@ export async function GET(request: NextRequest) {
       limit: searchParams.get('limit') ?? undefined,
     });
 
-    const container = await getContainer();
-    const { rows, totalCount } = await container
-      .getSaasPaymentLogRepository()
-      .listByGym(gymProfile.id, page, limit);
+    const supabase = await createClient();
+    const { rows, totalCount } = await createSaasPaymentLogRepository(
+      supabase
+    ).listByGym(gymProfile.id, page, limit);
 
     const payments = rows.map((row) => ({
       id: row.id,

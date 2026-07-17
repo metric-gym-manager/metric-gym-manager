@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ArrowUpCircle, Users } from 'lucide-react';
 import { useSubscription } from '../hooks/useSubscription';
-import { TIER_DISPLAY_NAME } from '@/core/utils/constants/SubscriptionConfig';
+import { TIER_DISPLAY_NAME } from '@/features/subscriptions/config/SubscriptionConfig';
 
 /**
  * Site-wide member-usage bar: remaining ACTIVE-member slots + universal

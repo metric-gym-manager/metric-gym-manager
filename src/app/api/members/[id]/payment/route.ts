@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import { collectPaymentSchema } from '@/features/members/schemas/member.schemas';
-import { getContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { NotFoundError, ValidationError, InvalidStatusTransitionError, MemberLimitError } from '@/core/utils/errors';
+import { createClient } from '@/lib/supabase/server';
+import { createCollectPayment } from '@/features/payments';
+import { getDiscountInfoById } from '@/features/settings/services/settings.service';
+import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { NotFoundError, ValidationError, InvalidStatusTransitionError, MemberLimitError } from '@/utils/errors';
 
 // ============================================================
 // POST /api/members/[id]/payment - Collect payment
@@ -27,25 +30,11 @@ export async function POST(
     // Get discount info if applicable
     let discount = null;
     if (validatedData.discountId) {
-      const supabase = (await import('@/lib/supabase/server')).createClient();
-      const { data: discountData } = await (await supabase)
-        .from('discounts')
-        .select('id, discount_name, discount_percentage')
-        .eq('id', validatedData.discountId)
-        .single();
-
-      if (discountData) {
-        discount = {
-          discountId: discountData.id,
-          discountName: discountData.discount_name,
-          discountPercentage: discountData.discount_percentage,
-        };
-      }
+      discount = await getDiscountInfoById(validatedData.discountId);
     }
 
     // Collect payment via use case
-    const container = await getContainer();
-    const collectPayment = container.getCollectPaymentUseCase();
+    const collectPayment = createCollectPayment(await createClient());
 
     const result = await collectPayment.execute({
       gymId: gymProfile.id,
@@ -58,7 +47,7 @@ export async function POST(
     });
 
     // Convert domain entities to database format for API response
-    const memberData = result.member.toDatabase();
+    const memberData = serializeMemberForAPI(result.member);
     const paymentData = result.payment.toDatabase();
 
     return NextResponse.json(

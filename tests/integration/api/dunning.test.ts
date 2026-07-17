@@ -14,7 +14,7 @@ import {
   getGymSubscriptionRow,
   type TestGym,
 } from '../helpers/billing';
-import { GRACE_PERIOD_DAYS } from '@/core/utils/constants/SubscriptionConfig';
+import { GRACE_PERIOD_DAYS } from '@/features/subscriptions/config/SubscriptionConfig';
 
 setPayhereTestEnv();
 

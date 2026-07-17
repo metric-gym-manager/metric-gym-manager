@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { CronLogger } from '@/core/utils/cron';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { createChargeDueRenewals } from '@/features/subscriptions';
+import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { CronLogger } from '@/lib/cron';
 import { safeEqual } from '@/lib/auth/safeEqual';
 
 export const runtime = 'nodejs';
@@ -38,8 +38,7 @@ export async function POST(request: NextRequest) {
 
     logId = await logger.logStart('charge-renewals');
 
-    const container = await getAdminContainer();
-    const summary = await container.getChargeDueRenewalsUseCase().execute();
+    const summary = await createChargeDueRenewals(createAdminClient()).execute();
 
     const duration = Date.now() - startTime;
     console.log(`⏱️  Charge-renewals cron completed in ${duration}ms`);
@@ -93,8 +92,7 @@ export async function GET(_request: NextRequest) {
 
   console.log('🧪 Manual test: Starting charge-renewals cron job...');
 
-  const container = await getAdminContainer();
-  const summary = await container.getChargeDueRenewalsUseCase().execute();
+  const summary = await createChargeDueRenewals(createAdminClient()).execute();
 
   return NextResponse.json(ResponseBuilder.success(summary));
 }

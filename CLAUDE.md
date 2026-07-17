@@ -48,24 +48,29 @@ Supabase provides migration management through the Supabase CLI or Dashboard:
 ### Feature-First Architecture
 Code is organized by **domain features**, not by technical layers. Each feature in `src/features/` should be self-contained and deletable without breaking other features.
 
-Expected structure (when implemented):
+Realized structure (2026-07 feature-first refactor — the former hexagonal
+`src/core` + `src/infrastructure` + DI container were dissolved into features):
 ```
-src/features/
-  subscriptions/
-    components/
-    services/
-    hooks/
-    types/
-    tests/
-    index.ts
-  attendance/
-  classes/
-  members/
+src/
+  app/              # Next.js App Router (routes = auth + Zod validation + one service/factory call)
+  components/       # SHARED UI only (ui, common, layout, landing, providers, pwa, dashboard)
+  features/         # ALL business logic, one folder per domain:
+    members/        #   components/ domain/ config/ services/ schemas/ types/ utils/ tests/ index.ts
+    payments/       #   gym-member payments & day passes
+    subscriptions/  #   SaaS billing (config/SubscriptionConfig.ts is the tier/status authority)
+    sms/            #   providers, reminders, delivery logs
+    auth/ announcements/ registration/ revenue/ settings/
+  lib/              # third-party glue: supabase/, payhere/, storage/, cron/, auth/, middleware/
+  hooks/            # shared React hooks
+  utils/            # pure utilities: api/ (ResponseBuilder), errors/, date/, phone/, money/
 ```
+Server composition goes through each feature's `services/factory.ts`
+(`create<UseCase>(supabase)`), passing a session (`createClient`) or
+service-role (`createAdminClient`) Supabase client as appropriate.
 
 ### Business Domain
 The `instructions.md` file contains comprehensive business requirements including:
-- Member lifecycle (registration, active, frozen, expired, cancelled)
+- Member lifecycle (registration, active, expired, cancelled)
 - Membership plans (drop-in, class packs, monthly, annual, custom)
 - Multi-tenant isolation (each gym operates independently via RLS)
 - Authentication and authorization (Supabase Auth + RLS policies)
@@ -96,10 +101,11 @@ Detailed rules are in `.claude/rules/`:
 4. **Commit**: Use Conventional Commits format (feat/fix/docs/test)
 
 ### Git Hooks
-Pre-commit hooks (via husky + lint-staged) automatically:
-- Fix ESLint issues
-- Format with Prettier
-- Run tests on changed files
+Hooks are installed by `scripts/install-git-hooks.js` (runs automatically on
+`npm install` via postinstall; husky is not used):
+- `pre-commit` — runs lint-staged (ESLint --fix, Prettier, jest --findRelatedTests)
+- `commit-msg` — validates Conventional Commits format
+- `post-merge` — generates a draft changelog entry
 
 ## Environment Setup
 Copy `.env.example` to `.env.local` and configure:

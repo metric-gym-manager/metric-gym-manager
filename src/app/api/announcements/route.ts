@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { getAdminContainer } from '@/infrastructure/di';
-import { isFeatureEnabled } from '@/core/domain/subscription/PlanRestrictions';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { createGymSubscriptionRepository } from '@/features/subscriptions';
+import { isFeatureEnabled } from '@/features/subscriptions/domain/PlanRestrictions';
 import { getAnnouncements, createAndSendAnnouncement } from '@/features/announcements/services/announcement.service';
 import { createAnnouncementSchema } from '@/features/announcements/schemas/announcement.schemas';
 
@@ -97,10 +98,9 @@ export async function POST(request: NextRequest) {
     // it stays wired (fail closed) so a future re-gating of the capability
     // is enforced HERE, before any validation or work; the client-side page
     // gate is UX only.
-    const container = await getAdminContainer();
-    const subscription = await container
-      .getGymSubscriptionRepository()
-      .findByGymId(gymProfile.id);
+    const subscription = await createGymSubscriptionRepository(
+      createAdminClient()
+    ).findByGymId(gymProfile.id);
     if (!subscription || !isFeatureEnabled(subscription.tier, 'announcements')) {
       return NextResponse.json(
         {

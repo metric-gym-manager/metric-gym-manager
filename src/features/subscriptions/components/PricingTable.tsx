@@ -9,7 +9,7 @@ import {
   SaasTier,
   LITE_TIER_MEMBER_LIMIT,
   TIER_DISPLAY_NAME,
-} from '@/core/utils/constants/SubscriptionConfig';
+} from '@/features/subscriptions/config/SubscriptionConfig';
 import type { SerializedSubscription } from '../types';
 
 interface PricingTableProps {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { verifyEmailChange } from '@/features/auth/services/email-confirmation.service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,42 +12,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    const result = await verifyEmailChange(token);
 
-    // Verify the email change with Supabase
-    const { data, error } = await supabase.auth.verifyOtp({
-      token_hash: token,
-      type: 'email_change',
-    });
-
-    if (error) {
-      console.error('Email verification error:', error);
+    if (result.status === 'invalid') {
       return NextResponse.json(
         { success: false, error: 'Invalid or expired verification link' },
         { status: 400 }
       );
     }
 
-    if (!data.user) {
+    if (result.status === 'no_user') {
       return NextResponse.json(
         { success: false, error: 'Failed to verify email' },
         { status: 400 }
       );
-    }
-
-    // Update the gyms table to mark email as verified
-    const { error: updateError } = await supabase
-      .from('gyms')
-      .update({
-        email: data.user.email,
-        email_verified: true,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', data.user.id);
-
-    if (updateError) {
-      console.error('Failed to update gym email verification status:', updateError);
-      // Don't fail the request - Supabase verified the email successfully
     }
 
     return NextResponse.json({
