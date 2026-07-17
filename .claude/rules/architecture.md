@@ -140,6 +140,14 @@ Enum validation (domain enums via `z.nativeEnum()`, not duplicate `z.enum()`): s
 
 ### 2.4 Feature-First Architecture
 
+> **Binding growth contract.** Feature-first is the *sole* architecture. The full,
+> enforceable rulebook for how this codebase may grow — for both humans and AI agents —
+> is **`docs/architecture/feature-first-growth-rules.md`**. Read it before adding,
+> moving, or refactoring any code. Its rules R1/R4/R10/R11 are machine-enforced by
+> `npm run arch:check` (also in the pre-commit hook) and its R1 import ban by ESLint;
+> the dissolved `core/`/`infrastructure/`/`presentation/`/`services/` layers must never
+> return.
+
 Organize by domain, not by layer. Canonical feature shape (the six mandated
 folders plus three optional ones):
 ```
@@ -179,6 +187,7 @@ Each pattern is a directive here plus full detail in a reference file. Open the 
 
 | # | Rule | Reference |
 |---|---|---|
+| 2.4 | Feature-first is the sole architecture; the binding, machine-enforced growth rulebook for humans and AI agents (one home per domain, thin routes, single ownership, clean root, replayable migrations) | `docs/architecture/feature-first-growth-rules.md` |
 | 2.2 | Validate domain enums with `z.nativeEnum()`, never a duplicate `z.enum()` set | `docs/architecture/enum-validation.md` |
 | 2.3 | All API routes build responses via the `ResponseBuilder` utility at `@/utils/api` (consistent shape, typed payload, machine-readable error codes) | `docs/architecture/api-patterns.md` |
 | 2.5 | Enforce entity state transitions through dedicated operational endpoints, never generic update endpoints | `docs/architecture/state-machine.md` |

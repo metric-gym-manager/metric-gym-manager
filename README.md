@@ -70,6 +70,12 @@ src/
 Docs are organized under [`docs/`](./docs/README.md) by purpose
 (product / reference / setup / ops / architecture / integrations / legal).
 
+> **Growing the codebase?** Feature-first is the sole architecture and it is
+> enforced. Read [`CONTRIBUTING.md`](./CONTRIBUTING.md) and the binding rulebook
+> [`docs/architecture/feature-first-growth-rules.md`](./docs/architecture/feature-first-growth-rules.md)
+> before adding or moving code. Structure invariants are checked by
+> `npm run arch:check` (also in the pre-commit hook).
+
 ## Documentation
 
 - See [CLAUDE.md](./CLAUDE.md) for Claude Code guidance
