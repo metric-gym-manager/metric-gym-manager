@@ -31,7 +31,8 @@
     "version:bump": "node scripts/version-bump.js",
     "changelog:generate": "node scripts/generate-changelog.js",
     "hooks:install": "node scripts/install-git-hooks.js",
-    "postinstall": "npm run hooks:install"
+    "postinstall": "npm run hooks:install",
+    "backup:supabase": "tsx scripts/backup-supabase-node.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1086.0",
@@ -77,6 +78,7 @@
     "@types/bcrypt": "^6.0.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.10.2",
+    "@types/pg": "^8.20.0",
     "@types/react": "^19.0.6",
     "@types/react-dom": "^19.0.2",
     "@types/uuid": "^10.0.0",
@@ -89,6 +91,7 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "lint-staged": "^15.2.11",
+    "pg": "^8.22.0",
     "postcss": "^8.4.49",
     "prettier": "^3.4.2",
     "tailwindcss": "^3.4.17",
