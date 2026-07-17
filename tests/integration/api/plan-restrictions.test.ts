@@ -51,7 +51,11 @@ async function loginAs(email: string): Promise<string> {
     `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`,
     {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        // Supabase's gateway rejects any request without the anon apikey
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      },
       body: JSON.stringify({ email, password: 'integration-test-password-123' }),
     }
   );
