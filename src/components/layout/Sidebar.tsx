@@ -1,104 +1,64 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { cn } from '@/lib/utils';
-import { Home, Users, DollarSign, CreditCard, Megaphone, Settings, LogOut, Loader2, Headset, Receipt } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import type { GymProfile } from '@/features/auth/types';
-
-const navigation = [
-  {
-    name: 'Dashboard',
-    href: '/dashboard',
-    icon: Home,
-  },
-  {
-    name: 'Members',
-    href: '/members',
-    icon: Users,
-  },
-  {
-    name: 'Revenue',
-    href: '/revenue',
-    icon: DollarSign,
-  },
-  {
-    name: 'Fee Collection',
-    href: '/payment-collection',
-    icon: CreditCard,
-  },
-  {
-    name: 'Announcements',
-    href: '/make-announcement',
-    icon: Megaphone,
-  },
-  {
-    name: 'Billing Setup',
-    href: '/billing-setup',
-    icon: Receipt,
-  },
-  {
-    name: 'Settings',
-    href: '/settings',
-    icon: Settings,
-  },
-  {
-    name: 'Support',
-    href: '/support',
-    icon: Headset,
-  },
-];
+import { useState } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { usePathname, useRouter } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { cn } from '@/lib/utils'
+import { LogOut, Loader2, Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { useCommandPalette } from '@/components/command-palette'
+import { primaryNavigation } from './navigation'
+import type { GymProfile } from '@/features/auth/types'
 
 export default function Sidebar() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const pathname = usePathname()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const { openPalette } = useCommandPalette()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Fetch gym profile for mobile header
   const { data: gymProfile } = useQuery<GymProfile>({
     queryKey: ['gym-profile'],
     queryFn: async () => {
-      const response = await fetch('/api/auth/profile');
-      if (!response.ok) throw new Error('Failed to fetch profile');
-      const result = await response.json();
-      return result.data;
+      const response = await fetch('/api/auth/profile')
+      if (!response.ok) throw new Error('Failed to fetch profile')
+      const result = await response.json()
+      return result.data
     },
     staleTime: 30000,
     refetchOnWindowFocus: true,
-  });
+  })
 
   const handleLogout = async () => {
-    if (isLoggingOut) return; // Prevent duplicate requests
+    if (isLoggingOut) return // Prevent duplicate requests
 
-    setIsLoggingOut(true);
+    setIsLoggingOut(true)
 
     try {
       // Call logout API (ignore response, always clear cache and redirect)
       await fetch('/api/auth/logout', {
         method: 'POST',
-      });
+      })
 
       // Clear cache regardless of response status to ensure clean state
-      queryClient.clear();
+      queryClient.clear()
 
       // Always redirect to login, even if API call failed
       // This ensures user can't get stuck in a broken state
-      router.replace('/login');
+      router.replace('/login')
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Logout error:', error)
       // Still clear cache and redirect on error
-      queryClient.clear();
-      router.replace('/login');
+      queryClient.clear()
+      router.replace('/login')
     } finally {
       // Keep loading state until redirect completes
       // Don't set to false to prevent re-renders during navigation
     }
-  };
+  }
 
   return (
     <>
@@ -106,7 +66,7 @@ export default function Sidebar() {
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
         <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white border-r border-gray-200 px-6 pb-4">
           {/* Logo */}
-          <div className="flex h-16 shrink-0 items-center gap-2">
+          <div className="-mx-6 flex h-16 shrink-0 items-center gap-2.5 border-b border-gray-100 px-6">
             <Image
               src="/logo.svg"
               alt="Metric Gym Manager Logo"
@@ -114,7 +74,7 @@ export default function Sidebar() {
               height={24}
               className="w-6 h-6"
             />
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-[15px] font-semibold tracking-tight text-gray-900">
               Metric Gym Manager
             </h1>
           </div>
@@ -124,25 +84,41 @@ export default function Sidebar() {
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
               <li>
                 <ul role="list" className="-mx-2 space-y-1">
-                  {navigation.map((item) => {
-                    const isActive = pathname.startsWith(item.href);
-                    const Icon = item.icon;
+                  {primaryNavigation.map((item) => {
+                    const isActive = pathname.startsWith(item.href)
+                    const Icon = item.icon
                     return (
                       <li key={item.name}>
                         <Link
                           href={item.href}
+                          aria-current={isActive ? 'page' : undefined}
                           className={cn(
+                            'group relative flex items-center gap-x-3 rounded-md px-2.5 py-2 text-sm transition-colors duration-150',
                             isActive
-                              ? 'bg-gray-100 text-gray-900'
-                              : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
-                            'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors duration-150'
+                              ? 'bg-gray-100 font-semibold text-gray-900'
+                              : 'font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                           )}
                         >
-                          <Icon className="h-5 w-5 text-blue-600" strokeWidth={2} />
+                          {/* Active indicator — a precise accent rule, not a heavy fill */}
+                          {isActive && (
+                            <span
+                              aria-hidden="true"
+                              className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-blue-600"
+                            />
+                          )}
+                          <Icon
+                            className={cn(
+                              'h-5 w-5 shrink-0 transition-colors',
+                              isActive
+                                ? 'text-blue-600'
+                                : 'text-gray-400 group-hover:text-gray-600'
+                            )}
+                            strokeWidth={2}
+                          />
                           {item.name}
                         </Link>
                       </li>
-                    );
+                    )
                   })}
                 </ul>
               </li>
@@ -199,6 +175,15 @@ export default function Sidebar() {
             <Button
               variant="ghost"
               size="icon"
+              onClick={openPalette}
+              className="shrink-0"
+              aria-label="Open command palette"
+            >
+              <Search className="h-5 w-5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={handleLogout}
               disabled={isLoggingOut}
               className="shrink-0"
@@ -216,23 +201,24 @@ export default function Sidebar() {
         {/* Mobile bottom navigation - Horizontally swipable */}
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">
           <nav className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-            {navigation.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              const Icon = item.icon;
+            {primaryNavigation.map((item) => {
+              const isActive = pathname.startsWith(item.href)
+              const Icon = item.icon
               // Determine if label is long
-              const isLongLabel = item.name.length > 8;
+              const isLongLabel = item.name.length > 8
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    isActive
-                      ? 'text-blue-600'
-                      : 'text-gray-600',
+                    isActive ? 'text-blue-600' : 'text-gray-600',
                     'flex flex-col items-center py-2 px-3 min-w-[80px] snap-start shrink-0'
                   )}
                 >
-                  <Icon className="h-6 w-6 text-blue-600 mb-1" strokeWidth={2} />
+                  <Icon
+                    className="h-6 w-6 text-blue-600 mb-1"
+                    strokeWidth={2}
+                  />
                   <span
                     className={cn(
                       'font-medium text-center leading-tight',
@@ -242,11 +228,11 @@ export default function Sidebar() {
                     {item.name}
                   </span>
                 </Link>
-              );
+              )
             })}
           </nav>
         </div>
       </div>
     </>
-  );
+  )
 }
