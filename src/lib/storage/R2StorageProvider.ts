@@ -66,6 +66,13 @@ export class R2StorageProvider implements IStorageProvider {
         accessKeyId,
         secretAccessKey,
       },
+      // Cloudflare R2 rejects presigned PUTs when the AWS SDK injects its
+      // default CRC32 checksum: the checksum is computed at signing time (empty
+      // body) and baked into the URL, but the browser uploads the real bytes,
+      // so R2 sees a mismatch and returns 403. Only add checksums when the
+      // operation actually requires them, keeping presigned PUTs clean.
+      requestChecksumCalculation: 'WHEN_REQUIRED',
+      responseChecksumValidation: 'WHEN_REQUIRED',
     });
   }
 
