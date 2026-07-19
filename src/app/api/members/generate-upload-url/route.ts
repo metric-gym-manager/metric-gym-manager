@@ -57,10 +57,49 @@ export async function POST(request: NextRequest) {
 
     const path = memberPhotoPath(memberId, contentType as MemberPhotoContentType);
 
-    const presign = await createStorageProvider().getPresignedUploadUrl(path, {
+    // ---- [R2-DEBUG] temporary diagnostics — remove once uploads work ----
+    const storage = createStorageProvider();
+    console.log('[R2-DEBUG] provider:', storage.constructor.name, 'env:', {
+      accountId: !!process.env.R2_ACCOUNT_ID,
+      accessKeyId: !!process.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: !!process.env.R2_SECRET_ACCESS_KEY,
+      bucket: process.env.R2_BUCKET_NAME ?? null,
+      publicUrl: process.env.NEXT_PUBLIC_R2_PUBLIC_URL ?? null,
+    });
+    // Server-side PUT bypasses the browser + CORS entirely, so its result
+    // isolates a credentials/bucket problem from a CORS problem.
+    try {
+      const testResult = await storage.upload(
+        new Blob(['r2 connectivity test'], { type: 'text/plain' }),
+        'debug/connectivity-test.txt',
+        { contentType: 'text/plain' }
+      );
+      console.log('[R2-DEBUG] server-side PUT:', JSON.stringify(testResult));
+    } catch (dbgErr) {
+      console.log(
+        '[R2-DEBUG] server-side PUT threw:',
+        dbgErr instanceof Error ? `${dbgErr.name}: ${dbgErr.message}` : String(dbgErr)
+      );
+    }
+    // ---- end [R2-DEBUG] ----
+
+    const presign = await storage.getPresignedUploadUrl(path, {
       contentType,
       expiresInSeconds: UPLOAD_URL_EXPIRY_SECONDS,
     });
+
+    // [R2-DEBUG] confirm the generated URL host + params (no signature value)
+    try {
+      const dbgUrl = new URL(presign.uploadUrl);
+      console.log(
+        '[R2-DEBUG] presign host:',
+        dbgUrl.host,
+        'params:',
+        [...dbgUrl.searchParams.keys()].join(',')
+      );
+    } catch {
+      console.log('[R2-DEBUG] presign url unparseable:', presign.uploadUrl);
+    }
 
     return NextResponse.json(
       ResponseBuilder.success({
