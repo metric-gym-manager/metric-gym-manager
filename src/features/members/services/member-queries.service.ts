@@ -11,6 +11,8 @@ export interface MemberSuggestion {
   id: string;
   name: string;
   phone_number: string;
+  photo_path: string | null;
+  photo_updated_at: string | null;
 }
 
 /** Typeahead search over the gym's members by name or phone (max 8). */
@@ -22,7 +24,7 @@ export async function searchMemberSuggestions(
 
   const { data, error } = await supabase
     .from('members')
-    .select('id, name, phone_number')
+    .select('id, name, phone_number, photo_path, photo_updated_at')
     .eq('gym_id', gymId)
     .or(`name.ilike.%${q}%,phone_number.ilike.%${q}%`)
     .limit(8);

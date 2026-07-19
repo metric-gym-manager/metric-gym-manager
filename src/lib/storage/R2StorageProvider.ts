@@ -56,7 +56,7 @@ export class R2StorageProvider implements IStorageProvider {
 
     this.bucket = bucket;
     this.publicBaseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL
-      ? process.env.NEXT_PUBLIC_R2_PUBLIC_URL.replace(/\/$/, '')
+      ? process.env.NEXT_PUBLIC_R2_PUBLIC_URL.trim().replace(/\/$/, '')
       : null;
 
     this.client = new S3Client({

@@ -72,7 +72,7 @@ export function getMemberPhotoUrl(
   photoPath: string | null | undefined,
   photoUpdatedAt?: string | null
 ): string | null {
-  const baseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL;
+  const baseUrl = process.env.NEXT_PUBLIC_R2_PUBLIC_URL?.trim();
   if (!photoPath || !baseUrl) {
     return null;
   }

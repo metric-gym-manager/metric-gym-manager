@@ -51,6 +51,8 @@ interface SearchSuggestion {
   id: string;
   name: string;
   phone_number: string;
+  photo_path: string | null;
+  photo_updated_at: string | null;
 }
 
 interface MembersTableProps {
@@ -227,14 +229,20 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                     <li key={s.id}>
                       <button
                         type="button"
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center justify-between gap-2"
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
                         onMouseDown={(e) => {
                           e.preventDefault(); // prevent blur before click
                           handleSuggestionClick(s);
                         }}
                       >
-                        <span className="font-medium text-gray-900">{s.name}</span>
-                        <span className="text-gray-400 text-xs">{s.phone_number}</span>
+                        <MemberAvatar
+                          name={s.name}
+                          photoPath={s.photo_path}
+                          photoUpdatedAt={s.photo_updated_at}
+                          className="h-7 w-7 text-[10px]"
+                        />
+                        <span className="font-medium text-gray-900 truncate">{s.name}</span>
+                        <span className="ml-auto shrink-0 text-gray-400 text-xs">{s.phone_number}</span>
                       </button>
                     </li>
                   ))}
