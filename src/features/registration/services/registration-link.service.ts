@@ -81,36 +81,6 @@ export async function getOrCreateRegistrationLink(
 }
 
 /**
- * Rotate the gym's registration token.
- * Previously printed QR posters stop working immediately.
- */
-export async function rotateRegistrationLink(
-  gymId: string
-): Promise<RegistrationLink> {
-  // Ensure a link exists first (also covers rotate-before-first-view)
-  await getOrCreateRegistrationLink(gymId);
-
-  const supabase = await createClient();
-
-  const { data: updated, error } = await supabase
-    .from('gym_registration_links')
-    .update({
-      token: generateToken(),
-      rotated_at: new Date().toISOString(),
-      is_active: true,
-    })
-    .eq('gym_id', gymId)
-    .select('token, is_active, created_at, rotated_at')
-    .single();
-
-  if (error || !updated) {
-    throw new Error(`Failed to rotate registration link: ${error?.message}`);
-  }
-
-  return toRegistrationLink(updated as LinkRow);
-}
-
-/**
  * Resolve a public token to its gym id (admin client — anonymous callers).
  *
  * @returns gym id, or null when the token is unknown or deactivated

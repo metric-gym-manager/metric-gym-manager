@@ -1,21 +1,11 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { QRCodeCanvas } from 'qrcode.react';
 import { toast } from 'sonner';
-import { Copy, Download, Printer, RefreshCw } from 'lucide-react';
+import { Copy, Download, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { printQrPosters } from '../utils/print-qr';
 import type { RegistrationLink } from '../types';
 
@@ -26,12 +16,9 @@ interface RegistrationQRCardProps {
 /**
  * Gym settings card for the member self-registration QR code.
  *
- * Shows the QR + join link with copy/download/print actions, and a
- * "regenerate" action (confirm-guarded: printed posters stop working).
+ * Shows the QR + join link with copy / download / print actions.
  */
 export default function RegistrationQRCard({ gymName }: RegistrationQRCardProps) {
-  const queryClient = useQueryClient();
-  const [showRotateDialog, setShowRotateDialog] = useState(false);
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
   const { data: link, isLoading } = useQuery<RegistrationLink>({
@@ -45,27 +32,6 @@ export default function RegistrationQRCard({ gymName }: RegistrationQRCardProps)
       return result.data;
     },
     staleTime: 300000,
-  });
-
-  const rotateMutation = useMutation({
-    mutationFn: async () => {
-      const response = await fetch('/api/settings/registration-link/rotate', {
-        method: 'POST',
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result?.error?.message || 'Failed to regenerate link');
-      }
-      return result.data as RegistrationLink;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['registration-link'] });
-      toast.success('Link regenerated — reprint your QR poster');
-      setShowRotateDialog(false);
-    },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to regenerate link');
-    },
   });
 
   const getQrDataUrl = (): string | null => {
@@ -134,46 +100,8 @@ export default function RegistrationQRCard({ gymName }: RegistrationQRCardProps)
               <Printer className="h-4 w-4 mr-1.5" /> Print
             </Button>
           </div>
-
-          <div className="border-t pt-3">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowRotateDialog(true)}
-              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
-            >
-              <RefreshCw className="h-4 w-4 mr-1.5" /> Regenerate Link
-            </Button>
-            <p className="mt-1.5 text-xs text-gray-400">
-              Regenerating invalidates already-printed QR posters.
-            </p>
-          </div>
         </div>
       </div>
-
-      <AlertDialog open={showRotateDialog} onOpenChange={setShowRotateDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Regenerate registration link?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Your current QR code will stop working immediately. You will
-              need to reprint and replace any posters at the gym.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={rotateMutation.isPending}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => rotateMutation.mutate()}
-              disabled={rotateMutation.isPending}
-              className="bg-red-600 hover:bg-red-700"
-            >
-              {rotateMutation.isPending ? 'Regenerating...' : 'Regenerate'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
