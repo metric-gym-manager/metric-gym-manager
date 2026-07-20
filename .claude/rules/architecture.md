@@ -24,15 +24,15 @@ Initialize a production-ready `[project-type]` following these constraints.
 /src
   /app              # Next.js App Router
     /(dashboard)    # Gym manager routes (standard auth)
-    /(admin)        # SaaS admin routes (Bearer token auth)
+    /(admin)        # SaaS admin routes (Supabase session + saas_admins)
       /system-health/
         page.tsx                  # System Health Dashboard
         CronStatusGrid.tsx        # Cron job monitoring component
         RawSMSFailureTable.tsx    # SMS failure tracking component
-      layout.tsx                  # Admin layout with secret validation
+      layout.tsx                  # Admin layout: Supabase session + saas_admins check
     /api
       /members/     # Member management endpoints (JWT auth)
-      /admin/       # Admin-only endpoints (Bearer token auth)
+      /admin/       # Admin-only endpoints (Supabase session + saas_admins)
         /system-health/
           /cron-stats/route.ts    # GET cron execution logs
           /sms-failures/route.ts  # GET failed SMS with error_message
@@ -58,7 +58,7 @@ compose use-cases for routes and cron jobs.)
 **Route Groups & Authorization**
 **Route Groups & Authorization**:
 - `/(dashboard)`: Standard gym manager routes with JWT session auth
-- `/(admin)`: SaaS admin routes requiring ADMIN_API_SECRET Bearer token (route group, not part of URL)
+- `/(admin)`: SaaS admin routes requiring a Supabase session + membership in the `saas_admins` table (via `requireSaasAdmin`/`getSaasAdmin`) — no secret is shipped to the browser. Route group, not part of the URL. (The retired `NEXT_PUBLIC_ADMIN_API_SECRET` Bearer scheme must NOT be reintroduced.)
 - `/api/admin/*`: Admin-only API endpoints with strict authorization checks BEFORE database queries
 - `/api/public/*` + `/join/[token]`: **Public, token-authenticated self-registration** — anonymous; the unguessable per-gym token (`gym_registration_links`) is the *sole* credential. Gym identity and the charged amount are ALWAYS resolved server-side from the token, NEVER from client input; bounded by per-IP + per-token rate limits and a honeypot. `/join/*` is whitelisted in `lib/auth-config.ts` (`PUBLIC_ROUTE_PREFIXES`); see `docs/architecture/storage-uploads.md` for the paired photo-upload flow.
 - **CRITICAL RULE**: The `/system-health` frontend page and `/api/admin/system-health/*` API endpoints are strictly isolated from standard gym managers and require SaaS Admin authorization. Technical infrastructure details (error messages, stack traces, database errors) are NEVER exposed to gym managers.
@@ -196,7 +196,7 @@ Each pattern is a directive here plus full detail in a reference file. Open the 
 | 2.6 | Every cron job persists execution results to a DB audit log | `docs/architecture/cron-logging.md` |
 | 2.7 | Every SMS send logs success and failure to the DB — no silent fire-and-forget | `docs/architecture/sms-logging.md` |
 | 2.8 | Distinguish pending vs. error states to end users; sanitize technical detail before display | `docs/architecture/user-facing-errors.md` |
-| 2.9 | Separate Bearer-token-protected admin dashboard for infra health; never expose technical errors to gym managers | `docs/architecture/admin-dashboard-pattern.md` |
+| 2.9 | Separate admin dashboard for infra health, gated by a Supabase session + `saas_admins` membership (`requireSaasAdmin`/`getSaasAdmin`; no browser-shipped secret); never expose technical errors to gym managers | `docs/architecture/admin-dashboard-pattern.md` |
 | 2.10 | Sort time-series records by timestamp DESC before `.find()` to get the most-recent record | `docs/architecture/query-ordering.md` |
 | 2.11 | Never serialize domain entities directly; use serialization helpers (YYYY-MM-DD dates, camelCase + snake_case) | `docs/architecture/api-patterns.md` |
 | 2.12 | Radix Select + React 19 `useId()` mismatch mitigated with targeted `suppressHydrationWarning` | `docs/architecture/frontend-patterns.md` |

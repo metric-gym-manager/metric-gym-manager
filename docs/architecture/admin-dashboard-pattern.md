@@ -1,8 +1,17 @@
 # SaaS Admin Dashboard Pattern
 
+> ⚠️ **Auth model superseded (2026-07-06, commit `b890f8e`).** The current admin
+> dashboard is gated by a **Supabase session + membership in the `saas_admins`
+> table** (`src/lib/auth/requireSaasAdmin.ts`; migration
+> `20260706000001_create_saas_admins.sql`) — there is **no `ADMIN_API_SECRET` /
+> browser-shipped Bearer token**. The `ADMIN_API_SECRET` /
+> `NEXT_PUBLIC_ADMIN_API_SECRET` Bearer code in this doc is **retained only as
+> historical context and MUST NOT be reintroduced**. The "never expose
+> infrastructure errors to gym managers" guidance still holds unchanged.
+
 > On-demand reference. Loaded when working in this area, not auto-injected.
 > Governing rules (also indexed in `.claude/rules/architecture.md`):
-- **§2.9 Admin dashboard** — Provide a separate, Bearer-token-protected technical dashboard for admins; never expose infrastructure errors to gym managers.
+- **§2.9 Admin dashboard** — Provide a separate technical dashboard for admins, gated by a Supabase session + `saas_admins` membership; never expose infrastructure errors to gym managers.
 
 ---
 
@@ -575,14 +584,14 @@ NEXT_PUBLIC_ADMIN_API_SECRET=your-admin-api-secret
 
 #### Security Considerations
 
-**Production Recommendation**: Replace `ADMIN_API_SECRET` environment variable with session-based role checking:
+**Implemented (2026-07-06, commit `b890f8e`)**: the `ADMIN_API_SECRET` Bearer scheme was replaced with session-based checking against the `saas_admins` table (`src/lib/auth/requireSaasAdmin.ts`). Illustrative shape of what shipped:
 
 ```typescript
-// Future improvement: Use database-backed roles
+// Database-backed admin allow-list (shipped): Supabase session + saas_admins row
 export async function GET(request: NextRequest) {
-  const session = await getServerSession();
+  const admin = await getSaasAdmin(); // null unless a saas_admins row exists
 
-  if (!session || session.user.role !== 'saas_admin') {
+  if (!admin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -590,10 +599,6 @@ export async function GET(request: NextRequest) {
 }
 ```
 
-**Current Implementation**: Bearer token provides basic protection suitable for:
-- Development environments
-- Internal tools behind VPN
-- Systems with IP whitelisting
-- Prototypes requiring quick access control
+**Retired scheme (historical)**: the `ADMIN_API_SECRET` Bearer token above provided basic protection suitable for dev / internal-VPN / prototype use. It was replaced by the Supabase-session + `saas_admins` model for production and must not be reintroduced.
 
 ---
