@@ -1,8 +1,8 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
-import { ContactModal } from './ContactModal';
+import Link from 'next/link'
+import { useEffect, useRef, useState } from 'react'
+import { ContactModal } from './ContactModal'
 
 // Display prices must match the PAYHERE_*_PRICE_LKR values billing charges with
 // (src/lib/payhere/config.ts) and the tier ladder in SubscriptionConfig.ts.
@@ -29,10 +29,7 @@ const pricingTiers = [
     name: 'Pro',
     price: '4,990',
     description: 'For growing gyms with larger member bases',
-    features: [
-      'Everything in Lite plan',
-      'Unlimited active members',
-    ],
+    features: ['Everything in Lite plan', 'Unlimited active members'],
     cta: 'Get Started',
     ctaStyle: 'primary',
     featured: true,
@@ -53,29 +50,29 @@ const pricingTiers = [
     ctaStyle: 'secondary',
     featured: false,
   },
-];
+]
 
 export function NewPricingSection() {
-  const sectionRef = useRef<HTMLElement>(null);
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null)
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false)
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            entry.target.classList.add('revealed');
+            entry.target.classList.add('revealed')
           }
-        });
+        })
       },
       { threshold: 0.1 }
-    );
+    )
 
-    const cards = sectionRef.current?.querySelectorAll('.scroll-reveal');
-    cards?.forEach((card) => observer.observe(card));
+    const cards = sectionRef.current?.querySelectorAll('.scroll-reveal')
+    cards?.forEach((card) => observer.observe(card))
 
-    return () => observer.disconnect();
-  }, []);
+    return () => observer.disconnect()
+  }, [])
 
   return (
     <section
@@ -128,7 +125,8 @@ export function NewPricingSection() {
             marginBottom: '64px',
           }}
         >
-          Start with a 14-day free trial. No hidden fees. No surprises. Cancel anytime.
+          Start with a 30-day free trial. No hidden fees. No surprises. Cancel
+          anytime.
         </p>
 
         {/* Pricing Grid */}
@@ -244,7 +242,9 @@ export function NewPricingSection() {
                 <button
                   onClick={() => setIsContactModalOpen(true)}
                   className={
-                    tier.ctaStyle === 'primary' ? 'btn-primary' : 'btn-secondary'
+                    tier.ctaStyle === 'primary'
+                      ? 'btn-primary'
+                      : 'btn-secondary'
                   }
                   style={{
                     width: '100%',
@@ -258,7 +258,9 @@ export function NewPricingSection() {
                 <Link
                   href="/register"
                   className={
-                    tier.ctaStyle === 'primary' ? 'btn-primary' : 'btn-secondary'
+                    tier.ctaStyle === 'primary'
+                      ? 'btn-primary'
+                      : 'btn-secondary'
                   }
                   style={{
                     width: '100%',
@@ -304,5 +306,5 @@ export function NewPricingSection() {
         onClose={() => setIsContactModalOpen(false)}
       />
     </section>
-  );
+  )
 }

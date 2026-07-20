@@ -1,12 +1,12 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { useState } from 'react';
-import { ContactModal } from './ContactModal';
+import Link from 'next/link'
+import Image from 'next/image'
+import { useState } from 'react'
+import { ContactModal } from './ContactModal'
 
 export function FinalCTASection() {
-  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false)
 
   return (
     <section
@@ -70,7 +70,8 @@ export function FinalCTASection() {
             lineHeight: 1.5,
           }}
         >
-          Start with a 14-day free trial. No credit card required. Set up in under 5 minutes.
+          Start with a 30-day free trial. No credit card required. Set up in
+          under 5 minutes.
         </p>
 
         {/* CTAs */}
@@ -175,5 +176,5 @@ export function FinalCTASection() {
         onClose={() => setIsContactModalOpen(false)}
       />
     </section>
-  );
+  )
 }

@@ -5,7 +5,7 @@
 
 > **Tiers:** the PAID-ONLY ladder Lite (100) / Pro (∞) / Enterprise (∞)
 > (`20260708000003..6`). There is no free tier: onboarding is a **trial
-> status** (lite/trialing + 14-day clock), and dunning **suspends** (status
+> status** (lite/trialing + 30-day clock), and dunning **suspends** (status
 > change, tier preserved) instead of downgrading. Two earlier tier renames
 > preceded this ladder — that value lineage (including why reusing the string
 > `'pro'` is collision-free) is recorded in the migration chain
@@ -15,7 +15,7 @@
 > (the C-19 text+CHECK design exists for exactly this). TS mirror:
 > `SubscriptionConfig.ts` (`SaasTier.Lite/Pro/Enterprise`, `SaasStatus` incl.
 > `Trialing`/`Suspended`, `LITE_TIER_MEMBER_LIMIT = 100`,
-> `TRIAL_PERIOD_DAYS = 14`,
+> `TRIAL_PERIOD_DAYS = 30`,
 > `PAYHERE_LITE_PRICE_LKR`/`PAYHERE_PRO_PRICE_LKR`/`PAYHERE_ENTERPRISE_PRICE_LKR`).
 >
 > **Token billing (20260709000001):** this application — not PayHere — owns
@@ -33,7 +33,7 @@
 > Never billed, immune to dunning (both WHERE clauses require a period end), and
 > all self-service billing controls are disabled in the UI + rejected by the
 > checkout/cancel APIs. Provision via `save_gym_subscription(gym, 'enterprise',
-> 'active', NULL, NULL, false)`.
+'active', NULL, NULL, false)`.
 
 ---
 
@@ -41,22 +41,22 @@
 
 Migrations `20260704000001..3` + tier strategy `20260708000003..6`:
 
-| Object | Purpose |
-|---|---|
-| `gyms.subscription_tier` (`text` CHECK `lite\|pro\|enterprise`, DEFAULT `lite`), `gyms.subscription_status` (`text` CHECK `trialing\|active\|past_due\|suspended\|canceled`, DEFAULT `trialing`) | Tenant billing state. Text + CHECK, not enums — tier additions/renames stay transactional (C-19). |
-| `gyms.trial_ends_at` (`timestamptz` DEFAULT `now() + interval '14 days'`) | Trial clock set at signup; the trial-expiry cron suspends `trialing` rows past it. 14 = `TRIAL_PERIOD_DAYS`. |
-| `gyms.payhere_subscription_id / payhere_customer_id / current_period_end / member_count` | Gateway ids, paid-through boundary (always DB-clock), denormalized ACTIVE-member counter. |
-| `checkout_intents` | order_id → gym attribution for webhooks; one `pending` per gym (partial unique index → concurrent checkout 409s). `target_tier` CHECK `lite\|pro\|enterprise`. |
-| `saas_payment_logs` | Webhook audit + idempotency anchor (partial unique on `payhere_payment_id`) + gym billing history. `message_type`/`status_message` promoted for classification (C-22). `raw_payload.md5sig` always `[REDACTED]` (C-24). |
-| `prevent_subscription_self_update` trigger | Column-write guard: subscription columns (incl. `member_count`) writable only by `postgres`/`service_role` — allow-list, fails closed (C-14). |
-| `assert_gym_can_add_active_member(gym_id)` | **The single active-member quota authority.** `FOR UPDATE` on the gyms row serializes into-active writes. |
-| `register_member_guarded(gym_id, member)` | Delegates to the quota authority for active inserts; owns the `members` INSERT. service_role-only EXECUTE. |
-| `save_gym_subscription(...)` | Single-clock subscription writer; `p_extend_period=true` sets `current_period_end = GREATEST(existing boundary, now()) + 1 month` **on the DB clock** — unused paid days are BANKED (C-33); a past boundary anchors at the charge date (C-23 recovery unchanged). Also schedules `next_charge_at` for token-billed active gyms. |
-| `process_dunning_suspensions(grace_days)` | Set-based dunning: SUSPENDS, never writes a tier (see §4). |
-| `process_trial_expiry()` | `trialing` past `trial_ends_at` → `suspended` (tier preserved). |
-| `gyms.next_charge_at` (`timestamptz`) | Token-billing clock: when the charge-renewals cron next charges this gym. NULL = nothing scheduled (legacy recurring, trialing, canceled, suspended, complimentary). Guarded column. |
-| `saas_charge_attempts` | Ledger of server-initiated token charges (renewal \| plan_change). Pending row inserted BEFORE the REST call: webhook order_id resolution for lost responses, timeout-ambiguity record, one-pending-per-gym partial unique gate (concurrent charges impossible — C-32). |
-| `schedule_charge_retry(gym, interval, grace)` | Failed-charge backoff on the DB clock: next attempt `RENEWAL_RETRY_INTERVAL_DAYS` out, never beyond period end + grace (C-26). |
+| Object                                                                                                                                                                                           | Purpose                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `gyms.subscription_tier` (`text` CHECK `lite\|pro\|enterprise`, DEFAULT `lite`), `gyms.subscription_status` (`text` CHECK `trialing\|active\|past_due\|suspended\|canceled`, DEFAULT `trialing`) | Tenant billing state. Text + CHECK, not enums — tier additions/renames stay transactional (C-19).                                                                                                                                                                                                                               |
+| `gyms.trial_ends_at` (`timestamptz` DEFAULT `now() + interval '30 days'`)                                                                                                                        | Trial clock set at signup; the trial-expiry cron suspends `trialing` rows past it. 30 = `TRIAL_PERIOD_DAYS` (DEFAULT re-anchored 14→30 in `20260720000002`).                                                                                                                                                                    |
+| `gyms.payhere_subscription_id / payhere_customer_id / current_period_end / member_count`                                                                                                         | Gateway ids, paid-through boundary (always DB-clock), denormalized ACTIVE-member counter.                                                                                                                                                                                                                                       |
+| `checkout_intents`                                                                                                                                                                               | order_id → gym attribution for webhooks; one `pending` per gym (partial unique index → concurrent checkout 409s). `target_tier` CHECK `lite\|pro\|enterprise`.                                                                                                                                                                  |
+| `saas_payment_logs`                                                                                                                                                                              | Webhook audit + idempotency anchor (partial unique on `payhere_payment_id`) + gym billing history. `message_type`/`status_message` promoted for classification (C-22). `raw_payload.md5sig` always `[REDACTED]` (C-24).                                                                                                         |
+| `prevent_subscription_self_update` trigger                                                                                                                                                       | Column-write guard: subscription columns (incl. `member_count`) writable only by `postgres`/`service_role` — allow-list, fails closed (C-14).                                                                                                                                                                                   |
+| `assert_gym_can_add_active_member(gym_id)`                                                                                                                                                       | **The single active-member quota authority.** `FOR UPDATE` on the gyms row serializes into-active writes.                                                                                                                                                                                                                       |
+| `register_member_guarded(gym_id, member)`                                                                                                                                                        | Delegates to the quota authority for active inserts; owns the `members` INSERT. service_role-only EXECUTE.                                                                                                                                                                                                                      |
+| `save_gym_subscription(...)`                                                                                                                                                                     | Single-clock subscription writer; `p_extend_period=true` sets `current_period_end = GREATEST(existing boundary, now()) + 1 month` **on the DB clock** — unused paid days are BANKED (C-33); a past boundary anchors at the charge date (C-23 recovery unchanged). Also schedules `next_charge_at` for token-billed active gyms. |
+| `process_dunning_suspensions(grace_days)`                                                                                                                                                        | Set-based dunning: SUSPENDS, never writes a tier (see §4).                                                                                                                                                                                                                                                                      |
+| `process_trial_expiry()`                                                                                                                                                                         | `trialing` past `trial_ends_at` → `suspended` (tier preserved).                                                                                                                                                                                                                                                                 |
+| `gyms.next_charge_at` (`timestamptz`)                                                                                                                                                            | Token-billing clock: when the charge-renewals cron next charges this gym. NULL = nothing scheduled (legacy recurring, trialing, canceled, suspended, complimentary). Guarded column.                                                                                                                                            |
+| `saas_charge_attempts`                                                                                                                                                                           | Ledger of server-initiated token charges (renewal \| plan_change). Pending row inserted BEFORE the REST call: webhook order_id resolution for lost responses, timeout-ambiguity record, one-pending-per-gym partial unique gate (concurrent charges impossible — C-32).                                                         |
+| `schedule_charge_retry(gym, interval, grace)`                                                                                                                                                    | Failed-charge backoff on the DB clock: next attempt `RENEWAL_RETRY_INTERVAL_DAYS` out, never beyond period end + grace (C-26).                                                                                                                                                                                                  |
 
 The `prevent_subscription_self_update` guard covers ALL billing columns incl.
 `trial_ends_at` and `next_charge_at` (v2, 20260709000001 — trial_ends_at was
@@ -119,7 +119,7 @@ lite/trialing (trial over) ────suspend──▶ lite/suspended     (tria
   → status branch.
 - Checkout notifications are PREAPPROVALS: success carries `customer_token`, stored as the gym's
   saved card. Success with intent: `trialing → convertTrialToPaid`, `suspended|canceled →
-  activate`, `active|past_due → renew` (rare). Success with a charge attempt (late confirmation
+activate`, `active|past_due → renew` (rare). Success with a charge attempt (late confirmation
   of a server-initiated charge whose sync response was lost): renewal → `renew`/`reactivate`;
   plan_change → `switchPlan`/`convertTrialToPaid`/`activate`; the attempt is closed
   succeeded/failed. Legacy success without either: `renew` (active/past_due, id-matched). Amount
@@ -144,6 +144,7 @@ period extension; C-20 hourly cap (100) on signature-invalid audit rows (global,
 
 `POST /api/cron/charge-renewals` (00:30 UTC — BEFORE dunning, so dunning only
 suspends gyms whose charge genuinely failed):
+
 1. Expire pending charge attempts older than `CHARGE_ATTEMPT_TTL_HOURS` (48) —
    ambiguous outcomes abandoned, schedule unblocked.
 2. For each due gym (`active|past_due`, token stored, `next_charge_at <= now()`),
@@ -158,6 +159,7 @@ suspends gyms whose charge genuinely failed):
    fault/gateway-pending/unverifiable → attempt stays pending for the webhook.
 
 `POST /api/cron/process-dunning` (00:45 UTC):
+
 1. `past_due` with `current_period_end + 7d < now()` → **`suspended`** (tier preserved, gateway id retained).
 2. `canceled` with `current_period_end < now()` → **`suspended`** (tier preserved).
 3. Stale pending checkout intents → `expired`.
@@ -188,15 +190,15 @@ retry button is ever added, cap it (≤1/24h per subscription, ≤2 per past_due
 
 ## 6. Surfaces
 
-| Surface | Auth | Notes |
-|---|---|---|
-| `/settings/billing` page | JWT | Trial banner, plan card, pricing (3 paid columns), upgrade/cancel dialogs, return-flow poll (10s → PENDING_CONFIRMATION, never "failure"), history |
-| `GET /api/settings/subscription` | JWT | Serialized state (incl. `trialEndsAt`, `capabilities.accessControlHardware`) + sanitized `pastDueReason` + `litePriceLkr`/`proPriceLkr`/`enterprisePriceLkr` meta |
-| `GET /api/billing/history` | JWT | `saas_payment_logs` is authoritative for the gym UI (C-12); whitelisted fields only |
-| `POST /api/billing/checkout` / `cancel` | JWT | Admin-container writes after `getCurrentGymProfile()` pins the gym (C-15); checkout (preapproval) accepts any tier |
-| `POST /api/billing/change-plan` | JWT | One-click tier change / reactivation against the stored token; 200 applied / 202 pending-confirmation / 402 `CHARGE_FAILED` / 409 `NO_SAVED_CARD` (client falls back to checkout) |
-| `GET /api/admin/system-health/billing-failures` | SaaS admin session (`saas_admins`) | Full technical detail lives HERE ONLY — never gym-facing |
-| Member quota | — | 403 `MEMBER_LIMIT_REACHED` from `/api/members` (+bulk per-row `errorCode`) → inline upgrade upsell (Lite→Pro) |
+| Surface                                         | Auth                               | Notes                                                                                                                                                                             |
+| ----------------------------------------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/settings/billing` page                        | JWT                                | Trial banner, plan card, pricing (3 paid columns), upgrade/cancel dialogs, return-flow poll (10s → PENDING_CONFIRMATION, never "failure"), history                                |
+| `GET /api/settings/subscription`                | JWT                                | Serialized state (incl. `trialEndsAt`, `capabilities.accessControlHardware`) + sanitized `pastDueReason` + `litePriceLkr`/`proPriceLkr`/`enterprisePriceLkr` meta                 |
+| `GET /api/billing/history`                      | JWT                                | `saas_payment_logs` is authoritative for the gym UI (C-12); whitelisted fields only                                                                                               |
+| `POST /api/billing/checkout` / `cancel`         | JWT                                | Admin-container writes after `getCurrentGymProfile()` pins the gym (C-15); checkout (preapproval) accepts any tier                                                                |
+| `POST /api/billing/change-plan`                 | JWT                                | One-click tier change / reactivation against the stored token; 200 applied / 202 pending-confirmation / 402 `CHARGE_FAILED` / 409 `NO_SAVED_CARD` (client falls back to checkout) |
+| `GET /api/admin/system-health/billing-failures` | SaaS admin session (`saas_admins`) | Full technical detail lives HERE ONLY — never gym-facing                                                                                                                          |
+| Member quota                                    | —                                  | 403 `MEMBER_LIMIT_REACHED` from `/api/members` (+bulk per-row `errorCode`) → inline upgrade upsell (Lite→Pro)                                                                     |
 
 ## 6.1 Plan restrictions (capability matrix)
 
@@ -204,12 +206,12 @@ retry button is ever added, cap it (≤1/24h per subscription, ≤2 per past_due
 (the capability matrix). Tier conditionals are never written anywhere else;
 adding a tier to `SaasTier` breaks compilation until the matrix is extended.
 
-| Capability | Lite | Pro | Enterprise | Server authority | UX layer |
-|---|---|---|---|---|---|
-| `maxMembers` | 100 | ∞ | ∞ | `assert_gym_can_add_active_member` (SQL) | `MemberLimitBar` (Lite only — the one capped tier), quota upsell → Pro |
-| `automatedReminders` | ✓ | ✓ | ✓ | Universal — `SendAutomatedReminders` gates on billing STATUS only (send trialing/active/past_due-in-grace/canceled-while-paid-through; halt suspended + lapsed windows, fail-closed; `membersSkippedBillingRestricted` in the cron summary) | — |
-| `announcements` | ✓ | ✓ | ✓ | Universal — `POST /api/announcements` keeps the fail-closed matrix check wired for future re-gating (never 403s by tier today) | `FeatureGate` passes through |
-| `accessControlHardware` | ✗ | ✗ | ✓ | The sole remaining per-tier gate | `FeatureGate` upsell → Enterprise |
+| Capability              | Lite | Pro | Enterprise | Server authority                                                                                                                                                                                                                            | UX layer                                                               |
+| ----------------------- | ---- | --- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `maxMembers`            | 100  | ∞   | ∞          | `assert_gym_can_add_active_member` (SQL)                                                                                                                                                                                                    | `MemberLimitBar` (Lite only — the one capped tier), quota upsell → Pro |
+| `automatedReminders`    | ✓    | ✓   | ✓          | Universal — `SendAutomatedReminders` gates on billing STATUS only (send trialing/active/past_due-in-grace/canceled-while-paid-through; halt suspended + lapsed windows, fail-closed; `membersSkippedBillingRestricted` in the cron summary) | —                                                                      |
+| `announcements`         | ✓    | ✓   | ✓          | Universal — `POST /api/announcements` keeps the fail-closed matrix check wired for future re-gating (never 403s by tier today)                                                                                                              | `FeatureGate` passes through                                           |
+| `accessControlHardware` | ✗    | ✗   | ✓          | The sole remaining per-tier gate                                                                                                                                                                                                            | `FeatureGate` upsell → Enterprise                                      |
 
 The serializer exposes `capabilities` + `remainingMemberSlots` + `trialEndsAt` +
 `hasSavedCard` (dual-key; boolean ONLY — the token itself never reaches a client, C-24) so
