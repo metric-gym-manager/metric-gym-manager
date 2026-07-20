@@ -1,16 +1,25 @@
 /**
  * QR poster printing (client-side)
  *
- * Opens a print-ready window with one A4 poster per gym: QR code, gym name,
- * and scan instructions. Used by the gym settings card (single poster) and
- * the admin QR dashboard (single or all gyms).
+ * Opens a print-ready window with one A4 poster per gym. Each poster shows the
+ * gym name + profile logo at the top, a "Scan to register" prompt, the QR code,
+ * and a prominent "Powered by Metric Gym OS" footer with the brand logo and
+ * domain. Used by the gym settings card (single poster) and the admin QR
+ * dashboard (single or all gyms).
  */
+
+/** Brand domain shown in the poster footer. */
+const BRAND_DOMAIN = 'metricgymos.lk';
+/** Metric Gym OS brand blue (from public/logo.svg). */
+const BRAND_BLUE = '#1C19FD';
 
 export interface QrPoster {
   gymName: string;
   /** PNG data URL of the QR code (from a rendered canvas) */
   qrDataUrl: string;
   joinUrl: string;
+  /** Public URL of the gym's profile logo, if it has one. */
+  logoUrl?: string | null;
 }
 
 function escapeHtml(value: string): string {
@@ -30,16 +39,33 @@ export function printQrPosters(posters: QrPoster[]): void {
     return;
   }
 
+  // Absolute URL so the brand logo resolves inside the about:blank print window.
+  const brandLogoUrl = `${window.location.origin}/logo.svg`;
+
   const pages = posters
-    .map(
-      (poster) => `
+    .map((poster) => {
+      const gymLogo = poster.logoUrl
+        ? `<img class="gym-logo" src="${escapeHtml(poster.logoUrl)}" alt="" />`
+        : '';
+      return `
       <section class="poster">
-        <h1>${escapeHtml(poster.gymName)}</h1>
-        <p class="subtitle">Scan to register as a member</p>
-        <img src="${poster.qrDataUrl}" alt="Registration QR code" />
+        <header class="gym">
+          ${gymLogo}
+          <h1>${escapeHtml(poster.gymName)}</h1>
+        </header>
+        <p class="subtitle">Scan to register</p>
+        <img class="qr" src="${poster.qrDataUrl}" alt="Registration QR code" />
         <p class="url">${escapeHtml(poster.joinUrl)}</p>
-      </section>`
-    )
+        <footer class="powered">
+          <div class="powered-brand">
+            <span class="powered-by">Powered by</span>
+            <img class="brand-logo" src="${brandLogoUrl}" alt="Metric Gym OS" />
+            <span class="brand-name">Metric Gym OS</span>
+          </div>
+          <span class="brand-domain">${BRAND_DOMAIN}</span>
+        </footer>
+      </section>`;
+    })
     .join('\n');
 
   printWindow.document.write(`<!DOCTYPE html>
@@ -48,7 +74,11 @@ export function printQrPosters(posters: QrPoster[]): void {
   <title>Registration QR Codes</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
     .poster {
       display: flex; flex-direction: column; align-items: center;
       justify-content: center; text-align: center;
@@ -56,17 +86,58 @@ export function printQrPosters(posters: QrPoster[]): void {
       page-break-after: always;
     }
     .poster:last-child { page-break-after: auto; }
-    h1 { font-size: 32px; margin-bottom: 8px; }
-    .subtitle { font-size: 18px; color: #444; margin-bottom: 32px; }
-    img { width: 320px; height: 320px; }
-    .url { margin-top: 32px; font-size: 12px; color: #888; word-break: break-all; }
+    .gym {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 16px; margin-bottom: 24px;
+    }
+    .gym-logo {
+      width: 96px; height: 96px; object-fit: contain; border-radius: 12px;
+    }
+    h1 { font-size: 34px; line-height: 1.1; }
+    .subtitle { font-size: 20px; color: #444; margin-bottom: 28px; }
+    .qr { width: 320px; height: 320px; }
+    .url { margin-top: 24px; font-size: 12px; color: #888; word-break: break-all; }
+    .powered {
+      margin-top: 48px; display: flex; flex-direction: column;
+      align-items: center; gap: 6px;
+    }
+    .powered-brand { display: flex; align-items: center; gap: 10px; }
+    .powered-by {
+      font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
+      color: #666;
+    }
+    .brand-logo { width: 34px; height: 34px; }
+    .brand-name { font-size: 24px; font-weight: 700; color: ${BRAND_BLUE}; }
+    .brand-domain {
+      font-size: 16px; font-weight: 600; color: ${BRAND_BLUE};
+      letter-spacing: 0.02em;
+    }
   </style>
 </head>
 <body>
 ${pages}
 <script>
   window.onload = function () {
-    window.print();
+    var printed = false;
+    function doPrint() {
+      if (printed) return;
+      printed = true;
+      window.print();
+    }
+    var images = Array.prototype.slice.call(document.images);
+    var pending = images.filter(function (img) { return !img.complete; });
+    if (pending.length === 0) { doPrint(); return; }
+    var remaining = pending.length;
+    function onSettled() {
+      remaining -= 1;
+      if (remaining === 0) doPrint();
+    }
+    pending.forEach(function (img) {
+      img.addEventListener('load', onSettled);
+      img.addEventListener('error', onSettled);
+    });
+    // Fallback so a slow/broken image never blocks the print dialog.
+    setTimeout(doPrint, 3000);
   };
 </script>
 </body>

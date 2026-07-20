@@ -156,6 +156,7 @@ export interface GymQrCodeItem {
   gymName: string;
   username: string;
   email: string;
+  profileImageUrl: string | null;
   token: string | null;
   joinUrl: string | null;
   isActive: boolean;
@@ -173,7 +174,7 @@ export async function listGymsWithRegistrationLinks(): Promise<GymQrCodeItem[]> 
   const { data: gyms, error: gymsError } = await supabase
     .from('gyms')
     .select(
-      'id, gym_name, username, email, gym_registration_links(token, is_active, created_at, rotated_at)'
+      'id, gym_name, username, email, profile_image_url, gym_registration_links(token, is_active, created_at, rotated_at)'
     )
     .order('gym_name', { ascending: true });
 
@@ -212,6 +213,7 @@ export async function listGymsWithRegistrationLinks(): Promise<GymQrCodeItem[]> 
       gymName: gym.gym_name,
       username: gym.username,
       email: gym.email,
+      profileImageUrl: gym.profile_image_url ?? null,
       token,
       joinUrl: token ? buildJoinUrl(token) : null,
       isActive: link?.is_active ?? true,
