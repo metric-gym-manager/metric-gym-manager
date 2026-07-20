@@ -1,5 +1,4 @@
-import type { Member } from '../domain/Member';
-
+import type { Member } from '../domain/Member'
 
 /**
  * Serializes a Member domain entity to API response format
@@ -12,13 +11,19 @@ import type { Member } from '../domain/Member';
  */
 export function serializeMemberForAPI(
   member: Member,
-  discount?: { id: string; discount_name: string; discount_percentage: number } | null
+  discount?: {
+    id: string
+    discount_name: string
+    discount_percentage: number
+  } | null
 ) {
-  const props = member.toDatabase();
+  const props = member.toDatabase()
 
   return {
     id: props.id,
     gymId: props.gymId,
+    memberNumber: props.memberNumber ?? null,
+    member_number: props.memberNumber ?? null, // Include snake_case for backward compatibility
     name: props.name,
     phoneNumber: props.phoneNumber,
     phone_number: props.phoneNumber, // Include snake_case for backward compatibility
@@ -34,7 +39,9 @@ export function serializeMemberForAPI(
     registeredDate: props.registeredDate.toISOString().split('T')[0],
     registered_date: props.registeredDate.toISOString().split('T')[0], // Include snake_case for backward compatibility
     membershipStartDate: props.membershipStartDate.toISOString().split('T')[0],
-    membership_start_date: props.membershipStartDate.toISOString().split('T')[0], // Include snake_case for backward compatibility
+    membership_start_date: props.membershipStartDate
+      .toISOString()
+      .split('T')[0], // Include snake_case for backward compatibility
     nextDueDate: props.nextDueDate.toISOString().split('T')[0],
     next_due_date: props.nextDueDate.toISOString().split('T')[0], // Include snake_case for backward compatibility
     createdAt: props.createdAt.toISOString(),
@@ -50,6 +57,5 @@ export function serializeMemberForAPI(
     verifiedAt: member.verifiedAt?.toISOString() ?? null,
     verified_at: member.verifiedAt?.toISOString() ?? null, // Include snake_case for backward compatibility
     discount: discount || null, // Include joined discount data if available
-  };
+  }
 }
-
