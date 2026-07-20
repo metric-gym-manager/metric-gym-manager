@@ -11,7 +11,10 @@ export default async function RegistrationSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <RegistrationQRCard gymName={gymProfile.gym_name} />
+      <RegistrationQRCard
+        gymName={gymProfile.gym_name}
+        logoUrl={gymProfile.profile_image_url}
+      />
     </div>
   );
 }

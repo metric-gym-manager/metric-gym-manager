@@ -11,6 +11,8 @@ import type { RegistrationLink } from '../types';
 
 interface RegistrationQRCardProps {
   gymName: string;
+  /** Public URL of the gym's profile logo, shown on the printed poster. */
+  logoUrl?: string | null;
 }
 
 /**
@@ -18,7 +20,7 @@ interface RegistrationQRCardProps {
  *
  * Shows the QR + join link with copy / download / print actions.
  */
-export default function RegistrationQRCard({ gymName }: RegistrationQRCardProps) {
+export default function RegistrationQRCard({ gymName, logoUrl }: RegistrationQRCardProps) {
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
   const { data: link, isLoading } = useQuery<RegistrationLink>({
@@ -57,7 +59,7 @@ export default function RegistrationQRCard({ gymName }: RegistrationQRCardProps)
   const handlePrint = () => {
     const dataUrl = getQrDataUrl();
     if (!dataUrl || !link) return;
-    printQrPosters([{ gymName, qrDataUrl: dataUrl, joinUrl: link.joinUrl }]);
+    printQrPosters([{ gymName, qrDataUrl: dataUrl, joinUrl: link.joinUrl, logoUrl }]);
   };
 
   if (isLoading || !link) {

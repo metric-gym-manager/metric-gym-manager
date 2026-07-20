@@ -13,6 +13,7 @@ interface GymQrItem {
   gymName: string;
   username: string;
   email: string;
+  profileImageUrl: string | null;
   token: string | null;
   joinUrl: string | null;
   isActive: boolean;
@@ -62,6 +63,7 @@ export default function QrCodesDashboardClient() {
       gymName: gym.gymName,
       qrDataUrl: canvas.toDataURL('image/png'),
       joinUrl: gym.joinUrl,
+      logoUrl: gym.profileImageUrl,
     };
   };
 
