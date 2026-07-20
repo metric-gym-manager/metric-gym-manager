@@ -12,7 +12,7 @@ Design rationale (conflict register C-1..C-33):
 ## Non-negotiable constraints
 
 1. **PAID-ONLY ladder, caps are ACTIVE members** (Lite 100 / Pro ∞ / Enterprise ∞), **grace = 7
-   days**, **trial = 14 days** (paid-only re-anchor 20260708000003 — prior tier-name lineage
+   days**, **trial = 30 days** (paid-only re-anchor 20260708000003 — prior tier-name lineage
    lives in that migration + C-28..C-30; active-only quota 20260708000001) — single source
    `src/features/subscriptions/config/SubscriptionConfig.ts`; SQL literals carry back-reference comments.
    Legal pairs: `{lite,pro,enterprise} × {trialing,active,past_due,suspended,canceled}` — no free
@@ -23,7 +23,7 @@ Design rationale (conflict register C-1..C-33):
    count. Tier differentiators reduce to two axes: the Lite member cap and access-control
    hardware (Enterprise only, `PlanRestrictions`); reminders/announcements are universal.
 2. **Onboarding is a trial STATUS, not a free tier**: signup lands `lite/trialing` with
-   `gyms.trial_ends_at = now() + 14 days` (DB DEFAULT). Full features during the trial (within
+   `gyms.trial_ends_at = now() + 30 days` (DB DEFAULT). Full features during the trial (within
    the tier cap). Checkout into any tier converts `trialing → active` (webhook UC-2); the
    trial-expiry cron (`process_trial_expiry`, UC-5) suspends trials that never checked out.
 3. **Quota authority**: exactly one allowance check, `assert_gym_can_add_active_member` (FOR

@@ -18,7 +18,7 @@
  * Plan: docs/integrations/payhere/payhere-subscription-execution-plan.md
  */
 
-import { z } from 'zod';
+import { z } from 'zod'
 
 /**
  * SaaS billing tier of a gym (tenant). All tiers are paid.
@@ -106,16 +106,21 @@ export const TIER_DISPLAY_NAME: Record<SaasTier, string> = {
   [SaasTier.Lite]: 'Lite',
   [SaasTier.Pro]: 'Pro',
   [SaasTier.Enterprise]: 'Enterprise',
-};
+}
 
 /** Lite-tier ACTIVE-member cap. SQL mirror: assert_gym_can_add_active_member (literal 100, migration 20260708000004). */
-export const LITE_TIER_MEMBER_LIMIT = 100;
+export const LITE_TIER_MEMBER_LIMIT = 100
 
-/** New-gym trial window. SQL mirror: trial_ends_at DEFAULT now() + 14 days (migration 20260708000003). */
-export const TRIAL_PERIOD_DAYS = 14;
+/**
+ * New-gym trial window (Lite/Pro self-serve onboarding — Enterprise is
+ * contact-sales only and never enters this flow).
+ * SQL mirror: trial_ends_at DEFAULT now() + 30 days (migration 20260720000002,
+ * which supersedes the original 14-day DEFAULT from 20260708000003).
+ */
+export const TRIAL_PERIOD_DAYS = 30
 
 /** Days of paid access after a failed charge before dunning SUSPENDS. SQL mirror: literal 7. */
-export const GRACE_PERIOD_DAYS = 7;
+export const GRACE_PERIOD_DAYS = 7
 
 /**
  * Days between automatic token-charge retries after a failed renewal.
@@ -124,7 +129,7 @@ export const GRACE_PERIOD_DAYS = 7;
  * card-network retry budget (C-26; the budgets are OURS now that this app
  * initiates charges).
  */
-export const RENEWAL_RETRY_INTERVAL_DAYS = 2;
+export const RENEWAL_RETRY_INTERVAL_DAYS = 2
 
 /**
  * A pending charge attempt older than this is expired by the charge cron.
@@ -132,21 +137,21 @@ export const RENEWAL_RETRY_INTERVAL_DAYS = 2;
  * usually completes it — past this window it is abandoned (ambiguous outcome,
  * surfaced in system health) and the schedule may try again.
  */
-export const CHARGE_ATTEMPT_TTL_HOURS = 48;
+export const CHARGE_ATTEMPT_TTL_HOURS = 48
 
 /** Pending checkout intents older than this are expired by the dunning cron. */
-export const CHECKOUT_INTENT_TTL_MINUTES = 30;
+export const CHECKOUT_INTENT_TTL_MINUTES = 30
 
 /** Post-redirect verification poll: total budget before PENDING_CONFIRMATION. */
-export const PAYMENT_POLL_TIMEOUT_MS = 10_000;
+export const PAYMENT_POLL_TIMEOUT_MS = 10_000
 
 /** Post-redirect verification poll: interval between polls. */
-export const PAYMENT_POLL_INTERVAL_MS = 1_500;
+export const PAYMENT_POLL_INTERVAL_MS = 1_500
 
 /** Hourly bound on signature-invalid audit rows (plan C-20 write-amplification cap). */
-export const INVALID_WEBHOOK_LOG_HOURLY_CAP = 100;
+export const INVALID_WEBHOOK_LOG_HOURLY_CAP = 100
 
 // §2.2: validation layer reuses the domain enums — never a duplicate z.enum list
-export const saasTierSchema = z.nativeEnum(SaasTier);
-export const saasStatusSchema = z.nativeEnum(SaasStatus);
-export const recurringFailureClassSchema = z.nativeEnum(RecurringFailureClass);
+export const saasTierSchema = z.nativeEnum(SaasTier)
+export const saasStatusSchema = z.nativeEnum(SaasStatus)
+export const recurringFailureClassSchema = z.nativeEnum(RecurringFailureClass)
