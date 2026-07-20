@@ -21,7 +21,7 @@ ALTER TABLE gyms ADD COLUMN IF NOT EXISTS member_number_seq INTEGER NOT NULL DEF
 -- PART 2: MEMBER NUMBER COLUMN (nullable during backfill)
 -- ============================================================
 
-ALTER TABLE members ADD COLUMN member_number INTEGER;
+ALTER TABLE members ADD COLUMN IF NOT EXISTS member_number INTEGER;
 
 -- ============================================================
 -- PART 3: BACKFILL EXISTING MEMBERS — 0001.. per gym by registration order
@@ -54,6 +54,10 @@ WHERE g.id = sub.gym_id;
 -- ============================================================
 
 ALTER TABLE members ALTER COLUMN member_number SET NOT NULL;
+-- DROP-then-ADD so the migration re-runs cleanly (Postgres has no
+-- ADD CONSTRAINT IF NOT EXISTS).
+ALTER TABLE members
+  DROP CONSTRAINT IF EXISTS members_gym_member_number_unique;
 ALTER TABLE members
   ADD CONSTRAINT members_gym_member_number_unique UNIQUE (gym_id, member_number);
 
@@ -82,6 +86,7 @@ END;
 $$;
 
 -- Runs BEFORE the AFTER-INSERT member_count trigger; no ordering conflict.
+DROP TRIGGER IF EXISTS trg_assign_member_number ON members;
 CREATE TRIGGER trg_assign_member_number
   BEFORE INSERT ON members
   FOR EACH ROW
