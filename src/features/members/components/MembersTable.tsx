@@ -1,7 +1,7 @@
-'use client';
+'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   Table,
   TableBody,
@@ -9,127 +9,138 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from '@/components/ui/table'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Badge } from '@/components/ui/badge';
-import type { MemberWithDiscount, OverdueMember } from '@/features/members/types';
-import type { PlanType } from '@/features/settings/types';
-import { X, Filter } from 'lucide-react';
-import { formatDate } from '@/utils/date/date';
-import { getPlanBadgeColor } from '@/utils/badge-colors';
-import UrgencyBadge from '@/components/common/UrgencyBadge';
-import { PaymentDetailsModal } from './PaymentDetailsModal';
-import MemberAvatar from './MemberAvatar';
+} from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import type {
+  MemberWithDiscount,
+  OverdueMember,
+} from '@/features/members/types'
+import type { PlanType } from '@/features/settings/types'
+import { X, Filter } from 'lucide-react'
+import { formatDate } from '@/utils/date/date'
+import { getPlanBadgeColor } from '@/utils/badge-colors'
+import UrgencyBadge from '@/components/common/UrgencyBadge'
+import { PaymentDetailsModal } from './PaymentDetailsModal'
+import MemberAvatar from './MemberAvatar'
+import { formatMemberNumber } from '@/features/members/utils/formatMemberNumber'
 
 /** True when the member is an unverified QR self-registration (NEW badge) */
 const isNewMember = (member: MemberWithDiscount) =>
-  member.registration_source === 'qr' && !member.verified_at;
+  member.registration_source === 'qr' && !member.verified_at
 
 interface MembersListResponse {
-  members: MemberWithDiscount[];
-  overdueMembers?: OverdueMember[];
-  totalCount: number;
-  page: number;
-  totalPages: number;
+  members: MemberWithDiscount[]
+  overdueMembers?: OverdueMember[]
+  totalCount: number
+  page: number
+  totalPages: number
 }
 
 interface SearchSuggestion {
-  id: string;
-  name: string;
-  phone_number: string;
-  photo_path: string | null;
-  photo_updated_at: string | null;
+  id: string
+  member_number: number
+  name: string
+  phone_number: string
+  photo_path: string | null
+  photo_updated_at: string | null
 }
 
 interface MembersTableProps {
-  onMemberClick: (member: MemberWithDiscount) => void;
+  onMemberClick: (member: MemberWithDiscount) => void
 }
 
 export default function MembersTable({ onMemberClick }: MembersTableProps) {
-  const [inputValue, setInputValue] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [status, setStatus] = useState<string>('all');
-  const [planType, setPlanType] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<string>('newest');
-  const [page, setPage] = useState(1);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [filterModalOpen, setFilterModalOpen] = useState(false);
-  const [selectedPaymentMember, setSelectedPaymentMember] = useState<OverdueMember | null>(null);
-  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const [inputValue, setInputValue] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [status, setStatus] = useState<string>('all')
+  const [planType, setPlanType] = useState<string>('all')
+  const [sortBy, setSortBy] = useState<string>('newest')
+  const [page, setPage] = useState(1)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [filterModalOpen, setFilterModalOpen] = useState(false)
+  const [selectedPaymentMember, setSelectedPaymentMember] =
+    useState<OverdueMember | null>(null)
+  const searchContainerRef = useRef<HTMLDivElement>(null)
 
   // Debounce the search input (300ms)
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearch(inputValue);
-      setPage(1);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [inputValue]);
+      setDebouncedSearch(inputValue)
+      setPage(1)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [inputValue])
 
   // Close suggestions on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
-        setShowSuggestions(false);
+      if (
+        searchContainerRef.current &&
+        !searchContainerRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false)
       }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Fetch search suggestions
   const { data: suggestions } = useQuery<SearchSuggestion[]>({
     queryKey: ['member-suggestions', inputValue],
     queryFn: async () => {
-      if (!inputValue || inputValue.trim().length < 1) return [];
-      const response = await fetch(`/api/members/suggestions?q=${encodeURIComponent(inputValue)}`);
-      if (!response.ok) return [];
-      const result = await response.json();
-      return result.data ?? [];
+      if (!inputValue || inputValue.trim().length < 1) return []
+      const response = await fetch(
+        `/api/members/suggestions?q=${encodeURIComponent(inputValue)}`
+      )
+      if (!response.ok) return []
+      const result = await response.json()
+      return result.data ?? []
     },
     enabled: inputValue.trim().length >= 1,
     staleTime: 30000,
-  });
+  })
 
   // Fetch active plan types
   const { data: planTypes } = useQuery<PlanType[]>({
     queryKey: ['billing-setup-plan-types'],
     queryFn: async () => {
-      const response = await fetch('/api/billing-setup/plans');
-      if (!response.ok) return [];
-      const result = await response.json();
-      return result.data ?? [];
+      const response = await fetch('/api/billing-setup/plans')
+      if (!response.ok) return []
+      const result = await response.json()
+      return result.data ?? []
     },
     staleTime: 300000, // Cache for 5 minutes
-  });
+  })
 
   // Filter only active plan types and map to labels
-  const activePlanTypes = planTypes?.filter(pt => pt.is_active) ?? [];
+  const activePlanTypes = planTypes?.filter((pt) => pt.is_active) ?? []
   const getPlanLabel = (planType: string) => {
     const labels: Record<string, string> = {
-      'daily': 'Daily',
-      'weekly': 'Weekly',
-      'monthly': 'Monthly',
+      daily: 'Daily',
+      weekly: 'Weekly',
+      monthly: 'Monthly',
       '3-months': '3 Months',
       '6-months': '6 Months',
-      'annual': 'Annual',
-    };
-    return labels[planType] || planType;
-  };
+      annual: 'Annual',
+    }
+    return labels[planType] || planType
+  }
 
   // Fetch members data
   const { data, isLoading, error } = useQuery<MembersListResponse>({
@@ -138,59 +149,70 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
       const params = new URLSearchParams({
         page: page.toString(),
         limit: '20',
-      });
+      })
 
-      if (debouncedSearch) params.append('search', debouncedSearch);
-      if (status !== 'all') params.append('status', status);
-      if (planType !== 'all') params.append('planType', planType);
-      if (sortBy) params.append('sortBy', sortBy);
+      if (debouncedSearch) params.append('search', debouncedSearch)
+      if (status !== 'all') params.append('status', status)
+      if (planType !== 'all') params.append('planType', planType)
+      if (sortBy) params.append('sortBy', sortBy)
 
-      const response = await fetch(`/api/members?${params}`);
-      if (!response.ok) throw new Error('Failed to fetch members');
-      const result = await response.json();
-      return result.data;
+      const response = await fetch(`/api/members?${params}`)
+      if (!response.ok) throw new Error('Failed to fetch members')
+      const result = await response.json()
+      return result.data
     },
-  });
+  })
 
   const handleSuggestionClick = useCallback((suggestion: SearchSuggestion) => {
-    setInputValue(suggestion.name);
-    setDebouncedSearch(suggestion.name);
-    setShowSuggestions(false);
-    setPage(1);
-  }, []);
+    setInputValue(suggestion.name)
+    setDebouncedSearch(suggestion.name)
+    setShowSuggestions(false)
+    setPage(1)
+  }, [])
 
   const handleClearSearch = () => {
-    setInputValue('');
-    setDebouncedSearch('');
-    setShowSuggestions(false);
-    setPage(1);
-  };
+    setInputValue('')
+    setDebouncedSearch('')
+    setShowSuggestions(false)
+    setPage(1)
+  }
 
   // Format phone number
   const formatPhone = (phone: string) => {
-    return phone;
-  };
+    return phone
+  }
 
   // Get status dot color class
   const getStatusDotClass = (status: string): string => {
     switch (status) {
-      case 'active':    return 'bg-green-500';
-      case 'expired':   return 'bg-red-500';
-      case 'suspended': return 'bg-amber-400';
-      case 'cancelled': return 'bg-gray-400';
-      default:          return 'bg-green-500';
+      case 'active':
+        return 'bg-green-500'
+      case 'expired':
+        return 'bg-red-500'
+      case 'suspended':
+        return 'bg-amber-400'
+      case 'cancelled':
+        return 'bg-gray-400'
+      default:
+        return 'bg-green-500'
     }
-  };
+  }
 
   if (error) {
     return (
       <div className="rounded-md bg-red-50 p-4">
-        <p className="text-sm text-red-800">Failed to load members. Please try again.</p>
+        <p className="text-sm text-red-800">
+          Failed to load members. Please try again.
+        </p>
       </div>
-    );
+    )
   }
 
-  const hasSuggestions = showSuggestions && suggestions && suggestions.length > 0 && inputValue.trim().length >= 1;
+  const hasSuggestions =
+    showSuggestions &&
+    suggestions &&
+    suggestions.length > 0 &&
+    inputValue.trim().length >= 1
 
   return (
     <div className="space-y-6">
@@ -200,14 +222,14 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
           {/* Search with type-ahead dropdown */}
           <div className="relative flex-1" ref={searchContainerRef}>
             <Input
-              placeholder="Search by name or phone..."
+              placeholder="Search by name, phone, or member ID..."
               value={inputValue}
               onChange={(e) => {
-                setInputValue(e.target.value);
-                setShowSuggestions(true);
+                setInputValue(e.target.value)
+                setShowSuggestions(true)
               }}
               onFocus={() => {
-                if (inputValue.trim().length >= 1) setShowSuggestions(true);
+                if (inputValue.trim().length >= 1) setShowSuggestions(true)
               }}
               autoComplete="off"
               className={inputValue ? 'pr-8' : ''}
@@ -231,8 +253,8 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                         type="button"
                         className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
                         onMouseDown={(e) => {
-                          e.preventDefault(); // prevent blur before click
-                          handleSuggestionClick(s);
+                          e.preventDefault() // prevent blur before click
+                          handleSuggestionClick(s)
                         }}
                       >
                         <MemberAvatar
@@ -241,8 +263,15 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                           photoUpdatedAt={s.photo_updated_at}
                           className="h-7 w-7 text-[10px]"
                         />
-                        <span className="font-medium text-gray-900 truncate">{s.name}</span>
-                        <span className="ml-auto shrink-0 text-gray-400 text-xs">{s.phone_number}</span>
+                        <span className="shrink-0 font-mono text-xs text-gray-400">
+                          {formatMemberNumber(s.member_number)}
+                        </span>
+                        <span className="font-medium text-gray-900 truncate">
+                          {s.name}
+                        </span>
+                        <span className="ml-auto shrink-0 text-gray-400 text-xs">
+                          {s.phone_number}
+                        </span>
                       </button>
                     </li>
                   ))}
@@ -264,11 +293,17 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
 
           {/* Desktop filters - hidden on mobile */}
           <div className="hidden lg:flex gap-4">
-            <Select value={status} onValueChange={(value) => {
-              setStatus(value);
-              setPage(1);
-            }}>
-              <SelectTrigger id="members-table-status-filter-desktop-select" className="w-[150px]">
+            <Select
+              value={status}
+              onValueChange={(value) => {
+                setStatus(value)
+                setPage(1)
+              }}
+            >
+              <SelectTrigger
+                id="members-table-status-filter-desktop-select"
+                className="w-[150px]"
+              >
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
@@ -299,11 +334,17 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                 </SelectItem>
               </SelectContent>
             </Select>
-            <Select value={planType} onValueChange={(value) => {
-              setPlanType(value);
-              setPage(1);
-            }}>
-              <SelectTrigger id="members-table-plan-filter-desktop-select" className="w-[150px]">
+            <Select
+              value={planType}
+              onValueChange={(value) => {
+                setPlanType(value)
+                setPage(1)
+              }}
+            >
+              <SelectTrigger
+                id="members-table-plan-filter-desktop-select"
+                className="w-[150px]"
+              >
                 <SelectValue placeholder="Plan Type" />
               </SelectTrigger>
               <SelectContent>
@@ -321,7 +362,10 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
         {/* Sort dropdown - hidden on mobile, shown in filter modal instead */}
         <div className="hidden lg:block">
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger id="members-table-sort-desktop-select" className="w-[200px]">
+            <SelectTrigger
+              id="members-table-sort-desktop-select"
+              className="w-[200px]"
+            >
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
@@ -344,11 +388,17 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
             {/* Status Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Status</label>
-              <Select value={status} onValueChange={(value) => {
-                setStatus(value);
-                setPage(1);
-              }}>
-                <SelectTrigger id="members-table-status-filter-mobile-select" className="w-full">
+              <Select
+                value={status}
+                onValueChange={(value) => {
+                  setStatus(value)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger
+                  id="members-table-status-filter-mobile-select"
+                  className="w-full"
+                >
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -384,11 +434,17 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
             {/* Plan Type Filter */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Plan Type</label>
-              <Select value={planType} onValueChange={(value) => {
-                setPlanType(value);
-                setPage(1);
-              }}>
-                <SelectTrigger id="members-table-plan-filter-mobile-select" className="w-full">
+              <Select
+                value={planType}
+                onValueChange={(value) => {
+                  setPlanType(value)
+                  setPage(1)
+                }}
+              >
+                <SelectTrigger
+                  id="members-table-plan-filter-mobile-select"
+                  className="w-full"
+                >
                   <SelectValue placeholder="Plan Type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -406,14 +462,21 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
             <div className="space-y-2">
               <label className="text-sm font-medium">Sort By</label>
               <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger id="members-table-sort-mobile-select" className="w-full">
+                <SelectTrigger
+                  id="members-table-sort-mobile-select"
+                  className="w-full"
+                >
                   <SelectValue placeholder="Sort by" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="newest">Newest First</SelectItem>
                   <SelectItem value="oldest">Oldest First</SelectItem>
-                  <SelectItem value="upcoming_due">Upcoming Payments</SelectItem>
-                  <SelectItem value="recently_expired">Recently Expired</SelectItem>
+                  <SelectItem value="upcoming_due">
+                    Upcoming Payments
+                  </SelectItem>
+                  <SelectItem value="recently_expired">
+                    Recently Expired
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -424,10 +487,10 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                 variant="outline"
                 className="flex-1"
                 onClick={() => {
-                  setStatus('all');
-                  setPlanType('all');
-                  setSortBy('newest');
-                  setPage(1);
+                  setStatus('all')
+                  setPlanType('all')
+                  setSortBy('newest')
+                  setPage(1)
                 }}
               >
                 Reset
@@ -469,18 +532,22 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
       {/* Total Count */}
       {data && !debouncedSearch && (
         <div className="text-sm text-gray-600">
-          Total Members: <span className="font-semibold">{data.totalCount}</span>
+          Total Members:{' '}
+          <span className="font-semibold">{data.totalCount}</span>
         </div>
       )}
 
       {/* Overdue Members Section */}
       {data && data.overdueMembers && data.overdueMembers.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-red-600">Overdue Members</h3>
+          <h3 className="text-lg font-semibold text-red-600">
+            Overdue Members
+          </h3>
           <div className="rounded-lg border bg-[#FFE5E5] overflow-auto">
             <Table>
               <TableHeader className="sticky top-0 bg-[#FFE5E5]">
                 <TableRow>
+                  <TableHead>Member ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Registered</TableHead>
@@ -497,17 +564,27 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                     onClick={() => onMemberClick(member)}
                     className="cursor-pointer hover:bg-red-100/60"
                   >
+                    <TableCell className="font-mono text-xs text-gray-500 whitespace-nowrap">
+                      {formatMemberNumber(member.member_number)}
+                    </TableCell>
                     <TableCell>
-                      <span className="flex items-center gap-2 font-medium" title={member.status}>
+                      <span
+                        className="flex items-center gap-2 font-medium"
+                        title={member.status}
+                      >
                         <MemberAvatar
                           name={member.name}
                           photoPath={member.photo_path}
                           photoUpdatedAt={member.photo_updated_at}
                         />
-                        <span className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`} />
+                        <span
+                          className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`}
+                        />
                         {member.name}
                         {isNewMember(member) && (
-                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">NEW</Badge>
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+                            NEW
+                          </Badge>
                         )}
                       </span>
                     </TableCell>
@@ -525,8 +602,8 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                     <TableCell>
                       <button
                         onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedPaymentMember(member);
+                          e.stopPropagation()
+                          setSelectedPaymentMember(member)
                         }}
                         className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
                       >
@@ -553,6 +630,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
             <Table>
               <TableHeader className="sticky top-0 bg-white z-10">
                 <TableRow>
+                  <TableHead>Member ID</TableHead>
                   <TableHead>Name</TableHead>
                   <TableHead>Phone</TableHead>
                   <TableHead>Registered</TableHead>
@@ -568,17 +646,27 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                     onClick={() => onMemberClick(member)}
                     className="cursor-pointer hover:bg-gray-50"
                   >
+                    <TableCell className="font-mono text-xs text-gray-500 whitespace-nowrap">
+                      {formatMemberNumber(member.member_number)}
+                    </TableCell>
                     <TableCell>
-                      <span className="flex items-center gap-2 font-medium" title={member.status}>
+                      <span
+                        className="flex items-center gap-2 font-medium"
+                        title={member.status}
+                      >
                         <MemberAvatar
                           name={member.name}
                           photoPath={member.photo_path}
                           photoUpdatedAt={member.photo_updated_at}
                         />
-                        <span className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`} />
+                        <span
+                          className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`}
+                        />
                         {member.name}
                         {isNewMember(member) && (
-                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">NEW</Badge>
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+                            NEW
+                          </Badge>
                         )}
                       </span>
                     </TableCell>
@@ -593,7 +681,8 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                     <TableCell>
                       {member.discount ? (
                         <span className="text-sm text-gray-600">
-                          {member.discount.discount_name} ({member.discount.discount_percentage}%)
+                          {member.discount.discount_name} (
+                          {member.discount.discount_percentage}%)
                         </span>
                       ) : (
                         <span className="text-sm text-gray-400">None</span>
@@ -607,11 +696,15 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
             <div className="flex h-64 items-center justify-center">
               <div className="text-center space-y-2 max-w-md mx-auto px-4">
                 <p className="text-sm text-gray-500">No members found</p>
-                {(status !== 'all' || planType !== 'all' || debouncedSearch) ? (
-                  <p className="text-xs text-gray-400">Try adjusting your filters or search term</p>
+                {status !== 'all' || planType !== 'all' || debouncedSearch ? (
+                  <p className="text-xs text-gray-400">
+                    Try adjusting your filters or search term
+                  </p>
                 ) : (
                   <p className="text-xs text-gray-400">
-                    Get started by adding your first member using the &quot;+ Add Member&quot; button above, or register multiple members at once with &quot;Bulk Register&quot;.
+                    Get started by adding your first member using the &quot;+
+                    Add Member&quot; button above, or register multiple members
+                    at once with &quot;Bulk Register&quot;.
                   </p>
                 )}
               </div>
@@ -654,5 +747,5 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
         onClose={() => setSelectedPaymentMember(null)}
       />
     </div>
-  );
+  )
 }

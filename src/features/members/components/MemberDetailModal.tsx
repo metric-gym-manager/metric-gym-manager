@@ -1,16 +1,16 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
-import { Trash2, Edit } from 'lucide-react';
+import { useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
+import { Trash2, Edit } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/components/ui/dialog'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,10 +20,10 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+} from '@/components/ui/alert-dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -31,20 +31,21 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Label } from '@/components/ui/label';
-import MarkPaidDialog from '@/features/payments/components/MarkPaidDialog';
-import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog';
-import MemberPhotoSection from './MemberPhotoSection';
-import type { MemberWithDiscount, Payment } from '@/features/members/types';
-import { parseApiError } from '@/utils/api-error';
+} from '@/components/ui/table'
+import { Label } from '@/components/ui/label'
+import MarkPaidDialog from '@/features/payments/components/MarkPaidDialog'
+import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog'
+import MemberPhotoSection from './MemberPhotoSection'
+import type { MemberWithDiscount, Payment } from '@/features/members/types'
+import { parseApiError } from '@/utils/api-error'
+import { formatMemberNumber } from '@/features/members/utils/formatMemberNumber'
 
 interface MemberDetailModalProps {
-  open: boolean;
-  onClose: () => void;
-  member: MemberWithDiscount | null;
-  payments?: Payment[];
-  onEditClick: () => void;
+  open: boolean
+  onClose: () => void
+  member: MemberWithDiscount | null
+  payments?: Payment[]
+  onEditClick: () => void
 }
 
 export default function MemberDetailModal({
@@ -54,16 +55,16 @@ export default function MemberDetailModal({
   payments = [],
   onEditClick,
 }: MemberDetailModalProps) {
-  const queryClient = useQueryClient();
-  const [showPaymentHistory, setShowPaymentHistory] = useState(false);
-  const [isMarkingRegularPaid, setIsMarkingRegularPaid] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showMarkPaidDialog, setShowMarkPaidDialog] = useState(false);
-  const [showActivateDialog, setShowActivateDialog] = useState(false);
+  const queryClient = useQueryClient()
+  const [showPaymentHistory, setShowPaymentHistory] = useState(false)
+  const [isMarkingRegularPaid, setIsMarkingRegularPaid] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showMarkPaidDialog, setShowMarkPaidDialog] = useState(false)
+  const [showActivateDialog, setShowActivateDialog] = useState(false)
   // Opened when an into-active transition (reactivate / pay-to-reactivate) is
   // rejected by the active-member quota (403 MEMBER_LIMIT_REACHED).
-  const [showReactivationLimit, setShowReactivationLimit] = useState(false);
-  const [activateNewDueDate, setActivateNewDueDate] = useState<string>('');
+  const [showReactivationLimit, setShowReactivationLimit] = useState(false)
+  const [activateNewDueDate, setActivateNewDueDate] = useState<string>('')
 
   // Suspend member mutation
   const suspendMemberMutation = useMutation({
@@ -71,63 +72,75 @@ export default function MemberDetailModal({
       const response = await fetch(`/api/members/${memberId}/suspend`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      });
+      })
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to suspend member');
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to suspend member')
       }
 
-      return response.json();
+      return response.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['member-detail', member?.id] });
-      toast.success('Member suspended successfully');
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      queryClient.invalidateQueries({ queryKey: ['member-detail', member?.id] })
+      toast.success('Member suspended successfully')
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to suspend member');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to suspend member'
+      )
     },
-  });
+  })
 
   // Activate member mutation
   const activateMemberMutation = useMutation({
-    mutationFn: async ({ memberId, newDueDate }: { memberId: string; newDueDate: string }) => {
+    mutationFn: async ({
+      memberId,
+      newDueDate,
+    }: {
+      memberId: string
+      newDueDate: string
+    }) => {
       const response = await fetch(`/api/members/${memberId}/activate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newDueDate }),
-      });
+      })
 
       if (!response.ok) {
         // ApiResponse envelope: {success:false, error:{message, code}}
-        const body = await response.json().catch(() => null);
+        const body = await response.json().catch(() => null)
         const err = new Error(
           body?.error?.message || body?.error || 'Failed to activate member'
-        ) as Error & { code?: string };
-        err.code = body?.error?.code;
-        throw err;
+        ) as Error & { code?: string }
+        err.code = body?.error?.code
+        throw err
       }
 
-      return response.json();
+      return response.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['member-detail', member?.id] });
-      toast.success('Member activated successfully');
-      setShowActivateDialog(false);
-      setActivateNewDueDate('');
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      queryClient.invalidateQueries({ queryKey: ['member-detail', member?.id] })
+      toast.success('Member activated successfully')
+      setShowActivateDialog(false)
+      setActivateNewDueDate('')
     },
     onError: (error) => {
       // Active-member quota exhausted -> upgrade pop-up instead of a toast
-      if ((error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED') {
-        setShowActivateDialog(false);
-        setShowReactivationLimit(true);
-        return;
+      if (
+        (error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED'
+      ) {
+        setShowActivateDialog(false)
+        setShowReactivationLimit(true)
+        return
       }
-      toast.error(error instanceof Error ? error.message : 'Failed to activate member');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to activate member'
+      )
     },
-  });
+  })
 
   // Cancel member mutation
   const cancelMemberMutation = useMutation({
@@ -135,35 +148,38 @@ export default function MemberDetailModal({
       const response = await fetch(`/api/members/${memberId}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-      });
+      })
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to cancel member');
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to cancel member')
       }
 
-      return response.json();
+      return response.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['member-detail', member?.id] });
-      toast.success('Member cancelled successfully');
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      queryClient.invalidateQueries({ queryKey: ['member-detail', member?.id] })
+      toast.success('Member cancelled successfully')
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to cancel member');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to cancel member'
+      )
     },
-  });
+  })
 
   // Mark regular payment as paid
   const markRegularPaidMutation = useMutation({
     mutationFn: async (paymentDate: string) => {
-      if (!member) throw new Error('No member selected');
+      if (!member) throw new Error('No member selected')
 
       // Calculate effective amount after discount
-      let effectiveAmount = member.plan_amount;
+      let effectiveAmount = member.plan_amount
       if (member.discount && member.recurring_discount) {
-        const discountAmount = (member.plan_amount * member.discount.discount_percentage) / 100;
-        effectiveAmount = member.plan_amount - discountAmount;
+        const discountAmount =
+          (member.plan_amount * member.discount.discount_percentage) / 100
+        effectiveAmount = member.plan_amount - discountAmount
       }
 
       const res = await fetch(`/api/members/${member.id}/payment`, {
@@ -176,67 +192,73 @@ export default function MemberDetailModal({
           discountId: member.discount?.id ?? undefined,
           deductOverduePeriod: true,
         }),
-      });
+      })
       if (!res.ok) {
-        const body = await res.json().catch(() => null);
+        const body = await res.json().catch(() => null)
         const err = new Error(
           body?.error?.message || 'Failed to collect payment'
-        ) as Error & { code?: string };
-        err.code = body?.error?.code;
-        throw err;
+        ) as Error & { code?: string }
+        err.code = body?.error?.code
+        throw err
       }
-      return res.json();
+      return res.json()
     },
     onMutate: () => {
-      setIsMarkingRegularPaid(true);
+      setIsMarkingRegularPaid(true)
     },
     onSuccess: () => {
-      setIsMarkingRegularPaid(false);
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      queryClient.invalidateQueries({ queryKey: ['regular-payments'] });
-      queryClient.invalidateQueries({ queryKey: ['member-detail', member?.id] });
-      toast.success('Payment collected — receipt SMS sent');
+      setIsMarkingRegularPaid(false)
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      queryClient.invalidateQueries({ queryKey: ['regular-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['member-detail', member?.id] })
+      toast.success('Payment collected — receipt SMS sent')
     },
     onError: (error) => {
-      setIsMarkingRegularPaid(false);
+      setIsMarkingRegularPaid(false)
       // Paying to reactivate an expired member can hit the active-member quota;
       // the flip is blocked before anything is charged (see CollectPayment).
-      if ((error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED') {
-        setShowReactivationLimit(true);
-        return;
+      if (
+        (error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED'
+      ) {
+        setShowReactivationLimit(true)
+        return
       }
-      toast.error(error instanceof Error ? error.message : 'Failed to collect payment');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to collect payment'
+      )
     },
-  });
+  })
 
   // Handler for mark paid dialog confirmation
   const handleMarkPaidConfirm = (paymentDate: string) => {
-    markRegularPaidMutation.mutate(paymentDate);
-    setShowMarkPaidDialog(false);
-  };
+    markRegularPaidMutation.mutate(paymentDate)
+    setShowMarkPaidDialog(false)
+  }
 
   // Delete member mutation
   const deleteMemberMutation = useMutation({
     mutationFn: async (memberId: string) => {
       const res = await fetch(`/api/members/${memberId}`, {
         method: 'DELETE',
-      });
+      })
       if (!res.ok) {
-        const errorMessage = await parseApiError(res);
-        throw new Error(errorMessage);
+        const errorMessage = await parseApiError(res)
+        throw new Error(errorMessage)
       }
-      return res.json();
+      return res.json()
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['members'] });
-      toast.success('Member deleted successfully');
-      setShowDeleteDialog(false);
-      onClose();
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      toast.success('Member deleted successfully')
+      setShowDeleteDialog(false)
+      onClose()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to delete member');
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to delete member'
+      )
     },
-  });
+  })
 
   // Show skeleton inside the open dialog while data is loading
   if (!member) {
@@ -245,7 +267,9 @@ export default function MemberDetailModal({
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Member Details</DialogTitle>
-            <DialogDescription>View and manage member information</DialogDescription>
+            <DialogDescription>
+              View and manage member information
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 animate-pulse">
             {/* Name + badges skeleton */}
@@ -283,49 +307,49 @@ export default function MemberDetailModal({
           </div>
         </DialogContent>
       </Dialog>
-    );
+    )
   }
 
   // Format date to DD/MM/YYYY
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB');
-  };
+    const date = new Date(dateString)
+    return date.toLocaleDateString('en-GB')
+  }
 
   // Format currency
   const formatCurrency = (amount: number) => {
-    return `LKR ${amount.toFixed(2)}`;
-  };
+    return `LKR ${amount.toFixed(2)}`
+  }
 
   // Get status badge className for semantic colors
   const getStatusClassName = (status: string): string => {
     switch (status) {
       case 'active':
-        return 'border-transparent bg-green-100 text-green-800 hover:bg-green-100';
+        return 'border-transparent bg-green-100 text-green-800 hover:bg-green-100'
       case 'expired':
-        return 'border-transparent bg-red-100 text-red-800 hover:bg-red-100';
+        return 'border-transparent bg-red-100 text-red-800 hover:bg-red-100'
       case 'suspended':
-        return 'border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100';
+        return 'border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100'
       case 'cancelled':
-        return 'border border-gray-300 text-gray-600 bg-transparent';
+        return 'border border-gray-300 text-gray-600 bg-transparent'
       default:
-        return 'border-transparent bg-green-100 text-green-800';
+        return 'border-transparent bg-green-100 text-green-800'
     }
-  };
+  }
 
   // Get plan type badge className for distinct colors
   const getPlanClassName = (planType: string): string => {
     switch (planType) {
       case 'monthly':
-        return 'border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100';
+        return 'border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100'
       case 'daily':
-        return 'border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100';
+        return 'border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100'
       case 'annual':
-        return 'border-transparent bg-purple-100 text-purple-800 hover:bg-purple-100';
+        return 'border-transparent bg-purple-100 text-purple-800 hover:bg-purple-100'
       default:
-        return 'border-transparent bg-blue-100 text-blue-800';
+        return 'border-transparent bg-blue-100 text-blue-800'
     }
-  };
+  }
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -344,7 +368,12 @@ export default function MemberDetailModal({
           {/* Member Information */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold">{member.name}</h3>
+              <div>
+                <h3 className="text-lg font-semibold">{member.name}</h3>
+                <p className="text-xs font-mono text-gray-500">
+                  Member ID: {formatMemberNumber(member.member_number)}
+                </p>
+              </div>
               <div className="flex items-center gap-2">
                 <Badge className={getStatusClassName(member.status)}>
                   {member.status}
@@ -363,7 +392,9 @@ export default function MemberDetailModal({
 
               <div>
                 <Label className="text-sm text-gray-500">Registered Date</Label>
-                <p className="text-sm font-medium">{formatDate(member.registered_date)}</p>
+                <p className="text-sm font-medium">
+                  {formatDate(member.registered_date)}
+                </p>
               </div>
             </div>
           </div>
@@ -375,22 +406,32 @@ export default function MemberDetailModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label className="text-sm text-gray-500">Plan Type</Label>
-                <p className="text-sm font-medium capitalize">{member.plan_type}</p>
+                <p className="text-sm font-medium capitalize">
+                  {member.plan_type}
+                </p>
               </div>
 
               <div>
                 <Label className="text-sm text-gray-500">Plan Amount</Label>
-                <p className="text-sm font-medium">{formatCurrency(member.plan_amount)}</p>
+                <p className="text-sm font-medium">
+                  {formatCurrency(member.plan_amount)}
+                </p>
               </div>
 
               <div>
-                <Label className="text-sm text-gray-500">Membership Start</Label>
-                <p className="text-sm font-medium">{formatDate(member.membership_start_date)}</p>
+                <Label className="text-sm text-gray-500">
+                  Membership Start
+                </Label>
+                <p className="text-sm font-medium">
+                  {formatDate(member.membership_start_date)}
+                </p>
               </div>
 
               <div>
                 <Label className="text-sm text-gray-500">Next Due Date</Label>
-                <p className="text-sm font-medium">{formatDate(member.next_due_date)}</p>
+                <p className="text-sm font-medium">
+                  {formatDate(member.next_due_date)}
+                </p>
               </div>
 
               {member.discount && (
@@ -398,12 +439,15 @@ export default function MemberDetailModal({
                   <div>
                     <Label className="text-sm text-gray-500">Discount</Label>
                     <p className="text-sm font-medium">
-                      {member.discount.discount_name} ({member.discount.discount_percentage}%)
+                      {member.discount.discount_name} (
+                      {member.discount.discount_percentage}%)
                     </p>
                   </div>
 
                   <div>
-                    <Label className="text-sm text-gray-500">Recurring Discount</Label>
+                    <Label className="text-sm text-gray-500">
+                      Recurring Discount
+                    </Label>
                     <p className="text-sm font-medium">
                       {member.recurring_discount ? 'Yes' : 'No'}
                     </p>
@@ -416,9 +460,12 @@ export default function MemberDetailModal({
           {/* Status Actions — context-aware action buttons based on current status */}
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
             <div>
-              <h3 className="text-sm font-semibold text-blue-900">Status Actions</h3>
+              <h3 className="text-sm font-semibold text-blue-900">
+                Status Actions
+              </h3>
               <p className="text-xs text-blue-700 mt-0.5">
-                Available actions based on current status: <strong>{member.status}</strong>
+                Available actions based on current status:{' '}
+                <strong>{member.status}</strong>
               </p>
             </div>
 
@@ -432,12 +479,15 @@ export default function MemberDetailModal({
                   onClick={() => suspendMemberMutation.mutate(member.id)}
                   className="border-amber-600 text-amber-700 hover:bg-amber-50"
                 >
-                  {suspendMemberMutation.isPending ? 'Suspending...' : 'Suspend Member'}
+                  {suspendMemberMutation.isPending
+                    ? 'Suspending...'
+                    : 'Suspend Member'}
                 </Button>
               )}
 
               {/* Expired or Suspended → Can Activate */}
-              {(member.status === 'expired' || member.status === 'suspended') && (
+              {(member.status === 'expired' ||
+                member.status === 'suspended') && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -445,12 +495,15 @@ export default function MemberDetailModal({
                   onClick={() => setShowActivateDialog(true)}
                   className="border-green-600 text-green-700 hover:bg-green-50"
                 >
-                  {activateMemberMutation.isPending ? 'Activating...' : 'Activate Member'}
+                  {activateMemberMutation.isPending
+                    ? 'Activating...'
+                    : 'Activate Member'}
                 </Button>
               )}
 
               {/* Expired or Suspended → Can Cancel */}
-              {(member.status === 'expired' || member.status === 'suspended') && (
+              {(member.status === 'expired' ||
+                member.status === 'suspended') && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -458,14 +511,17 @@ export default function MemberDetailModal({
                   onClick={() => cancelMemberMutation.mutate(member.id)}
                   className="border-red-600 text-red-700 hover:bg-red-50"
                 >
-                  {cancelMemberMutation.isPending ? 'Cancelling...' : 'Cancel Member'}
+                  {cancelMemberMutation.isPending
+                    ? 'Cancelling...'
+                    : 'Cancel Member'}
                 </Button>
               )}
 
               {/* Cancelled → No actions available (terminal state) */}
               {member.status === 'cancelled' && (
                 <p className="text-sm text-gray-600 italic">
-                  No status actions available. Member is in terminal cancelled state.
+                  No status actions available. Member is in terminal cancelled
+                  state.
                 </p>
               )}
             </div>
@@ -475,8 +531,13 @@ export default function MemberDetailModal({
           <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Payment History</h3>
-                <p className="text-xs text-gray-500 mt-0.5">{payments.length} payment{payments.length !== 1 ? 's' : ''} recorded</p>
+                <h3 className="text-sm font-semibold text-gray-900">
+                  Payment History
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {payments.length} payment{payments.length !== 1 ? 's' : ''}{' '}
+                  recorded
+                </p>
               </div>
               <Button
                 variant="outline"
@@ -519,13 +580,18 @@ export default function MemberDetailModal({
                           <TableCell>
                             {payment.discount_applied ? (
                               <span className="text-sm text-green-600">
-                                {payment.discount_applied} ({payment.discount_percentage}%)
+                                {payment.discount_applied} (
+                                {payment.discount_percentage}%)
                               </span>
                             ) : (
-                              <span className="text-sm text-gray-400">None</span>
+                              <span className="text-sm text-gray-400">
+                                None
+                              </span>
                             )}
                           </TableCell>
-                          <TableCell>{formatDate(payment.next_due_date_calculated)}</TableCell>
+                          <TableCell>
+                            {formatDate(payment.next_due_date_calculated)}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -584,12 +650,18 @@ export default function MemberDetailModal({
             <AlertDialogTitle>Are you sure?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-sm text-muted-foreground">
-                This will permanently delete <strong>{member.name}</strong> and all associated data including:
+                This will permanently delete <strong>{member.name}</strong> and
+                all associated data including:
                 <ul className="list-disc list-inside mt-2 space-y-1">
-                  <li>Payment history ({payments.length} payment{payments.length !== 1 ? 's' : ''})</li>
+                  <li>
+                    Payment history ({payments.length} payment
+                    {payments.length !== 1 ? 's' : ''})
+                  </li>
                   <li>SMS logs</li>
                 </ul>
-                <p className="mt-3 text-red-600 font-semibold">This action cannot be undone.</p>
+                <p className="mt-3 text-red-600 font-semibold">
+                  This action cannot be undone.
+                </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -615,7 +687,8 @@ export default function MemberDetailModal({
         memberName={member.name}
         amount={
           member.discount && member.recurring_discount
-            ? member.plan_amount - (member.plan_amount * member.discount.discount_percentage) / 100
+            ? member.plan_amount -
+              (member.plan_amount * member.discount.discount_percentage) / 100
             : member.plan_amount
         }
         planType={member.plan_type}
@@ -623,12 +696,16 @@ export default function MemberDetailModal({
       />
 
       {/* Activate Member Dialog */}
-      <AlertDialog open={showActivateDialog} onOpenChange={setShowActivateDialog}>
+      <AlertDialog
+        open={showActivateDialog}
+        onOpenChange={setShowActivateDialog}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Activate Member</AlertDialogTitle>
             <AlertDialogDescription>
-              Select the new due date for <strong>{member.name}</strong>&apos;s membership.
+              Select the new due date for <strong>{member.name}</strong>&apos;s
+              membership.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
@@ -651,18 +728,20 @@ export default function MemberDetailModal({
             <AlertDialogAction
               onClick={() => {
                 if (!activateNewDueDate) {
-                  toast.error('Please select a new due date');
-                  return;
+                  toast.error('Please select a new due date')
+                  return
                 }
                 activateMemberMutation.mutate({
                   memberId: member.id,
                   newDueDate: activateNewDueDate,
-                });
+                })
               }}
               disabled={activateMemberMutation.isPending || !activateNewDueDate}
               className="bg-green-600 hover:bg-green-700"
             >
-              {activateMemberMutation.isPending ? 'Activating...' : 'Activate Member'}
+              {activateMemberMutation.isPending
+                ? 'Activating...'
+                : 'Activate Member'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -674,5 +753,5 @@ export default function MemberDetailModal({
         onOpenChange={setShowReactivationLimit}
       />
     </Dialog>
-  );
+  )
 }

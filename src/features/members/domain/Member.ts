@@ -8,30 +8,42 @@
  * This ensures thread-safety and makes state changes explicit.
  */
 
-import { randomUUID } from 'crypto';
-import { PlanType } from '@/features/members/config/PlanConfig';
-import { MemberStatus, canTransition } from '@/features/members/config/StatusConfig';
-import { RegistrationSource } from '@/features/members/config/RegistrationConfig';
-import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue';
-import { InvalidStatusTransitionError, ValidationError } from '@/utils/errors';
+import { randomUUID } from 'crypto'
+import { PlanType } from '@/features/members/config/PlanConfig'
+import {
+  MemberStatus,
+  canTransition,
+} from '@/features/members/config/StatusConfig'
+import { RegistrationSource } from '@/features/members/config/RegistrationConfig'
+import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue'
+import { InvalidStatusTransitionError, ValidationError } from '@/utils/errors'
 
 // Re-export MemberStatus and RegistrationSource for consumers
-export { MemberStatus } from '@/features/members/config/StatusConfig';
-export { RegistrationSource } from '@/features/members/config/RegistrationConfig';
+export { MemberStatus } from '@/features/members/config/StatusConfig'
+export { RegistrationSource } from '@/features/members/config/RegistrationConfig'
 
 /**
  * Member properties interface
  */
 export interface MemberProps {
-  id: string;
-  gymId: string;
-  name: string;
-  phoneNumber: string;
-  planType: PlanType;
-  planAmount: number;
-  discountId: string | null;
-  recurringDiscount: boolean;
-  status: MemberStatus;
+  id: string
+  gymId: string
+
+  /**
+   * Per-gym sequential member ID (1-based; first member of a gym = 1).
+   * Assigned by the database on insert, so it is null for a freshly created,
+   * not-yet-persisted entity and populated once reloaded from the database.
+   * Displayed zero-padded (e.g. #0001).
+   */
+  memberNumber?: number | null
+
+  name: string
+  phoneNumber: string
+  planType: PlanType
+  planAmount: number
+  discountId: string | null
+  recurringDiscount: boolean
+  status: MemberStatus
 
   /**
    * Registration date (when member signed up)
@@ -44,7 +56,7 @@ export interface MemberProps {
    * registeredDate: new Date('2024-01-15')
    * membershipStartDate: new Date('2024-01-20')
    */
-  registeredDate: Date;
+  registeredDate: Date
 
   /**
    * Membership start date (when billing period begins)
@@ -54,43 +66,46 @@ export interface MemberProps {
    * - Later than registeredDate (deferred start)
    * - Earlier than today (backdated for offline registrations)
    */
-  membershipStartDate: Date;
+  membershipStartDate: Date
 
-  nextDueDate: Date;
-  createdAt: Date;
-  updatedAt: Date;
+  nextDueDate: Date
+  createdAt: Date
+  updatedAt: Date
 
   /**
    * R2 object key of the member's face photo (e.g. 'profiles/{id}.webp').
    * NULL when no photo has been uploaded. Optional for backward
    * compatibility; normalized to null in the constructor.
    */
-  photoPath?: string | null;
+  photoPath?: string | null
 
   /**
    * When the photo was last uploaded/replaced. Used as a CDN cache-busting
    * version parameter since replacements overwrite the same object key.
    */
-  photoUpdatedAt?: Date | null;
+  photoUpdatedAt?: Date | null
 
   /**
    * How the member was registered (manual desk form vs QR self-registration).
    * Defaults to Manual for backward compatibility.
    */
-  registrationSource?: RegistrationSource;
+  registrationSource?: RegistrationSource
 
   /**
    * When the gym verified a QR self-registration. NULL for unverified QR
    * members (rendered as a NEW badge). Manual registrations are considered
    * verified by definition and keep this null.
    */
-  verifiedAt?: Date | null;
+  verifiedAt?: Date | null
 }
 
 /**
  * Properties for creating a new member (without auto-generated fields)
  */
-export type CreateMemberProps = Omit<MemberProps, 'id' | 'createdAt' | 'updatedAt'>;
+export type CreateMemberProps = Omit<
+  MemberProps,
+  'id' | 'createdAt' | 'updatedAt'
+>
 
 /**
  * Member domain entity
@@ -125,16 +140,16 @@ export type CreateMemberProps = Omit<MemberProps, 'id' | 'createdAt' | 'updatedA
  * const reactivatedMember = expiredMember.activate(new Date('2024-03-15'));
  */
 export class Member {
-  private readonly props: MemberProps;
+  private readonly props: MemberProps
 
   private constructor(props: MemberProps) {
     // Validate required fields
-    if (!props.gymId) throw new Error('gymId is required');
+    if (!props.gymId) throw new Error('gymId is required')
     if (!props.name || props.name.trim().length < 2) {
-      throw new Error('name must be at least 2 characters');
+      throw new Error('name must be at least 2 characters')
     }
-    if (!props.phoneNumber) throw new Error('phoneNumber is required');
-    if (props.planAmount <= 0) throw new Error('planAmount must be positive');
+    if (!props.phoneNumber) throw new Error('phoneNumber is required')
+    if (props.planAmount <= 0) throw new Error('planAmount must be positive')
 
     // Normalize optional fields so downstream code can rely on their presence
     this.props = {
@@ -143,7 +158,7 @@ export class Member {
       photoUpdatedAt: props.photoUpdatedAt ?? null,
       registrationSource: props.registrationSource ?? RegistrationSource.Manual,
       verifiedAt: props.verifiedAt ?? null,
-    };
+    }
   }
 
   // ============================================================
@@ -165,7 +180,7 @@ export class Member {
       id: randomUUID(),
       createdAt: new Date(),
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -177,7 +192,7 @@ export class Member {
    * @returns Member instance
    */
   static fromDatabase(props: MemberProps): Member {
-    return new Member(props);
+    return new Member(props)
   }
 
   // ============================================================
@@ -185,55 +200,63 @@ export class Member {
   // ============================================================
 
   get id(): string {
-    return this.props.id;
+    return this.props.id
   }
 
   get gymId(): string {
-    return this.props.gymId;
+    return this.props.gymId
+  }
+
+  /**
+   * Per-gym sequential member ID. Null until the entity has been persisted and
+   * reloaded (the database assigns it on insert).
+   */
+  get memberNumber(): number | null {
+    return this.props.memberNumber ?? null
   }
 
   get name(): string {
-    return this.props.name;
+    return this.props.name
   }
 
   get phoneNumber(): string {
-    return this.props.phoneNumber;
+    return this.props.phoneNumber
   }
 
   get planType(): PlanType {
-    return this.props.planType;
+    return this.props.planType
   }
 
   get planAmount(): number {
-    return this.props.planAmount;
+    return this.props.planAmount
   }
 
   get discountId(): string | null {
-    return this.props.discountId;
+    return this.props.discountId
   }
 
   get recurringDiscount(): boolean {
-    return this.props.recurringDiscount;
+    return this.props.recurringDiscount
   }
 
   get status(): MemberStatus {
-    return this.props.status;
+    return this.props.status
   }
 
   get membershipStartDate(): Date {
-    return this.props.membershipStartDate;
+    return this.props.membershipStartDate
   }
 
   get nextDueDate(): Date {
-    return this.props.nextDueDate;
+    return this.props.nextDueDate
   }
 
   get createdAt(): Date {
-    return this.props.createdAt;
+    return this.props.createdAt
   }
 
   get updatedAt(): Date {
-    return this.props.updatedAt;
+    return this.props.updatedAt
   }
 
   /**
@@ -243,23 +266,23 @@ export class Member {
    * May be earlier than membershipStartDate for backdated memberships.
    */
   get registeredDate(): Date {
-    return this.props.registeredDate;
+    return this.props.registeredDate
   }
 
   get photoPath(): string | null {
-    return this.props.photoPath ?? null;
+    return this.props.photoPath ?? null
   }
 
   get photoUpdatedAt(): Date | null {
-    return this.props.photoUpdatedAt ?? null;
+    return this.props.photoUpdatedAt ?? null
   }
 
   get registrationSource(): RegistrationSource {
-    return this.props.registrationSource ?? RegistrationSource.Manual;
+    return this.props.registrationSource ?? RegistrationSource.Manual
   }
 
   get verifiedAt(): Date | null {
-    return this.props.verifiedAt ?? null;
+    return this.props.verifiedAt ?? null
   }
 
   // ============================================================
@@ -272,7 +295,7 @@ export class Member {
    * @returns True if status is Active
    */
   isActive(): boolean {
-    return this.props.status === MemberStatus.Active;
+    return this.props.status === MemberStatus.Active
   }
 
   /**
@@ -281,7 +304,7 @@ export class Member {
    * @returns True if status is Expired
    */
   isExpired(): boolean {
-    return this.props.status === MemberStatus.Expired;
+    return this.props.status === MemberStatus.Expired
   }
 
   /**
@@ -290,7 +313,7 @@ export class Member {
    * @returns True if status is Suspended
    */
   isSuspended(): boolean {
-    return this.props.status === MemberStatus.Suspended;
+    return this.props.status === MemberStatus.Suspended
   }
 
   /**
@@ -299,9 +322,8 @@ export class Member {
    * @returns True if status is Cancelled
    */
   isCancelled(): boolean {
-    return this.props.status === MemberStatus.Cancelled;
+    return this.props.status === MemberStatus.Cancelled
   }
-
 
   /**
    * Check if member is overdue
@@ -311,7 +333,7 @@ export class Member {
    * @returns True if overdue
    */
   isOverdue(): boolean {
-    return getDaysUntilDue(this.props.nextDueDate) < 0;
+    return getDaysUntilDue(this.props.nextDueDate) < 0
   }
 
   /**
@@ -324,7 +346,7 @@ export class Member {
    * @returns True if can check in
    */
   canCheckIn(): boolean {
-    return this.isActive() && !this.isOverdue();
+    return this.isActive() && !this.isOverdue()
   }
 
   /**
@@ -337,7 +359,7 @@ export class Member {
    * @returns Number of days until due
    */
   getDaysUntilDue(): number {
-    return getDaysUntilDue(this.props.nextDueDate);
+    return getDaysUntilDue(this.props.nextDueDate)
   }
 
   /**
@@ -346,7 +368,7 @@ export class Member {
    * @returns True if discount is applied
    */
   hasDiscount(): boolean {
-    return this.props.discountId !== null;
+    return this.props.discountId !== null
   }
 
   /**
@@ -355,7 +377,7 @@ export class Member {
    * @returns True if recurring discount is enabled
    */
   hasRecurringDiscount(): boolean {
-    return this.props.recurringDiscount && this.hasDiscount();
+    return this.props.recurringDiscount && this.hasDiscount()
   }
 
   /**
@@ -364,7 +386,7 @@ export class Member {
    * @returns True if a photo path is set
    */
   hasPhoto(): boolean {
-    return this.photoPath !== null;
+    return this.photoPath !== null
   }
 
   /**
@@ -379,7 +401,7 @@ export class Member {
     return (
       this.registrationSource === RegistrationSource.Qr &&
       this.verifiedAt === null
-    );
+    )
   }
 
   // ============================================================
@@ -399,7 +421,10 @@ export class Member {
    */
   activate(newDueDate: Date): Member {
     if (!canTransition(this.props.status, MemberStatus.Active)) {
-      throw new InvalidStatusTransitionError(this.props.status, MemberStatus.Active);
+      throw new InvalidStatusTransitionError(
+        this.props.status,
+        MemberStatus.Active
+      )
     }
 
     return new Member({
@@ -407,7 +432,7 @@ export class Member {
       status: MemberStatus.Active,
       nextDueDate: newDueDate,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -435,30 +460,30 @@ export class Member {
       throw new InvalidStatusTransitionError(
         this.props.status,
         MemberStatus.Active
-      );
+      )
     }
 
     // NEW: Validate date is a valid Date object
     if (!(newDueDate instanceof Date) || isNaN(newDueDate.getTime())) {
-      throw new ValidationError('newDueDate must be a valid Date object');
+      throw new ValidationError('newDueDate must be a valid Date object')
     }
 
     // NEW: Validate date is not in the past (compared to today at 00:00:00)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const newDueDateNormalized = new Date(newDueDate);
-    newDueDateNormalized.setHours(0, 0, 0, 0);
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const newDueDateNormalized = new Date(newDueDate)
+    newDueDateNormalized.setHours(0, 0, 0, 0)
 
     if (newDueDateNormalized < today) {
-      throw new ValidationError('newDueDate must be in the future');
+      throw new ValidationError('newDueDate must be in the future')
     }
 
     // NEW: Validate date is not before current due date (prevent backwards renewal)
-    const currentDueDateNormalized = new Date(this.props.nextDueDate);
-    currentDueDateNormalized.setHours(0, 0, 0, 0);
+    const currentDueDateNormalized = new Date(this.props.nextDueDate)
+    currentDueDateNormalized.setHours(0, 0, 0, 0)
 
     if (newDueDateNormalized < currentDueDateNormalized) {
-      throw new ValidationError('newDueDate must be after current due date');
+      throw new ValidationError('newDueDate must be after current due date')
     }
 
     // Create new instance with updated date
@@ -466,7 +491,7 @@ export class Member {
       ...this.props,
       nextDueDate: newDueDate,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -479,14 +504,17 @@ export class Member {
    */
   expire(): Member {
     if (!canTransition(this.props.status, MemberStatus.Expired)) {
-      throw new InvalidStatusTransitionError(this.props.status, MemberStatus.Expired);
+      throw new InvalidStatusTransitionError(
+        this.props.status,
+        MemberStatus.Expired
+      )
     }
 
     return new Member({
       ...this.props,
       status: MemberStatus.Expired,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -499,14 +527,17 @@ export class Member {
    */
   cancel(): Member {
     if (!canTransition(this.props.status, MemberStatus.Cancelled)) {
-      throw new InvalidStatusTransitionError(this.props.status, MemberStatus.Cancelled);
+      throw new InvalidStatusTransitionError(
+        this.props.status,
+        MemberStatus.Cancelled
+      )
     }
 
     return new Member({
       ...this.props,
       status: MemberStatus.Cancelled,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -519,16 +550,18 @@ export class Member {
    */
   suspend(): Member {
     if (!canTransition(this.props.status, MemberStatus.Suspended)) {
-      throw new InvalidStatusTransitionError(this.props.status, MemberStatus.Suspended);
+      throw new InvalidStatusTransitionError(
+        this.props.status,
+        MemberStatus.Suspended
+      )
     }
 
     return new Member({
       ...this.props,
       status: MemberStatus.Suspended,
       updatedAt: new Date(),
-    });
+    })
   }
-
 
   // ============================================================
   // UPDATE METHODS (Immutable mutations)
@@ -547,7 +580,7 @@ export class Member {
       ...this.props,
       nextDueDate: newDueDate,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -561,7 +594,7 @@ export class Member {
    */
   updatePlan(planType: PlanType, planAmount: number): Member {
     if (planAmount <= 0) {
-      throw new Error('planAmount must be positive');
+      throw new Error('planAmount must be positive')
     }
 
     return new Member({
@@ -569,7 +602,7 @@ export class Member {
       planType,
       planAmount,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -579,13 +612,16 @@ export class Member {
    * @param recurringDiscount - Whether discount recurs
    * @returns New Member instance with updated discount
    */
-  updateDiscount(discountId: string | null, recurringDiscount: boolean): Member {
+  updateDiscount(
+    discountId: string | null,
+    recurringDiscount: boolean
+  ): Member {
     return new Member({
       ...this.props,
       discountId,
       recurringDiscount,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -596,14 +632,14 @@ export class Member {
    */
   updateName(name: string): Member {
     if (!name || name.trim().length < 2) {
-      throw new Error('name must be at least 2 characters');
+      throw new Error('name must be at least 2 characters')
     }
 
     return new Member({
       ...this.props,
       name: name.trim(),
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -614,14 +650,14 @@ export class Member {
    */
   updatePhoneNumber(phoneNumber: string): Member {
     if (!phoneNumber) {
-      throw new Error('phoneNumber is required');
+      throw new Error('phoneNumber is required')
     }
 
     return new Member({
       ...this.props,
       phoneNumber,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -635,7 +671,7 @@ export class Member {
       ...this.props,
       planType,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -646,14 +682,14 @@ export class Member {
    */
   updatePlanAmount(planAmount: number): Member {
     if (planAmount <= 0) {
-      throw new Error('planAmount must be positive');
+      throw new Error('planAmount must be positive')
     }
 
     return new Member({
       ...this.props,
       planAmount,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -667,7 +703,7 @@ export class Member {
       ...this.props,
       recurringDiscount,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -681,7 +717,7 @@ export class Member {
       ...this.props,
       discountId,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -695,7 +731,7 @@ export class Member {
    */
   updatePhoto(photoPath: string): Member {
     if (!photoPath || photoPath.trim().length === 0) {
-      throw new ValidationError('photoPath is required');
+      throw new ValidationError('photoPath is required')
     }
 
     return new Member({
@@ -703,7 +739,7 @@ export class Member {
       photoPath: photoPath.trim(),
       photoUpdatedAt: new Date(),
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -719,7 +755,7 @@ export class Member {
       photoPath: null,
       photoUpdatedAt: null,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -732,14 +768,14 @@ export class Member {
    */
   verify(): Member {
     if (!this.needsVerification()) {
-      return this;
+      return this
     }
 
     return new Member({
       ...this.props,
       verifiedAt: new Date(),
       updatedAt: new Date(),
-    });
+    })
   }
 
   // ============================================================
@@ -754,7 +790,7 @@ export class Member {
    * @returns Member properties for database storage
    */
   toDatabase(): MemberProps {
-    return { ...this.props };
+    return { ...this.props }
   }
 
   /**
@@ -768,7 +804,7 @@ export class Member {
     return new Member({
       ...this.props,
       updatedAt: new Date(),
-    });
+    })
   }
 
   // ============================================================
@@ -782,7 +818,7 @@ export class Member {
    * @returns True if same member (by ID)
    */
   equals(other: Member): boolean {
-    return this.props.id === other.props.id;
+    return this.props.id === other.props.id
   }
 
   /**
@@ -794,6 +830,7 @@ export class Member {
     return {
       id: this.props.id,
       gymId: this.props.gymId,
+      memberNumber: this.memberNumber,
       name: this.props.name,
       phoneNumber: this.props.phoneNumber,
       planType: this.props.planType,
@@ -810,6 +847,6 @@ export class Member {
       photoUpdatedAt: this.photoUpdatedAt?.toISOString() ?? null,
       registrationSource: this.registrationSource,
       verifiedAt: this.verifiedAt?.toISOString() ?? null,
-    };
+    }
   }
 }
