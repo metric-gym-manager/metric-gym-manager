@@ -1,12 +1,16 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { QRCodeCanvas } from 'qrcode.react';
 import { Printer, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { printQrPosters, type QrPoster } from '@/features/registration/utils/print-qr';
+import {
+  printQrPosters,
+  QR_EXPORT_SIZE,
+  type QrPoster,
+} from '@/features/registration/utils/print-qr';
 
 interface GymQrItem {
   gymId: string;
@@ -23,12 +27,17 @@ interface GymQrItem {
 /**
  * Admin QR dashboard grid: searchable list of every gym's QR code with
  * per-gym print and print-all. QR codes are pure functions of the join URL,
- * so nothing is stored — each card renders its own canvas, and printing
- * reads the PNG data URL straight off that canvas.
+ * so nothing is stored — each card renders a small preview canvas. Printing
+ * renders high-resolution canvases off-screen for just the gym(s) being
+ * printed and reads print-quality PNGs from those.
  */
 export default function QrCodesDashboardClient() {
   const [search, setSearch] = useState('');
-  const canvasRefs = useRef(new Map<string, HTMLDivElement>());
+  // Gyms queued for printing. Their high-resolution QR canvases are mounted
+  // off-screen only while a print is in flight (see the effect below), so the
+  // visible grid stays lightweight no matter how many gyms are listed.
+  const [printQueue, setPrintQueue] = useState<GymQrItem[] | null>(null);
+  const printRefs = useRef(new Map<string, HTMLDivElement>());
 
   const { data: gyms, isLoading, error } = useQuery<GymQrItem[]>({
     queryKey: ['admin-qr-codes'],
@@ -55,28 +64,36 @@ export default function QrCodesDashboardClient() {
     );
   }, [gyms, search]);
 
-  const posterFor = (gym: GymQrItem): QrPoster | null => {
-    const container = canvasRefs.current.get(gym.gymId);
-    const canvas = container?.querySelector('canvas');
-    if (!canvas || !gym.joinUrl) return null;
-    return {
-      gymName: gym.gymName,
-      qrDataUrl: canvas.toDataURL('image/png'),
-      joinUrl: gym.joinUrl,
-      logoUrl: gym.profileImageUrl,
-    };
-  };
-
-  const handlePrintOne = (gym: GymQrItem) => {
-    const poster = posterFor(gym);
-    if (poster) printQrPosters([poster]);
-  };
-
-  const handlePrintAll = () => {
-    const posters = filtered
-      .map(posterFor)
+  // Once the queued gyms' off-screen high-res canvases have mounted and painted,
+  // read their PNGs and open the print dialog. qrcode.react draws each canvas in
+  // its own effect, and React flushes child effects before this parent effect,
+  // so the canvases are guaranteed to be rendered by the time this runs.
+  useEffect(() => {
+    if (!printQueue) return;
+    const posters = printQueue
+      .map((gym): QrPoster | null => {
+        const container = printRefs.current.get(gym.gymId);
+        const canvas = container?.querySelector('canvas');
+        if (!canvas || !gym.joinUrl) return null;
+        return {
+          gymName: gym.gymName,
+          qrDataUrl: canvas.toDataURL('image/png'),
+          joinUrl: gym.joinUrl,
+          logoUrl: gym.profileImageUrl,
+        };
+      })
       .filter((poster): poster is QrPoster => poster !== null);
     if (posters.length > 0) printQrPosters(posters);
+    // The PNGs are now captured as data URLs, so unmount the off-screen
+    // canvases to free their memory. Deferred to the next frame so the reset
+    // doesn't cascade synchronously inside this effect.
+    const frame = requestAnimationFrame(() => setPrintQueue(null));
+    return () => cancelAnimationFrame(frame);
+  }, [printQueue]);
+
+  const handlePrintOne = (gym: GymQrItem) => setPrintQueue([gym]);
+  const handlePrintAll = () => {
+    if (filtered.length > 0) setPrintQueue(filtered);
   };
 
   if (error) {
@@ -89,6 +106,38 @@ export default function QrCodesDashboardClient() {
 
   return (
     <div className="space-y-4">
+      {/*
+        Off-screen high-resolution QR canvases, mounted only for the gym(s)
+        currently being printed. Reading toDataURL() off these instead of the
+        small on-screen previews gives print-quality PNGs without keeping a
+        large canvas mounted for every gym in the grid.
+      */}
+      {printQueue && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none fixed left-[-99999px] top-0 h-0 w-0 overflow-hidden"
+        >
+          {printQueue.map((gym) =>
+            gym.joinUrl ? (
+              <div
+                key={gym.gymId}
+                ref={(node) => {
+                  if (node) printRefs.current.set(gym.gymId, node);
+                  else printRefs.current.delete(gym.gymId);
+                }}
+              >
+                <QRCodeCanvas
+                  value={gym.joinUrl}
+                  size={QR_EXPORT_SIZE}
+                  level="M"
+                  marginSize={4}
+                />
+              </div>
+            ) : null
+          )}
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
@@ -127,14 +176,8 @@ export default function QrCodesDashboardClient() {
               </h3>
               <p className="text-xs text-gray-500 truncate w-full">{gym.email}</p>
 
-              <div
-                ref={(node) => {
-                  if (node) canvasRefs.current.set(gym.gymId, node);
-                  else canvasRefs.current.delete(gym.gymId);
-                }}
-                className="my-4 rounded-lg border p-3"
-              >
-                <QRCodeCanvas value={gym.joinUrl!} size={144} level="M" includeMargin />
+              <div className="my-4 rounded-lg border p-3">
+                <QRCodeCanvas value={gym.joinUrl!} size={144} level="M" marginSize={4} />
               </div>
 
               <Button size="sm" variant="outline" onClick={() => handlePrintOne(gym)}>

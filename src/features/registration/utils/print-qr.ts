@@ -13,6 +13,17 @@ const BRAND_DOMAIN = 'metricgymos.lk';
 /** Metric Gym OS brand blue (from public/logo.svg). */
 const BRAND_BLUE = '#1C19FD';
 
+/**
+ * Backing-store resolution (in CSS px, before devicePixelRatio) for QR canvases
+ * that will be downloaded or printed. The on-screen size is set separately via
+ * the canvas `style` prop, so the visible QR stays compact while the exported
+ * PNG is large enough for crisp large-format printing, downloading, and
+ * scaling. qrcode.react multiplies this by devicePixelRatio for the actual
+ * canvas backing store, which is what `canvas.toDataURL()` reads — so the PNG
+ * is at least this many pixels wide regardless of the on-screen display size.
+ */
+export const QR_EXPORT_SIZE = 1024;
+
 export interface QrPoster {
   gymName: string;
   /** PNG data URL of the QR code (from a rendered canvas) */
@@ -95,7 +106,7 @@ export function printQrPosters(posters: QrPoster[]): void {
     }
     h1 { font-size: 34px; line-height: 1.1; }
     .subtitle { font-size: 20px; color: #444; margin-bottom: 28px; }
-    .qr { width: 320px; height: 320px; }
+    .qr { width: 400px; height: 400px; }
     .url { margin-top: 24px; font-size: 12px; color: #888; word-break: break-all; }
     .powered {
       margin-top: 48px; display: flex; flex-direction: column;
