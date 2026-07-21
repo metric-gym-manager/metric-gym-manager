@@ -25,7 +25,18 @@
     --accent-pink: #f472b6;
 
     /* Sri Lankan Flag Gradient */
-    --lanka-gradient: linear-gradient(135deg, #8B0000 0%, #B22222 12%, #FF8C00 25%, #FFB347 35%, #006400 50%, #228B22 62%, #FF6B00 75%, #8B0000 88%, #FF8C00 100%);
+    --lanka-gradient: linear-gradient(
+      135deg,
+      #8b0000 0%,
+      #b22222 12%,
+      #ff8c00 25%,
+      #ffb347 35%,
+      #006400 50%,
+      #228b22 62%,
+      #ff6b00 75%,
+      #8b0000 88%,
+      #ff8c00 100%
+    );
 
     /* Shadcn UI Variables (Light Theme) */
     --background: 0 0% 100%;
@@ -63,7 +74,13 @@
 
   html {
     scroll-behavior: smooth;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', sans-serif;
+    font-family:
+      'Inter',
+      -apple-system,
+      BlinkMacSystemFont,
+      'SF Pro Display',
+      'Segoe UI',
+      sans-serif;
   }
 
   body {
@@ -82,12 +99,12 @@
 
   /* Hide scrollbar but keep functionality */
   .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
   }
 
   .scrollbar-hide::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari and Opera */
+    display: none; /* Chrome, Safari and Opera */
   }
 
   /* Apple-style gradient text */
@@ -173,7 +190,8 @@
 
 /* Animations */
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -182,7 +200,8 @@
 }
 
 @keyframes lanka-hue {
-  0%, 100% {
+  0%,
+  100% {
     background-position: 0% 50%;
   }
   50% {
@@ -238,6 +257,489 @@
 
   .mobile-scroll-item {
     scroll-snap-align: center;
+  }
+}
+
+/* ============================================================
+   METRIC WORKSPACE (mws) — Enterprise UI/UX Overhaul
+   Design system for the authenticated app shell + screens.
+   Implements "App Workspace.dc.html" (light theme). All rules are
+   scoped under `.mws-root` so the marketing/auth surfaces are untouched.
+   Tokens: Geist type, monochrome greys, status-only colour.
+   ============================================================ */
+.mws-root {
+  --mws-bg: #f4f4f5;
+  --mws-panel: #ffffff;
+  --mws-t1: #18181b; /* primary text */
+  --mws-t2: #52525b; /* secondary text */
+  --mws-t3: #8a8a92; /* metadata */
+  --mws-t4: #c4c4c8; /* faint */
+  --mws-b1: rgba(0, 0, 0, 0.09); /* the 1px rule */
+  --mws-b2: rgba(0, 0, 0, 0.13); /* interactive border */
+  --mws-hover: rgba(0, 0, 0, 0.045);
+  --mws-row-hover: rgba(0, 0, 0, 0.04);
+  --mws-accent: #1b17ff;
+  --mws-accent-tint: #4340ff;
+  --mws-accent-hover: #3230ff;
+  --mws-ok: #1a7f37;
+  --mws-ok-bg: rgba(63, 185, 80, 0.1);
+  --mws-ok-br: rgba(63, 185, 80, 0.25);
+  --mws-warn: #9a6700;
+  --mws-warn-bg: rgba(210, 153, 34, 0.1);
+  --mws-warn-br: rgba(210, 153, 34, 0.25);
+  --mws-err: #cf222e;
+  --mws-err-bg: rgba(248, 81, 73, 0.1);
+  --mws-err-br: rgba(248, 81, 73, 0.25);
+
+  font-family: var(--font-geist), system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--mws-t1);
+  -webkit-font-smoothing: antialiased;
+}
+
+.mws-root ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.mws-root ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 5px;
+  border: 2px solid var(--mws-bg);
+}
+.mws-root ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Monospace numerics / metadata */
+.mws-mono {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Typography */
+.mws-h1 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.mws-h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.mws-label {
+  font-size: 11px;
+  line-height: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mws-t3);
+  font-weight: 500;
+}
+
+/* Surfaces */
+.mws-panel {
+  background: var(--mws-panel);
+  border: 1px solid var(--mws-b1);
+  border-radius: 6px;
+}
+.mws-panel-head {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--mws-b1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Badges — status tint recipe */
+.mws-badge {
+  display: inline-block;
+  white-space: nowrap;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 16px;
+  border-radius: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--mws-b2);
+  color: var(--mws-t2);
+  background: transparent;
+}
+.mws-badge-ok {
+  color: var(--mws-ok);
+  background: var(--mws-ok-bg);
+  border-color: var(--mws-ok-br);
+}
+.mws-badge-warn {
+  color: var(--mws-warn);
+  background: var(--mws-warn-bg);
+  border-color: var(--mws-warn-br);
+}
+.mws-badge-err {
+  color: var(--mws-err);
+  background: var(--mws-err-bg);
+  border-color: var(--mws-err-br);
+}
+.mws-badge-accent {
+  color: var(--mws-accent-tint);
+  background: rgba(27, 23, 255, 0.12);
+  border-color: rgba(138, 136, 255, 0.3);
+}
+
+/* Tables */
+.mws-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.mws-table thead th {
+  text-align: left;
+  padding: 8px 16px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--mws-t3);
+  font-weight: 500;
+  border-bottom: 1px solid var(--mws-b1);
+  white-space: nowrap;
+}
+.mws-table tbody td {
+  padding: 8px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+.mws-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.mws-table tbody tr.mws-row-click {
+  cursor: pointer;
+}
+.mws-table tbody tr:hover {
+  background: var(--mws-row-hover);
+}
+.mws-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+/* Buttons */
+.mws-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  border: 1px solid var(--mws-b2);
+  background: transparent;
+  color: var(--mws-t1);
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease,
+    color 0.12s ease;
+}
+.mws-btn:hover {
+  border-color: rgba(0, 0, 0, 0.28);
+}
+.mws-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+.mws-btn-sm {
+  height: 26px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+.mws-btn-primary {
+  background: var(--mws-t1);
+  color: var(--mws-bg);
+}
+.mws-btn-primary:hover {
+  background: #000;
+  border-color: rgba(0, 0, 0, 0.28);
+}
+.mws-btn-accent {
+  background: var(--mws-accent);
+  color: #fff;
+  border-color: rgba(0, 0, 0, 0.16);
+}
+.mws-btn-accent:hover {
+  background: var(--mws-accent-hover);
+}
+.mws-btn-danger {
+  color: var(--mws-err);
+  border-color: var(--mws-err-br);
+}
+.mws-btn-danger:hover {
+  background: var(--mws-err-bg);
+  border-color: var(--mws-err-br);
+}
+
+/* Form controls */
+.mws-input,
+.mws-select,
+.mws-textarea {
+  background: var(--mws-bg);
+  border: 1px solid var(--mws-b2);
+  border-radius: 5px;
+  color: var(--mws-t1);
+  font-size: 13px;
+  font-family: var(--font-geist), system-ui, sans-serif;
+}
+.mws-input,
+.mws-select {
+  height: 32px;
+  padding: 0 10px;
+}
+.mws-textarea {
+  padding: 8px 10px;
+  line-height: 20px;
+  resize: vertical;
+}
+.mws-input:focus,
+.mws-select:focus,
+.mws-textarea:focus {
+  outline: none;
+  border-color: var(--mws-accent);
+  box-shadow: 0 0 0 3px rgba(27, 23, 255, 0.25);
+}
+
+/* Stat tile */
+.mws-stat {
+  background: var(--mws-panel);
+  border: 1px solid var(--mws-b1);
+  border-radius: 6px;
+  padding: 16px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+button.mws-stat {
+  cursor: pointer;
+  transition: border-color 0.12s ease;
+}
+button.mws-stat:hover {
+  border-color: var(--mws-b2);
+}
+.mws-stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Responsive grids for workspace screens */
+@media (max-width: 1024px) {
+  .mws-stat-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .mws-dash-split {
+    grid-template-columns: 1fr !important;
+  }
+  .mws-two-col {
+    grid-template-columns: 1fr !important;
+  }
+}
+@media (max-width: 640px) {
+  .mws-stat-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Horizontal scroll wrapper for wide tables on small screens */
+.mws-table-scroll {
+  overflow-x: auto;
+}
+.mws-table-scroll > table {
+  min-width: 640px;
+}
+
+/* Main column offset — matches the (collapsible) fixed sidebar on desktop */
+.mws-main {
+  padding-left: 0;
+}
+@media (min-width: 1024px) {
+  .mws-main {
+    padding-left: var(--mws-sb-w, 240px);
+    transition: padding-left 0.15s ease;
+  }
+}
+
+/* Sidebar nav items */
+.mws-nav-item {
+  text-decoration: none;
+  transition:
+    background 0.12s ease,
+    color 0.12s ease;
+}
+.mws-nav-item:hover {
+  background: var(--mws-hover);
+  color: var(--mws-t2);
+}
+.mws-nav-item-active,
+.mws-nav-item-active:hover {
+  background: rgba(0, 0, 0, 0.09);
+  color: var(--mws-t1);
+}
+
+/* Fee/settings tab underline bar */
+.mws-tab {
+  height: 36px;
+  padding: 0 14px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--mws-t3);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.mws-tab:hover {
+  color: var(--mws-t2);
+}
+.mws-tab-active {
+  color: var(--mws-t1);
+  border-bottom-color: var(--mws-t1);
+}
+
+/* Settings sub-nav pill */
+.mws-subnav {
+  height: 30px;
+  padding: 0 10px;
+  text-align: left;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--mws-t2);
+}
+.mws-subnav:hover {
+  background: var(--mws-hover);
+}
+.mws-subnav-active {
+  background: rgba(0, 0, 0, 0.09);
+  color: var(--mws-t1);
+}
+
+/* Settings inline control row: label left, control right, hairline separated */
+.mws-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+.mws-row:last-child {
+  border-bottom: none;
+}
+.mws-row-title {
+  font-size: 13px;
+  font-weight: 500;
+}
+.mws-row-sub {
+  font-size: 12px;
+  color: var(--mws-t3);
+}
+
+/* Toggle switch */
+.mws-toggle {
+  width: 34px;
+  height: 19px;
+  border-radius: 10px;
+  border: 1px solid var(--mws-b2);
+  cursor: pointer;
+  position: relative;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.09);
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+.mws-toggle-on {
+  background: var(--mws-accent);
+}
+.mws-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 3px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: #18181b;
+  transition: left 0.15s ease;
+}
+.mws-toggle-on .mws-toggle-knob {
+  left: 17px;
+  background: #fff;
+}
+
+/* Modal / drawer scaffolding */
+.mws-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(6px);
+  z-index: 70;
+}
+.mws-modal {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--mws-panel);
+  border: 1px solid var(--mws-b2);
+  border-radius: 8px;
+  z-index: 71;
+  animation: mws-pal-in 0.14s ease;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+.mws-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  max-width: 100vw;
+  background: var(--mws-panel);
+  border-left: 1px solid var(--mws-b2);
+  z-index: 61;
+  display: flex;
+  flex-direction: column;
+  animation: mws-drawer-in 0.18s ease;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* Drawer / modal animations (mirrors the prototype) */
+@keyframes mws-drawer-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes mws-pal-in {
+  from {
+    transform: translateY(-8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 

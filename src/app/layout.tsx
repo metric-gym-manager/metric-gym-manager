@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Script from 'next/script'
-import { Inter } from 'next/font/google'
+import { Inter, Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Toaster } from 'sonner'
@@ -14,9 +14,25 @@ const inter = Inter({
   display: 'swap',
 })
 
+// Geist / Geist Mono power the enterprise "App Workspace" surface. Exposed as
+// CSS variables only; they are scoped to `.mws-root` in globals.css so the
+// marketing and auth pages keep their Inter typography.
+const geist = Geist({
+  subsets: ['latin'],
+  variable: '--font-geist',
+  display: 'swap',
+})
+
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
+  variable: '--font-geist-mono',
+  display: 'swap',
+})
+
 export const metadata: Metadata = {
   title: 'Metric Gym Manager',
-  description: 'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
+  description:
+    'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
   metadataBase: new URL('https://metricgymmanager.com'),
   manifest: '/manifest.json',
   icons: [
@@ -28,7 +44,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Metric Gym Manager',
-    description: 'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
+    description:
+      'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
     url: 'https://metricgymmanager.com',
     siteName: 'Metric Gym Manager',
     images: [
@@ -45,7 +62,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Metric Gym Manager',
-    description: 'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
+    description:
+      'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
     images: ['/linkPreviewLogo.png'],
   },
 }
@@ -56,7 +74,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${geist.variable} ${geistMono.variable}`}
+    >
       <body className="font-sans">
         <QueryProvider>
           {children}
