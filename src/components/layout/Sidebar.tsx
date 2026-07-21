@@ -1,14 +1,25 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { usePathname, useRouter } from 'next/navigation';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { cn } from '@/lib/utils';
-import { Home, Users, DollarSign, CreditCard, Megaphone, Settings, LogOut, Loader2, Headset, Receipt } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import type { GymProfile } from '@/features/auth/types';
+import { useState } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { usePathname } from 'next/navigation'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { cn } from '@/lib/utils'
+import {
+  Home,
+  Users,
+  DollarSign,
+  CreditCard,
+  Megaphone,
+  Settings,
+  LogOut,
+  Loader2,
+  Headset,
+  Receipt,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import type { GymProfile } from '@/features/auth/types'
 
 const navigation = [
   {
@@ -51,54 +62,56 @@ const navigation = [
     href: '/support',
     icon: Headset,
   },
-];
+]
 
 export default function Sidebar() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const queryClient = useQueryClient();
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const pathname = usePathname()
+  const queryClient = useQueryClient()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
 
   // Fetch gym profile for mobile header
   const { data: gymProfile } = useQuery<GymProfile>({
     queryKey: ['gym-profile'],
     queryFn: async () => {
-      const response = await fetch('/api/auth/profile');
-      if (!response.ok) throw new Error('Failed to fetch profile');
-      const result = await response.json();
-      return result.data;
+      const response = await fetch('/api/auth/profile')
+      if (!response.ok) throw new Error('Failed to fetch profile')
+      const result = await response.json()
+      return result.data
     },
     staleTime: 30000,
     refetchOnWindowFocus: true,
-  });
+  })
 
   const handleLogout = async () => {
-    if (isLoggingOut) return; // Prevent duplicate requests
+    if (isLoggingOut) return // Prevent duplicate requests
 
-    setIsLoggingOut(true);
+    setIsLoggingOut(true)
 
     try {
       // Call logout API (ignore response, always clear cache and redirect)
       await fetch('/api/auth/logout', {
         method: 'POST',
-      });
+      })
 
       // Clear cache regardless of response status to ensure clean state
-      queryClient.clear();
+      queryClient.clear()
 
-      // Always redirect to login, even if API call failed
-      // This ensures user can't get stuck in a broken state
-      router.replace('/login');
+      // Always redirect to login, even if API call failed. Use a full-document
+      // navigation so the middleware re-runs with the now-cleared session
+      // cookies and the authenticated layout is fully torn down — a client-side
+      // router replace would keep serving the stale, signed-in Router Cache
+      // until a manual refresh.
+      window.location.replace('/login')
     } catch (error) {
-      console.error('Logout error:', error);
+      console.error('Logout error:', error)
       // Still clear cache and redirect on error
-      queryClient.clear();
-      router.replace('/login');
+      queryClient.clear()
+      window.location.replace('/login')
     } finally {
       // Keep loading state until redirect completes
       // Don't set to false to prevent re-renders during navigation
     }
-  };
+  }
 
   return (
     <>
@@ -125,8 +138,8 @@ export default function Sidebar() {
               <li>
                 <ul role="list" className="-mx-2 space-y-1">
                   {navigation.map((item) => {
-                    const isActive = pathname.startsWith(item.href);
-                    const Icon = item.icon;
+                    const isActive = pathname.startsWith(item.href)
+                    const Icon = item.icon
                     return (
                       <li key={item.name}>
                         <Link
@@ -138,11 +151,14 @@ export default function Sidebar() {
                             'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors duration-150'
                           )}
                         >
-                          <Icon className="h-5 w-5 text-blue-600" strokeWidth={2} />
+                          <Icon
+                            className="h-5 w-5 text-blue-600"
+                            strokeWidth={2}
+                          />
                           {item.name}
                         </Link>
                       </li>
-                    );
+                    )
                   })}
                 </ul>
               </li>
@@ -217,22 +233,23 @@ export default function Sidebar() {
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">
           <nav className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory">
             {navigation.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              const Icon = item.icon;
+              const isActive = pathname.startsWith(item.href)
+              const Icon = item.icon
               // Determine if label is long
-              const isLongLabel = item.name.length > 8;
+              const isLongLabel = item.name.length > 8
               return (
                 <Link
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    isActive
-                      ? 'text-blue-600'
-                      : 'text-gray-600',
+                    isActive ? 'text-blue-600' : 'text-gray-600',
                     'flex flex-col items-center py-2 px-3 min-w-[80px] snap-start shrink-0'
                   )}
                 >
-                  <Icon className="h-6 w-6 text-blue-600 mb-1" strokeWidth={2} />
+                  <Icon
+                    className="h-6 w-6 text-blue-600 mb-1"
+                    strokeWidth={2}
+                  />
                   <span
                     className={cn(
                       'font-medium text-center leading-tight',
@@ -242,11 +259,11 @@ export default function Sidebar() {
                     {item.name}
                   </span>
                 </Link>
-              );
+              )
             })}
           </nav>
         </div>
       </div>
     </>
-  );
+  )
 }
