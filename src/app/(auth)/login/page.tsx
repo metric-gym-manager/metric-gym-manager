@@ -9,7 +9,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Mail, Lock, Eye, EyeOff, Phone, MessageCircle } from 'lucide-react'
-import { getSafeRedirect } from '@/features/auth'
+// Deep import (not the `@/features/auth` barrel): this is a client component,
+// and the barrel re-exports server-only services that pull in `next/headers`,
+// which cannot be bundled for the client. `getSafeRedirect` is a pure helper.
+import { getSafeRedirect } from '@/features/auth/utils/getSafeRedirect'
 
 const ERROR_MESSAGES: Record<string, string> = {
   missing_code:
