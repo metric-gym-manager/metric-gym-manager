@@ -1,20 +1,20 @@
 import { getCurrentGymProfile } from '@/lib/middleware/auth';
 import RegistrationQRCard from '@/features/registration/components/RegistrationQRCard';
+import IntakeRules from './IntakeRules';
 
 /**
- * Settings → Member Registration
+ * Settings → Registration — App Workspace design.
  *
- * QR self-registration link management for the gym.
+ * Live QR self-registration link management (RegistrationQRCard) plus the
+ * design's "Intake rules" panel (dead-code — see IntakeRules).
  */
 export default async function RegistrationSettingsPage() {
   const gymProfile = await getCurrentGymProfile();
 
   return (
-    <div className="space-y-6">
-      <RegistrationQRCard
-        gymName={gymProfile.gym_name}
-        logoUrl={gymProfile.profile_image_url}
-      />
+    <div className="flex flex-col gap-3">
+      <RegistrationQRCard gymName={gymProfile.gym_name} logoUrl={gymProfile.profile_image_url} />
+      <IntakeRules />
     </div>
   );
 }

@@ -5,20 +5,22 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { updateGymInfoSchema, type UpdateGymInfoInput } from '@/features/settings/schemas/settings.schemas';
-import { Plus } from 'lucide-react';
+import { Panel, PanelHead } from '@/components/workspace/primitives';
 import ProfileImageUpload from '@/features/settings/components/ProfileImageUpload';
+import type { GymProfile } from '@/features/auth/types';
 
+/**
+ * Settings → Gym Information — App Workspace design. Inline control rows
+ * (label left / input right, hairline separated). Same react-hook-form + zod
+ * validation and PATCH /api/settings/gym mutation as before.
+ */
 export default function GymInformationPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Fetch current gym profile
-  const { data: gymProfile } = useQuery({
+  const { data: gymProfile } = useQuery<GymProfile>({
     queryKey: ['gym-profile'],
     queryFn: async () => {
       const response = await fetch('/api/auth/profile');
@@ -33,11 +35,8 @@ export default function GymInformationPage() {
     handleSubmit,
     reset,
     formState: { errors, isDirty },
-  } = useForm<UpdateGymInfoInput>({
-    resolver: zodResolver(updateGymInfoSchema),
-  });
+  } = useForm<UpdateGymInfoInput>({ resolver: zodResolver(updateGymInfoSchema) });
 
-  // Reset form when gym profile is loaded
   useEffect(() => {
     if (gymProfile) {
       reset({
@@ -48,7 +47,6 @@ export default function GymInformationPage() {
     }
   }, [gymProfile, reset]);
 
-  // Update gym info mutation
   const updateMutation = useMutation({
     mutationFn: async (data: UpdateGymInfoInput) => {
       const response = await fetch('/api/settings/gym', {
@@ -56,150 +54,90 @@ export default function GymInformationPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Failed to update gym information');
       }
-
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['gym-profile'] });
-      setSuccessMessage('Gym information updated successfully');
+      setSuccessMessage('Gym information updated');
       setTimeout(() => setSuccessMessage(null), 3000);
     },
   });
 
-  const onSubmit = (data: UpdateGymInfoInput) => {
-    updateMutation.mutate(data);
-  };
-
   const handleRegisterNewGym = async () => {
-    // Log out current user first
     await fetch('/api/auth/logout', { method: 'POST' });
-    // Then redirect to registration
     router.push('/register');
   };
 
   return (
-    <div className="max-w-2xl">
-      <div className="space-y-6">
-        {/* Description */}
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Gym Information</h2>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleRegisterNewGym}
-            className="flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Register New Gym
-          </Button>
-        </div>
+    <form onSubmit={handleSubmit((d) => updateMutation.mutate(d))} className="flex flex-col gap-3">
+      <Panel style={{ overflow: 'hidden' }}>
+        <PanelHead
+          label="Gym profile"
+          right={
+            <button type="button" onClick={handleRegisterNewGym} className="mws-btn mws-btn-sm">
+              Register new gym
+            </button>
+          }
+        />
 
-        {/* Profile Image Upload */}
-        <div className="rounded-lg border bg-white p-6">
+        <div style={{ padding: 16 }}>
           {gymProfile ? (
-            <ProfileImageUpload
-              currentImageUrl={gymProfile.profile_image_url}
-              gymName={gymProfile.gym_name}
-            />
+            <ProfileImageUpload currentImageUrl={gymProfile.profile_image_url} gymName={gymProfile.gym_name} />
           ) : (
-            <div className="space-y-4">
-              <div className="h-6 w-32 bg-gray-200 animate-pulse rounded" />
-              <div className="h-24 w-24 rounded-full bg-gray-200 animate-pulse" />
-            </div>
+            <div style={{ height: 96, width: 96, borderRadius: '50%', background: 'rgba(0,0,0,0.06)' }} className="animate-pulse" />
           )}
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          <div className="rounded-lg border bg-white p-6 space-y-4">
-            {/* Gym Name */}
-            <div>
-              <Label htmlFor="gym_name">Gym Name *</Label>
-              <Input
-                id="gym_name"
-                {...register('gym_name')}
-                placeholder="Enter gym name"
-              />
-              {errors.gym_name && (
-                <p className="text-sm text-red-600 mt-1">{errors.gym_name.message}</p>
-              )}
-            </div>
-
-            {/* Gym Address */}
-            <div>
-              <Label htmlFor="gym_address">Gym Address</Label>
-              <Input
-                id="gym_address"
-                {...register('gym_address')}
-                placeholder="Enter gym address"
-              />
-              {errors.gym_address && (
-                <p className="text-sm text-red-600 mt-1">{errors.gym_address.message}</p>
-              )}
-            </div>
-
-            {/* Gym Website */}
-            <div>
-              <Label htmlFor="gym_website">Gym Website</Label>
-              <Input
-                id="gym_website"
-                {...register('gym_website')}
-                placeholder="https://www.example.com"
-                type="url"
-              />
-              {errors.gym_website && (
-                <p className="text-sm text-red-600 mt-1">{errors.gym_website.message}</p>
-              )}
-              <p className="text-xs text-gray-500 mt-1">
-                Optional: Include your gym&apos;s website URL
-              </p>
-            </div>
+        <div className="mws-row">
+          <div>
+            <div className="mws-row-title">Gym name</div>
+            <div className="mws-row-sub">Shown on receipts and the SMS sender ID</div>
           </div>
+          <div style={{ width: 260 }}>
+            <input {...register('gym_name')} placeholder="Enter gym name" className="mws-input" style={{ width: '100%' }} />
+            {errors.gym_name && <p style={{ fontSize: 11, color: 'var(--mws-err)', marginTop: 4 }}>{errors.gym_name.message}</p>}
+          </div>
+        </div>
 
-          {/* Success Message */}
-          {successMessage && (
-            <div className="rounded-md bg-green-50 p-4">
-              <p className="text-sm text-green-800">{successMessage}</p>
-            </div>
-          )}
+        <div className="mws-row">
+          <div>
+            <div className="mws-row-title">Address</div>
+            <div className="mws-row-sub">Primary location</div>
+          </div>
+          <div style={{ width: 260 }}>
+            <input {...register('gym_address')} placeholder="Enter gym address" className="mws-input" style={{ width: '100%' }} />
+            {errors.gym_address && <p style={{ fontSize: 11, color: 'var(--mws-err)', marginTop: 4 }}>{errors.gym_address.message}</p>}
+          </div>
+        </div>
 
-          {/* Error Message */}
+        <div className="mws-row">
+          <div>
+            <div className="mws-row-title">Website</div>
+            <div className="mws-row-sub">Optional — shown on member-facing pages</div>
+          </div>
+          <div style={{ width: 260 }}>
+            <input {...register('gym_website')} type="url" placeholder="https://www.example.com" className="mws-input" style={{ width: '100%' }} />
+            {errors.gym_website && <p style={{ fontSize: 11, color: 'var(--mws-err)', marginTop: 4 }}>{errors.gym_website.message}</p>}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-end gap-2" style={{ padding: '12px 16px' }}>
+          {successMessage && <span style={{ fontSize: 12, color: 'var(--mws-ok)', marginRight: 'auto' }}>{successMessage}</span>}
           {updateMutation.isError && (
-            <div className="rounded-md bg-red-50 p-4">
-              <p className="text-sm text-red-800">
-                {updateMutation.error instanceof Error
-                  ? updateMutation.error.message
-                  : 'Failed to update gym information'}
-              </p>
-            </div>
+            <span style={{ fontSize: 12, color: 'var(--mws-err)', marginRight: 'auto' }}>
+              {updateMutation.error instanceof Error ? updateMutation.error.message : 'Failed to save'}
+            </span>
           )}
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => reset()}
-              disabled={!isDirty || updateMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={!isDirty || updateMutation.isPending}
-            >
-              {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+          <button type="button" onClick={() => reset()} disabled={!isDirty || updateMutation.isPending} className="mws-btn mws-btn-sm">Cancel</button>
+          <button type="submit" disabled={!isDirty || updateMutation.isPending} className="mws-btn mws-btn-sm mws-btn-primary">
+            {updateMutation.isPending ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </Panel>
+    </form>
   );
 }

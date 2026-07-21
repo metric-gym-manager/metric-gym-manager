@@ -556,6 +556,15 @@ button.mws-stat:hover {
     grid-template-columns: 1fr !important;
   }
 }
+@media (max-width: 768px) {
+  .mws-settings-shell {
+    flex-direction: column !important;
+    gap: 16px !important;
+  }
+  .mws-settings-shell > div:last-child {
+    padding-top: 0 !important;
+  }
+}
 
 /* Horizontal scroll wrapper for wide tables on small screens */
 .mws-table-scroll {
