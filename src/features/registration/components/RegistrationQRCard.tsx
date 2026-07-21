@@ -6,8 +6,11 @@ import { QRCodeCanvas } from 'qrcode.react';
 import { toast } from 'sonner';
 import { Copy, Download, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { printQrPosters } from '../utils/print-qr';
+import { printQrPosters, QR_EXPORT_SIZE } from '../utils/print-qr';
 import type { RegistrationLink } from '../types';
+
+/** On-screen size (px) of the QR preview; the canvas backing store stays high-res. */
+const QR_DISPLAY_SIZE = 192;
 
 interface RegistrationQRCardProps {
   gymName: string;
@@ -83,7 +86,13 @@ export default function RegistrationQRCard({ gymName, logoUrl }: RegistrationQRC
 
       <div className="flex flex-col sm:flex-row gap-6 items-start">
         <div ref={qrContainerRef} className="rounded-xl border p-4 bg-white">
-          <QRCodeCanvas value={link.joinUrl} size={192} level="M" includeMargin />
+          <QRCodeCanvas
+            value={link.joinUrl}
+            size={QR_EXPORT_SIZE}
+            level="M"
+            marginSize={4}
+            style={{ width: QR_DISPLAY_SIZE, height: QR_DISPLAY_SIZE }}
+          />
         </div>
 
         <div className="flex-1 space-y-3">
