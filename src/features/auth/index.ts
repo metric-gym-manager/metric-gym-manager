@@ -11,7 +11,7 @@
 // COMPONENTS
 // ============================================================
 
-export { AuthRecovery } from './components/AuthRecovery';
+export { AuthRecovery } from './components/AuthRecovery'
 
 // ============================================================
 // SERVICES
@@ -27,7 +27,7 @@ export {
   updateGymInfo,
   updatePassword,
   updateEmail,
-} from './services/auth.service';
+} from './services/auth.service'
 
 export {
   logEmailConfirmationSent,
@@ -36,7 +36,7 @@ export {
   getEmailConfirmationStatus,
   verifyEmailChange,
   type VerifyEmailChangeResult,
-} from './services/email-confirmation.service';
+} from './services/email-confirmation.service'
 
 // ============================================================
 // SCHEMAS
@@ -57,7 +57,13 @@ export {
   type UpdateGymInfoInput,
   type UpdateEmailInput,
   type UpdatePasswordInput,
-} from './schemas/auth.schemas';
+} from './schemas/auth.schemas'
+
+// ============================================================
+// UTILS
+// ============================================================
+
+export { getSafeRedirect } from './utils/getSafeRedirect'
 
 // ============================================================
 // TYPES
@@ -70,4 +76,4 @@ export type {
   AuthResponse,
   LoginResponse,
   RegistrationResponse,
-} from './types';
+} from './types'
