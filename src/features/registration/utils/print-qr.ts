@@ -106,7 +106,7 @@ export function printQrPosters(posters: QrPoster[]): void {
     }
     h1 { font-size: 34px; line-height: 1.1; }
     .subtitle { font-size: 20px; color: #444; margin-bottom: 28px; }
-    .qr { width: 320px; height: 320px; }
+    .qr { width: 400px; height: 400px; }
     .url { margin-top: 24px; font-size: 12px; color: #888; word-break: break-all; }
     .powered {
       margin-top: 48px; display: flex; flex-direction: column;
