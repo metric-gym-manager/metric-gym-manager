@@ -7,28 +7,28 @@
  * session — it only ever resolves a token to gym name + active plans.
  */
 
-import { randomBytes } from 'crypto';
-import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { getPlanLabel } from '@/features/members/config/PlanConfig';
-import type { PublicGymInfo, RegistrationLink } from '../types';
+import { randomBytes } from 'crypto'
+import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getPlanLabel } from '@/features/members/config/PlanConfig'
+import type { PublicGymInfo, RegistrationLink } from '../types'
 
 /** Generate an unguessable URL token (32 hex chars = 128 bits) */
 function generateToken(): string {
-  return randomBytes(16).toString('hex');
+  return randomBytes(16).toString('hex')
 }
 
 /** Compose the public join URL for a token */
 export function buildJoinUrl(token: string): string {
-  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
-  return `${baseUrl}/join/${token}`;
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '')
+  return `${baseUrl}/join/${token}`
 }
 
 interface LinkRow {
-  token: string;
-  is_active: boolean;
-  created_at: string;
-  rotated_at: string | null;
+  token: string
+  is_active: boolean
+  created_at: string
+  rotated_at: string | null
 }
 
 function toRegistrationLink(row: LinkRow): RegistrationLink {
@@ -38,7 +38,7 @@ function toRegistrationLink(row: LinkRow): RegistrationLink {
     isActive: row.is_active,
     createdAt: row.created_at,
     rotatedAt: row.rotated_at,
-  };
+  }
 }
 
 /**
@@ -49,35 +49,35 @@ function toRegistrationLink(row: LinkRow): RegistrationLink {
 export async function getOrCreateRegistrationLink(
   gymId: string
 ): Promise<RegistrationLink> {
-  const supabase = await createClient();
+  const supabase = await createClient()
 
   const { data: existing, error } = await supabase
     .from('gym_registration_links')
     .select('token, is_active, created_at, rotated_at')
     .eq('gym_id', gymId)
-    .maybeSingle();
+    .maybeSingle()
 
   if (error) {
-    throw new Error(`Failed to fetch registration link: ${error.message}`);
+    throw new Error(`Failed to fetch registration link: ${error.message}`)
   }
 
   if (existing) {
-    return toRegistrationLink(existing as LinkRow);
+    return toRegistrationLink(existing as LinkRow)
   }
 
   const { data: created, error: insertError } = await supabase
     .from('gym_registration_links')
     .insert({ gym_id: gymId, token: generateToken() })
     .select('token, is_active, created_at, rotated_at')
-    .single();
+    .single()
 
   if (insertError || !created) {
     throw new Error(
       `Failed to create registration link: ${insertError?.message}`
-    );
+    )
   }
 
-  return toRegistrationLink(created as LinkRow);
+  return toRegistrationLink(created as LinkRow)
 }
 
 /**
@@ -89,22 +89,22 @@ export async function resolveRegistrationToken(
   token: string
 ): Promise<string | null> {
   if (!/^[a-f0-9]{32,64}$/i.test(token)) {
-    return null;
+    return null
   }
 
-  const supabase = createAdminClient();
+  const supabase = createAdminClient()
 
   const { data, error } = await supabase
     .from('gym_registration_links')
     .select('gym_id, is_active')
     .eq('token', token)
-    .maybeSingle();
+    .maybeSingle()
 
   if (error || !data || !data.is_active) {
-    return null;
+    return null
   }
 
-  return data.gym_id as string;
+  return data.gym_id as string
 }
 
 /**
@@ -116,12 +116,12 @@ export async function resolveRegistrationToken(
 export async function getPublicGymInfo(
   token: string
 ): Promise<PublicGymInfo | null> {
-  const gymId = await resolveRegistrationToken(token);
+  const gymId = await resolveRegistrationToken(token)
   if (!gymId) {
-    return null;
+    return null
   }
 
-  const supabase = createAdminClient();
+  const supabase = createAdminClient()
 
   const [gymResult, plansResult] = await Promise.all([
     supabase.from('gyms').select('gym_name').eq('id', gymId).single(),
@@ -131,10 +131,10 @@ export async function getPublicGymInfo(
       .eq('gym_id', gymId)
       .eq('is_active', true)
       .order('default_amount', { ascending: true }),
-  ]);
+  ])
 
   if (gymResult.error || !gymResult.data) {
-    return null;
+    return null
   }
 
   return {
@@ -144,7 +144,7 @@ export async function getPublicGymInfo(
       label: getPlanLabel(plan.plan_type),
       amount: Number(plan.default_amount),
     })),
-  };
+  }
 }
 
 // ============================================================
@@ -152,15 +152,14 @@ export async function getPublicGymInfo(
 // ============================================================
 
 export interface GymQrCodeItem {
-  gymId: string;
-  gymName: string;
-  username: string;
-  email: string;
-  profileImageUrl: string | null;
-  token: string | null;
-  joinUrl: string | null;
-  isActive: boolean;
-  rotatedAt: string | null;
+  gymId: string
+  gymName: string
+  username: string
+  email: string
+  token: string | null
+  joinUrl: string | null
+  isActive: boolean
+  rotatedAt: string | null
 }
 
 /**
@@ -168,19 +167,21 @@ export interface GymQrCodeItem {
  * that does not have one yet. Admin-client (cross-tenant) — caller must have
  * performed SaaS-operator authorization first.
  */
-export async function listGymsWithRegistrationLinks(): Promise<GymQrCodeItem[]> {
-  const supabase = createAdminClient();
+export async function listGymsWithRegistrationLinks(): Promise<
+  GymQrCodeItem[]
+> {
+  const supabase = createAdminClient()
 
   const { data: gyms, error: gymsError } = await supabase
     .from('gyms')
     .select(
-      'id, gym_name, username, email, profile_image_url, gym_registration_links(token, is_active, created_at, rotated_at)'
+      'id, gym_name, username, email, gym_registration_links(token, is_active, created_at, rotated_at)'
     )
-    .order('gym_name', { ascending: true });
+    .order('gym_name', { ascending: true })
 
   if (gymsError) {
-    console.error('Failed to fetch gyms for QR dashboard:', gymsError);
-    throw new Error('Failed to fetch gyms');
+    console.error('Failed to fetch gyms for QR dashboard:', gymsError)
+    throw new Error('Failed to fetch gyms')
   }
 
   // Backfill links for any gym that doesn't have one yet (gyms created
@@ -190,36 +191,106 @@ export async function listGymsWithRegistrationLinks(): Promise<GymQrCodeItem[]> 
       !gym.gym_registration_links ||
       (Array.isArray(gym.gym_registration_links) &&
         gym.gym_registration_links.length === 0)
-  );
+  )
 
-  const backfilledTokens = new Map<string, string>();
+  const backfilledTokens = new Map<string, string>()
   for (const gym of gymsWithoutLink) {
-    const token = randomBytes(16).toString('hex');
+    const token = randomBytes(16).toString('hex')
     const { error: insertError } = await supabase
       .from('gym_registration_links')
-      .insert({ gym_id: gym.id, token });
+      .insert({ gym_id: gym.id, token })
     if (!insertError) {
-      backfilledTokens.set(gym.id, token);
+      backfilledTokens.set(gym.id, token)
     }
   }
 
   return (gyms ?? []).map((gym) => {
-    const linkRelation = gym.gym_registration_links;
-    const link = Array.isArray(linkRelation) ? linkRelation[0] : linkRelation;
-    const token = (link?.token as string | undefined) ?? backfilledTokens.get(gym.id) ?? null;
+    const linkRelation = gym.gym_registration_links
+    const link = Array.isArray(linkRelation) ? linkRelation[0] : linkRelation
+    const token =
+      (link?.token as string | undefined) ??
+      backfilledTokens.get(gym.id) ??
+      null
 
     return {
       gymId: gym.id,
       gymName: gym.gym_name,
       username: gym.username,
       email: gym.email,
-      profileImageUrl: gym.profile_image_url ?? null,
       token,
       joinUrl: token ? buildJoinUrl(token) : null,
       isActive: link?.is_active ?? true,
       rotatedAt: link?.rotated_at ?? null,
-    };
-  });
+    }
+  })
+}
+
+export interface GymPosterInput {
+  gymName: string
+  location: string | null
+  logoUrl: string | null
+  joinUrl: string
+}
+
+/**
+ * Derive the short uppercase locality shown top-right on the poster from a
+ * free-form gym address. Uses the first comma-separated segment and caps the
+ * length so it never overflows the header. Returns null when nothing usable.
+ */
+export function derivePosterLocation(address?: string | null): string | null {
+  if (!address) return null
+  const first = address.split(',')[0]?.trim()
+  if (!first) return null
+  const upper = first.toUpperCase()
+  return upper.length > 24 ? null : upper
+}
+
+/**
+ * Assemble everything the 2b registration poster needs for a single gym:
+ * name, profile logo, derived locality and the public join URL. Admin client
+ * (cross-tenant) — caller must have performed SaaS-operator authorization
+ * first. Backfills a registration link if the gym has none yet.
+ *
+ * @returns Poster input, or null when the gym does not exist.
+ */
+export async function getGymPosterInput(
+  gymId: string
+): Promise<GymPosterInput | null> {
+  const supabase = createAdminClient()
+
+  const { data: gym, error } = await supabase
+    .from('gyms')
+    .select(
+      'gym_name, gym_address, profile_image_url, gym_registration_links(token, is_active)'
+    )
+    .eq('id', gymId)
+    .maybeSingle()
+
+  if (error || !gym) {
+    return null
+  }
+
+  const linkRelation = gym.gym_registration_links
+  const link = Array.isArray(linkRelation) ? linkRelation[0] : linkRelation
+  let token = (link?.token as string | undefined) ?? null
+
+  if (!token) {
+    const generated = generateToken()
+    const { error: insertError } = await supabase
+      .from('gym_registration_links')
+      .insert({ gym_id: gymId, token: generated })
+    if (insertError) {
+      return null
+    }
+    token = generated
+  }
+
+  return {
+    gymName: gym.gym_name as string,
+    location: derivePosterLocation(gym.gym_address as string | null),
+    logoUrl: (gym.profile_image_url as string | null) ?? null,
+    joinUrl: buildJoinUrl(token),
+  }
 }
 
 /**
@@ -231,15 +302,15 @@ export async function getActivePlanForGym(
   gymId: string,
   planType: string
 ): Promise<{ plan_type: string; default_amount: number } | null> {
-  const supabase = createAdminClient();
+  const supabase = createAdminClient()
   const { data: plan, error: planError } = await supabase
     .from('plan_types')
     .select('plan_type, default_amount')
     .eq('gym_id', gymId)
     .eq('plan_type', planType)
     .eq('is_active', true)
-    .maybeSingle();
+    .maybeSingle()
 
-  if (planError || !plan) return null;
-  return plan;
+  if (planError || !plan) return null
+  return plan
 }
