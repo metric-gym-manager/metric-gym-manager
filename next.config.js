@@ -1,6 +1,6 @@
 const withBundleAnalyzer = require('@next/bundle-analyzer')({
   enabled: process.env.ANALYZE === 'true',
-});
+})
 
 // Cloudflare R2 public bucket host (member photos). Derived from
 // NEXT_PUBLIC_R2_PUBLIC_URL so staging/production can point at different
@@ -9,11 +9,11 @@ const r2PublicHostname = (() => {
   try {
     return process.env.NEXT_PUBLIC_R2_PUBLIC_URL
       ? new URL(process.env.NEXT_PUBLIC_R2_PUBLIC_URL).hostname
-      : null;
+      : null
   } catch {
-    return null;
+    return null
   }
-})();
+})()
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -38,6 +38,18 @@ const nextConfig = {
             },
           ]
         : []),
+    ],
+  },
+  // The QR-poster routes read the bundled Geist fonts and the Metric logo from
+  // disk at runtime (next/og). Force those assets into the serverless bundle.
+  outputFileTracingIncludes: {
+    '/api/settings/qr-poster': [
+      './src/features/registration/assets/fonts/**',
+      './public/logo.svg',
+    ],
+    '/api/admin/qr-poster': [
+      './src/features/registration/assets/fonts/**',
+      './public/logo.svg',
     ],
   },
   experimental: {
@@ -129,7 +141,7 @@ const nextConfig = {
           },
         ],
       },
-    ];
+    ]
   },
 }
 

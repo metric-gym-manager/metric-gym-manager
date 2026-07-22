@@ -114,6 +114,40 @@ export class ResponseBuilder {
   }
 
   /**
+   * Create a raw binary response (images, PDFs, other non-JSON assets).
+   *
+   * Binary payloads cannot use the JSON success envelope, so asset routes build
+   * their response through this helper — keeping response construction
+   * centralized in `ResponseBuilder`. Error paths on these routes still use the
+   * JSON error builders below (with machine-readable codes).
+   *
+   * @param body - The binary payload
+   * @param contentType - MIME type (e.g. 'image/png')
+   * @param options - Optional Cache-Control, download filename, and status
+   * @returns A `Response` streaming the bytes with the given content type
+   *
+   * @example
+   * return ResponseBuilder.binary(png, 'image/png', { cacheControl: 'private, no-store' });
+   */
+  static binary(
+    body: ArrayBuffer | ArrayBufferView,
+    contentType: string,
+    options?: { cacheControl?: string; filename?: string; status?: number }
+  ): Response {
+    const headers: Record<string, string> = { 'Content-Type': contentType };
+    if (options?.cacheControl) {
+      headers['Cache-Control'] = options.cacheControl;
+    }
+    if (options?.filename) {
+      headers['Content-Disposition'] = `inline; filename="${options.filename}"`;
+    }
+    return new Response(body as BodyInit, {
+      status: options?.status ?? HTTP_STATUS.OK,
+      headers,
+    });
+  }
+
+  /**
    * Create an error response
    *
    * @param message - Error message
