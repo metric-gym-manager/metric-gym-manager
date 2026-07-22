@@ -14,6 +14,10 @@ const inter = Inter({
   display: 'swap',
 })
 
+// Geist / Geist Mono power the enterprise surfaces — the light "App Workspace"
+// (`.mws-root`), the dark auth pages (`.mauth-root`) and the marketing landing
+// page. Exposed as CSS variables only; the light/dark scoping lives in
+// globals.css so each surface opts in.
 const geist = Geist({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
@@ -30,7 +34,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'Metric Gym Manager',
-  description: 'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
+  description:
+    'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
   metadataBase: new URL('https://metricgymmanager.com'),
   manifest: '/manifest.json',
   icons: [
@@ -42,7 +47,8 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Metric Gym Manager',
-    description: 'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
+    description:
+      'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
     url: 'https://metricgymmanager.com',
     siteName: 'Metric Gym Manager',
     images: [
@@ -59,7 +65,8 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Metric Gym Manager',
-    description: 'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
+    description:
+      'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
     images: ['/linkPreviewLogo.png'],
   },
 }
@@ -70,7 +77,10 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${geist.variable} ${geistMono.variable}`}>
+    <html
+      lang="en"
+      className={`${inter.variable} ${geist.variable} ${geistMono.variable}`}
+    >
       <body className="font-sans">
         <QueryProvider>
           {children}

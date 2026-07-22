@@ -1,253 +1,175 @@
 'use client';
 
 import { useState } from 'react';
-import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import MetricCard from '@/features/revenue/components/RevenueMetricCard';
-import type { MonthlyRevenueResponse, YearlyRevenueResponse } from '@/features/revenue/types';
+import { Panel, PanelHead, formatLKR } from '@/components/workspace/primitives';
+import type { MonthlyRevenueResponse } from '@/features/revenue/types';
 
-const RevenueChart = dynamic(
-  () => import('@/features/revenue/components/RevenueChart'),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[400px] rounded-lg border bg-gray-50 animate-pulse" />
-    ),
-  }
-);
+interface CollectedPayment {
+  planType: string;
+  amountPaid: number;
+}
+interface CollectedResponse {
+  payments: CollectedPayment[];
+  summary: { totalRevenue: number; paymentCount: number };
+}
 
+const PLAN_LABEL: Record<string, string> = {
+  daily: 'Daily',
+  weekly: 'Weekly',
+  monthly: 'Monthly',
+  '3-months': '3 Months',
+  '6-months': '6 Months',
+  annual: 'Annual',
+};
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+/**
+ * Revenue — App Workspace design. Stat tiles + a trailing monthly bar chart +
+ * a plan-type breakdown table. All live: metrics/history come from
+ * /api/revenue/monthly, the breakdown is aggregated from
+ * /api/payment-collection/collected. A compact year/month selector preserves
+ * period navigation from the original screen.
+ */
 export default function RevenuePageClient() {
-  const [viewType, setViewType] = useState<'monthly' | 'yearly'>('monthly');
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const today = new Date();
+  const [year, setYear] = useState(today.getFullYear());
+  const [month, setMonth] = useState(today.getMonth() + 1);
+  const yearOptions = Array.from({ length: 6 }, (_, i) => today.getFullYear() - i);
 
-  // Generate year options (current year and 5 years back)
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
-
-  // Generate month options
-  const monthOptions = [
-    { value: 1, label: 'January' },
-    { value: 2, label: 'February' },
-    { value: 3, label: 'March' },
-    { value: 4, label: 'April' },
-    { value: 5, label: 'May' },
-    { value: 6, label: 'June' },
-    { value: 7, label: 'July' },
-    { value: 8, label: 'August' },
-    { value: 9, label: 'September' },
-    { value: 10, label: 'October' },
-    { value: 11, label: 'November' },
-    { value: 12, label: 'December' },
-  ];
-
-  // Fetch monthly revenue data
-  const { data: monthlyData, isLoading: isLoadingMonthly } = useQuery<MonthlyRevenueResponse>({
-    queryKey: ['revenue', 'monthly', selectedYear, selectedMonth],
+  const { data, isLoading } = useQuery<MonthlyRevenueResponse>({
+    queryKey: ['revenue', 'monthly', year, month],
     queryFn: async () => {
-      const response = await fetch(
-        `/api/revenue/monthly?year=${selectedYear}&month=${selectedMonth}`
-      );
+      const response = await fetch(`/api/revenue/monthly?year=${year}&month=${month}`);
       if (!response.ok) throw new Error('Failed to fetch monthly revenue');
       const result = await response.json();
       return result.data;
     },
-    enabled: viewType === 'monthly',
   });
 
-  // Fetch yearly revenue data
-  const { data: yearlyData, isLoading: isLoadingYearly } = useQuery<YearlyRevenueResponse>({
-    queryKey: ['revenue', 'yearly', selectedYear],
+  const { data: collected } = useQuery<CollectedResponse>({
+    queryKey: ['revenue', 'collected', year, month],
     queryFn: async () => {
-      const response = await fetch(`/api/revenue/yearly?year=${selectedYear}`);
-      if (!response.ok) throw new Error('Failed to fetch yearly revenue');
+      const m = `${year}-${String(month).padStart(2, '0')}`;
+      const response = await fetch(`/api/payment-collection/collected?month=${m}`);
+      if (!response.ok) throw new Error('Failed to fetch collected payments');
       const result = await response.json();
       return result.data;
     },
-    enabled: viewType === 'yearly',
+    staleTime: 60_000,
   });
 
-  const isLoading = viewType === 'monthly' ? isLoadingMonthly : isLoadingYearly;
-  const currentData = viewType === 'monthly' ? monthlyData : yearlyData;
+  const cur = data?.currentMonth;
+  const metrics = data?.metrics;
+  const collectedRate = cur && cur.projectedRevenue > 0
+    ? Math.round((cur.collectedRevenue / cur.projectedRevenue) * 100)
+    : null;
 
-  // Format currency
-  const formatCurrency = (value: number) => {
-    return `LKR ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
+  const tiles = [
+    { label: `Collected · ${MONTHS[month - 1].slice(0, 3)}`, value: cur ? formatLKR(cur.collectedRevenue, { prefix: false }) : '—', delta: collectedRate !== null ? `${collectedRate}% of billed` : ' ', deltaC: 'var(--mws-t2)' },
+    { label: `Projected · ${MONTHS[month - 1].slice(0, 3)}`, value: cur ? formatLKR(cur.projectedRevenue, { prefix: false }) : '—', delta: cur?.hasOverduePayments ? 'Outstanding dues remain' : 'Fully collected', deltaC: cur?.hasOverduePayments ? 'var(--mws-warn)' : 'var(--mws-ok)' },
+    { label: 'Active members', value: metrics ? metrics.totalActiveMembers.toLocaleString('en-US') : '—', delta: 'Currently active', deltaC: 'var(--mws-t2)' },
+    { label: 'Avg / member', value: metrics ? formatLKR(metrics.averageRevenuePerMember, { prefix: false }) : '—', delta: 'Lifetime value', deltaC: 'var(--mws-ok)' },
+  ];
+
+  const history = data?.historicalData ?? [];
+  const maxRev = Math.max(1, ...history.map((h) => h.collectedRevenue));
+
+  // Aggregate collected payments by plan type for the breakdown table.
+  const byPlan = new Map<string, { amount: number; count: number }>();
+  for (const p of collected?.payments ?? []) {
+    const cur2 = byPlan.get(p.planType) ?? { amount: 0, count: 0 };
+    cur2.amount += p.amountPaid;
+    cur2.count += 1;
+    byPlan.set(p.planType, cur2);
+  }
+  const totalCollected = collected?.summary.totalRevenue ?? 0;
+  const breakdown = Array.from(byPlan.entries())
+    .map(([plan, v]) => ({ plan, ...v, share: totalCollected > 0 ? Math.round((v.amount / totalCollected) * 100) : 0 }))
+    .sort((a, b) => b.amount - a.amount);
 
   return (
-    <>
-      {/* Time Period Selector */}
-      <div className="flex flex-wrap items-center gap-4">
-        <div>
-          <label className="text-sm font-medium mb-2 block">View Type</label>
-          <Select
-            value={viewType}
-            onValueChange={(value: 'monthly' | 'yearly') => setViewType(value)}
-          >
-            <SelectTrigger id="revenue-view-type-select" className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="monthly">Monthly View</SelectItem>
-              <SelectItem value="yearly">Yearly View</SelectItem>
-            </SelectContent>
-          </Select>
+    <div className="flex flex-col gap-4" style={{ maxWidth: 1200 }}>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <h1 className="mws-h1">Revenue</h1>
+        <div className="flex gap-2">
+          <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="mws-select">
+            {MONTHS.map((label, i) => <option key={label} value={i + 1}>{label}</option>)}
+          </select>
+          <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="mws-select">
+            {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
         </div>
-
-        <div>
-          <label className="text-sm font-medium mb-2 block">Year</label>
-          <Select
-            value={selectedYear.toString()}
-            onValueChange={(value) => setSelectedYear(parseInt(value))}
-          >
-            <SelectTrigger id="revenue-year-select" className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {yearOptions.map((year) => (
-                <SelectItem key={year} value={year.toString()}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        {viewType === 'monthly' && (
-          <div>
-            <label className="text-sm font-medium mb-2 block">Month</label>
-            <Select
-              value={selectedMonth.toString()}
-              onValueChange={(value) => setSelectedMonth(parseInt(value))}
-            >
-              <SelectTrigger id="revenue-month-select" className="w-[160px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {monthOptions.map((month) => (
-                  <SelectItem key={month.value} value={month.value.toString()}>
-                    {month.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
       </div>
 
-      {/* Loading State */}
-      {isLoading ? (
-        <div className="flex h-64 items-center justify-center">
-          <p className="text-sm text-gray-500">Loading revenue data...</p>
+      {/* Tiles */}
+      <div className="mws-stat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+        {tiles.map((t) => (
+          <div key={t.label} className="mws-stat">
+            <div className="mws-label">{t.label}</div>
+            <div className="mws-stat-value">{isLoading ? '—' : t.value}</div>
+            <div className="mws-mono" style={{ fontSize: 12, color: t.deltaC }}>{t.delta}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Chart */}
+      <Panel style={{ padding: 16 }} className="flex flex-col gap-3">
+        <div className="mws-label">Monthly collected revenue · LKR ×1,000</div>
+        <div className="flex items-end" style={{ gap: 12, height: 180, paddingTop: 8 }}>
+          {history.length === 0
+            ? <div style={{ color: 'var(--mws-t3)', fontSize: 13 }}>No revenue history for this period.</div>
+            : history.map((h, i) => {
+                const barH = Math.max(2, Math.round((h.collectedRevenue / maxRev) * 150));
+                const isCurrent = i === history.length - 1;
+                return (
+                  <div key={h.monthLabel} className="flex-1 flex flex-col items-center justify-end" style={{ gap: 6, height: '100%' }}>
+                    <span className="mws-mono" style={{ fontSize: 11, color: 'var(--mws-t2)' }}>{Math.round(h.collectedRevenue / 1000)}</span>
+                    <div style={{ width: '100%', height: barH, background: isCurrent ? 'var(--mws-accent)' : 'rgba(0,0,0,0.14)', borderRadius: '2px 2px 0 0' }} />
+                    <span className="mws-mono" style={{ fontSize: 10, color: 'var(--mws-t3)', textTransform: 'uppercase' }}>{h.monthLabel.split(' ')[0]}</span>
+                  </div>
+                );
+              })}
         </div>
-      ) : (
-        <>
-          {/* Current Period Metrics */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2">
-            <MetricCard
-              title={
-                viewType === 'monthly'
-                  ? 'Fees Collected in the Current Month'
-                  : 'Fees Collected in the Current Year'
-              }
-              value={formatCurrency(
-                viewType === 'monthly'
-                  ? monthlyData?.currentMonth.collectedRevenue || 0
-                  : yearlyData?.currentYear.collectedRevenue || 0
+      </Panel>
+
+      {/* Breakdown by plan type */}
+      <Panel style={{ overflow: 'hidden' }}>
+        <PanelHead label="Breakdown by plan type" />
+        <div className="mws-table-scroll">
+          <table className="mws-table">
+            <thead>
+              <tr>
+                <th>Plan</th>
+                <th style={{ textAlign: 'right' }}>Payments</th>
+                <th style={{ textAlign: 'right' }}>Collected (LKR)</th>
+                <th style={{ textAlign: 'right' }}>Share</th>
+              </tr>
+            </thead>
+            <tbody>
+              {breakdown.length === 0 && (
+                <tr><td colSpan={4} style={{ padding: 16, textAlign: 'center', color: 'var(--mws-t3)' }}>No payments collected this period.</td></tr>
               )}
-              subtitle="Actual payments received"
-              icon={<span className="text-2xl">💰</span>}
-            />
-            <MetricCard
-              title={
-                viewType === 'monthly'
-                  ? 'Payment Status for Current Month'
-                  : 'Payment Status for Current Year'
-              }
-              value={(() => {
-                const hasOverdue = viewType === 'monthly'
-                  ? monthlyData?.currentMonth.hasOverduePayments
-                  : yearlyData?.currentYear.hasOverduePayments;
-
-                if (!hasOverdue) {
-                  return viewType === 'monthly'
-                    ? '✓ All fees collected for this month'
-                    : '✓ All fees collected for this year';
-                }
-                return viewType === 'monthly'
-                  ? '⚠ Outstanding payments exist'
-                  : '⚠ Outstanding payments exist';
-              })()}
-              valueClassName={(() => {
-                const hasOverdue = viewType === 'monthly'
-                  ? monthlyData?.currentMonth.hasOverduePayments
-                  : yearlyData?.currentYear.hasOverduePayments;
-                return hasOverdue ? 'text-orange-600' : 'text-green-600';
-              })()}
-              subtitle={(() => {
-                const hasOverdue = viewType === 'monthly'
-                  ? monthlyData?.currentMonth.hasOverduePayments
-                  : yearlyData?.currentYear.hasOverduePayments;
-                return hasOverdue
-                  ? 'Some members have overdue payments'
-                  : 'No outstanding payments';
-              })()}
-              icon={<span className="text-2xl">📊</span>}
-              href={(() => {
-                const hasOverdue = viewType === 'monthly'
-                  ? monthlyData?.currentMonth.hasOverduePayments
-                  : yearlyData?.currentYear.hasOverduePayments;
-                return hasOverdue ? '/payment-collection?filter=overdue' : undefined;
-              })()}
-            />
-          </div>
-
-          {/* Additional Metrics */}
-          <div className="grid gap-4 md:grid-cols-3">
-            <MetricCard
-              title="Total Active Members"
-              value={currentData?.metrics.totalActiveMembers || 0}
-              subtitle="Currently active subscriptions"
-              icon={<span className="text-2xl">👥</span>}
-            />
-            <MetricCard
-              title="Total Revenue Since Inception"
-              value={formatCurrency(currentData?.metrics.totalRevenueSinceInception || 0)}
-              subtitle="All-time collected revenue"
-              icon={<span className="text-2xl">💵</span>}
-            />
-            <MetricCard
-              title="Average Revenue Per Member"
-              value={formatCurrency(currentData?.metrics.averageRevenuePerMember || 0)}
-              subtitle="Lifetime value per member"
-              icon={<span className="text-2xl">📈</span>}
-            />
-          </div>
-
-          {/* Historical Chart */}
-          <div>
-            <h2 className="text-xl font-semibold mb-4">
-              {viewType === 'monthly' ? 'Monthly Revenue History' : 'Yearly Revenue History'}
-            </h2>
-            <RevenueChart
-              data={
-                viewType === 'monthly'
-                  ? monthlyData?.historicalData || []
-                  : yearlyData?.historicalData || []
-              }
-              viewType={viewType}
-            />
-          </div>
-        </>
-      )}
-    </>
+              {breakdown.map((p) => (
+                <tr key={p.plan}>
+                  <td style={{ fontWeight: 500 }}>{PLAN_LABEL[p.plan] ?? p.plan}</td>
+                  <td className="mws-num" style={{ color: 'var(--mws-t2)' }}>{p.count}</td>
+                  <td className="mws-num">{formatLKR(p.amount, { prefix: false })}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <div className="flex items-center justify-end" style={{ gap: 8 }}>
+                      <div style={{ width: 80, height: 4, background: 'rgba(0,0,0,0.09)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', background: 'var(--mws-accent-tint)', width: `${p.share}%` }} />
+                      </div>
+                      <span className="mws-mono" style={{ fontSize: 12, color: 'var(--mws-t2)', minWidth: 36, textAlign: 'right' }}>{p.share}%</span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
+    </div>
   );
 }

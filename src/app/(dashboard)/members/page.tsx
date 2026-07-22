@@ -1,16 +1,10 @@
 import MembersPageClient from './MembersPageClient';
 
+/**
+ * Members — App Workspace design. The heading (with live record count),
+ * search, actions and table all live in the client so the count reflects the
+ * current query.
+ */
 export default function MembersPage() {
-  return (
-    <div className="space-y-6">
-      {/* Server-rendered heading — appears in initial HTML for fast LCP */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl lg:text-3xl font-bold tracking-tight">Members</h1>
-        </div>
-      </div>
-
-      <MembersPageClient />
-    </div>
-  );
+  return <MembersPageClient />;
 }

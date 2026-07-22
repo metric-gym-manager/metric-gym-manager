@@ -2,16 +2,17 @@
 
 import { useState } from 'react';
 import dynamic from 'next/dynamic';
+import { cn } from '@/lib/utils';
 
-// Lazy load tab content for better performance
+// Full-CRUD tab bodies (plan-type + discount management) are preserved as-is
+// and rendered inside the App Workspace frame (heading + mws tab bar).
 const PlanTypesTab = dynamic(() => import('./PlanTypesTab'), {
   ssr: false,
-  loading: () => <div className="h-64 animate-pulse rounded bg-gray-100" />,
+  loading: () => <div style={{ height: 240 }} className="animate-pulse rounded bg-gray-100" />,
 });
-
 const DiscountsTab = dynamic(() => import('./DiscountsTab'), {
   ssr: false,
-  loading: () => <div className="h-64 animate-pulse rounded bg-gray-100" />,
+  loading: () => <div style={{ height: 240 }} className="animate-pulse rounded bg-gray-100" />,
 });
 
 type Tab = 'plans' | 'discounts';
@@ -20,40 +21,21 @@ export default function BillingSetupPageClient() {
   const [activeTab, setActiveTab] = useState<Tab>('plans');
 
   return (
-    <>
-      {/* Tab Navigation */}
-      <div className="border-b">
-        <nav className="-mb-px flex space-x-8" aria-label="Billing Setup">
-          <button
-            type="button"
-            onClick={() => setActiveTab('plans')}
-            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
-              activeTab === 'plans'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            Plan Types
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('discounts')}
-            className={`whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium transition-colors ${
-              activeTab === 'discounts'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-            }`}
-          >
-            Discounts
-          </button>
-        </nav>
+    <div className="flex flex-col gap-4" style={{ maxWidth: 1200 }}>
+      <div>
+        <h1 className="mws-h1">Membership Setup</h1>
+        <p className="mws-row-sub" style={{ marginTop: 4 }}>Configure membership plan types and discount presets</p>
       </div>
 
-      {/* Tab Content */}
-      <div className="mt-6">
+      <div className="flex" style={{ gap: 2, borderBottom: '1px solid var(--mws-b1)' }}>
+        <button type="button" onClick={() => setActiveTab('plans')} className={cn('mws-tab', activeTab === 'plans' && 'mws-tab-active')}>Plan types</button>
+        <button type="button" onClick={() => setActiveTab('discounts')} className={cn('mws-tab', activeTab === 'discounts' && 'mws-tab-active')}>Discounts</button>
+      </div>
+
+      <div>
         {activeTab === 'plans' && <PlanTypesTab />}
         {activeTab === 'discounts' && <DiscountsTab />}
       </div>
-    </>
+    </div>
   );
 }
