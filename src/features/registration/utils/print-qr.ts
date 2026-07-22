@@ -1,128 +1,42 @@
 /**
- * QR poster printing (client-side)
+ * Client helpers for the server-rendered "2b" QR registration posters.
  *
- * Opens a print-ready window with one A4 poster per gym. Each poster shows the
- * gym name + profile logo at the top, a "Scan to register" prompt, the QR code,
- * and a prominent "Powered by Metric Gym OS" footer with the brand logo and
- * domain. Used by the gym settings card (single poster) and the admin QR
- * dashboard (single or all gyms).
+ * The poster PNG is produced per-gym by the API (`/api/settings/qr-poster` and
+ * `/api/admin/qr-poster`), so print and download share one pixel-identical
+ * image. These helpers only move that image into the print dialog or a file.
  */
-
-/** Brand domain shown in the poster footer. */
-const BRAND_DOMAIN = 'metricgymos.lk';
-/** Metric Gym OS brand blue (from public/logo.svg). */
-const BRAND_BLUE = '#1C19FD';
 
 /**
- * Backing-store resolution (in CSS px, before devicePixelRatio) for QR canvases
- * that will be downloaded or printed. The on-screen size is set separately via
- * the canvas `style` prop, so the visible QR stays compact while the exported
- * PNG is large enough for crisp large-format printing, downloading, and
- * scaling. qrcode.react multiplies this by devicePixelRatio for the actual
- * canvas backing store, which is what `canvas.toDataURL()` reads — so the PNG
- * is at least this many pixels wide regardless of the on-screen display size.
+ * Open a print window with one poster image per A5 page and trigger printing
+ * once every image has loaded.
  */
-export const QR_EXPORT_SIZE = 1024;
+export function printPosterImages(urls: string[]): void {
+  if (urls.length === 0) return
 
-export interface QrPoster {
-  gymName: string;
-  /** PNG data URL of the QR code (from a rendered canvas) */
-  qrDataUrl: string;
-  joinUrl: string;
-  /** Public URL of the gym's profile logo, if it has one. */
-  logoUrl?: string | null;
-}
+  const printWindow = window.open('', '_blank', 'width=800,height=1000')
+  if (!printWindow) return
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-/**
- * Open the browser print dialog with one poster page per entry.
- */
-export function printQrPosters(posters: QrPoster[]): void {
-  const printWindow = window.open('', '_blank', 'width=800,height=1000');
-  if (!printWindow) {
-    return;
-  }
-
-  // Absolute URL so the brand logo resolves inside the about:blank print window.
-  const brandLogoUrl = `${window.location.origin}/logo.svg`;
-
-  const pages = posters
-    .map((poster) => {
-      const gymLogo = poster.logoUrl
-        ? `<img class="gym-logo" src="${escapeHtml(poster.logoUrl)}" alt="" />`
-        : '';
-      return `
-      <section class="poster">
-        <header class="gym">
-          ${gymLogo}
-          <h1>${escapeHtml(poster.gymName)}</h1>
-        </header>
-        <p class="subtitle">Scan to register</p>
-        <img class="qr" src="${poster.qrDataUrl}" alt="Registration QR code" />
-        <p class="url">${escapeHtml(poster.joinUrl)}</p>
-        <footer class="powered">
-          <div class="powered-brand">
-            <span class="powered-by">Powered by</span>
-            <img class="brand-logo" src="${brandLogoUrl}" alt="Metric Gym OS" />
-            <span class="brand-name">Metric Gym OS</span>
-          </div>
-          <span class="brand-domain">${BRAND_DOMAIN}</span>
-        </footer>
-      </section>`;
-    })
-    .join('\n');
+  const pages = urls
+    .map(
+      (url) =>
+        `<section class="page"><img src="${url}" alt="Registration poster" /></section>`
+    )
+    .join('\n')
 
   printWindow.document.write(`<!DOCTYPE html>
 <html>
 <head>
-  <title>Registration QR Codes</title>
+  <title>Registration QR Posters</title>
   <style>
+    @page { size: A5; margin: 0; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+    html, body { height: 100%; background: #fff; }
+    .page {
+      display: flex; align-items: center; justify-content: center;
+      width: 100vw; height: 100vh; page-break-after: always;
     }
-    .poster {
-      display: flex; flex-direction: column; align-items: center;
-      justify-content: center; text-align: center;
-      min-height: 100vh; padding: 48px;
-      page-break-after: always;
-    }
-    .poster:last-child { page-break-after: auto; }
-    .gym {
-      display: flex; flex-direction: column; align-items: center;
-      gap: 16px; margin-bottom: 24px;
-    }
-    .gym-logo {
-      width: 96px; height: 96px; object-fit: contain; border-radius: 12px;
-    }
-    h1 { font-size: 34px; line-height: 1.1; }
-    .subtitle { font-size: 20px; color: #444; margin-bottom: 28px; }
-    .qr { width: 400px; height: 400px; }
-    .url { margin-top: 24px; font-size: 12px; color: #888; word-break: break-all; }
-    .powered {
-      margin-top: 48px; display: flex; flex-direction: column;
-      align-items: center; gap: 6px;
-    }
-    .powered-brand { display: flex; align-items: center; gap: 10px; }
-    .powered-by {
-      font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase;
-      color: #666;
-    }
-    .brand-logo { width: 34px; height: 34px; }
-    .brand-name { font-size: 24px; font-weight: 700; color: ${BRAND_BLUE}; }
-    .brand-domain {
-      font-size: 16px; font-weight: 600; color: ${BRAND_BLUE};
-      letter-spacing: 0.02em;
-    }
+    .page:last-child { page-break-after: auto; }
+    img { max-width: 100%; max-height: 100%; object-fit: contain; }
   </style>
 </head>
 <body>
@@ -130,28 +44,52 @@ ${pages}
 <script>
   window.onload = function () {
     var printed = false;
-    function doPrint() {
-      if (printed) return;
-      printed = true;
-      window.print();
-    }
+    function go() { if (printed) return; printed = true; window.print(); }
     var images = Array.prototype.slice.call(document.images);
     var pending = images.filter(function (img) { return !img.complete; });
-    if (pending.length === 0) { doPrint(); return; }
+    if (pending.length === 0) { go(); return; }
     var remaining = pending.length;
-    function onSettled() {
-      remaining -= 1;
-      if (remaining === 0) doPrint();
-    }
+    function settled() { remaining -= 1; if (remaining === 0) go(); }
     pending.forEach(function (img) {
-      img.addEventListener('load', onSettled);
-      img.addEventListener('error', onSettled);
+      img.addEventListener('load', settled);
+      img.addEventListener('error', settled);
     });
-    // Fallback so a slow/broken image never blocks the print dialog.
-    setTimeout(doPrint, 3000);
+    // Fallback so a slow render never blocks the dialog.
+    setTimeout(go, 8000);
   };
 </script>
 </body>
-</html>`);
-  printWindow.document.close();
+</html>`)
+  printWindow.document.close()
+}
+
+/**
+ * Fetch a poster PNG and save it to disk with a friendly filename.
+ */
+export async function downloadPosterImage(
+  url: string,
+  filename: string
+): Promise<void> {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error('Failed to generate poster')
+  }
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(objectUrl)
+}
+
+/** Build a filesystem-safe poster filename from a gym name. */
+export function posterFilename(gymName: string): string {
+  const slug = gymName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  return `${slug || 'gym'}-registration-poster.png`
 }

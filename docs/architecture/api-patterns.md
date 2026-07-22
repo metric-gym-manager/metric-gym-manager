@@ -2,7 +2,7 @@
 
 > On-demand reference. Loaded when working in this area, not auto-injected.
 > Governing rules (also indexed in `.claude/rules/architecture.md`):
-- **§2.3 ResponseBuilder** — All API routes construct responses via the `ResponseBuilder` utility for consistent shape, typed payloads, and machine-readable error codes.
+- **§2.3 ResponseBuilder** — All API routes construct responses via the `ResponseBuilder` utility for consistent shape, typed payloads, and machine-readable error codes. Routes returning **binary assets** (e.g. the QR poster PNGs, §2.16) use `ResponseBuilder.binary(body, contentType, …)` for the payload and the JSON error builders for failures.
 - **§2.11 Serialization** — Never serialize domain entities directly to HTTP. Use dedicated serialization helpers that format dates (YYYY-MM-DD) and emit both camelCase and snake_case fields.
 
 ---

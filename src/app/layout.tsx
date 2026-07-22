@@ -14,17 +14,20 @@ const inter = Inter({
   display: 'swap',
 })
 
-// Geist / Geist Mono power the enterprise "App Workspace" surface. Exposed as
-// CSS variables only; they are scoped to `.mws-root` in globals.css so the
-// marketing and auth pages keep their Inter typography.
+// Geist / Geist Mono power the enterprise surfaces — the light "App Workspace"
+// (`.mws-root`), the dark auth pages (`.mauth-root`) and the marketing landing
+// page. Exposed as CSS variables only; the light/dark scoping lives in
+// globals.css so each surface opts in.
 const geist = Geist({
   subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
   variable: '--font-geist',
   display: 'swap',
 })
 
 const geistMono = Geist_Mono({
   subsets: ['latin'],
+  weight: ['400', '500'],
   variable: '--font-geist-mono',
   display: 'swap',
 })

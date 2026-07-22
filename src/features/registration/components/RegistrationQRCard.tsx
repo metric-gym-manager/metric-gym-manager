@@ -1,76 +1,79 @@
-'use client';
+'use client'
 
-import { useRef } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { QRCodeCanvas } from 'qrcode.react';
-import { toast } from 'sonner';
-import { Copy, Download, Printer } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { printQrPosters, QR_EXPORT_SIZE } from '../utils/print-qr';
-import type { RegistrationLink } from '../types';
-
-/** On-screen size (px) of the QR preview; the canvas backing store stays high-res. */
-const QR_DISPLAY_SIZE = 192;
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { QRCodeCanvas } from 'qrcode.react'
+import { toast } from 'sonner'
+import { Copy, Download, Printer } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  downloadPosterImage,
+  posterFilename,
+  printPosterImages,
+} from '../utils/print-qr'
+import type { RegistrationLink } from '../types'
 
 interface RegistrationQRCardProps {
-  gymName: string;
-  /** Public URL of the gym's profile logo, shown on the printed poster. */
-  logoUrl?: string | null;
+  gymName: string
 }
+
+/** API endpoint that renders this gym's 2b registration poster as a PNG. */
+const POSTER_URL = '/api/settings/qr-poster'
 
 /**
  * Gym settings card for the member self-registration QR code.
  *
- * Shows the QR + join link with copy / download / print actions.
+ * Shows a live QR preview + join link. Download and Print use the
+ * server-rendered "2b" poster (gym logo + name + QR + Metric branding) so the
+ * saved PNG and the printed sheet are identical.
  */
-export default function RegistrationQRCard({ gymName, logoUrl }: RegistrationQRCardProps) {
-  const qrContainerRef = useRef<HTMLDivElement>(null);
+export default function RegistrationQRCard({
+  gymName,
+}: RegistrationQRCardProps) {
+  const [isPreparing, setIsPreparing] = useState(false)
 
   const { data: link, isLoading } = useQuery<RegistrationLink>({
     queryKey: ['registration-link'],
     queryFn: async () => {
-      const response = await fetch('/api/settings/registration-link');
-      const result = await response.json();
+      const response = await fetch('/api/settings/registration-link')
+      const result = await response.json()
       if (!response.ok || !result.success) {
-        throw new Error(result?.error?.message || 'Failed to load registration link');
+        throw new Error(
+          result?.error?.message || 'Failed to load registration link'
+        )
       }
-      return result.data;
+      return result.data
     },
     staleTime: 300000,
-  });
-
-  const getQrDataUrl = (): string | null => {
-    const canvas = qrContainerRef.current?.querySelector('canvas');
-    return canvas ? canvas.toDataURL('image/png') : null;
-  };
+  })
 
   const handleCopy = async () => {
-    if (!link) return;
-    await navigator.clipboard.writeText(link.joinUrl);
-    toast.success('Link copied');
-  };
+    if (!link) return
+    await navigator.clipboard.writeText(link.joinUrl)
+    toast.success('Link copied')
+  }
 
-  const handleDownload = () => {
-    const dataUrl = getQrDataUrl();
-    if (!dataUrl) return;
-    const anchor = document.createElement('a');
-    anchor.href = dataUrl;
-    anchor.download = 'registration-qr.png';
-    anchor.click();
-  };
+  const handleDownload = async () => {
+    setIsPreparing(true)
+    try {
+      await downloadPosterImage(POSTER_URL, posterFilename(gymName))
+    } catch {
+      toast.error('Could not generate the poster. Please try again.')
+    } finally {
+      setIsPreparing(false)
+    }
+  }
 
   const handlePrint = () => {
-    const dataUrl = getQrDataUrl();
-    if (!dataUrl || !link) return;
-    printQrPosters([{ gymName, qrDataUrl: dataUrl, joinUrl: link.joinUrl, logoUrl }]);
-  };
+    printPosterImages([POSTER_URL])
+  }
 
   if (isLoading || !link) {
     return (
       <div className="rounded-lg border bg-white p-6">
         <div className="h-48 animate-pulse rounded bg-gray-100" />
       </div>
-    );
+    )
   }
 
   return (
@@ -85,13 +88,12 @@ export default function RegistrationQRCard({ gymName, logoUrl }: RegistrationQRC
       </div>
 
       <div className="flex flex-col sm:flex-row gap-6 items-start">
-        <div ref={qrContainerRef} className="rounded-xl border p-4 bg-white">
+        <div className="rounded-xl border p-4 bg-white">
           <QRCodeCanvas
             value={link.joinUrl}
-            size={QR_EXPORT_SIZE}
+            size={192}
             level="M"
             marginSize={4}
-            style={{ width: QR_DISPLAY_SIZE, height: QR_DISPLAY_SIZE }}
           />
         </div>
 
@@ -104,15 +106,25 @@ export default function RegistrationQRCard({ gymName, logoUrl }: RegistrationQRC
             <Button size="sm" variant="outline" onClick={handleCopy}>
               <Copy className="h-4 w-4 mr-1.5" /> Copy Link
             </Button>
-            <Button size="sm" variant="outline" onClick={handleDownload}>
-              <Download className="h-4 w-4 mr-1.5" /> Download PNG
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleDownload}
+              disabled={isPreparing}
+            >
+              <Download className="h-4 w-4 mr-1.5" />
+              {isPreparing ? 'Preparing…' : 'Download PNG'}
             </Button>
             <Button size="sm" variant="outline" onClick={handlePrint}>
               <Printer className="h-4 w-4 mr-1.5" /> Print
             </Button>
           </div>
+          <p className="text-xs text-gray-400">
+            Download and Print produce a full poster with your gym logo, name
+            and Metric Gym OS branding.
+          </p>
         </div>
       </div>
     </div>
-  );
+  )
 }
