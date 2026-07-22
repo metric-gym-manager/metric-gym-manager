@@ -90,6 +90,32 @@ function metricLogoDataUrl(): string {
   return cachedMetricLogo
 }
 
+/**
+ * Gym profile logos are stored as an SVG data URL that wraps the uploaded
+ * raster (`ProfileImageUpload.convertImageToSvg`): a `data:image/svg+xml`
+ * whose only child is `<image href="data:image/png;base64,…">`. Satori cannot
+ * rasterise a nested-image SVG passed as an `<img>` source (it renders blank),
+ * so unwrap it to the inner raster data URL. Plain raster data URLs and remote
+ * URLs pass through unchanged.
+ */
+export function normalizePosterLogo(logoUrl?: string | null): string | null {
+  if (!logoUrl) return null
+  if (!logoUrl.startsWith('data:image/svg+xml')) return logoUrl
+  try {
+    const commaIdx = logoUrl.indexOf(',')
+    if (commaIdx === -1) return logoUrl
+    const isBase64 = logoUrl.slice(0, commaIdx).includes('base64')
+    const payload = logoUrl.slice(commaIdx + 1)
+    const svg = isBase64
+      ? Buffer.from(payload, 'base64').toString('utf8')
+      : decodeURIComponent(payload)
+    const match = svg.match(/(?:xlink:)?href="(data:image\/[^"]+)"/)
+    return match ? match[1] : logoUrl
+  } catch {
+    return logoUrl
+  }
+}
+
 function UpArrow({ size, color }: { size: number; color: string }) {
   return (
     <svg
@@ -411,7 +437,7 @@ export async function renderQrPosterPng(
     <QrPosterDocument
       gymName={input.gymName}
       location={input.location ?? null}
-      logoUrl={input.logoUrl}
+      logoUrl={normalizePosterLogo(input.logoUrl)}
       qrSrc={qrSrc}
       metricSrc={metricLogoDataUrl()}
       domain={input.domain ?? 'metricgymos.com'}
