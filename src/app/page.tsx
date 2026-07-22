@@ -1,23 +1,5 @@
-import {
-  Navigation,
-  NewHeroSection,
-  NewFeaturesSection,
-  LankaSection,
-  NewPricingSection,
-  FinalCTASection,
-  NewFooter,
-} from '@/components/landing';
+import { LandingPage } from '@/components/landing';
 
 export default function HomePage() {
-  return (
-    <main className="flex min-h-screen flex-col">
-      <Navigation />
-      <NewHeroSection />
-      <NewFeaturesSection />
-      <LankaSection />
-      <NewPricingSection />
-      <FinalCTASection />
-      <NewFooter />
-    </main>
-  );
+  return <LandingPage />;
 }
