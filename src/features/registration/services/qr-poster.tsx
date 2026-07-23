@@ -1,11 +1,16 @@
 /**
- * QR registration poster renderer — "QR Stand 2b" design.
+ * QR registration poster renderer — "QR Stand 2b" design (print variant).
  *
- * Renders the FULL ELECTRIC BLUE / MAXIMUM VISIBILITY A5 poster (600×851,
- * background #1B17FF) as a PNG using `next/og` (Satori). The gym name, profile
- * logo and registration QR are pulled per-gym; the Metric Gym OS footer is
- * fixed branding. The same PNG powers both the "Download PNG" and "Print"
- * actions so the printed sheet and the saved image are pixel-identical.
+ * Renders an A5 poster (600×851) as a PNG using `next/og` (Satori). The gym
+ * name, profile logo and registration QR are pulled per-gym; the Metric Gym OS
+ * footer is fixed branding. The same PNG powers both the "Download PNG" and
+ * "Print" actions so the printed sheet and the saved image are identical.
+ *
+ * Print colour note: the poster uses a WHITE background with BLACK text (only
+ * the Metric logo — and a small accent dot — keep the brand blue). RGB PNG
+ * cannot carry CMYK, and a large solid electric-blue field reproduces poorly
+ * on press, so the ink-light layout keeps colour accuracy a non-issue while
+ * preserving the blue logo the print house is happy to reproduce.
  *
  * Node.js runtime only (reads bundled Geist fonts + the Metric logo from disk).
  */
@@ -20,8 +25,14 @@ export const POSTER_HEIGHT = 851
 /** Rasterise at 2× the authored size for crisp printing (~206dpi at A5). */
 const POSTER_SCALE = 2
 
+/** Brand blue — kept only on the Metric logo + a small accent dot. */
 const BRAND_BLUE = '#1B17FF'
 const MONO = 'Geist Mono'
+/** Ink palette for the white print background. */
+const INK = '#0a0a0b'
+const INK_SOFT = '#44444c'
+const INK_FAINT = '#6b6b73'
+const HAIRLINE = 'rgba(0,0,0,0.1)'
 
 export interface QrPosterInput {
   gymName: string
@@ -154,12 +165,12 @@ function QrPosterDocument({
       style={{
         width: POSTER_WIDTH,
         height: POSTER_HEIGHT,
-        color: '#fff',
+        color: INK,
         position: 'relative',
         overflow: 'hidden',
         display: 'flex',
         flexDirection: 'column',
-        backgroundColor: BRAND_BLUE,
+        backgroundColor: '#FFFFFF',
         fontFamily: 'Geist',
       }}
     >
@@ -172,16 +183,7 @@ function QrPosterDocument({
           justifyContent: 'space-between',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10,
-            backgroundColor: '#fff',
-            borderRadius: 10,
-            padding: '8px 14px 8px 10px',
-          }}
-        >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -197,7 +199,7 @@ function QrPosterDocument({
               fontSize: 15,
               fontWeight: 700,
               letterSpacing: '-0.01em',
-              color: '#0a0a0b',
+              color: INK,
               whiteSpace: 'nowrap',
             }}
           >
@@ -209,7 +211,7 @@ function QrPosterDocument({
             fontFamily: MONO,
             fontSize: 10,
             letterSpacing: '0.16em',
-            color: 'rgba(255,255,255,0.7)',
+            color: INK_FAINT,
           }}
         >
           {location ?? ''}
@@ -231,8 +233,7 @@ function QrPosterDocument({
             alignSelf: 'flex-start',
             alignItems: 'center',
             gap: 8,
-            backgroundColor: 'rgba(255,255,255,0.14)',
-            border: '1px solid rgba(255,255,255,0.3)',
+            border: '1px solid rgba(0,0,0,0.14)',
             borderRadius: 999,
             padding: '6px 13px',
           }}
@@ -242,7 +243,7 @@ function QrPosterDocument({
               width: 6,
               height: 6,
               borderRadius: '50%',
-              backgroundColor: '#fff',
+              backgroundColor: BRAND_BLUE,
               display: 'flex',
             }}
           />
@@ -251,7 +252,7 @@ function QrPosterDocument({
               fontFamily: MONO,
               fontSize: 11,
               letterSpacing: '0.16em',
-              color: '#fff',
+              color: INK,
               whiteSpace: 'nowrap',
             }}
           >
@@ -266,7 +267,7 @@ function QrPosterDocument({
             fontWeight: 700,
             letterSpacing: '-0.045em',
             lineHeight: 0.92,
-            color: '#fff',
+            color: INK,
           }}
         >
           <span>Let&apos;s sign</span>
@@ -276,7 +277,7 @@ function QrPosterDocument({
           style={{
             fontSize: 16,
             lineHeight: 1.4,
-            color: 'rgba(255,255,255,0.9)',
+            color: INK_SOFT,
             maxWidth: 410,
             display: 'flex',
           }}
@@ -300,10 +301,9 @@ function QrPosterDocument({
       >
         <div
           style={{
-            backgroundColor: '#fff',
             padding: 22,
             borderRadius: 16,
-            boxShadow: '0 16px 44px rgba(0,0,0,0.22)',
+            border: `1px solid ${HAIRLINE}`,
             display: 'flex',
           }}
         >
@@ -324,19 +324,19 @@ function QrPosterDocument({
                 fontSize: 24,
                 fontWeight: 700,
                 letterSpacing: '-0.02em',
-                color: '#fff',
+                color: INK,
               }}
             >
               Scan me to register
             </span>
-            <UpArrow size={22} color="#fff" />
+            <UpArrow size={22} color={INK} />
           </div>
           <span
             style={{
               fontFamily: MONO,
               fontSize: 11,
               letterSpacing: '0.16em',
-              color: 'rgba(255,255,255,0.68)',
+              color: INK_FAINT,
             }}
           >
             60 SECONDS · JUST YOUR PHONE
@@ -353,6 +353,7 @@ function QrPosterDocument({
           alignItems: 'center',
           justifyContent: 'space-between',
           backgroundColor: '#FFFFFF',
+          borderTop: `1px solid ${HAIRLINE}`,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
