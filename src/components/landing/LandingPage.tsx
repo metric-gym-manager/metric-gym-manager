@@ -175,9 +175,9 @@ export function LandingPage() {
             <a className="txt" href="#pricing" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>
               Pricing
             </a>
-            <a
+            <Link
               className="l-btn-ghost"
-              href="mailto:founder@metric.lk"
+              href="/login"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -193,10 +193,10 @@ export function LandingPage() {
               }}
             >
               Log in
-            </a>
-            <a
+            </Link>
+            <Link
               className="l-btn-solid"
-              href="mailto:founder@metric.lk?subject=Book a live demo"
+              href="/register"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -212,7 +212,7 @@ export function LandingPage() {
               }}
             >
               Sign Up
-            </a>
+            </Link>
           </div>
         </div>
       </nav>
