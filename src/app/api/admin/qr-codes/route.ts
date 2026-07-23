@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin'
 import { listGymsWithRegistrationLinks } from '@/features/registration/services/registration-link.service'
+import { getHttpStatusFromErrorCode, ResponseBuilder } from '@/utils/api'
 
 // ============================================================
 // GET /api/admin/qr-codes
@@ -18,26 +19,20 @@ export async function GET() {
     const admin = await getSaasAdmin()
     if (!admin) {
       console.warn('Unauthorized admin API access attempt')
-      return NextResponse.json(
-        { success: false, error: 'Forbidden - SaaS admin access required' },
-        { status: 403 }
-      )
+      const body = ResponseBuilder.forbidden()
+      return NextResponse.json(body, {
+        status: getHttpStatusFromErrorCode(body.error.code),
+      })
     }
 
     const items = await listGymsWithRegistrationLinks()
 
-    return NextResponse.json({ success: true, data: items })
+    return NextResponse.json(ResponseBuilder.success(items))
   } catch (error) {
-    if (error instanceof Error && error.message === 'Failed to fetch gyms') {
-      return NextResponse.json(
-        { success: false, error: 'Failed to fetch gyms' },
-        { status: 500 }
-      )
-    }
     console.error('Admin QR codes API error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to fetch QR codes' },
-      { status: 500 }
-    )
+    const body = ResponseBuilder.internalError('Failed to fetch QR codes')
+    return NextResponse.json(body, {
+      status: getHttpStatusFromErrorCode(body.error.code),
+    })
   }
 }

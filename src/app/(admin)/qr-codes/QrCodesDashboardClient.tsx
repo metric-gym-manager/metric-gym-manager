@@ -62,7 +62,7 @@ export default function QrCodesDashboardClient() {
       const response = await fetch('/api/admin/qr-codes')
       const result = await response.json()
       if (!response.ok || !result.success) {
-        throw new Error(result?.error || 'Failed to load QR codes')
+        throw new Error(result?.error?.message || 'Failed to load QR codes')
       }
       return result.data
     },
@@ -78,7 +78,9 @@ export default function QrCodesDashboardClient() {
       })
       const result = await response.json()
       if (!response.ok || !result.success) {
-        throw new Error(result?.error || 'Failed to regenerate QR code')
+        throw new Error(
+          result?.error?.message || 'Failed to regenerate QR code'
+        )
       }
       return result.data
     },

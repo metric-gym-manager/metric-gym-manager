@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin'
 import { rotateRegistrationToken } from '@/features/registration/services/registration-link.service'
+import { getHttpStatusFromErrorCode, ResponseBuilder } from '@/utils/api'
 
 // ============================================================
 // POST /api/admin/qr-codes/regenerate
@@ -24,28 +25,28 @@ export async function POST(request: Request) {
     const admin = await getSaasAdmin()
     if (!admin) {
       console.warn('Unauthorized admin QR regenerate attempt')
-      return NextResponse.json(
-        { success: false, error: 'Forbidden - SaaS admin access required' },
-        { status: 403 }
-      )
+      const body = ResponseBuilder.forbidden()
+      return NextResponse.json(body, {
+        status: getHttpStatusFromErrorCode(body.error.code),
+      })
     }
 
     const parsed = BodySchema.safeParse(await request.json().catch(() => null))
     if (!parsed.success) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid gymId' },
-        { status: 400 }
-      )
+      const body = ResponseBuilder.badRequest('Invalid gymId')
+      return NextResponse.json(body, {
+        status: getHttpStatusFromErrorCode(body.error.code),
+      })
     }
 
     const link = await rotateRegistrationToken(parsed.data.gymId)
 
-    return NextResponse.json({ success: true, data: link })
+    return NextResponse.json(ResponseBuilder.success(link))
   } catch (error) {
     console.error('Admin QR regenerate API error:', error)
-    return NextResponse.json(
-      { success: false, error: 'Failed to regenerate QR code' },
-      { status: 500 }
-    )
+    const body = ResponseBuilder.internalError('Failed to regenerate QR code')
+    return NextResponse.json(body, {
+      status: getHttpStatusFromErrorCode(body.error.code),
+    })
   }
 }
