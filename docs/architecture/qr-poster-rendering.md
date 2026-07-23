@@ -2,6 +2,7 @@
 
 > On-demand reference. Loaded when working on server-rendered images / posters,
 > not auto-injected. Governing rule indexed in `.claude/rules/architecture.md`:
+
 - **§2.16 Server-side branded image generation** — Render branded documents/
   images (the member self-registration QR poster) server-side with `next/og`
   (Satori), one PNG shared by both print and download, per gym.
@@ -56,8 +57,11 @@ of truth.
 
 - `GET /api/settings/qr-poster` — session auth (`getApiGymProfile`), the
   current gym's poster.
-- `GET /api/admin/qr-poster?gymId=<uuid>` — SaaS-operator auth
-  (`ADMIN_ALLOWED_EMAIL`, checked before any query), any gym's poster.
+- `GET /api/admin/qr-poster?gymId=<uuid>` — SaaS-operator auth (`getSaasAdmin`:
+  Supabase session + `saas_admins` membership, checked before any query), any
+  gym's poster. Companion routes `GET /api/admin/qr-codes` (list) and
+  `POST /api/admin/qr-codes/regenerate` (rotate a gym's token) share the same
+  gate.
 
 Both resolve gym name, profile logo, derived locality and the join URL through
 `registration-link.service.ts` (`getGymPosterInput` /

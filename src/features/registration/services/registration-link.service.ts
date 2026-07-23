@@ -225,6 +225,59 @@ export async function listGymsWithRegistrationLinks(): Promise<
   })
 }
 
+/**
+ * Regenerate (rotate) a gym's public registration token.
+ *
+ * Generates a fresh unguessable token, stamps `rotated_at`, and re-activates
+ * the link. Because the token is UNIQUE and the QR encodes `/join/{token}`,
+ * rotating it immediately invalidates every previously printed poster without
+ * touching the gym id. Admin client (cross-tenant) — the caller MUST have
+ * performed SaaS-operator authorization first. Creates the link if the gym
+ * somehow has none yet.
+ *
+ * @param gymId - The gym whose token to rotate
+ * @returns The new registration link
+ * @throws {Error} When the update/insert fails
+ */
+export async function rotateRegistrationToken(
+  gymId: string
+): Promise<RegistrationLink> {
+  const supabase = createAdminClient()
+  const token = generateToken()
+
+  const { data: updated, error: updateError } = await supabase
+    .from('gym_registration_links')
+    .update({ token, is_active: true, rotated_at: new Date().toISOString() })
+    .eq('gym_id', gymId)
+    .select('token, is_active, created_at, rotated_at')
+    .maybeSingle()
+
+  if (updateError) {
+    throw new Error(
+      `Failed to rotate registration link: ${updateError.message}`
+    )
+  }
+
+  if (updated) {
+    return toRegistrationLink(updated as LinkRow)
+  }
+
+  // No existing link (edge case) — create one with the freshly generated token.
+  const { data: created, error: insertError } = await supabase
+    .from('gym_registration_links')
+    .insert({ gym_id: gymId, token })
+    .select('token, is_active, created_at, rotated_at')
+    .single()
+
+  if (insertError || !created) {
+    throw new Error(
+      `Failed to create registration link: ${insertError?.message}`
+    )
+  }
+
+  return toRegistrationLink(created as LinkRow)
+}
+
 export interface GymPosterInput {
   gymName: string
   location: string | null

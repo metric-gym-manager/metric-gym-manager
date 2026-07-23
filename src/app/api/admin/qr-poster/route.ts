@@ -2,11 +2,8 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { getGymPosterInput } from '@/features/registration/services/registration-link.service'
 import { renderQrPosterPng } from '@/features/registration/services/qr-poster'
-import { getApiGymProfile } from '@/lib/middleware/api-auth'
-import {
-  getHttpStatusFromErrorCode,
-  ResponseBuilder,
-} from '@/utils/api'
+import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin'
+import { getHttpStatusFromErrorCode, ResponseBuilder } from '@/utils/api'
 
 // ============================================================
 // GET /api/admin/qr-poster?gymId=<uuid>
@@ -20,18 +17,14 @@ export const dynamic = 'force-dynamic'
 const QuerySchema = z.object({ gymId: z.string().uuid() })
 
 /**
- * Authorization: SaaS operator only. Requires a valid session whose gym-owner
- * email matches ADMIN_ALLOWED_EMAIL (server-only env var). No client-held secret.
+ * Authorization: Supabase session + `saas_admins` membership (getSaasAdmin) —
+ * the canonical SaaS-operator gate, same as the QR dashboard listing. No
+ * client-held secret.
  */
 export async function GET(request: Request) {
   // CRITICAL: Strict authorization check BEFORE any database queries.
-  const { gymProfile, error: authError } = await getApiGymProfile()
-  if (authError) {
-    return authError
-  }
-
-  const allowedEmail = process.env.ADMIN_ALLOWED_EMAIL
-  if (!allowedEmail || gymProfile!.email !== allowedEmail) {
+  const admin = await getSaasAdmin()
+  if (!admin) {
     console.warn('Unauthorized admin QR poster access attempt')
     const body = ResponseBuilder.forbidden()
     return NextResponse.json(body, {
