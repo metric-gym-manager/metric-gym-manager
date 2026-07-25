@@ -39,3 +39,21 @@ export * from './primitives/Toast'
 // Overlays
 export * from './primitives/Modal'
 export * from './primitives/Drawer'
+
+// ── Phase 2 ──────────────────────────────────────────────────────────────────
+// Navigation
+export * from './primitives/Tabs'
+export * from './primitives/Accordion'
+export * from './primitives/Breadcrumb'
+export * from './primitives/Pagination'
+
+// Menus & overlays
+export * from './primitives/Popover'
+export * from './primitives/DropdownMenu'
+export * from './primitives/Progress'
+export * from './primitives/CommandPalette'
+
+// Data
+export * from './primitives/DataTable'
+export * from './primitives/useVirtualRows'
+export * from './primitives/Charts'

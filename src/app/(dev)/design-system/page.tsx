@@ -2,27 +2,67 @@
 
 import * as React from 'react'
 import { notFound } from 'next/navigation'
-import { Search, Copy, Trash2, Plus, Users, Info } from 'lucide-react'
 import {
+  Search,
+  Copy,
+  Trash2,
+  Plus,
+  Users,
+  Info,
+  MoreHorizontal,
+  LayoutDashboard,
+  CreditCard,
+} from 'lucide-react'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
   Alert,
+  AreaChart,
   Avatar,
   Badge,
+  BarChart,
+  Breadcrumb,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
   Button,
   Card,
   CardBody,
   CardHeader,
   CardLabel,
   Checkbox,
+  CommandGroup,
+  CommandItem,
+  CommandPalette,
+  DataTable,
+  type DataTableColumn,
   Divider,
+  DonutChart,
   Drawer,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
   EmptyState,
   FormField,
   Input,
+  LineChart,
   Modal,
+  Pagination,
+  PieChart,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Progress,
   Radio,
   Select,
   Skeleton,
   SkeletonText,
+  Sparkline,
   Spinner,
   Switch,
   Table,
@@ -32,10 +72,50 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
   Textarea,
   Tooltip,
   TooltipProvider,
+  useCommandK,
 } from '@/components/ui'
+
+interface DemoMember {
+  id: string
+  name: string
+  status: 'Active' | 'Due' | 'Overdue'
+  amount: number
+}
+
+const DEMO_MEMBERS: DemoMember[] = [
+  { id: '1', name: 'Nimal Perera', status: 'Active', amount: 4990 },
+  { id: '2', name: 'Sara Kularatne', status: 'Due', amount: 12500 },
+  { id: '3', name: 'Amal Silva', status: 'Overdue', amount: 2000 },
+  { id: '4', name: 'Ravi Fernando', status: 'Active', amount: 7500 },
+  { id: '5', name: 'Dilan Jayasuriya', status: 'Active', amount: 4990 },
+]
+
+const REVENUE = [
+  { month: 'Mar', revenue: 420 },
+  { month: 'Apr', revenue: 380 },
+  { month: 'May', revenue: 510 },
+  { month: 'Jun', revenue: 640 },
+  { month: 'Jul', revenue: 590 },
+]
+
+const PLAN_MIX = [
+  { name: 'Lite', value: 42 },
+  { name: 'Pro', value: 30 },
+  { name: 'Enterprise', value: 12 },
+]
+
+const badgeForStatus = {
+  Active: 'success',
+  Due: 'warning',
+  Overdue: 'error',
+} as const
 
 /**
  * Design System Showcase — dev-only visual + interaction reference for the Metric
@@ -81,6 +161,24 @@ function Showcase({ theme }: { theme: 'light' | 'dark' }) {
   const [modalOpen, setModalOpen] = React.useState(false)
   const [drawerOpen, setDrawerOpen] = React.useState(false)
   const [checked, setChecked] = React.useState(true)
+  const [page, setPage] = React.useState(1)
+  const [cmdkOpen, setCmdkOpen] = useCommandK()
+
+  const memberColumns: DataTableColumn<DemoMember>[] = [
+    { id: 'name', header: 'Name', sortValue: (r) => r.name },
+    {
+      id: 'status',
+      header: 'Status',
+      cell: (r) => <Badge variant={badgeForStatus[r.status]}>{r.status}</Badge>,
+    },
+    {
+      id: 'amount',
+      header: 'Amount',
+      numeric: true,
+      sortValue: (r) => r.amount,
+      cell: (r) => r.amount.toLocaleString(),
+    },
+  ]
 
   return (
     <TooltipProvider>
@@ -349,6 +447,185 @@ function Showcase({ theme }: { theme: 'light' | 'dark' }) {
               }
             />
           </Section>
+
+          {/* Navigation */}
+          <Section title="Navigation">
+            <Breadcrumb>
+              <BreadcrumbLink href="#">Metric</BreadcrumbLink>
+              <BreadcrumbSeparator />
+              <BreadcrumbLink href="#">Members</BreadcrumbLink>
+              <BreadcrumbSeparator />
+              <BreadcrumbPage>Nimal Perera</BreadcrumbPage>
+            </Breadcrumb>
+            <Divider />
+            <Tabs defaultValue="all">
+              <TabsList>
+                <TabsTrigger value="all">All</TabsTrigger>
+                <TabsTrigger value="due">Due</TabsTrigger>
+                <TabsTrigger value="overdue">Overdue</TabsTrigger>
+              </TabsList>
+              <TabsContent value="all">
+                <span className="text-ink-secondary">
+                  All members shown here.
+                </span>
+              </TabsContent>
+              <TabsContent value="due">
+                <span className="text-ink-secondary">Members with dues.</span>
+              </TabsContent>
+              <TabsContent value="overdue">
+                <span className="text-ink-secondary">Overdue members.</span>
+              </TabsContent>
+            </Tabs>
+            <Divider />
+            <Accordion type="single" collapsible>
+              <AccordionItem value="a">
+                <AccordionTrigger>Billing details</AccordionTrigger>
+                <AccordionContent>
+                  Card ending 4242 · renews 2026-08-24.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem value="b">
+                <AccordionTrigger>Notification settings</AccordionTrigger>
+                <AccordionContent>SMS reminders enabled.</AccordionContent>
+              </AccordionItem>
+            </Accordion>
+            <Divider />
+            <Pagination page={page} pageCount={8} onPageChange={setPage} />
+          </Section>
+
+          {/* Menus & disclosure */}
+          <Section title="Menus & disclosure">
+            <Row>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="secondary" leftIcon={<MoreHorizontal />}>
+                    Actions
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent theme={theme}>
+                  <DropdownMenuLabel>Member</DropdownMenuLabel>
+                  <DropdownMenuItem>View profile</DropdownMenuItem>
+                  <DropdownMenuItem>Send reminder</DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem destructive>Remove</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="secondary">Open popover</Button>
+                </PopoverTrigger>
+                <PopoverContent theme={theme}>
+                  <p className="font-medium text-ink">Quick note</p>
+                  <p className="mt-1 text-ink-secondary">
+                    Popovers hold secondary content.
+                  </p>
+                </PopoverContent>
+              </Popover>
+
+              <Button variant="secondary" onClick={() => setCmdkOpen(true)}>
+                Command palette (⌘K)
+              </Button>
+            </Row>
+            <Row label="Progress">
+              <div className="flex w-full max-w-xs flex-col gap-2">
+                <Progress value={30} tone="accent" aria-label="Storage" />
+                <Progress value={65} tone="success" aria-label="Uploads" />
+                <Progress value={90} tone="warning" aria-label="Quota" />
+              </div>
+            </Row>
+          </Section>
+
+          {/* DataTable */}
+          <Section title="DataTable">
+            <DataTable
+              columns={memberColumns}
+              data={DEMO_MEMBERS}
+              getRowId={(r) => r.id}
+              searchable
+              selectable
+              pageSize={4}
+              defaultSort={{ columnId: 'name', direction: 'asc' }}
+              bulkActions={(rows) => (
+                <Button size="xs" variant="destructive-ghost">
+                  Delete {rows.length}
+                </Button>
+              )}
+            />
+          </Section>
+
+          {/* Charts */}
+          <Section title="Charts">
+            <div className="grid grid-cols-1 gap-4 tablet:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardLabel>Revenue — line</CardLabel>
+                </CardHeader>
+                <CardBody>
+                  <LineChart
+                    label="Revenue trend"
+                    data={REVENUE}
+                    xKey="month"
+                    series={[{ key: 'revenue', label: 'Revenue' }]}
+                    valueFormatter={(v) => `LKR ${Number(v).toLocaleString()}k`}
+                  />
+                </CardBody>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardLabel>Revenue — bar</CardLabel>
+                </CardHeader>
+                <CardBody>
+                  <BarChart
+                    label="Monthly revenue"
+                    data={REVENUE}
+                    xKey="month"
+                    series={[{ key: 'revenue', label: 'Revenue' }]}
+                  />
+                </CardBody>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardLabel>Revenue — area</CardLabel>
+                </CardHeader>
+                <CardBody>
+                  <AreaChart
+                    label="Revenue area"
+                    data={REVENUE}
+                    xKey="month"
+                    series={[{ key: 'revenue', label: 'Revenue' }]}
+                  />
+                </CardBody>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardLabel>Plan mix — donut</CardLabel>
+                </CardHeader>
+                <CardBody>
+                  <DonutChart label="Plan mix" data={PLAN_MIX} />
+                </CardBody>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardLabel>Plan mix — pie</CardLabel>
+                </CardHeader>
+                <CardBody>
+                  <PieChart label="Plan mix pie" data={PLAN_MIX} />
+                </CardBody>
+              </Card>
+              <Card>
+                <CardBody className="flex flex-col gap-1">
+                  <CardLabel>Sparkline</CardLabel>
+                  <span className="font-mono text-2xl font-semibold tabular-nums text-ink">
+                    590k
+                  </span>
+                  <Sparkline
+                    data={REVENUE.map((r) => ({ value: r.revenue }))}
+                  />
+                </CardBody>
+              </Card>
+            </div>
+          </Section>
         </div>
 
         <Modal
@@ -413,6 +690,27 @@ function Showcase({ theme }: { theme: 'light' | 'dark' }) {
             </FormField>
           </div>
         </Drawer>
+
+        <CommandPalette
+          open={cmdkOpen}
+          onOpenChange={setCmdkOpen}
+          theme={theme}
+        >
+          <CommandGroup heading="Navigate">
+            <CommandItem onSelect={() => setCmdkOpen(false)}>
+              <LayoutDashboard />
+              Go to dashboard
+            </CommandItem>
+            <CommandItem onSelect={() => setCmdkOpen(false)}>
+              <Users />
+              Go to members
+            </CommandItem>
+            <CommandItem onSelect={() => setCmdkOpen(false)}>
+              <CreditCard />
+              Go to billing
+            </CommandItem>
+          </CommandGroup>
+        </CommandPalette>
       </div>
     </TooltipProvider>
   )

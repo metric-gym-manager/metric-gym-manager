@@ -268,6 +268,8 @@ const config: Config = {
         'drawer-in': 'drawer-in 180ms ease',
         'pal-in': 'pal-in 140ms ease',
         'fade-in': 'fade-in 140ms ease',
+        'accordion-down': 'accordion-down 200ms ease',
+        'accordion-up': 'accordion-up 200ms ease',
       },
       keyframes: {
         'scroll-left': {
@@ -294,6 +296,14 @@ const config: Config = {
         'fade-in': {
           from: { opacity: '0' },
           to: { opacity: '1' },
+        },
+        'accordion-down': {
+          from: { height: '0' },
+          to: { height: 'var(--radix-accordion-content-height)' },
+        },
+        'accordion-up': {
+          from: { height: 'var(--radix-accordion-content-height)' },
+          to: { height: '0' },
         },
       },
     },
