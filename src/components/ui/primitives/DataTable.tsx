@@ -30,7 +30,8 @@ import { useVirtualRows } from './useVirtualRows'
  * DataTable — the reusable data grid every table screen composes (spec §11 Tables,
  * §14 States, §17 Performance). One implementation of: sorting, global filter,
  * row selection + bulk actions, sticky header, client pagination, loading
- * skeletons, empty + error states, expandable rows, and opt-in virtualization.
+ * skeletons, empty + error states, expandable rows, opt-in virtualization, and
+ * opt-in column resizing (drag or keyboard).
  *
  * Business tables pass typed `columns` + `data`; they never restyle table chrome.
  */
@@ -48,6 +49,10 @@ export interface DataTableColumn<T> {
   className?: string
   headerClassName?: string
   width?: string
+  /** Allow the user to drag-resize this column (adds a keyboard-accessible handle). */
+  resizable?: boolean
+  /** Minimum width (px) when resizing. Defaults to 80. */
+  minWidth?: number
 }
 
 export interface DataTableProps<T> {
@@ -94,6 +99,11 @@ export interface DataTableProps<T> {
   virtualize?: boolean
   rowHeight?: number
 
+  // Column resizing (opt-in per column via column.resizable)
+  onColumnResize?: (columnId: string, width: number) => void
+  /** Persist resized widths to localStorage under this key. */
+  storageKey?: string
+
   className?: string
 }
 
@@ -139,6 +149,8 @@ export function DataTable<T>({
   maxBodyHeight,
   virtualize,
   rowHeight = 41,
+  onColumnResize,
+  storageKey,
   className,
 }: DataTableProps<T>) {
   const [sort, setSort] = React.useState<{
@@ -150,6 +162,95 @@ export function DataTable<T>({
   const [internalSelected, setInternalSelected] = React.useState<string[]>([])
   const [expanded, setExpanded] = React.useState<Set<string>>(new Set())
   const scrollRef = React.useRef<HTMLDivElement>(null)
+
+  // ── Column resizing ──────────────────────────────────────────────────────
+  const hasResizable = React.useMemo(
+    () => columns.some((c) => c.resizable),
+    [columns]
+  )
+  const [colWidths, setColWidths] = React.useState<Record<string, number>>(
+    () => {
+      if (typeof window !== 'undefined' && storageKey) {
+        try {
+          const raw = window.localStorage.getItem(storageKey)
+          if (raw) return JSON.parse(raw) as Record<string, number>
+        } catch {
+          /* ignore malformed storage */
+        }
+      }
+      return {}
+    }
+  )
+  const colWidthsRef = React.useRef(colWidths)
+  const thRefs = React.useRef<Record<string, HTMLTableCellElement | null>>({})
+  const dragRef = React.useRef<{
+    id: string
+    startX: number
+    startWidth: number
+    min: number
+  } | null>(null)
+
+  // Keep the ref in sync for event handlers, and persist if requested.
+  React.useEffect(() => {
+    colWidthsRef.current = colWidths
+    if (storageKey) {
+      try {
+        window.localStorage.setItem(storageKey, JSON.stringify(colWidths))
+      } catch {
+        /* ignore quota errors */
+      }
+    }
+  }, [colWidths, storageKey])
+
+  const measuredWidth = (id: string): number =>
+    colWidthsRef.current[id] ??
+    (thRefs.current[id]?.getBoundingClientRect().width || 160)
+
+  const startColumnResize = (
+    e: React.PointerEvent,
+    col: DataTableColumn<T>
+  ) => {
+    e.preventDefault()
+    e.stopPropagation()
+    dragRef.current = {
+      id: col.id,
+      startX: e.clientX,
+      startWidth: measuredWidth(col.id),
+      min: col.minWidth ?? 80,
+    }
+    const onMove = (ev: PointerEvent) => {
+      const d = dragRef.current
+      if (!d) return
+      const next = Math.max(d.min, d.startWidth + (ev.clientX - d.startX))
+      setColWidths((prev) => ({ ...prev, [d.id]: next }))
+    }
+    const onUp = () => {
+      const d = dragRef.current
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      document.body.style.removeProperty('user-select')
+      document.body.style.removeProperty('cursor')
+      if (d) onColumnResize?.(d.id, colWidthsRef.current[d.id] ?? d.startWidth)
+      dragRef.current = null
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    document.body.style.setProperty('user-select', 'none')
+    document.body.style.setProperty('cursor', 'col-resize')
+  }
+
+  const onResizeKey = (e: React.KeyboardEvent, col: DataTableColumn<T>) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const step = e.shiftKey ? 24 : 8
+    const min = col.minWidth ?? 80
+    const next = Math.max(
+      min,
+      measuredWidth(col.id) + (e.key === 'ArrowRight' ? step : -step)
+    )
+    setColWidths((prev) => ({ ...prev, [col.id]: next }))
+    onColumnResize?.(col.id, next)
+  }
 
   const query = globalFilter ?? internalQuery
   const isSelectionControlled = selectedIds !== undefined
@@ -293,8 +394,24 @@ export function DataTable<T>({
             : undefined
         }
       >
-        <Table>
+        <Table className={cn(hasResizable && 'table-fixed')}>
           {caption && <caption className="sr-only">{caption}</caption>}
+          {hasResizable && (
+            <colgroup>
+              {selectable && <col className="w-10" />}
+              {renderExpanded && <col className="w-10" />}
+              {columns.map((col) => (
+                <col
+                  key={col.id}
+                  style={{
+                    width: colWidths[col.id]
+                      ? `${colWidths[col.id]}px`
+                      : col.width,
+                  }}
+                />
+              ))}
+            </colgroup>
+          )}
           <TableHeader
             className={cn(
               stickyHeader && 'sticky top-0 z-sticky bg-surface-card'
@@ -319,10 +436,20 @@ export function DataTable<T>({
                 return (
                   <TableHead
                     key={col.id}
+                    ref={(el) => {
+                      thRefs.current[col.id] = el
+                    }}
                     numeric={col.numeric}
                     aria-sort={ariaSortFor(col)}
-                    className={col.headerClassName}
-                    style={col.width ? { width: col.width } : undefined}
+                    className={cn(
+                      col.resizable && 'relative',
+                      col.headerClassName
+                    )}
+                    style={
+                      !hasResizable && col.width
+                        ? { width: col.width }
+                        : undefined
+                    }
                   >
                     {col.sortValue ? (
                       <button
@@ -346,6 +473,17 @@ export function DataTable<T>({
                       </button>
                     ) : (
                       col.header
+                    )}
+                    {col.resizable && (
+                      <span
+                        role="separator"
+                        aria-orientation="vertical"
+                        aria-label={`Resize ${col.id} column`}
+                        tabIndex={0}
+                        onPointerDown={(e) => startColumnResize(e, col)}
+                        onKeyDown={(e) => onResizeKey(e, col)}
+                        className="absolute right-0 top-0 h-full w-1 cursor-col-resize touch-none select-none bg-transparent transition-colors duration-fast hover:bg-line-2 focus-visible:bg-accentui focus-visible:outline-none"
+                      />
                     )}
                   </TableHead>
                 )

@@ -186,10 +186,18 @@ function Showcase({ theme }: { theme: 'light' | 'dark' }) {
   const [smsOn, setSmsOn] = React.useState(true)
 
   const memberColumns: DataTableColumn<DemoMember>[] = [
-    { id: 'name', header: 'Name', sortValue: (r) => r.name },
+    {
+      id: 'name',
+      header: 'Name',
+      sortValue: (r) => r.name,
+      resizable: true,
+      minWidth: 120,
+    },
     {
       id: 'status',
       header: 'Status',
+      resizable: true,
+      minWidth: 100,
       cell: (r) => <Badge variant={badgeForStatus[r.status]}>{r.status}</Badge>,
     },
     {

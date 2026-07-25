@@ -117,3 +117,60 @@ describe('DataTable', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Failed to load')
   })
 })
+
+describe('DataTable column resizing', () => {
+  const firstCol = (container: HTMLElement) =>
+    container.querySelector('colgroup col') as HTMLTableColElement
+
+  it('renders a keyboard-accessible resize separator for resizable columns', () => {
+    const cols: DataTableColumn<Member>[] = [
+      { id: 'name', header: 'Name', resizable: true, minWidth: 80 },
+      { id: 'amount', header: 'Amount', numeric: true, cell: (r) => r.amount },
+    ]
+    render(<DataTable columns={cols} data={data} getRowId={(r) => r.id} />)
+    const sep = screen.getByRole('separator', { name: /resize name column/i })
+    expect(sep).toHaveAttribute('aria-orientation', 'vertical')
+    expect(sep).toHaveAttribute('tabindex', '0')
+  })
+
+  it('widens a column with the ArrowRight key', () => {
+    const cols: DataTableColumn<Member>[] = [
+      { id: 'name', header: 'Name', resizable: true, minWidth: 80 },
+      { id: 'amount', header: 'Amount', numeric: true, cell: (r) => r.amount },
+    ]
+    const { container } = render(
+      <DataTable columns={cols} data={data} getRowId={(r) => r.id} />
+    )
+    fireEvent.keyDown(
+      screen.getByRole('separator', { name: /resize name column/i }),
+      {
+        key: 'ArrowRight',
+      }
+    )
+    // measured width is 0 in jsdom → falls back to 160; +8 = 168
+    expect(firstCol(container).style.width).toBe('168px')
+  })
+
+  it('clamps a column to its minWidth', () => {
+    const cols: DataTableColumn<Member>[] = [
+      { id: 'name', header: 'Name', resizable: true, minWidth: 160 },
+      { id: 'amount', header: 'Amount', numeric: true, cell: (r) => r.amount },
+    ]
+    const { container } = render(
+      <DataTable columns={cols} data={data} getRowId={(r) => r.id} />
+    )
+    fireEvent.keyDown(
+      screen.getByRole('separator', { name: /resize name column/i }),
+      {
+        key: 'ArrowLeft',
+      }
+    )
+    // 160 − 8 = 152, clamped up to minWidth 160
+    expect(firstCol(container).style.width).toBe('160px')
+  })
+
+  it('does not render separators when no column is resizable', () => {
+    render(<DataTable columns={columns} data={data} getRowId={(r) => r.id} />)
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument()
+  })
+})
