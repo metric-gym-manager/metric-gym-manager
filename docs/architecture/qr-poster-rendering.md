@@ -2,6 +2,7 @@
 
 > On-demand reference. Loaded when working on server-rendered images / posters,
 > not auto-injected. Governing rule indexed in `.claude/rules/architecture.md`:
+
 - **§2.16 Server-side branded image generation** — Render branded documents/
   images (the member self-registration QR poster) server-side with `next/og`
   (Satori), one PNG shared by both print and download, per gym.
@@ -11,15 +12,25 @@
 ## What & why
 
 The member self-registration QR is distributed as a print/PNG **poster** — the
-"QR Stand 2b" design (full electric-blue `#1B17FF`, A5): gym logo + name in a
-white pill, locality tag, hero copy, the QR on a white card, and a fixed
-"Powered by Metric Gym OS" footer with the brand domain.
+"QR Stand 2b" design (A5): gym logo + name, a locality tag, hero copy, the QR,
+and a fixed "Powered by Metric Gym OS" footer with the brand domain.
 
 The poster is generated **server-side** as a single PNG so that the printed
-sheet and the downloaded file are pixel-identical, and so cross-origin gym
-logos (served from R2) never taint a browser canvas. The old client-canvas
-`printQrPosters()` HTML flow was replaced by this in favour of a single source
-of truth.
+sheet and the downloaded file are pixel-identical, and so the gym logo never
+taints a browser canvas. The old client-canvas `printQrPosters()` HTML flow was
+replaced by this in favour of a single source of truth.
+
+### Print colour (white background, black text, blue logo)
+
+The poster uses a **white background with black text**; only the Metric logo —
+and a small 6px accent dot — keep the brand blue. This is deliberate: an RGB
+PNG cannot carry CMYK, and a large solid electric-blue field reproduces poorly
+on press (the print house flagged low blue-colour accuracy). The ink-light
+layout removes the only large solid ink field, so colour accuracy is a
+non-issue while the small blue logo (which the print house reproduces fine) is
+preserved. `next/og` → Satori → resvg emits **RGB PNG only**; true CMYK would
+require a different output format (PDF/TIFF) plus a bundled ICC profile and a
+new toolchain — out of scope, and unnecessary given the white layout.
 
 ## Renderer
 
@@ -56,8 +67,11 @@ of truth.
 
 - `GET /api/settings/qr-poster` — session auth (`getApiGymProfile`), the
   current gym's poster.
-- `GET /api/admin/qr-poster?gymId=<uuid>` — SaaS-operator auth
-  (`ADMIN_ALLOWED_EMAIL`, checked before any query), any gym's poster.
+- `GET /api/admin/qr-poster?gymId=<uuid>` — SaaS-operator auth (`getSaasAdmin`:
+  Supabase session + `saas_admins` membership, checked before any query), any
+  gym's poster. Companion routes `GET /api/admin/qr-codes` (list) and
+  `POST /api/admin/qr-codes/regenerate` (rotate a gym's token) share the same
+  gate.
 
 Both resolve gym name, profile logo, derived locality and the join URL through
 `registration-link.service.ts` (`getGymPosterInput` /
