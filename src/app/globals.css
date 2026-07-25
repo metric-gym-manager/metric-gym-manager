@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Inter is loaded via next/font (`--font-inter`) in app/layout.tsx — no second
+   network fetch here. Geist / Geist Mono (the design-system fonts) load the same
+   way. Spec §17 Performance: fonts use next/font with display=swap. */
 
 @tailwind base;
 @tailwind components;
@@ -64,6 +66,125 @@
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
     --radius: 0.5rem;
+  }
+}
+
+/* ============================================================
+   METRIC DESIGN SYSTEM — Semantic color tokens (Layer 1)
+   Single source of truth mirroring src/components/ui/tokens.ts and the
+   Metric Design System Specification §2. Components reference these via
+   Tailwind utilities bound to the vars (see tailwind.config.ts); the active
+   theme is the nearest [data-theme] scope (or the legacy .mws-root /
+   .mauth-root scopes). Never reference primitive values from a component.
+   ============================================================ */
+@layer base {
+  :root,
+  [data-theme='light'],
+  .mws-root {
+    /* Surfaces */
+    --ds-surface-base: #f4f4f5;
+    --ds-surface-card: #ffffff;
+    --ds-surface-panel: #ffffff;
+    --ds-surface-input: #f4f4f5;
+    --ds-surface-hover: rgba(0, 0, 0, 0.04);
+    --ds-surface-active: rgba(0, 0, 0, 0.045);
+    --ds-surface-overlay: rgba(0, 0, 0, 0.45);
+    /* Borders */
+    --ds-border-1: rgba(0, 0, 0, 0.09);
+    --ds-border-2: rgba(0, 0, 0, 0.13);
+    --ds-border-3: rgba(0, 0, 0, 0.16);
+    --ds-border-hover: rgba(0, 0, 0, 0.28);
+    --ds-border-strong: rgba(0, 0, 0, 0.35);
+    --ds-border-subtle: rgba(0, 0, 0, 0.05);
+    --ds-border-dashed: rgba(0, 0, 0, 0.16);
+    /* Text */
+    --ds-text-primary: #18181b;
+    --ds-text-secondary: #52525b;
+    --ds-text-muted: #8a8a92;
+    --ds-text-placeholder: #c4c4c8;
+    /* Primary (solid neutral) */
+    --ds-primary: #18181b;
+    --ds-primary-text: #f4f4f5;
+    /* Accent */
+    --ds-accent: #1b17ff;
+    --ds-accent-hover: #3230ff;
+    --ds-accent-text: #ffffff;
+    --ds-accent-link: #4340ff;
+    --ds-accent-link-hover: #1b17ff;
+    --ds-accent-bg: rgba(27, 23, 255, 0.12);
+    --ds-accent-border: rgba(138, 136, 255, 0.3);
+    --ds-focus-border: #1b17ff;
+    /* Status — tint recipe: text / 10% bg / 25% border */
+    --ds-success-text: #1a7f37;
+    --ds-success-bg: rgba(63, 185, 80, 0.1);
+    --ds-success-border: rgba(63, 185, 80, 0.25);
+    --ds-warning-text: #9a6700;
+    --ds-warning-bg: rgba(210, 153, 34, 0.1);
+    --ds-warning-border: rgba(210, 153, 34, 0.25);
+    --ds-error-text: #cf222e;
+    --ds-error-bg: rgba(248, 81, 73, 0.1);
+    --ds-error-border: rgba(248, 81, 73, 0.25);
+    --ds-destructive: #cf222e;
+    --ds-destructive-text: #ffffff;
+    /* Effects (theme-varying) */
+    --ds-focus-ring: 0 0 0 3px rgba(27, 23, 255, 0.25);
+    --ds-focus-ring-error: 0 0 0 3px rgba(248, 81, 73, 0.25);
+    --ds-shadow-overlay: 0 16px 48px rgba(0, 0, 0, 0.5);
+    color-scheme: light;
+  }
+
+  [data-theme='dark'],
+  .mauth-root {
+    /* Surfaces */
+    --ds-surface-base: #0a0a0b;
+    --ds-surface-card: #131316;
+    --ds-surface-panel: #101012;
+    --ds-surface-input: rgba(255, 255, 255, 0.04);
+    --ds-surface-hover: rgba(255, 255, 255, 0.06);
+    --ds-surface-active: rgba(255, 255, 255, 0.07);
+    --ds-surface-overlay: rgba(0, 0, 0, 0.7);
+    /* Borders */
+    --ds-border-1: rgba(255, 255, 255, 0.07);
+    --ds-border-2: rgba(255, 255, 255, 0.12);
+    --ds-border-3: rgba(255, 255, 255, 0.15);
+    --ds-border-hover: rgba(255, 255, 255, 0.25);
+    --ds-border-strong: rgba(255, 255, 255, 0.3);
+    --ds-border-subtle: rgba(255, 255, 255, 0.05);
+    --ds-border-dashed: rgba(255, 255, 255, 0.12);
+    /* Text */
+    --ds-text-primary: #ededf0;
+    --ds-text-secondary: #9b9ba4;
+    --ds-text-muted: #64646d;
+    --ds-text-placeholder: #5c5c64;
+    /* Primary (solid neutral) */
+    --ds-primary: #ededf0;
+    --ds-primary-text: #0a0a0b;
+    /* Accent */
+    --ds-accent: #1b17ff;
+    --ds-accent-hover: #3230ff;
+    --ds-accent-text: #ffffff;
+    --ds-accent-link: #8a88ff;
+    --ds-accent-link-hover: #a5a3ff;
+    --ds-accent-bg: rgba(27, 23, 255, 0.12);
+    --ds-accent-border: rgba(138, 136, 255, 0.3);
+    --ds-focus-border: #1b17ff;
+    /* Status */
+    --ds-success-text: #3fb950;
+    --ds-success-bg: rgba(63, 185, 80, 0.1);
+    --ds-success-border: rgba(63, 185, 80, 0.25);
+    --ds-warning-text: #d29922;
+    --ds-warning-bg: rgba(210, 153, 34, 0.1);
+    --ds-warning-border: rgba(210, 153, 34, 0.25);
+    --ds-error-text: #f85149;
+    --ds-error-bg: rgba(248, 81, 73, 0.1);
+    --ds-error-border: rgba(248, 81, 73, 0.25);
+    --ds-destructive: #cf222e;
+    --ds-destructive-text: #ffffff;
+    /* Effects */
+    --ds-focus-ring: 0 0 0 3px rgba(27, 23, 255, 0.25);
+    --ds-focus-ring-error: 0 0 0 3px rgba(248, 81, 73, 0.25);
+    --ds-shadow-overlay: 0 16px 48px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
   }
 }
 
@@ -268,28 +389,31 @@
    Tokens: Geist type, monochrome greys, status-only colour.
    ============================================================ */
 .mws-root {
-  --mws-bg: #f4f4f5;
-  --mws-panel: #ffffff;
-  --mws-t1: #18181b; /* primary text */
-  --mws-t2: #52525b; /* secondary text */
-  --mws-t3: #8a8a92; /* metadata */
-  --mws-t4: #c4c4c8; /* faint */
-  --mws-b1: rgba(0, 0, 0, 0.09); /* the 1px rule */
-  --mws-b2: rgba(0, 0, 0, 0.13); /* interactive border */
-  --mws-hover: rgba(0, 0, 0, 0.045);
-  --mws-row-hover: rgba(0, 0, 0, 0.04);
-  --mws-accent: #1b17ff;
-  --mws-accent-tint: #4340ff;
-  --mws-accent-hover: #3230ff;
-  --mws-ok: #1a7f37;
-  --mws-ok-bg: rgba(63, 185, 80, 0.1);
-  --mws-ok-br: rgba(63, 185, 80, 0.25);
-  --mws-warn: #9a6700;
-  --mws-warn-bg: rgba(210, 153, 34, 0.1);
-  --mws-warn-br: rgba(210, 153, 34, 0.25);
-  --mws-err: #cf222e;
-  --mws-err-bg: rgba(248, 81, 73, 0.1);
-  --mws-err-br: rgba(248, 81, 73, 0.25);
+  /* Legacy workspace vars now ALIAS the design-system tokens (single source of
+     truth). Values are identical to the originals — purely a re-point, so
+     existing workspace screens render unchanged. */
+  --mws-bg: var(--ds-surface-base);
+  --mws-panel: var(--ds-surface-card);
+  --mws-t1: var(--ds-text-primary); /* primary text */
+  --mws-t2: var(--ds-text-secondary); /* secondary text */
+  --mws-t3: var(--ds-text-muted); /* metadata */
+  --mws-t4: var(--ds-text-placeholder); /* faint */
+  --mws-b1: var(--ds-border-1); /* the 1px rule */
+  --mws-b2: var(--ds-border-2); /* interactive border */
+  --mws-hover: var(--ds-surface-active);
+  --mws-row-hover: var(--ds-surface-hover);
+  --mws-accent: var(--ds-accent);
+  --mws-accent-tint: var(--ds-accent-link);
+  --mws-accent-hover: var(--ds-accent-hover);
+  --mws-ok: var(--ds-success-text);
+  --mws-ok-bg: var(--ds-success-bg);
+  --mws-ok-br: var(--ds-success-border);
+  --mws-warn: var(--ds-warning-text);
+  --mws-warn-bg: var(--ds-warning-bg);
+  --mws-warn-br: var(--ds-warning-border);
+  --mws-err: var(--ds-error-text);
+  --mws-err-bg: var(--ds-error-bg);
+  --mws-err-br: var(--ds-error-border);
 
   font-family: var(--font-geist), system-ui, sans-serif;
   font-size: 13px;
@@ -778,20 +902,23 @@ button.mws-stat:hover {
    Geist type. Separate from the light `.mws-*` workspace tokens.
    ============================================================ */
 .mauth-root {
-  --ma-bg: #0a0a0b;
-  --ma-panel: #101012;
-  --ma-card: #131316;
-  --ma-t1: #ededf0;
-  --ma-t2: #9b9ba4;
-  --ma-t3: #64646d;
-  --ma-b1: rgba(255, 255, 255, 0.07);
-  --ma-b2: rgba(255, 255, 255, 0.12);
-  --ma-accent: #1b17ff;
-  --ma-link: #8a88ff;
-  --ma-link-hover: #a5a3ff;
-  --ma-ok: #3fb950;
-  --ma-warn: #d29922;
-  --ma-err: #f85149;
+  /* Legacy auth vars ALIAS the dark design-system tokens (single source). The
+     .mauth-root scope resolves --ds-* to their dark values (see the token
+     block above), so these aliases reproduce the original values exactly. */
+  --ma-bg: var(--ds-surface-base);
+  --ma-panel: var(--ds-surface-panel);
+  --ma-card: var(--ds-surface-card);
+  --ma-t1: var(--ds-text-primary);
+  --ma-t2: var(--ds-text-secondary);
+  --ma-t3: var(--ds-text-muted);
+  --ma-b1: var(--ds-border-1);
+  --ma-b2: var(--ds-border-2);
+  --ma-accent: var(--ds-accent);
+  --ma-link: var(--ds-accent-link);
+  --ma-link-hover: var(--ds-accent-link-hover);
+  --ma-ok: var(--ds-success-text);
+  --ma-warn: var(--ds-warning-text);
+  --ma-err: var(--ds-error-text);
 
   min-height: 100vh;
   display: flex;

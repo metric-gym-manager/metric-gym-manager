@@ -62,6 +62,7 @@ export default function WorkspaceShell({
 
   return (
     <div
+      data-theme="light"
       className="mws-root min-h-screen"
       style={{
         background: 'var(--mws-bg)',
