@@ -1,14 +1,6 @@
 import Link from 'next/link';
 import type { CSSProperties } from 'react';
-
-/**
- * Marketing landing page for Metric Gym OS.
- *
- * A single, self-contained dark-theme page. Fonts (`--font-geist`,
- * `--font-geist-mono`) are provided by the root layout via next/font.
- * Hover and responsive behaviour live in the scoped <style> block so the
- * page renders as a Server Component with no client-side JavaScript.
- */
+import { DemoModal } from './DemoModal';
 
 const sans = 'var(--font-geist), system-ui, sans-serif';
 const mono = 'var(--font-geist-mono), monospace';
@@ -95,6 +87,7 @@ const trustLogo: CSSProperties = {
 };
 
 const css = `
+@keyframes marquee{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
 .landing-root{background:#000;color:#ededf0;font-family:${sans};-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.6}
 html:has(.landing-root){scroll-behavior:smooth}
 .landing-root *{box-sizing:border-box}
@@ -106,19 +99,45 @@ html:has(.landing-root){scroll-behavior:smooth}
 .l-trust:hover{opacity:1!important}
 @media (max-width:768px){
   #nav-links a.txt{display:none!important}
-  #hero-h1{font-size:clamp(36px,10vw,48px)!important}
+  #nav-links{gap:10px!important}
+  #hero-section .hero-inner{padding:64px 20px 0!important}
+  #hero-h1{font-size:clamp(32px,9vw,48px)!important}
+  #hero-subtitle{font-size:16px!important;line-height:24px!important}
   #preview-body{flex-direction:column!important;height:auto!important}
   #preview-sidebar{width:100%!important;border-right:none!important;border-bottom:1px solid rgba(255,255,255,0.07)!important;flex-direction:row!important;overflow-x:auto!important;gap:4px!important;padding:8px!important}
   #preview-brand,#preview-primary-label{display:none!important}
   #preview-stats{grid-template-columns:repeat(2,1fr)!important}
-  #platform-grid{grid-template-columns:1fr!important}
+  #platform-section{padding:64px 16px!important;gap:40px!important}
+  #platform-grid{grid-template-columns:1fr!important;gap:0!important}
+  #platform-grid > div{padding:28px 0!important;border-bottom:1px solid rgba(255,255,255,0.07)!important}
+  #platform-grid > div:last-child{border-bottom:none!important}
+  #platform-grid .feature-header{flex-direction:column!important;align-items:flex-start!important;gap:8px!important}
+  #platform-grid .feature-badge{margin-top:0!important}
+  #platform-grid h3{font-size:20px!important}
+  #platform-grid .feature-desc{font-size:14px!important;line-height:22px!important}
+  #platform-grid .code-block{font-size:10px!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;margin-top:16px!important}
+  #pricing-section{padding:64px 20px!important}
   #pricing-grid{grid-template-columns:1fr!important}
+  #trust-section .trust-inner{padding:40px 20px!important}
+  #trust-logos{overflow:hidden!important;flex-wrap:nowrap!important;gap:0!important;mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)!important;-webkit-mask-image:linear-gradient(90deg,transparent,#000 10%,#000 90%,transparent)!important}
+  #trust-logos .marquee-track{display:flex!important;gap:48px!important;animation:marquee 20s linear infinite!important;flex-shrink:0!important;padding-right:48px!important}
+  #trust-logos span{font-size:18px!important;white-space:nowrap!important}
+  #quote-section .quote-inner{padding:56px 20px!important;text-align:left!important}
+  #quote-text{font-size:clamp(18px,5vw,24px)!important;margin-left:0!important;margin-right:0!important}
+  #quote-attribution{text-align:left!important}
+  #cta{min-height:70vh!important}
+  #cta .cta-inner{padding:64px 20px!important}
+  #cta-heading{font-size:clamp(28px,8vw,48px)!important}
+  #footer-inner{padding:56px 20px 32px!important;gap:40px!important}
   #footer-grid{grid-template-columns:1fr 1fr!important}
-  #trust-logos span{font-size:18px!important}
+  #footer-watermark{font-size:clamp(56px,18vw,120px)!important}
+  .payment-row span:nth-child(2){display:none!important}
 }
 @media (max-width:480px){
   #preview-stats{grid-template-columns:1fr!important}
   #footer-grid{grid-template-columns:1fr!important}
+  #nav-login{display:none!important}
+  #trust-logos span{font-size:16px!important}
 }
 `;
 
@@ -175,7 +194,11 @@ export function LandingPage() {
             <a className="txt" href="#pricing" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>
               Pricing
             </a>
+            <a className="txt" href="#platform" style={{ fontSize: '13px', whiteSpace: 'nowrap' }}>
+              Resources
+            </a>
             <Link
+              id="nav-login"
               className="l-btn-ghost"
               href="/login"
               style={{
@@ -194,9 +217,9 @@ export function LandingPage() {
             >
               Log in
             </Link>
-            <Link
+            <a
               className="l-btn-solid"
-              href="/register"
+              href="#cta"
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -211,15 +234,15 @@ export function LandingPage() {
                 whiteSpace: 'nowrap',
               }}
             >
-              Sign Up
-            </Link>
+              Request a demo
+            </a>
           </div>
         </div>
       </nav>
 
       {/* HERO */}
-      <section style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-        <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '96px 24px 0' }}>
+      <section id="hero-section" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="hero-inner" style={{ maxWidth: '1120px', margin: '0 auto', padding: '96px 24px 0' }}>
           <div
             style={{
               maxWidth: '720px',
@@ -266,6 +289,7 @@ export function LandingPage() {
               The operating system for serious gyms.
             </h1>
             <p
+              id="hero-subtitle"
               style={{
                 margin: 0,
                 fontSize: '19px',
@@ -281,7 +305,7 @@ export function LandingPage() {
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <a
                 className="l-btn-solid"
-                href="mailto:founder@metric.lk?subject=Book a live demo"
+                href="#cta"
                 style={{
                   whiteSpace: 'nowrap',
                   display: 'inline-flex',
@@ -317,9 +341,6 @@ export function LandingPage() {
               >
                 See the platform
               </a>
-            </div>
-            <div style={{ fontFamily: mono, fontSize: '11px', color: '#5c5c64' }}>
-              NO SET UP FEES · GO ONLINE IN A DAY · ISLAND-WIDE SUPPORT
             </div>
           </div>
 
@@ -398,19 +419,7 @@ export function LandingPage() {
                   <img src="/logo.svg" alt="" style={{ width: '16px', height: '16px' }} />
                   Prime Fitness
                 </div>
-                <div
-                  id="preview-primary-label"
-                  style={{
-                    fontSize: '10px',
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    color: '#5c5c64',
-                    fontWeight: 500,
-                    padding: '2px 8px 4px',
-                  }}
-                >
-                  Primary
-                </div>
+                <div id="preview-primary-label" style={sidebarHeading}>Primary</div>
                 <div
                   style={{
                     height: '26px',
@@ -487,57 +496,28 @@ export function LandingPage() {
                   >
                     Recent payments
                   </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      padding: '7px 12px',
-                      borderBottom: '1px solid rgba(255,255,255,0.05)',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <span>Nuwan Perera</span>
-                    <span style={{ color: '#8b8b93' }}>2026-07-14</span>
-                    <span style={{ fontFamily: mono }}>3,500</span>
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      padding: '7px 12px',
-                      borderBottom: '1px solid rgba(255,255,255,0.05)',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <span>Ishara Gunasekara</span>
-                    <span style={{ color: '#8b8b93' }}>2026-07-13</span>
-                    <span style={{ fontFamily: mono }}>3,500</span>
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      padding: '7px 12px',
-                      borderBottom: '1px solid rgba(255,255,255,0.05)',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <span>Anushka Weerasinghe</span>
-                    <span style={{ color: '#8b8b93' }}>2026-07-12</span>
-                    <span style={{ fontFamily: mono }}>15,500</span>
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      padding: '7px 12px',
-                      fontSize: '12px',
-                    }}
-                  >
-                    <span>Malith Rathnayake</span>
-                    <span style={{ color: '#8b8b93' }}>2026-07-10</span>
-                    <span style={{ fontFamily: mono }}>36,000</span>
-                  </div>
+                  {[
+                    { name: 'Nuwan Perera', date: '2026-07-14', amount: '3,500' },
+                    { name: 'Ishara Gunasekara', date: '2026-07-13', amount: '3,500' },
+                    { name: 'Anushka Weerasinghe', date: '2026-07-12', amount: '15,500' },
+                    { name: 'Malith Rathnayake', date: '2026-07-10', amount: '36,000' },
+                  ].map((row, i, arr) => (
+                    <div
+                      key={row.name}
+                      className="payment-row"
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        padding: '7px 12px',
+                        borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : undefined,
+                        fontSize: '12px',
+                      }}
+                    >
+                      <span>{row.name}</span>
+                      <span style={{ color: '#8b8b93' }}>{row.date}</span>
+                      <span style={{ fontFamily: mono }}>{row.amount}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -546,8 +526,9 @@ export function LandingPage() {
       </section>
 
       {/* TRUST */}
-      <section style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: '#000' }}>
+      <section id="trust-section" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: '#000' }}>
         <div
+          className="trust-inner"
           style={{
             maxWidth: '1120px',
             margin: '0 auto',
@@ -578,20 +559,26 @@ export function LandingPage() {
               gap: '18px 48px',
             }}
           >
-            <span className="l-trust" style={trustLogo}>Yomak Health Hub</span>
-            <span className="l-trust" style={trustLogo}>FITNESS EMPIRE</span>
-            <span className="l-trust" style={trustLogo}>Colombo Strength Co.</span>
-            <span className="l-trust" style={trustLogo}>ROYAL FITNESS WORLD</span>
-            <span className="l-trust" style={trustLogo}>Lifeline Fitness Center</span>
-            <span className="l-trust" style={trustLogo}>FORGE 24/7</span>
+            <div className="marquee-track" style={{ display: 'contents' }}>
+              <span className="l-trust" style={trustLogo}>Yomak Health Hub</span>
+              <span className="l-trust" style={trustLogo}>FITNESS EMPIRE</span>
+              <span className="l-trust" style={trustLogo}>Colombo Strength Co.</span>
+              <span className="l-trust" style={trustLogo}>ROYAL FITNESS WORLD</span>
+              <span className="l-trust" style={trustLogo}>Lifeline Fitness Center</span>
+              <span className="l-trust" style={trustLogo}>FORGE 24/7</span>
+            </div>
           </div>
         </div>
       </section>
 
       {/* QUOTE */}
-      <section style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: '#000' }}>
-        <div style={{ maxWidth: '1120px', margin: '0 auto', padding: '80px 24px', textAlign: 'center' }}>
+      <section id="quote-section" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: '#000' }}>
+        <div
+          className="quote-inner"
+          style={{ maxWidth: '1120px', margin: '0 auto', padding: '80px 24px', textAlign: 'center' }}
+        >
           <p
+            id="quote-text"
             style={{
               fontSize: 'clamp(22px,3vw,32px)',
               fontWeight: 500,
@@ -606,9 +593,9 @@ export function LandingPage() {
             &quot;We cut our admin time by 80% in the first month. The automated reminders alone paid
             for the subscription.&quot;
           </p>
-          <p style={{ fontFamily: mono, fontSize: '13px', color: '#5c5c64', margin: 0 }}>
-            <strong style={{ color: '#ededf0', fontWeight: 500 }}>Rajitha Fernando</strong> — Owner,
-            Titan Fitness, Colombo
+          <p id="quote-attribution" style={{ fontFamily: mono, fontSize: '13px', color: '#5c5c64', margin: 0 }}>
+            <strong style={{ color: '#ededf0', fontWeight: 500 }}>Zulfi Ahamath</strong> — Owner,
+            Fitness Empire, Wattala
           </p>
         </div>
       </section>
@@ -616,6 +603,8 @@ export function LandingPage() {
       {/* PLATFORM */}
       <section id="platform" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
         <div
+          id="platform-section"
+          className="platform-inner"
           style={{
             maxWidth: '1120px',
             margin: '0 auto',
@@ -651,11 +640,20 @@ export function LandingPage() {
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
+                <div
+                  className="feature-header"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                  }}
+                >
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, letterSpacing: '-0.01em' }}>
                     Never miss a renewal.
                   </h3>
                   <span
+                    className="feature-badge"
                     style={{
                       whiteSpace: 'nowrap',
                       fontFamily: mono,
@@ -670,12 +668,12 @@ export function LandingPage() {
                     −95% LATE PAYMENTS
                   </span>
                 </div>
-                <p style={{ margin: 0, fontSize: '13px', color: '#8b8b93', textWrap: 'pretty' }}>
+                <p className="feature-desc" style={{ margin: 0, fontSize: '13px', color: '#8b8b93', textWrap: 'pretty' }}>
                   Branded SMS reminders fire automatically before every renewal. Escalation ladders
                   for overdue accounts.
                 </p>
               </div>
-              <div style={logBox}>
+              <div className="code-block" style={logBox}>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>07-15 09:00:01</span>{' '}
                   <span style={{ color: '#3fb950' }}>SENT</span> sms → 077 481 2290 · renewal T−3
@@ -700,11 +698,20 @@ export function LandingPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '12px' }}>
+                <div
+                  className="feature-header"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                  }}
+                >
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, letterSpacing: '-0.01em' }}>
                     Only paid members get in.
                   </h3>
                   <span
+                    className="feature-badge"
                     style={{
                       whiteSpace: 'nowrap',
                       fontFamily: mono,
@@ -719,12 +726,12 @@ export function LandingPage() {
                     HIKVISION · ZKTECO
                   </span>
                 </div>
-                <p style={{ margin: 0, fontSize: '13px', color: '#8b8b93', textWrap: 'pretty' }}>
+                <p className="feature-desc" style={{ margin: 0, fontSize: '13px', color: '#8b8b93', textWrap: 'pretty' }}>
                   Seamless integration with access control hardware. RFID, facial recognition and
                   fingerprint entry wired to membership status. Lapsed account, closed gate.
                 </p>
               </div>
-              <div style={logBox}>
+              <div className="code-block" style={logBox}>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>18:02:11</span>{' '}
                   <span style={{ color: '#3fb950' }}>GRANT</span> face · M-0087 Jayawardena · gate A
@@ -764,6 +771,8 @@ export function LandingPage() {
       {/* PRICING */}
       <section id="pricing" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
         <div
+          id="pricing-section"
+          className="pricing-inner"
           style={{
             maxWidth: '1120px',
             margin: '0 auto',
@@ -789,7 +798,7 @@ export function LandingPage() {
               Three tiers. No surprises.
             </h2>
             <p style={{ margin: 0, fontSize: '15px', color: '#8b8b93' }}>
-              14-day trial on every tier. Prices are what you pay — nothing hidden.
+              30-day free trial on every tier.
             </p>
           </div>
           <div
@@ -828,27 +837,8 @@ export function LandingPage() {
                 <div style={featureRow}><span style={check}>✓</span>Bulk SMS announcements</div>
                 <div style={featureRowLast}><span style={check}>✓</span>QR code check-in</div>
               </div>
-              <a
-                className="l-btn-ghost"
-                href="mailto:founder@metric.lk?subject=Get started with Starter"
-                style={{
-                  marginTop: 'auto',
-                  whiteSpace: 'nowrap',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '34px',
-                  borderRadius: '5px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  background: 'transparent',
-                  color: '#ededf0',
-                }}
-              >
-                Get one month free
-              </a>
             </div>
+
             {/* Growth */}
             <div
               style={{
@@ -893,27 +883,8 @@ export function LandingPage() {
                 <div style={featureRow}><span style={check}>✓</span>Everything in Starter</div>
                 <div style={featureRowLast}><span style={check}>✓</span>Unlimited active members</div>
               </div>
-              <a
-                className="l-btn-solid"
-                href="mailto:founder@metric.lk?subject=Get started with Growth"
-                style={{
-                  marginTop: 'auto',
-                  whiteSpace: 'nowrap',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '34px',
-                  borderRadius: '5px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  background: '#ededf0',
-                  color: '#000',
-                }}
-              >
-                Get one month free
-              </a>
             </div>
+
             {/* Enterprise */}
             <div
               style={{
@@ -946,26 +917,6 @@ export function LandingPage() {
               <div style={{ fontFamily: mono, fontSize: '11px', color: '#5c5c64' }}>
                 INSTALLATION &amp; HARDWARE FEES APPLIED
               </div>
-              <a
-                className="l-btn-ghost"
-                href="mailto:sales@metric.lk"
-                style={{
-                  marginTop: 'auto',
-                  whiteSpace: 'nowrap',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  height: '34px',
-                  borderRadius: '5px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  background: 'transparent',
-                  color: '#ededf0',
-                }}
-              >
-                Contact sales
-              </a>
             </div>
           </div>
         </div>
@@ -973,6 +924,7 @@ export function LandingPage() {
 
       {/* CTA */}
       <section
+        id="cta"
         style={{
           borderBottom: '1px solid rgba(255,255,255,0.07)',
           minHeight: '100vh',
@@ -982,6 +934,7 @@ export function LandingPage() {
         }}
       >
         <div
+          className="cta-inner"
           style={{
             maxWidth: '1120px',
             margin: '0 auto',
@@ -994,6 +947,7 @@ export function LandingPage() {
           }}
         >
           <h2
+            id="cta-heading"
             style={{
               margin: 0,
               fontSize: 'clamp(36px,5vw,64px)',
@@ -1006,48 +960,8 @@ export function LandingPage() {
           >
             Run the gym. The platform runs itself.
           </h2>
-          <p style={{ margin: 0, fontSize: '15px', color: '#8b8b93', textWrap: 'pretty' }}>
-            1 month free · No credit card required
-          </p>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <a
-              className="l-btn-solid"
-              href="mailto:founder@metric.lk?subject=Book a live demo"
-              style={{
-                whiteSpace: 'nowrap',
-                display: 'inline-flex',
-                alignItems: 'center',
-                height: '36px',
-                padding: '0 16px',
-                borderRadius: '5px',
-                fontSize: '13px',
-                fontWeight: 500,
-                border: '1px solid rgba(255,255,255,0.15)',
-                background: '#ededf0',
-                color: '#000',
-              }}
-            >
-              Request a demo
-            </a>
-            <a
-              className="l-btn-ghost"
-              href="mailto:founder@metric.lk"
-              style={{
-                whiteSpace: 'nowrap',
-                display: 'inline-flex',
-                alignItems: 'center',
-                height: '36px',
-                padding: '0 16px',
-                borderRadius: '5px',
-                fontSize: '13px',
-                fontWeight: 500,
-                border: '1px solid rgba(255,255,255,0.12)',
-                background: 'transparent',
-                color: '#ededf0',
-              }}
-            >
-              Talk to the founder
-            </a>
+            <DemoModal />
           </div>
         </div>
       </section>
@@ -1055,6 +969,7 @@ export function LandingPage() {
       {/* FOOTER */}
       <footer style={{ borderTop: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
         <div
+          id="footer-inner"
           style={{
             maxWidth: '1120px',
             margin: '0 auto',
@@ -1103,7 +1018,7 @@ export function LandingPage() {
               </span>
               <a href="#platform" style={{ fontSize: '13px' }}>Platform</a>
               <a href="#pricing" style={{ fontSize: '13px' }}>Pricing</a>
-              <a href="mailto:founder@metric.lk" style={{ fontSize: '13px' }}>Log in</a>
+              <Link href="/login" style={{ fontSize: '13px' }}>Log in</Link>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <span
@@ -1117,6 +1032,7 @@ export function LandingPage() {
               >
                 Company
               </span>
+              <a href="mailto:founder@metric.lk" style={{ fontSize: '13px' }}>About</a>
               <a href="mailto:founder@metric.lk" style={{ fontSize: '13px' }}>Contact</a>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1133,7 +1049,7 @@ export function LandingPage() {
               </span>
               <Link href="/privacy" style={{ fontSize: '13px' }}>Privacy policy</Link>
               <Link href="/terms" style={{ fontSize: '13px' }}>Terms of service</Link>
-              <Link href="/refund-policy" style={{ fontSize: '13px' }}>Refund policy</Link>
+              <Link href="/refund-policy" style={{ fontSize: '13px' }}>Refund &amp; cancellation policy</Link>
             </div>
           </div>
           <div
@@ -1150,16 +1066,10 @@ export function LandingPage() {
             <span style={{ fontFamily: mono, fontSize: '11px', color: '#5c5c64' }}>
               © 2026 CAPITALIST ONE (PVT) LTD
             </span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-              <span style={{ fontFamily: mono, fontSize: '12px', color: '#8b8b93' }}>
-                +94 76 200 4400
-              </span>
-              <a href="mailto:support@metricgymos.com" style={{ fontSize: '13px' }}>
-                support@metricgymos.com
-              </a>
-            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }} />
           </div>
           <div
+            id="footer-watermark"
             style={{
               fontSize: 'clamp(72px,15vw,200px)',
               fontWeight: 600,
