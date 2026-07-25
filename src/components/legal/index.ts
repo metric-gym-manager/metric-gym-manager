@@ -7,5 +7,5 @@ export {
   LegalCallout,
   LegalContactList,
   LegalContactItem,
-} from './LegalLayout';
-export type { LegalDoc, LegalSection } from './LegalLayout';
+} from './LegalLayout'
+export type { LegalDoc, LegalSection } from './LegalLayout'

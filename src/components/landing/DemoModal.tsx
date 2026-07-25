@@ -1,6 +1,6 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
+import { useState } from 'react'
 
 const css = `
 .l-modal-btn:hover{background:#fff!important}
@@ -9,29 +9,29 @@ const css = `
 @media (max-width:480px){
   .l-demo-modal-card{padding:28px 20px!important;margin:16px!important}
 }
-`;
+`
 
 export function DemoModal() {
-  const [showModal, setShowModal] = useState(false);
-  const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
-  const [selectedPlan, setSelectedPlan] = useState('');
+  const [showModal, setShowModal] = useState(false)
+  const [planDropdownOpen, setPlanDropdownOpen] = useState(false)
+  const [selectedPlan, setSelectedPlan] = useState('')
 
   const openModal = () => {
-    setShowModal(true);
-    setPlanDropdownOpen(false);
-    setSelectedPlan('');
-  };
+    setShowModal(true)
+    setPlanDropdownOpen(false)
+    setSelectedPlan('')
+  }
 
   const closeModal = () => {
-    setShowModal(false);
-    setPlanDropdownOpen(false);
-  };
+    setShowModal(false)
+    setPlanDropdownOpen(false)
+  }
 
   const handleSubmit = () => {
-    const plan = selectedPlan || 'Not selected';
-    window.location.href = `mailto:founder@metric.lk?subject=Demo Request - ${plan} Plan`;
-    closeModal();
-  };
+    const plan = selectedPlan || 'Not selected'
+    window.location.href = `mailto:founder@metric.lk?subject=Demo Request - ${plan} Plan`
+    closeModal()
+  }
 
   return (
     <>
@@ -62,7 +62,9 @@ export function DemoModal() {
 
       {showModal && (
         <div
-          onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeModal()
+          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -112,7 +114,9 @@ export function DemoModal() {
               ✕
             </button>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
+            >
               <h3
                 style={{
                   margin: 0,
@@ -125,12 +129,17 @@ export function DemoModal() {
                 Request a demo
               </h3>
               <p style={{ margin: 0, fontSize: '13px', color: '#5c5c64' }}>
-                Fill in your details and we&apos;ll reach out to schedule a walkthrough.
+                Fill in your details and we&apos;ll reach out to schedule a
+                walkthrough.
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div
+              style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}
+            >
+              <div
+                style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
+              >
                 <label
                   style={{
                     fontSize: '12px',
@@ -156,12 +165,20 @@ export function DemoModal() {
                     outline: 'none',
                     transition: 'border-color .2s',
                   }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)')}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+                  onFocus={(e) =>
+                    (e.currentTarget.style.borderColor =
+                      'rgba(255,255,255,0.3)')
+                  }
+                  onBlur={(e) =>
+                    (e.currentTarget.style.borderColor =
+                      'rgba(255,255,255,0.1)')
+                  }
                 />
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div
+                style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}
+              >
                 <label
                   style={{
                     fontSize: '12px',
@@ -187,13 +204,24 @@ export function DemoModal() {
                     outline: 'none',
                     transition: 'border-color .2s',
                   }}
-                  onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)')}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)')}
+                  onFocus={(e) =>
+                    (e.currentTarget.style.borderColor =
+                      'rgba(255,255,255,0.3)')
+                  }
+                  onBlur={(e) =>
+                    (e.currentTarget.style.borderColor =
+                      'rgba(255,255,255,0.1)')
+                  }
                 />
               </div>
 
               <div
-                style={{ display: 'flex', flexDirection: 'column', gap: '6px', position: 'relative' }}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  position: 'relative',
+                }}
               >
                 <label
                   style={{
@@ -254,26 +282,28 @@ export function DemoModal() {
                       boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
                     }}
                   >
-                    {(['Starter', 'Growth', 'Enterprise'] as const).map((plan) => (
-                      <div
-                        key={plan}
-                        className="l-dropdown-item"
-                        onClick={() => {
-                          setSelectedPlan(plan);
-                          setPlanDropdownOpen(false);
-                        }}
-                        style={{
-                          padding: '10px 12px',
-                          borderRadius: '5px',
-                          fontSize: '14px',
-                          color: '#ededf0',
-                          cursor: 'pointer',
-                          transition: 'background .15s',
-                        }}
-                      >
-                        {plan}
-                      </div>
-                    ))}
+                    {(['Starter', 'Growth', 'Enterprise'] as const).map(
+                      (plan) => (
+                        <div
+                          key={plan}
+                          className="l-dropdown-item"
+                          onClick={() => {
+                            setSelectedPlan(plan)
+                            setPlanDropdownOpen(false)
+                          }}
+                          style={{
+                            padding: '10px 12px',
+                            borderRadius: '5px',
+                            fontSize: '14px',
+                            color: '#ededf0',
+                            cursor: 'pointer',
+                            transition: 'background .15s',
+                          }}
+                        >
+                          {plan}
+                        </div>
+                      )
+                    )}
                   </div>
                 )}
               </div>
@@ -301,5 +331,5 @@ export function DemoModal() {
         </div>
       )}
     </>
-  );
+  )
 }

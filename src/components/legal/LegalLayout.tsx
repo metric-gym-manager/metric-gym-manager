@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import type { CSSProperties, ReactNode } from 'react';
+import Link from 'next/link'
+import type { CSSProperties, ReactNode } from 'react'
 
 /**
  * Shared dark-theme layout for the legal documents (Privacy, Terms, Refund).
@@ -11,32 +11,32 @@ import type { CSSProperties, ReactNode } from 'react';
  * navigation uses anchor links, so this stays a Server Component.
  */
 
-const mono = 'var(--font-geist-mono), monospace';
+const mono = 'var(--font-geist-mono), monospace'
 
-export type LegalDoc = 'privacy' | 'terms' | 'refund';
+export type LegalDoc = 'privacy' | 'terms' | 'refund'
 
 export interface LegalSection {
   /** Anchor id, e.g. "p1" */
-  id: string;
-  title: string;
-  body: ReactNode;
+  id: string
+  title: string
+  body: ReactNode
 }
 
 interface LegalLayoutProps {
-  activeDoc: LegalDoc;
-  title: string;
+  activeDoc: LegalDoc
+  title: string
   /** Human-readable revision date, e.g. "July 2026". */
-  lastUpdated: string;
-  sections: LegalSection[];
+  lastUpdated: string
+  sections: LegalSection[]
   /** Rendered under the document, styled as a mono footnote. */
-  footnote?: ReactNode;
+  footnote?: ReactNode
 }
 
 const DOCS: { doc: LegalDoc; label: string; href: string }[] = [
   { doc: 'privacy', label: 'Privacy Policy', href: '/privacy' },
   { doc: 'terms', label: 'Terms of Service', href: '/terms' },
   { doc: 'refund', label: 'Refund Policy', href: '/refund-policy' },
-];
+]
 
 const css = `
 .legal-root{background:#0a0a0b;color:#ededf0;font-family:var(--font-geist),system-ui,sans-serif;-webkit-font-smoothing:antialiased;font-size:14px;line-height:22px;min-height:100vh}
@@ -52,19 +52,32 @@ const css = `
   .legal-grid{grid-template-columns:1fr!important;gap:32px!important}
   .legal-sidebar{position:static!important;top:auto!important}
 }
-`;
+`
 
 const sectionHeading: CSSProperties = {
   margin: '0 0 8px',
   fontSize: '16px',
   fontWeight: 600,
   letterSpacing: '-0.01em',
-};
-const sectionNum: CSSProperties = { fontFamily: mono, color: '#64646d', marginRight: '10px' };
+}
+const sectionNum: CSSProperties = {
+  fontFamily: mono,
+  color: '#64646d',
+  marginRight: '10px',
+}
 
-export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote }: LegalLayoutProps) {
+export function LegalLayout({
+  activeDoc,
+  title,
+  lastUpdated,
+  sections,
+  footnote,
+}: LegalLayoutProps) {
   return (
-    <div className="legal-root" style={{ fontSize: '14px', lineHeight: '22px' }}>
+    <div
+      className="legal-root"
+      style={{ fontSize: '14px', lineHeight: '22px' }}
+    >
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
       {/* NAV */}
@@ -91,9 +104,29 @@ export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote 
             justifyContent: 'space-between',
           }}
         >
-          <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '10px', color: '#ededf0' }}>
-            <img src="/logo.svg" alt="Metric" style={{ width: '22px', height: '22px' }} />
-            <span style={{ fontSize: '14px', fontWeight: 600, letterSpacing: '-0.01em' }}>Metric</span>
+          <Link
+            href="/"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              color: '#ededf0',
+            }}
+          >
+            <img
+              src="/logo.svg"
+              alt="Metric"
+              style={{ width: '22px', height: '22px' }}
+            />
+            <span
+              style={{
+                fontSize: '14px',
+                fontWeight: 600,
+                letterSpacing: '-0.01em',
+              }}
+            >
+              Metric
+            </span>
             <span
               style={{
                 whiteSpace: 'nowrap',
@@ -110,7 +143,11 @@ export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote 
             </span>
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
-            <Link href="/" className="legal-nav-back" style={{ fontSize: '13px', color: '#9b9ba4' }}>
+            <Link
+              href="/"
+              className="legal-nav-back"
+              style={{ fontSize: '13px', color: '#9b9ba4' }}
+            >
               ← Back to site
             </Link>
             <Link
@@ -151,7 +188,13 @@ export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote 
         {/* STICKY SIDEBAR */}
         <div
           className="legal-sidebar"
-          style={{ position: 'sticky', top: '104px', display: 'flex', flexDirection: 'column', gap: '24px' }}
+          style={{
+            position: 'sticky',
+            top: '104px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '24px',
+          }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
             <span
@@ -167,7 +210,7 @@ export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote 
               Documents
             </span>
             {DOCS.map(({ doc, label, href }) => {
-              const active = doc === activeDoc;
+              const active = doc === activeDoc
               return (
                 <Link
                   key={doc}
@@ -180,13 +223,15 @@ export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote 
                     padding: '0 10px',
                     borderRadius: '5px',
                     fontSize: '13px',
-                    background: active ? 'rgba(255,255,255,0.07)' : 'transparent',
+                    background: active
+                      ? 'rgba(255,255,255,0.07)'
+                      : 'transparent',
                     color: active ? '#ededf0' : '#9b9ba4',
                   }}
                 >
                   {label}
                 </Link>
-              );
+              )
             })}
           </div>
           <div
@@ -254,14 +299,23 @@ export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote 
             >
               LAST UPDATED
             </span>
-            <span style={{ fontFamily: mono, fontSize: '11px', color: '#64646d' }}>
+            <span
+              style={{ fontFamily: mono, fontSize: '11px', color: '#64646d' }}
+            >
               {lastUpdated.toUpperCase()}
             </span>
           </div>
         </div>
 
         {/* DOCUMENT COLUMN */}
-        <div style={{ maxWidth: '68ch', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div
+          style={{
+            maxWidth: '68ch',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+          }}
+        >
           <h1
             style={{
               margin: '0 0 4px',
@@ -273,11 +327,21 @@ export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote 
           >
             {title}
           </h1>
-          <p style={{ margin: '0 0 24px', fontSize: '13px', color: '#64646d', fontFamily: mono }}>
-            CAPITALIST ONE (PVT) LTD · METRIC GYM MANAGER · LAST UPDATED {lastUpdated.toUpperCase()}
+          <p
+            style={{
+              margin: '0 0 24px',
+              fontSize: '13px',
+              color: '#64646d',
+              fontFamily: mono,
+            }}
+          >
+            CAPITALIST ONE (PVT) LTD · METRIC GYM MANAGER · LAST UPDATED{' '}
+            {lastUpdated.toUpperCase()}
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+          <div
+            style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}
+          >
             {sections.map((s, i) => (
               <div key={s.id} id={s.id} className="legal-sec">
                 <h2 style={sectionHeading}>
@@ -307,7 +371,7 @@ export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote 
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 /* ---- Content building blocks (design-styled) ---------------------------- */
@@ -315,10 +379,18 @@ export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote 
 /** A body paragraph. */
 export function LegalP({ children }: { children: ReactNode }) {
   return (
-    <p style={{ margin: '0 0 12px', fontSize: '14px', lineHeight: '24px', color: '#9b9ba4', textWrap: 'pretty' }}>
+    <p
+      style={{
+        margin: '0 0 12px',
+        fontSize: '14px',
+        lineHeight: '24px',
+        color: '#9b9ba4',
+        textWrap: 'pretty',
+      }}
+    >
       {children}
     </p>
-  );
+  )
 }
 
 /** A disc list. */
@@ -336,20 +408,28 @@ export function LegalList({ children }: { children: ReactNode }) {
     >
       {children}
     </ul>
-  );
+  )
 }
 
 export function LegalLI({ children }: { children: ReactNode }) {
-  return <li style={{ marginBottom: '6px' }}>{children}</li>;
+  return <li style={{ marginBottom: '6px' }}>{children}</li>
 }
 
 /** A bold sub-heading inside a section (e.g. "Identity Data:"). */
 export function LegalSubHead({ children }: { children: ReactNode }) {
   return (
-    <h3 style={{ margin: '0 0 6px', fontSize: '14px', fontWeight: 600, color: '#ededf0', letterSpacing: '-0.01em' }}>
+    <h3
+      style={{
+        margin: '0 0 6px',
+        fontSize: '14px',
+        fontWeight: 600,
+        color: '#ededf0',
+        letterSpacing: '-0.01em',
+      }}
+    >
       {children}
     </h3>
-  );
+  )
 }
 
 /** Monospaced callout box for emphasised operational notes. */
@@ -370,22 +450,38 @@ export function LegalCallout({ children }: { children: ReactNode }) {
     >
       {children}
     </div>
-  );
+  )
 }
 
 /** Definition-style contact list without bullets. */
 export function LegalContactList({ children }: { children: ReactNode }) {
   return (
-    <ul style={{ margin: 0, padding: 0, listStyle: 'none', fontSize: '14px', lineHeight: '26px', color: '#9b9ba4' }}>
+    <ul
+      style={{
+        margin: 0,
+        padding: 0,
+        listStyle: 'none',
+        fontSize: '14px',
+        lineHeight: '26px',
+        color: '#9b9ba4',
+      }}
+    >
       {children}
     </ul>
-  );
+  )
 }
 
-export function LegalContactItem({ label, children }: { label: string; children: ReactNode }) {
+export function LegalContactItem({
+  label,
+  children,
+}: {
+  label: string
+  children: ReactNode
+}) {
   return (
     <li>
-      <strong style={{ color: '#ededf0', fontWeight: 600 }}>{label}</strong> {children}
+      <strong style={{ color: '#ededf0', fontWeight: 600 }}>{label}</strong>{' '}
+      {children}
     </li>
-  );
+  )
 }

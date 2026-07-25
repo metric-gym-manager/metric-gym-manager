@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 // ============================================================
 // GYM INFORMATION SCHEMA
@@ -12,29 +12,61 @@ export const updateGymInfoSchema = z.object({
 
   gym_address: z
     .union([
-      z.string().min(5, 'Address must be at least 5 characters').max(200, 'Address must not exceed 200 characters'),
+      z
+        .string()
+        .min(5, 'Address must be at least 5 characters')
+        .max(200, 'Address must not exceed 200 characters'),
       z.literal(''),
     ])
     .optional()
     .nullable(),
 
   gym_website: z
-    .union([
-      z.string().url('Invalid website URL'),
-      z.literal(''),
-    ])
+    .union([z.string().url('Invalid website URL'), z.literal('')])
     .optional()
     .nullable(),
-});
+})
 
-export type UpdateGymInfoInput = z.infer<typeof updateGymInfoSchema>;
+export type UpdateGymInfoInput = z.infer<typeof updateGymInfoSchema>
+
+// ============================================================
+// ADMISSION FEE SCHEMA
+// ============================================================
+
+export const updateAdmissionFeeSchema = z.object({
+  admission_fee: z
+    .number()
+    .min(0, 'Admission fee cannot be negative')
+    .max(1000000, 'Amount is too large'),
+  admission_fee_enabled: z.boolean(),
+})
+
+export type UpdateAdmissionFeeInput = z.infer<typeof updateAdmissionFeeSchema>
+
+// ============================================================
+// GYM POLICIES SCHEMA (rules & terms of service)
+// ============================================================
+
+export const updateGymPoliciesSchema = z.object({
+  gym_rules: z.string().max(20000, 'Rules document is too long'),
+  gym_terms: z.string().max(20000, 'Terms document is too long'),
+})
+
+export type UpdateGymPoliciesInput = z.infer<typeof updateGymPoliciesSchema>
 
 // ============================================================
 // PLAN TYPE SCHEMA
 // ============================================================
 
-export const PlanTypeEnum = z.enum(['daily', 'weekly', 'monthly', '3-months', '6-months', 'annual']);
-export type PlanTypeEnum = z.infer<typeof PlanTypeEnum>;
+export const PlanTypeEnum = z.enum([
+  'daily',
+  'weekly',
+  'monthly',
+  '3-months',
+  '6-months',
+  'annual',
+])
+export type PlanTypeEnum = z.infer<typeof PlanTypeEnum>
 
 export const createPlanTypeSchema = z.object({
   plan_type: PlanTypeEnum,
@@ -43,9 +75,9 @@ export const createPlanTypeSchema = z.object({
     .positive('Amount must be greater than 0')
     .max(1000000, 'Amount is too large'),
   is_active: z.boolean().optional().default(true),
-});
+})
 
-export type CreatePlanTypeInput = z.infer<typeof createPlanTypeSchema>;
+export type CreatePlanTypeInput = z.infer<typeof createPlanTypeSchema>
 
 export const updatePlanTypeSchema = z.object({
   plan_type: PlanTypeEnum,
@@ -54,15 +86,15 @@ export const updatePlanTypeSchema = z.object({
     .positive('Amount must be greater than 0')
     .max(1000000, 'Amount is too large'),
   is_active: z.boolean(),
-});
+})
 
-export type UpdatePlanTypeInput = z.infer<typeof updatePlanTypeSchema>;
+export type UpdatePlanTypeInput = z.infer<typeof updatePlanTypeSchema>
 
 export const deletePlanTypeSchema = z.object({
   plan_type: PlanTypeEnum,
-});
+})
 
-export type DeletePlanTypeInput = z.infer<typeof deletePlanTypeSchema>;
+export type DeletePlanTypeInput = z.infer<typeof deletePlanTypeSchema>
 
 // ============================================================
 // DISCOUNT SCHEMA
@@ -81,9 +113,9 @@ export const createDiscountSchema = z.object({
     .max(100, 'Percentage cannot exceed 100'),
 
   is_active: z.boolean().optional(),
-});
+})
 
-export type CreateDiscountInput = z.infer<typeof createDiscountSchema>;
+export type CreateDiscountInput = z.infer<typeof createDiscountSchema>
 
 export const updateDiscountSchema = z.object({
   discount_name: z
@@ -100,32 +132,34 @@ export const updateDiscountSchema = z.object({
     .optional(),
 
   is_active: z.boolean().optional(),
-});
+})
 
-export type UpdateDiscountInput = z.infer<typeof updateDiscountSchema>;
+export type UpdateDiscountInput = z.infer<typeof updateDiscountSchema>
 
 // ============================================================
 // SECURITY SCHEMA
 // ============================================================
 
-export const updatePasswordSchema = z.object({
-  current_password: z.string().min(1, 'Current password is required'),
-  new_password: z
-    .string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
-  confirm_password: z.string().min(1, 'Please confirm your password'),
-}).refine((data) => data.new_password === data.confirm_password, {
-  message: "Passwords don't match",
-  path: ['confirm_password'],
-});
+export const updatePasswordSchema = z
+  .object({
+    current_password: z.string().min(1, 'Current password is required'),
+    new_password: z
+      .string()
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number'),
+    confirm_password: z.string().min(1, 'Please confirm your password'),
+  })
+  .refine((data) => data.new_password === data.confirm_password, {
+    message: "Passwords don't match",
+    path: ['confirm_password'],
+  })
 
-export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
+export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>
 
 export const updateEmailSchema = z.object({
   email: z.string().email('Invalid email address'),
-});
+})
 
-export type UpdateEmailInput = z.infer<typeof updateEmailSchema>;
+export type UpdateEmailInput = z.infer<typeof updateEmailSchema>

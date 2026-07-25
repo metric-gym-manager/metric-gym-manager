@@ -56,6 +56,11 @@ export function serializeMemberForAPI(
     registration_source: member.registrationSource, // Include snake_case for backward compatibility
     verifiedAt: member.verifiedAt?.toISOString() ?? null,
     verified_at: member.verifiedAt?.toISOString() ?? null, // Include snake_case for backward compatibility
+    remarks: member.remarks,
+    acceptedTermsAt: member.acceptedTermsAt?.toISOString() ?? null,
+    accepted_terms_at: member.acceptedTermsAt?.toISOString() ?? null, // Include snake_case for backward compatibility
+    acceptedGymRulesAt: member.acceptedGymRulesAt?.toISOString() ?? null,
+    accepted_gym_rules_at: member.acceptedGymRulesAt?.toISOString() ?? null, // Include snake_case for backward compatibility
     discount: discount || null, // Include joined discount data if available
   }
 }
