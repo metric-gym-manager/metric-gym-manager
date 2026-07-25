@@ -81,6 +81,24 @@ import {
   TooltipProvider,
   useCommandK,
 } from '@/components/ui'
+import {
+  ChartCard,
+  ConfirmDialog,
+  DeleteDialog,
+  EmptyStateLayout,
+  FilterBar,
+  LoadingLayout,
+  MetricCard,
+  NotificationMenu,
+  PageHeader,
+  SearchBar,
+  SettingsRow,
+  SettingsSection,
+  SideNav,
+  StatCard,
+  Toolbar,
+  UserMenu,
+} from '@/components/common/composites'
 
 interface DemoMember {
   id: string
@@ -163,6 +181,9 @@ function Showcase({ theme }: { theme: 'light' | 'dark' }) {
   const [checked, setChecked] = React.useState(true)
   const [page, setPage] = React.useState(1)
   const [cmdkOpen, setCmdkOpen] = useCommandK()
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
+  const [deleteOpen, setDeleteOpen] = React.useState(false)
+  const [smsOn, setSmsOn] = React.useState(true)
 
   const memberColumns: DataTableColumn<DemoMember>[] = [
     { id: 'name', header: 'Name', sortValue: (r) => r.name },
@@ -626,7 +647,195 @@ function Showcase({ theme }: { theme: 'light' | 'dark' }) {
               </Card>
             </div>
           </Section>
+
+          {/* ── Layer 3 composites ── */}
+          <Section title="Composites — page & toolbar">
+            <PageHeader
+              title="Members"
+              description="Everyone registered at this gym."
+              breadcrumb={
+                <Breadcrumb>
+                  <BreadcrumbLink href="#">Metric</BreadcrumbLink>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbPage>Members</BreadcrumbPage>
+                </Breadcrumb>
+              }
+              actions={
+                <>
+                  <NotificationMenu count={3} theme={theme}>
+                    <div className="p-3 text-body text-ink-secondary">
+                      No new notifications.
+                    </div>
+                  </NotificationMenu>
+                  <UserMenu
+                    name="Nimal Perera"
+                    email="nimal@example.com"
+                    theme={theme}
+                    onSignOut={() => {}}
+                  />
+                  <Button variant="accent" leftIcon={<Plus />}>
+                    Add member
+                  </Button>
+                </>
+              }
+              bordered
+            />
+            <FilterBar
+              search={
+                <SearchBar onSearch={() => {}} placeholder="Search members" />
+              }
+              filters={
+                <Select aria-label="Status filter" className="max-w-[160px]">
+                  <option>All statuses</option>
+                  <option>Active</option>
+                  <option>Due</option>
+                </Select>
+              }
+              actions={
+                <Toolbar
+                  end={
+                    <Button variant="secondary" size="sm">
+                      Export
+                    </Button>
+                  }
+                />
+              }
+            />
+          </Section>
+
+          <Section title="Composites — stat & metric cards">
+            <div className="grid grid-cols-1 gap-3 tablet:grid-cols-4">
+              <StatCard
+                label="Active members"
+                value="1,284"
+                sub="of 1,400 cap"
+              />
+              <StatCard
+                label="Revenue (Jul)"
+                value="LKR 590k"
+                delta={{ value: '12%', direction: 'up' }}
+              />
+              <StatCard
+                label="Overdue"
+                value="23"
+                delta={{ value: '4%', direction: 'down', tone: 'error' }}
+              />
+              <MetricCard
+                label="Trend"
+                value="590k"
+                trend={
+                  <Sparkline
+                    data={REVENUE.map((r) => ({ value: r.revenue }))}
+                  />
+                }
+              />
+            </div>
+          </Section>
+
+          <Section title="Composites — chart card & settings">
+            <div className="grid grid-cols-1 gap-4 laptop:grid-cols-2">
+              <ChartCard title="Revenue" scale="LKR ×1,000">
+                <LineChart
+                  label="Revenue trend"
+                  data={REVENUE}
+                  xKey="month"
+                  series={[{ key: 'revenue', label: 'Revenue' }]}
+                  height={160}
+                />
+              </ChartCard>
+              <SettingsSection
+                title="Notifications"
+                description="How members are reminded"
+              >
+                <SettingsRow
+                  label="SMS reminders"
+                  description="Send 3 days before due date"
+                  control={
+                    <Switch
+                      checked={smsOn}
+                      onCheckedChange={setSmsOn}
+                      aria-label="SMS reminders"
+                    />
+                  }
+                />
+                <SettingsRow
+                  label="Email receipts"
+                  description="Email a receipt on payment"
+                  control={<Switch aria-label="Email receipts" />}
+                />
+              </SettingsSection>
+            </div>
+          </Section>
+
+          <Section title="Composites — dialogs, nav & states">
+            <Row>
+              <Button
+                variant="destructive-ghost"
+                onClick={() => setConfirmOpen(true)}
+              >
+                Confirm dialog
+              </Button>
+              <Button variant="destructive" onClick={() => setDeleteOpen(true)}>
+                Delete dialog
+              </Button>
+            </Row>
+            <div className="grid grid-cols-1 gap-4 laptop:grid-cols-2">
+              <div className="h-[260px] overflow-hidden rounded-lg border border-line-1">
+                <SideNav
+                  ariaLabel="Demo sidebar"
+                  groups={[
+                    {
+                      label: 'Workspace',
+                      items: [
+                        {
+                          label: 'Dashboard',
+                          href: '#',
+                          icon: <LayoutDashboard />,
+                          active: true,
+                        },
+                        { label: 'Members', href: '#', icon: <Users /> },
+                        { label: 'Billing', href: '#', icon: <CreditCard /> },
+                      ],
+                    },
+                  ]}
+                />
+              </div>
+              <EmptyStateLayout
+                minHeight={260}
+                icon={<Users />}
+                title="No members yet"
+                description="Add your first member to get started."
+                action={
+                  <Button variant="accent" leftIcon={<Plus />}>
+                    Add member
+                  </Button>
+                }
+              />
+            </div>
+            <LoadingLayout variant="cards" />
+          </Section>
         </div>
+
+        <ConfirmDialog
+          open={confirmOpen}
+          onOpenChange={setConfirmOpen}
+          theme={theme}
+          destructive
+          title="Cancel subscription"
+          description="Members keep access until the end of the current period."
+          confirmLabel="Cancel subscription"
+          onConfirm={() => {}}
+        />
+
+        <DeleteDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          theme={theme}
+          title="Delete member"
+          description="This permanently removes Nimal Perera and their history."
+          confirmWord="DELETE"
+          onConfirm={() => {}}
+        />
 
         <Modal
           open={modalOpen}

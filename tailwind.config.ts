@@ -90,6 +90,7 @@ const config: Config = {
           input: 'var(--ds-surface-input)',
           hover: 'var(--ds-surface-hover)',
           active: 'var(--ds-surface-active)',
+          selected: 'var(--ds-surface-selected)',
           overlay: 'var(--ds-surface-overlay)',
         },
         line: {
