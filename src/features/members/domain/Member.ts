@@ -97,6 +97,24 @@ export interface MemberProps {
    * verified by definition and keep this null.
    */
   verifiedAt?: Date | null
+
+  /**
+   * Free-text note captured on the manual (desk) registration form. NULL for
+   * QR self-registrations and older members. Optional; normalized to null.
+   */
+  remarks?: string | null
+
+  /**
+   * When the member accepted Metric's privacy policy & terms of service at
+   * registration. NULL for members created before consent capture existed.
+   */
+  acceptedTermsAt?: Date | null
+
+  /**
+   * When the member agreed to the gym's guidelines & rules at registration.
+   * NULL for members created before consent capture existed.
+   */
+  acceptedGymRulesAt?: Date | null
 }
 
 /**
@@ -158,6 +176,9 @@ export class Member {
       photoUpdatedAt: props.photoUpdatedAt ?? null,
       registrationSource: props.registrationSource ?? RegistrationSource.Manual,
       verifiedAt: props.verifiedAt ?? null,
+      remarks: props.remarks ?? null,
+      acceptedTermsAt: props.acceptedTermsAt ?? null,
+      acceptedGymRulesAt: props.acceptedGymRulesAt ?? null,
     }
   }
 
@@ -283,6 +304,18 @@ export class Member {
 
   get verifiedAt(): Date | null {
     return this.props.verifiedAt ?? null
+  }
+
+  get remarks(): string | null {
+    return this.props.remarks ?? null
+  }
+
+  get acceptedTermsAt(): Date | null {
+    return this.props.acceptedTermsAt ?? null
+  }
+
+  get acceptedGymRulesAt(): Date | null {
+    return this.props.acceptedGymRulesAt ?? null
   }
 
   // ============================================================
@@ -847,6 +880,9 @@ export class Member {
       photoUpdatedAt: this.photoUpdatedAt?.toISOString() ?? null,
       registrationSource: this.registrationSource,
       verifiedAt: this.verifiedAt?.toISOString() ?? null,
+      remarks: this.remarks,
+      acceptedTermsAt: this.acceptedTermsAt?.toISOString() ?? null,
+      acceptedGymRulesAt: this.acceptedGymRulesAt?.toISOString() ?? null,
     }
   }
 }

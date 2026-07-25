@@ -50,6 +50,9 @@ interface MemberRow {
   photo_updated_at: string | null
   registration_source: string
   verified_at: string | null
+  remarks: string | null
+  accepted_terms_at: string | null
+  accepted_gym_rules_at: string | null
   discount?: {
     id: string
     discount_name: string
@@ -373,6 +376,9 @@ export class SupabaseMemberRepository implements IMemberRepository {
       registered_date: row.registered_date,
       membership_start_date: row.membership_start_date,
       next_due_date: row.next_due_date,
+      remarks: row.remarks,
+      accepted_terms_at: row.accepted_terms_at,
+      accepted_gym_rules_at: row.accepted_gym_rules_at,
     }
 
     const { data, error } = await this.supabase.rpc('register_member_guarded', {
@@ -607,6 +613,13 @@ export class SupabaseMemberRepository implements IMemberRepository {
         (row.registration_source as RegistrationSource) ??
         RegistrationSource.Manual,
       verifiedAt: row.verified_at ? new Date(row.verified_at) : null,
+      remarks: row.remarks ?? null,
+      acceptedTermsAt: row.accepted_terms_at
+        ? new Date(row.accepted_terms_at)
+        : null,
+      acceptedGymRulesAt: row.accepted_gym_rules_at
+        ? new Date(row.accepted_gym_rules_at)
+        : null,
     })
   }
 
@@ -643,6 +656,9 @@ export class SupabaseMemberRepository implements IMemberRepository {
       registration_source:
         props.registrationSource ?? RegistrationSource.Manual,
       verified_at: props.verifiedAt?.toISOString() ?? null,
+      remarks: props.remarks ?? null,
+      accepted_terms_at: props.acceptedTermsAt?.toISOString() ?? null,
+      accepted_gym_rules_at: props.acceptedGymRulesAt?.toISOString() ?? null,
     }
   }
 }

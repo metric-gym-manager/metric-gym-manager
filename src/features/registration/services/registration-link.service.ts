@@ -124,7 +124,11 @@ export async function getPublicGymInfo(
   const supabase = createAdminClient()
 
   const [gymResult, plansResult] = await Promise.all([
-    supabase.from('gyms').select('gym_name').eq('id', gymId).single(),
+    supabase
+      .from('gyms')
+      .select('gym_name, admission_fee, admission_fee_enabled')
+      .eq('id', gymId)
+      .single(),
     supabase
       .from('plan_types')
       .select('plan_type, default_amount')
@@ -137,6 +141,8 @@ export async function getPublicGymInfo(
     return null
   }
 
+  const admissionFeeEnabled = Boolean(gymResult.data.admission_fee_enabled)
+
   return {
     gymName: gymResult.data.gym_name as string,
     plans: (plansResult.data ?? []).map((plan) => ({
@@ -144,7 +150,30 @@ export async function getPublicGymInfo(
       label: getPlanLabel(plan.plan_type),
       amount: Number(plan.default_amount),
     })),
+    admissionFee: admissionFeeEnabled
+      ? Number(gymResult.data.admission_fee) || 0
+      : 0,
+    admissionFeeEnabled,
   }
+}
+
+/**
+ * Admission fee authority for public registration. Like the plan amount, the
+ * charged admission fee is always resolved server-side from the gym row, never
+ * from client input. Admin client — the public join flow has no session.
+ *
+ * @returns The fee to add to the first payment (0 when disabled).
+ */
+export async function getGymAdmissionFee(gymId: string): Promise<number> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('gyms')
+    .select('admission_fee, admission_fee_enabled')
+    .eq('id', gymId)
+    .maybeSingle()
+
+  if (error || !data || !data.admission_fee_enabled) return 0
+  return Number(data.admission_fee) || 0
 }
 
 // ============================================================

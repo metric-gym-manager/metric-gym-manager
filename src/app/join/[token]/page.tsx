@@ -1,17 +1,17 @@
-import type { Metadata } from 'next';
-import { getPublicGymInfo } from '@/features/registration/services/registration-link.service';
-import JoinForm from '@/features/registration/components/JoinForm';
+import type { Metadata } from 'next'
+import { getPublicGymInfo } from '@/features/registration/services/registration-link.service'
+import JoinForm from '@/features/registration/components/JoinForm'
 
 // Token lookups must never be cached — links can be rotated at any time
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
   title: 'Join Gym',
   robots: { index: false, follow: false },
-};
+}
 
 interface JoinPageProps {
-  params: Promise<{ token: string }>;
+  params: Promise<{ token: string }>
 }
 
 /**
@@ -22,8 +22,8 @@ interface JoinPageProps {
  * name and plan list are in the initial HTML (fast LCP on gym wifi).
  */
 export default async function JoinPage({ params }: JoinPageProps) {
-  const { token } = await params;
-  const gymInfo = await getPublicGymInfo(token);
+  const { token } = await params
+  const gymInfo = await getPublicGymInfo(token)
 
   if (!gymInfo) {
     return (
@@ -38,7 +38,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
           </p>
         </div>
       </main>
-    );
+    )
   }
 
   return (
@@ -47,7 +47,8 @@ export default async function JoinPage({ params }: JoinPageProps) {
         token={token}
         gymName={gymInfo.gymName}
         plans={gymInfo.plans}
+        admissionFee={gymInfo.admissionFee}
       />
     </main>
-  );
+  )
 }

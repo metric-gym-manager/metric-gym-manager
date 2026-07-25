@@ -13,21 +13,24 @@
  * 5. Welcome SMS sending
  */
 
-import { Member } from '@/features/members/domain/Member';
-import { Payment } from '@/features/payments/domain/Payment';
-import { PhoneNumber } from '@/utils/phone/PhoneNumber';
-import { PaymentCalculator, type DiscountInfo } from '@/features/payments/domain/PaymentCalculator';
-import { IMemberRepository } from './IMemberRepository';
-import { IPaymentRepository } from '@/features/payments/services/IPaymentRepository';
-import { ISMSRepository } from '@/features/sms/services/ISMSRepository';
-import { ISMSProvider } from '@/features/sms/services/ISMSProvider';
-import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
-import { calculateNextDueDate } from '../utils/calculateNextDueDate';
-import { PlanType } from '@/features/members/config/PlanConfig';
-import { MemberStatus } from '@/features/members/config/StatusConfig';
-import { RegistrationSource } from '@/features/members/config/RegistrationConfig';
-import { formatDateForDisplay } from '@/utils/date/date';
-import { ConflictError } from '@/utils/errors';
+import { Member } from '@/features/members/domain/Member'
+import { Payment } from '@/features/payments/domain/Payment'
+import { PhoneNumber } from '@/utils/phone/PhoneNumber'
+import {
+  PaymentCalculator,
+  type DiscountInfo,
+} from '@/features/payments/domain/PaymentCalculator'
+import { IMemberRepository } from './IMemberRepository'
+import { IPaymentRepository } from '@/features/payments/services/IPaymentRepository'
+import { ISMSRepository } from '@/features/sms/services/ISMSRepository'
+import { ISMSProvider } from '@/features/sms/services/ISMSProvider'
+import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository'
+import { calculateNextDueDate } from '../utils/calculateNextDueDate'
+import { PlanType } from '@/features/members/config/PlanConfig'
+import { MemberStatus } from '@/features/members/config/StatusConfig'
+import { RegistrationSource } from '@/features/members/config/RegistrationConfig'
+import { formatDateForDisplay } from '@/utils/date/date'
+import { ConflictError } from '@/utils/errors'
 
 /**
  * Input for member registration
@@ -36,52 +39,52 @@ export interface RegisterMemberInput {
   /**
    * Gym ID (for multi-tenancy)
    */
-  gymId: string;
+  gymId: string
 
   /**
    * Member name
    */
-  name: string;
+  name: string
 
   /**
    * Phone number (any format: 0771234567, +94771234567, etc.)
    */
-  phoneNumber: string;
+  phoneNumber: string
 
   /**
    * Plan type
    */
-  planType: PlanType;
+  planType: PlanType
 
   /**
    * Plan amount in LKR
    */
-  planAmount: number;
+  planAmount: number
 
   /**
    * Discount ID (optional)
    */
-  discountId?: string | null;
+  discountId?: string | null
 
   /**
    * Whether discount recurs every payment
    */
-  recurringDiscount?: boolean;
+  recurringDiscount?: boolean
 
   /**
    * Membership start date
    */
-  membershipStartDate: Date;
+  membershipStartDate: Date
 
   /**
    * Initial payment amount (may differ from plan amount if discount applied)
    */
-  paymentAmount: number;
+  paymentAmount: number
 
   /**
    * Discount information (for payment record)
    */
-  discount?: DiscountInfo | null;
+  discount?: DiscountInfo | null
 
   /**
    * How this member is being registered.
@@ -90,7 +93,24 @@ export interface RegisterMemberInput {
    * - Qr: public QR self-registration; shows a NEW badge until the gym
    *   verifies the entry.
    */
-  registrationSource?: RegistrationSource;
+  registrationSource?: RegistrationSource
+
+  /**
+   * Free-text note (manual desk registration only). Optional.
+   */
+  remarks?: string | null
+
+  /**
+   * When the member accepted Metric's privacy policy & terms of service.
+   * Set to the registration time when the consent checkbox was ticked.
+   */
+  acceptedTermsAt?: Date | null
+
+  /**
+   * When the member agreed to the gym's guidelines & rules.
+   * Set to the registration time when the consent checkbox was ticked.
+   */
+  acceptedGymRulesAt?: Date | null
 }
 
 /**
@@ -100,12 +120,12 @@ export interface RegisterMemberOutput {
   /**
    * Created member
    */
-  member: Member;
+  member: Member
 
   /**
    * Initial payment record
    */
-  payment: Payment;
+  payment: Payment
 }
 
 /**
@@ -150,18 +170,18 @@ export class RegisterMember {
    */
   async execute(input: RegisterMemberInput): Promise<RegisterMemberOutput> {
     // 1. Validate and normalize phone number
-    const phoneNumber = PhoneNumber.create(input.phoneNumber);
+    const phoneNumber = PhoneNumber.create(input.phoneNumber)
 
     // 2. Check for duplicate phone number
     const existingMember = await this.memberRepo.findByPhoneNumber(
       phoneNumber.getValue(),
       input.gymId
-    );
+    )
 
     if (existingMember) {
       throw new ConflictError(
         `A member with phone number ${phoneNumber.getDisplayValue()} already exists`
-      );
+      )
     }
 
     // 3. Calculate next due date from membership start date
@@ -169,7 +189,7 @@ export class RegisterMember {
       input.membershipStartDate,
       input.planType,
       { deductOverduePeriod: true }
-    );
+    )
 
     // 4. Create member entity
     const member = Member.create({
@@ -185,12 +205,15 @@ export class RegisterMember {
       membershipStartDate: input.membershipStartDate,
       nextDueDate: nextDueDate,
       registrationSource: input.registrationSource ?? RegistrationSource.Manual,
-    });
+      remarks: input.remarks ?? null,
+      acceptedTermsAt: input.acceptedTermsAt ?? null,
+      acceptedGymRulesAt: input.acceptedGymRulesAt ?? null,
+    })
 
     // 5. Persist member through the FOR UPDATE-locked quota gate
     //    (register_member_guarded — the single member-quota authority).
     //    Throws MemberLimitError when the gym's tier blocks the insert.
-    const savedMember = await this.memberRepo.createGuarded(input.gymId, member);
+    const savedMember = await this.memberRepo.createGuarded(input.gymId, member)
 
     // 6. Create initial payment record
     const payment = Payment.create({
@@ -201,21 +224,21 @@ export class RegisterMember {
       discountApplied: input.discount?.discountId || null,
       discountPercentage: input.discount?.discountPercentage || null,
       nextDueDateCalculated: nextDueDate,
-    });
+    })
 
-    const savedPayment = await this.paymentRepo.create(payment);
+    const savedPayment = await this.paymentRepo.create(payment)
 
     // 7. Send welcome SMS (fire-and-forget)
     // We don't await this to avoid blocking the response
     this.sendWelcomeSMS(savedMember, input.paymentAmount).catch((error) => {
-      console.error('Failed to send welcome SMS:', error);
+      console.error('Failed to send welcome SMS:', error)
       // TODO: Log to monitoring service
-    });
+    })
 
     return {
       member: savedMember,
       payment: savedPayment,
-    };
+    }
   }
 
   /**
@@ -224,15 +247,18 @@ export class RegisterMember {
    * @param member - Registered member
    * @param amountPaid - Initial payment amount
    */
-  private async sendWelcomeSMS(member: Member, amountPaid: number): Promise<void> {
-    const message = this.generateWelcomeMessage(member, amountPaid);
+  private async sendWelcomeSMS(
+    member: Member,
+    amountPaid: number
+  ): Promise<void> {
+    const message = this.generateWelcomeMessage(member, amountPaid)
 
     try {
       // Send SMS
       const result = await this.smsProvider.send({
         to: member.phoneNumber,
         message,
-      });
+      })
 
       if (result.success) {
         // Log successful SMS to database
@@ -246,7 +272,7 @@ export class RegisterMember {
           deliveryStatus: SMSDeliveryStatus.Sent,
           textLkMessageId: result.messageId || null,
           errorMessage: null,
-        });
+        })
       } else {
         // Log failed SMS to database with error message
         await this.smsRepo.create({
@@ -259,8 +285,8 @@ export class RegisterMember {
           deliveryStatus: SMSDeliveryStatus.Failed,
           textLkMessageId: null,
           errorMessage: result.error || 'Unknown error',
-        });
-        console.error('Welcome SMS failed:', result.error);
+        })
+        console.error('Welcome SMS failed:', result.error)
       }
     } catch (error) {
       // Log exception to database
@@ -274,12 +300,13 @@ export class RegisterMember {
           sentAt: new Date(),
           deliveryStatus: SMSDeliveryStatus.Failed,
           textLkMessageId: null,
-          errorMessage: error instanceof Error ? error.message : 'Exception sending SMS',
-        });
+          errorMessage:
+            error instanceof Error ? error.message : 'Exception sending SMS',
+        })
       } catch (logError) {
-        console.error('Failed to log SMS failure:', logError);
+        console.error('Failed to log SMS failure:', logError)
       }
-      console.error('Exception sending welcome SMS:', error);
+      console.error('Exception sending welcome SMS:', error)
       // Don't throw - this is a non-critical operation
     }
   }
@@ -292,9 +319,9 @@ export class RegisterMember {
    * @returns SMS message body
    */
   private generateWelcomeMessage(member: Member, amountPaid: number): string {
-    const planTypeLabel = member.planType.replace('-', ' ');
-    const nextDueFormatted = formatDateForDisplay(member.nextDueDate);
-    const amountFormatted = `Rs.${amountPaid.toFixed(2)}`;
+    const planTypeLabel = member.planType.replace('-', ' ')
+    const nextDueFormatted = formatDateForDisplay(member.nextDueDate)
+    const amountFormatted = `Rs.${amountPaid.toFixed(2)}`
 
     return (
       `Welcome to our gym, ${member.name}! ` +
@@ -302,7 +329,7 @@ export class RegisterMember {
       `Amount paid: ${amountFormatted}. ` +
       `Next due: ${nextDueFormatted}. ` +
       `Thank you!`
-    );
+    )
   }
 
   /**
@@ -318,6 +345,6 @@ export class RegisterMember {
     planAmount: number,
     discount: DiscountInfo | null
   ): number {
-    return PaymentCalculator.calculateAmount(planAmount, discount);
+    return PaymentCalculator.calculateAmount(planAmount, discount)
   }
 }

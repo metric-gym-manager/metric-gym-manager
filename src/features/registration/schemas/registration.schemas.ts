@@ -1,6 +1,9 @@
-import { z } from 'zod';
-import { normalizePhoneNumber, isValidSriLankanPhone } from '@/utils/phone/phone';
-import { MEMBER_PHOTO_CONTENT_TYPES } from '@/utils/member-photo';
+import { z } from 'zod'
+import {
+  normalizePhoneNumber,
+  isValidSriLankanPhone,
+} from '@/utils/phone/phone'
+import { MEMBER_PHOTO_CONTENT_TYPES } from '@/utils/member-photo'
 
 // ============================================================
 // PUBLIC QR SELF-REGISTRATION SCHEMA
@@ -15,9 +18,7 @@ import { MEMBER_PHOTO_CONTENT_TYPES } from '@/utils/member-photo';
  * route (the gym is resolved from the token, never from client input).
  */
 export const publicRegistrationSchema = z.object({
-  token: z
-    .string()
-    .regex(/^[a-f0-9]{32,64}$/i, 'Invalid registration link'),
+  token: z.string().regex(/^[a-f0-9]{32,64}$/i, 'Invalid registration link'),
 
   name: z
     .string()
@@ -46,10 +47,20 @@ export const publicRegistrationSchema = z.object({
     .optional(),
 
   /**
+   * Registration consents — both must be ticked to self-register.
+   */
+  acceptedTerms: z.boolean().refine((v) => v === true, {
+    message: 'You must accept the privacy policy and terms of service',
+  }),
+  acceptedGymRules: z.boolean().refine((v) => v === true, {
+    message: "You must agree to the gym's guidelines and rules",
+  }),
+
+  /**
    * Honeypot field: rendered invisibly in the form; humans leave it empty,
    * naive bots fill it. Submissions with a value are rejected.
    */
   website: z.string().max(0, 'Invalid submission').optional(),
-});
+})
 
-export type PublicRegistrationInput = z.infer<typeof publicRegistrationSchema>;
+export type PublicRegistrationInput = z.infer<typeof publicRegistrationSchema>
