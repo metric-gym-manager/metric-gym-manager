@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import MemberPhotoSection from '../components/MemberPhotoSection'
 import type { MemberWithDiscount } from '../types'
+import { MemberStatus } from '@/features/members/config/StatusConfig'
 
 jest.mock('@tanstack/react-query', () => ({
   useMutation: jest.fn(() => ({ mutate: jest.fn(), isPending: false })),
@@ -32,7 +33,7 @@ const baseMember: MemberWithDiscount = {
   plan_amount: 3500,
   discount_id: null,
   recurring_discount: false,
-  status: 'active',
+  status: MemberStatus.Active,
   registered_date: '2026-01-01',
   membership_start_date: '2026-01-01',
   next_due_date: '2026-02-01',
