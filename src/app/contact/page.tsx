@@ -15,7 +15,7 @@ export default function ContactPage() {
               height={24}
             />
             <span className="font-bold text-lg text-gray-900">
-              Metric Gym Manager
+              Metric Gym OS
             </span>
           </Link>
         </div>
@@ -57,14 +57,14 @@ export default function ContactPage() {
             <ul className="list-none text-gray-700 space-y-2">
               <li>
                 <strong>General inquiries &amp; support:</strong>{' '}
-                <a href="mailto:support@metricgymmanager.com" className="text-blue-600 hover:text-blue-700">
-                  support@metricgymmanager.com
+                <a href="mailto:support@metricgymos.com" className="text-blue-600 hover:text-blue-700">
+                  support@metricgymos.com
                 </a>
               </li>
               <li>
                 <strong>Privacy &amp; legal:</strong>{' '}
-                <a href="mailto:privacy@metricgymmanager.com" className="text-blue-600 hover:text-blue-700">
-                  privacy@metricgymmanager.com
+                <a href="mailto:privacy@metricgymos.com" className="text-blue-600 hover:text-blue-700">
+                  privacy@metricgymos.com
                 </a>
               </li>
             </ul>
@@ -86,7 +86,7 @@ export default function ContactPage() {
           <section className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mt-8 mb-4">About the Business</h2>
             <p className="text-gray-700 leading-relaxed">
-              Metric Gym Manager is owned and operated by Capitalist One (Pvt) Ltd, a company registered in Sri Lanka. Learn more in our{' '}
+              Metric Gym OS is owned and operated by Capitalist One (Pvt) Ltd, a company registered in Sri Lanka. Learn more in our{' '}
               <Link href="/terms" className="text-blue-600 hover:text-blue-700">
                 Terms of Service
               </Link>

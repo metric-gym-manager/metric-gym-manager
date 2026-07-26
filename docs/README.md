@@ -1,6 +1,6 @@
 # Documentation
 
-Documentation for Metric Gym Manager, organized by purpose.
+Documentation for Metric Gym OS, organized by purpose.
 
 | Folder | What lives here |
 |---|---|

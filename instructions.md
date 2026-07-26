@@ -7,7 +7,7 @@ then follow the pointers for the area you are working in.
 
 ## What this product is
 
-Metric Gym Manager is a production-grade, **multi-tenant SaaS** for gym and
+Metric Gym OS is a production-grade, **multi-tenant SaaS** for gym and
 fitness-center management:
 
 - Each gym is an isolated tenant; a gym owner sees only their own data.

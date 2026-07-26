@@ -1086,7 +1086,7 @@ export default function Sidebar() {
           {/* Logo */}
           <div className="flex h-16 shrink-0 items-center">
             <h1 className="text-xl font-bold text-gray-900">
-              Metric Gym Manager
+              Metric Gym OS
             </h1>
           </div>
 

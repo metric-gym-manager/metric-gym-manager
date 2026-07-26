@@ -562,7 +562,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                     htmlFor="acceptedTerms"
                     className="text-sm font-normal leading-snug"
                   >
-                    Member accepts Metric Gym Manager&apos;s{' '}
+                    Member accepts Metric Gym OS&apos;s{' '}
                     <a
                       href="/privacy"
                       target="_blank"

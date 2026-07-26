@@ -7,7 +7,7 @@ This document provides a comprehensive overview of the application's navigation 
 ## Main Navigation Structure
 
 ```
-Metric Gym Manager
+Metric Gym OS
 ├── Dashboard
 ├── Members
 ├── Revenue

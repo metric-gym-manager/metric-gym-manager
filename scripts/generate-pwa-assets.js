@@ -18,7 +18,7 @@ console.log(`📦 Generating PWA assets with version ${APP_VERSION}...`);
 // Generate manifest.json
 // ============================================================================
 const manifest = {
-  name: "Metric Gym Manager",
+  name: "Metric Gym OS",
   short_name: "Metric Gym",
   start_url: "/members",
   display: "standalone",
