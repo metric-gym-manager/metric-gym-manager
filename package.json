@@ -32,7 +32,8 @@
     "changelog:generate": "node scripts/generate-changelog.js",
     "hooks:install": "node scripts/install-git-hooks.js",
     "postinstall": "npm run hooks:install",
-    "backup:supabase": "tsx scripts/backup-supabase-node.ts"
+    "backup:supabase": "tsx scripts/backup-supabase-node.ts",
+    "security:check-db": "tsx scripts/security/check-db-posture.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1086.0",
@@ -111,7 +112,7 @@
     "*.{js,jsx,ts,tsx}": [
       "eslint --fix",
       "prettier --write",
-      "jest --bail --findRelatedTests"
+      "jest --bail --findRelatedTests --passWithNoTests"
     ],
     "*.{json,css,md}": [
       "prettier --write"
