@@ -6,7 +6,17 @@ import { CronLogger } from '@/lib/cron'
 
 // ============================================================
 // /api/cron/cancel-overdue-members - Cancel members overdue by 14+ days
-// Schedule: Daily at midnight (00:00 UTC+5:30)
+// Schedule: daily 00:30 UTC (vercel.json)
+//
+// Nightly member-status chain — ORDER MATTERS. This is the CONSUMER: it only
+// sees members already in Expired, so it must run AFTER both feeders —
+// update-expired-status (00:00, Active -> Expired) and
+// expire-suspended-members (00:15, Suspended -> Expired). Scheduling it
+// earlier does not lose members (the sweep is date-based, not incremental),
+// but it delays each of them by a full day.
+//
+// Shares the 00:30 slot with charge-renewals; the two touch disjoint tables
+// (members vs. SaaS billing) and are safe to run concurrently.
 //
 // Vercel Cron invokes this path with an HTTP GET request, so the
 // job must run on GET as well as POST. Both verify the CRON_SECRET

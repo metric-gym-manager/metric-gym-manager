@@ -11,16 +11,12 @@
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/cron/cancel-overdue-members",
+      "path": "/api/cron/expire-suspended-members",
       "schedule": "15 0 * * *"
     },
     {
-      "path": "/api/cron/expire-suspended-members",
+      "path": "/api/cron/cancel-overdue-members",
       "schedule": "30 0 * * *"
-    },
-    {
-      "path": "/api/cron/send-reminders",
-      "schedule": "30 3 * * *"
     },
     {
       "path": "/api/cron/charge-renewals",
@@ -33,6 +29,10 @@
     {
       "path": "/api/cron/process-trial-expiry",
       "schedule": "50 0 * * *"
+    },
+    {
+      "path": "/api/cron/send-reminders",
+      "schedule": "30 3 * * *"
     },
     {
       "path": "/api/cron/archive-old-members",

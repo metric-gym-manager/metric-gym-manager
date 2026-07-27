@@ -1,20 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { createExpireSuspendedMembers } from '@/features/members';
-import { ResponseBuilder } from '@/utils/api/ApiResponse';
-import { CronLogger } from '@/lib/cron';
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { createExpireSuspendedMembers } from '@/features/members'
+import { ResponseBuilder } from '@/utils/api/ApiResponse'
+import { CronLogger } from '@/lib/cron'
 
 // ============================================================
 // /api/cron/expire-suspended-members - Expire overdue suspended members cron job
-// Schedule: Daily at midnight (00:00 UTC+5:30)
+// Schedule: daily 00:15 UTC (vercel.json)
+//
+// Nightly member-status chain — ORDER MATTERS. Feeder 2 of 2
+// (Suspended -> Expired), running AFTER update-expired-status (00:00) and
+// BEFORE cancel-overdue-members (00:30) so a suspended member who is already
+// past the cancellation threshold is cancelled on the same night rather than
+// waiting for the next day's run.
 //
 // Vercel Cron invokes this path with an HTTP GET request, so the
 // job must run on GET as well as POST. Both verify the CRON_SECRET
 // bearer token.
 // ============================================================
 
-export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 /**
  * Expire Suspended Members Cron Job
@@ -30,44 +36,41 @@ export const maxDuration = 60;
  * indefinitely past their due date without automatic expiration.
  */
 async function runExpireSuspendedMembers(request: NextRequest) {
-  const supabase = createAdminClient();
-  const logger = new CronLogger(supabase);
-  let logId: string | null = null;
+  const supabase = createAdminClient()
+  const logger = new CronLogger(supabase)
+  let logId: string | null = null
 
   try {
     // Verify cron secret for security
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET;
+    const authHeader = request.headers.get('authorization')
+    const cronSecret = process.env.CRON_SECRET
 
     if (!cronSecret) {
-      console.error('CRON_SECRET is not configured — refusing to run cron job');
+      console.error('CRON_SECRET is not configured — refusing to run cron job')
       return NextResponse.json(
         { success: false, error: 'Server misconfigured' },
         { status: 500 }
-      );
+      )
     }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
-      console.error('Unauthorized cron request');
-      return NextResponse.json(
-        ResponseBuilder.unauthorized(),
-        { status: 401 }
-      );
+      console.error('Unauthorized cron request')
+      return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 })
     }
 
-    console.log('🚀 Starting expire suspended members cron job...');
-    const startTime = Date.now();
+    console.log('🚀 Starting expire suspended members cron job...')
+    const startTime = Date.now()
 
     // Log cron job start
-    logId = await logger.logStart('expire-suspended-members');
+    logId = await logger.logStart('expire-suspended-members')
 
     // Expire overdue suspended members via use case
-    const expireSuspended = createExpireSuspendedMembers(createAdminClient());
-    const summary = await expireSuspended.execute();
+    const expireSuspended = createExpireSuspendedMembers(createAdminClient())
+    const summary = await expireSuspended.execute()
 
-    const duration = Date.now() - startTime;
+    const duration = Date.now() - startTime
 
-    console.log(`⏱️  Cron job completed in ${duration}ms`);
+    console.log(`⏱️  Cron job completed in ${duration}ms`)
 
     // Log successful completion
     await logger.logSuccess(logId, {
@@ -75,7 +78,7 @@ async function runExpireSuspendedMembers(request: NextRequest) {
       expiredMembers: summary.expiredMembers,
       errors: summary.errors,
       duration: `${duration}ms`,
-    });
+    })
 
     return NextResponse.json(
       ResponseBuilder.success({
@@ -85,15 +88,15 @@ async function runExpireSuspendedMembers(request: NextRequest) {
         duration: `${duration}ms`,
       }),
       { status: 200 }
-    );
+    )
   } catch (error) {
-    console.error('Expire suspended members cron error:', error);
+    console.error('Expire suspended members cron error:', error)
 
     // Log failure if we have a log ID
     if (logId) {
       await logger.logFailure(logId, [
         error instanceof Error ? error.message : 'Unknown error',
-      ]);
+      ])
     }
 
     return NextResponse.json(
@@ -102,7 +105,7 @@ async function runExpireSuspendedMembers(request: NextRequest) {
         error instanceof Error ? error.stack : undefined
       ),
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -110,18 +113,18 @@ async function runExpireSuspendedMembers(request: NextRequest) {
 export async function GET(request: NextRequest) {
   // In development, allow GET without auth for easy manual testing
   if (process.env.NODE_ENV !== 'production') {
-    console.log('🧪 Manual test: Starting expire suspended members cron job...');
+    console.log('🧪 Manual test: Starting expire suspended members cron job...')
 
-    const expireSuspended = createExpireSuspendedMembers(createAdminClient());
-    const summary = await expireSuspended.execute();
+    const expireSuspended = createExpireSuspendedMembers(createAdminClient())
+    const summary = await expireSuspended.execute()
 
-    return NextResponse.json(ResponseBuilder.success(summary));
+    return NextResponse.json(ResponseBuilder.success(summary))
   }
 
-  return runExpireSuspendedMembers(request);
+  return runExpireSuspendedMembers(request)
 }
 
 // Manual/external trigger (e.g. curl with the bearer token)
 export async function POST(request: NextRequest) {
-  return runExpireSuspendedMembers(request);
+  return runExpireSuspendedMembers(request)
 }

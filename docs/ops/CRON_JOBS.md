@@ -5,6 +5,7 @@ This document describes the automated cron jobs for the Gym Management SaaS plat
 ## Overview
 
 Three cron jobs run automatically to handle:
+
 1. **Daily SMS Reminders** - Send payment reminders to members
 2. **Status Updates** - Mark overdue members as expired
 3. **Member Archival** - Archive inactive members after 2 years
@@ -13,11 +14,11 @@ Three cron jobs run automatically to handle:
 
 All times are configured for **Sri Lanka Time (UTC+5:30)**:
 
-| Job | Schedule | Time (Sri Lanka) | Time (UTC) | Frequency |
-|-----|----------|------------------|------------|-----------|
-| Send Reminders | `30 3 * * *` | 9:00 AM | 3:30 AM | Daily |
-| Update Status | `30 18 * * *` | 12:00 AM (midnight) | 6:30 PM (previous day) | Daily |
-| Archive Members | `30 19 1 * *` | 1:00 AM on 1st | 7:30 PM on 1st | Monthly |
+| Job             | Schedule      | Time (Sri Lanka)    | Time (UTC)             | Frequency |
+| --------------- | ------------- | ------------------- | ---------------------- | --------- |
+| Send Reminders  | `30 3 * * *`  | 9:00 AM             | 3:30 AM                | Daily     |
+| Update Status   | `30 18 * * *` | 12:00 AM (midnight) | 6:30 PM (previous day) | Daily     |
+| Archive Members | `30 19 1 * *` | 1:00 AM on 1st      | 7:30 PM on 1st         | Monthly   |
 
 > **IMPORTANT:** Vercel Cron invokes cron paths with an **HTTP GET** request
 > (with `Authorization: Bearer <CRON_SECRET>` attached automatically when the
@@ -30,6 +31,7 @@ All times are configured for **Sri Lanka Time (UTC+5:30)**:
 **Endpoint:** `GET|POST /api/cron/send-reminders`
 
 ### What It Does
+
 Automatically sends payment reminders to all active members based on their due dates:
 
 - **7-Day Notice**: Sent 7 days before due date
@@ -38,6 +40,7 @@ Automatically sends payment reminders to all active members based on their due d
 - **Overdue**: Sent for members past their due date
 
 ### Process Flow
+
 1. Fetch all gyms from database
 2. For each gym, fetch all active members
 3. Calculate days until due for each member
@@ -46,6 +49,7 @@ Automatically sends payment reminders to all active members based on their due d
 6. Return summary of messages sent
 
 ### Response Example
+
 ```json
 {
   "success": true,
@@ -67,11 +71,13 @@ Automatically sends payment reminders to all active members based on their due d
 ### SMS Message Formats
 
 **7-Day/3-Day/Due Today:**
+
 ```
 Dear John Doe, your Monthly membership at PowerFit Gym is due on 20/02/2026. Amount: Rs.5000.00. Thank you.
 ```
 
 **Overdue:**
+
 ```
 Dear John Doe, your Monthly membership at PowerFit Gym was due on 13/02/2026. Amount: Rs.5000.00. Please make payment. Thank you.
 ```
@@ -81,9 +87,11 @@ Dear John Doe, your Monthly membership at PowerFit Gym was due on 13/02/2026. Am
 **Endpoint:** `GET|POST /api/cron/update-expired-status`
 
 ### What It Does
+
 Updates member status from "Active" to "Expired" for members who are more than 7 days overdue.
 
 ### Process Flow
+
 1. Calculate cutoff date (7 days ago)
 2. Find all active members with `next_due_date < cutoff_date`
 3. Update their status to "expired"
@@ -91,6 +99,7 @@ Updates member status from "Active" to "Expired" for members who are more than 7
 5. Return count of updated members
 
 ### Response Example
+
 ```json
 {
   "success": true,
@@ -103,6 +112,7 @@ Updates member status from "Active" to "Expired" for members who are more than 7
 ```
 
 ### Business Logic
+
 - Members remain "Active" even if overdue, up to 7 days
 - After 7 days overdue, status automatically changes to "Expired"
 - Expired members can still be reactivated by collecting payment
@@ -112,9 +122,11 @@ Updates member status from "Active" to "Expired" for members who are more than 7
 **Endpoint:** `GET|POST /api/cron/archive-old-members`
 
 ### What It Does
+
 Archives (soft deletes) expired members who haven't been updated in 2 years.
 
 ### Process Flow
+
 1. Calculate cutoff date (2 years ago)
 2. Find all expired members with `updated_at < cutoff_date`
 3. Change their status to "cancelled" (soft delete)
@@ -122,6 +134,7 @@ Archives (soft deletes) expired members who haven't been updated in 2 years.
 5. Return count of archived members
 
 ### Response Example
+
 ```json
 {
   "success": true,
@@ -134,6 +147,7 @@ Archives (soft deletes) expired members who haven't been updated in 2 years.
 ```
 
 ### Business Logic
+
 - Only expired members are archived
 - 2-year grace period before archival
 - Soft delete preserves payment history for revenue reports
@@ -148,12 +162,15 @@ Authorization: Bearer <CRON_SECRET>
 ```
 
 ### Setup
+
 1. Generate a secure secret:
+
    ```bash
    openssl rand -base64 32
    ```
 
 2. Add to environment variables:
+
    ```env
    CRON_SECRET=your-generated-secret-here
    ```
@@ -212,11 +229,11 @@ The cron jobs are configured in `vercel.json`:
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/cron/cancel-overdue-members",
+      "path": "/api/cron/expire-suspended-members",
       "schedule": "15 0 * * *"
     },
     {
-      "path": "/api/cron/expire-suspended-members",
+      "path": "/api/cron/cancel-overdue-members",
       "schedule": "30 0 * * *"
     },
     {
@@ -232,12 +249,14 @@ The cron jobs are configured in `vercel.json`:
 ```
 
 ### Vercel Cron Requirements
+
 - Available on **Hobby plan and above**
 - Maximum **20 cron jobs** per project
 - Cron jobs run in **UTC timezone** (hence the time conversions)
 - Each job has a **10-second timeout** on Hobby plan
 
 ### Monitoring
+
 - View cron job logs in Vercel Dashboard → Deployments → Functions
 - Check execution history and errors
 - Set up alerts for failed executions
@@ -245,11 +264,13 @@ The cron jobs are configured in `vercel.json`:
 ## SMS Mock Mode
 
 Currently, SMS sending is in **mock mode**:
+
 - Messages are logged to console
 - Messages are saved to `sms_logs` table
 - No actual SMS is sent via text.lk
 
 ### Console Output Example
+
 ```
 📱 [MOCK SMS] Sending SMS:
    To: +94771234567
@@ -259,9 +280,11 @@ Currently, SMS sending is in **mock mode**:
 ```
 
 ### Enabling Real SMS
+
 To switch to real SMS via text.lk:
 
 1. Add text.lk credentials to environment:
+
    ```env
    TEXT_LK_API_KEY=your-api-key
    TEXT_LK_SENDER_ID=your-sender-id
@@ -273,6 +296,7 @@ To switch to real SMS via text.lk:
 ## Database Schema
 
 ### sms_logs Table
+
 ```sql
 CREATE TABLE sms_logs (
   id UUID PRIMARY KEY,
@@ -291,18 +315,21 @@ CREATE TABLE sms_logs (
 ## Troubleshooting
 
 ### Cron Job Not Running
+
 1. Check Vercel deployment logs
 2. Verify `CRON_SECRET` is set in environment variables
 3. Ensure you're on a Vercel plan that supports cron jobs
 4. Check cron schedule syntax in `vercel.json`
 
 ### SMS Not Sending
+
 1. Check console logs for mock SMS output
 2. Verify members have valid phone numbers (+94 format)
 3. Check `sms_logs` table for entries
 4. Review error messages in cron job response
 
 ### Wrong Timezone
+
 - All schedules are in UTC
 - Verify UTC conversion is correct for Sri Lanka (UTC+5:30)
 - Adjust `vercel.json` schedules if needed
