@@ -7,28 +7,28 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+} from '@/components/ui/alert-dialog'
 
 /**
  * Props for the ConfirmDialog component
  */
 export interface ConfirmDialogProps {
   /** Whether the dialog is open */
-  open: boolean;
+  open: boolean
   /** Callback to change the open state */
-  onOpenChange: (open: boolean) => void;
+  onOpenChange: (open: boolean) => void
   /** Dialog title */
-  title: string;
+  title: string
   /** Dialog description/message */
-  description: string;
+  description: string
   /** Text for the confirm button (default: "Confirm") */
-  confirmText?: string;
+  confirmText?: string
   /** Text for the cancel button (default: "Cancel") */
-  cancelText?: string;
+  cancelText?: string
   /** Callback when confirm button is clicked */
-  onConfirm: () => void;
+  onConfirm: () => void
   /** Visual variant for the confirm button (default: "default") */
-  variant?: 'default' | 'destructive';
+  variant?: 'default' | 'destructive'
 }
 
 /**
@@ -85,12 +85,16 @@ export default function ConfirmDialog({
           <AlertDialogCancel>{cancelText}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
-            className={variant === 'destructive' ? 'bg-red-600 hover:bg-red-700' : ''}
+            className={
+              variant === 'destructive'
+                ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                : ''
+            }
           >
             {confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  );
+  )
 }
