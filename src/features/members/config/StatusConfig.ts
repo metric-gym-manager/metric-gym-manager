@@ -15,8 +15,12 @@
  *
  * Billing-critical: the SaaS quota counts ACTIVE members only, so this is the
  * exact moment an unpaid member stops consuming an active-member slot.
- * SQL mirror: none (the cron drives the transition; the DB trigger
- * sync_gym_member_count reacts to the status flip).
+ *
+ * This module is the AUTHORITY for the transition — the cron drives it and the
+ * DB trigger sync_gym_member_count reacts to the status flip. SQL mirror:
+ * migration 20260727000001 realigns the (uncalled) helper functions
+ * get_overdue_members / auto_expire_overdue_members to the same no-grace rule
+ * so the database can never disagree; keep them in sync if this changes.
  *
  * NOTE: the former `MEMBER_EXPIRY_GRACE_DAYS` (7) constant was removed with the
  * grace window itself — do not reintroduce a grace knob here.

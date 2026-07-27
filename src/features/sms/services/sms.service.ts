@@ -1,7 +1,7 @@
-import { createClient } from '@/lib/supabase/server';
-import type { SMSType, SMSLog, MemberReminderStatus } from '../types';
-import type { ReminderFiltersInput } from '../schemas/sms.schemas';
-import { sendSmsViaTextLk } from './textlk.service';
+import { createClient } from '@/lib/supabase/server'
+import type { SMSType, SMSLog, MemberReminderStatus } from '../types'
+import type { ReminderFiltersInput } from '../schemas/sms.schemas'
+import { sendSmsViaTextLk } from './textlk.service'
 
 // ============================================================
 // SEND SMS (WITH REAL SMS INTEGRATION VIA text.lk)
@@ -14,7 +14,7 @@ export async function sendSMS(
   customMessage?: string,
   paymentAmount?: number
 ): Promise<SMSLog> {
-  const supabase = await createClient();
+  const supabase = await createClient()
 
   // Get member details including gym name via join
   const { data: member } = await supabase
@@ -22,52 +22,55 @@ export async function sendSMS(
     .select('*, gyms(gym_name)')
     .eq('id', memberId)
     .eq('gym_id', gymId)
-    .single();
+    .single()
 
   if (!member) {
-    throw new Error('Member not found');
+    throw new Error('Member not found')
   }
 
-  const gymName = (member.gyms as { gym_name: string } | null)?.gym_name ?? '';
+  const gymName = (member.gyms as { gym_name: string } | null)?.gym_name ?? ''
 
   // Format message based on SMS type
-  const messageBody = customMessage || formatSMSMessage(smsType, member, gymName, paymentAmount);
+  const messageBody =
+    customMessage || formatSMSMessage(smsType, member, gymName, paymentAmount)
 
   // Check if real SMS is enabled via feature flag
-  const useRealSms = process.env.ENABLE_REAL_SMS === 'true';
+  const useRealSms = process.env.ENABLE_REAL_SMS === 'true'
 
-  let deliveryStatus: 'sent' | 'delivered' | 'failed' = 'sent';
-  let textLkMessageId: string | null = null;
+  let deliveryStatus: 'sent' | 'delivered' | 'failed' = 'sent'
+  let textLkMessageId: string | null = null
 
   if (useRealSms) {
     // Send SMS via text.lk API
-    console.log('📱 [REAL SMS] Sending via text.lk:');
-    console.log(`   To: ${member.phone_number}`);
-    console.log(`   Type: ${smsType}`);
-    console.log(`   Message: ${messageBody}`);
+    console.log('📱 [REAL SMS] Sending via text.lk:')
+    console.log(`   To: ${member.phone_number}`)
+    console.log(`   Type: ${smsType}`)
+    console.log(`   Message: ${messageBody}`)
 
     const result = await sendSmsViaTextLk({
       to: member.phone_number,
       message: messageBody,
-    });
+    })
 
     if (result.success) {
-      textLkMessageId = result.message_id ?? null;
-      deliveryStatus = 'sent';
-      console.log(`   ✓ SMS sent via text.lk (ID: ${result.message_id ?? 'N/A'})`);
+      textLkMessageId = result.message_id ?? null
+      deliveryStatus = 'sent'
+      console.log(
+        `   ✓ SMS sent via text.lk (ID: ${result.message_id ?? 'N/A'})`
+      )
       if (result.balance !== undefined) {
-        console.log(`   Balance: ${result.balance} credits`);
+        console.log(`   Balance: ${result.balance} credits`)
       }
     } else {
-      deliveryStatus = 'failed';
-      console.error(`   ✗ SMS failed: ${result.error}`);
+      deliveryStatus = 'failed'
+      console.error(`   ✗ SMS failed: ${result.error}`)
     }
   } else {
     // Mock SMS sending - just log to console
-    console.log('📱 [MOCK SMS] Sending SMS:');
-    console.log(`   To: ${member.phone_number}`);
-    console.log(`   Type: ${smsType}`);
-    console.log(`   Message: ${messageBody}`);
+    console.log('📱 [MOCK SMS] Sending SMS:')
+    console.log(`   To: ${member.phone_number}`)
+    console.log(`   Type: ${smsType}`)
+    console.log(`   Message: ${messageBody}`)
   }
 
   // Log to database
@@ -84,15 +87,15 @@ export async function sendSMS(
       text_lk_message_id: textLkMessageId,
     })
     .select()
-    .single();
+    .single()
 
   if (error || !smsLog) {
-    throw new Error(`Failed to log SMS: ${error?.message}`);
+    throw new Error(`Failed to log SMS: ${error?.message}`)
   }
 
-  console.log(`   ✓ SMS logged to database (ID: ${smsLog.id})`);
+  console.log(`   ✓ SMS logged to database (ID: ${smsLog.id})`)
 
-  return smsLog as SMSLog;
+  return smsLog as SMSLog
 }
 
 // ============================================================
@@ -103,7 +106,7 @@ export async function getReminderStatus(
   gymId: string,
   filters?: ReminderFiltersInput
 ): Promise<MemberReminderStatus[]> {
-  const supabase = await createClient();
+  const supabase = await createClient()
 
   // Get all active members with their SMS logs (ordered by most recent first)
   const { data: members, error } = await supabase
@@ -123,55 +126,72 @@ export async function getReminderStatus(
     `
     )
     .eq('gym_id', gymId)
-    .order('next_due_date', { ascending: true });
+    .order('next_due_date', { ascending: true })
 
   if (error) {
-    throw new Error(`Failed to fetch reminder status: ${error.message}`);
+    throw new Error(`Failed to fetch reminder status: ${error.message}`)
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
 
   interface ReminderLogRow {
-    sms_type: SMSType;
-    sent_at: string;
-    delivery_status: NonNullable<MemberReminderStatus['last_delivery_status']>;
+    sms_type: SMSType
+    sent_at: string
+    delivery_status: NonNullable<MemberReminderStatus['last_delivery_status']>
   }
 
   interface ReminderMemberRow {
-    id: string;
-    name: string;
-    phone_number: string;
-    plan_type: MemberReminderStatus['plan_type'];
-    next_due_date: string;
-    sms_logs: ReminderLogRow[] | null;
+    id: string
+    name: string
+    phone_number: string
+    plan_type: MemberReminderStatus['plan_type']
+    next_due_date: string
+    sms_logs: ReminderLogRow[] | null
   }
 
   // Process members and calculate days until due
-  let reminderStatuses: MemberReminderStatus[] = ((members || []) as ReminderMemberRow[]).map((member) => {
-    const dueDate = new Date(member.next_due_date);
-    dueDate.setHours(0, 0, 0, 0);
-    const daysUntilDue = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  let reminderStatuses: MemberReminderStatus[] = (
+    (members || []) as ReminderMemberRow[]
+  ).map((member) => {
+    const dueDate = new Date(member.next_due_date)
+    dueDate.setHours(0, 0, 0, 0)
+    const daysUntilDue = Math.floor(
+      (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    )
 
     // Only consider reminder-type SMS logs — receipt and welcome are transactional
     // and must not affect the auto-status indicator or the "Sent Xm ago" label.
-    const REMINDER_TYPES = ['reminder_7day', 'reminder_3day', 'due_today', 'overdue'];
+    const REMINDER_TYPES = [
+      'reminder_7day',
+      'reminder_3day',
+      'due_today',
+      'overdue',
+    ]
     const reminderLogs = (member.sms_logs || [])
       .filter((log) => REMINDER_TYPES.includes(log.sms_type))
-      .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+      .sort(
+        (a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()
+      )
 
-    const lastLog = reminderLogs.length > 0 ? reminderLogs[0] : null;
+    const lastLog = reminderLogs.length > 0 ? reminderLogs[0] : null
 
     // Query each reminder type's most recent log (now sorted by sent_at DESC)
-    const reminder7Day = reminderLogs.find((log) => log.sms_type === 'reminder_7day');
-    const reminder3Day = reminderLogs.find((log) => log.sms_type === 'reminder_3day');
-    const dueToday = reminderLogs.find((log) => log.sms_type === 'due_today');
-    const overdue = reminderLogs.find((log) => log.sms_type === 'overdue');
+    const reminder7Day = reminderLogs.find(
+      (log) => log.sms_type === 'reminder_7day'
+    )
+    const reminder3Day = reminderLogs.find(
+      (log) => log.sms_type === 'reminder_3day'
+    )
+    const dueToday = reminderLogs.find((log) => log.sms_type === 'due_today')
+    const overdue = reminderLogs.find((log) => log.sms_type === 'overdue')
 
     // Check for delivery failures (system errors) for each reminder type
-    const reminder7DayError = reminder7Day?.delivery_status === 'failed' || false;
-    const reminder3DayError = reminder3Day?.delivery_status === 'failed' || false;
-    const dueTodayError = dueToday?.delivery_status === 'failed' || false;
+    const reminder7DayError =
+      reminder7Day?.delivery_status === 'failed' || false
+    const reminder3DayError =
+      reminder3Day?.delivery_status === 'failed' || false
+    const dueTodayError = dueToday?.delivery_status === 'failed' || false
 
     return {
       id: member.id,
@@ -192,8 +212,8 @@ export async function getReminderStatus(
       reminder_7day_error: reminder7DayError,
       reminder_3day_error: reminder3DayError,
       due_today_error: dueTodayError,
-    };
-  });
+    }
+  })
 
   // Apply filters
   if (filters?.filter) {
@@ -201,14 +221,16 @@ export async function getReminderStatus(
       case 'upcoming':
         reminderStatuses = reminderStatuses.filter(
           (r) => r.days_until_due >= 1 && r.days_until_due <= 7
-        );
-        break;
+        )
+        break
       case 'due_today':
-        reminderStatuses = reminderStatuses.filter((r) => r.days_until_due === 0);
-        break;
+        reminderStatuses = reminderStatuses.filter(
+          (r) => r.days_until_due === 0
+        )
+        break
       case 'overdue':
-        reminderStatuses = reminderStatuses.filter((r) => r.days_until_due < 0);
-        break;
+        reminderStatuses = reminderStatuses.filter((r) => r.days_until_due < 0)
+        break
       // 'all' - no filtering
     }
   }
@@ -216,16 +238,19 @@ export async function getReminderStatus(
   // Apply sorting
   if (filters?.sortBy === 'last_reminder_desc') {
     reminderStatuses.sort((a, b) => {
-      if (!a.last_reminder_sent) return 1;
-      if (!b.last_reminder_sent) return -1;
-      return new Date(b.last_reminder_sent).getTime() - new Date(a.last_reminder_sent).getTime();
-    });
+      if (!a.last_reminder_sent) return 1
+      if (!b.last_reminder_sent) return -1
+      return (
+        new Date(b.last_reminder_sent).getTime() -
+        new Date(a.last_reminder_sent).getTime()
+      )
+    })
   } else {
     // Default: sort by due date (soonest first)
-    reminderStatuses.sort((a, b) => a.days_until_due - b.days_until_due);
+    reminderStatuses.sort((a, b) => a.days_until_due - b.days_until_due)
   }
 
-  return reminderStatuses;
+  return reminderStatuses
 }
 
 // ============================================================
@@ -233,10 +258,10 @@ export async function getReminderStatus(
 // ============================================================
 
 interface SMSMemberFields {
-  name: string;
-  next_due_date: string;
-  plan_amount: number;
-  plan_type: string;
+  name: string
+  next_due_date: string
+  plan_amount: number
+  plan_type: string
 }
 
 function formatSMSMessage(
@@ -245,30 +270,37 @@ function formatSMSMessage(
   gymName: string,
   paymentAmount?: number
 ): string {
-  const dueDate = new Date(member.next_due_date).toLocaleDateString('en-GB');
-  const amount = `Rs.${member.plan_amount.toFixed(2)}`;
-  const planType = member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1);
+  const dueDate = new Date(member.next_due_date).toLocaleDateString('en-GB')
+  const amount = `Rs.${member.plan_amount.toFixed(2)}`
+  const planType =
+    member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1)
 
   switch (smsType) {
     case 'welcome': {
-      const paid = paymentAmount ? `Rs.${paymentAmount.toFixed(2)}` : `Rs.${member.plan_amount.toFixed(2)}`;
-      return `Welcome to ${gymName}, ${member.name}! Your ${planType} membership is now active. Amount paid: ${paid}. Thank you for joining us!`;
+      const paid = paymentAmount
+        ? `Rs.${paymentAmount.toFixed(2)}`
+        : `Rs.${member.plan_amount.toFixed(2)}`
+      return `Welcome to ${gymName}, ${member.name}! Your ${planType} membership is now active. Amount paid: ${paid}. Thank you for joining us!`
     }
 
     case 'reminder_7day':
     case 'reminder_3day':
+      return `Dear ${member.name}, your ${planType} membership at ${gymName} is due on ${dueDate}. Amount: ${amount}. Thank you.`
+
+    // Membership expiry is immediate once the due date passes, so a manual
+    // due-today SMS carries the same "last day" wording as the automated one.
     case 'due_today':
-      return `Dear ${member.name}, your ${planType} membership at ${gymName} is due on ${dueDate}. Amount: ${amount}. Thank you.`;
+      return `Dear ${member.name}, your ${planType} membership at ${gymName} expires today. Amount: ${amount}. Please pay today to stay active. Thank you.`
 
     case 'overdue':
-      return `Dear ${member.name}, your ${planType} membership at ${gymName} was due on ${dueDate}. Amount: ${amount}. Please make payment. Thank you.`;
+      return `Dear ${member.name}, your ${planType} membership at ${gymName} was due on ${dueDate}. Amount: ${amount}. Please make payment. Thank you.`
 
     case 'receipt':
       // This will be formatted in the payment service with actual payment details
-      return '';
+      return ''
 
     default:
-      return `Reminder from ${gymName}`;
+      return `Reminder from ${gymName}`
   }
 }
 
@@ -284,17 +316,16 @@ export function formatReceiptSMS(
   discountName?: string | null,
   discountPercentage?: number | null
 ): string {
-  const amount = `Rs.${amountPaid.toFixed(2)}`;
-  const dueDate = new Date(nextDueDate).toLocaleDateString('en-GB');
+  const amount = `Rs.${amountPaid.toFixed(2)}`
+  const dueDate = new Date(nextDueDate).toLocaleDateString('en-GB')
 
   if (discountName && discountPercentage) {
-    return `Dear ${memberName}, payment of ${amount} received (Discount: ${discountName} ${discountPercentage}% applied). Next due date: ${dueDate}. Thank you - ${gymName}`;
+    return `Dear ${memberName}, payment of ${amount} received (Discount: ${discountName} ${discountPercentage}% applied). Next due date: ${dueDate}. Thank you - ${gymName}`
   }
 
-  return `Dear ${memberName}, payment of ${amount} received. Next due date: ${dueDate}. Thank you - ${gymName}`;
+  return `Dear ${memberName}, payment of ${amount} received. Next due date: ${dueDate}. Thank you - ${gymName}`
 }
 
 // ============================================================
 // CALCULATE BILLING PERIOD START
 // ============================================================
-

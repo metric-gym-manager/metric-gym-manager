@@ -7,6 +7,7 @@
  * until the server returns an empty page.
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { SupabaseMemberRepository } from '@/features/members/services/SupabaseMemberRepository'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { PlanType } from '@/features/members/config/PlanConfig'
@@ -76,8 +77,9 @@ function makeSupabase(total: number, status: MemberStatus, serverCap: number) {
 describe('SupabaseMemberRepository — paged cron reads', () => {
   it('returns every active member when the set spans multiple pages', async () => {
     const { client, rangeCalls } = makeSupabase(2500, MemberStatus.Active, 1000)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const repo = new SupabaseMemberRepository(client as any)
+    const repo = new SupabaseMemberRepository(
+      client as unknown as SupabaseClient
+    )
 
     const members = await repo.findAllActiveMembers()
 
@@ -88,8 +90,9 @@ describe('SupabaseMemberRepository — paged cron reads', () => {
 
   it('walks the whole set even when the server cap is smaller than the page size', async () => {
     const { client } = makeSupabase(1200, MemberStatus.Expired, 500)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const repo = new SupabaseMemberRepository(client as any)
+    const repo = new SupabaseMemberRepository(
+      client as unknown as SupabaseClient
+    )
 
     const members = await repo.findAllExpiredMembers()
 
@@ -102,8 +105,9 @@ describe('SupabaseMemberRepository — paged cron reads', () => {
       MemberStatus.Suspended,
       1000
     )
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const repo = new SupabaseMemberRepository(client as any)
+    const repo = new SupabaseMemberRepository(
+      client as unknown as SupabaseClient
+    )
 
     const members = await repo.findAllSuspendedMembers()
 
@@ -116,8 +120,9 @@ describe('SupabaseMemberRepository — paged cron reads', () => {
 
   it('returns an empty array when there are no matching members', async () => {
     const { client } = makeSupabase(0, MemberStatus.Active, 1000)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const repo = new SupabaseMemberRepository(client as any)
+    const repo = new SupabaseMemberRepository(
+      client as unknown as SupabaseClient
+    )
 
     await expect(repo.findAllActiveMembers()).resolves.toEqual([])
   })
@@ -135,8 +140,9 @@ describe('SupabaseMemberRepository — paged cron reads', () => {
         return builder
       },
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const repo = new SupabaseMemberRepository(client as any)
+    const repo = new SupabaseMemberRepository(
+      client as unknown as SupabaseClient
+    )
 
     await expect(repo.findAllActiveMembers()).rejects.toThrow(
       'Failed to fetch all active members: boom'
