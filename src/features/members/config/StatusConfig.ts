@@ -16,11 +16,16 @@
  * Billing-critical: the SaaS quota counts ACTIVE members only, so this is the
  * exact moment an unpaid member stops consuming an active-member slot.
  *
- * This module is the AUTHORITY for the transition — the cron drives it and the
- * DB trigger sync_gym_member_count reacts to the status flip. SQL mirror:
- * migration 20260727000001 realigns the (uncalled) helper functions
- * get_overdue_members / auto_expire_overdue_members to the same no-grace rule
- * so the database can never disagree; keep them in sync if this changes.
+ * This module is the SOLE AUTHORITY for the transition — the cron drives it and
+ * the DB trigger sync_gym_member_count merely reacts to the status flip. There
+ * is deliberately NO SQL implementation of the rule to keep in sync: migration
+ * 20260727000002 dropped auto_expire_overdue_members(), which was a duplicate
+ * copy of this state transition in the database (R5, and rule 2.5 — it flipped
+ * status with a bare UPDATE, bypassing canTransition() and the cron audit log).
+ * Do not reintroduce a SQL function that writes members.status.
+ *
+ * The read-only helper get_overdue_members() is aligned to the same no-grace
+ * predicate by migration 20260727000001; update it if this rule changes.
  *
  * NOTE: the former `MEMBER_EXPIRY_GRACE_DAYS` (7) constant was removed with the
  * grace window itself — do not reintroduce a grace knob here.

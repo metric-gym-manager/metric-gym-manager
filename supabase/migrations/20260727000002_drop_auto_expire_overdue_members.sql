@@ -1,0 +1,38 @@
+-- ============================================================
+-- Drop auto_expire_overdue_members() — single ownership (R5)
+-- ============================================================
+-- The Active -> Expired transition has exactly ONE owner: the application use
+-- case UpdateExpiredStatus (src/features/members/services/UpdateExpiredStatus.ts),
+-- driven by the daily Vercel cron /api/cron/update-expired-status and governed
+-- by the state machine in features/members/config/StatusConfig.ts.
+--
+-- auto_expire_overdue_members() was a second, independent implementation of
+-- that same transition living in the database. Keeping it violates two rules:
+--
+--   * R5 (single ownership of shared domain concepts) — a domain state machine
+--     is owned by exactly one feature and never duplicated. The previous
+--     migration (20260727000001) only made the duplicate AGREE with the app;
+--     agreement is not ownership, and the copy would drift again on the next
+--     rule change.
+--   * .claude/rules/architecture.md 2.5 (state transitions run through
+--     dedicated operational paths) — this function is SECURITY DEFINER and
+--     flips members.status with a bare UPDATE, bypassing canTransition(), the
+--     Member entity, and the cron audit log in cron_logs entirely.
+--
+-- The function is not referenced anywhere in application code (no .rpc() call
+-- site), and no pg_cron schedule in this repo invokes it; all scheduling is
+-- declared in vercel.json. Dropping it therefore removes a dormant path that
+-- could silently rewrite member statuses outside the state machine, rather
+-- than removing live behaviour. Its definition remains recoverable from git
+-- history (migrations 20260211000006 and 20260727000001).
+--
+-- get_overdue_members() is intentionally KEPT: it is a read-only query helper
+-- that performs no transition, so it carries no ownership conflict. Migration
+-- 20260727000001 already realigned it to the no-grace predicate.
+--
+-- Idempotent: IF EXISTS, so it is safe to replay from an empty database (the
+-- earlier migrations create the function first, then this drops it) and safe
+-- to re-run against a database where it is already gone.
+-- ============================================================
+
+DROP FUNCTION IF EXISTS auto_expire_overdue_members();
