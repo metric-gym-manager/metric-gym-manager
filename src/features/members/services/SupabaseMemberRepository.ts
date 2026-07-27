@@ -210,18 +210,15 @@ export class SupabaseMemberRepository implements IMemberRepository {
 
   /**
    * Find all active members across all gyms
+   *
+   * Cron-facing (update-expired-status, send-reminders): paged so the daily
+   * sweep never silently stops at PostgREST's db-max-rows cap.
    */
   async findAllActiveMembers(): Promise<Member[]> {
-    const { data, error } = await this.supabase
-      .from('members')
-      .select('*')
-      .eq('status', MemberStatus.Active)
-
-    if (error) {
-      throw new Error(`Failed to fetch all active members: ${error.message}`)
-    }
-
-    return (data || []).map((row) => this.toDomain(row))
+    return this.findAllByStatusAcrossGyms(
+      MemberStatus.Active,
+      'all active members'
+    )
   }
 
   /**
@@ -243,34 +240,75 @@ export class SupabaseMemberRepository implements IMemberRepository {
 
   /**
    * Find all expired members across all gyms
+   *
+   * Cron-facing (cancel-overdue-members): paged, see findAllActiveMembers.
    */
   async findAllExpiredMembers(): Promise<Member[]> {
-    const { data, error } = await this.supabase
-      .from('members')
-      .select('*')
-      .eq('status', MemberStatus.Expired)
-
-    if (error) {
-      throw new Error(`Failed to fetch all expired members: ${error.message}`)
-    }
-
-    return (data || []).map((row) => this.toDomain(row))
+    return this.findAllByStatusAcrossGyms(
+      MemberStatus.Expired,
+      'all expired members'
+    )
   }
 
   /**
    * Find all suspended members across all gyms
+   *
+   * Cron-facing (expire-suspended-members): paged, see findAllActiveMembers.
    */
   async findAllSuspendedMembers(): Promise<Member[]> {
-    const { data, error } = await this.supabase
-      .from('members')
-      .select('*')
-      .eq('status', MemberStatus.Suspended)
+    return this.findAllByStatusAcrossGyms(
+      MemberStatus.Suspended,
+      'all suspended members'
+    )
+  }
 
-    if (error) {
-      throw new Error(`Failed to fetch all suspended members: ${error.message}`)
+  /**
+   * Fetch every member with the given status across all gyms, one page at a
+   * time.
+   *
+   * A bare `.select()` is capped by PostgREST at the project's `db-max-rows`
+   * (1000 by default), so the unpaged version silently processed only the first
+   * page — the daily status crons appeared to "stop working" once a status
+   * bucket grew past the cap. Paging with an explicit `.range()` and a stable
+   * `id` ordering walks the whole set.
+   *
+   * @param status - Member status to fetch
+   * @param label - Human-readable label used in the error message
+   * @returns Every matching member, across all pages
+   */
+  private async findAllByStatusAcrossGyms(
+    status: MemberStatus,
+    label: string
+  ): Promise<Member[]> {
+    const PAGE_SIZE = 1000
+    const members: Member[] = []
+
+    // Advance by the number of rows actually returned rather than by
+    // PAGE_SIZE: if the project's db-max-rows is lower than PAGE_SIZE the
+    // server hands back a short page, and assuming a full page there would
+    // skip records. Terminates on the first empty page.
+    for (let offset = 0; ; ) {
+      const { data, error } = await this.supabase
+        .from('members')
+        .select('*')
+        .eq('status', status)
+        .order('id', { ascending: true })
+        .range(offset, offset + PAGE_SIZE - 1)
+
+      if (error) {
+        throw new Error(`Failed to fetch ${label}: ${error.message}`)
+      }
+
+      const rows = data || []
+      if (rows.length === 0) {
+        break
+      }
+
+      members.push(...rows.map((row) => this.toDomain(row)))
+      offset += rows.length
     }
 
-    return (data || []).map((row) => this.toDomain(row))
+    return members
   }
 
   /**
