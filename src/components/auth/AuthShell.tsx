@@ -16,7 +16,7 @@ export default function AuthShell({
   children: React.ReactNode
 }) {
   return (
-    <div className="mauth-root">
+    <div data-theme="dark" className="mauth-root">
       {/* Brand rail */}
       <aside className="mauth-rail">
         <Link
