@@ -6,15 +6,41 @@
  */
 
 /**
- * Days an ACTIVE member may stay unpaid past next_due_date before the daily
- * cron (update-expired-status) flips them to Expired.
+ * Member expiry is IMMEDIATE — there is NO grace period.
+ *
+ * The daily cron (update-expired-status) flips an ACTIVE member to Expired as
+ * soon as next_due_date is in the past (`next_due_date < today`). A member due
+ * *today* is still paid through today and stays Active; from the day after
+ * next_due_date they are Expired.
  *
  * Billing-critical: the SaaS quota counts ACTIVE members only, so this is the
  * exact moment an unpaid member stops consuming an active-member slot.
- * SQL mirror: none (the cron drives the transition; the DB trigger
- * sync_gym_member_count reacts to the status flip).
+ *
+ * This module is the SOLE AUTHORITY for the transition — the cron drives it and
+ * the DB trigger sync_gym_member_count merely reacts to the status flip. There
+ * is deliberately NO SQL implementation of the rule to keep in sync: migration
+ * 20260727000002 dropped auto_expire_overdue_members(), which was a duplicate
+ * copy of this state transition in the database (R5, and rule 2.5 — it flipped
+ * status with a bare UPDATE, bypassing canTransition() and the cron audit log).
+ * Do not reintroduce a SQL function that writes members.status.
+ *
+ * The read-only helper get_overdue_members() is aligned to the same no-grace
+ * predicate by migration 20260727000001; update it if this rule changes.
+ *
+ * NOTE: the former `MEMBER_EXPIRY_GRACE_DAYS` (7) constant was removed with the
+ * grace window itself — do not reintroduce a grace knob here.
  */
-export const MEMBER_EXPIRY_GRACE_DAYS = 7;
+
+/**
+ * Days past next_due_date after which an EXPIRED member is auto-Cancelled by
+ * the daily cron (cancel-overdue-members).
+ *
+ * Boundary is inclusive: a member whose next_due_date is exactly this many days
+ * in the past IS cancelled on that run.
+ *
+ * SQL mirror: none (the cron drives the transition).
+ */
+export const MEMBER_CANCELLATION_OVERDUE_DAYS = 14
 
 /**
  * Member status values
@@ -51,37 +77,37 @@ export interface StatusTransition {
   /**
    * Source status
    */
-  readonly from: MemberStatus;
+  readonly from: MemberStatus
 
   /**
    * Target status
    */
-  readonly to: MemberStatus;
+  readonly to: MemberStatus
 
   /**
    * Whether a reason is required for this transition
    */
-  readonly requiresReason?: boolean;
+  readonly requiresReason?: boolean
 
   /**
    * Who can perform this transition
    */
-  readonly allowedBy: readonly ('admin' | 'system' | 'user')[];
+  readonly allowedBy: readonly ('admin' | 'system' | 'user')[]
 
   /**
    * Description of the transition
    */
-  readonly description: string;
+  readonly description: string
 }
 
 /**
  * SINGLE SOURCE OF TRUTH for valid status transitions (State Machine)
  *
  * ⚠️ CRITICAL Business Rules:
- * - Active → Expired: Automatic when payment overdue (system)
+ * - Active → Expired: Automatic the day after next_due_date, no grace (system)
  * - Active → Suspended: Policy violation or voluntary hold (admin only)
  * - Expired → Active: Payment collected (admin or system)
- * - Expired → Cancelled: 45+ days overdue (admin or system)
+ * - Expired → Cancelled: 14+ days overdue (admin or system)
  * - Suspended → Active: Member reactivated (admin only)
  * - Suspended → Expired: Time passes while suspended (system)
  * - Suspended → Cancelled: Permanent ban (admin only)
@@ -95,7 +121,8 @@ export const VALID_TRANSITIONS: readonly StatusTransition[] = [
     from: MemberStatus.Active,
     to: MemberStatus.Expired,
     allowedBy: ['system'],
-    description: 'Membership expired due to overdue payment',
+    description:
+      'Membership expired the day after next_due_date (no grace period)',
   },
   {
     from: MemberStatus.Active,
@@ -116,7 +143,7 @@ export const VALID_TRANSITIONS: readonly StatusTransition[] = [
     from: MemberStatus.Expired,
     to: MemberStatus.Cancelled,
     allowedBy: ['admin', 'system'],
-    description: 'Membership cancelled after 45+ days overdue',
+    description: 'Membership cancelled after 14+ days overdue',
   },
 
   // Suspended transitions (3 outgoing)
@@ -141,7 +168,7 @@ export const VALID_TRANSITIONS: readonly StatusTransition[] = [
   },
 
   // Cancelled is a TERMINAL state - no transitions out
-] as const;
+] as const
 
 /**
  * Check if a status transition is valid
@@ -159,7 +186,7 @@ export function canTransition(
   from: MemberStatus | string,
   to: MemberStatus | string
 ): boolean {
-  return VALID_TRANSITIONS.some((t) => t.from === from && t.to === to);
+  return VALID_TRANSITIONS.some((t) => t.from === from && t.to === to)
 }
 
 /**
@@ -172,8 +199,10 @@ export function canTransition(
  * getValidTransitionsFrom(MemberStatus.Active) // [{ from: Active, to: Expired, ... }, ...]
  * getValidTransitionsFrom(MemberStatus.Cancelled) // [] (terminal state)
  */
-export function getValidTransitionsFrom(from: MemberStatus | string): StatusTransition[] {
-  return VALID_TRANSITIONS.filter((t) => t.from === from);
+export function getValidTransitionsFrom(
+  from: MemberStatus | string
+): StatusTransition[] {
+  return VALID_TRANSITIONS.filter((t) => t.from === from)
 }
 
 /**
@@ -185,8 +214,10 @@ export function getValidTransitionsFrom(from: MemberStatus | string): StatusTran
  * @example
  * getValidTransitionsTo(MemberStatus.Active) // [{ from: Expired, to: Active, ... }, ...]
  */
-export function getValidTransitionsTo(to: MemberStatus | string): StatusTransition[] {
-  return VALID_TRANSITIONS.filter((t) => t.to === to);
+export function getValidTransitionsTo(
+  to: MemberStatus | string
+): StatusTransition[] {
+  return VALID_TRANSITIONS.filter((t) => t.to === to)
 }
 
 /**
@@ -199,8 +230,10 @@ export function getValidTransitionsTo(to: MemberStatus | string): StatusTransiti
  * getValidTransitions(MemberStatus.Active) // [MemberStatus.Expired, MemberStatus.Suspended]
  * getValidTransitions(MemberStatus.Cancelled) // [] (terminal state)
  */
-export function getValidTransitions(from: MemberStatus | string): MemberStatus[] {
-  return getValidTransitionsFrom(from).map((t) => t.to);
+export function getValidTransitions(
+  from: MemberStatus | string
+): MemberStatus[] {
+  return getValidTransitionsFrom(from).map((t) => t.to)
 }
 
 /**
@@ -214,7 +247,7 @@ export function getTransitionConfig(
   from: MemberStatus | string,
   to: MemberStatus | string
 ): StatusTransition | null {
-  return VALID_TRANSITIONS.find((t) => t.from === from && t.to === to) || null;
+  return VALID_TRANSITIONS.find((t) => t.from === from && t.to === to) || null
 }
 
 /**
@@ -228,8 +261,8 @@ export function requiresReason(
   from: MemberStatus | string,
   to: MemberStatus | string
 ): boolean {
-  const config = getTransitionConfig(from, to);
-  return config?.requiresReason ?? false;
+  const config = getTransitionConfig(from, to)
+  return config?.requiresReason ?? false
 }
 
 /**
@@ -239,7 +272,7 @@ export function requiresReason(
  * @returns True if terminal
  */
 export function isTerminalStatus(status: MemberStatus | string): boolean {
-  return getValidTransitions(status).length === 0;
+  return getValidTransitions(status).length === 0
 }
 
 /**
@@ -251,15 +284,15 @@ export function isTerminalStatus(status: MemberStatus | string): boolean {
 export function getStatusLabel(status: MemberStatus | string): string {
   switch (status) {
     case MemberStatus.Active:
-      return 'Active';
+      return 'Active'
     case MemberStatus.Expired:
-      return 'Expired';
+      return 'Expired'
     case MemberStatus.Suspended:
-      return 'Suspended';
+      return 'Suspended'
     case MemberStatus.Cancelled:
-      return 'Cancelled';
+      return 'Cancelled'
     default:
-      return status as string;
+      return status as string
   }
 }
 
@@ -274,15 +307,15 @@ export function getStatusColor(
 ): 'green' | 'red' | 'yellow' | 'gray' {
   switch (status) {
     case MemberStatus.Active:
-      return 'green';
+      return 'green'
     case MemberStatus.Expired:
-      return 'red';
+      return 'red'
     case MemberStatus.Suspended:
-      return 'yellow';
+      return 'yellow'
     case MemberStatus.Cancelled:
-      return 'gray';
+      return 'gray'
     default:
-      return 'gray';
+      return 'gray'
   }
 }
 
@@ -293,5 +326,5 @@ export function getStatusColor(
  * @returns True if valid
  */
 export function isValidMemberStatus(status: string): status is MemberStatus {
-  return Object.values(MemberStatus).includes(status as MemberStatus);
+  return Object.values(MemberStatus).includes(status as MemberStatus)
 }

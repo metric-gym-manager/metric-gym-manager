@@ -39,15 +39,15 @@ constructor(
 
 ```typescript
 interface RegisterMemberInput {
-  gymId: string;
-  name: string;
-  phoneNumber: string;
-  planType: PlanType;
-  planAmount: number;
-  discountId?: string | null;
-  recurringDiscount?: boolean;
-  membershipStartDate: Date;
-  paymentAmount: number;
+  gymId: string
+  name: string
+  phoneNumber: string
+  planType: PlanType
+  planAmount: number
+  discountId?: string | null
+  recurringDiscount?: boolean
+  membershipStartDate: Date
+  paymentAmount: number
 }
 ```
 
@@ -55,8 +55,8 @@ interface RegisterMemberInput {
 
 ```typescript
 interface RegisterMemberOutput {
-  member: Member;
-  payment: Payment;
+  member: Member
+  payment: Payment
 }
 ```
 
@@ -82,34 +82,38 @@ graph TD
 #### Detailed Steps
 
 1. **Phone Number Validation**
+
    ```typescript
-   const phoneNumber = PhoneNumber.create(input.phoneNumber);
+   const phoneNumber = PhoneNumber.create(input.phoneNumber)
    // Validates and normalizes: "0771234567" → "+94771234567"
    ```
 
 2. **Duplicate Check**
+
    ```typescript
    const existingMember = await this.memberRepo.findByPhoneNumber(
      phoneNumber.getValue(),
      input.gymId
-   );
+   )
    if (existingMember) {
      throw new ConflictError(
        `A member with phone number ${phoneNumber.getDisplayValue()} already exists`
-     );
+     )
    }
    ```
 
 3. **Calculate Next Due Date**
+
    ```typescript
    const nextDueDate = calculateNextDueDate(
      input.membershipStartDate,
      input.planType,
      { deductOverduePeriod: true }
-   );
+   )
    ```
 
 4. **Create Member Entity**
+
    ```typescript
    const member = Member.create({
      gymId: input.gymId,
@@ -125,15 +129,17 @@ graph TD
      sevenDayReminderSent: false,
      threeDayReminderSent: false,
      dueTodayReminderSent: false,
-   });
+   })
    ```
 
 5. **Save Member**
+
    ```typescript
-   const savedMember = await this.memberRepo.create(member);
+   const savedMember = await this.memberRepo.create(member)
    ```
 
 6. **Create Payment Record**
+
    ```typescript
    const payment = Payment.create({
      memberId: savedMember.id,
@@ -143,17 +149,16 @@ graph TD
      planAmount: input.planAmount,
      discountId: input.discountId || null,
      nextDueDate,
-   });
+   })
 
-   const savedPayment = await this.paymentRepo.create(payment);
+   const savedPayment = await this.paymentRepo.create(payment)
    ```
 
 7. **Send Welcome SMS** (fire-and-forget)
    ```typescript
-   this.sendWelcomeSMS(savedMember, input.paymentAmount)
-     .catch((error) => {
-       console.error('Welcome SMS failed:', error);
-     });
+   this.sendWelcomeSMS(savedMember, input.paymentAmount).catch((error) => {
+     console.error('Welcome SMS failed:', error)
+   })
    ```
 
 #### Usage Example
@@ -161,10 +166,10 @@ graph TD
 ```typescript
 // In API route
 export async function POST(request: NextRequest) {
-  const gymProfile = await getCurrentGymProfile();
-  const validatedData = addMemberSchema.parse(await request.json());
+  const gymProfile = await getCurrentGymProfile()
+  const validatedData = addMemberSchema.parse(await request.json())
 
-  const registerMember = createRegisterMember(await createClient());
+  const registerMember = createRegisterMember(await createClient())
 
   const result = await registerMember.execute({
     gymId: gymProfile.id,
@@ -176,22 +181,22 @@ export async function POST(request: NextRequest) {
     recurringDiscount: validatedData.recurringDiscount,
     membershipStartDate: new Date(validatedData.membershipStartDate),
     paymentAmount: validatedData.paymentAmount,
-  });
+  })
 
   return NextResponse.json(
     ResponseBuilder.success(result.member.toDatabase()),
     { status: 201 }
-  );
+  )
 }
 ```
 
 #### Error Handling
 
-| Error Type | When | HTTP Status | Response |
-|-----------|------|-------------|----------|
-| `ValidationError` | Invalid phone number format | 400 | `{ error: "Invalid phone number format" }` |
-| `ConflictError` | Duplicate phone number | 409 | `{ error: "A member with phone number (077) 123-4567 already exists" }` |
-| `DatabaseError` | DB operation fails | 500 | `{ error: "Failed to register member" }` |
+| Error Type        | When                        | HTTP Status | Response                                                                |
+| ----------------- | --------------------------- | ----------- | ----------------------------------------------------------------------- |
+| `ValidationError` | Invalid phone number format | 400         | `{ error: "Invalid phone number format" }`                              |
+| `ConflictError`   | Duplicate phone number      | 409         | `{ error: "A member with phone number (077) 123-4567 already exists" }` |
+| `DatabaseError`   | DB operation fails          | 500         | `{ error: "Failed to register member" }`                                |
 
 #### SMS Template (Welcome)
 
@@ -225,7 +230,7 @@ constructor(
 
 ```typescript
 interface UpdateExpiredStatusInput {
-  gymId?: string; // Optional: If provided, only update for specific gym
+  gymId?: string // Optional: If provided, only update for specific gym
 }
 ```
 
@@ -233,9 +238,9 @@ interface UpdateExpiredStatusInput {
 
 ```typescript
 interface UpdateExpiredStatusOutput {
-  totalUpdated: number;
-  updatedMemberIds: string[];
-  errors: string[];
+  totalUpdated: number
+  updatedMemberIds: string[]
+  errors: string[]
 }
 ```
 
@@ -263,36 +268,40 @@ graph TD
 #### Detailed Steps
 
 1. **Get Today's Date** (00:00:00 in local timezone)
+
    ```typescript
-   const today = new Date();
-   today.setHours(0, 0, 0, 0);
+   const today = new Date()
+   today.setHours(0, 0, 0, 0)
    ```
 
 2. **Fetch Active Members**
+
    ```typescript
    const members = input.gymId
      ? await this.memberRepo.findActiveMembers(input.gymId)
-     : await this.memberRepo.findAllActiveMembers(); // Admin only
+     : await this.memberRepo.findAllActiveMembers() // Admin only
    ```
 
 3. **Filter Expired Members**
+
    ```typescript
    const expiredMembers = members.filter((member) => {
-     return member.status === MemberStatus.Active &&
-            member.nextDueDate < today;
-   });
+     return member.status === MemberStatus.Active && member.nextDueDate < today
+   })
    ```
 
 4. **Transition to Expired**
    ```typescript
    for (const member of expiredMembers) {
      try {
-       const expiredMember = member.expire();
-       await this.memberRepo.update(expiredMember);
-       results.totalUpdated++;
-       results.updatedMemberIds.push(member.id);
+       const expiredMember = member.expire()
+       await this.memberRepo.update(expiredMember)
+       results.totalUpdated++
+       results.updatedMemberIds.push(member.id)
      } catch (error) {
-       results.errors.push(`Failed to expire member ${member.id}: ${error.message}`);
+       results.errors.push(
+         `Failed to expire member ${member.id}: ${error.message}`
+       )
      }
    }
    ```
@@ -303,25 +312,19 @@ graph TD
 // In /api/cron/update-expired-status/route.ts
 export async function POST(request: NextRequest) {
   // Verify cron secret
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json(
-      ResponseBuilder.unauthorized(),
-      { status: 401 }
-    );
+    return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 })
   }
 
-  const container = await getAdminContainer();
-  const updateExpiredStatus = container.getUpdateExpiredStatusUseCase();
+  const container = await getAdminContainer()
+  const updateExpiredStatus = container.getUpdateExpiredStatusUseCase()
 
-  const result = await updateExpiredStatus.execute();
+  const result = await updateExpiredStatus.execute()
 
-  console.log(`Updated ${result.totalUpdated} members to expired status`);
+  console.log(`Updated ${result.totalUpdated} members to expired status`)
 
-  return NextResponse.json(
-    ResponseBuilder.success(result),
-    { status: 200 }
-  );
+  return NextResponse.json(ResponseBuilder.success(result), { status: 200 })
 }
 ```
 
@@ -348,10 +351,12 @@ Active → Expired
 ```
 
 **Conditions**:
+
 - Current status is `Active`
 - `next_due_date < today` (00:00:00)
 
 **Effects**:
+
 - Status changed to `Expired`
 - Member cannot check in
 - No automatic reminders sent
@@ -363,7 +368,7 @@ Active → Expired
 
 **File**: `src/features/members/services/CancelOverdueMembers.ts`
 
-**Purpose**: Automated cron job that cancels members who have been overdue for 45+ days.
+**Purpose**: Automated cron job that cancels members who have been overdue for 14+ days.
 
 #### Dependencies
 
@@ -377,8 +382,8 @@ constructor(
 
 ```typescript
 interface CancelOverdueMembersInput {
-  gymId?: string; // Optional: If provided, only cancel for specific gym
-  overdueDays?: number; // Default: 45
+  gymId?: string // Optional: If provided, only cancel for specific gym
+  overdueDays?: number // Default: 14
 }
 ```
 
@@ -386,9 +391,9 @@ interface CancelOverdueMembersInput {
 
 ```typescript
 interface CancelOverdueMembersOutput {
-  totalCancelled: number;
-  cancelledMemberIds: string[];
-  errors: string[];
+  totalCancelled: number
+  cancelledMemberIds: string[]
+  errors: string[]
 }
 ```
 
@@ -403,7 +408,7 @@ graph TD
     D -->|No| F[Get All Expired Members]
     E --> G[Filter: next_due_date < cutoff]
     F --> G
-    G --> H{Any Overdue 45+ Days?}
+    G --> H{Any Overdue 14+ Days?}
     H -->|No| I[Return: totalCancelled = 0]
     H -->|Yes| J[For Each Member]
     J --> K[Call member.cancel]
@@ -415,41 +420,47 @@ graph TD
 
 #### Detailed Steps
 
-1. **Calculate Cutoff Date** (45 days ago from today)
-   ```typescript
-   const today = new Date();
-   today.setHours(0, 0, 0, 0);
+1. **Calculate Cutoff Date** (14 days ago from today)
 
-   const overdueDays = input.overdueDays ?? 45;
-   const cutoffDate = new Date(today);
-   cutoffDate.setDate(cutoffDate.getDate() - overdueDays);
+   ```typescript
+   const today = new Date()
+   today.setHours(0, 0, 0, 0)
+
+   const overdueDays = input.overdueDays ?? 14
+   const cutoffDate = new Date(today)
+   cutoffDate.setDate(cutoffDate.getDate() - overdueDays)
    ```
 
 2. **Fetch Expired Members**
+
    ```typescript
    const members = input.gymId
      ? await this.memberRepo.findExpiredMembers(input.gymId)
-     : await this.memberRepo.findAllExpiredMembers(); // Admin only
+     : await this.memberRepo.findAllExpiredMembers() // Admin only
    ```
 
 3. **Filter Overdue Members**
+
    ```typescript
    const overdueLongMembers = members.filter((member) => {
-     return member.status === MemberStatus.Expired &&
-            member.nextDueDate < cutoffDate;
-   });
+     return (
+       member.status === MemberStatus.Expired && member.nextDueDate < cutoffDate
+     )
+   })
    ```
 
 4. **Cancel Members**
    ```typescript
    for (const member of overdueLongMembers) {
      try {
-       const cancelledMember = member.cancel();
-       await this.memberRepo.update(cancelledMember);
-       results.totalCancelled++;
-       results.cancelledMemberIds.push(member.id);
+       const cancelledMember = member.cancel()
+       await this.memberRepo.update(cancelledMember)
+       results.totalCancelled++
+       results.cancelledMemberIds.push(member.id)
      } catch (error) {
-       results.errors.push(`Failed to cancel member ${member.id}: ${error.message}`);
+       results.errors.push(
+         `Failed to cancel member ${member.id}: ${error.message}`
+       )
      }
    }
    ```
@@ -459,27 +470,21 @@ graph TD
 ```typescript
 // In /api/cron/cancel-overdue-members/route.ts
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json(
-      ResponseBuilder.unauthorized(),
-      { status: 401 }
-    );
+    return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 })
   }
 
-  const container = await getAdminContainer();
-  const cancelOverdueMembers = container.getCancelOverdueMembersUseCase();
+  const container = await getAdminContainer()
+  const cancelOverdueMembers = container.getCancelOverdueMembersUseCase()
 
   const result = await cancelOverdueMembers.execute({
-    overdueDays: 45, // Default
-  });
+    overdueDays: 14, // Default
+  })
 
-  console.log(`Cancelled ${result.totalCancelled} overdue members`);
+  console.log(`Cancelled ${result.totalCancelled} overdue members`)
 
-  return NextResponse.json(
-    ResponseBuilder.success(result),
-    { status: 200 }
-  );
+  return NextResponse.json(ResponseBuilder.success(result), { status: 200 })
 }
 ```
 
@@ -506,10 +511,12 @@ Expired → Cancelled
 ```
 
 **Conditions**:
+
 - Current status is `Expired`
-- `next_due_date < (today - 45 days)`
+- `next_due_date <= (today - 14 days)`
 
 **Effects**:
+
 - Status changed to `Cancelled` (terminal state)
 - Member cannot be reactivated (must re-register)
 - No further reminders sent
@@ -539,13 +546,13 @@ constructor(
 
 ```typescript
 interface CollectPaymentInput {
-  gymId: string;
-  memberId: string;
-  paymentDate: Date;
-  paymentAmount: number;
-  planAmount?: number; // Optional: If different from member's plan amount
-  discountId?: string | null;
-  deductOverduePeriod?: boolean; // Default: true
+  gymId: string
+  memberId: string
+  paymentDate: Date
+  paymentAmount: number
+  planAmount?: number // Optional: If different from member's plan amount
+  discountId?: string | null
+  deductOverduePeriod?: boolean // Default: true
 }
 ```
 
@@ -553,8 +560,8 @@ interface CollectPaymentInput {
 
 ```typescript
 interface CollectPaymentOutput {
-  member: Member;
-  payment: Payment;
+  member: Member
+  payment: Payment
 }
 ```
 
@@ -582,19 +589,19 @@ graph TD
 #### Detailed Steps
 
 1. **Fetch Member**
+
    ```typescript
-   const member = await this.memberRepo.findById(input.memberId, input.gymId);
+   const member = await this.memberRepo.findById(input.memberId, input.gymId)
    if (!member) {
-     throw new NotFoundError('Member not found');
+     throw new NotFoundError('Member not found')
    }
    ```
 
 2. **Determine Base Date for Calculation**
+
    ```typescript
-   const deductOverdue = input.deductOverduePeriod ?? true;
-   const baseDate = deductOverdue
-     ? input.paymentDate
-     : member.nextDueDate;
+   const deductOverdue = input.deductOverduePeriod ?? true
+   const baseDate = deductOverdue ? input.paymentDate : member.nextDueDate
    ```
 
    **Example**:
@@ -613,13 +620,15 @@ graph TD
    - **No penalty**: Full month from original due date
 
 3. **Calculate Next Due Date**
+
    ```typescript
    const nextDueDate = calculateNextDueDate(baseDate, member.planType, {
      deductOverduePeriod: input.deductOverduePeriod,
-   });
+   })
    ```
 
 4. **Create Payment Record**
+
    ```typescript
    const payment = Payment.create({
      memberId: member.id,
@@ -629,14 +638,15 @@ graph TD
      planAmount: input.planAmount ?? member.planAmount,
      discountId: input.discountId ?? member.discountId,
      nextDueDate,
-   });
+   })
 
-   const savedPayment = await this.paymentRepo.create(payment);
+   const savedPayment = await this.paymentRepo.create(payment)
    ```
 
 5. **Activate Member** (state machine enforced)
+
    ```typescript
-   let updatedMember = member.activate(nextDueDate);
+   let updatedMember = member.activate(nextDueDate)
    ```
 
    **State Transitions**:
@@ -646,23 +656,26 @@ graph TD
    - Cancelled → Active ❌ (throws InvalidStatusTransitionError)
 
 6. **Reset Reminder Flags** for new billing period
+
    ```typescript
-   updatedMember = updatedMember.resetReminderFlags();
+   updatedMember = updatedMember.resetReminderFlags()
    ```
 
    This ensures reminders are sent again in the new billing cycle.
 
 7. **Save Updated Member**
+
    ```typescript
-   const savedMember = await this.memberRepo.update(updatedMember);
+   const savedMember = await this.memberRepo.update(updatedMember)
    ```
 
 8. **Send Receipt SMS** (fire-and-forget)
    ```typescript
-   this.sendReceiptSMS(savedMember, input.paymentAmount, nextDueDate)
-     .catch((error) => {
-       console.error('Receipt SMS failed:', error);
-     });
+   this.sendReceiptSMS(savedMember, input.paymentAmount, nextDueDate).catch(
+     (error) => {
+       console.error('Receipt SMS failed:', error)
+     }
+   )
    ```
 
 #### Usage Example
@@ -673,11 +686,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const gymProfile = await getCurrentGymProfile();
-  const validatedData = collectPaymentSchema.parse(await request.json());
+  const { id } = await params
+  const gymProfile = await getCurrentGymProfile()
+  const validatedData = collectPaymentSchema.parse(await request.json())
 
-  const collectPayment = createCollectPayment(await createClient());
+  const collectPayment = createCollectPayment(await createClient())
 
   const result = await collectPayment.execute({
     gymId: gymProfile.id,
@@ -687,7 +700,7 @@ export async function POST(
     planAmount: validatedData.planAmount,
     discountId: validatedData.discountId,
     deductOverduePeriod: validatedData.deductOverduePeriod ?? true,
-  });
+  })
 
   return NextResponse.json(
     ResponseBuilder.success({
@@ -695,17 +708,17 @@ export async function POST(
       payment: result.payment.toDatabase(),
     }),
     { status: 201 }
-  );
+  )
 }
 ```
 
 #### Error Handling
 
-| Error Type | When | HTTP Status | Response |
-|-----------|------|-------------|----------|
-| `NotFoundError` | Member not found | 404 | `{ error: "Member not found" }` |
-| `InvalidStatusTransitionError` | Cannot activate cancelled member | 400 | `{ error: "Invalid status transition: cancelled → active" }` |
-| `DatabaseError` | DB operation fails | 500 | `{ error: "Failed to collect payment" }` |
+| Error Type                     | When                             | HTTP Status | Response                                                     |
+| ------------------------------ | -------------------------------- | ----------- | ------------------------------------------------------------ |
+| `NotFoundError`                | Member not found                 | 404         | `{ error: "Member not found" }`                              |
+| `InvalidStatusTransitionError` | Cannot activate cancelled member | 400         | `{ error: "Invalid status transition: cancelled → active" }` |
+| `DatabaseError`                | DB operation fails               | 500         | `{ error: "Failed to collect payment" }`                     |
 
 #### SMS Template (Receipt)
 
@@ -753,7 +766,7 @@ constructor(
 
 ```typescript
 interface SendAutomatedRemindersInput {
-  gymId?: string; // Optional: If provided, only send for specific gym
+  gymId?: string // Optional: If provided, only send for specific gym
 }
 ```
 
@@ -761,9 +774,9 @@ interface SendAutomatedRemindersInput {
 
 ```typescript
 interface ReminderSummary {
-  totalSent: number;
-  byType: Record<SMSType, number>; // { '7-day': 5, '3-day': 8, 'due-today': 3 }
-  errors: string[];
+  totalSent: number
+  byType: Record<SMSType, number> // { '7-day': 5, '3-day': 8, 'due-today': 3 }
+  errors: string[]
 }
 ```
 
@@ -794,16 +807,18 @@ graph TD
 #### Detailed Steps
 
 1. **Fetch Active Members**
+
    ```typescript
    const members = input.gymId
      ? await this.memberRepo.findActiveMembers(input.gymId)
-     : await this.memberRepo.findAllActiveMembers(); // Admin only
+     : await this.memberRepo.findAllActiveMembers() // Admin only
    ```
 
 2. **For Each Member, Calculate Days Until Due**
+
    ```typescript
    for (const member of members) {
-     const daysUntilDue = getDaysUntilDue(member.nextDueDate);
+     const daysUntilDue = getDaysUntilDue(member.nextDueDate)
 
      // daysUntilDue examples:
      // 7 → Send 7-day reminder
@@ -814,62 +829,67 @@ graph TD
    ```
 
 3. **Check if Reminder Should Be Sent** (Plan-Specific Rules)
+
    ```typescript
    if (!shouldSendReminder(member.planType, daysUntilDue)) {
-     continue; // Skip this member
+     continue // Skip this member
    }
    ```
 
    **Reminder Rules** (from `ReminderConfig.ts`):
 
-   | Plan Type | Reminders Sent |
-   |-----------|----------------|
-   | Daily | None (too frequent) |
-   | Monthly | 3-day, due-today (skip 7-day) |
-   | Weekly | 7-day, 3-day, due-today |
-   | 3-Months | 7-day, 3-day, due-today |
-   | 6-Months | 7-day, 3-day, due-today |
-   | Annual | 7-day, 3-day, due-today |
-   | Custom | 7-day, 3-day, due-today |
+   | Plan Type | Reminders Sent                |
+   | --------- | ----------------------------- |
+   | Daily     | None (too frequent)           |
+   | Monthly   | 3-day, due-today (skip 7-day) |
+   | Weekly    | 7-day, 3-day, due-today       |
+   | 3-Months  | 7-day, 3-day, due-today       |
+   | 6-Months  | 7-day, 3-day, due-today       |
+   | Annual    | 7-day, 3-day, due-today       |
+   | Custom    | 7-day, 3-day, due-today       |
 
 4. **Determine SMS Type**
+
    ```typescript
-   let smsType: SMSType;
+   let smsType: SMSType
    if (daysUntilDue === 7) {
-     smsType = '7-day-reminder';
+     smsType = '7-day-reminder'
    } else if (daysUntilDue === 3) {
-     smsType = '3-day-reminder';
+     smsType = '3-day-reminder'
    } else if (daysUntilDue === 0) {
-     smsType = 'due-today-reminder';
+     smsType = 'due-today-reminder'
    } else {
-     continue; // Not a reminder day
+     continue // Not a reminder day
    }
    ```
 
 5. **Check for Duplicate** (already sent today)
+
    ```typescript
-   const alreadySent = await this.smsRepo.existsForToday(member.id, smsType);
+   const alreadySent = await this.smsRepo.existsForToday(member.id, smsType)
    if (alreadySent) {
-     continue; // Don't send duplicate
+     continue // Don't send duplicate
    }
    ```
 
 6. **Send SMS**
+
    ```typescript
-   const message = this.formatReminderMessage(member, daysUntilDue);
+   const message = this.formatReminderMessage(member, daysUntilDue)
 
    const result = await this.smsProvider.send({
      to: member.phoneNumber,
      message,
-   });
+   })
 
    if (result.success) {
-     summary.totalSent++;
-     summary.byType[smsType]++;
+     summary.totalSent++
+     summary.byType[smsType]++
    }
    ```
 
 7. **Log SMS Record**
+
    ```typescript
    await this.smsRepo.create({
      memberId: member.id,
@@ -878,21 +898,22 @@ graph TD
      message,
      deliveryStatus: result.success ? 'sent' : 'failed',
      externalId: result.messageId,
-   });
+   })
    ```
 
 8. **Update Reminder Flag** (prevent duplicate sends)
+
    ```typescript
-   let updatedMember = member;
+   let updatedMember = member
    if (smsType === '7-day-reminder') {
-     updatedMember = member.markSevenDayReminderSent();
+     updatedMember = member.markSevenDayReminderSent()
    } else if (smsType === '3-day-reminder') {
-     updatedMember = member.markThreeDayReminderSent();
+     updatedMember = member.markThreeDayReminderSent()
    } else if (smsType === 'due-today-reminder') {
-     updatedMember = member.markDueTodayReminderSent();
+     updatedMember = member.markDueTodayReminderSent()
    }
 
-   await this.memberRepo.update(updatedMember);
+   await this.memberRepo.update(updatedMember)
    ```
 
 #### Usage Example (Cron Job)
@@ -900,28 +921,22 @@ graph TD
 ```typescript
 // In /api/cron/send-reminders/route.ts
 export async function POST(request: NextRequest) {
-  const authHeader = request.headers.get('authorization');
+  const authHeader = request.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json(
-      ResponseBuilder.unauthorized(),
-      { status: 401 }
-    );
+    return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 })
   }
 
-  const container = await getAdminContainer();
-  const sendReminders = container.getSendAutomatedRemindersUseCase();
+  const container = await getAdminContainer()
+  const sendReminders = container.getSendAutomatedRemindersUseCase()
 
-  const summary = await sendReminders.execute();
+  const summary = await sendReminders.execute()
 
-  console.log(`Sent ${summary.totalSent} reminders:`);
-  console.log(`  - 7-day: ${summary.byType['7-day-reminder']}`);
-  console.log(`  - 3-day: ${summary.byType['3-day-reminder']}`);
-  console.log(`  - Due today: ${summary.byType['due-today-reminder']}`);
+  console.log(`Sent ${summary.totalSent} reminders:`)
+  console.log(`  - 7-day: ${summary.byType['7-day-reminder']}`)
+  console.log(`  - 3-day: ${summary.byType['3-day-reminder']}`)
+  console.log(`  - Due today: ${summary.byType['due-today-reminder']}`)
 
-  return NextResponse.json(
-    ResponseBuilder.success(summary),
-    { status: 200 }
-  );
+  return NextResponse.json(ResponseBuilder.success(summary), { status: 200 })
 }
 ```
 
@@ -942,6 +957,7 @@ export async function POST(request: NextRequest) {
 ```
 
 **Why every 6 hours?**
+
 - Ensures reminders sent even if member pays after midnight
 - Multiple opportunities per day to send due-today reminder
 - Idempotent: Won't send duplicates (checked via SMS log)
@@ -949,6 +965,7 @@ export async function POST(request: NextRequest) {
 #### SMS Templates
 
 **7-Day Reminder**:
+
 ```
 Hi [NAME]! 📅
 
@@ -961,6 +978,7 @@ Please renew on time to avoid interruption.
 ```
 
 **3-Day Reminder**:
+
 ```
 Hi [NAME]! ⏰
 
@@ -973,6 +991,7 @@ Please renew soon to continue your membership.
 ```
 
 **Due Today Reminder**:
+
 ```
 Hi [NAME]! 🔔
 
@@ -1002,6 +1021,7 @@ Please renew today to avoid expiration.
 #### Monitoring
 
 Track these metrics:
+
 - Total reminders sent per day
 - Breakdown by type (7-day, 3-day, due-today)
 - Send success rate
@@ -1018,11 +1038,10 @@ Many use cases send SMS notifications as a side effect. These are **non-blocking
 
 ```typescript
 // Send SMS without awaiting
-this.sendWelcomeSMS(member, amount)
-  .catch((error) => {
-    console.error('SMS failed:', error);
-    // Continue execution - SMS failure is not critical
-  });
+this.sendWelcomeSMS(member, amount).catch((error) => {
+  console.error('SMS failed:', error)
+  // Continue execution - SMS failure is not critical
+})
 ```
 
 ### Pattern 2: Idempotency
@@ -1031,14 +1050,14 @@ Use cases that run on schedules (cron jobs) must be idempotent:
 
 ```typescript
 // Check if already sent today
-const alreadySent = await this.smsRepo.existsForToday(memberId, smsType);
+const alreadySent = await this.smsRepo.existsForToday(memberId, smsType)
 if (alreadySent) {
-  return; // Skip - already processed
+  return // Skip - already processed
 }
 
 // Process and log
-await process();
-await this.smsRepo.create(logRecord);
+await process()
+await this.smsRepo.create(logRecord)
 ```
 
 ### Pattern 3: State Machine Transitions
@@ -1047,10 +1066,10 @@ Always use entity methods for state changes (enforces valid transitions):
 
 ```typescript
 // ❌ BAD: Direct property mutation
-member.status = MemberStatus.Active;
+member.status = MemberStatus.Active
 
 // ✅ GOOD: Entity method (enforces state machine)
-const activeMember = member.activate(nextDueDate);
+const activeMember = member.activate(nextDueDate)
 ```
 
 ### Pattern 4: Error Accumulation
@@ -1061,18 +1080,18 @@ Batch operations accumulate errors instead of failing fast:
 const results = {
   totalProcessed: 0,
   errors: [] as string[],
-};
+}
 
 for (const item of items) {
   try {
-    await process(item);
-    results.totalProcessed++;
+    await process(item)
+    results.totalProcessed++
   } catch (error) {
-    results.errors.push(`Failed to process ${item.id}: ${error.message}`);
+    results.errors.push(`Failed to process ${item.id}: ${error.message}`)
   }
 }
 
-return results; // Return summary with partial success
+return results // Return summary with partial success
 ```
 
 ---
@@ -1082,28 +1101,28 @@ return results; // Return summary with partial success
 ### Unit Test Template
 
 ```typescript
-import { RegisterMember } from '@/core/use-cases/member/RegisterMember';
-import { MockMemberRepository } from '@/tests/mocks/MockMemberRepository';
-import { MockPaymentRepository } from '@/tests/mocks/MockPaymentRepository';
-import { MockSMSProvider } from '@/infrastructure/sms/providers/MockSMSProvider';
+import { RegisterMember } from '@/core/use-cases/member/RegisterMember'
+import { MockMemberRepository } from '@/tests/mocks/MockMemberRepository'
+import { MockPaymentRepository } from '@/tests/mocks/MockPaymentRepository'
+import { MockSMSProvider } from '@/infrastructure/sms/providers/MockSMSProvider'
 
 describe('RegisterMember', () => {
-  let useCase: RegisterMember;
-  let mockMemberRepo: MockMemberRepository;
-  let mockPaymentRepo: MockPaymentRepository;
-  let mockSmsProvider: MockSMSProvider;
+  let useCase: RegisterMember
+  let mockMemberRepo: MockMemberRepository
+  let mockPaymentRepo: MockPaymentRepository
+  let mockSmsProvider: MockSMSProvider
 
   beforeEach(() => {
-    mockMemberRepo = new MockMemberRepository();
-    mockPaymentRepo = new MockPaymentRepository();
-    mockSmsProvider = new MockSMSProvider();
+    mockMemberRepo = new MockMemberRepository()
+    mockPaymentRepo = new MockPaymentRepository()
+    mockSmsProvider = new MockSMSProvider()
 
     useCase = new RegisterMember(
       mockMemberRepo,
       mockPaymentRepo,
       mockSmsProvider
-    );
-  });
+    )
+  })
 
   it('should register member with initial payment', async () => {
     const input = {
@@ -1114,70 +1133,69 @@ describe('RegisterMember', () => {
       planAmount: 5000,
       membershipStartDate: new Date('2024-01-01'),
       paymentAmount: 5000,
-    };
+    }
 
-    const result = await useCase.execute(input);
+    const result = await useCase.execute(input)
 
-    expect(result.member.name).toBe('John Doe');
-    expect(result.member.status).toBe(MemberStatus.Active);
-    expect(result.payment.paymentAmount).toBe(5000);
-    expect(mockSmsProvider.sentMessages).toHaveLength(1);
-  });
+    expect(result.member.name).toBe('John Doe')
+    expect(result.member.status).toBe(MemberStatus.Active)
+    expect(result.payment.paymentAmount).toBe(5000)
+    expect(mockSmsProvider.sentMessages).toHaveLength(1)
+  })
 
   it('should reject duplicate phone number', async () => {
     // Setup: Add existing member
     mockMemberRepo.addMember({
       ...memberProps,
       phoneNumber: '+94771234567',
-    });
+    })
 
     const input = {
       ...inputProps,
       phoneNumber: '0771234567', // Same number, different format
-    };
+    }
 
-    await expect(useCase.execute(input))
-      .rejects.toThrow(ConflictError);
-  });
-});
+    await expect(useCase.execute(input)).rejects.toThrow(ConflictError)
+  })
+})
 ```
 
 ### Integration Test Template
 
 ```typescript
-import { createTestContainer } from '@/tests/helpers/createTestContainer';
+import { createTestContainer } from '@/tests/helpers/createTestContainer'
 
 describe('RegisterMember Integration', () => {
-  let container: Container;
+  let container: Container
 
   beforeAll(async () => {
-    container = await createTestContainer(); // Uses test database
-  });
+    container = await createTestContainer() // Uses test database
+  })
 
   afterEach(async () => {
-    await cleanupTestDatabase();
-  });
+    await cleanupTestDatabase()
+  })
 
   it('should register member and persist to database', async () => {
-    const useCase = container.getRegisterMemberUseCase();
+    const useCase = container.getRegisterMemberUseCase()
 
-    const result = await useCase.execute(validInput);
+    const result = await useCase.execute(validInput)
 
     // Verify member persisted
-    const memberRepo = container.getMemberRepository();
-    const savedMember = await memberRepo.findById(result.member.id, 'gym_123');
+    const memberRepo = container.getMemberRepository()
+    const savedMember = await memberRepo.findById(result.member.id, 'gym_123')
 
-    expect(savedMember).toBeDefined();
-    expect(savedMember!.name).toBe('John Doe');
+    expect(savedMember).toBeDefined()
+    expect(savedMember!.name).toBe('John Doe')
 
     // Verify payment persisted
-    const paymentRepo = container.getPaymentRepository();
-    const payment = await paymentRepo.findById(result.payment.id);
+    const paymentRepo = container.getPaymentRepository()
+    const payment = await paymentRepo.findById(result.payment.id)
 
-    expect(payment).toBeDefined();
-    expect(payment!.paymentAmount).toBe(5000);
-  });
-});
+    expect(payment).toBeDefined()
+    expect(payment!.paymentAmount).toBe(5000)
+  })
+})
 ```
 
 ---
@@ -1189,11 +1207,11 @@ describe('RegisterMember Integration', () => {
 For cron jobs processing many records, use batching:
 
 ```typescript
-const BATCH_SIZE = 100;
+const BATCH_SIZE = 100
 
 for (let i = 0; i < members.length; i += BATCH_SIZE) {
-  const batch = members.slice(i, i + BATCH_SIZE);
-  await Promise.all(batch.map(member => processMember(member)));
+  const batch = members.slice(i, i + BATCH_SIZE)
+  await Promise.all(batch.map((member) => processMember(member)))
 }
 ```
 
@@ -1204,11 +1222,11 @@ Use repository methods that fetch related data in one query:
 ```typescript
 // ❌ BAD: N+1 queries
 for (const member of members) {
-  const payments = await paymentRepo.findByMemberId(member.id); // N queries
+  const payments = await paymentRepo.findByMemberId(member.id) // N queries
 }
 
 // ✅ GOOD: Single query with join
-const membersWithPayments = await memberRepo.findAllWithLastPayment(gymId);
+const membersWithPayments = await memberRepo.findAllWithLastPayment(gymId)
 ```
 
 ### 3. SMS Rate Limiting
@@ -1216,12 +1234,12 @@ const membersWithPayments = await memberRepo.findAllWithLastPayment(gymId);
 Implement rate limiting for SMS sends:
 
 ```typescript
-const MAX_SMS_PER_SECOND = 10;
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+const MAX_SMS_PER_SECOND = 10
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 for (const member of members) {
-  await sendReminder(member);
-  await delay(1000 / MAX_SMS_PER_SECOND); // Rate limit
+  await sendReminder(member)
+  await delay(1000 / MAX_SMS_PER_SECOND) // Rate limit
 }
 ```
 
@@ -1265,17 +1283,17 @@ for (const member of members) {
 
 ```typescript
 // Start of use case
-console.log(`[RegisterMember] Starting registration for ${input.name}`);
+console.log(`[RegisterMember] Starting registration for ${input.name}`)
 
 // Key checkpoints
-console.log(`[RegisterMember] Member created: ${member.id}`);
-console.log(`[RegisterMember] Payment recorded: ${payment.id}`);
+console.log(`[RegisterMember] Member created: ${member.id}`)
+console.log(`[RegisterMember] Payment recorded: ${payment.id}`)
 
 // Completion
-console.log(`[RegisterMember] Registration completed in ${duration}ms`);
+console.log(`[RegisterMember] Registration completed in ${duration}ms`)
 
 // Errors
-console.error(`[RegisterMember] Failed:`, error);
+console.error(`[RegisterMember] Failed:`, error)
 ```
 
 ---
@@ -1291,5 +1309,6 @@ This document provides comprehensive documentation for all use cases in the Clea
 - **Reliable**: Error accumulation, partial success handling
 
 For implementation details on infrastructure adapters and domain entities, see:
+
 - [.claude/rules/architecture.md](../../.claude/rules/architecture.md) — feature-first architecture rules
 - [TESTING_GUIDE.md](./TESTING_GUIDE.md)

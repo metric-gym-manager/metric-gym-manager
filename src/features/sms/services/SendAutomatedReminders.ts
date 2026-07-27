@@ -15,17 +15,20 @@
  * 7. Aggregating results
  */
 
-import { Member } from '@/features/members/domain/Member';
-import { IMemberRepository } from '@/features/members/services/IMemberRepository';
-import { ISMSRepository } from './ISMSRepository';
-import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository';
-import { ISMSProvider } from './ISMSProvider';
-import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig';
-import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue';
-import { formatDateForDisplay } from '@/utils/date/date';
-import { shouldSendReminder, ReminderType } from '@/features/sms/config/ReminderConfig';
-import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
-import { PlanType } from '@/features/members/config/PlanConfig';
+import { Member } from '@/features/members/domain/Member'
+import { IMemberRepository } from '@/features/members/services/IMemberRepository'
+import { ISMSRepository } from './ISMSRepository'
+import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository'
+import { ISMSProvider } from './ISMSProvider'
+import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig'
+import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue'
+import { formatDateForDisplay } from '@/utils/date/date'
+import {
+  shouldSendReminder,
+  ReminderType,
+} from '@/features/sms/config/ReminderConfig'
+import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository'
+import { PlanType } from '@/features/members/config/PlanConfig'
 
 /**
  * Input for sending automated reminders
@@ -35,7 +38,7 @@ export interface SendAutomatedRemindersInput {
    * Gym ID to process reminders for
    * If not provided, processes all gyms
    */
-  gymId?: string;
+  gymId?: string
 }
 
 /**
@@ -45,34 +48,34 @@ export interface ReminderSummary {
   /**
    * Total reminders sent
    */
-  totalSent: number;
+  totalSent: number
 
   /**
    * Reminders sent by type
    */
-  byType: Record<ReminderType, number>;
+  byType: Record<ReminderType, number>
 
   /**
    * Errors encountered
    */
-  errors: string[];
+  errors: string[]
 
   /**
    * Members processed
    */
-  membersProcessed: number;
+  membersProcessed: number
 
   /**
    * Members skipped (with reasons)
    */
-  membersSkipped: number;
+  membersSkipped: number
 
   /**
    * Members skipped because their gym's billing status halts reminders
    * (suspended / canceled / past_due beyond grace). Reminders are available
    * on EVERY tier — only the account status gates them.
    */
-  membersSkippedBillingRestricted: number;
+  membersSkippedBillingRestricted: number
 }
 
 /**
@@ -111,21 +114,21 @@ export class SendAutomatedReminders {
    * treated as restricted (fail closed).
    */
   private async resolveAllowedGyms(gymIds: string[]): Promise<Set<string>> {
-    const allowed = new Set<string>();
-    const now = new Date();
+    const allowed = new Set<string>()
+    const now = new Date()
     for (const gymId of new Set(gymIds)) {
-      const sub = await this.gymSubscriptionRepo.findByGymId(gymId);
-      if (!sub) continue;
+      const sub = await this.gymSubscriptionRepo.findByGymId(gymId)
+      if (!sub) continue
       const sendable =
         sub.status === SaasStatus.Trialing ||
         sub.status === SaasStatus.Active ||
         (sub.status === SaasStatus.PastDue && !sub.isGraceExpired(now)) ||
-        (sub.status === SaasStatus.Canceled && sub.isPaidThrough(now));
+        (sub.status === SaasStatus.Canceled && sub.isPaidThrough(now))
       if (sendable) {
-        allowed.add(gymId);
+        allowed.add(gymId)
       }
     }
-    return allowed;
+    return allowed
   }
 
   /**
@@ -134,7 +137,9 @@ export class SendAutomatedReminders {
    * @param input - Input parameters (optional gymId)
    * @returns Summary of reminders sent
    */
-  async execute(input: SendAutomatedRemindersInput = {}): Promise<ReminderSummary> {
+  async execute(
+    input: SendAutomatedRemindersInput = {}
+  ): Promise<ReminderSummary> {
     const summary: ReminderSummary = {
       totalSent: 0,
       byType: {
@@ -147,64 +152,69 @@ export class SendAutomatedReminders {
       membersProcessed: 0,
       membersSkipped: 0,
       membersSkippedBillingRestricted: 0,
-    };
+    }
 
     try {
       // Get active members
       const allMembers = input.gymId
         ? await this.memberRepo.findActiveMembers(input.gymId)
-        : await this.memberRepo.findAllActiveMembers();
+        : await this.memberRepo.findAllActiveMembers()
 
       // Billing-status gate: reminders exist on every tier, but suspended
       // accounts and lapsed windows (grace-expired past_due, canceled past
       // period end) are halted before any reminder logic runs. One
       // subscription lookup per distinct gym.
-      const allowedGyms = await this.resolveAllowedGyms(allMembers.map((m) => m.gymId));
-      const members = allMembers.filter((m) => allowedGyms.has(m.gymId));
-      summary.membersSkippedBillingRestricted = allMembers.length - members.length;
+      const allowedGyms = await this.resolveAllowedGyms(
+        allMembers.map((m) => m.gymId)
+      )
+      const members = allMembers.filter((m) => allowedGyms.has(m.gymId))
+      summary.membersSkippedBillingRestricted =
+        allMembers.length - members.length
       if (summary.membersSkippedBillingRestricted > 0) {
         console.log(
           `⏭  Skipping ${summary.membersSkippedBillingRestricted} member(s) of billing-restricted (suspended/lapsed) gyms`
-        );
+        )
       }
 
-      console.log(`📊 Processing ${members.length} active members for reminders`);
+      console.log(
+        `📊 Processing ${members.length} active members for reminders`
+      )
 
       // Process each member
       for (const member of members) {
-        summary.membersProcessed++;
+        summary.membersProcessed++
 
         try {
-          const sent = await this.processMemberReminder(member, summary);
+          const sent = await this.processMemberReminder(member, summary)
           if (!sent) {
-            summary.membersSkipped++;
+            summary.membersSkipped++
           }
         } catch (error) {
-          const errorMsg = `Failed to process member ${member.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          summary.errors.push(errorMsg);
-          console.error(`  ✗ ${errorMsg}`);
+          const errorMsg = `Failed to process member ${member.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          summary.errors.push(errorMsg)
+          console.error(`  ✗ ${errorMsg}`)
         }
       }
 
-      console.log(`✅ Automated reminders complete:`);
-      console.log(`   - Total sent: ${summary.totalSent}`);
-      console.log(`   - 7-Day: ${summary.byType[ReminderType.SevenDay]}`);
-      console.log(`   - 3-Day: ${summary.byType[ReminderType.ThreeDay]}`);
-      console.log(`   - Due Today: ${summary.byType[ReminderType.DueToday]}`);
-      console.log(`   - Overdue: ${summary.byType[ReminderType.Overdue]}`);
-      console.log(`   - Members processed: ${summary.membersProcessed}`);
-      console.log(`   - Members skipped: ${summary.membersSkipped}`);
+      console.log(`✅ Automated reminders complete:`)
+      console.log(`   - Total sent: ${summary.totalSent}`)
+      console.log(`   - 7-Day: ${summary.byType[ReminderType.SevenDay]}`)
+      console.log(`   - 3-Day: ${summary.byType[ReminderType.ThreeDay]}`)
+      console.log(`   - Due Today: ${summary.byType[ReminderType.DueToday]}`)
+      console.log(`   - Overdue: ${summary.byType[ReminderType.Overdue]}`)
+      console.log(`   - Members processed: ${summary.membersProcessed}`)
+      console.log(`   - Members skipped: ${summary.membersSkipped}`)
 
       if (summary.errors.length > 0) {
-        console.log(`   ⚠️  Errors: ${summary.errors.length}`);
+        console.log(`   ⚠️  Errors: ${summary.errors.length}`)
       }
     } catch (error) {
-      const errorMsg = `Fatal error in SendAutomatedReminders: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      summary.errors.push(errorMsg);
-      console.error(errorMsg);
+      const errorMsg = `Fatal error in SendAutomatedReminders: ${error instanceof Error ? error.message : 'Unknown error'}`
+      summary.errors.push(errorMsg)
+      console.error(errorMsg)
     }
 
-    return summary;
+    return summary
   }
 
   /**
@@ -219,62 +229,78 @@ export class SendAutomatedReminders {
     summary: ReminderSummary
   ): Promise<boolean> {
     // Calculate days until due
-    const daysUntilDue = getDaysUntilDue(member.nextDueDate);
+    const daysUntilDue = getDaysUntilDue(member.nextDueDate)
 
-    console.log(`  Member: ${member.name}, Plan: ${member.planType}, Days until due: ${daysUntilDue}`);
+    console.log(
+      `  Member: ${member.name}, Plan: ${member.planType}, Days until due: ${daysUntilDue}`
+    )
 
     // Check if reminder should be sent for this plan type and days
     if (!shouldSendReminder(member.planType, daysUntilDue)) {
-      console.log(`    → Skipped: No reminder configured for ${member.planType} at ${daysUntilDue} days`);
-      return false;
+      console.log(
+        `    → Skipped: No reminder configured for ${member.planType} at ${daysUntilDue} days`
+      )
+      return false
     }
 
     // Determine SMS type
-    const smsType = this.determineSMSType(daysUntilDue);
+    const smsType = this.determineSMSType(daysUntilDue)
     if (!smsType) {
-      console.log(`    → Skipped: Invalid days until due (${daysUntilDue})`);
-      return false;
+      console.log(`    → Skipped: Invalid days until due (${daysUntilDue})`)
+      return false
     }
 
-    console.log(`    → Sending ${smsType} reminder`);
+    console.log(`    → Sending ${smsType} reminder`)
 
     // Check for duplicate (already sent today)
-    const alreadySent = await this.smsRepo.existsForToday(member.id, smsType);
+    const alreadySent = await this.smsRepo.existsForToday(member.id, smsType)
 
     if (alreadySent) {
-      console.log(`    → Skipped: ${smsType} already sent today`);
-      return false;
+      console.log(`    → Skipped: ${smsType} already sent today`)
+      return false
     }
 
     // Send reminder
-    await this.sendReminder(member, smsType);
+    await this.sendReminder(member, smsType)
 
     // Update summary
-    summary.totalSent++;
-    summary.byType[smsType]++;
+    summary.totalSent++
+    summary.byType[smsType]++
 
-    console.log(`  ✓ Sent ${smsType} to ${member.name}`);
+    console.log(`  ✓ Sent ${smsType} to ${member.name}`)
 
-    return true;
+    return true
   }
 
   /**
    * Determine SMS type based on days until due
+   *
+   * `getDaysUntilDue` returns whole days, so `>= 0 && < 1` is exactly
+   * `daysUntilDue === 0` — the DueToday branch already owns the due date, and
+   * it is evaluated BEFORE the overdue branch. Narrowing the overdue branch to
+   * `=== 0` would therefore make it unreachable rather than move the message.
+   *
+   * The `< 0` branch is kept deliberately as a SAFETY NET, not as a routine
+   * path: with instant expiry, update-expired-status (00:00) flips overdue
+   * members to Expired before send-reminders runs (03:30), and this job only
+   * reads ACTIVE members — so an overdue active should not exist. If the expiry
+   * cron fails or is skipped, this keeps chasing the payment instead of going
+   * silent.
    *
    * @param daysUntilDue - Days until payment is due
    * @returns SMS type, or null if no reminder needed
    */
   private determineSMSType(daysUntilDue: number): ReminderType | null {
     if (daysUntilDue >= 7 && daysUntilDue < 8) {
-      return ReminderType.SevenDay;
+      return ReminderType.SevenDay
     } else if (daysUntilDue >= 3 && daysUntilDue < 4) {
-      return ReminderType.ThreeDay;
+      return ReminderType.ThreeDay
     } else if (daysUntilDue >= 0 && daysUntilDue < 1) {
-      return ReminderType.DueToday;
+      return ReminderType.DueToday
     } else if (daysUntilDue < 0) {
-      return ReminderType.Overdue;
+      return ReminderType.Overdue
     }
-    return null;
+    return null
   }
 
   /**
@@ -289,16 +315,16 @@ export class SendAutomatedReminders {
   ): Promise<void> {
     try {
       // Generate reminder message
-      const message = this.generateReminderMessage(member, smsType);
+      const message = this.generateReminderMessage(member, smsType)
 
       // Send SMS
       const result = await this.smsProvider.send({
         to: member.phoneNumber,
         message,
-      });
+      })
 
       if (!result.success) {
-        throw new Error(result.error || 'SMS sending failed');
+        throw new Error(result.error || 'SMS sending failed')
       }
 
       // Log to database
@@ -309,13 +335,15 @@ export class SendAutomatedReminders {
         phoneNumber: member.phoneNumber,
         messageBody: message,
         sentAt: new Date(),
-        deliveryStatus: result.success ? SMSDeliveryStatus.Sent : SMSDeliveryStatus.Failed,
+        deliveryStatus: result.success
+          ? SMSDeliveryStatus.Sent
+          : SMSDeliveryStatus.Failed,
         textLkMessageId: result.messageId || null,
-        errorMessage: result.success ? null : (result.error || 'Unknown error'),
-      });
+        errorMessage: result.success ? null : result.error || 'Unknown error',
+      })
     } catch (error) {
-      console.error(`Failed to send ${smsType} to ${member.name}:`, error);
-      throw error;
+      console.error(`Failed to send ${smsType} to ${member.name}:`, error)
+      throw error
     }
   }
 
@@ -330,9 +358,9 @@ export class SendAutomatedReminders {
     member: Member,
     smsType: ReminderType
   ): string {
-    const planType = this.formatPlanType(member.planType);
-    const dueDate = formatDateForDisplay(member.nextDueDate);
-    const amount = `Rs.${member.planAmount.toFixed(2)}`;
+    const planType = this.formatPlanType(member.planType)
+    const dueDate = formatDateForDisplay(member.nextDueDate)
+    const amount = `Rs.${member.planAmount.toFixed(2)}`
 
     // Different messages based on reminder type
     switch (smsType) {
@@ -340,13 +368,17 @@ export class SendAutomatedReminders {
         return (
           `Dear ${member.name}, your ${planType} membership payment was due on ${dueDate}. ` +
           `Amount: ${amount}. Please make payment. Thank you.`
-        );
+        )
 
+      // Instant expiry (no grace period) makes the due date the LAST day the
+      // member is Active — tomorrow's update-expired-status run expires them.
+      // So this is the final message they receive while still a member, and it
+      // says so explicitly rather than just "payment is due".
       case ReminderType.DueToday:
         return (
-          `Dear ${member.name}, your ${planType} membership payment is due today. ` +
-          `Amount: ${amount}. Please make payment. Thank you.`
-        );
+          `Dear ${member.name}, your ${planType} membership expires today. ` +
+          `Amount: ${amount}. Please pay today to stay active. Thank you.`
+        )
 
       case ReminderType.ThreeDay:
       case ReminderType.SevenDay:
@@ -354,7 +386,7 @@ export class SendAutomatedReminders {
         return (
           `Dear ${member.name}, your ${planType} membership payment is due on ${dueDate}. ` +
           `Amount: ${amount}. Thank you.`
-        );
+        )
     }
   }
 
@@ -365,6 +397,8 @@ export class SendAutomatedReminders {
    * @returns Formatted plan type (e.g., "Monthly", "3-Months")
    */
   private formatPlanType(planType: PlanType): string {
-    return planType.charAt(0).toUpperCase() + planType.slice(1).replace('-', '-');
+    return (
+      planType.charAt(0).toUpperCase() + planType.slice(1).replace('-', '-')
+    )
   }
 }
