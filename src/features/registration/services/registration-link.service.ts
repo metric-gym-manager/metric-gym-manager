@@ -11,7 +11,12 @@ import { randomBytes } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getPlanLabel } from '@/features/members/config/PlanConfig'
-import type { PublicGymInfo, RegistrationLink } from '../types'
+import type {
+  PublicGymInfo,
+  PublicGymInfoResult,
+  RegistrationLink,
+  TokenLookupResult,
+} from '../types'
 
 /** Generate an unguessable URL token (32 hex chars = 128 bits) */
 function generateToken(): string {
@@ -81,15 +86,18 @@ export async function getOrCreateRegistrationLink(
 }
 
 /**
- * Resolve a public token to its gym id (admin client — anonymous callers).
+ * Look up a public token (admin client — anonymous callers).
  *
- * @returns gym id, or null when the token is unknown or deactivated
+ * Separates "this token is genuinely dead" from "the lookup failed": a
+ * malformed token or a missing/deactivated row is `not_found`, while a
+ * database/transport failure is `error`. Callers must not collapse the two —
+ * see {@link TokenLookupResult}.
  */
-export async function resolveRegistrationToken(
+export async function lookupRegistrationToken(
   token: string
-): Promise<string | null> {
+): Promise<TokenLookupResult> {
   if (!/^[a-f0-9]{32,64}$/i.test(token)) {
-    return null
+    return { status: 'not_found' }
   }
 
   const supabase = createAdminClient()
@@ -100,71 +108,54 @@ export async function resolveRegistrationToken(
     .eq('token', token)
     .maybeSingle()
 
-  if (error || !data || !data.is_active) {
-    return null
+  if (error) {
+    console.error('Registration token lookup failed:', error)
+    return { status: 'error' }
   }
 
-  return data.gym_id as string
+  if (!data || !data.is_active) {
+    return { status: 'not_found' }
+  }
+
+  return { status: 'ok', gymId: data.gym_id as string }
 }
 
 /**
- * Fetch what the public /join page needs: gym name + active plans with
- * amounts. Deliberately returns nothing else about the gym.
+ * Resolve a public token to its gym id (admin client — anonymous callers).
  *
- * @returns Public gym info, or null when the token is invalid
+ * @returns gym id, or null when the token is unknown, deactivated, or the
+ *   lookup failed. Prefer {@link lookupRegistrationToken} when the caller can
+ *   tell the member something different for an infrastructure failure.
  */
-export async function getPublicGymInfo(
+export async function resolveRegistrationToken(
   token: string
-): Promise<PublicGymInfo | null> {
-  const gymId = await resolveRegistrationToken(token)
-  if (!gymId) {
-    return null
-  }
+): Promise<string | null> {
+  const result = await lookupRegistrationToken(token)
+  return result.status === 'ok' ? result.gymId : null
+}
 
-  const supabase = createAdminClient()
+interface AdmissionFeeSettings {
+  admissionFee: number
+  admissionFeeEnabled: boolean
+}
 
-  const [gymResult, plansResult] = await Promise.all([
-    supabase
-      .from('gyms')
-      .select('gym_name, admission_fee, admission_fee_enabled')
-      .eq('id', gymId)
-      .single(),
-    supabase
-      .from('plan_types')
-      .select('plan_type, default_amount')
-      .eq('gym_id', gymId)
-      .eq('is_active', true)
-      .order('default_amount', { ascending: true }),
-  ])
-
-  if (gymResult.error || !gymResult.data) {
-    return null
-  }
-
-  const admissionFeeEnabled = Boolean(gymResult.data.admission_fee_enabled)
-
-  return {
-    gymName: gymResult.data.gym_name as string,
-    plans: (plansResult.data ?? []).map((plan) => ({
-      planType: plan.plan_type as string,
-      label: getPlanLabel(plan.plan_type),
-      amount: Number(plan.default_amount),
-    })),
-    admissionFee: admissionFeeEnabled
-      ? Number(gymResult.data.admission_fee) || 0
-      : 0,
-    admissionFeeEnabled,
-  }
+const NO_ADMISSION_FEE: AdmissionFeeSettings = {
+  admissionFee: 0,
+  admissionFeeEnabled: false,
 }
 
 /**
- * Admission fee authority for public registration. Like the plan amount, the
- * charged admission fee is always resolved server-side from the gym row, never
- * from client input. Admin client — the public join flow has no session.
+ * Read the gym's admission fee settings, degrading to "no fee" when they
+ * cannot be read.
  *
- * @returns The fee to add to the first payment (0 when disabled).
+ * The fee is an OPTIONAL add-on to the first payment, so a failure to read it
+ * must never take down the registration flow that depends on it — charging no
+ * admission fee is always the safe fallback (the desk collects the cash in
+ * person either way).
  */
-export async function getGymAdmissionFee(gymId: string): Promise<number> {
+async function readAdmissionFeeSettings(
+  gymId: string
+): Promise<AdmissionFeeSettings> {
   const supabase = createAdminClient()
   const { data, error } = await supabase
     .from('gyms')
@@ -172,8 +163,86 @@ export async function getGymAdmissionFee(gymId: string): Promise<number> {
     .eq('id', gymId)
     .maybeSingle()
 
-  if (error || !data || !data.admission_fee_enabled) return 0
-  return Number(data.admission_fee) || 0
+  if (error) {
+    console.error('Admission fee lookup failed, charging no fee:', error)
+    return NO_ADMISSION_FEE
+  }
+
+  if (!data || !data.admission_fee_enabled) return NO_ADMISSION_FEE
+
+  return {
+    admissionFee: Number(data.admission_fee) || 0,
+    admissionFeeEnabled: true,
+  }
+}
+
+/**
+ * Fetch what the public /join page needs: gym name + active plans with
+ * amounts. Deliberately returns nothing else about the gym.
+ *
+ * The gym name and plan list are the only things this page cannot render
+ * without; the admission fee is read separately so that losing the optional
+ * fee never costs a gym its working QR code.
+ *
+ * @returns `ok` with the public info, `not_found` for a dead token, or
+ *   `error` when a lookup failed.
+ */
+export async function getPublicGymInfo(
+  token: string
+): Promise<PublicGymInfoResult> {
+  const lookup = await lookupRegistrationToken(token)
+  if (lookup.status !== 'ok') {
+    return lookup
+  }
+
+  const gymId = lookup.gymId
+  const supabase = createAdminClient()
+
+  const [gymResult, plansResult, admissionFeeSettings] = await Promise.all([
+    supabase.from('gyms').select('gym_name').eq('id', gymId).single(),
+    supabase
+      .from('plan_types')
+      .select('plan_type, default_amount')
+      .eq('gym_id', gymId)
+      .eq('is_active', true)
+      .order('default_amount', { ascending: true }),
+    readAdmissionFeeSettings(gymId),
+  ])
+
+  if (gymResult.error || !gymResult.data) {
+    console.error('Public gym lookup failed:', gymResult.error)
+    return { status: 'error' }
+  }
+
+  if (plansResult.error) {
+    console.error('Public plan lookup failed:', plansResult.error)
+    return { status: 'error' }
+  }
+
+  const gym: PublicGymInfo = {
+    gymName: gymResult.data.gym_name as string,
+    plans: (plansResult.data ?? []).map((plan) => ({
+      planType: plan.plan_type as string,
+      label: getPlanLabel(plan.plan_type),
+      amount: Number(plan.default_amount),
+    })),
+    admissionFee: admissionFeeSettings.admissionFee,
+    admissionFeeEnabled: admissionFeeSettings.admissionFeeEnabled,
+  }
+
+  return { status: 'ok', gym }
+}
+
+/**
+ * Admission fee authority for public registration. Like the plan amount, the
+ * charged admission fee is always resolved server-side from the gym row, never
+ * from client input. Admin client — the public join flow has no session.
+ *
+ * @returns The fee to add to the first payment (0 when disabled or unreadable).
+ */
+export async function getGymAdmissionFee(gymId: string): Promise<number> {
+  const { admissionFee } = await readAdmissionFeeSettings(gymId)
+  return admissionFee
 }
 
 // ============================================================

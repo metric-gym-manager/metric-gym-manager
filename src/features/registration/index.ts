@@ -9,8 +9,8 @@
 // COMPONENTS
 // ============================================================
 
-export { default as JoinForm } from './components/JoinForm';
-export { default as RegistrationQRCard } from './components/RegistrationQRCard';
+export { default as JoinForm } from './components/JoinForm'
+export { default as RegistrationQRCard } from './components/RegistrationQRCard'
 
 // ============================================================
 // SCHEMAS
@@ -19,7 +19,7 @@ export { default as RegistrationQRCard } from './components/RegistrationQRCard';
 export {
   publicRegistrationSchema,
   type PublicRegistrationInput,
-} from './schemas/registration.schemas';
+} from './schemas/registration.schemas'
 
 // ============================================================
 // TYPES
@@ -29,5 +29,7 @@ export type {
   RegistrationLink,
   PublicPlanOption,
   PublicGymInfo,
+  PublicGymInfoResult,
   PublicRegistrationResult,
-} from './types';
+  TokenLookupResult,
+} from './types'

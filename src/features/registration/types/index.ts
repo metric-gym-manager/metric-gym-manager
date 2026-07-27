@@ -36,6 +36,29 @@ export interface PublicGymInfo {
 }
 
 /**
+ * Outcome of a public token lookup.
+ *
+ * `not_found` and `error` are deliberately distinct: only `not_found` means
+ * the printed QR code is genuinely dead (unknown or deactivated token). Any
+ * infrastructure failure is `error` and must NEVER be shown to a member as a
+ * dead link — a transient DB hiccup would otherwise tell a whole gym their
+ * posters had been replaced (rule 2.8).
+ */
+export type TokenLookupResult =
+  | { status: 'ok'; gymId: string }
+  | { status: 'not_found' }
+  | { status: 'error' }
+
+/**
+ * Outcome of the public /join page data load. Same three-way distinction as
+ * {@link TokenLookupResult}.
+ */
+export type PublicGymInfoResult =
+  | { status: 'ok'; gym: PublicGymInfo }
+  | { status: 'not_found' }
+  | { status: 'error' }
+
+/**
  * Response of POST /api/public/registrations
  */
 export interface PublicRegistrationResult {

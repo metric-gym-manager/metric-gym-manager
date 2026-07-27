@@ -12,7 +12,7 @@ import { PlanType, getPlanLabel } from '@/features/members/config/PlanConfig'
 import { RegistrationSource } from '@/features/members/config/RegistrationConfig'
 import { publicRegistrationSchema } from '@/features/registration/schemas/registration.schemas'
 import {
-  resolveRegistrationToken,
+  lookupRegistrationToken,
   getActivePlanForGym,
   getGymAdmissionFee,
 } from '@/features/registration/services/registration-link.service'
@@ -79,13 +79,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Resolve the gym from the token — the only trust anchor in this flow
-    const gymId = await resolveRegistrationToken(input.token)
-    if (!gymId) {
+    // Resolve the gym from the token — the only trust anchor in this flow.
+    // A failed lookup is reported as a server error, never as a dead link:
+    // the member must not be told their gym's QR code has been replaced
+    // because the database was briefly unreachable.
+    const lookup = await lookupRegistrationToken(input.token)
+    if (lookup.status === 'error') {
+      return NextResponse.json(
+        ResponseBuilder.error(
+          'Registration is temporarily unavailable. Please try again in a moment.',
+          'REGISTRATION_UNAVAILABLE'
+        ),
+        { status: 503 }
+      )
+    }
+    if (lookup.status === 'not_found') {
       return NextResponse.json(ResponseBuilder.notFound('Registration link'), {
         status: 404,
       })
     }
+
+    const gymId = lookup.gymId
 
     // The plan must be one of THIS gym's active plans; amount comes from the DB
     const plan = await getActivePlanForGym(gymId, input.planType)
