@@ -14,9 +14,8 @@
  * This is typically run as a daily cron job.
  */
 
-import { Member } from '@/features/members/domain/Member';
-import { IMemberRepository } from './IMemberRepository';
-import { MEMBER_EXPIRY_GRACE_DAYS } from '@/features/members/config/StatusConfig';
+import { Member } from '@/features/members/domain/Member'
+import { IMemberRepository } from './IMemberRepository'
 
 /**
  * Summary of status updates
@@ -25,21 +24,21 @@ export interface UpdateExpiredStatusSummary {
   /**
    * Total members updated to expired
    */
-  totalUpdated: number;
+  totalUpdated: number
 
   /**
    * Members that were updated
    */
   updatedMembers: {
-    id: string;
-    name: string;
-    nextDueDate: Date;
-  }[];
+    id: string
+    name: string
+    nextDueDate: Date
+  }[]
 
   /**
    * Errors encountered
    */
-  errors: string[];
+  errors: string[]
 }
 
 /**
@@ -47,10 +46,13 @@ export interface UpdateExpiredStatusSummary {
  *
  * Automatically expires active members whose payment is overdue.
  *
- * Business Rule: If a member's next_due_date is MEMBER_EXPIRY_GRACE_DAYS (7)
- * or more days in the past and they haven't paid, their status changes from
- * 'active' to 'expired' — at which point they stop counting toward the gym's
- * active-member quota (the DB trigger decrements gyms.member_count).
+ * Business Rule: There is NO grace period. As soon as a member's next_due_date
+ * is in the past (`next_due_date < today`) and they haven't paid, their status
+ * changes from 'active' to 'expired' — at which point they stop counting toward
+ * the gym's active-member quota (the DB trigger decrements gyms.member_count).
+ *
+ * A member due *today* is still paid through today and stays Active; the very
+ * next daily run expires them.
  *
  * @example
  * const updateExpired = new UpdateExpiredStatus(memberRepository);
@@ -70,74 +72,72 @@ export class UpdateExpiredStatus {
       totalUpdated: 0,
       updatedMembers: [],
       errors: [],
-    };
+    }
 
     try {
-      console.log('🔄 Checking for expired members...');
+      console.log('🔄 Checking for expired members...')
 
       // Get today's date (00:00:00) to compare against due dates
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
 
-      // Grace cutoff: a member expires only once they are unpaid for
-      // MEMBER_EXPIRY_GRACE_DAYS (7) full days past next_due_date. During the
-      // grace window they stay ACTIVE (still counted by the SaaS quota, still
-      // receiving overdue payment reminders).
-      const graceCutoff = new Date(today);
-      graceCutoff.setDate(graceCutoff.getDate() - MEMBER_EXPIRY_GRACE_DAYS);
+      // Fetch all active members (paged in the repository) and filter in memory.
+      // TODO: Add findOverdueActiveMembers() to IMemberRepository so the due-date
+      // predicate runs in the database rather than over the whole active set.
+      const activeMembers = await this.getAllActiveMembersAcrossGyms()
 
-      // Find all active members whose due date has passed
-      // Note: This will be implemented at the repository layer
-      // For now, we get all active members and filter in memory
-      // TODO: Add findOverdueActiveMembers() method to IMemberRepository for efficiency
-      const activeMembers = await this.getAllActiveMembersAcrossGyms();
-
-      // Filter members whose next_due_date is 7+ days in the past
+      // Filter members whose next_due_date is in the past. No grace period:
+      // strictly `< today`, so a member due today is untouched and a member due
+      // yesterday expires on this run. Mirrors Member.isOverdue().
       const overdueMembers = activeMembers.filter((member) => {
-        const dueDate = new Date(member.nextDueDate);
-        dueDate.setHours(0, 0, 0, 0);
-        return dueDate <= graceCutoff;
-      });
+        const dueDate = new Date(member.nextDueDate)
+        dueDate.setHours(0, 0, 0, 0)
+        return dueDate < today
+      })
 
-      console.log(`  Found ${overdueMembers.length} overdue members`);
+      console.log(`  Found ${overdueMembers.length} overdue members`)
 
       // Update each overdue member to expired status
       for (const member of overdueMembers) {
         try {
           // Use state machine to transition to expired
-          const expiredMember = member.expire();
+          const expiredMember = member.expire()
 
           // Persist update
-          await this.memberRepo.update(expiredMember);
+          await this.memberRepo.update(expiredMember)
 
           // Add to summary
-          summary.totalUpdated++;
+          summary.totalUpdated++
           summary.updatedMembers.push({
             id: member.id,
             name: member.name,
             nextDueDate: member.nextDueDate,
-          });
+          })
 
-          console.log(`  - Expired: ${member.name} (was due: ${this.formatDate(member.nextDueDate)})`);
+          console.log(
+            `  - Expired: ${member.name} (was due: ${this.formatDate(member.nextDueDate)})`
+          )
         } catch (error) {
-          const errorMsg = `Failed to expire member ${member.name}: ${error instanceof Error ? error.message : 'Unknown error'}`;
-          summary.errors.push(errorMsg);
-          console.error(`  ✗ ${errorMsg}`);
+          const errorMsg = `Failed to expire member ${member.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
+          summary.errors.push(errorMsg)
+          console.error(`  ✗ ${errorMsg}`)
         }
       }
 
       if (summary.totalUpdated > 0) {
-        console.log(`✅ Updated ${summary.totalUpdated} member(s) to expired status`);
+        console.log(
+          `✅ Updated ${summary.totalUpdated} member(s) to expired status`
+        )
       } else {
-        console.log('✓ No members need status update');
+        console.log('✓ No members need status update')
       }
     } catch (error) {
-      const errorMsg = `Fatal error in UpdateExpiredStatus: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      summary.errors.push(errorMsg);
-      console.error(errorMsg);
+      const errorMsg = `Fatal error in UpdateExpiredStatus: ${error instanceof Error ? error.message : 'Unknown error'}`
+      summary.errors.push(errorMsg)
+      console.error(errorMsg)
     }
 
-    return summary;
+    return summary
   }
 
   /**
@@ -151,7 +151,7 @@ export class UpdateExpiredStatus {
   private async getAllActiveMembersAcrossGyms(): Promise<Member[]> {
     // Use findAllActiveMembers() if available
     // This method was added to IMemberRepository in Phase 3.3
-    return await this.memberRepo.findAllActiveMembers();
+    return await this.memberRepo.findAllActiveMembers()
   }
 
   /**
@@ -161,6 +161,6 @@ export class UpdateExpiredStatus {
    * @returns Formatted date string (YYYY-MM-DD)
    */
   private formatDate(date: Date): string {
-    return date.toISOString().split('T')[0];
+    return date.toISOString().split('T')[0]
   }
 }

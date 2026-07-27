@@ -7,6 +7,7 @@
 > are historical records. The DI container was replaced by per-feature
 > `create<UseCase>(supabase)` factories. See `.claude/rules/architecture.md`
 > for the current structure.
+
 ## Comprehensive Technical Audit & Operational Documentation
 
 **Generated**: 2026-03-26
@@ -32,18 +33,20 @@
 ## 1.1 Member Status State Machine
 
 ### Status Enum Definition
+
 **Location**: `src/features/members/config/StatusConfig.ts:11-34`
 
 ```typescript
 enum MemberStatus {
-  Active = 'active',      // Valid payment, can check in
-  Expired = 'expired',    // Payment overdue
-  Suspended = 'suspended',// Policy violation or voluntary hold
-  Cancelled = 'cancelled' // Terminal state (permanent)
+  Active = 'active', // Valid payment, can check in
+  Expired = 'expired', // Payment overdue
+  Suspended = 'suspended', // Policy violation or voluntary hold
+  Cancelled = 'cancelled', // Terminal state (permanent)
 }
 ```
 
 ### Database Schema
+
 **Location**: `supabase/migrations/20260326000001_remove_frozen_status.sql`
 
 ```sql
@@ -61,28 +64,32 @@ CREATE TYPE member_status AS ENUM ('active', 'expired', 'suspended', 'cancelled'
 The validation layer uses `z.nativeEnum()` to validate MemberStatus while maintaining type compatibility with the domain enum:
 
 ```typescript
-import { MemberStatus } from '@/core/utils/constants/StatusConfig';
+import { MemberStatus } from '@/core/utils/constants/StatusConfig'
 
 export const memberFiltersSchema = z.object({
   search: z.string().optional(),
-  status: z.nativeEnum(MemberStatus).optional(),  // ✅ Validates domain enum
+  status: z.nativeEnum(MemberStatus).optional(), // ✅ Validates domain enum
   planType: MemberPlanType.optional(),
-  sortBy: z.enum(['newest', 'oldest', 'upcoming_due', 'recently_expired']).optional(),
+  sortBy: z
+    .enum(['newest', 'oldest', 'upcoming_due', 'recently_expired'])
+    .optional(),
   page: z.number().int().positive().default(1),
   limit: z.number().int().positive().max(100).default(20),
-});
+})
 
-export type MemberFiltersInput = z.infer<typeof memberFiltersSchema>;
+export type MemberFiltersInput = z.infer<typeof memberFiltersSchema>
 // Result: { status?: MemberStatus }  ✅ Correct enum type
 ```
 
 **Type Safety Pattern**:
+
 - ✅ Domain layer (`StatusConfig.ts`) is single source of truth for MemberStatus enum
 - ✅ Validation layer imports enum and uses `z.nativeEnum()` for runtime validation
 - ✅ Type compatibility maintained between validation, domain, and repository layers
 - ❌ Never create duplicate Zod enum definitions (`z.enum(['active', 'expired', ...])`) for domain enums
 
 **Benefits**:
+
 - Runtime validation ensures only valid enum values accepted
 - TypeScript compiler enforces correct usage
 - No type casts required when passing validated data to use cases
@@ -105,7 +112,7 @@ stateDiagram-v2
     Active --> Suspended : Admin: Policy violation or voluntary hold
 
     Expired --> Active : Admin/System: Payment collected
-    Expired --> Cancelled : Admin/System: 45+ days overdue
+    Expired --> Cancelled : Admin/System: 14+ days overdue
 
     Suspended --> Active : Admin: Member reactivated
     Suspended --> Expired : System: Time passed
@@ -114,17 +121,18 @@ stateDiagram-v2
     Cancelled --> [*] : Terminal state (irreversible)
 ```
 
-| From | To | Trigger | Who Can Execute | Requires Reason | Description |
-|------|------|---------|----------------|----------------|-------------|
-| **Active** | Expired | Payment overdue | System | No | Automatic when `next_due_date` < today |
-| **Active** | Suspended | Policy violation or voluntary hold | Admin | No | Member suspended by admin or voluntary freeze |
-| **Expired** | Active | Payment collected | Admin, System | No | Member paid outstanding amount |
-| **Expired** | Cancelled | 45+ days overdue | Admin, System | No | Long-term non-payment |
-| **Suspended** | Active | Member reactivated | Admin | No | Admin reactivates member |
-| **Suspended** | Expired | Time passed | System | No | Suspended + payment due passed |
-| **Suspended** | Cancelled | Permanent ban | Admin | Yes | Severe violation or member request |
+| From          | To        | Trigger                            | Who Can Execute | Requires Reason | Description                                   |
+| ------------- | --------- | ---------------------------------- | --------------- | --------------- | --------------------------------------------- |
+| **Active**    | Expired   | Payment overdue                    | System          | No              | Automatic when `next_due_date` < today        |
+| **Active**    | Suspended | Policy violation or voluntary hold | Admin           | No              | Member suspended by admin or voluntary freeze |
+| **Expired**   | Active    | Payment collected                  | Admin, System   | No              | Member paid outstanding amount                |
+| **Expired**   | Cancelled | 14+ days overdue                   | Admin, System   | No              | Long-term non-payment                         |
+| **Suspended** | Active    | Member reactivated                 | Admin           | No              | Admin reactivates member                      |
+| **Suspended** | Expired   | Time passed                        | System          | No              | Suspended + payment due passed                |
+| **Suspended** | Cancelled | Permanent ban                      | Admin           | Yes             | Severe violation or member request            |
 
 **Key Changes** (2026-03-26):
+
 - **Reduced from 11 to 7 transitions**: Removed all frozen-related paths
 - **Suspended semantics updated**: Now encompasses both policy violations and voluntary holds (formerly "frozen")
 - **Visual clarity**: Suspended members show yellow badge (requires attention) instead of gray
@@ -134,6 +142,7 @@ stateDiagram-v2
 ## 1.2.1 Early Renewal Operation (Active → Active)
 
 ### Definition
+
 **Location**: `src/features/members/domain/Member.ts:320-333`
 
 Early renewal is **not a state transition** but a subscription extension operation for already active members. This allows members to pay before their due date and extend their subscription without changing their status.
@@ -199,13 +208,13 @@ renew(newDueDate: Date): Member {
 
 **Implemented**: 2026-03-30 (addresses GAP 3 from system test)
 
-| Validation | Rule | Error Message | Example |
-|------------|------|---------------|---------|
-| **Valid Date Object** | Must be instance of Date with valid timestamp | `"newDueDate must be a valid Date object"` | ❌ `new Date('invalid')` |
-| **Not in Past** | Must be today or future (compared at 00:00:00) | `"newDueDate must be in the future"` | ❌ `new Date('2024-01-01')` when today is 2024-02-01 |
-| **Not Backwards** | Must be on or after current `nextDueDate` | `"newDueDate must be after current due date"` | ❌ `new Date('2024-02-15')` when current due is 2024-03-01 |
-| **Edge Case: Today** | Today's date is accepted | ✅ Valid | ✅ `new Date()` |
-| **Edge Case: Same Date** | Same as current due date is accepted | ✅ Valid (no-op) | ✅ Same date as `nextDueDate` |
+| Validation               | Rule                                           | Error Message                                 | Example                                                    |
+| ------------------------ | ---------------------------------------------- | --------------------------------------------- | ---------------------------------------------------------- |
+| **Valid Date Object**    | Must be instance of Date with valid timestamp  | `"newDueDate must be a valid Date object"`    | ❌ `new Date('invalid')`                                   |
+| **Not in Past**          | Must be today or future (compared at 00:00:00) | `"newDueDate must be in the future"`          | ❌ `new Date('2024-01-01')` when today is 2024-02-01       |
+| **Not Backwards**        | Must be on or after current `nextDueDate`      | `"newDueDate must be after current due date"` | ❌ `new Date('2024-02-15')` when current due is 2024-03-01 |
+| **Edge Case: Today**     | Today's date is accepted                       | ✅ Valid                                      | ✅ `new Date()`                                            |
+| **Edge Case: Same Date** | Same as current due date is accepted           | ✅ Valid (no-op)                              | ✅ Same date as `nextDueDate`                              |
 
 ### Test Coverage
 
@@ -224,11 +233,11 @@ renew(newDueDate: Date): Member {
 
 ### Use Cases
 
-| Scenario | Current Status | Due Date | Action | Method | Result |
-|----------|---------------|----------|--------|--------|--------|
-| **Early Payment** | Active | Jan 31 | Pay on Jan 15 | `renew()` | Status: Active, Due: Feb 15 |
-| **Subscription Extension** | Active | Feb 28 | Pay on Feb 20 | `renew()` | Status: Active, Due: Mar 20 |
-| **Overdue Payment** | Expired | Jan 31 (past) | Pay on Feb 15 | `activate()` | Status: Active, Due: Mar 15 |
+| Scenario                   | Current Status | Due Date      | Action        | Method       | Result                      |
+| -------------------------- | -------------- | ------------- | ------------- | ------------ | --------------------------- |
+| **Early Payment**          | Active         | Jan 31        | Pay on Jan 15 | `renew()`    | Status: Active, Due: Feb 15 |
+| **Subscription Extension** | Active         | Feb 28        | Pay on Feb 20 | `renew()`    | Status: Active, Due: Mar 20 |
+| **Overdue Payment**        | Expired        | Jan 31 (past) | Pay on Feb 15 | `activate()` | Status: Active, Due: Mar 15 |
 
 ### Database Mutations
 
@@ -245,6 +254,7 @@ WHERE id = ? AND gym_id = ? AND status = 'active';
 ```
 
 **Contrast with Reactivation**:
+
 ```sql
 -- Reactivation (Expired/Suspended → Active)
 UPDATE members
@@ -258,14 +268,16 @@ WHERE id = ? AND gym_id = ?;
 ### Implementation Context
 
 **Payment Collection Logic** (`CollectPayment.ts:187-190`):
+
 ```typescript
 const processedMember =
   member.status === 'active'
-    ? member.renew(nextDueDate)        // Early renewal (no state change)
-    : member.activate(nextDueDate);     // Reactivation (state transition)
+    ? member.renew(nextDueDate) // Early renewal (no state change)
+    : member.activate(nextDueDate) // Reactivation (state transition)
 ```
 
 **Benefits**:
+
 - ✅ **Prevents Invalid Transition Error**: `activate()` rejects `Active → Active` transitions
 - ✅ **Explicit Intent**: Code clearly distinguishes renewal from reactivation
 - ✅ **Audit Trail**: Database logs show whether payment was early renewal or reactivation
@@ -276,6 +288,7 @@ const processedMember =
 ## 1.3 SUSPENDED Status: Comprehensive Overview
 
 ### Definition
+
 **Location**: `src/features/members/config/StatusConfig.ts:23-27`
 
 ```typescript
@@ -289,11 +302,13 @@ Suspended = 'suspended'
 ### Use Cases
 
 #### 1. **Policy Violation** (Admin-Initiated)
+
 - Member violated gym rules (e.g., harassment, unauthorized access)
 - Requires admin action to resolve and reactivate
 - May include notes/reason in admin panel
 
 #### 2. **Voluntary Hold** (Member-Requested)
+
 - Member requests temporary pause (e.g., travel, injury, financial hardship)
 - Admin processes the request and suspends membership
 - Member can request reactivation when ready
@@ -301,6 +316,7 @@ Suspended = 'suspended'
 ### Triggers (When Applied)
 
 **Manual Trigger - Admin Action**
+
 - **UI Location**: `src/components/members/EditMemberModal.tsx` (Status dropdown)
 - **API Route**: `PATCH /api/members/[id]` with `{ status: 'suspended' }`
 - **Domain Method**: `Member.suspend()` in `src/features/members/domain/Member.ts:337`
@@ -319,10 +335,12 @@ WHERE id = ? AND gym_id = ?;
 ```
 
 **Fields Changed**:
+
 - `status`: `'active'` → `'suspended'`
 - `updated_at`: Current timestamp
 
 **Fields NOT Changed**:
+
 - `next_due_date`: Remains unchanged (important: suspension doesn't extend billing cycle by default)
 - `plan_amount`: Unchanged
 - `plan_type`: Unchanged
@@ -353,27 +371,29 @@ WHERE id = ? AND gym_id = ?;
 ### Cron Job Handling of Suspended Status
 
 #### 1. Send Reminders Cron (`/api/cron/send-reminders`)
+
 **Location**: `src/features/sms/services/SendAutomatedReminders.ts:119-122`
 
 ```typescript
 // Get ACTIVE members only
 const members = input.gymId
   ? await this.memberRepo.findActiveMembers(input.gymId)
-  : await this.memberRepo.findAllActiveMembers();
+  : await this.memberRepo.findAllActiveMembers()
 ```
 
 **Result**: Suspended members receive **ZERO** payment reminders (not in active list).
 
 #### 2. Update Expired Status Cron (`/api/cron/update-expired-status`)
+
 **Location**: `src/features/members/services/UpdateExpiredStatus.ts:84-91`
 
 ```typescript
 // Filter members whose next_due_date < today
 const overdueMembers = activeMembers.filter((member) => {
-  const dueDate = new Date(member.nextDueDate);
-  dueDate.setHours(0, 0, 0, 0);
-  return dueDate < today;
-});
+  const dueDate = new Date(member.nextDueDate)
+  dueDate.setHours(0, 0, 0, 0)
+  return dueDate < today
+})
 ```
 
 **Result**: Suspended members **do NOT** auto-expire via this cron (only active members).
@@ -381,10 +401,11 @@ const overdueMembers = activeMembers.filter((member) => {
 **However**: If a suspended member's `next_due_date` passes, they can transition to expired via the `Suspended → Expired` path, but this is **not currently automated**. This is a potential gap for members suspended for extended periods.
 
 #### 3. Cancel Overdue Members Cron (`/api/cron/cancel-overdue-members`)
+
 **Location**: `src/features/members/services/CancelOverdueMembers.ts:103`
 
 ```typescript
-const expiredMembers = await this.getAllExpiredMembersAcrossGyms();
+const expiredMembers = await this.getAllExpiredMembersAcrossGyms()
 ```
 
 **Result**: Suspended members **cannot** be auto-cancelled by this cron (only expired members).
@@ -393,17 +414,18 @@ const expiredMembers = await this.getAllExpiredMembersAcrossGyms();
 
 **Location**: `src/features/members/config/StatusConfig.ts:111-133`
 
-| To | Method | Trigger | Files Involved |
-|----|--------|---------|----------------|
-| **Active** | `member.activate(newDueDate)` | Admin reactivates + optional payment | `Member.ts:296`, `CollectPayment.ts:183` |
-| **Expired** | `member.expire()` | System (time passed while suspended) | `Member.ts:317` |
-| **Cancelled** | `member.cancel()` | Admin/User cancels membership | `Member.ts:337`, API: `PATCH /api/members/[id]` |
+| To            | Method                        | Trigger                              | Files Involved                                  |
+| ------------- | ----------------------------- | ------------------------------------ | ----------------------------------------------- |
+| **Active**    | `member.activate(newDueDate)` | Admin reactivates + optional payment | `Member.ts:296`, `CollectPayment.ts:183`        |
+| **Expired**   | `member.expire()`             | System (time passed while suspended) | `Member.ts:317`                                 |
+| **Cancelled** | `member.cancel()`             | Admin/User cancels membership        | `Member.ts:337`, API: `PATCH /api/members/[id]` |
 
 ---
 
 ## 1.4 Plan Type Configuration
 
 ### Plan Enum Definition
+
 **Location**: `src/features/members/config/PlanConfig.ts:11-19`
 
 ```typescript
@@ -414,11 +436,12 @@ enum PlanType {
   ThreeMonths = '3-months',
   SixMonths = '6-months',
   Annual = 'annual',
-  Custom = 'custom'
+  Custom = 'custom',
 }
 ```
 
 ### Database Schema
+
 **Location**: `supabase/migrations/20260325000001_sync_enums_and_drop_reminder_columns.sql:14-17`
 
 ```sql
@@ -432,35 +455,35 @@ ALTER TYPE member_plan_type ADD VALUE IF NOT EXISTS 'custom';
 
 **Location**: `src/features/members/config/PlanConfig.ts:79-142`
 
-| Plan Type | Duration (Days) | Duration Method | Duration Value | Suggested Min (LKR) | Recurring Discount |
-|-----------|----------------|-----------------|----------------|-------------------|-------------------|
-| **Daily** | 1 | `day` | 1 | 100 | No |
-| **Weekly** | 7 | `day` | 7 | 500 | Yes |
-| **Monthly** | ~30 | `month` | 1 | 1,500 | Yes |
-| **3-Months** | ~90 | `month` | 3 | 4,000 | Yes |
-| **6-Months** | ~180 | `month` | 6 | 7,500 | Yes |
-| **Annual** | ~365 | `year` | 1 | 14,000 | Yes |
-| **Custom** | 30 (default) | `month` | 1 | 1,000 | Yes |
+| Plan Type    | Duration (Days) | Duration Method | Duration Value | Suggested Min (LKR) | Recurring Discount |
+| ------------ | --------------- | --------------- | -------------- | ------------------- | ------------------ |
+| **Daily**    | 1               | `day`           | 1              | 100                 | No                 |
+| **Weekly**   | 7               | `day`           | 7              | 500                 | Yes                |
+| **Monthly**  | ~30             | `month`         | 1              | 1,500               | Yes                |
+| **3-Months** | ~90             | `month`         | 3              | 4,000               | Yes                |
+| **6-Months** | ~180            | `month`         | 6              | 7,500               | Yes                |
+| **Annual**   | ~365            | `year`          | 1              | 14,000              | Yes                |
+| **Custom**   | 30 (default)    | `month`         | 1              | 1,000               | Yes                |
 
 **Duration Calculation Logic**: `src/utils/date/calculateNextDueDate.ts`
 
 ```typescript
 function calculateNextDueDate(baseDate: Date, planType: PlanType): Date {
-  const config = getPlanConfig(planType);
-  const nextDue = new Date(baseDate);
+  const config = getPlanConfig(planType)
+  const nextDue = new Date(baseDate)
 
   switch (config.durationMethod) {
     case 'day':
-      nextDue.setDate(nextDue.getDate() + config.durationValue);
-      break;
+      nextDue.setDate(nextDue.getDate() + config.durationValue)
+      break
     case 'month':
-      nextDue.setMonth(nextDue.getMonth() + config.durationValue);
-      break;
+      nextDue.setMonth(nextDue.getMonth() + config.durationValue)
+      break
     case 'year':
-      nextDue.setFullYear(nextDue.getFullYear() + config.durationValue);
-      break;
+      nextDue.setFullYear(nextDue.getFullYear() + config.durationValue)
+      break
   }
-  return nextDue;
+  return nextDue
 }
 ```
 
@@ -472,15 +495,15 @@ function calculateNextDueDate(baseDate: Date, planType: PlanType): Date {
 
 ### Reminder Matrix
 
-| Plan Type | 7-Day Reminder | 3-Day Reminder | Due Today | Overdue | Rationale |
-|-----------|----------------|----------------|-----------|---------|-----------|
-| **Daily** | ❌ | ❌ | ❌ | ❌ | Too frequent (payments every day) |
-| **Weekly** | ✅ | ✅ | ✅ | ✅ | All reminders applicable |
-| **Monthly** | ❌ | ✅ | ✅ | ✅ | Skip 7-day (only 30-day cycle) |
-| **3-Months** | ✅ | ✅ | ✅ | ✅ | Long-term plan, all reminders |
-| **6-Months** | ✅ | ✅ | ✅ | ✅ | Long-term plan, all reminders |
-| **Annual** | ✅ | ✅ | ✅ | ✅ | Long-term plan, all reminders |
-| **Custom** | ✅ | ✅ | ✅ | ✅ | Default to all reminders |
+| Plan Type    | 7-Day Reminder | 3-Day Reminder | Due Today | Overdue | Rationale                         |
+| ------------ | -------------- | -------------- | --------- | ------- | --------------------------------- |
+| **Daily**    | ❌             | ❌             | ❌        | ❌      | Too frequent (payments every day) |
+| **Weekly**   | ✅             | ✅             | ✅        | ✅      | All reminders applicable          |
+| **Monthly**  | ❌             | ✅             | ✅        | ✅      | Skip 7-day (only 30-day cycle)    |
+| **3-Months** | ✅             | ✅             | ✅        | ✅      | Long-term plan, all reminders     |
+| **6-Months** | ✅             | ✅             | ✅        | ✅      | Long-term plan, all reminders     |
+| **Annual**   | ✅             | ✅             | ✅        | ✅      | Long-term plan, all reminders     |
+| **Custom**   | ✅             | ✅             | ✅        | ✅      | Default to all reminders          |
 
 **Implementation**:
 
@@ -499,7 +522,7 @@ export const REMINDER_RULES: Record<PlanType, ReminderRule> = {
     ],
   },
   // ... others with [7, 3, 0] reminder days
-};
+}
 ```
 
 ---
@@ -509,6 +532,7 @@ export const REMINDER_RULES: Record<PlanType, ReminderRule> = {
 ## 2.1 Process A: Automated Reminders
 
 ### Trigger
+
 - **Cron Schedule**: Daily at 9:00 AM Sri Lanka Time (3:30 AM UTC)
 - **Vercel Cron Config**: `vercel.json` (if using Vercel)
 - **Alternative**: Manual trigger via `GET /api/cron/send-reminders` (dev only)
@@ -565,19 +589,19 @@ sequenceDiagram
 
 ### File Trace
 
-| Step | File | Line Range | Function | Description |
-|------|------|-----------|----------|-------------|
-| 1 | `src/app/api/cron/send-reminders/route.ts` | 10-59 | `POST()` | Cron endpoint, auth verification |
-| 2 | `src/features/<domain>/services/factory.ts` | - | `create<UseCase>(adminClient)` | Feature factory composition |
-| 3 | `src/features/sms/services/SendAutomatedReminders.ts` | 104-161 | `execute()` | Main orchestration logic |
-| 4 | `src/features/members/services/SupabaseMemberRepository.ts` | 174-185 | `findAllActiveMembers()` | Query active members |
-| 5 | `src/utils/date/getDaysUntilDue.ts` | - | `getDaysUntilDue()` | Calculate days until due |
-| 6 | `src/features/sms/config/ReminderConfig.ts` | 155-175 | `shouldSendReminder()` | Check if reminder needed |
-| 7 | `src/features/sms/services/SendAutomatedReminders.ts` | 220-231 | `determineSMSType()` | Map days to SMS type |
-| 8 | `src/features/sms/services/SupabaseSMSRepository.ts` | - | `existsForToday()` | Duplicate check |
-| 9 | `src/features/sms/services/SendAutomatedReminders.ts` | 285-316 | `generateReminderMessage()` | SMS body generation |
-| 10 | `src/features/sms/services/providers/TextLkSMSProvider.ts` | - | `send()` | External API call |
-| 11 | `src/features/sms/services/SupabaseSMSRepository.ts` | - | `create()` | Log to sms_logs table |
+| Step | File                                                        | Line Range | Function                       | Description                      |
+| ---- | ----------------------------------------------------------- | ---------- | ------------------------------ | -------------------------------- |
+| 1    | `src/app/api/cron/send-reminders/route.ts`                  | 10-59      | `POST()`                       | Cron endpoint, auth verification |
+| 2    | `src/features/<domain>/services/factory.ts`                 | -          | `create<UseCase>(adminClient)` | Feature factory composition      |
+| 3    | `src/features/sms/services/SendAutomatedReminders.ts`       | 104-161    | `execute()`                    | Main orchestration logic         |
+| 4    | `src/features/members/services/SupabaseMemberRepository.ts` | 174-185    | `findAllActiveMembers()`       | Query active members             |
+| 5    | `src/utils/date/getDaysUntilDue.ts`                         | -          | `getDaysUntilDue()`            | Calculate days until due         |
+| 6    | `src/features/sms/config/ReminderConfig.ts`                 | 155-175    | `shouldSendReminder()`         | Check if reminder needed         |
+| 7    | `src/features/sms/services/SendAutomatedReminders.ts`       | 220-231    | `determineSMSType()`           | Map days to SMS type             |
+| 8    | `src/features/sms/services/SupabaseSMSRepository.ts`        | -          | `existsForToday()`             | Duplicate check                  |
+| 9    | `src/features/sms/services/SendAutomatedReminders.ts`       | 285-316    | `generateReminderMessage()`    | SMS body generation              |
+| 10   | `src/features/sms/services/providers/TextLkSMSProvider.ts`  | -          | `send()`                       | External API call                |
+| 11   | `src/features/sms/services/SupabaseSMSRepository.ts`        | -          | `create()`                     | Log to sms_logs table            |
 
 ### Database Mutations
 
@@ -612,6 +636,7 @@ INSERT INTO sms_logs (
 ## 2.2 Process B: Payment Collection
 
 ### Trigger
+
 - **UI**: Payment Collection Modal (`src/components/members/PaymentCollectionModal.tsx`)
 - **User Action**: Admin clicks "Collect Payment" button for an overdue member
 - **API Call**: `POST /api/members/[id]/payment`
@@ -678,19 +703,19 @@ sequenceDiagram
 
 ### File Trace
 
-| Step | File | Line Range | Function | Description |
-|------|------|-----------|----------|-------------|
-| 1 | `src/components/members/PaymentCollectionModal.tsx` | 91-122 | `collectPaymentMutation` | Form submission handler |
-| 2 | `src/app/api/members/[id]/payment/route.ts` | 12-110 | `POST()` | API endpoint |
-| 3 | `src/lib/middleware/auth.ts` | - | `getCurrentGymProfile()` | Supabase auth check |
-| 4 | `src/features/members/schemas/member.schemas.ts` | - | `collectPaymentSchema` | Zod validation |
-| 5 | `src/features/payments/services/CollectPayment.ts` | 144-204 | `execute()` | Main business logic (with renew/activate conditional) |
-| 6 | `src/features/members/services/SupabaseMemberRepository.ts` | 64-81 | `findById()` | Member lookup |
-| 7 | `src/utils/date/calculateNextDueDate.ts` | - | `calculateNextDueDate()` | Date calculation |
-| 8 | `src/features/payments/services/SupabasePaymentRepository.ts` | - | `create()` | Payment insert |
-| 9 | `src/features/members/domain/Member.ts` | 288-298, 320-333 | `activate()` / `renew()` | State transition or renewal |
-| 10 | `src/features/members/services/SupabaseMemberRepository.ts` | 293-319 | `update()` | Member status update |
-| 11 | `src/features/sms/services/providers/TextLkSMSProvider.ts` | - | `send()` | Receipt SMS (async) |
+| Step | File                                                          | Line Range       | Function                 | Description                                           |
+| ---- | ------------------------------------------------------------- | ---------------- | ------------------------ | ----------------------------------------------------- |
+| 1    | `src/components/members/PaymentCollectionModal.tsx`           | 91-122           | `collectPaymentMutation` | Form submission handler                               |
+| 2    | `src/app/api/members/[id]/payment/route.ts`                   | 12-110           | `POST()`                 | API endpoint                                          |
+| 3    | `src/lib/middleware/auth.ts`                                  | -                | `getCurrentGymProfile()` | Supabase auth check                                   |
+| 4    | `src/features/members/schemas/member.schemas.ts`              | -                | `collectPaymentSchema`   | Zod validation                                        |
+| 5    | `src/features/payments/services/CollectPayment.ts`            | 144-204          | `execute()`              | Main business logic (with renew/activate conditional) |
+| 6    | `src/features/members/services/SupabaseMemberRepository.ts`   | 64-81            | `findById()`             | Member lookup                                         |
+| 7    | `src/utils/date/calculateNextDueDate.ts`                      | -                | `calculateNextDueDate()` | Date calculation                                      |
+| 8    | `src/features/payments/services/SupabasePaymentRepository.ts` | -                | `create()`               | Payment insert                                        |
+| 9    | `src/features/members/domain/Member.ts`                       | 288-298, 320-333 | `activate()` / `renew()` | State transition or renewal                           |
+| 10   | `src/features/members/services/SupabaseMemberRepository.ts`   | 293-319          | `update()`               | Member status update                                  |
+| 11   | `src/features/sms/services/providers/TextLkSMSProvider.ts`    | -                | `send()`                 | Receipt SMS (async)                                   |
 
 ### Database Mutations
 
@@ -754,11 +779,12 @@ INSERT INTO sms_logs (
 ```typescript
 const processedMember =
   member.status === 'active'
-    ? member.renew(nextDueDate)        // Early renewal for active members
-    : member.activate(nextDueDate);     // Reactivation for expired/suspended
+    ? member.renew(nextDueDate) // Early renewal for active members
+    : member.activate(nextDueDate) // Reactivation for expired/suspended
 ```
 
 **Use Cases**:
+
 - **Early Renewal** (Active → Active): Member pays before due date, extends subscription
 - **Reactivation** (Expired → Active): Member pays overdue amount, reactivates membership
 - **Reactivation** (Suspended → Active): Member pays to lift suspension
@@ -768,6 +794,7 @@ const processedMember =
 ## 2.3 Process C: Member Registration
 
 ### Trigger
+
 - **UI**: Add Member Modal (`src/components/members/AddMemberModal.tsx`)
 - **User Action**: Admin fills registration form and clicks "Register"
 - **API Call**: `POST /api/members`
@@ -832,20 +859,20 @@ sequenceDiagram
 
 ### File Trace
 
-| Step | File | Line Range | Function | Description |
-|------|------|-----------|----------|-------------|
-| 1 | `src/components/members/AddMemberModal.tsx` | - | Form submission | User input |
-| 2 | `src/app/api/members/route.ts` | 73-161 | `POST()` | API endpoint |
-| 3 | `src/lib/middleware/auth.ts` | - | `getCurrentGymProfile()` | Auth verification |
-| 4 | `src/features/members/schemas/member.schemas.ts` | - | `addMemberSchema` | Zod validation |
-| 5 | `src/features/members/services/RegisterMember.ts` | 137-202 | `execute()` | Main orchestration |
-| 6 | `src/utils/phone/PhoneNumber.ts` | - | `PhoneNumber.create()` | Phone validation |
-| 7 | `src/features/members/services/SupabaseMemberRepository.ts` | - | `findByPhoneNumber()` | Duplicate check |
-| 8 | `src/utils/date/calculateNextDueDate.ts` | - | `calculateNextDueDate()` | Next due calculation |
-| 9 | `src/features/members/domain/Member.ts` | 100-107 | `Member.create()` | Domain entity creation |
-| 10 | `src/features/members/services/SupabaseMemberRepository.ts` | 271-288 | `create()` | Member insert |
-| 11 | `src/features/payments/services/SupabasePaymentRepository.ts` | - | `create()` | Initial payment record |
-| 12 | `src/features/sms/services/providers/TextLkSMSProvider.ts` | - | `send()` | Welcome SMS (async) |
+| Step | File                                                          | Line Range | Function                 | Description            |
+| ---- | ------------------------------------------------------------- | ---------- | ------------------------ | ---------------------- |
+| 1    | `src/components/members/AddMemberModal.tsx`                   | -          | Form submission          | User input             |
+| 2    | `src/app/api/members/route.ts`                                | 73-161     | `POST()`                 | API endpoint           |
+| 3    | `src/lib/middleware/auth.ts`                                  | -          | `getCurrentGymProfile()` | Auth verification      |
+| 4    | `src/features/members/schemas/member.schemas.ts`              | -          | `addMemberSchema`        | Zod validation         |
+| 5    | `src/features/members/services/RegisterMember.ts`             | 137-202    | `execute()`              | Main orchestration     |
+| 6    | `src/utils/phone/PhoneNumber.ts`                              | -          | `PhoneNumber.create()`   | Phone validation       |
+| 7    | `src/features/members/services/SupabaseMemberRepository.ts`   | -          | `findByPhoneNumber()`    | Duplicate check        |
+| 8    | `src/utils/date/calculateNextDueDate.ts`                      | -          | `calculateNextDueDate()` | Next due calculation   |
+| 9    | `src/features/members/domain/Member.ts`                       | 100-107    | `Member.create()`        | Domain entity creation |
+| 10   | `src/features/members/services/SupabaseMemberRepository.ts`   | 271-288    | `create()`               | Member insert          |
+| 11   | `src/features/payments/services/SupabasePaymentRepository.ts` | -          | `create()`               | Initial payment record |
+| 12   | `src/features/sms/services/providers/TextLkSMSProvider.ts`    | -          | `send()`                 | Welcome SMS (async)    |
 
 ### Database Mutations
 
@@ -922,26 +949,29 @@ INSERT INTO sms_logs (
 ## 3.1 Member Directory (List View)
 
 ### UI Component
+
 **Location**: `src/components/members/MembersTable.tsx`
 
 **Interactive Elements**:
 
-| UI Element | Type | Action | API Route | Backend Service | DB Tables |
-|------------|------|--------|-----------|----------------|-----------|
-| **Search Input** | `<Input>` | Debounced search (300ms) | `GET /api/members/suggestions?q=<query>` | `MemberRepository.findAll()` | `members` |
-| **Status Filter** | `<Select>` | Filter by status | `GET /api/members?status=<status>` | `MemberRepository.findAll()` | `members` |
-| **Plan Type Filter** | `<Select>` | Filter by plan | `GET /api/members?planType=<type>` | `MemberRepository.findAll()` | `members` |
-| **Sort Dropdown** | `<Select>` | Change sort order | `GET /api/members?sortBy=<sortBy>` | `MemberRepository.findAll()` | `members` |
-| **Pagination** | `<Button>` | Navigate pages | `GET /api/members?page=<page>` | `MemberRepository.findAll()` | `members` |
-| **Member Row Click** | `<TableRow>` | Open detail modal | N/A (client-side) | N/A | N/A |
-| **Payment Button** | `<Button>` | Open payment modal | N/A (client-side) | N/A | N/A |
+| UI Element           | Type         | Action                   | API Route                                | Backend Service              | DB Tables |
+| -------------------- | ------------ | ------------------------ | ---------------------------------------- | ---------------------------- | --------- |
+| **Search Input**     | `<Input>`    | Debounced search (300ms) | `GET /api/members/suggestions?q=<query>` | `MemberRepository.findAll()` | `members` |
+| **Status Filter**    | `<Select>`   | Filter by status         | `GET /api/members?status=<status>`       | `MemberRepository.findAll()` | `members` |
+| **Plan Type Filter** | `<Select>`   | Filter by plan           | `GET /api/members?planType=<type>`       | `MemberRepository.findAll()` | `members` |
+| **Sort Dropdown**    | `<Select>`   | Change sort order        | `GET /api/members?sortBy=<sortBy>`       | `MemberRepository.findAll()` | `members` |
+| **Pagination**       | `<Button>`   | Navigate pages           | `GET /api/members?page=<page>`           | `MemberRepository.findAll()` | `members` |
+| **Member Row Click** | `<TableRow>` | Open detail modal        | N/A (client-side)                        | N/A                          | N/A       |
+| **Payment Button**   | `<Button>`   | Open payment modal       | N/A (client-side)                        | N/A                          | N/A       |
 
 ### API Routes
 
 #### GET /api/members
+
 **Location**: `src/app/api/members/route.ts:13-66`
 
 **Query Parameters**:
+
 - `search`: string (name or phone partial match)
 - `status`: `active` | `expired` | `suspended` | `cancelled`
 - `planType`: `daily` | `weekly` | `monthly` | `3-months` | `6-months` | `annual` | `custom`
@@ -950,6 +980,7 @@ INSERT INTO sms_logs (
 - `limit`: number (default: 20)
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -963,18 +994,22 @@ INSERT INTO sms_logs (
 ```
 
 **Backend Flow**:
+
 1. Auth: `getCurrentGymProfile()` → Supabase Auth session
 2. Validation: `memberFiltersSchema.parse()`
 3. Repository: `MemberRepository.findAll(filters)` → `SupabaseMemberRepository.ts:86-152`
 4. Database Query: `SELECT * FROM members WHERE gym_id=? [+ filters] ORDER BY ... LIMIT ... OFFSET ...`
 
 #### GET /api/members/suggestions
+
 **Location**: `src/app/api/members/suggestions/route.ts`
 
 **Query Parameters**:
+
 - `q`: string (search query)
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -986,6 +1021,7 @@ INSERT INTO sms_logs (
 ```
 
 **Backend Flow**:
+
 1. Auth: `getCurrentGymProfile()`
 2. Repository: `MemberRepository.findAll({search: q, limit: 10})`
 3. Database Query: `SELECT id, name, phone_number FROM members WHERE (name ILIKE '%<q>%' OR phone_number ILIKE '%<q>%') AND gym_id=? LIMIT 10`
@@ -995,35 +1031,39 @@ INSERT INTO sms_logs (
 ## 3.2 Payment Collection Modal
 
 ### UI Component
+
 **Location**: `src/components/members/PaymentCollectionModal.tsx`
 
 **Interactive Elements**:
 
-| UI Element | Type | Action | API Route | Backend Service | DB Tables |
-|------------|------|--------|-----------|----------------|-----------|
-| **Payment Date Input** | `<Input type="date">` | Select date | N/A (form state) | N/A | N/A |
-| **Plan Amount Input** | `<Input type="number">` | Enter amount | N/A (form state) | N/A | N/A |
-| **Discount Dropdown** | `<Select>` | Select discount | N/A (pre-loaded) | N/A | `discounts` |
-| **Deduct Overdue Checkbox** | `<Checkbox>` | Toggle option | N/A (form state) | N/A | N/A |
-| **Preview Next Due Date** | Display | Auto-calculate | `POST /api/members/[id]/payment/preview` | `calculateNextDueDate()` | N/A |
-| **Collect Payment Button** | `<Button>` | Submit form | `POST /api/members/[id]/payment` | `CollectPayment` use case | `members`, `payments`, `sms_logs` |
+| UI Element                  | Type                    | Action          | API Route                                | Backend Service           | DB Tables                         |
+| --------------------------- | ----------------------- | --------------- | ---------------------------------------- | ------------------------- | --------------------------------- |
+| **Payment Date Input**      | `<Input type="date">`   | Select date     | N/A (form state)                         | N/A                       | N/A                               |
+| **Plan Amount Input**       | `<Input type="number">` | Enter amount    | N/A (form state)                         | N/A                       | N/A                               |
+| **Discount Dropdown**       | `<Select>`              | Select discount | N/A (pre-loaded)                         | N/A                       | `discounts`                       |
+| **Deduct Overdue Checkbox** | `<Checkbox>`            | Toggle option   | N/A (form state)                         | N/A                       | N/A                               |
+| **Preview Next Due Date**   | Display                 | Auto-calculate  | `POST /api/members/[id]/payment/preview` | `calculateNextDueDate()`  | N/A                               |
+| **Collect Payment Button**  | `<Button>`              | Submit form     | `POST /api/members/[id]/payment`         | `CollectPayment` use case | `members`, `payments`, `sms_logs` |
 
 ### API Routes
 
 #### POST /api/members/[id]/payment
+
 **Location**: `src/app/api/members/[id]/payment/route.ts:12-110`
 
 **Request Body**:
+
 ```json
 {
   "paymentDate": "2024-02-15",
-  "paymentAmount": 2000.00,
+  "paymentAmount": 2000.0,
   "discountId": "uuid-or-null",
   "deductOverduePeriod": true
 }
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1036,6 +1076,7 @@ INSERT INTO sms_logs (
 ```
 
 **Backend Flow**:
+
 1. Auth: `getCurrentGymProfile()`
 2. Validation: `collectPaymentSchema.parse(body)`
 3. Discount Lookup: `SELECT * FROM discounts WHERE id=?` (if discountId provided)
@@ -1047,9 +1088,11 @@ INSERT INTO sms_logs (
 7. SMS: Fire-and-forget receipt SMS
 
 #### POST /api/members/[id]/payment/preview
+
 **Location**: `src/app/api/members/[id]/payment/preview/route.ts`
 
 **Request Body**:
+
 ```json
 {
   "paymentDate": "2024-02-15",
@@ -1058,6 +1101,7 @@ INSERT INTO sms_logs (
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1069,6 +1113,7 @@ INSERT INTO sms_logs (
 ```
 
 **Backend Flow**:
+
 1. Auth: `getCurrentGymProfile()`
 2. Member Lookup: `MemberRepository.findById()`
 3. Date Calculation: `calculateNextDueDate(baseDate, member.planType)`
@@ -1079,23 +1124,26 @@ INSERT INTO sms_logs (
 ## 3.3 Member Detail Modal
 
 ### UI Component
+
 **Location**: `src/components/members/MemberDetailModalResponsive.tsx`
 
 **Interactive Elements**:
 
-| UI Element | Type | Action | API Route | Backend Service | DB Tables |
-|------------|------|--------|-----------|----------------|-----------|
-| **Edit Button** | `<Button>` | Open edit modal | N/A (client-side) | N/A | N/A |
-| **Collect Payment Button** | `<Button>` | Open payment modal | N/A (client-side) | N/A | N/A |
-| **Payment History Tab** | Tab | Fetch payments | `GET /api/members/[id]/detail` | `PaymentRepository` | `payments` |
-| **SMS History Tab** | Tab | Fetch SMS logs | `GET /api/members/[id]/sms-history` | `SMSRepository` | `sms_logs` |
+| UI Element                 | Type       | Action             | API Route                           | Backend Service     | DB Tables  |
+| -------------------------- | ---------- | ------------------ | ----------------------------------- | ------------------- | ---------- |
+| **Edit Button**            | `<Button>` | Open edit modal    | N/A (client-side)                   | N/A                 | N/A        |
+| **Collect Payment Button** | `<Button>` | Open payment modal | N/A (client-side)                   | N/A                 | N/A        |
+| **Payment History Tab**    | Tab        | Fetch payments     | `GET /api/members/[id]/detail`      | `PaymentRepository` | `payments` |
+| **SMS History Tab**        | Tab        | Fetch SMS logs     | `GET /api/members/[id]/sms-history` | `SMSRepository`     | `sms_logs` |
 
 ### API Routes
 
 #### GET /api/members/[id]/detail
+
 **Location**: `src/app/api/members/[id]/detail/route.ts`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1111,15 +1159,18 @@ INSERT INTO sms_logs (
 ```
 
 **Backend Flow**:
+
 1. Auth: `getCurrentGymProfile()`
 2. Member: `MemberRepository.findById()`
 3. Payments: `PaymentRepository.findByMemberId()`
 4. Aggregation: Calculate total paid and count
 
 #### GET /api/members/[id]/sms-history
+
 **Location**: `src/app/api/members/[id]/sms-history/route.ts`
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1139,6 +1190,7 @@ INSERT INTO sms_logs (
 ```
 
 **Backend Flow**:
+
 1. Auth: `getCurrentGymProfile()`
 2. Repository: `SMSRepository.findByMemberId()`
 3. Database Query: `SELECT * FROM sms_logs WHERE member_id=? ORDER BY sent_at DESC LIMIT 50`
@@ -1148,34 +1200,37 @@ INSERT INTO sms_logs (
 ## 3.4 Edit Member Modal
 
 ### UI Component
+
 **Location**: `src/components/members/EditMemberModal.tsx`
 
 **Interactive Elements**:
 
-| UI Element | Type | Action | API Route | Backend Service | DB Tables |
-|------------|------|--------|-----------|----------------|-----------|
-| **Name Input** | `<Input>` | Edit name | N/A (form state) | N/A | N/A |
-| **Phone Input** | `<Input>` | Edit phone | N/A (form state) | N/A | N/A |
-| **Plan Type Dropdown** | `<Select>` | Change plan | N/A (form state) | N/A | N/A |
-| **Plan Amount Input** | `<Input>` | Update amount | N/A (form state) | N/A | N/A |
-| **Discount Dropdown** | `<Select>` | Change discount | N/A (form state) | N/A | N/A |
-| **Recurring Discount Checkbox** | `<Checkbox>` | Toggle recurring | N/A (form state) | N/A | N/A |
-| **Save Button** | `<Button>` | Submit changes | `PATCH /api/members/[id]` | `MemberRepository.update()` | `members` |
+| UI Element                      | Type         | Action           | API Route                 | Backend Service             | DB Tables |
+| ------------------------------- | ------------ | ---------------- | ------------------------- | --------------------------- | --------- |
+| **Name Input**                  | `<Input>`    | Edit name        | N/A (form state)          | N/A                         | N/A       |
+| **Phone Input**                 | `<Input>`    | Edit phone       | N/A (form state)          | N/A                         | N/A       |
+| **Plan Type Dropdown**          | `<Select>`   | Change plan      | N/A (form state)          | N/A                         | N/A       |
+| **Plan Amount Input**           | `<Input>`    | Update amount    | N/A (form state)          | N/A                         | N/A       |
+| **Discount Dropdown**           | `<Select>`   | Change discount  | N/A (form state)          | N/A                         | N/A       |
+| **Recurring Discount Checkbox** | `<Checkbox>` | Toggle recurring | N/A (form state)          | N/A                         | N/A       |
+| **Save Button**                 | `<Button>`   | Submit changes   | `PATCH /api/members/[id]` | `MemberRepository.update()` | `members` |
 
 **Note**: Status changes are NOT available in this modal. Use dedicated action buttons in Member Detail Modal.
 
 ### API Route
 
 #### PATCH /api/members/[id]
+
 **Location**: `src/app/api/members/[id]/route.ts:56-143`
 
 **Request Body**:
+
 ```json
 {
   "name": "Updated Name",
   "phoneNumber": "+94771234567",
   "planType": "monthly",
-  "planAmount": 2500.00,
+  "planAmount": 2500.0,
   "discountId": "uuid-or-null",
   "recurringDiscount": true
 }
@@ -1184,6 +1239,7 @@ INSERT INTO sms_logs (
 **Note**: `status` field is NOT accepted. Status transitions must use dedicated endpoints (see below).
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1192,6 +1248,7 @@ INSERT INTO sms_logs (
 ```
 
 **Backend Flow**:
+
 1. Auth: `getApiGymProfile()`
 2. Validation: `updateMemberSchema.parse(body)` (status field removed from schema)
 3. Member Lookup: `MemberRepository.findById()`
@@ -1214,9 +1271,11 @@ INSERT INTO sms_logs (
 **Implementation Date**: 2026-03-27
 
 ### Overview
+
 All member status transitions now occur through dedicated operational endpoints that enforce state machine rules via use cases. Direct status updates via `PATCH /api/members/[id]` are no longer permitted.
 
 ### POST /api/members/[id]/suspend
+
 **Location**: `src/app/api/members/[id]/suspend/route.ts`
 
 **Purpose**: Suspend an active member (policy violation or voluntary hold)
@@ -1226,6 +1285,7 @@ All member status transitions now occur through dedicated operational endpoints 
 **Request**: No body required
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1235,6 +1295,7 @@ All member status transitions now occur through dedicated operational endpoints 
 ```
 
 **Backend Flow**:
+
 1. Auth: `getCurrentGymProfile()`
 2. Use Case: `SuspendMember.execute({memberId, gymId})`
 3. Domain: `member.suspend()` validates `canTransition(Active, Suspended)`
@@ -1242,12 +1303,14 @@ All member status transitions now occur through dedicated operational endpoints 
 5. Database: `UPDATE members SET status='suspended', updated_at=NOW() WHERE id=? AND gym_id=?`
 
 **Error Responses**:
+
 - `404`: Member not found
 - `400`: Invalid transition (e.g., member is already suspended or cancelled)
 
 ---
 
 ### POST /api/members/[id]/activate
+
 **Location**: `src/app/api/members/[id]/activate/route.ts`
 
 **Purpose**: Reactivate an expired or suspended member
@@ -1255,6 +1318,7 @@ All member status transitions now occur through dedicated operational endpoints 
 **Valid Transitions**: `Expired → Active`, `Suspended → Active`
 
 **Request Body**:
+
 ```json
 {
   "newDueDate": "2026-04-27"
@@ -1262,6 +1326,7 @@ All member status transitions now occur through dedicated operational endpoints 
 ```
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1271,6 +1336,7 @@ All member status transitions now occur through dedicated operational endpoints 
 ```
 
 **Backend Flow**:
+
 1. Auth: `getCurrentGymProfile()`
 2. Validation: `activateMemberSchema.parse(body)` (validates date format)
 3. Use Case: `ReactivateMember.execute({memberId, gymId, newDueDate})`
@@ -1279,12 +1345,14 @@ All member status transitions now occur through dedicated operational endpoints 
 6. Database: `UPDATE members SET status='active', next_due_date=?, updated_at=NOW() WHERE id=? AND gym_id=?`
 
 **Error Responses**:
+
 - `404`: Member not found
 - `400`: Invalid transition or invalid date format
 
 ---
 
 ### POST /api/members/[id]/cancel
+
 **Location**: `src/app/api/members/[id]/cancel/route.ts`
 
 **Purpose**: Permanently cancel a member's membership (terminal state)
@@ -1294,6 +1362,7 @@ All member status transitions now occur through dedicated operational endpoints 
 **Request**: No body required
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1303,6 +1372,7 @@ All member status transitions now occur through dedicated operational endpoints 
 ```
 
 **Backend Flow**:
+
 1. Auth: `getCurrentGymProfile()`
 2. Use Case: `CancelMember.execute({memberId, gymId})`
 3. Domain: `member.cancel()` validates `canTransition(currentStatus, Cancelled)`
@@ -1310,6 +1380,7 @@ All member status transitions now occur through dedicated operational endpoints 
 5. Database: `UPDATE members SET status='cancelled', updated_at=NOW() WHERE id=? AND gym_id=?`
 
 **Error Responses**:
+
 - `404`: Member not found
 - `400`: Invalid transition (e.g., member is already cancelled or active)
 
@@ -1336,6 +1407,7 @@ All member status transitions now occur through dedicated operational endpoints 
 
 **Dependency Injection**:
 Use cases are composed by per-feature factories (`src/features/<domain>/services/factory.ts`), e.g.:
+
 - `getSuspendMemberUseCase(): SuspendMember`
 - `getReactivateMemberUseCase(): ReactivateMember`
 - `getCancelMemberUseCase(): CancelMember`
@@ -1348,14 +1420,15 @@ Use cases are composed by per-feature factories (`src/features/<domain>/services
 
 Context-aware action buttons replace the status dropdown:
 
-| Current Status | Available Actions | Button Color |
-|----------------|-------------------|--------------|
-| **Active** | Suspend Member | Yellow/Amber |
-| **Expired** | Activate Member, Cancel Member | Green, Red |
-| **Suspended** | Activate Member, Cancel Member | Green, Red |
-| **Cancelled** | _(No actions - terminal state)_ | N/A |
+| Current Status | Available Actions               | Button Color |
+| -------------- | ------------------------------- | ------------ |
+| **Active**     | Suspend Member                  | Yellow/Amber |
+| **Expired**    | Activate Member, Cancel Member  | Green, Red   |
+| **Suspended**  | Activate Member, Cancel Member  | Green, Red   |
+| **Cancelled**  | _(No actions - terminal state)_ | N/A          |
 
 **Activate Member Dialog**:
+
 - Prompts user to select `newDueDate` via date picker
 - Minimum date: Today
 - Submits to `POST /api/members/[id]/activate` with selected date
@@ -1448,14 +1521,17 @@ graph TB
 **Updated**: 2026-04-20 (Tab renaming and reordering)
 
 ### Page Structure
+
 **Location**: `src/app/(dashboard)/payment-collection/PaymentCollectionPageClient.tsx`
 
 **Tab Configuration**:
+
 - **Tab Order**: Collected (1st), Dues (2nd), Reminders (3rd)
 - **Default Tab**: `'collected'` (line 24)
 - **Tab Type**: `type Tab = 'reminders' | 'dues' | 'collected'` (line 21)
 
 **Tab Naming History**:
+
 - 2026-04-20: "Regular Payments" renamed to "Dues" for clarity
 - Tab value changed from `'regular'` to `'dues'` throughout the application
 
@@ -1465,25 +1541,28 @@ graph TB
 
 **Interactive Elements**:
 
-| UI Element | Type | Action | API Route | Backend Service | DB Tables |
-|------------|------|--------|-----------|----------------|-----------|
-| **Month Picker** | `<Input type="month">` | Filter by month (YYYY-MM) | `GET /api/payment-collection/collected?month=<YYYY-MM>` | Direct Supabase query | `payments`, `members`, `discounts` |
-| **Plan Type Filter** | `<Select>` | Filter by plan type | `GET /api/payment-collection/collected?planType=<type>` | Direct Supabase query | `payments`, `members`, `discounts` |
-| **Search Input** | `<Input>` | Search by name/phone | `GET /api/payment-collection/collected?search=<query>` | Client-side filtering | N/A |
-| **Summary Cards** | Display | Show metrics | N/A (computed from API response) | N/A | N/A |
-| **Payment Row Click** | `<TableRow>` | Open member modal | N/A (client-side) | N/A | N/A |
+| UI Element            | Type                   | Action                    | API Route                                               | Backend Service       | DB Tables                          |
+| --------------------- | ---------------------- | ------------------------- | ------------------------------------------------------- | --------------------- | ---------------------------------- |
+| **Month Picker**      | `<Input type="month">` | Filter by month (YYYY-MM) | `GET /api/payment-collection/collected?month=<YYYY-MM>` | Direct Supabase query | `payments`, `members`, `discounts` |
+| **Plan Type Filter**  | `<Select>`             | Filter by plan type       | `GET /api/payment-collection/collected?planType=<type>` | Direct Supabase query | `payments`, `members`, `discounts` |
+| **Search Input**      | `<Input>`              | Search by name/phone      | `GET /api/payment-collection/collected?search=<query>`  | Client-side filtering | N/A                                |
+| **Summary Cards**     | Display                | Show metrics              | N/A (computed from API response)                        | N/A                   | N/A                                |
+| **Payment Row Click** | `<TableRow>`           | Open member modal         | N/A (client-side)                                       | N/A                   | N/A                                |
 
 ### API Routes
 
 #### GET /api/payment-collection/collected
+
 **Location**: `src/app/api/payment-collection/collected/route.ts:91-220`
 
 **Query Parameters**:
+
 - `month`: YYYY-MM format (default: current month)
 - `planType`: `daily` | `weekly` | `monthly` | `3-months` | `6-months` | `annual` | `custom` | `all` (default: all)
 - `search`: string (name or phone partial match, client-side filtering)
 
 **Response**:
+
 ```json
 {
   "success": true,
@@ -1495,7 +1574,7 @@ graph TB
         "memberName": "John Doe",
         "phoneNumber": "+94771234567",
         "planType": "monthly",
-        "amountPaid": 2000.00,
+        "amountPaid": 2000.0,
         "discountName": "Student Discount",
         "discountPct": 20,
         "paymentDate": "2024-02-15",
@@ -1503,11 +1582,11 @@ graph TB
       }
     ],
     "summary": {
-      "totalRevenue": 50000.00,
+      "totalRevenue": 50000.0,
       "paymentCount": 25,
       "revenueByPlanType": {
-        "monthly": 30000.00,
-        "annual": 20000.00
+        "monthly": 30000.0,
+        "annual": 20000.0
       }
     },
     "totalCount": 25
@@ -1516,6 +1595,7 @@ graph TB
 ```
 
 **Backend Flow**:
+
 1. Auth: `getCurrentGymProfile()` → Supabase Auth session
 2. Validation: Month format regex (`/^\d{4}-\d{2}$/`)
 3. Date Range: `getMonthDateRange(month)` → `{startDate, endDate}`
@@ -1539,6 +1619,7 @@ graph TB
 6. Summary Metrics: `calculateSummaryMetrics(payments)` → `{totalRevenue, paymentCount, revenueByPlanType}`
 
 **Architecture Notes**:
+
 - **No Use Cases**: Read-only reporting feature with no business logic or state transitions
 - **Direct Supabase Access**: Appropriate for simple queries without complex domain rules
 - **Type Safety**: Proper TypeScript interfaces (MemberData, DiscountData, PaymentRecord, PaymentCollectedRow)
@@ -1546,6 +1627,7 @@ graph TB
 
 **Query Invalidation**:
 When payment is collected via `RegularPaymentTable`, the `payment-collected` query is invalidated:
+
 ```typescript
 // src/components/payment-collection/RegularPaymentTable.tsx:96-102
 queryClient.invalidateQueries({
@@ -1553,8 +1635,8 @@ queryClient.invalidateQueries({
     query.queryKey[0] === 'regular-payments' ||
     query.queryKey[0] === 'members' ||
     query.queryKey[0] === 'sms-reminders' ||
-    query.queryKey[0] === 'payment-collected'  // ✅ Ensures real-time updates
-});
+    query.queryKey[0] === 'payment-collected', // ✅ Ensures real-time updates
+})
 ```
 
 ---
@@ -1570,6 +1652,7 @@ queryClient.invalidateQueries({
 **Original Issue**: The Edit Member Modal allowed direct status changes via dropdown without enforcing state machine transitions.
 
 **Resolution**:
+
 - **Removed** `status` field from `updateMemberSchema` validation schema
 - **Removed** all status update logic from `PATCH /api/members/[id]` endpoint
 - **Created** three dedicated use cases with full state machine validation:
@@ -1584,6 +1667,7 @@ queryClient.invalidateQueries({
 - **Registered** all use cases in DI Container (`src/infrastructure/di/Container.ts`)
 
 **Verification**:
+
 - State machine transitions now enforced via `member.suspend()`, `member.activate()`, `member.cancel()`
 - All transitions validated by `canTransition()` before execution
 - Invalid transitions (e.g., `Cancelled → Active`) now properly rejected with `InvalidStatusTransitionError`
@@ -1599,6 +1683,7 @@ queryClient.invalidateQueries({
 **Original Issue**: No cron job handled the `Suspended → Expired` transition when suspended members' `next_due_date` passes.
 
 **Resolution**:
+
 - **Created** new use case: `ExpireSuspendedMembers` (`src/features/members/services/ExpireSuspendedMembers.ts`)
 - **Created** new cron job: `POST /api/cron/expire-suspended-members` (`src/app/api/cron/expire-suspended-members/route.ts`)
 - **Added** repository method: `findAllSuspendedMembers()` to `IMemberRepository` interface
@@ -1607,6 +1692,7 @@ queryClient.invalidateQueries({
 - **Schedule**: Daily at midnight (00:00 UTC+5:30)
 
 **Logic Flow**:
+
 1. Find all suspended members across all gyms
 2. Filter members where `next_due_date < today`
 3. Call `member.expire()` for each overdue suspended member
@@ -1625,6 +1711,7 @@ queryClient.invalidateQueries({
 **Issue**: Suspended members may not appear in "overdue members" table, but can still have payments collected manually.
 
 **Evidence**:
+
 - Payment modal supports suspended members (no error)
 - Collecting payment calls `CollectPayment.execute()` which calls `member.activate()`
 - This is **valid** (Suspended → Active is allowed)
@@ -1642,6 +1729,7 @@ queryClient.invalidateQueries({
 **Original Issue**: `PATCH /api/members/[id]` called non-existent `updateStatus()` method on Member entity.
 
 **Resolution**:
+
 - **Removed** all `updateStatus()` calls from PATCH endpoint
 - **Removed** status field from validation schema
 - Status transitions now use dedicated domain methods: `.suspend()`, `.activate()`, `.cancel()`
@@ -1657,11 +1745,13 @@ queryClient.invalidateQueries({
 **Original Issue**: Migration `20260325000002_create_reminder_rules_table.sql` created `reminder_rules` table, but no code populated it.
 
 **Original Evidence**:
+
 - `ReminderConfig.ts:281-332` defined `shouldSendReminderDB()` to query this table
 - No code called `shouldSendReminderDB()` - all code used static `shouldSendReminder()`
 - Table existed in database but was empty (database bloat)
 
 **Resolution**:
+
 - **Created** migration: `20260328000002_drop_reminder_rules_table.sql`
   - Drops the unused `reminder_rules` table
   - Application relies entirely on static `REMINDER_RULES` constant
@@ -1672,6 +1762,7 @@ queryClient.invalidateQueries({
   - File reduced from 390 lines to 252 lines (~138 lines removed)
 
 **Benefits Achieved**:
+
 - ✅ Database bloat eliminated
 - ✅ Simplified codebase - single source of truth via static constant
 - ✅ No circular dependencies or complexity from database-backed rules
@@ -1690,6 +1781,7 @@ queryClient.invalidateQueries({
 **Original Issue**: Receipt SMS was fire-and-forget with only console logging.
 
 **Resolution**:
+
 - **Refactored** `CollectPayment.ts` (lines 215-283) with comprehensive error logging
 - Added `ISMSRepository` dependency to constructor
 - Rewrote `sendReceiptSMS()` method:
@@ -1700,6 +1792,7 @@ queryClient.invalidateQueries({
 - Added `error_message TEXT` column to `sms_logs` table via migration `20260328000001`
 
 **Benefits Achieved**:
+
 - ✅ All SMS attempts now tracked in database
 - ✅ Failed SMS visible in queries and (future) admin UI
 - ✅ Error messages captured for debugging
@@ -1716,6 +1809,7 @@ queryClient.invalidateQueries({
 **Original Issue**: Same as receipt SMS - fire-and-forget with console logging only.
 
 **Resolution**:
+
 - **Refactored** `RegisterMember.ts` (lines 212-270) with same error logging pattern
 - Added `ISMSRepository` dependency to constructor
 - Rewrote `sendWelcomeSMS()` method with comprehensive database logging
@@ -1732,6 +1826,7 @@ queryClient.invalidateQueries({
 **Original Issue**: Cron job errors were returned in HTTP response but not stored in database.
 
 **Resolution**:
+
 - **Created** database migration: `20260327000001_create_cron_logs_table.sql`
 - **Created** `cron_logs` table with schema:
   ```sql
@@ -1764,6 +1859,7 @@ queryClient.invalidateQueries({
   - `idx_cron_logs_job_started` - Composite index for common queries
 
 **Benefits Achieved**:
+
 - ✅ Complete audit trail of all cron executions
 - ✅ Historical error tracking preserved in database
 - ✅ Success/failure rates queryable for monitoring
@@ -1783,6 +1879,7 @@ queryClient.invalidateQueries({
 **Original Issue**: Optimistic update implemented but no rollback logic. If mutation succeeded but query invalidation failed, UI state became inconsistent.
 
 **Resolution**:
+
 - **Refactored** `PaymentCollectionModal.tsx` (src/features/members/components/PaymentCollectionModal.tsx:106-154)
 - **Implemented onMutate Hook** (lines 106-123):
   - Cancels outgoing refetches for `members`, `regular-payments`, `sms-reminders` queries
@@ -1796,6 +1893,7 @@ queryClient.invalidateQueries({
 - **Maintained onSuccess Hook** with existing behavior (toast, form reset, modal close, query invalidation)
 
 **Implementation**:
+
 ```typescript
 onMutate: async (_variables) => {
   // Cancel outgoing refetches to avoid overwriting optimistic update
@@ -1832,6 +1930,7 @@ onError: (error, _variables, context) => {
 ```
 
 **Benefits Achieved**:
+
 - ✅ UI remains consistent even when mutations fail
 - ✅ Prevents stale data from being displayed
 - ✅ Better user experience with instant rollback on errors
@@ -1846,6 +1945,7 @@ onError: (error, _variables, context) => {
 **Status**: ✅ **RESOLVED** (2026-03-26)
 
 Previously, suspended status was not defined. Now properly configured:
+
 ```typescript
 suspended: 'bg-yellow-100 text-yellow-800 border-yellow-200'
 ```
@@ -1861,69 +1961,102 @@ suspended: 'bg-yellow-100 text-yellow-800 border-yellow-200'
 **Original Issue**: Frontend always showed "Not Sent" status in Reminders tab for automatically delivered SMS, despite successful delivery confirmed in database and text.lk logs.
 
 **Root Cause**: Multi-billing cycle data ordering bug
+
 - Members with multiple payment cycles have multiple SMS logs per reminder type (e.g., March + April overdue reminders)
 - Query fetched ALL `sms_logs` with NO ordering from database
 - JavaScript `.find()` on unordered array returned first match in arbitrary order (often old March log instead of new April log)
 - UI displayed stale timestamp, making new reminders appear as "Not Sent"
 
 **Example Scenario**:
+
 ```typescript
 // Member has 2 overdue reminder logs:
 // 1. March 2026 (sent_at: 2026-03-15) - old billing cycle
 // 2. April 2026 (sent_at: 2026-04-10) - current billing cycle
 
 // Without ordering, .find() might return March log
-const overdue = reminderLogs.find(log => log.sms_type === 'overdue');
+const overdue = reminderLogs.find((log) => log.sms_type === 'overdue')
 // Result: { sent_at: '2026-03-15' } ❌ Wrong - shows old data
 
 // With ordering, .find() returns April log
-const reminderLogs = allLogs.sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
-const overdue = reminderLogs.find(log => log.sms_type === 'overdue');
+const reminderLogs = allLogs.sort(
+  (a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()
+)
+const overdue = reminderLogs.find((log) => log.sms_type === 'overdue')
 // Result: { sent_at: '2026-04-10' } ✅ Correct - shows current data
 ```
 
 **Resolution**:
 
 **Before (Buggy Code - Lines 143-156)**:
+
 ```typescript
-const REMINDER_TYPES = ['reminder_7day', 'reminder_3day', 'due_today', 'overdue'];
+const REMINDER_TYPES = [
+  'reminder_7day',
+  'reminder_3day',
+  'due_today',
+  'overdue',
+]
 const reminderLogs = (member.sms_logs || []).filter(
   (log: { sms_type: string }) => REMINDER_TYPES.includes(log.sms_type)
-);
-const lastLog = reminderLogs.length > 0 ? reminderLogs[reminderLogs.length - 1] : null;
+)
+const lastLog =
+  reminderLogs.length > 0 ? reminderLogs[reminderLogs.length - 1] : null
 
 // Query each reminder type's most recent log
-const reminder7Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_7day');
-const reminder3Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_3day');
-const dueToday = reminderLogs.find((log: any) => log.sms_type === 'due_today');
-const overdueReminders = reminderLogs.filter((log: any) => log.sms_type === 'overdue');
-const overdue = overdueReminders.length > 0
-  ? overdueReminders[overdueReminders.length - 1]
-  : null;
+const reminder7Day = reminderLogs.find(
+  (log: any) => log.sms_type === 'reminder_7day'
+)
+const reminder3Day = reminderLogs.find(
+  (log: any) => log.sms_type === 'reminder_3day'
+)
+const dueToday = reminderLogs.find((log: any) => log.sms_type === 'due_today')
+const overdueReminders = reminderLogs.filter(
+  (log: any) => log.sms_type === 'overdue'
+)
+const overdue =
+  overdueReminders.length > 0
+    ? overdueReminders[overdueReminders.length - 1]
+    : null
 ```
 
 **After (Fixed Code - Lines 143-154)**:
+
 ```typescript
-const REMINDER_TYPES = ['reminder_7day', 'reminder_3day', 'due_today', 'overdue'];
+const REMINDER_TYPES = [
+  'reminder_7day',
+  'reminder_3day',
+  'due_today',
+  'overdue',
+]
 const reminderLogs = (member.sms_logs || [])
   .filter((log: { sms_type: string }) => REMINDER_TYPES.includes(log.sms_type))
-  .sort((a: any, b: any) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+  .sort(
+    (a: any, b: any) =>
+      new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()
+  )
 
-const lastLog = reminderLogs.length > 0 ? reminderLogs[0] : null;
+const lastLog = reminderLogs.length > 0 ? reminderLogs[0] : null
 
 // Query each reminder type's most recent log (now sorted by sent_at DESC)
-const reminder7Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_7day');
-const reminder3Day = reminderLogs.find((log: any) => log.sms_type === 'reminder_3day');
-const dueToday = reminderLogs.find((log: any) => log.sms_type === 'due_today');
-const overdue = reminderLogs.find((log: any) => log.sms_type === 'overdue');
+const reminder7Day = reminderLogs.find(
+  (log: any) => log.sms_type === 'reminder_7day'
+)
+const reminder3Day = reminderLogs.find(
+  (log: any) => log.sms_type === 'reminder_3day'
+)
+const dueToday = reminderLogs.find((log: any) => log.sms_type === 'due_today')
+const overdue = reminderLogs.find((log: any) => log.sms_type === 'overdue')
 ```
 
 **Key Changes**:
+
 1. **Added `.sort()` by `sent_at DESC`** (line 146): Ensures chronological ordering (most recent first)
 2. **Changed `lastLog` to use index `[0]`** (line 148): First element is now most recent due to DESC sort
 3. **Simplified overdue retrieval** (line 154): No need for separate filter + index access, `.find()` now returns most recent
 
 **Benefits Achieved**:
+
 - ✅ **Accurate Status Display**: UI now shows current billing cycle's reminder status
 - ✅ **Correct Timestamps**: "Sent Xm ago" badges display actual delivery time
 - ✅ **Multi-Cycle Support**: Works correctly for members with payment history spanning multiple months
@@ -1941,11 +2074,13 @@ const overdue = reminderLogs.find((log: any) => log.sms_type === 'overdue');
 ### 1. Phone Number Format Constraint
 
 **Database**: `supabase/migrations/20260211000002_create_members_table.sql:39`
+
 ```sql
 CONSTRAINT valid_phone CHECK (phone_number ~* '^\+94[0-9]{9}$')
 ```
 
 **Application**: `src/utils/phone/PhoneNumber.ts`
+
 - Validates and normalizes phone numbers
 - Enforces `+94XXXXXXXXX` format
 
@@ -1956,13 +2091,15 @@ CONSTRAINT valid_phone CHECK (phone_number ~* '^\+94[0-9]{9}$')
 ### 2. Plan Amount Positive Constraint
 
 **Database**: `supabase/migrations/20260211000002_create_members_table.sql:44`
+
 ```sql
 CONSTRAINT positive_amount CHECK (plan_amount > 0)
 ```
 
 **Application**: `src/features/members/domain/Member.ts:84`
+
 ```typescript
-if (props.planAmount <= 0) throw new Error('planAmount must be positive');
+if (props.planAmount <= 0) throw new Error('planAmount must be positive')
 ```
 
 **Gap**: ✅ **No gap** - enforced at both layers.
@@ -1976,6 +2113,7 @@ if (props.planAmount <= 0) throw new Error('planAmount must be positive');
 **Status**: ✅ **RESOLVED** (2026-03-28)
 
 **Expected Structure** (per `CLAUDE.md`):
+
 ```
 src/features/
   members/
@@ -1988,6 +2126,7 @@ src/features/
 ```
 
 **Original Structure**:
+
 ```
 src/
   components/members/   ← Mixed concerns, unclear boundaries
@@ -1999,6 +2138,7 @@ src/
 **Original Impact**: Mixed organization made feature deletion difficult.
 
 **Resolution**:
+
 - **Moved** 9 component files from `src/components/members/` to `src/features/members/components/`:
   - AddMemberModal.tsx, BulkAddMemberModal.tsx, EditMemberModal.tsx
   - MemberDetailModal.tsx, MemberDetailModalMobile.tsx, MemberDetailModalResponsive.tsx
@@ -2014,6 +2154,7 @@ src/
 - **Preserved** git history using `git mv` for all file moves
 
 **Current Structure**:
+
 ```
 src/
   components/
@@ -2029,6 +2170,7 @@ src/
 ```
 
 **Benefits Achieved**:
+
 - ✅ **Feature Cohesion**: All member-related code in one location
 - ✅ **Clear Boundaries**: Public API enforces module encapsulation
 - ✅ **Deletability**: Entire `members` feature removable by deleting one directory
@@ -2044,11 +2186,13 @@ src/
 **Original Issue**: No use cases existed for manual status transitions, bypassing business logic layer.
 
 **Resolution**: Created three new use cases following Clean Architecture pattern:
+
 - `SuspendMember` ✅ (created 2026-03-27)
 - `ReactivateMember` ✅ (created 2026-03-27)
 - `CancelMember` ✅ (created 2026-03-27)
 
 **All Use Cases Now Complete**:
+
 - `RegisterMember` ✅
 - `CollectPayment` ✅
 - `SendAutomatedReminders` ✅
@@ -2059,6 +2203,7 @@ src/
 - `CancelMember` ✅ **NEW**
 
 **Benefits Achieved**:
+
 - State machine transitions enforced
 - Business rule validation centralized
 - Consistent error handling
@@ -2075,6 +2220,7 @@ src/
 **Symptom**: React 19 hydration errors on all Radix UI `<Select>` components when using Next.js 16 App Router with Server-Side Rendering (SSR).
 
 **Error Pattern**:
+
 ```
 Hydration failed because the server rendered HTML didn't match the client.
 Expected: aria-controls="radix-_R_ipaatperaitllb_"
@@ -2082,6 +2228,7 @@ Received: aria-controls="radix-_R_4laatperaitllb_"
 ```
 
 **Affected Components**: All 22 Select components across 10 files:
+
 - RegularPaymentTable.tsx (2 selects)
 - PaymentCollectedTable.tsx (1 select)
 - PaymentRemindersTable.tsx (2 selects)
@@ -2101,6 +2248,7 @@ Received: aria-controls="radix-_R_4laatperaitllb_"
 2. **Server-Side Rendering**: Component tree position calculated differently on server vs client
 3. **Radix UI's Internal Implementation**: Uses React's `useId()` internally to generate ARIA relationship IDs
 4. **The Breaking Chain**:
+
    ```typescript
    // Radix UI internals (simplified)
    function Select() {
@@ -2120,6 +2268,7 @@ Received: aria-controls="radix-_R_4laatperaitllb_"
 **Approach**: Added explicit `id` props to all 22 `<SelectTrigger>` components following `{page}-{component}-{purpose}-select` naming convention.
 
 **Example**:
+
 ```tsx
 <SelectTrigger id="payment-regular-filter-select" className="w-[200px]">
   <SelectValue />
@@ -2127,6 +2276,7 @@ Received: aria-controls="radix-_R_4laatperaitllb_"
 ```
 
 **Why It Failed**:
+
 - The `id` prop only sets the trigger button's **own** `id` attribute (`<button id="payment-regular-filter-select">`)
 - It does NOT affect Radix UI's **internal** ID generation for `aria-controls`
 - Radix UI still uses `useId()` internally for ARIA relationships, which remains non-deterministic
@@ -2139,6 +2289,7 @@ Received: aria-controls="radix-_R_4laatperaitllb_"
 **Location**: `src/components/ui/select.tsx` (lines 19-32)
 
 **Implementation**:
+
 ```typescript
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
@@ -2159,6 +2310,7 @@ const SelectTrigger = React.forwardRef<
 ```
 
 **Scope of Suppression**:
+
 - ✅ **Targeted**: Only suppresses warnings on the `<SelectTrigger>` component
 - ✅ **Minimal**: Does not suppress warnings on child elements or parent containers
 - ✅ **Safe**: The mismatch is purely cosmetic (ARIA IDs still function correctly on client)
@@ -2167,39 +2319,44 @@ const SelectTrigger = React.forwardRef<
 ### Why This Is Safe
 
 **Functional Impact**: ✅ **None**
+
 - The `aria-controls` attribute mismatch is a **presentation-only** issue
 - Screen readers use the **client-rendered** value, which is correct
 - The Select component functions identically on server and client
 - No business logic, data integrity, or user interaction is affected
 
 **Accessibility Impact**: ✅ **None**
+
 - ARIA relationships work correctly after hydration
 - Screen readers only interact with the client-rendered DOM
 - The temporary server-rendered HTML never reaches assistive technologies
 
 **SEO Impact**: ✅ **None**
+
 - Search engines do not parse or index ARIA attributes
 - Select components are interactive UI elements, not semantic content
 - Server-rendered HTML structure is identical (only IDs differ)
 
 ### Alternative Solutions Considered
 
-| Solution | Status | Reason Rejected |
-|----------|--------|-----------------|
-| **Upgrade Radix UI** | ❌ Investigated | No fix available in latest version (as of 2026-04-19) |
-| **Downgrade to React 18** | ❌ Rejected | Loses React 19 features (automatic batching, use hook, etc.) |
-| **Disable SSR (`ssr: false`)** | ❌ Rejected | Loses SEO benefits and increases Time to Interactive |
-| **Custom Select Component** | ❌ Rejected | Large refactor, loses Radix UI's accessibility features |
-| **Wait for Upstream Fix** | ⏳ Monitoring | Tracking Radix UI issue tracker for React 19 compatibility |
+| Solution                       | Status          | Reason Rejected                                              |
+| ------------------------------ | --------------- | ------------------------------------------------------------ |
+| **Upgrade Radix UI**           | ❌ Investigated | No fix available in latest version (as of 2026-04-19)        |
+| **Downgrade to React 18**      | ❌ Rejected     | Loses React 19 features (automatic batching, use hook, etc.) |
+| **Disable SSR (`ssr: false`)** | ❌ Rejected     | Loses SEO benefits and increases Time to Interactive         |
+| **Custom Select Component**    | ❌ Rejected     | Large refactor, loses Radix UI's accessibility features      |
+| **Wait for Upstream Fix**      | ⏳ Monitoring   | Tracking Radix UI issue tracker for React 19 compatibility   |
 
 ### Monitoring & Exit Strategy
 
 **Tracking Upstream Fix**:
+
 - Monitor: https://github.com/radix-ui/primitives/issues
 - Search for: "React 19 useId hydration"
 - When fixed: Remove `suppressHydrationWarning` and upgrade Radix UI
 
 **Verification Steps**:
+
 1. Check Radix UI release notes for React 19 hydration fixes
 2. Test upgrade in development environment
 3. Remove `suppressHydrationWarning` from `select.tsx`
@@ -2207,6 +2364,7 @@ const SelectTrigger = React.forwardRef<
 5. Deploy to production
 
 **Documentation References**:
+
 - Implementation: `src/components/ui/select.tsx:25`
 - Architecture rules: `.claude/rules/architecture.md` Section 2.12
 - Affected components: See "Affected Components" list above
@@ -2214,18 +2372,21 @@ const SelectTrigger = React.forwardRef<
 ### Impact Assessment
 
 **Before Fix**:
+
 - ❌ 22 hydration errors on every page load with Select components
 - ❌ Console pollution making real errors hard to detect
 - ❌ Poor developer experience
 - ❌ React DevTools showing hydration warnings
 
 **After Fix**:
+
 - ✅ Zero hydration warnings in production
 - ✅ Clean browser console
 - ✅ No functional or accessibility regressions
 - ✅ Temporary mitigation until upstream fix available
 
 **Risk Level**: 🟢 **Low**
+
 - Suppression is targeted and minimal
 - No functional impact on users
 - No accessibility impact on screen reader users
@@ -2277,9 +2438,9 @@ export interface MemberReminderStatus {
   // ... existing fields
 
   // Error tracking for each reminder type
-  reminder_7day_error: boolean;  // True if 7-day reminder delivery failed
-  reminder_3day_error: boolean;  // True if 3-day reminder delivery failed
-  due_today_error: boolean;      // True if due-today reminder delivery failed
+  reminder_7day_error: boolean // True if 7-day reminder delivery failed
+  reminder_3day_error: boolean // True if 3-day reminder delivery failed
+  due_today_error: boolean // True if due-today reminder delivery failed
 }
 ```
 
@@ -2288,6 +2449,7 @@ export interface MemberReminderStatus {
 **Location**: `src/features/sms/services/sms.service.ts:158-181`
 
 **Database Query**:
+
 ```sql
 SELECT *
 FROM sms_logs
@@ -2299,11 +2461,12 @@ ORDER BY sent_at DESC;
 ```
 
 **Error Detection**:
+
 ```typescript
 // Check for delivery failures (system errors) for each reminder type
-const reminder7DayError = reminder7Day?.delivery_status === 'failed' || false;
-const reminder3DayError = reminder3Day?.delivery_status === 'failed' || false;
-const dueTodayError = dueToday?.delivery_status === 'failed' || false;
+const reminder7DayError = reminder7Day?.delivery_status === 'failed' || false
+const reminder3DayError = reminder3Day?.delivery_status === 'failed' || false
+const dueTodayError = dueToday?.delivery_status === 'failed' || false
 ```
 
 **Mapping**: `delivery_status = 'failed'` in `sms_logs` table → `reminder_*_error = true` in API response
@@ -2313,6 +2476,7 @@ const dueTodayError = dueToday?.delivery_status === 'failed' || false;
 **Location**: `src/components/payment-collection/PaymentRemindersTable.tsx:176-186`
 
 **Error Badge Rendering**:
+
 ```typescript
 if (status === 'error') {
   return (
@@ -2328,21 +2492,23 @@ if (status === 'error') {
 ```
 
 **State Priority Logic** (Lines 134-146):
+
 1. **Check error flags FIRST** (e.g., `reminder_7day_error`)
 2. **Then check sent status** (e.g., `reminder_7day_sent`)
 3. **Return 'error' if failure detected**, even if timestamp exists
 
 ### UI State Matrix
 
-| State | Badge Color | Icon | Text | Tooltip | User Action |
-|-------|------------|------|------|---------|-------------|
-| **Sent** | Green (`text-green-700`) | `CheckCircle2` | "Sent" | - | None |
-| **Pending** | Gray (`text-gray-500`) | `Clock` | "Pending" | - | Wait |
-| **Not Sent** | Amber (`text-amber-600`) | `AlertCircle` | "Not Sent" | - | Review |
-| **Disabled** | Gray (`text-gray-400`) | `XCircle` | "Disabled" | Not applicable for plan | None |
-| **Error** | **Red (`text-red-600`)** | **`AlertOctagon`** | **"Error"** | **"System error occurred. Click 'Send Now' to retry."** | **Retry SMS** |
+| State        | Badge Color              | Icon               | Text        | Tooltip                                                 | User Action   |
+| ------------ | ------------------------ | ------------------ | ----------- | ------------------------------------------------------- | ------------- |
+| **Sent**     | Green (`text-green-700`) | `CheckCircle2`     | "Sent"      | -                                                       | None          |
+| **Pending**  | Gray (`text-gray-500`)   | `Clock`            | "Pending"   | -                                                       | Wait          |
+| **Not Sent** | Amber (`text-amber-600`) | `AlertCircle`      | "Not Sent"  | -                                                       | Review        |
+| **Disabled** | Gray (`text-gray-400`)   | `XCircle`          | "Disabled"  | Not applicable for plan                                 | None          |
+| **Error**    | **Red (`text-red-600`)** | **`AlertOctagon`** | **"Error"** | **"System error occurred. Click 'Send Now' to retry."** | **Retry SMS** |
 
 **Benefits**:
+
 - Clear visual distinction between pending and failed operations
 - Actionable guidance for users (retry button available)
 - No technical jargon or infrastructure details exposed
@@ -2357,6 +2523,7 @@ if (status === 'error') {
 **Access URL**: `/system-health`
 
 **Authorization**:
+
 - **Environment Variable**: `NEXT_PUBLIC_ADMIN_API_SECRET` must be configured
 - **Layout Protection**: `src/app/(admin)/layout.tsx` redirects if secret not configured
 - **API Protection**: Bearer token validation on all admin endpoints
@@ -2370,24 +2537,26 @@ if (status === 'error') {
 **Authorization**: `Authorization: Bearer ${ADMIN_API_SECRET}` header required
 
 **Response Schema**:
+
 ```typescript
 {
-  success: boolean;
-  data: Record<string, CronExecution[]>;  // Keyed by job_name
+  success: boolean
+  data: Record<string, CronExecution[]> // Keyed by job_name
 }
 
 interface CronExecution {
-  id: string;
-  job_name: string;                      // e.g., 'send-reminders'
-  started_at: string;                    // ISO timestamp
-  completed_at: string | null;           // ISO timestamp (null if running)
-  status: 'running' | 'success' | 'failure';
-  summary: Record<string, any> | null;   // JSONB execution summary
-  errors: string[] | null;               // Array of error messages
+  id: string
+  job_name: string // e.g., 'send-reminders'
+  started_at: string // ISO timestamp
+  completed_at: string | null // ISO timestamp (null if running)
+  status: 'running' | 'success' | 'failure'
+  summary: Record<string, any> | null // JSONB execution summary
+  errors: string[] | null // Array of error messages
 }
 ```
 
 **Example Response**:
+
 ```json
 {
   "success": true,
@@ -2401,16 +2570,26 @@ interface CronExecution {
         "status": "success",
         "summary": {
           "totalSent": 45,
-          "byType": { "reminder_7day": 15, "reminder_3day": 20, "due_today": 10 },
+          "byType": {
+            "reminder_7day": 15,
+            "reminder_3day": 20,
+            "due_today": 10
+          },
           "errors": [],
           "duration": "12.5s"
         },
         "errors": null
       }
     ],
-    "update-expired-status": [ /* ... */ ],
-    "cancel-overdue-members": [ /* ... */ ],
-    "expire-suspended-members": [ /* ... */ ]
+    "update-expired-status": [
+      /* ... */
+    ],
+    "cancel-overdue-members": [
+      /* ... */
+    ],
+    "expire-suspended-members": [
+      /* ... */
+    ]
   }
 }
 ```
@@ -2422,9 +2601,11 @@ interface CronExecution {
 **Authorization**: `Authorization: Bearer ${ADMIN_API_SECRET}` header required
 
 **Query Parameters**:
+
 - `gymId` (optional, UUID): Filter failures by specific gym for targeted debugging
 
 **Request Examples**:
+
 ```bash
 # All gyms (system-wide view)
 GET /api/admin/system-health/sms-failures
@@ -2434,6 +2615,7 @@ GET /api/admin/system-health/sms-failures?gymId=123e4567-e89b-12d3-a456-42661417
 ```
 
 **Response Schema**:
+
 ```typescript
 {
   success: boolean;
@@ -2461,6 +2643,7 @@ interface SMSFailure {
 ```
 
 **Example Response (System-Wide)**:
+
 ```json
 {
   "success": true,
@@ -2488,6 +2671,7 @@ interface SMSFailure {
 ```
 
 **Example Response (Gym-Specific)**:
+
 ```json
 {
   "success": true,
@@ -2515,6 +2699,7 @@ interface SMSFailure {
 ```
 
 **Performance Optimization**:
+
 - Database query optimized with composite index: `idx_sms_logs_gym_failures (gym_id, delivery_status, sent_at DESC)`
 - Index supports efficient gym-filtered queries with 10-100x speedup for large datasets
 
@@ -2527,6 +2712,7 @@ interface SMSFailure {
 **Location**: `src/app/(admin)/system-health/CronStatusGrid.tsx`
 
 **Features**:
+
 - 4-column responsive grid showing latest execution status for each cron job
 - Status badges: ✅ Success (green), ❌ Failed (red), 🕐 Running (blue)
 - Red border + AlertTriangle icon on failed jobs
@@ -2535,6 +2721,7 @@ interface SMSFailure {
 - Auto-refresh every 60 seconds + manual refresh button
 
 **Rendered Data**:
+
 - Job name (e.g., "Send Reminders", "Update Expired Status")
 - Latest execution status
 - Error messages (first error shown, full list in expandable section)
@@ -2545,6 +2732,7 @@ interface SMSFailure {
 **Location**: `src/app/(admin)/system-health/RawSMSFailureTable.tsx`
 
 **Features**:
+
 - **Gym-Specific Drilldown**: Input field to filter failures by gym UUID
   - Enter gym ID and press Enter or click Filter button
   - Clear button to reset to system-wide view
@@ -2561,6 +2749,7 @@ interface SMSFailure {
 - Shows total failure count in header (filtered count when gym filter active)
 
 **Rendered Data**:
+
 - Latest 50 failed SMS records (system-wide or gym-specific)
 - Full error messages from SMS provider (e.g., "TextLK API Error: ...")
 - Stack traces (if present in error_message)
@@ -2568,6 +2757,7 @@ interface SMSFailure {
 - Provider-specific error codes and metadata
 
 **Use Cases**:
+
 - **System-Wide Monitoring**: View all SMS failures across all gyms to identify provider-level issues
 - **Gym-Specific Debugging**: Filter by gym_id to troubleshoot SMS delivery problems for a specific customer
 - **Pattern Analysis**: Identify if failures are isolated to specific gyms or affecting entire system
@@ -2575,6 +2765,7 @@ interface SMSFailure {
 ### Access Control Enforcement
 
 **Authorization Flow**:
+
 ```mermaid
 sequenceDiagram
     participant User as Admin User
@@ -2605,6 +2796,7 @@ sequenceDiagram
 ```
 
 **Security Layers**:
+
 1. **Layout Protection** (Lines 26-29 in `layout.tsx`):
    - Checks for `NEXT_PUBLIC_ADMIN_API_SECRET` environment variable
    - Redirects to `/dashboard` if not configured
@@ -2625,13 +2817,14 @@ sequenceDiagram
 **Current Implementation**: Bearer token with `ADMIN_API_SECRET` environment variable
 
 **Recommended Upgrade** (for production):
+
 ```typescript
 // Future improvement: Session-based role checking
 export async function GET(request: NextRequest) {
-  const session = await getServerSession();
+  const session = await getServerSession()
 
   if (!session || session.user.role !== 'saas_admin') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   // Proceed with admin operations
@@ -2639,6 +2832,7 @@ export async function GET(request: NextRequest) {
 ```
 
 **Benefits of Upgrade**:
+
 - User-specific audit trails (who accessed what, when)
 - Granular permissions (read-only vs full admin)
 - Session expiration and revocation
@@ -2657,16 +2851,20 @@ export async function GET(request: NextRequest) {
 // User-Facing Endpoint (src/app/api/members/[id]/sms-history/route.ts:35-37)
 const { data: smsLogs } = await supabase
   .from('sms_logs')
-  .select('id, sms_type, phone_number, message_body, sent_at, delivery_status, text_lk_message_id, created_at')
+  .select(
+    'id, sms_type, phone_number, message_body, sent_at, delivery_status, text_lk_message_id, created_at'
+  )
   // NOTE: 'error_message' field intentionally EXCLUDED
-  .eq('member_id', memberId);
+  .eq('member_id', memberId)
 
 // Admin Endpoint (src/app/api/admin/system-health/sms-failures/route.ts:43-45)
 const { data: failures } = await supabase
   .from('sms_logs')
-  .select('id, gym_id, member_id, sms_type, phone_number, message_body, sent_at, delivery_status, error_message, text_lk_message_id')
+  .select(
+    'id, gym_id, member_id, sms_type, phone_number, message_body, sent_at, delivery_status, error_message, text_lk_message_id'
+  )
   // NOTE: 'error_message' field explicitly INCLUDED
-  .eq('delivery_status', 'failed');
+  .eq('delivery_status', 'failed')
 ```
 
 **Layer 2: Type Definitions**
@@ -2674,28 +2872,28 @@ const { data: failures } = await supabase
 ```typescript
 // User-Facing Type (frontend components)
 interface SMSLog {
-  id: string;
-  sms_type: string;
-  phone_number: string;
-  message_body: string;        // ✅ User-facing message only
-  sent_at: string;
-  delivery_status: 'sent' | 'delivered' | 'failed';
-  text_lk_message_id: string | null;
+  id: string
+  sms_type: string
+  phone_number: string
+  message_body: string // ✅ User-facing message only
+  sent_at: string
+  delivery_status: 'sent' | 'delivered' | 'failed'
+  text_lk_message_id: string | null
   // NO error_message field - prevents accidental exposure
 }
 
 // Admin Type (admin dashboard)
 interface SMSFailure {
-  id: string;
-  gym_id: string;
-  member_id: string;
-  sms_type: string;
-  phone_number: string;
-  message_body: string;
-  sent_at: string;
-  delivery_status: 'failed';
-  error_message: string | null;  // ✅ Technical error details
-  text_lk_message_id: string | null;
+  id: string
+  gym_id: string
+  member_id: string
+  sms_type: string
+  phone_number: string
+  message_body: string
+  sent_at: string
+  delivery_status: 'failed'
+  error_message: string | null // ✅ Technical error details
+  text_lk_message_id: string | null
 }
 ```
 
@@ -2723,10 +2921,12 @@ interface SMSFailure {
 ### Why This Matters
 
 **Without Sanitization** (Security Risk):
+
 - Gym managers see: `"TextLK API Error: Invalid API key 'sk_live_abc123xyz...' (code: 401)"`
 - **Exposes**: API keys, infrastructure details, provider names
 
 **With Sanitization** (Current Implementation):
+
 - Gym managers see: Red "Error" badge with tooltip "System error occurred. Click 'Send Now' to retry."
 - SaaS admins see: Full error trace in admin dashboard
 - **Result**: Users get actionable guidance without security exposure
@@ -2737,128 +2937,130 @@ interface SMSFailure {
 
 ## A.1 State Machine Quick Reference
 
-| From | To | Validator Function | File |
-|------|----|--------------------|------|
-| Any | Any | `canTransition(from, to): boolean` | `StatusConfig.ts:183` |
-| Active | Expired | `member.expire()` | `Member.ts:317` |
-| Active | Suspended | `member.suspend()` | `Member.ts:337` |
-| Expired | Active | `member.activate(date)` | `Member.ts:296` |
-| Expired | Cancelled | `member.cancel()` | `Member.ts:337` |
-| Suspended | Active | `member.activate(date)` | `Member.ts:296` |
-| Suspended | Expired | `member.expire()` | `Member.ts:317` |
-| Suspended | Cancelled | `member.cancel()` | `Member.ts:337` |
+| From      | To        | Validator Function                 | File                  |
+| --------- | --------- | ---------------------------------- | --------------------- |
+| Any       | Any       | `canTransition(from, to): boolean` | `StatusConfig.ts:183` |
+| Active    | Expired   | `member.expire()`                  | `Member.ts:317`       |
+| Active    | Suspended | `member.suspend()`                 | `Member.ts:337`       |
+| Expired   | Active    | `member.activate(date)`            | `Member.ts:296`       |
+| Expired   | Cancelled | `member.cancel()`                  | `Member.ts:337`       |
+| Suspended | Active    | `member.activate(date)`            | `Member.ts:296`       |
+| Suspended | Expired   | `member.expire()`                  | `Member.ts:317`       |
+| Suspended | Cancelled | `member.cancel()`                  | `Member.ts:337`       |
 
 ## A.2 Reminder Rules Quick Reference
 
-| Plan Type | 7-Day | 3-Day | Due Today | Overdue | File |
-|-----------|-------|-------|-----------|---------|------|
-| Daily | ❌ | ❌ | ❌ | ❌ | `ReminderConfig.ts:57` |
-| Weekly | ✅ | ✅ | ✅ | ✅ | `ReminderConfig.ts:63` |
-| Monthly | ❌ | ✅ | ✅ | ✅ | `ReminderConfig.ts:73` |
-| 3-Months | ✅ | ✅ | ✅ | ✅ | `ReminderConfig.ts:83` |
-| 6-Months | ✅ | ✅ | ✅ | ✅ | `ReminderConfig.ts:93` |
-| Annual | ✅ | ✅ | ✅ | ✅ | `ReminderConfig.ts:103` |
-| Custom | ✅ | ✅ | ✅ | ✅ | `ReminderConfig.ts:113` |
+| Plan Type | 7-Day | 3-Day | Due Today | Overdue | File                    |
+| --------- | ----- | ----- | --------- | ------- | ----------------------- |
+| Daily     | ❌    | ❌    | ❌        | ❌      | `ReminderConfig.ts:57`  |
+| Weekly    | ✅    | ✅    | ✅        | ✅      | `ReminderConfig.ts:63`  |
+| Monthly   | ❌    | ✅    | ✅        | ✅      | `ReminderConfig.ts:73`  |
+| 3-Months  | ✅    | ✅    | ✅        | ✅      | `ReminderConfig.ts:83`  |
+| 6-Months  | ✅    | ✅    | ✅        | ✅      | `ReminderConfig.ts:93`  |
+| Annual    | ✅    | ✅    | ✅        | ✅      | `ReminderConfig.ts:103` |
+| Custom    | ✅    | ✅    | ✅        | ✅      | `ReminderConfig.ts:113` |
 
 ## A.3 Database Schema Quick Reference
 
 ### members Table
 
-| Column | Type | Constraints | Default |
-|--------|------|-------------|---------|
-| id | UUID | PRIMARY KEY | gen_random_uuid() |
-| gym_id | UUID | NOT NULL, FK → gyms(id) | - |
-| name | TEXT | NOT NULL, length > 0 | - |
-| phone_number | TEXT | NOT NULL, matches `+94XXXXXXXXX` | - |
-| plan_type | member_plan_type | NOT NULL | - |
-| plan_amount | DECIMAL(10,2) | NOT NULL, > 0 | - |
-| discount_id | UUID | FK → discounts(id) | NULL |
-| recurring_discount | BOOLEAN | - | FALSE |
-| status | member_status | NOT NULL | 'active' |
-| registered_date | DATE | NOT NULL, >= membership_start_date | CURRENT_DATE |
-| membership_start_date | DATE | NOT NULL | CURRENT_DATE |
-| next_due_date | DATE | NOT NULL | - |
-| created_at | TIMESTAMPTZ | NOT NULL | NOW() |
-| updated_at | TIMESTAMPTZ | NOT NULL | NOW() |
+| Column                | Type             | Constraints                        | Default           |
+| --------------------- | ---------------- | ---------------------------------- | ----------------- |
+| id                    | UUID             | PRIMARY KEY                        | gen_random_uuid() |
+| gym_id                | UUID             | NOT NULL, FK → gyms(id)            | -                 |
+| name                  | TEXT             | NOT NULL, length > 0               | -                 |
+| phone_number          | TEXT             | NOT NULL, matches `+94XXXXXXXXX`   | -                 |
+| plan_type             | member_plan_type | NOT NULL                           | -                 |
+| plan_amount           | DECIMAL(10,2)    | NOT NULL, > 0                      | -                 |
+| discount_id           | UUID             | FK → discounts(id)                 | NULL              |
+| recurring_discount    | BOOLEAN          | -                                  | FALSE             |
+| status                | member_status    | NOT NULL                           | 'active'          |
+| registered_date       | DATE             | NOT NULL, >= membership_start_date | CURRENT_DATE      |
+| membership_start_date | DATE             | NOT NULL                           | CURRENT_DATE      |
+| next_due_date         | DATE             | NOT NULL                           | -                 |
+| created_at            | TIMESTAMPTZ      | NOT NULL                           | NOW()             |
+| updated_at            | TIMESTAMPTZ      | NOT NULL                           | NOW()             |
 
 **Note**: `status` enum values: `'active'`, `'expired'`, `'suspended'`, `'cancelled'` (4 values as of 2026-03-26)
 
 ### payments Table
 
-| Column | Type | Constraints | Default |
-|--------|------|-------------|---------|
-| id | UUID | PRIMARY KEY | gen_random_uuid() |
-| member_id | UUID | NOT NULL, FK → members(id) | - |
-| gym_id | UUID | NOT NULL, FK → gyms(id) | - |
-| payment_date | DATE | NOT NULL | - |
-| amount_paid | DECIMAL(10,2) | NOT NULL, > 0 | - |
-| discount_applied | TEXT | - | NULL |
-| discount_percentage | DECIMAL(5,2) | - | NULL |
-| next_due_date_calculated | DATE | NOT NULL | - |
-| created_at | TIMESTAMPTZ | NOT NULL | NOW() |
+| Column                   | Type          | Constraints                | Default           |
+| ------------------------ | ------------- | -------------------------- | ----------------- |
+| id                       | UUID          | PRIMARY KEY                | gen_random_uuid() |
+| member_id                | UUID          | NOT NULL, FK → members(id) | -                 |
+| gym_id                   | UUID          | NOT NULL, FK → gyms(id)    | -                 |
+| payment_date             | DATE          | NOT NULL                   | -                 |
+| amount_paid              | DECIMAL(10,2) | NOT NULL, > 0              | -                 |
+| discount_applied         | TEXT          | -                          | NULL              |
+| discount_percentage      | DECIMAL(5,2)  | -                          | NULL              |
+| next_due_date_calculated | DATE          | NOT NULL                   | -                 |
+| created_at               | TIMESTAMPTZ   | NOT NULL                   | NOW()             |
 
 ### sms_logs Table
 
-| Column | Type | Constraints | Default |
-|--------|------|-------------|---------|
-| id | UUID | PRIMARY KEY | gen_random_uuid() |
-| member_id | UUID | NOT NULL, FK → members(id) | - |
-| gym_id | UUID | NOT NULL, FK → gyms(id) | - |
-| sms_type | TEXT | NOT NULL | - |
-| phone_number | TEXT | NOT NULL | - |
-| message_body | TEXT | NOT NULL | - |
-| sent_at | TIMESTAMPTZ | NOT NULL | NOW() |
-| delivery_status | TEXT | NOT NULL | 'pending' |
-| textlk_message_id | TEXT | - | NULL |
-| error_message | TEXT | - | NULL |
+| Column            | Type        | Constraints                | Default           |
+| ----------------- | ----------- | -------------------------- | ----------------- |
+| id                | UUID        | PRIMARY KEY                | gen_random_uuid() |
+| member_id         | UUID        | NOT NULL, FK → members(id) | -                 |
+| gym_id            | UUID        | NOT NULL, FK → gyms(id)    | -                 |
+| sms_type          | TEXT        | NOT NULL                   | -                 |
+| phone_number      | TEXT        | NOT NULL                   | -                 |
+| message_body      | TEXT        | NOT NULL                   | -                 |
+| sent_at           | TIMESTAMPTZ | NOT NULL                   | NOW()             |
+| delivery_status   | TEXT        | NOT NULL                   | 'pending'         |
+| textlk_message_id | TEXT        | -                          | NULL              |
+| error_message     | TEXT        | -                          | NULL              |
 
 ## A.4 API Routes Quick Reference
 
-| Method | Endpoint | Purpose | Auth | Body/Query | Response |
-|--------|----------|---------|------|------------|----------|
-| GET | `/api/members` | List members | JWT | `?search&status&planType&page&limit&sortBy` | `{members[], totalCount, page, totalPages}` |
-| GET | `/api/members/suggestions` | Search autocomplete | JWT | `?q=<query>` | `{id, name, phone_number}[]` |
-| POST | `/api/members` | Register new member | JWT | `{name, phoneNumber, planType, planAmount, ...}` | `{member, payment}` |
-| GET | `/api/members/:id` | Get member | JWT | - | `{member}` |
-| PATCH | `/api/members/:id` | Update member (NO status) | JWT | `{name?, phoneNumber?, planType?, planAmount?, ...}` | `{member}` |
-| DELETE | `/api/members/:id` | Delete member | JWT | - | `{message}` |
-| **POST** | **`/api/members/:id/suspend`** | **Suspend member** | **JWT** | **-** | **`{member}`** |
-| **POST** | **`/api/members/:id/activate`** | **Reactivate member** | **JWT** | **`{newDueDate}`** | **`{member}`** |
-| **POST** | **`/api/members/:id/cancel`** | **Cancel member** | **JWT** | **-** | **`{member}`** |
-| GET | `/api/members/:id/detail` | Member details + payments | JWT | - | `{member, payments[], stats}` |
-| GET | `/api/members/:id/sms-history` | SMS logs | JWT | - | `{smsLogs[]}` |
-| POST | `/api/members/:id/payment` | Collect payment | JWT | `{paymentDate, paymentAmount, discountId?, deductOverduePeriod?}` | `{member, payment}` |
-| POST | `/api/members/:id/payment/preview` | Preview next due date | JWT | `{paymentDate, deductOverduePeriod?}` | `{nextDueDateFormatted, nextDueDate}` |
-| POST | `/api/cron/send-reminders` | Send automated reminders | Bearer token (`CRON_SECRET`) | - | `{totalSent, byType, errors, duration}` |
-| POST | `/api/cron/update-expired-status` | Expire overdue members | Bearer token (`CRON_SECRET`) | - | `{totalUpdated, updatedMembers[], errors}` |
-| POST | `/api/cron/cancel-overdue-members` | Cancel 45+ day overdue | Bearer token (`CRON_SECRET`) | - | `{totalCancelled, cancelledMembers[], errors}` |
-| **POST** | **`/api/cron/expire-suspended-members`** | **Expire overdue suspended members** | **Bearer token (`CRON_SECRET`)** | **-** | **`{totalExpired, expiredMembers[], errors}`** |
-| **GET** | **`/api/admin/system-health/cron-stats`** | **Fetch cron execution logs** | **Bearer token (`ADMIN_API_SECRET`)** | **-** | **`{data: Record<job_name, CronExecution[]>}`** |
-| **GET** | **`/api/admin/system-health/sms-failures`** | **Fetch failed SMS with error traces (gym-specific drilldown)** | **Bearer token (`ADMIN_API_SECRET`)** | **`?gymId=<uuid>` (optional)** | **`{data: {failures: SMSFailure[], totalCount, filters: {gymId}}}`** |
+| Method   | Endpoint                                    | Purpose                                                         | Auth                                  | Body/Query                                                        | Response                                                             |
+| -------- | ------------------------------------------- | --------------------------------------------------------------- | ------------------------------------- | ----------------------------------------------------------------- | -------------------------------------------------------------------- |
+| GET      | `/api/members`                              | List members                                                    | JWT                                   | `?search&status&planType&page&limit&sortBy`                       | `{members[], totalCount, page, totalPages}`                          |
+| GET      | `/api/members/suggestions`                  | Search autocomplete                                             | JWT                                   | `?q=<query>`                                                      | `{id, name, phone_number}[]`                                         |
+| POST     | `/api/members`                              | Register new member                                             | JWT                                   | `{name, phoneNumber, planType, planAmount, ...}`                  | `{member, payment}`                                                  |
+| GET      | `/api/members/:id`                          | Get member                                                      | JWT                                   | -                                                                 | `{member}`                                                           |
+| PATCH    | `/api/members/:id`                          | Update member (NO status)                                       | JWT                                   | `{name?, phoneNumber?, planType?, planAmount?, ...}`              | `{member}`                                                           |
+| DELETE   | `/api/members/:id`                          | Delete member                                                   | JWT                                   | -                                                                 | `{message}`                                                          |
+| **POST** | **`/api/members/:id/suspend`**              | **Suspend member**                                              | **JWT**                               | **-**                                                             | **`{member}`**                                                       |
+| **POST** | **`/api/members/:id/activate`**             | **Reactivate member**                                           | **JWT**                               | **`{newDueDate}`**                                                | **`{member}`**                                                       |
+| **POST** | **`/api/members/:id/cancel`**               | **Cancel member**                                               | **JWT**                               | **-**                                                             | **`{member}`**                                                       |
+| GET      | `/api/members/:id/detail`                   | Member details + payments                                       | JWT                                   | -                                                                 | `{member, payments[], stats}`                                        |
+| GET      | `/api/members/:id/sms-history`              | SMS logs                                                        | JWT                                   | -                                                                 | `{smsLogs[]}`                                                        |
+| POST     | `/api/members/:id/payment`                  | Collect payment                                                 | JWT                                   | `{paymentDate, paymentAmount, discountId?, deductOverduePeriod?}` | `{member, payment}`                                                  |
+| POST     | `/api/members/:id/payment/preview`          | Preview next due date                                           | JWT                                   | `{paymentDate, deductOverduePeriod?}`                             | `{nextDueDateFormatted, nextDueDate}`                                |
+| POST     | `/api/cron/send-reminders`                  | Send automated reminders                                        | Bearer token (`CRON_SECRET`)          | -                                                                 | `{totalSent, byType, errors, duration}`                              |
+| POST     | `/api/cron/update-expired-status`           | Expire overdue members                                          | Bearer token (`CRON_SECRET`)          | -                                                                 | `{totalUpdated, updatedMembers[], errors}`                           |
+| POST     | `/api/cron/cancel-overdue-members`          | Cancel 14+ day overdue                                          | Bearer token (`CRON_SECRET`)          | -                                                                 | `{totalCancelled, cancelledMembers[], errors}`                       |
+| **POST** | **`/api/cron/expire-suspended-members`**    | **Expire overdue suspended members**                            | **Bearer token (`CRON_SECRET`)**      | **-**                                                             | **`{totalExpired, expiredMembers[], errors}`**                       |
+| **GET**  | **`/api/admin/system-health/cron-stats`**   | **Fetch cron execution logs**                                   | **Bearer token (`ADMIN_API_SECRET`)** | **-**                                                             | **`{data: Record<job_name, CronExecution[]>}`**                      |
+| **GET**  | **`/api/admin/system-health/sms-failures`** | **Fetch failed SMS with error traces (gym-specific drilldown)** | **Bearer token (`ADMIN_API_SECRET`)** | **`?gymId=<uuid>` (optional)**                                    | **`{data: {failures: SMSFailure[], totalCount, filters: {gymId}}}`** |
 
 **Route Authorization Summary**:
+
 - **JWT**: Standard gym manager authentication (via Supabase Auth session)
 - **Bearer token (`CRON_SECRET`)**: Scheduled job authentication for automated tasks
 - **Bearer token (`ADMIN_API_SECRET`)**: SaaS admin authentication for system monitoring (exposes technical error details)
 
 ## A.5 Critical Gaps Summary
 
-| Gap | Severity | Status | Location | Impact | Recommendation |
-|-----|----------|--------|----------|--------|----------------|
-| **Suspended → Expired transition missing** | 🟡 Medium | ✅ **RESOLVED** | `ExpireSuspendedMembers` use case | ~~Suspended members with overdue payments never auto-expire~~ | ~~Create `expire-suspended-members` cron~~ **COMPLETED 2026-03-27** |
-| **Status update bypasses state machine** | 🔴 High | ✅ **RESOLVED** | `PATCH /api/members/:id` | ~~Can create invalid state transitions~~ | ~~Remove status from PATCH, create dedicated endpoints~~ **COMPLETED 2026-03-27** |
-| **Member.updateStatus() not defined** | 🔴 High | ✅ **RESOLVED** | `Member.ts` | ~~Runtime error when editing member status~~ | ~~Add method or remove from API~~ **COMPLETED 2026-03-27** |
-| **SMS failures not tracked** | 🟡 Medium | ✅ **RESOLVED** | `CollectPayment`, `RegisterMember` | ~~Members don't receive critical messages silently~~ | ~~Log to database, show in UI~~ **COMPLETED 2026-03-28** |
-| **Cron errors not persisted** | 🟡 Medium | ✅ **RESOLVED** | `CronLogger` utility | ~~Error history lost~~ | ~~Create `cron_logs` table~~ **COMPLETED 2026-03-27** |
-| **Reminder rules table unused** | 🟢 Low | ✅ **RESOLVED** | Migration to drop table | ~~Database bloat~~ | ~~Remove or implement UI~~ **COMPLETED 2026-03-28** |
-| **Optimistic update no rollback** | 🟡 Medium | ✅ **RESOLVED** | `PaymentCollectionModal` | ~~UI inconsistency on network error~~ | ~~Implement rollback pattern~~ **COMPLETED 2026-03-28** |
-| **Feature-first architecture incomplete** | 🟡 Medium | ✅ **RESOLVED** | `src/features/members/` | ~~Mixed organization makes feature deletion difficult~~ | ~~Move components to features/~~ **COMPLETED 2026-03-28** |
+| Gap                                        | Severity  | Status          | Location                           | Impact                                                        | Recommendation                                                                    |
+| ------------------------------------------ | --------- | --------------- | ---------------------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **Suspended → Expired transition missing** | 🟡 Medium | ✅ **RESOLVED** | `ExpireSuspendedMembers` use case  | ~~Suspended members with overdue payments never auto-expire~~ | ~~Create `expire-suspended-members` cron~~ **COMPLETED 2026-03-27**               |
+| **Status update bypasses state machine**   | 🔴 High   | ✅ **RESOLVED** | `PATCH /api/members/:id`           | ~~Can create invalid state transitions~~                      | ~~Remove status from PATCH, create dedicated endpoints~~ **COMPLETED 2026-03-27** |
+| **Member.updateStatus() not defined**      | 🔴 High   | ✅ **RESOLVED** | `Member.ts`                        | ~~Runtime error when editing member status~~                  | ~~Add method or remove from API~~ **COMPLETED 2026-03-27**                        |
+| **SMS failures not tracked**               | 🟡 Medium | ✅ **RESOLVED** | `CollectPayment`, `RegisterMember` | ~~Members don't receive critical messages silently~~          | ~~Log to database, show in UI~~ **COMPLETED 2026-03-28**                          |
+| **Cron errors not persisted**              | 🟡 Medium | ✅ **RESOLVED** | `CronLogger` utility               | ~~Error history lost~~                                        | ~~Create `cron_logs` table~~ **COMPLETED 2026-03-27**                             |
+| **Reminder rules table unused**            | 🟢 Low    | ✅ **RESOLVED** | Migration to drop table            | ~~Database bloat~~                                            | ~~Remove or implement UI~~ **COMPLETED 2026-03-28**                               |
+| **Optimistic update no rollback**          | 🟡 Medium | ✅ **RESOLVED** | `PaymentCollectionModal`           | ~~UI inconsistency on network error~~                         | ~~Implement rollback pattern~~ **COMPLETED 2026-03-28**                           |
+| **Feature-first architecture incomplete**  | 🟡 Medium | ✅ **RESOLVED** | `src/features/members/`            | ~~Mixed organization makes feature deletion difficult~~       | ~~Move components to features/~~ **COMPLETED 2026-03-28**                         |
 
 ---
 
 ## Changelog
 
 ### 2026-03-27: Phase 1 - State Machine Lockdown
+
 - **Objective**: Enforce state machine transitions through dedicated operational endpoints
 - **Created**: 3 new use cases with full validation
   - `SuspendMember.ts` (Active → Suspended)
@@ -2884,6 +3086,7 @@ interface SMSFailure {
   - Modified: Container.ts, member.schemas.ts, PATCH route, 3 UI components
 
 ### 2026-03-27: Phase 2 - Cron Job Resiliency
+
 - **Objective**: Close the suspension loophole and implement comprehensive error persistence for all cron jobs
 - **Part 1: Suspended Auto-Expiration**
   - **Created** new use case: `ExpireSuspendedMembers.ts`
@@ -2949,6 +3152,7 @@ interface SMSFailure {
   - 4 cron route files (added logging)
 
 ### 2026-03-28: Phase 3 - Communication & Database Hygiene
+
 - **Objective**: Eliminate silent failures and remove dead database tables
 - **Part 1: SMS Failure Tracking**
   - **Problem**: Fire-and-forget SMS logic only logged failures to console, no database tracking
@@ -2986,6 +3190,7 @@ interface SMSFailure {
   - `CollectPayment.ts`, `RegisterMember.ts`, `ReminderConfig.ts`, `Container.ts`, `ISMSRepository.ts` (verified)
 
 ### 2026-03-28: Phase 4 - Frontend Robustness & Restructuring
+
 - **Objective**: Fix UI state inconsistencies and complete feature-first architecture
 - **Part 1: React Query Optimistic Update Rollback Pattern**
   - **Problem**: PaymentCollectionModal mutation had no rollback mechanism, risking UI inconsistencies on network failures
@@ -3048,6 +3253,7 @@ interface SMSFailure {
 - **Files Moved**: 9 component files (git history preserved)
 
 ### 2026-03-28: Phase 5 - User-Facing Ledger Refinement
+
 - **Objective**: Differentiate between pending/skipped reminders and true system errors in user-facing UI
 - **Step 1: Error Tracking & Sanitization Implementation**
   - **Problem**: No distinction between "reminder not sent yet" vs "SMS delivery failed due to system error"
@@ -3090,13 +3296,13 @@ interface SMSFailure {
 
   **UI State Matrix (Updated)**:
 
-  | State | Badge Color | Icon | Text | Meaning |
-  |-------|------------|------|------|---------|
-  | **Sent** | Green (`text-green-700`) | `CheckCircle2` | "Sent" | Successfully delivered |
-  | **Pending** | Gray (`text-gray-500`) | `Clock` | "Pending" | Not yet time to send |
-  | **Not Sent** | Amber (`text-amber-600`) | `AlertCircle` | "Not Sent" | Missed reminder window |
-  | **Disabled** | Gray (`text-gray-400`) | `XCircle` | "Disabled" | Not applicable for plan |
-  | **Error** | **Red (`text-red-600`)** | **`AlertOctagon`** | **"Error"** | **System error occurred** ← **NEW** |
+  | State        | Badge Color              | Icon               | Text        | Meaning                             |
+  | ------------ | ------------------------ | ------------------ | ----------- | ----------------------------------- |
+  | **Sent**     | Green (`text-green-700`) | `CheckCircle2`     | "Sent"      | Successfully delivered              |
+  | **Pending**  | Gray (`text-gray-500`)   | `Clock`            | "Pending"   | Not yet time to send                |
+  | **Not Sent** | Amber (`text-amber-600`) | `AlertCircle`      | "Not Sent"  | Missed reminder window              |
+  | **Disabled** | Gray (`text-gray-400`)   | `XCircle`          | "Disabled"  | Not applicable for plan             |
+  | **Error**    | **Red (`text-red-600`)** | **`AlertOctagon`** | **"Error"** | **System error occurred** ← **NEW** |
 
 - **Impact**:
   - ✅ Clear visual distinction between pending reminders and system errors
@@ -3112,11 +3318,13 @@ interface SMSFailure {
   - `src/app/api/members/[id]/sms-history/route.ts` (error message sanitization)
 
 ### 2026-03-28: Phase 5, Step 2 - SaaS Technical Dashboard
+
 - **Objective**: Build protected, system-wide monitoring interface for SaaS administrators to track infrastructure health and debug production issues
 - **Problem**: Technical error messages (stack traces, database errors, API failures) previously mixed with user-facing UI or completely hidden in platform logs
 - **Solution**: Dedicated admin dashboard at `/system-health` with strict authorization and full error visibility
 
 **Part 1: Protected Admin API Routes**
+
 - **Created** 2 new admin-only API endpoints:
   - `GET /api/admin/system-health/cron-stats` - Fetch latest 10 executions per cron job
     - Returns: `{ job_name, started_at, completed_at, status, summary, errors }[]`
@@ -3131,6 +3339,7 @@ interface SMSFailure {
   - **Location**: Lines 15-33 in both route files
 
 **Part 2: Admin Dashboard UI Components**
+
 - **Created** `CronStatusGrid.tsx` - Cron job health monitoring
   - 4-column responsive grid showing latest execution status
   - Status badges: ✅ Success (green), ❌ Failed (red), 🕐 Running (blue)
@@ -3163,6 +3372,7 @@ interface SMSFailure {
   - **Location**: `src/app/(admin)/layout.tsx`
 
 **Part 3: Environment Configuration**
+
 - **Updated** `.env.example` with admin secret variables:
   ```bash
   # Admin Dashboard (generate with: openssl rand -base64 32)
@@ -3172,6 +3382,7 @@ interface SMSFailure {
   ```
 
 **Part 4: Security Architecture**
+
 - **Defense-in-Depth Separation**:
   1. **User-Facing Routes** (`/api/members/:id/sms-history`): Explicitly EXCLUDE `error_message`
   2. **Admin-Only Routes** (`/api/admin/system-health/sms-failures`): Explicitly INCLUDE `error_message`
@@ -3180,6 +3391,7 @@ interface SMSFailure {
 - **Production Recommendation**: Replace Bearer token with session-based role checking from Supabase Auth
 
 **Benefits Achieved**:
+
 - ✅ Complete visibility into cron job execution history and failures
 - ✅ Full SMS error traces with provider-specific error messages
 - ✅ Real-time monitoring with auto-refresh (60s interval)
@@ -3189,11 +3401,13 @@ interface SMSFailure {
 - ✅ Separation of concerns: User-facing UI shows sanitized errors; admin UI shows raw technical details
 
 **Access Instructions**:
+
 1. Generate secret: `openssl rand -base64 32`
 2. Add to `.env.local`: `ADMIN_API_SECRET=<secret>` and `NEXT_PUBLIC_ADMIN_API_SECRET=<secret>`
 3. Navigate to: `http://localhost:3000/system-health`
 
 **Files Created**: 6 total
+
 - `src/app/api/admin/system-health/cron-stats/route.ts`
 - `src/app/api/admin/system-health/sms-failures/route.ts`
 - `src/app/(admin)/system-health/CronStatusGrid.tsx`
@@ -3202,6 +3416,7 @@ interface SMSFailure {
 - `src/app/(admin)/layout.tsx`
 
 **Files Modified**: 1 total
+
 - `.env.example` (added `ADMIN_API_SECRET` and `NEXT_PUBLIC_ADMIN_API_SECRET`)
 
 **Architecture Documentation**: Added Section 2.8 to `.claude/rules/architecture.md` documenting the SaaS Admin Dashboard Pattern
@@ -3209,23 +3424,27 @@ interface SMSFailure {
 ---
 
 ### 2026-03-31: API Response Standardization - Bulk Endpoint Fix
+
 - **Objective**: Enforce consistent API response format across all endpoints using ResponseBuilder utility
 - **Problem**: Bulk member registration endpoint (`/api/members/bulk`) constructed responses manually, violating project's API standardization pattern
 - **Root Cause**: TypeScript strict mode (`noUnusedLocals: true`) caught unused `ResponseBuilder` import during production build
 
 **Build Error**:
+
 ```
 Type error: 'ResponseBuilder' is declared but its value is never read.
 ./src/app/api/members/bulk/route.ts:5:1
 ```
 
 **Issues Identified**:
+
 - Manual JSON response construction instead of `ResponseBuilder` methods
 - Missing machine-readable error codes (`VALIDATION_ERROR`, `INTERNAL_ERROR`)
 - Inconsistent response structure compared to other endpoints
 - No structured error details or timestamps
 
 **Changes Made**:
+
 - **Refactored** validation error response (Line 33):
   - From: `{ success: false, error: 'Invalid input data', details: err.errors }`
   - To: `ResponseBuilder.badRequest('Invalid input data', { errors: err.errors })`
@@ -3240,6 +3459,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
   - To: `ResponseBuilder.internalError('Failed to process bulk registration', stack)`
 
 **Benefits Achieved**:
+
 - ✅ Build error resolved - no more unused import warnings
 - ✅ API consistency - bulk endpoint now matches all other endpoints
 - ✅ Structured errors - error codes included (`BAD_REQUEST`, `UNAUTHORIZED`, `INTERNAL_ERROR`)
@@ -3247,6 +3467,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 - ✅ Architecture compliance - follows standardized API response pattern
 
 **Documentation Updated**:
+
 - **Added** new section to `.claude/rules/architecture.md`: "2.3 API Response Standardization Pattern"
   - Comprehensive guide with ❌ WRONG and ✅ CORRECT examples
   - Full ResponseBuilder methods table with use cases
@@ -3258,10 +3479,12 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 - **Renumbered** all subsequent architecture sections (2.4 → 2.5, 2.5 → 2.6, etc.)
 
 **Files Modified**: 2 total
+
 - `src/app/api/members/bulk/route.ts` (refactored to use ResponseBuilder)
 - `.claude/rules/architecture.md` (added comprehensive API standardization pattern documentation)
 
 **Impact**:
+
 - Production builds now succeed
 - All 7 API routes now use ResponseBuilder consistently:
   - ✅ `members/route.ts`
@@ -3275,11 +3498,13 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 ---
 
 ### 2026-03-29: SaaS Admin Gym-Specific Drilldown
+
 - **Objective**: Enable SaaS admins to filter SMS failures by specific gym for targeted debugging
 - **Problem**: System-wide SMS failure view lacked ability to isolate issues to specific customer gyms
 - **Solution**: Added optional `gymId` query parameter to admin endpoint with UI filter
 
 **Database Optimization**:
+
 - **Created** composite index for gym-filtered queries:
   ```sql
   CREATE INDEX idx_sms_logs_gym_failures
@@ -3290,6 +3515,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 - **Migration**: `supabase/migrations/20260329000001_add_sms_logs_gym_filter_index.sql`
 
 **API Enhancement**:
+
 - **Modified** `/api/admin/system-health/sms-failures` endpoint:
   - Added optional `gymId` query parameter (UUID)
   - Returns `filters: {gymId}` object in response
@@ -3297,6 +3523,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
   - Example: `GET /api/admin/system-health/sms-failures?gymId=<uuid>`
 
 **Frontend Enhancement**:
+
 - **Updated** `RawSMSFailureTable` component:
   - Added gym ID filter input field with search button
   - Clear filter button to reset to system-wide view
@@ -3305,14 +3532,17 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
   - Active filter indication in table header
 
 **Use Cases Enabled**:
+
 - **System-Wide Monitoring**: View all SMS failures across all gyms (default behavior)
 - **Gym-Specific Debugging**: Filter by gym_id to troubleshoot customer-specific issues
 - **Pattern Analysis**: Identify if failures are isolated to specific gyms or system-wide
 
 **Files Created**: 1 total
+
 - `supabase/migrations/20260329000001_add_sms_logs_gym_filter_index.sql`
 
 **Files Modified**: 2 total
+
 - `src/app/api/admin/system-health/sms-failures/route.ts` (added gymId parameter handling)
 - `src/app/(admin)/system-health/RawSMSFailureTable.tsx` (added filter UI)
 
@@ -3321,11 +3551,13 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 ---
 
 ### 2026-04-16: Member Detail Table Date Serialization Fix
+
 - **Objective**: Fix member detail table display issues causing phone numbers, plan type badges, and dates to show incorrectly
 - **Problem**: API route was returning Date objects that were improperly serialized by NextResponse.json(), causing frontend to receive malformed data
 - **Root Cause**: Domain entity's `.toDatabase()` method returns Date objects intended for repository layer, not HTTP API responses
 
 **Issues Identified**:
+
 1. **Date Serialization Bug** (Critical):
    - API used `member.toDatabase()` which returns Date objects
    - `NextResponse.json()` serialized dates as ISO timestamps (`"2024-01-15T00:00:00.000Z"`)
@@ -3338,6 +3570,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 **Solution Implemented**:
 
 **Part 1: API Serialization Helper** (`src/app/api/members/route.ts:20-56`)
+
 - **Created** `serializeMemberForAPI()` function with proper date formatting:
   - Converts `Date` objects to `YYYY-MM-DD` strings using `.toISOString().split('T')[0]`
   - Includes both camelCase AND snake_case field names for backward compatibility
@@ -3348,6 +3581,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
   - POST: `serializeMemberForAPI(result.member)`
 
 **Part 2: Discount Data Integration** (`src/app/api/members/route.ts:90-119`)
+
 - **Fetched** discount data for all members with discount IDs:
   - Build unique discount ID list from members
   - Query discounts table with `.in()` filter
@@ -3355,6 +3589,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 - **Include** discount in serialization: `serializeMemberForAPI(member, discountsMap[props.discountId])`
 
 **Part 3: Repository Query Enhancement** (`SupabaseMemberRepository.ts:97`)
+
 - **Updated** `findAll()` query to include discount JOIN:
   - From: `.select('*', { count: 'exact' })`
   - To: `.select('*, discount:discounts(id, discount_name, discount_percentage)', { count: 'exact' })`
@@ -3363,24 +3598,27 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 **API Response Format**:
 
 **Before (Broken)**:
+
 ```json
 {
-  "registeredDate": "2024-01-15T00:00:00.000Z",  // ❌ ISO timestamp
-  "phoneNumber": "+94712345678",                  // ❌ Missing snake_case
-  "planType": "monthly"                           // ❌ Missing snake_case
+  "registeredDate": "2024-01-15T00:00:00.000Z", // ❌ ISO timestamp
+  "phoneNumber": "+94712345678", // ❌ Missing snake_case
+  "planType": "monthly" // ❌ Missing snake_case
 }
 ```
 
 **After (Fixed)**:
+
 ```json
 {
-  "registeredDate": "2024-01-15",                 // ✅ YYYY-MM-DD format
-  "registered_date": "2024-01-15",                // ✅ Snake_case included
-  "phoneNumber": "+94712345678",                  // ✅ CamelCase
-  "phone_number": "+94712345678",                 // ✅ Snake_case included
-  "planType": "monthly",                          // ✅ CamelCase
-  "plan_type": "monthly",                         // ✅ Snake_case included
-  "discount": {                                   // ✅ Discount data included
+  "registeredDate": "2024-01-15", // ✅ YYYY-MM-DD format
+  "registered_date": "2024-01-15", // ✅ Snake_case included
+  "phoneNumber": "+94712345678", // ✅ CamelCase
+  "phone_number": "+94712345678", // ✅ Snake_case included
+  "planType": "monthly", // ✅ CamelCase
+  "plan_type": "monthly", // ✅ Snake_case included
+  "discount": {
+    // ✅ Discount data included
     "id": "uuid",
     "discount_name": "Student Discount",
     "discount_percentage": 20
@@ -3389,6 +3627,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 ```
 
 **Benefits Achieved**:
+
 - ✅ Dates display correctly: `formatDate()` receives proper YYYY-MM-DD format
 - ✅ Phone numbers visible: Frontend accesses `phone_number` snake_case field
 - ✅ Plan type badges visible: Frontend accesses `plan_type` snake_case field
@@ -3397,11 +3636,13 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 - ✅ Backward compatibility: Both camelCase and snake_case fields provided
 
 **Impact**:
+
 - Fixed high-priority bug affecting member directory usability
 - Member table now correctly displays all core member information
 - Improved user experience for gym managers viewing member details
 
 **Files Modified**: 2 total
+
 - `src/app/api/members/route.ts` (added `serializeMemberForAPI()` helper, discount fetching logic)
 - `src/features/members/services/SupabaseMemberRepository.ts` (added discount JOIN, updated `MemberRow` interface)
 
@@ -3410,6 +3651,7 @@ Type error: 'ResponseBuilder' is declared but its value is never read.
 ---
 
 ### 2026-03-26: Frozen Status Removal
+
 - **Removed**: `frozen` status from entire codebase
 - **Updated**: `suspended` status now handles both policy violations and voluntary holds
 - **State Machine**: Reduced from 11 to 7 transitions

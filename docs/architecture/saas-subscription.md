@@ -18,9 +18,10 @@ Design rationale (conflict register C-1..C-33):
    Legal pairs: `{lite,pro,enterprise} × {trialing,active,past_due,suspended,canceled}` — no free
    tier exists. Only members with `status = 'active'` count toward the cap; expired/suspended/
    cancelled members are unlimited on every tier (gyms are never pressured to delete history).
-   `gyms.member_count` is the trigger-maintained active count. Unpaid actives expire 7 days past
-   `next_due_date` (`MEMBER_EXPIRY_GRACE_DAYS`, cron `update-expired-status`) and drop out of the
-   count. Tier differentiators reduce to two axes: the Lite member cap and access-control
+   `gyms.member_count` is the trigger-maintained active count. Unpaid actives expire as soon as
+   `next_due_date` is in the past — **no grace period** (cron `update-expired-status`) — and drop
+   out of the count; 14 days past due they are auto-cancelled
+   (`MEMBER_CANCELLATION_OVERDUE_DAYS`, cron `cancel-overdue-members`). Tier differentiators reduce to two axes: the Lite member cap and access-control
    hardware (Enterprise only, `PlanRestrictions`); reminders/announcements are universal.
 2. **Onboarding is a trial STATUS, not a free tier**: signup lands `lite/trialing` with
    `gyms.trial_ends_at = now() + 30 days` (DB DEFAULT). Full features during the trial (within
