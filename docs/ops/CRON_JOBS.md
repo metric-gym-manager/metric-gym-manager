@@ -4,21 +4,50 @@ This document describes the automated cron jobs for the Gym Management SaaS plat
 
 ## Overview
 
-Three cron jobs run automatically to handle:
+Cron jobs run automatically to handle:
 
 1. **Daily SMS Reminders** - Send payment reminders to members
-2. **Status Updates** - Mark overdue members as expired
-3. **Member Archival** - Archive inactive members after 2 years
+2. **Status Updates** - Expire members the day after their due date
+3. **Cancellation** - Cancel members 14+ days past due
+4. **Member Archival** - Archive inactive members after 2 years
+
+SaaS billing jobs (`charge-renewals`, `process-dunning`, `process-trial-expiry`)
+are documented in `docs/reference/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`.
 
 ## Cron Schedule
 
-All times are configured for **Sri Lanka Time (UTC+5:30)**:
+**Vercel evaluates cron expressions in UTC.** The schedule column is the source
+of truth; Sri Lanka local time (UTC+5:30) is shown for convenience only.
 
-| Job             | Schedule      | Time (Sri Lanka)    | Time (UTC)             | Frequency |
-| --------------- | ------------- | ------------------- | ---------------------- | --------- |
-| Send Reminders  | `30 3 * * *`  | 9:00 AM             | 3:30 AM                | Daily     |
-| Update Status   | `30 18 * * *` | 12:00 AM (midnight) | 6:30 PM (previous day) | Daily     |
-| Archive Members | `30 19 1 * *` | 1:00 AM on 1st      | 7:30 PM on 1st         | Monthly   |
+| Job                      | Schedule     | Time (UTC)   | Time (Sri Lanka) | Frequency |
+| ------------------------ | ------------ | ------------ | ---------------- | --------- |
+| Update Expired Status    | `0 0 * * *`  | 00:00        | 5:30 AM          | Daily     |
+| Expire Suspended Members | `15 0 * * *` | 00:15        | 5:45 AM          | Daily     |
+| Cancel Overdue Members   | `30 0 * * *` | 00:30        | 6:00 AM          | Daily     |
+| Charge Renewals          | `30 0 * * *` | 00:30        | 6:00 AM          | Daily     |
+| Process Dunning          | `45 0 * * *` | 00:45        | 6:15 AM          | Daily     |
+| Process Trial Expiry     | `50 0 * * *` | 00:50        | 6:20 AM          | Daily     |
+| Send Reminders           | `30 3 * * *` | 03:30        | 9:00 AM          | Daily     |
+| Archive Members          | `0 1 1 * *`  | 01:00 on 1st | 6:30 AM on 1st   | Monthly   |
+
+### Member-status chain — ORDER MATTERS
+
+The first three jobs form a dependency chain and must run in this order:
+
+```
+00:00  update-expired-status      Active    -> Expired    (feeder)
+00:15  expire-suspended-members   Suspended -> Expired    (feeder)
+00:30  cancel-overdue-members     Expired   -> Cancelled  (consumer)
+```
+
+`cancel-overdue-members` only ever reads members that are **already** Expired,
+so both feeders must complete before it. Scheduling a feeder after the sweep
+does not lose anyone — the sweep is date-based, not incremental — but every
+member that feeder produces waits an extra full day to be cancelled. This
+ordering is pinned by `src/app/api/cron/__tests__/cron-schedule-order.test.ts`.
+
+`cancel-overdue-members` and `charge-renewals` share the 00:30 slot; they touch
+disjoint tables (members vs. SaaS billing) and are safe to run concurrently.
 
 > **IMPORTANT:** Vercel Cron invokes cron paths with an **HTTP GET** request
 > (with `Authorization: Bearer <CRON_SECRET>` attached automatically when the
@@ -70,10 +99,18 @@ Automatically sends payment reminders to all active members based on their due d
 
 ### SMS Message Formats
 
-**7-Day/3-Day/Due Today:**
+**7-Day/3-Day:**
 
 ```
 Dear John Doe, your Monthly membership at PowerFit Gym is due on 20/02/2026. Amount: Rs.5000.00. Thank you.
+```
+
+**Due Today** — the due date is the member's last active day (expiry is
+immediate the following day), so this is the final automated message they
+receive while still a member:
+
+```
+Dear John Doe, your Monthly membership expires today. Amount: Rs.5000.00. Please pay today to stay active. Thank you.
 ```
 
 **Overdue:**
@@ -82,21 +119,26 @@ Dear John Doe, your Monthly membership at PowerFit Gym is due on 20/02/2026. Amo
 Dear John Doe, your Monthly membership at PowerFit Gym was due on 13/02/2026. Amount: Rs.5000.00. Please make payment. Thank you.
 ```
 
+> **Note:** with no grace period, an overdue member is flipped to "Expired" at
+> 00:00 before the 03:30 reminder run, and reminders only go to Active members.
+> The automated `overdue` reminder therefore no longer fires in practice; the
+> type remains for manual sends from payment collection.
+
 ## 2. Update Expired Status
 
 **Endpoint:** `GET|POST /api/cron/update-expired-status`
 
 ### What It Does
 
-Updates member status from "Active" to "Expired" for members who are more than 7 days overdue.
+Updates member status from "Active" to "Expired" as soon as a member's due date
+has passed. **There is no grace period.**
 
 ### Process Flow
 
-1. Calculate cutoff date (7 days ago)
-2. Find all active members with `next_due_date < cutoff_date`
-3. Update their status to "expired"
-4. Update `updated_at` timestamp
-5. Return count of updated members
+1. Find all active members with `next_due_date < today`
+2. Update their status to "expired" (via the `Member` state machine)
+3. Update `updated_at` timestamp
+4. Return count of updated members
 
 ### Response Example
 
@@ -113,11 +155,36 @@ Updates member status from "Active" to "Expired" for members who are more than 7
 
 ### Business Logic
 
-- Members remain "Active" even if overdue, up to 7 days
-- After 7 days overdue, status automatically changes to "Expired"
+- A member due **today** is still paid through today and stays "Active"
+- From the day after `next_due_date`, status changes to "Expired" — no grace period
+- Expiring frees the member's slot in the gym's active-member quota
 - Expired members can still be reactivated by collecting payment
 
-## 3. Archive Old Members
+## 3. Cancel Overdue Members
+
+**Endpoint:** `GET|POST /api/cron/cancel-overdue-members`
+
+### What It Does
+
+Cancels expired members who are 14 or more days past their due date.
+
+### Process Flow
+
+1. Calculate cutoff date (`MEMBER_CANCELLATION_OVERDUE_DAYS` = 14 days ago)
+2. Find all expired members with `next_due_date <= cutoff_date`
+3. Transition them to "cancelled" (via the `Member` state machine)
+4. Return count and details of cancelled members
+
+### Business Logic
+
+- Threshold is **inclusive**: exactly 14 days overdue IS cancelled on that run
+- Only "Expired" members are eligible — Active -> Cancelled is not a valid
+  transition, which is why both feeders must run first (see the chain above)
+- "Cancelled" is a terminal state and cannot be undone
+- The sweep is date-based, not incremental: it re-evaluates every expired
+  member on every run, so a missed night self-heals on the next one
+
+## 4. Archive Old Members
 
 **Endpoint:** `GET|POST /api/cron/archive-old-members`
 
