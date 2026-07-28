@@ -1,26 +1,17 @@
-import { useState } from 'react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { useState } from 'react'
+import { Modal, Button } from '@/components/ui'
 
 interface ConfirmOptions {
-  title: string;
-  description: string;
-  confirmText?: string;
-  cancelText?: string;
-  variant?: 'default' | 'destructive';
+  title: string
+  description: string
+  confirmText?: string
+  cancelText?: string
+  variant?: 'default' | 'destructive'
 }
 
 interface ConfirmDialogState extends ConfirmOptions {
-  isOpen: boolean;
-  resolve?: (value: boolean) => void;
+  isOpen: boolean
+  resolve?: (value: boolean) => void
 }
 
 export function useConfirmDialog() {
@@ -31,7 +22,7 @@ export function useConfirmDialog() {
     confirmText: 'Confirm',
     cancelText: 'Cancel',
     variant: 'default',
-  });
+  })
 
   const confirm = (options: ConfirmOptions): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -42,45 +33,47 @@ export function useConfirmDialog() {
         cancelText: options.cancelText || 'Cancel',
         variant: options.variant || 'default',
         resolve,
-      });
-    });
-  };
+      })
+    })
+  }
 
   const handleConfirm = () => {
-    state.resolve?.(true);
-    setState((prev) => ({ ...prev, isOpen: false }));
-  };
+    state.resolve?.(true)
+    setState((prev) => ({ ...prev, isOpen: false }))
+  }
 
   const handleCancel = () => {
-    state.resolve?.(false);
-    setState((prev) => ({ ...prev, isOpen: false }));
-  };
+    state.resolve?.(false)
+    setState((prev) => ({ ...prev, isOpen: false }))
+  }
+
+  const destructive = state.variant === 'destructive'
 
   const ConfirmDialog = () => (
-    <AlertDialog open={state.isOpen} onOpenChange={handleCancel}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{state.title}</AlertDialogTitle>
-          <AlertDialogDescription>{state.description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleCancel}>
+    <Modal
+      open={state.isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleCancel()
+      }}
+      title={state.title}
+      description={state.description}
+      destructive={destructive}
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={handleCancel}>
             {state.cancelText}
-          </AlertDialogCancel>
-          <AlertDialogAction
+          </Button>
+          <Button
+            type="button"
+            variant={destructive ? 'destructive' : 'accent'}
             onClick={handleConfirm}
-            className={
-              state.variant === 'destructive'
-                ? 'bg-red-600 hover:bg-red-700'
-                : ''
-            }
           >
             {state.confirmText}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
+          </Button>
+        </>
+      }
+    />
+  )
 
-  return { confirm, ConfirmDialog };
+  return { confirm, ConfirmDialog }
 }

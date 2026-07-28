@@ -71,15 +71,16 @@ describe('ConfirmDialog', () => {
   it('should apply destructive variant styling when specified', () => {
     render(<ConfirmDialog {...defaultProps} variant="destructive" />)
 
-    const confirmButton = screen.getByText('Confirm')
-    expect(confirmButton).toHaveClass('bg-destructive')
+    // DS Button destructive variant renders the danger token surface.
+    const confirmButton = screen.getByRole('button', { name: 'Confirm' })
+    expect(confirmButton).toHaveClass('bg-danger')
   })
 
   it('should not apply destructive styling for default variant', () => {
     render(<ConfirmDialog {...defaultProps} variant="default" />)
 
-    const confirmButton = screen.getByText('Confirm')
-    expect(confirmButton).not.toHaveClass('bg-destructive')
+    const confirmButton = screen.getByRole('button', { name: 'Confirm' })
+    expect(confirmButton).not.toHaveClass('bg-danger')
   })
 
   it('should handle long descriptions', () => {
@@ -98,8 +99,8 @@ describe('ConfirmDialog', () => {
   it('should be accessible with proper ARIA attributes', () => {
     render(<ConfirmDialog {...defaultProps} />)
 
-    // AlertDialog should have proper role
-    const dialog = screen.getByRole('alertdialog')
+    // DS Modal renders a Radix Dialog with role="dialog".
+    const dialog = screen.getByRole('dialog')
     expect(dialog).toBeInTheDocument()
   })
 })
