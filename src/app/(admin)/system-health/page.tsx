@@ -34,7 +34,7 @@ export default function SystemHealthPage() {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-accentui-bg rounded-lg">
-              <Shield className="h-6 w-6 text-accentui-text" />
+              <Shield className="h-6 w-6 text-brand-link" />
             </div>
             <div>
               <h1 className="text-3xl font-bold text-ink">
