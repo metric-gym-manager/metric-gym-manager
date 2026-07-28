@@ -5,18 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeCanvas } from 'qrcode.react'
 import { toast } from 'sonner'
 import { Download, Printer, RefreshCw, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
+import { Button, Input, Modal } from '@/components/ui'
 import {
   downloadPosterImage,
   posterFilename,
@@ -134,8 +123,8 @@ export default function QrCodesDashboardClient() {
 
   if (error) {
     return (
-      <div className="rounded-md bg-red-50 p-4">
-        <p className="text-sm text-red-800">
+      <div className="rounded-md bg-error-bg p-4">
+        <p className="text-sm text-error">
           Failed to load QR codes. Please try again.
         </p>
       </div>
@@ -146,7 +135,7 @@ export default function QrCodesDashboardClient() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
           <Input
             placeholder="Search gyms..."
             value={search}
@@ -154,7 +143,11 @@ export default function QrCodesDashboardClient() {
             className="pl-9"
           />
         </div>
-        <Button onClick={handlePrintAll} disabled={filtered.length === 0}>
+        <Button
+          variant="accent"
+          onClick={handlePrintAll}
+          disabled={filtered.length === 0}
+        >
           <Printer className="h-4 w-4 mr-1.5" />
           Print All ({filtered.length})
         </Button>
@@ -165,13 +158,13 @@ export default function QrCodesDashboardClient() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-64 animate-pulse rounded-lg bg-gray-100"
+              className="h-64 animate-pulse rounded-lg bg-surface-hover"
             />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex h-48 items-center justify-center rounded-lg border bg-white">
-          <p className="text-sm text-gray-500">No gyms found</p>
+        <div className="flex h-48 items-center justify-center rounded-lg border border-line-1 bg-surface-card">
+          <p className="text-sm text-ink-muted">No gyms found</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -181,19 +174,19 @@ export default function QrCodesDashboardClient() {
             return (
               <div
                 key={gym.gymId}
-                className="rounded-lg border bg-white p-4 flex flex-col items-center text-center"
+                className="rounded-lg border border-line-1 bg-surface-card p-4 flex flex-col items-center text-center"
               >
                 <h3
-                  className="font-semibold text-gray-900 truncate w-full"
+                  className="font-semibold text-ink truncate w-full"
                   title={gym.gymName}
                 >
                   {gym.gymName}
                 </h3>
-                <p className="text-xs text-gray-500 truncate w-full">
+                <p className="text-xs text-ink-muted truncate w-full">
                   {gym.email}
                 </p>
 
-                <div className="my-4 rounded-lg border p-3">
+                <div className="my-4 rounded-lg border border-line-1 bg-white p-3">
                   <QRCodeCanvas
                     value={gym.joinUrl!}
                     size={144}
@@ -205,14 +198,14 @@ export default function QrCodesDashboardClient() {
                 <div className="flex flex-wrap justify-center gap-2">
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => handlePrintOne(gym)}
                   >
                     <Printer className="h-4 w-4 mr-1.5" /> Print
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => handleDownloadOne(gym)}
                     disabled={downloadingId === gym.gymId}
                   >
@@ -221,7 +214,7 @@ export default function QrCodesDashboardClient() {
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     onClick={() => setConfirmGym(gym)}
                     disabled={isRegenerating}
                   >
@@ -237,38 +230,44 @@ export default function QrCodesDashboardClient() {
         </div>
       )}
 
-      <AlertDialog
+      <Modal
         open={confirmGym !== null}
         onOpenChange={(open) => {
           if (!open) setConfirmGym(null)
         }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Generate a new QR code?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This replaces {confirmGym?.gymName}&apos;s registration link with
-              a new one. Any QR posters already printed or shared will stop
-              working, and the gym will need to print the new code. This cannot
-              be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={regenerate.isPending}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={(e) => {
-                e.preventDefault()
-                if (confirmGym) regenerate.mutate(confirmGym.gymId)
-              }}
+        title="Generate a new QR code?"
+        destructive
+        description={
+          <>
+            This replaces {confirmGym?.gymName}&apos;s registration link with a
+            new one. Any QR posters already printed or shared will stop working,
+            and the gym will need to print the new code. This cannot be undone.
+          </>
+        }
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setConfirmGym(null)}
               disabled={regenerate.isPending}
             >
-              {regenerate.isPending ? 'Generating…' : 'Generate New QR'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => {
+                if (confirmGym) regenerate.mutate(confirmGym.gymId)
+              }}
+              loading={regenerate.isPending}
+              disabled={regenerate.isPending}
+            >
+              Generate New QR
+            </Button>
+          </>
+        }
+      />
     </div>
   )
 }
