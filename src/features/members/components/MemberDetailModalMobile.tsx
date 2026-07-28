@@ -5,23 +5,18 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Trash2, Edit, X, ChevronDown, ChevronUp } from 'lucide-react'
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+  Modal,
+  Button,
+  Badge,
+  type BadgeProps,
+  Input,
+  Label,
+} from '@/components/ui'
 import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog'
 import MemberPhotoSection from './MemberPhotoSection'
 import type { MemberWithDiscount, Payment } from '@/features/members/types'
 import { parseApiError } from '@/utils/api-error'
+import { getPlanBadgeColor } from '@/utils/badge-colors'
 import { formatMemberNumber } from '@/features/members/utils/formatMemberNumber'
 
 interface MemberDetailModalMobileProps {
@@ -229,14 +224,14 @@ export default function MemberDetailModalMobile({
 
   if (!member) {
     return (
-      <div className="fixed inset-0 z-50 bg-black/80 flex items-end md:items-center justify-center">
-        <div className="bg-white w-full h-[90vh] md:max-w-lg md:h-auto md:rounded-t-2xl rounded-t-2xl p-6 animate-pulse">
-          <div className="h-6 w-40 rounded bg-gray-200 mb-6" />
+      <div className="fixed inset-0 z-modal bg-surface-overlay flex items-end md:items-center justify-center">
+        <div className="bg-surface-card w-full h-[90vh] md:max-w-lg md:h-auto md:rounded-t-2xl rounded-t-2xl p-6 animate-pulse">
+          <div className="h-6 w-40 rounded bg-surface-selected mb-6" />
           <div className="space-y-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="space-y-2">
-                <div className="h-3 w-24 rounded bg-gray-200" />
-                <div className="h-4 w-32 rounded bg-gray-200" />
+                <div className="h-3 w-24 rounded bg-surface-selected" />
+                <div className="h-4 w-32 rounded bg-surface-selected" />
               </div>
             ))}
           </div>
@@ -254,63 +249,51 @@ export default function MemberDetailModalMobile({
     return `LKR ${amount.toFixed(2)}`
   }
 
-  const getStatusClassName = (status: string): string => {
+  // Map member status to a design-system badge variant
+  const getStatusVariant = (status: string): BadgeProps['variant'] => {
     switch (status) {
       case 'active':
-        return 'border-transparent bg-green-100 text-green-800'
+        return 'success'
       case 'expired':
-        return 'border-transparent bg-red-100 text-red-800'
+        return 'error'
       case 'suspended':
-        return 'border-transparent bg-amber-100 text-amber-800'
+        return 'warning'
       case 'cancelled':
-        return 'border border-gray-300 text-gray-600 bg-transparent'
+        return 'neutral'
       default:
-        return 'border-transparent bg-green-100 text-green-800'
-    }
-  }
-
-  const getPlanClassName = (planType: string): string => {
-    switch (planType) {
-      case 'monthly':
-        return 'border-transparent bg-blue-100 text-blue-800'
-      case 'daily':
-        return 'border-transparent bg-orange-100 text-orange-800'
-      case 'annual':
-        return 'border-transparent bg-purple-100 text-purple-800'
-      default:
-        return 'border-transparent bg-blue-100 text-blue-800'
+        return 'success'
     }
   }
 
   return (
     <>
       {/* Mobile Full-Screen Modal */}
-      <div className="fixed inset-0 z-50 bg-black/80 flex items-end md:items-center justify-center">
-        <div className="bg-white w-full h-[90vh] md:max-w-lg md:h-auto md:max-h-[90vh] md:rounded-t-2xl rounded-t-2xl flex flex-col overflow-hidden">
+      <div className="fixed inset-0 z-modal bg-surface-overlay flex items-end md:items-center justify-center">
+        <div className="bg-surface-card w-full h-[90vh] md:max-w-lg md:h-auto md:max-h-[90vh] md:rounded-t-2xl rounded-t-2xl flex flex-col overflow-hidden">
           {/* Sticky Header */}
-          <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b bg-white sticky top-0 z-10">
+          <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-line-1 bg-surface-card sticky top-0 z-sticky">
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1">
                 <h2 className="text-xl font-semibold">{member.name}</h2>
-                <p className="text-xs font-mono text-gray-500 mt-0.5">
+                <p className="text-xs font-mono text-ink-muted mt-0.5">
                   Member ID: {formatMemberNumber(member.member_number)}
                 </p>
-                <p className="text-sm text-gray-500 mt-1">
+                <p className="text-sm text-ink-muted mt-1">
                   {member.phone_number}
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                className="p-2 hover:bg-surface-hover rounded-full transition-colors"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="flex items-center gap-2">
-              <Badge className={getStatusClassName(member.status)}>
+              <Badge variant={getStatusVariant(member.status)}>
                 {member.status}
               </Badge>
-              <Badge className={getPlanClassName(member.plan_type)}>
+              <Badge className={getPlanBadgeColor(member.plan_type)}>
                 {member.plan_type}
               </Badge>
             </div>
@@ -324,7 +307,9 @@ export default function MemberDetailModalMobile({
             {/* Basic Info */}
             <div className="space-y-3">
               <div>
-                <Label className="text-xs text-gray-500">Registered Date</Label>
+                <Label className="text-xs text-ink-muted">
+                  Registered Date
+                </Label>
                 <p className="text-sm font-medium">
                   {formatDate(member.registered_date)}
                 </p>
@@ -333,19 +318,21 @@ export default function MemberDetailModalMobile({
 
             {/* Membership Plan */}
             <div className="space-y-3">
-              <h3 className="text-sm font-semibold border-b pb-2">
+              <h3 className="text-sm font-semibold border-b border-line-1 pb-2">
                 Membership Plan
               </h3>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-xs text-gray-500">Plan Amount</Label>
+                  <Label className="text-xs text-ink-muted">Plan Amount</Label>
                   <p className="text-sm font-medium">
                     {formatCurrency(member.plan_amount)}
                   </p>
                 </div>
                 <div>
-                  <Label className="text-xs text-gray-500">Next Due Date</Label>
+                  <Label className="text-xs text-ink-muted">
+                    Next Due Date
+                  </Label>
                   <p className="text-sm font-medium">
                     {formatDate(member.next_due_date)}
                   </p>
@@ -353,7 +340,7 @@ export default function MemberDetailModalMobile({
               </div>
 
               <div>
-                <Label className="text-xs text-gray-500">
+                <Label className="text-xs text-ink-muted">
                   Membership Start
                 </Label>
                 <p className="text-sm font-medium">
@@ -362,8 +349,8 @@ export default function MemberDetailModalMobile({
               </div>
 
               {member.discount && (
-                <div className="pt-2 border-t">
-                  <Label className="text-xs text-gray-500">Discount</Label>
+                <div className="pt-2 border-t border-line-1">
+                  <Label className="text-xs text-ink-muted">Discount</Label>
                   <p className="text-sm font-medium">
                     {member.discount.discount_name} (
                     {member.discount.discount_percentage}%)
@@ -374,12 +361,12 @@ export default function MemberDetailModalMobile({
             </div>
 
             {/* Status Actions */}
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
+            <div className="rounded-lg border border-accentui-border bg-accentui-bg p-4 space-y-3">
               <div>
-                <h3 className="text-sm font-semibold text-blue-900">
+                <h3 className="text-sm font-semibold text-ink">
                   Status Actions
                 </h3>
-                <p className="text-xs text-blue-700 mt-0.5">
+                <p className="text-xs text-ink-secondary mt-0.5">
                   Current: <strong>{member.status}</strong>
                 </p>
               </div>
@@ -389,10 +376,10 @@ export default function MemberDetailModalMobile({
                 {member.status === 'active' && (
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="secondary"
                     disabled={suspendMemberMutation.isPending}
                     onClick={() => suspendMemberMutation.mutate(member.id)}
-                    className="w-full border-amber-600 text-amber-700 hover:bg-amber-50"
+                    className="w-full"
                   >
                     {suspendMemberMutation.isPending
                       ? 'Suspending...'
@@ -405,10 +392,10 @@ export default function MemberDetailModalMobile({
                   member.status === 'suspended') && (
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="success-ghost"
                     disabled={activateMemberMutation.isPending}
                     onClick={() => setShowActivateDialog(true)}
-                    className="w-full border-green-600 text-green-700 hover:bg-green-50"
+                    className="w-full"
                   >
                     {activateMemberMutation.isPending
                       ? 'Activating...'
@@ -421,10 +408,10 @@ export default function MemberDetailModalMobile({
                   member.status === 'suspended') && (
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="destructive-ghost"
                     disabled={cancelMemberMutation.isPending}
                     onClick={() => cancelMemberMutation.mutate(member.id)}
-                    className="w-full border-red-600 text-red-700 hover:bg-red-50"
+                    className="w-full"
                   >
                     {cancelMemberMutation.isPending
                       ? 'Cancelling...'
@@ -434,7 +421,7 @@ export default function MemberDetailModalMobile({
 
                 {/* Cancelled → No actions available */}
                 {member.status === 'cancelled' && (
-                  <p className="text-sm text-gray-600 italic text-center py-2">
+                  <p className="text-sm text-ink-secondary italic text-center py-2">
                     No actions available
                   </p>
                 )}
@@ -442,14 +429,14 @@ export default function MemberDetailModalMobile({
             </div>
 
             {/* Payment History */}
-            <div className="rounded-lg border bg-gray-50 p-4 space-y-3">
+            <div className="rounded-lg border border-line-1 bg-surface-input p-4 space-y-3">
               <button
                 onClick={() => setShowPaymentHistory(!showPaymentHistory)}
                 className="w-full flex items-center justify-between"
               >
                 <div className="text-left">
                   <h3 className="text-sm font-semibold">Payment History</h3>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-ink-muted">
                     {payments.length} payment{payments.length !== 1 ? 's' : ''}
                   </p>
                 </div>
@@ -466,10 +453,10 @@ export default function MemberDetailModalMobile({
                     payments.map((payment) => (
                       <div
                         key={payment.id}
-                        className="bg-white rounded-lg p-3 border"
+                        className="bg-surface-card rounded-lg p-3 border border-line-1"
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <span className="text-xs text-gray-500">
+                          <span className="text-xs text-ink-muted">
                             {formatDate(payment.payment_date)}
                           </span>
                           <span className="text-sm font-semibold">
@@ -477,19 +464,19 @@ export default function MemberDetailModalMobile({
                           </span>
                         </div>
                         {payment.discount_applied && (
-                          <p className="text-xs text-green-600">
+                          <p className="text-xs text-success">
                             {payment.discount_applied} (
                             {payment.discount_percentage}%)
                           </p>
                         )}
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-ink-muted mt-1">
                           Next due:{' '}
                           {formatDate(payment.next_due_date_calculated)}
                         </p>
                       </div>
                     ))
                   ) : (
-                    <p className="text-sm text-gray-500 text-center py-4">
+                    <p className="text-sm text-ink-muted text-center py-4">
                       No payment history
                     </p>
                   )}
@@ -499,9 +486,11 @@ export default function MemberDetailModalMobile({
 
             {/* Mark Paid Button */}
             <Button
+              variant="accent"
               onClick={() => markRegularPaidMutation.mutate()}
               disabled={isMarkingRegularPaid}
-              className="w-full bg-green-600 hover:bg-green-700 text-white h-12"
+              loading={isMarkingRegularPaid}
+              className="w-full h-12"
             >
               {isMarkingRegularPaid
                 ? 'Processing...'
@@ -510,15 +499,19 @@ export default function MemberDetailModalMobile({
           </div>
 
           {/* Sticky Footer Actions */}
-          <div className="flex-shrink-0 px-6 py-4 border-t bg-white flex gap-3">
+          <div className="flex-shrink-0 px-6 py-4 border-t border-line-1 bg-surface-card flex gap-3">
             <Button
-              variant="outline"
+              variant="destructive-ghost"
               onClick={() => setShowDeleteDialog(true)}
-              className="flex-1 border-red-200 text-red-600 hover:bg-red-50 h-12"
+              className="flex-1 h-12"
             >
               <Trash2 className="h-5 w-5" />
             </Button>
-            <Button onClick={onEditClick} className="flex-1 h-12">
+            <Button
+              variant="accent"
+              onClick={onEditClick}
+              className="flex-1 h-12"
+            >
               <Edit className="h-5 w-5" />
             </Button>
           </div>
@@ -526,70 +519,68 @@ export default function MemberDetailModalMobile({
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="max-w-[90vw] md:max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Member?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete <strong>{member.name}</strong> and
-              all data:
-              <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-                <li>
-                  {payments.length} payment{payments.length !== 1 ? 's' : ''}
-                </li>
-                <li>SMS logs</li>
-              </ul>
-              <p className="mt-3 text-red-600 font-semibold text-sm">
-                This cannot be undone.
-              </p>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMemberMutation.isPending}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteMemberMutation.mutate(member.id)}
+      <Modal
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Delete Member?"
+        destructive
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setShowDeleteDialog(false)}
               disabled={deleteMemberMutation.isPending}
-              className="bg-red-600 hover:bg-red-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMemberMutation.mutate(member.id)}
+              loading={deleteMemberMutation.isPending}
+              disabled={deleteMemberMutation.isPending}
             >
               {deleteMemberMutation.isPending ? 'Deleting...' : 'Delete'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </>
+        }
+      >
+        <div className="text-sm text-ink-secondary">
+          This will permanently delete <strong>{member.name}</strong> and all
+          data:
+          <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+            <li>
+              {payments.length} payment{payments.length !== 1 ? 's' : ''}
+            </li>
+            <li>SMS logs</li>
+          </ul>
+          <p className="mt-3 text-error font-semibold text-sm">
+            This cannot be undone.
+          </p>
+        </div>
+      </Modal>
 
       {/* Activate Member Dialog */}
-      <AlertDialog
+      <Modal
         open={showActivateDialog}
         onOpenChange={setShowActivateDialog}
-      >
-        <AlertDialogContent className="max-w-[90vw] md:max-w-md">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Activate Member</AlertDialogTitle>
-            <AlertDialogDescription>
-              Select the new due date for <strong>{member.name}</strong>&apos;s
-              membership.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-4">
-            <Label htmlFor="newDueDate" className="text-sm font-medium">
-              New Due Date
-            </Label>
-            <Input
-              id="newDueDate"
-              type="date"
-              value={activateNewDueDate}
-              onChange={(e) => setActivateNewDueDate(e.target.value)}
-              className="mt-2"
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={activateMemberMutation.isPending}>
+        title="Activate Member"
+        description={
+          <>
+            Select the new due date for <strong>{member.name}</strong>&apos;s
+            membership.
+          </>
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setShowActivateDialog(false)}
+              disabled={activateMemberMutation.isPending}
+            >
               Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
+            </Button>
+            <Button
+              variant="accent"
               onClick={() => {
                 if (!activateNewDueDate) {
                   toast.error('Please select a new due date')
@@ -600,14 +591,28 @@ export default function MemberDetailModalMobile({
                   newDueDate: activateNewDueDate,
                 })
               }}
+              loading={activateMemberMutation.isPending}
               disabled={activateMemberMutation.isPending || !activateNewDueDate}
-              className="bg-green-600 hover:bg-green-700"
             >
               {activateMemberMutation.isPending ? 'Activating...' : 'Activate'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </>
+        }
+      >
+        <div>
+          <Label htmlFor="newDueDate" className="text-sm font-medium">
+            New Due Date
+          </Label>
+          <Input
+            id="newDueDate"
+            type="date"
+            value={activateNewDueDate}
+            onChange={(e) => setActivateNewDueDate(e.target.value)}
+            className="mt-2"
+            min={new Date().toISOString().split('T')[0]}
+          />
+        </div>
+      </Modal>
 
       {/* Active-member quota reached while (re)activating */}
       <ReactivationLimitDialog
