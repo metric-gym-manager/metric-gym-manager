@@ -3,10 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Button, Input, Label, Checkbox } from '@/components/ui'
 import type { AdmissionFeeSettings } from '@/features/settings/types'
 
 /**
@@ -82,28 +79,28 @@ export default function AdmissionFeeTab() {
     <div className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold">Admission Fee</h2>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-ink-muted mt-1">
           A one-time registration fee added to a member&apos;s first payment.
         </p>
       </div>
 
-      <div className="rounded-lg border bg-white p-6 space-y-5 max-w-md">
+      <div className="rounded-lg border border-line-1 bg-surface-card p-6 space-y-5 max-w-md">
         {isLoading ? (
-          <p className="text-sm text-gray-500">Loading...</p>
+          <p className="text-sm text-ink-muted">Loading...</p>
         ) : (
           <>
             <div className="flex items-start gap-2">
               <Checkbox
                 id="admission-fee-enabled"
                 checked={enabled}
-                onCheckedChange={(checked) => setEnabled(!!checked)}
+                onChange={(e) => setEnabled(e.target.checked)}
               />
               <Label
                 htmlFor="admission-fee-enabled"
                 className="text-sm font-normal leading-snug"
               >
                 Enable admission fee
-                <span className="block text-xs text-gray-500 mt-0.5">
+                <span className="block text-xs text-ink-muted mt-0.5">
                   When enabled, the fee appears on the self-registration form
                   and is added to the amount due.
                 </span>
@@ -125,6 +122,7 @@ export default function AdmissionFeeTab() {
             </div>
 
             <Button
+              variant="accent"
               onClick={handleSave}
               disabled={saveMutation.isPending}
               size="sm"
