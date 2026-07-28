@@ -317,6 +317,10 @@ the token system so there is one visual language:
   Phase A remap and needs no source edit.
 - These files carry `@deprecated` JSDoc pointing to the Metric primitive. New code
   uses `@/components/ui`; screens migrate off the legacy files over time.
+- **L4/L5 consumer migration:** every feature component and page was moved onto
+  the Metric primitives/composites; `@/components/ui/alert-dialog` had all its
+  consumers (admin QR regenerate, `common/ConfirmDialog`, `useConfirmDialog`)
+  moved to the DS `Modal` and was then **removed**.
 - Full traced inventory + decision-free mapping: `docs/architecture/legacy-ui-migration.md`.
 
 > **Open item.** The Phase A/B work is on branch
