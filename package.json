@@ -39,15 +39,10 @@
     "@aws-sdk/s3-request-presigner": "^3.1086.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.20",
-    "@radix-ui/react-alert-dialog": "^1.1.15",
-    "@radix-ui/react-checkbox": "^1.3.3",
     "@radix-ui/react-collapsible": "^1.1.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.24",
-    "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-popover": "^1.1.23",
-    "@radix-ui/react-progress": "^1.1.8",
-    "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tabs": "^1.1.21",
     "@radix-ui/react-tooltip": "^1.2.8",
@@ -59,14 +54,12 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
-    "date-fns": "^4.1.0",
     "dotenv": "^17.2.4",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
-    "react-day-picker": "^9.13.2",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.71.1",
     "react-is": "^19.2.4",
@@ -116,7 +109,7 @@
     "*.{js,jsx,ts,tsx}": [
       "eslint --fix",
       "prettier --write",
-      "jest --bail --findRelatedTests"
+      "jest --bail --passWithNoTests --findRelatedTests"
     ],
     "*.{json,css,md}": [
       "prettier --write"

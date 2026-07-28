@@ -4,8 +4,7 @@ import { useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Camera, ImageIcon, Trash2, BadgeCheck } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Button, Badge } from '@/components/ui'
 import MemberAvatar from './MemberAvatar'
 import {
   uploadMemberPhoto,
@@ -126,7 +125,7 @@ export default function MemberPhotoSection({
           />
           <Button
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={uploadMutation.isPending}
             onClick={() => cameraInputRef.current?.click()}
           >
@@ -135,7 +134,7 @@ export default function MemberPhotoSection({
           </Button>
           <Button
             size="sm"
-            variant="outline"
+            variant="secondary"
             disabled={uploadMutation.isPending}
             onClick={() => fileInputRef.current?.click()}
           >
@@ -145,10 +144,9 @@ export default function MemberPhotoSection({
           {member.photo_path && (
             <Button
               size="sm"
-              variant="outline"
+              variant="destructive-ghost"
               disabled={removeMutation.isPending}
               onClick={() => removeMutation.mutate()}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
             >
               <Trash2 className="h-4 w-4 mr-1.5" />
               {removeMutation.isPending ? 'Removing...' : 'Remove'}
@@ -158,18 +156,15 @@ export default function MemberPhotoSection({
 
         {isNew && (
           <div className="flex flex-wrap items-center gap-2">
-            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-              NEW
-            </Badge>
-            <span className="text-xs text-gray-500">
+            <Badge variant="accent">NEW</Badge>
+            <span className="text-xs text-ink-muted">
               Self-registered via QR code
             </span>
             <Button
               size="sm"
-              variant="outline"
+              variant="success-ghost"
               disabled={verifyMutation.isPending}
               onClick={() => verifyMutation.mutate()}
-              className="border-green-600 text-green-700 hover:bg-green-50"
             >
               <BadgeCheck className="h-4 w-4 mr-1.5" />
               {verifyMutation.isPending ? 'Verifying...' : 'Verify'}

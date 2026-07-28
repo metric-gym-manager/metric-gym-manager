@@ -1,53 +1,60 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import Link from 'next/link'
+import { MetricCard as DSMetricCard } from '@/components/common/composites'
 
 interface MetricCardProps {
-  title: string;
-  value: string | number;
-  subtitle?: string;
-  icon?: React.ReactNode;
+  title: string
+  value: string | number
+  subtitle?: string
+  icon?: React.ReactNode
   trend?: {
-    value: number;
-    isPositive: boolean;
-  };
-  valueClassName?: string;
-  href?: string;
+    value: number
+    isPositive: boolean
+  }
+  href?: string
 }
 
-export default function MetricCard({ title, value, subtitle, icon, trend, valueClassName, href }: MetricCardProps) {
-  const content = (
-    <>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        {icon && <div className="text-gray-500">{icon}</div>}
-      </CardHeader>
-      <CardContent>
-        <div className={`text-2xl font-bold ${valueClassName || ''}`}>{value}</div>
-        {subtitle && <p className="text-xs text-gray-600 mt-1">{subtitle}</p>}
-        {trend && (
-          <div
-            className={`text-xs mt-2 ${
-              trend.isPositive ? 'text-green-600' : 'text-red-600'
-            }`}
-          >
-            {trend.isPositive ? '↑' : '↓'} {Math.abs(trend.value)}% from last period
-          </div>
-        )}
-      </CardContent>
-    </>
-  );
+/**
+ * Revenue metric tile — composes the Metric Design System `MetricCard`
+ * (Layer 3 composite). Feature-level wrapper that maps revenue-shaped props onto
+ * the composite and adds optional link navigation.
+ */
+export default function MetricCard({
+  title,
+  value,
+  subtitle,
+  icon,
+  trend,
+  href,
+}: MetricCardProps) {
+  const card = (
+    <DSMetricCard
+      label={title}
+      value={value}
+      sub={subtitle}
+      icon={icon}
+      delta={
+        trend
+          ? {
+              value: `${Math.abs(trend.value)}% from last period`,
+              direction: trend.isPositive ? 'up' : 'down',
+            }
+          : undefined
+      }
+    />
+  )
 
   if (href) {
     return (
-      <Link href={href} className="block transition-transform hover:scale-[1.02]">
-        <Card className="cursor-pointer hover:shadow-md transition-shadow">
-          {content}
-        </Card>
+      <Link
+        href={href}
+        className="block transition-transform hover:scale-[1.02]"
+      >
+        {card}
       </Link>
-    );
+    )
   }
 
-  return <Card>{content}</Card>;
+  return card
 }

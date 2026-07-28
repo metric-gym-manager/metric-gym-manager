@@ -1,26 +1,33 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { useState } from 'react'
 import {
+  Card,
+  CardBody,
+  CardHeader,
+  CardTitle,
+  Button,
+  Badge,
+  type BadgeProps,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { ChevronLeft, ChevronRight, Printer, RefreshCw } from 'lucide-react';
-import { useBillingHistory } from '../hooks/useBillingHistory';
-import type { BillingHistoryRow } from '../types';
+} from '@/components/ui'
+import { ChevronLeft, ChevronRight, Printer, RefreshCw } from 'lucide-react'
+import { useBillingHistory } from '../hooks/useBillingHistory'
+import type { BillingHistoryRow } from '../types'
 
-const STATUS_BADGES: Record<BillingHistoryRow['status'], string> = {
-  paid: 'border-transparent bg-green-100 text-green-800',
-  pending: 'border-transparent bg-amber-100 text-amber-800',
-  failed: 'border-transparent bg-red-100 text-red-800',
-};
+const STATUS_VARIANTS: Record<
+  BillingHistoryRow['status'],
+  BadgeProps['variant']
+> = {
+  paid: 'success',
+  pending: 'warning',
+  failed: 'error',
+}
 
 /**
  * SaaS billing history (plan §5.4 flow 5). Source: saas_payment_logs via
@@ -28,29 +35,29 @@ const STATUS_BADGES: Record<BillingHistoryRow['status'], string> = {
  * dialog ("save as PDF" gives a downloadable invoice without a PDF library).
  */
 export default function BillingHistoryTable() {
-  const [page, setPage] = useState(1);
-  const { data, isLoading, error, refetch } = useBillingHistory(page);
+  const [page, setPage] = useState(1)
+  const { data, isLoading, error, refetch } = useBillingHistory(page)
 
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle>Billing History</CardTitle>
-          <Button variant="outline" size="sm" onClick={() => window.print()}>
-            <Printer className="h-4 w-4 mr-2" />
-            Print
-          </Button>
-        </div>
+        <CardTitle>Billing History</CardTitle>
+        <Button variant="secondary" size="sm" onClick={() => window.print()}>
+          <Printer className="h-4 w-4 mr-2" />
+          Print
+        </Button>
       </CardHeader>
-      <CardContent>
+      <CardBody>
         {isLoading ? (
           <div className="flex h-40 items-center justify-center">
-            <p className="text-sm text-gray-500">Loading billing history…</p>
+            <p className="text-sm text-ink-muted">Loading billing history…</p>
           </div>
         ) : error ? (
           <div className="flex h-40 flex-col items-center justify-center gap-3">
-            <p className="text-sm text-red-600">Could not load billing history.</p>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <p className="text-sm text-error">
+              Could not load billing history.
+            </p>
+            <Button variant="secondary" size="sm" onClick={() => refetch()}>
               <RefreshCw className="h-4 w-4 mr-2" />
               Try again
             </Button>
@@ -58,15 +65,17 @@ export default function BillingHistoryTable() {
         ) : !data || data.payments.length === 0 ? (
           <div className="flex h-40 items-center justify-center">
             <div className="text-center">
-              <p className="text-sm text-gray-500 font-medium">No payments yet</p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-sm text-ink-muted font-medium">
+                No payments yet
+              </p>
+              <p className="text-xs text-ink-muted mt-1">
                 Invoices appear here after your first subscription payment.
               </p>
             </div>
           </div>
         ) : (
           <>
-            <div className="rounded-md border overflow-x-auto">
+            <div className="rounded-md border border-line-1 overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -80,12 +89,18 @@ export default function BillingHistoryTable() {
                   {data.payments.map((row) => (
                     <TableRow key={row.id}>
                       <TableCell className="text-sm">{row.date}</TableCell>
-                      <TableCell className="font-mono text-xs">{row.orderId ?? '—'}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {row.orderId ?? '—'}
+                      </TableCell>
                       <TableCell className="text-sm">
-                        {row.amount ? `${row.currency ?? ''} ${row.amount}`.trim() : '—'}
+                        {row.amount
+                          ? `${row.currency ?? ''} ${row.amount}`.trim()
+                          : '—'}
                       </TableCell>
                       <TableCell>
-                        <Badge className={STATUS_BADGES[row.status]}>{row.status}</Badge>
+                        <Badge variant={STATUS_VARIANTS[row.status]}>
+                          {row.status}
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -95,12 +110,13 @@ export default function BillingHistoryTable() {
 
             {data.totalPages > 1 && (
               <div className="flex items-center justify-between mt-4">
-                <p className="text-sm text-gray-500">
-                  Page {data.page} of {data.totalPages} ({data.totalCount} payments)
+                <p className="text-sm text-ink-muted">
+                  Page {data.page} of {data.totalPages} ({data.totalCount}{' '}
+                  payments)
                 </p>
                 <div className="flex gap-2">
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     disabled={page <= 1}
                     onClick={() => setPage((p) => p - 1)}
@@ -109,7 +125,7 @@ export default function BillingHistoryTable() {
                     Previous
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     disabled={page >= data.totalPages}
                     onClick={() => setPage((p) => p + 1)}
@@ -122,7 +138,7 @@ export default function BillingHistoryTable() {
             )}
           </>
         )}
-      </CardContent>
+      </CardBody>
     </Card>
-  );
+  )
 }

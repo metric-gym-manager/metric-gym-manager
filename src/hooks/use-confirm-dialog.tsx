@@ -1,28 +1,25 @@
-import { useState } from 'react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { useState } from 'react'
+import { ConfirmDialog as ConfirmDialogComposite } from '@/components/common/composites'
 
 interface ConfirmOptions {
-  title: string;
-  description: string;
-  confirmText?: string;
-  cancelText?: string;
-  variant?: 'default' | 'destructive';
+  title: string
+  description: string
+  confirmText?: string
+  cancelText?: string
+  variant?: 'default' | 'destructive'
 }
 
 interface ConfirmDialogState extends ConfirmOptions {
-  isOpen: boolean;
-  resolve?: (value: boolean) => void;
+  isOpen: boolean
+  resolve?: (value: boolean) => void
 }
 
+/**
+ * Imperative confirmation prompt: `await confirm({ ... })` resolves to the
+ * user's choice. Renders the Metric `ConfirmDialog` composite (Layer 3) — the
+ * single confirm-dialog implementation — so the imperative and declarative
+ * entry points share one UI.
+ */
 export function useConfirmDialog() {
   const [state, setState] = useState<ConfirmDialogState>({
     isOpen: false,
@@ -31,7 +28,7 @@ export function useConfirmDialog() {
     confirmText: 'Confirm',
     cancelText: 'Cancel',
     variant: 'default',
-  });
+  })
 
   const confirm = (options: ConfirmOptions): Promise<boolean> => {
     return new Promise((resolve) => {
@@ -42,45 +39,34 @@ export function useConfirmDialog() {
         cancelText: options.cancelText || 'Cancel',
         variant: options.variant || 'default',
         resolve,
-      });
-    });
-  };
+      })
+    })
+  }
 
   const handleConfirm = () => {
-    state.resolve?.(true);
-    setState((prev) => ({ ...prev, isOpen: false }));
-  };
+    state.resolve?.(true)
+    setState((prev) => ({ ...prev, isOpen: false }))
+  }
 
   const handleCancel = () => {
-    state.resolve?.(false);
-    setState((prev) => ({ ...prev, isOpen: false }));
-  };
+    state.resolve?.(false)
+    setState((prev) => ({ ...prev, isOpen: false }))
+  }
 
   const ConfirmDialog = () => (
-    <AlertDialog open={state.isOpen} onOpenChange={handleCancel}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{state.title}</AlertDialogTitle>
-          <AlertDialogDescription>{state.description}</AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleCancel}>
-            {state.cancelText}
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={handleConfirm}
-            className={
-              state.variant === 'destructive'
-                ? 'bg-red-600 hover:bg-red-700'
-                : ''
-            }
-          >
-            {state.confirmText}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
+    <ConfirmDialogComposite
+      open={state.isOpen}
+      onOpenChange={(open) => {
+        if (!open) handleCancel()
+      }}
+      title={state.title}
+      description={state.description}
+      confirmLabel={state.confirmText}
+      cancelLabel={state.cancelText}
+      destructive={state.variant === 'destructive'}
+      onConfirm={handleConfirm}
+    />
+  )
 
-  return { confirm, ConfirmDialog };
+  return { confirm, ConfirmDialog }
 }

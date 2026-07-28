@@ -5,39 +5,25 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Trash2, Edit } from 'lucide-react'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import {
+  Modal,
+  Button,
+  Badge,
+  type BadgeProps,
+  Input,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Label } from '@/components/ui/label'
+  Label,
+} from '@/components/ui'
 import MarkPaidDialog from '@/features/payments/components/MarkPaidDialog'
 import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog'
 import MemberPhotoSection from './MemberPhotoSection'
 import type { MemberWithDiscount, Payment } from '@/features/members/types'
 import { parseApiError } from '@/utils/api-error'
+import { getPlanBadgeColor } from '@/utils/badge-colors'
 import { formatMemberNumber } from '@/features/members/utils/formatMemberNumber'
 
 interface MemberDetailModalProps {
@@ -263,50 +249,50 @@ export default function MemberDetailModal({
   // Show skeleton inside the open dialog while data is loading
   if (!member) {
     return (
-      <Dialog open={open} onOpenChange={onClose}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Member Details</DialogTitle>
-            <DialogDescription>
-              View and manage member information
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-6 animate-pulse">
-            {/* Name + badges skeleton */}
-            <div className="flex items-center justify-between">
-              <div className="h-6 w-40 rounded bg-gray-200" />
-              <div className="flex gap-2">
-                <div className="h-5 w-16 rounded-full bg-gray-200" />
-                <div className="h-5 w-16 rounded-full bg-gray-200" />
-              </div>
+      <Modal
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) onClose()
+        }}
+        size="lg"
+        title="Member Details"
+        description="View and manage member information"
+      >
+        <div className="space-y-6 animate-pulse">
+          {/* Name + badges skeleton */}
+          <div className="flex items-center justify-between">
+            <div className="h-6 w-40 rounded bg-surface-selected" />
+            <div className="flex gap-2">
+              <div className="h-5 w-16 rounded-full bg-surface-selected" />
+              <div className="h-5 w-16 rounded-full bg-surface-selected" />
             </div>
-            {/* Field grid skeleton */}
+          </div>
+          {/* Field grid skeleton */}
+          <div className="grid grid-cols-2 gap-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="space-y-1">
+                <div className="h-3 w-24 rounded bg-surface-selected" />
+                <div className="h-4 w-32 rounded bg-surface-selected" />
+              </div>
+            ))}
+          </div>
+          {/* Plan section skeleton */}
+          <div className="border-t border-line-1 pt-4 space-y-4">
+            <div className="h-4 w-28 rounded bg-surface-selected" />
             <div className="grid grid-cols-2 gap-4">
               {Array.from({ length: 4 }).map((_, i) => (
                 <div key={i} className="space-y-1">
-                  <div className="h-3 w-24 rounded bg-gray-200" />
-                  <div className="h-4 w-32 rounded bg-gray-200" />
+                  <div className="h-3 w-24 rounded bg-surface-selected" />
+                  <div className="h-4 w-32 rounded bg-surface-selected" />
                 </div>
               ))}
             </div>
-            {/* Plan section skeleton */}
-            <div className="border-t pt-4 space-y-4">
-              <div className="h-4 w-28 rounded bg-gray-200" />
-              <div className="grid grid-cols-2 gap-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="space-y-1">
-                    <div className="h-3 w-24 rounded bg-gray-200" />
-                    <div className="h-4 w-32 rounded bg-gray-200" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            {/* Status + actions skeleton */}
-            <div className="h-24 rounded-lg bg-gray-100" />
-            <div className="h-16 rounded-lg bg-gray-100" />
           </div>
-        </DialogContent>
-      </Dialog>
+          {/* Status + actions skeleton */}
+          <div className="h-24 rounded-lg bg-surface-input" />
+          <div className="h-16 rounded-lg bg-surface-input" />
+        </div>
+      </Modal>
     )
   }
 
@@ -321,46 +307,68 @@ export default function MemberDetailModal({
     return `LKR ${amount.toFixed(2)}`
   }
 
-  // Get status badge className for semantic colors
-  const getStatusClassName = (status: string): string => {
+  // Map member status to a design-system badge variant
+  const getStatusVariant = (status: string): BadgeProps['variant'] => {
     switch (status) {
       case 'active':
-        return 'border-transparent bg-green-100 text-green-800 hover:bg-green-100'
+        return 'success'
       case 'expired':
-        return 'border-transparent bg-red-100 text-red-800 hover:bg-red-100'
+        return 'error'
       case 'suspended':
-        return 'border-transparent bg-amber-100 text-amber-800 hover:bg-amber-100'
+        return 'warning'
       case 'cancelled':
-        return 'border border-gray-300 text-gray-600 bg-transparent'
+        return 'neutral'
       default:
-        return 'border-transparent bg-green-100 text-green-800'
-    }
-  }
-
-  // Get plan type badge className for distinct colors
-  const getPlanClassName = (planType: string): string => {
-    switch (planType) {
-      case 'monthly':
-        return 'border-transparent bg-blue-100 text-blue-800 hover:bg-blue-100'
-      case 'daily':
-        return 'border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100'
-      case 'annual':
-        return 'border-transparent bg-purple-100 text-purple-800 hover:bg-purple-100'
-      default:
-        return 'border-transparent bg-blue-100 text-blue-800'
+        return 'success'
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Member Details</DialogTitle>
-          <DialogDescription>
-            View and manage member information
-          </DialogDescription>
-        </DialogHeader>
-
+    <>
+      <Modal
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) onClose()
+        }}
+        size="lg"
+        title="Member Details"
+        description="View and manage member information"
+        footerStart={
+          <div className="flex gap-2">
+            <Button
+              variant="destructive-ghost"
+              size="icon"
+              onClick={() => setShowDeleteDialog(true)}
+              title="Delete member"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="secondary"
+              size="icon"
+              onClick={onEditClick}
+              title="Edit member"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+          </div>
+        }
+        footer={
+          <>
+            <Button variant="secondary" onClick={onClose}>
+              Close
+            </Button>
+            <Button
+              variant="accent"
+              onClick={() => setShowMarkPaidDialog(true)}
+              disabled={isMarkingRegularPaid}
+              loading={isMarkingRegularPaid}
+            >
+              {isMarkingRegularPaid ? 'Processing...' : 'Mark Paid'}
+            </Button>
+          </>
+        }
+      >
         <div className="space-y-6">
           {/* Member Photo & Verification */}
           <MemberPhotoSection member={member} />
@@ -370,15 +378,15 @@ export default function MemberDetailModal({
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">{member.name}</h3>
-                <p className="text-xs font-mono text-gray-500">
+                <p className="text-xs font-mono text-ink-muted">
                   Member ID: {formatMemberNumber(member.member_number)}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Badge className={getStatusClassName(member.status)}>
+                <Badge variant={getStatusVariant(member.status)}>
                   {member.status}
                 </Badge>
-                <Badge className={getPlanClassName(member.plan_type)}>
+                <Badge className={getPlanBadgeColor(member.plan_type)}>
                   {member.plan_type}
                 </Badge>
               </div>
@@ -386,12 +394,14 @@ export default function MemberDetailModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm text-gray-500">Phone Number</Label>
+                <Label className="text-sm text-ink-muted">Phone Number</Label>
                 <p className="text-sm font-medium">{member.phone_number}</p>
               </div>
 
               <div>
-                <Label className="text-sm text-gray-500">Registered Date</Label>
+                <Label className="text-sm text-ink-muted">
+                  Registered Date
+                </Label>
                 <p className="text-sm font-medium">
                   {formatDate(member.registered_date)}
                 </p>
@@ -400,26 +410,26 @@ export default function MemberDetailModal({
           </div>
 
           {/* Membership Plan */}
-          <div className="space-y-4 border-t pt-4">
+          <div className="space-y-4 border-t border-line-1 pt-4">
             <h3 className="text-sm font-semibold">Membership Plan</h3>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm text-gray-500">Plan Type</Label>
+                <Label className="text-sm text-ink-muted">Plan Type</Label>
                 <p className="text-sm font-medium capitalize">
                   {member.plan_type}
                 </p>
               </div>
 
               <div>
-                <Label className="text-sm text-gray-500">Plan Amount</Label>
+                <Label className="text-sm text-ink-muted">Plan Amount</Label>
                 <p className="text-sm font-medium">
                   {formatCurrency(member.plan_amount)}
                 </p>
               </div>
 
               <div>
-                <Label className="text-sm text-gray-500">
+                <Label className="text-sm text-ink-muted">
                   Membership Start
                 </Label>
                 <p className="text-sm font-medium">
@@ -428,7 +438,7 @@ export default function MemberDetailModal({
               </div>
 
               <div>
-                <Label className="text-sm text-gray-500">Next Due Date</Label>
+                <Label className="text-sm text-ink-muted">Next Due Date</Label>
                 <p className="text-sm font-medium">
                   {formatDate(member.next_due_date)}
                 </p>
@@ -437,7 +447,7 @@ export default function MemberDetailModal({
               {member.discount && (
                 <>
                   <div>
-                    <Label className="text-sm text-gray-500">Discount</Label>
+                    <Label className="text-sm text-ink-muted">Discount</Label>
                     <p className="text-sm font-medium">
                       {member.discount.discount_name} (
                       {member.discount.discount_percentage}%)
@@ -445,7 +455,7 @@ export default function MemberDetailModal({
                   </div>
 
                   <div>
-                    <Label className="text-sm text-gray-500">
+                    <Label className="text-sm text-ink-muted">
                       Recurring Discount
                     </Label>
                     <p className="text-sm font-medium">
@@ -458,12 +468,10 @@ export default function MemberDetailModal({
           </div>
 
           {/* Status Actions — context-aware action buttons based on current status */}
-          <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 space-y-3">
+          <div className="rounded-lg border border-accentui-border bg-accentui-bg p-4 space-y-3">
             <div>
-              <h3 className="text-sm font-semibold text-blue-900">
-                Status Actions
-              </h3>
-              <p className="text-xs text-blue-700 mt-0.5">
+              <h3 className="text-sm font-semibold text-ink">Status Actions</h3>
+              <p className="text-xs text-ink-secondary mt-0.5">
                 Available actions based on current status:{' '}
                 <strong>{member.status}</strong>
               </p>
@@ -474,10 +482,9 @@ export default function MemberDetailModal({
               {member.status === 'active' && (
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="secondary"
                   disabled={suspendMemberMutation.isPending}
                   onClick={() => suspendMemberMutation.mutate(member.id)}
-                  className="border-amber-600 text-amber-700 hover:bg-amber-50"
                 >
                   {suspendMemberMutation.isPending
                     ? 'Suspending...'
@@ -490,10 +497,9 @@ export default function MemberDetailModal({
                 member.status === 'suspended') && (
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="success-ghost"
                   disabled={activateMemberMutation.isPending}
                   onClick={() => setShowActivateDialog(true)}
-                  className="border-green-600 text-green-700 hover:bg-green-50"
                 >
                   {activateMemberMutation.isPending
                     ? 'Activating...'
@@ -506,10 +512,9 @@ export default function MemberDetailModal({
                 member.status === 'suspended') && (
                 <Button
                   size="sm"
-                  variant="outline"
+                  variant="destructive-ghost"
                   disabled={cancelMemberMutation.isPending}
                   onClick={() => cancelMemberMutation.mutate(member.id)}
-                  className="border-red-600 text-red-700 hover:bg-red-50"
                 >
                   {cancelMemberMutation.isPending
                     ? 'Cancelling...'
@@ -519,7 +524,7 @@ export default function MemberDetailModal({
 
               {/* Cancelled → No actions available (terminal state) */}
               {member.status === 'cancelled' && (
-                <p className="text-sm text-gray-600 italic">
+                <p className="text-sm text-ink-secondary italic">
                   No status actions available. Member is in terminal cancelled
                   state.
                 </p>
@@ -528,29 +533,28 @@ export default function MemberDetailModal({
           </div>
 
           {/* Payment History — distinct container */}
-          <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3">
+          <div className="rounded-lg border border-line-1 bg-surface-input p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">
+                <h3 className="text-sm font-semibold text-ink">
                   Payment History
                 </h3>
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-ink-muted mt-0.5">
                   {payments.length} payment{payments.length !== 1 ? 's' : ''}{' '}
                   recorded
                 </p>
               </div>
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setShowPaymentHistory(!showPaymentHistory)}
-                className="bg-white"
               >
                 {showPaymentHistory ? 'Hide' : 'View'} Payment History
               </Button>
             </div>
 
             {showPaymentHistory && (
-              <div className="rounded-lg border bg-white">
+              <div className="rounded-lg border border-line-1 bg-surface-card">
                 {payments.length > 0 ? (
                   <Table>
                     <TableHeader>
@@ -568,9 +572,7 @@ export default function MemberDetailModal({
                             <span className="flex items-center gap-2">
                               {formatDate(payment.payment_date)}
                               {payment.payment_type === 'day_pass' && (
-                                <Badge className="border-transparent bg-orange-100 text-orange-800 hover:bg-orange-100">
-                                  Day Pass
-                                </Badge>
+                                <Badge variant="warning">Day Pass</Badge>
                               )}
                             </span>
                           </TableCell>
@@ -579,12 +581,12 @@ export default function MemberDetailModal({
                           </TableCell>
                           <TableCell>
                             {payment.discount_applied ? (
-                              <span className="text-sm text-green-600">
+                              <span className="text-sm text-success">
                                 {payment.discount_applied} (
                                 {payment.discount_percentage}%)
                               </span>
                             ) : (
-                              <span className="text-sm text-gray-400">
+                              <span className="text-sm text-ink-muted">
                                 None
                               </span>
                             )}
@@ -598,87 +600,56 @@ export default function MemberDetailModal({
                   </Table>
                 ) : (
                   <div className="flex h-32 items-center justify-center">
-                    <p className="text-sm text-gray-500">No payment history</p>
+                    <p className="text-sm text-ink-muted">No payment history</p>
                   </div>
                 )}
               </div>
             )}
           </div>
-
-          {/* Actions */}
-          <div className="flex justify-between items-center gap-3 border-t pt-4">
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowDeleteDialog(true)}
-                className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
-                title="Delete member"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onEditClick}
-                title="Edit member"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={onClose}>
-                Close
-              </Button>
-              <Button
-                onClick={() => setShowMarkPaidDialog(true)}
-                disabled={isMarkingRegularPaid}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {isMarkingRegularPaid ? 'Processing...' : 'Mark Paid'}
-              </Button>
-            </div>
-          </div>
         </div>
-      </DialogContent>
+      </Modal>
 
       {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription asChild>
-              <div className="text-sm text-muted-foreground">
-                This will permanently delete <strong>{member.name}</strong> and
-                all associated data including:
-                <ul className="list-disc list-inside mt-2 space-y-1">
-                  <li>
-                    Payment history ({payments.length} payment
-                    {payments.length !== 1 ? 's' : ''})
-                  </li>
-                  <li>SMS logs</li>
-                </ul>
-                <p className="mt-3 text-red-600 font-semibold">
-                  This action cannot be undone.
-                </p>
-              </div>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteMemberMutation.isPending}>
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => deleteMemberMutation.mutate(member.id)}
+      <Modal
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="Are you sure?"
+        destructive
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setShowDeleteDialog(false)}
               disabled={deleteMemberMutation.isPending}
-              className="bg-red-600 hover:bg-red-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => deleteMemberMutation.mutate(member.id)}
+              loading={deleteMemberMutation.isPending}
+              disabled={deleteMemberMutation.isPending}
             >
               {deleteMemberMutation.isPending ? 'Deleting...' : 'Delete Member'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </>
+        }
+      >
+        <div className="text-sm text-ink-secondary">
+          This will permanently delete <strong>{member.name}</strong> and all
+          associated data including:
+          <ul className="list-disc list-inside mt-2 space-y-1">
+            <li>
+              Payment history ({payments.length} payment
+              {payments.length !== 1 ? 's' : ''})
+            </li>
+            <li>SMS logs</li>
+          </ul>
+          <p className="mt-3 text-error font-semibold">
+            This action cannot be undone.
+          </p>
+        </div>
+      </Modal>
 
       {/* Mark Paid Dialog */}
       <MarkPaidDialog
@@ -696,36 +667,27 @@ export default function MemberDetailModal({
       />
 
       {/* Activate Member Dialog */}
-      <AlertDialog
+      <Modal
         open={showActivateDialog}
         onOpenChange={setShowActivateDialog}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Activate Member</AlertDialogTitle>
-            <AlertDialogDescription>
-              Select the new due date for <strong>{member.name}</strong>&apos;s
-              membership.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="py-4">
-            <Label htmlFor="newDueDate" className="text-sm font-medium">
-              New Due Date
-            </Label>
-            <Input
-              id="newDueDate"
-              type="date"
-              value={activateNewDueDate}
-              onChange={(e) => setActivateNewDueDate(e.target.value)}
-              className="mt-2"
-              min={new Date().toISOString().split('T')[0]}
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={activateMemberMutation.isPending}>
+        title="Activate Member"
+        description={
+          <>
+            Select the new due date for <strong>{member.name}</strong>&apos;s
+            membership.
+          </>
+        }
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => setShowActivateDialog(false)}
+              disabled={activateMemberMutation.isPending}
+            >
               Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
+            </Button>
+            <Button
+              variant="accent"
               onClick={() => {
                 if (!activateNewDueDate) {
                   toast.error('Please select a new due date')
@@ -736,22 +698,36 @@ export default function MemberDetailModal({
                   newDueDate: activateNewDueDate,
                 })
               }}
+              loading={activateMemberMutation.isPending}
               disabled={activateMemberMutation.isPending || !activateNewDueDate}
-              className="bg-green-600 hover:bg-green-700"
             >
               {activateMemberMutation.isPending
                 ? 'Activating...'
                 : 'Activate Member'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </>
+        }
+      >
+        <div>
+          <Label htmlFor="newDueDate" className="text-sm font-medium">
+            New Due Date
+          </Label>
+          <Input
+            id="newDueDate"
+            type="date"
+            value={activateNewDueDate}
+            onChange={(e) => setActivateNewDueDate(e.target.value)}
+            className="mt-2"
+            min={new Date().toISOString().split('T')[0]}
+          />
+        </div>
+      </Modal>
 
       {/* Active-member quota reached while (re)activating */}
       <ReactivationLimitDialog
         open={showReactivationLimit}
         onOpenChange={setShowReactivationLimit}
       />
-    </Dialog>
+    </>
   )
 }

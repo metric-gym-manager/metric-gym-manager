@@ -18,7 +18,7 @@ import {
   Headset,
   Receipt,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui'
 import type { GymProfile } from '@/features/auth/types'
 
 const navigation = [
@@ -117,7 +117,7 @@ export default function Sidebar() {
     <>
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-white border-r border-gray-200 px-6 pb-4">
+        <div className="flex grow flex-col gap-y-5 overflow-y-auto bg-surface-card border-r border-line-1 px-6 pb-4">
           {/* Logo */}
           <div className="flex h-16 shrink-0 items-center gap-2">
             <Image
@@ -127,9 +127,7 @@ export default function Sidebar() {
               height={24}
               className="w-6 h-6"
             />
-            <h1 className="text-xl font-bold text-gray-900">
-              Metric Gym Manager
-            </h1>
+            <h1 className="text-xl font-bold text-ink">Metric Gym Manager</h1>
           </div>
 
           {/* Navigation */}
@@ -146,13 +144,13 @@ export default function Sidebar() {
                           href={item.href}
                           className={cn(
                             isActive
-                              ? 'bg-gray-100 text-gray-900'
-                              : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+                              ? 'bg-surface-selected text-ink'
+                              : 'text-ink-secondary hover:bg-surface-hover hover:text-ink',
                             'group flex gap-x-3 rounded-md p-2 text-sm leading-6 font-semibold transition-colors duration-150'
                           )}
                         >
                           <Icon
-                            className="h-5 w-5 text-blue-600"
+                            className="h-5 w-5 text-brand-link"
                             strokeWidth={2}
                           />
                           {item.name}
@@ -170,11 +168,11 @@ export default function Sidebar() {
       {/* Mobile view */}
       <div className="lg:hidden">
         {/* Mobile header */}
-        <div className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200">
+        <div className="fixed top-0 left-0 right-0 z-50 bg-surface-card border-b border-line-1">
           <div className="flex items-center justify-between px-4 h-14">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Profile Picture Circle */}
-              <div className="h-9 w-9 rounded-full border-2 border-gray-200 overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shrink-0">
+              <div className="h-9 w-9 rounded-full border-2 border-line-1 overflow-hidden bg-accentui flex items-center justify-center shrink-0">
                 {gymProfile ? (
                   gymProfile.profile_image_url ? (
                     <img
@@ -183,7 +181,7 @@ export default function Sidebar() {
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <span className="text-white text-xs font-bold">
+                    <span className="text-accentui-text text-xs font-bold">
                       {gymProfile.gym_name
                         .split(' ')
                         .map((word) => word[0])
@@ -193,21 +191,21 @@ export default function Sidebar() {
                     </span>
                   )
                 ) : (
-                  <div className="h-full w-full bg-gray-200 animate-pulse" />
+                  <div className="h-full w-full bg-surface-hover animate-pulse" />
                 )}
               </div>
               <div className="min-w-0 flex-1">
                 {gymProfile ? (
                   <>
-                    <h1 className="text-sm font-bold text-gray-900 truncate">
+                    <h1 className="text-sm font-bold text-ink truncate">
                       {gymProfile.gym_name}
                     </h1>
-                    <p className="text-xs text-gray-500">Metric Gym Manager</p>
+                    <p className="text-xs text-ink-muted">Metric Gym Manager</p>
                   </>
                 ) : (
                   <div className="space-y-1">
-                    <div className="h-4 w-32 bg-gray-200 animate-pulse rounded" />
-                    <div className="h-3 w-24 bg-gray-200 animate-pulse rounded" />
+                    <div className="h-4 w-32 bg-surface-hover animate-pulse rounded" />
+                    <div className="h-3 w-24 bg-surface-hover animate-pulse rounded" />
                   </div>
                 )}
               </div>
@@ -230,7 +228,7 @@ export default function Sidebar() {
         </div>
 
         {/* Mobile bottom navigation - Horizontally swipable */}
-        <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200">
+        <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface-card border-t border-line-1">
           <nav className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory">
             {navigation.map((item) => {
               const isActive = pathname.startsWith(item.href)
@@ -242,12 +240,12 @@ export default function Sidebar() {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    isActive ? 'text-blue-600' : 'text-gray-600',
+                    isActive ? 'text-brand-link' : 'text-ink-muted',
                     'flex flex-col items-center py-2 px-3 min-w-[80px] snap-start shrink-0'
                   )}
                 >
                   <Icon
-                    className="h-6 w-6 text-blue-600 mb-1"
+                    className="h-6 w-6 text-brand-link mb-1"
                     strokeWidth={2}
                   />
                   <span

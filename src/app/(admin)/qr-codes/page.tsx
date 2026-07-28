@@ -15,7 +15,7 @@ export default function QrCodesPage() {
         <h1 className="text-2xl font-bold tracking-tight">
           Gym Registration QR Codes
         </h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <p className="mt-1 text-sm text-ink-muted">
           Every gym&apos;s self-registration QR code. Print individually or all
           at once (one poster per page), or generate a new code to replace a
           gym&apos;s link.

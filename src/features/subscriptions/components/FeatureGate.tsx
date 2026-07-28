@@ -1,21 +1,24 @@
-'use client';
+'use client'
 
-import type { ReactNode } from 'react';
-import Link from 'next/link';
-import { Lock, ArrowUpCircle } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { useSubscription } from '../hooks/useSubscription';
-import type { RestrictedFeature } from '@/features/subscriptions/domain/PlanRestrictions';
-import { SaasTier, TIER_DISPLAY_NAME } from '@/features/subscriptions/config/SubscriptionConfig';
+import type { ReactNode } from 'react'
+import Link from 'next/link'
+import { Lock, ArrowUpCircle } from 'lucide-react'
+import { Card, Button } from '@/components/ui'
+import { useSubscription } from '../hooks/useSubscription'
+import type { RestrictedFeature } from '@/features/subscriptions/domain/PlanRestrictions'
+import {
+  SaasTier,
+  TIER_DISPLAY_NAME,
+} from '@/features/subscriptions/config/SubscriptionConfig'
 
 interface FeatureGateProps {
   /** Capability key from the PlanRestrictions matrix. */
-  feature: RestrictedFeature;
+  feature: RestrictedFeature
   /** Human name shown in the upgrade panel ("Access control", ...). */
-  featureLabel: string;
+  featureLabel: string
   /** Optional extra line under the headline. */
-  description?: string;
-  children: ReactNode;
+  description?: string
+  children: ReactNode
 }
 
 /**
@@ -39,44 +42,44 @@ export default function FeatureGate({
   description,
   children,
 }: FeatureGateProps) {
-  const { data, isLoading } = useSubscription();
+  const { data, isLoading } = useSubscription()
 
   // No flash of a restricted feature while the subscription loads.
-  if (isLoading || !data?.subscription) return null;
+  if (isLoading || !data?.subscription) return null
 
   if (data.subscription.capabilities[feature]) {
-    return <>{children}</>;
+    return <>{children}</>
   }
 
   // Hardware support is the Enterprise differentiator; everything else
   // (the member cap) upsells to Pro.
-  const upsellTier = feature === 'accessControlHardware' ? SaasTier.Enterprise : SaasTier.Pro;
-  const upsellName = TIER_DISPLAY_NAME[upsellTier];
+  const upsellTier =
+    feature === 'accessControlHardware' ? SaasTier.Enterprise : SaasTier.Pro
+  const upsellName = TIER_DISPLAY_NAME[upsellTier]
 
   return (
     <Card
       data-testid="feature-gate-upsell"
       className="mx-auto mt-8 flex max-w-lg flex-col items-center gap-4 p-8 text-center"
     >
-      <div className="rounded-full bg-blue-100 p-3">
-        <Lock className="h-6 w-6 text-blue-600" aria-hidden="true" />
+      <div className="rounded-full bg-accentui-bg p-3">
+        <Lock className="h-6 w-6 text-brand-link" aria-hidden="true" />
       </div>
       <div>
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-ink">
           {featureLabel} is a {upsellName} feature
         </h2>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="mt-1 text-sm text-ink-secondary">
           Upgrade to use this feature.
           {description ? ` ${description}` : ''}
         </p>
       </div>
-      <Link
-        href="/settings/billing"
-        className="inline-flex items-center gap-1.5 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-      >
-        <ArrowUpCircle className="h-4 w-4" aria-hidden="true" />
-        Upgrade to {upsellName}
-      </Link>
+      <Button asChild variant="accent">
+        <Link href="/settings/billing">
+          <ArrowUpCircle className="h-4 w-4" aria-hidden="true" />
+          Upgrade to {upsellName}
+        </Link>
+      </Button>
     </Card>
-  );
+  )
 }

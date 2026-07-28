@@ -303,8 +303,8 @@ magic numbers.**
 
 ## 12. Legacy shadcn Consolidation
 
-The application previously carried a second shadcn UI set. It has been folded onto
-the token system so there is one visual language:
+The application previously carried a second shadcn UI set. It has been **fully
+retired** so there is one visual language and one implementation per pattern:
 
 - **Phase A — token unification:** the shadcn CSS variables (`--primary`, `--ring`,
   `--destructive`, foregrounds, `--muted-foreground`, …) were remapped to the
@@ -313,15 +313,40 @@ the token system so there is one visual language:
   primitives (button, badge, input, textarea, label, checkbox, progress, card,
   table, tooltip, dialog, select, alert-dialog) were edited in place to consume
   tokens directly while preserving every export, prop, and behavior — migrating
-  all consumers with zero consumer changes. `calendar` relies solely on the
-  Phase A remap and needs no source edit.
-- These files carry `@deprecated` JSDoc pointing to the Metric primitive. New code
-  uses `@/components/ui`; screens migrate off the legacy files over time.
-- Full traced inventory + decision-free mapping: `docs/architecture/legacy-ui-migration.md`.
+  all consumers with zero consumer changes. `calendar` relied solely on the
+  Phase A remap and needed no source edit.
+- **L4/L5 consumer migration:** every feature component (L4) and page (L5),
+  including the shared layout/pwa components and the admin dashboards, was moved
+  onto the Metric primitives (`@/components/ui`) and composites
+  (`@/components/common/composites`). Confirmation dialogs converged on the single
+  L3 `ConfirmDialog` composite — the top-level `common/ConfirmDialog` duplicate
+  was deleted and the imperative `useConfirmDialog` hook now renders the composite.
+- **Legacy set deleted:** with zero importers remaining (verified repo-wide), all
+  14 deprecated `@/components/ui/<name>` shadcn bridge files (the 13 above +
+  `calendar`) were removed, along with the npm deps only they used —
+  `@radix-ui/react-{alert-dialog,checkbox,label,progress,select}`,
+  `react-day-picker`, and its peer `date-fns` (also pruned from
+  `next.config.js` `optimizePackageImports`). `@radix-ui/react-{dialog,slot,tooltip}`
+  remain — still used by the DS Modal/Drawer, Button, and Tooltip primitives.
+- Historical traced inventory + decision-free mapping:
+  `docs/architecture/legacy-ui-migration.md`.
 
-> **Open item.** The Phase A/B work is on branch
-> `claude/design-system-foundation-jeovtj`, pushed and green on the functional
-> gate, **awaiting visual QA before merge to master**.
+**Known unwired UI (retained, not dead).** Two components currently have zero
+importers and are **not** exported from any barrel, but were migrated onto the
+Metric system and are intentionally kept — they are staged for future wiring,
+not dead code, so do not delete them on a dead-code sweep without confirming
+intent, and do not assume they are mounted:
+
+- `src/features/revenue/components/RevenueMetricCard.tsx` — composes the DS
+  `MetricCard` composite; awaiting a revenue-dashboard placement.
+- `src/components/pwa/InstallButton.tsx` — PWA install CTA (native + iOS
+  instructions); awaiting a landing/marketing placement.
+
+> **State.** The design-system foundation (Phases 0–3) merged to master via
+> PR #42. The L4/L5 consumer migration + legacy retirement was then merged to
+> master from branch `claude/design-system-foundation-jeovtj`, green on the full
+> functional gate (`tsc` + `arch:check` + `eslint` 0 errors + `jest`). Visual QA
+> was deferred to post-merge review.
 
 ---
 

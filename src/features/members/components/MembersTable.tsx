@@ -9,23 +9,12 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
+  Button,
+  Input,
   Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
+  Modal,
+  Badge,
+} from '@/components/ui'
 import type {
   MemberWithDiscount,
   OverdueMember,
@@ -186,22 +175,22 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
   const getStatusDotClass = (status: string): string => {
     switch (status) {
       case 'active':
-        return 'bg-green-500'
+        return 'bg-success'
       case 'expired':
-        return 'bg-red-500'
+        return 'bg-error'
       case 'suspended':
-        return 'bg-amber-400'
+        return 'bg-warning'
       case 'cancelled':
-        return 'bg-gray-400'
+        return 'bg-ink-muted'
       default:
-        return 'bg-green-500'
+        return 'bg-success'
     }
   }
 
   if (error) {
     return (
-      <div className="rounded-md bg-red-50 p-4">
-        <p className="text-sm text-red-800">
+      <div className="rounded-md bg-error-bg p-4">
+        <p className="text-sm text-error">
           Failed to load members. Please try again.
         </p>
       </div>
@@ -238,20 +227,20 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
               <button
                 type="button"
                 onClick={handleClearSearch}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-ink-muted hover:text-ink hover:bg-surface-hover transition-colors"
                 aria-label="Clear search"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
             )}
             {hasSuggestions && (
-              <div className="absolute z-50 mt-1 w-full rounded-md border border-gray-200 bg-white shadow-lg">
+              <div className="absolute z-palette mt-1 w-full rounded-md border border-line-2 bg-surface-card shadow-overlay">
                 <ul className="max-h-60 overflow-auto py-1">
                   {suggestions.map((s) => (
                     <li key={s.id}>
                       <button
                         type="button"
-                        className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 flex items-center gap-2"
+                        className="w-full px-4 py-2 text-left text-sm hover:bg-surface-hover flex items-center gap-2"
                         onMouseDown={(e) => {
                           e.preventDefault() // prevent blur before click
                           handleSuggestionClick(s)
@@ -263,13 +252,13 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                           photoUpdatedAt={s.photo_updated_at}
                           className="h-7 w-7 text-[10px]"
                         />
-                        <span className="shrink-0 font-mono text-xs text-gray-400">
+                        <span className="shrink-0 font-mono text-xs text-ink-muted">
                           {formatMemberNumber(s.member_number)}
                         </span>
-                        <span className="font-medium text-gray-900 truncate">
+                        <span className="font-medium text-ink truncate">
                           {s.name}
                         </span>
-                        <span className="ml-auto shrink-0 text-gray-400 text-xs">
+                        <span className="ml-auto shrink-0 text-ink-muted text-xs">
                           {s.phone_number}
                         </span>
                       </button>
@@ -282,7 +271,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
 
           {/* Filter button for mobile */}
           <Button
-            variant="outline"
+            variant="secondary"
             size="icon"
             onClick={() => setFilterModalOpen(true)}
             className="lg:hidden shrink-0"
@@ -293,236 +282,162 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
 
           {/* Desktop filters - hidden on mobile */}
           <div className="hidden lg:flex gap-4">
-            <Select
-              value={status}
-              onValueChange={(value) => {
-                setStatus(value)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger
+            <div className="w-[150px]">
+              <Select
                 id="members-table-status-filter-desktop-select"
-                className="w-[150px]"
+                value={status}
+                onChange={(e) => {
+                  setStatus(e.target.value)
+                  setPage(1)
+                }}
               >
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">
-                  <span className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
-                    Active
-                  </span>
-                </SelectItem>
-                <SelectItem value="expired">
-                  <span className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
-                    Expired
-                  </span>
-                </SelectItem>
-                <SelectItem value="suspended">
-                  <span className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
-                    Suspended
-                  </span>
-                </SelectItem>
-                <SelectItem value="cancelled">
-                  <span className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-gray-400 shrink-0" />
-                    Cancelled
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Select
-              value={planType}
-              onValueChange={(value) => {
-                setPlanType(value)
-                setPage(1)
-              }}
-            >
-              <SelectTrigger
+                <option value="all">All Status</option>
+                <option value="active">Active</option>
+                <option value="expired">Expired</option>
+                <option value="suspended">Suspended</option>
+                <option value="cancelled">Cancelled</option>
+              </Select>
+            </div>
+            <div className="w-[150px]">
+              <Select
                 id="members-table-plan-filter-desktop-select"
-                className="w-[150px]"
+                value={planType}
+                onChange={(e) => {
+                  setPlanType(e.target.value)
+                  setPage(1)
+                }}
               >
-                <SelectValue placeholder="Plan Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Plans</SelectItem>
+                <option value="all">All Plans</option>
                 {activePlanTypes.map((pt) => (
-                  <SelectItem key={pt.plan_type} value={pt.plan_type}>
+                  <option key={pt.plan_type} value={pt.plan_type}>
                     {getPlanLabel(pt.plan_type)}
-                  </SelectItem>
+                  </option>
                 ))}
-              </SelectContent>
-            </Select>
+              </Select>
+            </div>
           </div>
         </div>
 
         {/* Sort dropdown - hidden on mobile, shown in filter modal instead */}
         <div className="hidden lg:block">
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger
+          <div className="w-[200px]">
+            <Select
               id="members-table-sort-desktop-select"
-              className="w-[200px]"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
             >
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">Newest First</SelectItem>
-              <SelectItem value="oldest">Oldest First</SelectItem>
-              <SelectItem value="upcoming_due">Upcoming Payments</SelectItem>
-              <SelectItem value="recently_expired">Recently Expired</SelectItem>
-            </SelectContent>
-          </Select>
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="upcoming_due">Upcoming Payments</option>
+              <option value="recently_expired">Recently Expired</option>
+            </Select>
+          </div>
         </div>
       </div>
 
       {/* Filter Modal for Mobile */}
-      <Dialog open={filterModalOpen} onOpenChange={setFilterModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Filters & Sorting</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {/* Status Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
-              <Select
-                value={status}
-                onValueChange={(value) => {
-                  setStatus(value)
-                  setPage(1)
-                }}
-              >
-                <SelectTrigger
-                  id="members-table-status-filter-mobile-select"
-                  className="w-full"
-                >
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="active">
-                    <span className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-green-500 shrink-0" />
-                      Active
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="expired">
-                    <span className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-red-500 shrink-0" />
-                      Expired
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="suspended">
-                    <span className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-amber-400 shrink-0" />
-                      Suspended
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="cancelled">
-                    <span className="flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-gray-400 shrink-0" />
-                      Cancelled
-                    </span>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Plan Type Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Plan Type</label>
-              <Select
-                value={planType}
-                onValueChange={(value) => {
-                  setPlanType(value)
-                  setPage(1)
-                }}
-              >
-                <SelectTrigger
-                  id="members-table-plan-filter-mobile-select"
-                  className="w-full"
-                >
-                  <SelectValue placeholder="Plan Type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Plans</SelectItem>
-                  {activePlanTypes.map((pt) => (
-                    <SelectItem key={pt.plan_type} value={pt.plan_type}>
-                      {getPlanLabel(pt.plan_type)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Sort By */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Sort By</label>
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger
-                  id="members-table-sort-mobile-select"
-                  className="w-full"
-                >
-                  <SelectValue placeholder="Sort by" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Newest First</SelectItem>
-                  <SelectItem value="oldest">Oldest First</SelectItem>
-                  <SelectItem value="upcoming_due">
-                    Upcoming Payments
-                  </SelectItem>
-                  <SelectItem value="recently_expired">
-                    Recently Expired
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  setStatus('all')
-                  setPlanType('all')
-                  setSortBy('newest')
-                  setPage(1)
-                }}
-              >
-                Reset
-              </Button>
-              <Button
-                className="flex-1"
-                onClick={() => setFilterModalOpen(false)}
-              >
-                Apply
-              </Button>
-            </div>
+      <Modal
+        open={filterModalOpen}
+        onOpenChange={setFilterModalOpen}
+        title="Filters & Sorting"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => {
+                setStatus('all')
+                setPlanType('all')
+                setSortBy('newest')
+                setPage(1)
+              }}
+            >
+              Reset
+            </Button>
+            <Button
+              variant="accent"
+              className="flex-1"
+              onClick={() => setFilterModalOpen(false)}
+            >
+              Apply
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {/* Status Filter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Status</label>
+            <Select
+              id="members-table-status-filter-mobile-select"
+              value={status}
+              onChange={(e) => {
+                setStatus(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="all">All Status</option>
+              <option value="active">Active</option>
+              <option value="expired">Expired</option>
+              <option value="suspended">Suspended</option>
+              <option value="cancelled">Cancelled</option>
+            </Select>
           </div>
-        </DialogContent>
-      </Dialog>
+
+          {/* Plan Type Filter */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Plan Type</label>
+            <Select
+              id="members-table-plan-filter-mobile-select"
+              value={planType}
+              onChange={(e) => {
+                setPlanType(e.target.value)
+                setPage(1)
+              }}
+            >
+              <option value="all">All Plans</option>
+              {activePlanTypes.map((pt) => (
+                <option key={pt.plan_type} value={pt.plan_type}>
+                  {getPlanLabel(pt.plan_type)}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          {/* Sort By */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Sort By</label>
+            <Select
+              id="members-table-sort-mobile-select"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="upcoming_due">Upcoming Payments</option>
+              <option value="recently_expired">Recently Expired</option>
+            </Select>
+          </div>
+        </div>
+      </Modal>
 
       {/* Active search status bar */}
       {debouncedSearch && (
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">Searching for:</span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-3 py-0.5 text-xs font-medium text-blue-700">
+          <span className="text-xs text-ink-muted">Searching for:</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-accentui-border bg-accentui-bg px-3 py-0.5 text-xs font-medium text-brand-link">
             {debouncedSearch}
             <button
               type="button"
               onClick={handleClearSearch}
-              className="ml-0.5 rounded-full hover:text-blue-900 transition-colors"
+              className="ml-0.5 rounded-full hover:text-brand-link-hover transition-colors"
               aria-label="Clear search"
             >
               <X className="h-3 w-3" />
             </button>
           </span>
           {data && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs text-ink-muted">
               — {data.totalCount} result{data.totalCount !== 1 ? 's' : ''}
             </span>
           )}
@@ -531,21 +446,19 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
 
       {/* Total Count */}
       {data && !debouncedSearch && (
-        <div className="text-sm text-gray-600">
+        <div className="text-sm text-ink-secondary">
           Total Members:{' '}
-          <span className="font-semibold">{data.totalCount}</span>
+          <span className="font-semibold text-ink">{data.totalCount}</span>
         </div>
       )}
 
       {/* Overdue Members Section */}
       {data && data.overdueMembers && data.overdueMembers.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold text-red-600">
-            Overdue Members
-          </h3>
-          <div className="rounded-lg border bg-[#FFE5E5] overflow-auto">
+          <h3 className="text-lg font-semibold text-error">Overdue Members</h3>
+          <div className="rounded-lg border border-line-1 bg-error-bg overflow-auto">
             <Table>
-              <TableHeader className="sticky top-0 bg-[#FFE5E5]">
+              <TableHeader className="sticky top-0 bg-error-bg">
                 <TableRow>
                   <TableHead>Member ID</TableHead>
                   <TableHead>Name</TableHead>
@@ -561,10 +474,11 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                 {data.overdueMembers.map((member) => (
                   <TableRow
                     key={member.id}
+                    clickable
                     onClick={() => onMemberClick(member)}
-                    className="cursor-pointer hover:bg-red-100/60"
+                    className="hover:bg-error-bg"
                   >
-                    <TableCell className="font-mono text-xs text-gray-500 whitespace-nowrap">
+                    <TableCell className="font-mono text-xs text-ink-muted whitespace-nowrap">
                       {formatMemberNumber(member.member_number)}
                     </TableCell>
                     <TableCell>
@@ -582,9 +496,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                         />
                         {member.name}
                         {isNewMember(member) && (
-                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-                            NEW
-                          </Badge>
+                          <Badge variant="accent">NEW</Badge>
                         )}
                       </span>
                     </TableCell>
@@ -605,7 +517,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                           e.stopPropagation()
                           setSelectedPaymentMember(member)
                         }}
-                        className="text-sm font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                        className="text-sm font-medium text-brand-link hover:text-brand-link-hover transition-colors"
                       >
                         View Payment Details
                       </button>
@@ -621,14 +533,14 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
       {/* All Members Section */}
       <div className="space-y-2">
         <h3 className="text-lg font-semibold">All Members</h3>
-        <div className="rounded-lg border bg-white overflow-auto max-h-[600px]">
+        <div className="rounded-lg border border-line-1 bg-surface-card overflow-auto max-h-[600px]">
           {isLoading ? (
             <div className="flex h-64 items-center justify-center">
-              <div className="text-sm text-gray-500">Loading members...</div>
+              <div className="text-sm text-ink-muted">Loading members...</div>
             </div>
           ) : data && data.members.length > 0 ? (
             <Table>
-              <TableHeader className="sticky top-0 bg-white z-10">
+              <TableHeader className="sticky top-0 bg-surface-card z-sticky">
                 <TableRow>
                   <TableHead>Member ID</TableHead>
                   <TableHead>Name</TableHead>
@@ -643,10 +555,10 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                 {data.members.map((member) => (
                   <TableRow
                     key={member.id}
+                    clickable
                     onClick={() => onMemberClick(member)}
-                    className="cursor-pointer hover:bg-gray-50"
                   >
-                    <TableCell className="font-mono text-xs text-gray-500 whitespace-nowrap">
+                    <TableCell className="font-mono text-xs text-ink-muted whitespace-nowrap">
                       {formatMemberNumber(member.member_number)}
                     </TableCell>
                     <TableCell>
@@ -664,9 +576,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                         />
                         {member.name}
                         {isNewMember(member) && (
-                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-                            NEW
-                          </Badge>
+                          <Badge variant="accent">NEW</Badge>
                         )}
                       </span>
                     </TableCell>
@@ -680,12 +590,12 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                     <TableCell>{formatDate(member.next_due_date)}</TableCell>
                     <TableCell>
                       {member.discount ? (
-                        <span className="text-sm text-gray-600">
+                        <span className="text-sm text-ink-secondary">
                           {member.discount.discount_name} (
                           {member.discount.discount_percentage}%)
                         </span>
                       ) : (
-                        <span className="text-sm text-gray-400">None</span>
+                        <span className="text-sm text-ink-muted">None</span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -695,13 +605,13 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
           ) : (
             <div className="flex h-64 items-center justify-center">
               <div className="text-center space-y-2 max-w-md mx-auto px-4">
-                <p className="text-sm text-gray-500">No members found</p>
+                <p className="text-sm text-ink-muted">No members found</p>
                 {status !== 'all' || planType !== 'all' || debouncedSearch ? (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-ink-muted">
                     Try adjusting your filters or search term
                   </p>
                 ) : (
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-ink-muted">
                     Get started by adding your first member using the &quot;+
                     Add Member&quot; button above, or register multiple members
                     at once with &quot;Bulk Register&quot;.
@@ -716,12 +626,12 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
       {/* Pagination */}
       {data && data.totalPages > 1 && (
         <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-ink-secondary">
             Page {data.page} of {data.totalPages}
           </div>
           <div className="flex gap-2">
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
@@ -729,7 +639,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
               Previous
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
               onClick={() => setPage((p) => Math.min(data.totalPages, p + 1))}
               disabled={page === data.totalPages}

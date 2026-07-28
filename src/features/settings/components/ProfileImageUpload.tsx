@@ -2,8 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { Button, Label, Progress } from '@/components/ui'
 import { Upload, Loader2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PROFILE_IMAGE_WEBP_MESSAGE } from '@/features/settings/utils/profileImage'
@@ -147,7 +146,7 @@ export default function ProfileImageUpload({
       <div className="flex items-center gap-6">
         {/* Profile Picture Preview */}
         <div className="relative">
-          <div className="h-24 w-24 rounded-full border-2 border-gray-200 overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+          <div className="h-24 w-24 rounded-full border-2 border-line-2 overflow-hidden bg-accentui flex items-center justify-center">
             {previewUrl ? (
               <img
                 src={previewUrl}
@@ -155,14 +154,14 @@ export default function ProfileImageUpload({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="text-white text-2xl font-bold">
+              <span className="text-accentui-text text-2xl font-bold">
                 {getInitials()}
               </span>
             )}
           </div>
 
           {uploading && (
-            <div className="absolute inset-0 rounded-full bg-black/50 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full bg-surface-overlay flex items-center justify-center">
               <Loader2 className="h-8 w-8 text-white animate-spin" />
             </div>
           )}
@@ -180,7 +179,7 @@ export default function ProfileImageUpload({
 
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             className="gap-2"
@@ -201,25 +200,20 @@ export default function ProfileImageUpload({
           {/* Upload Progress */}
           {uploading && progress < 100 && (
             <div className="space-y-1">
-              <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-600 transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <p className="text-xs text-gray-500">{progress}% complete</p>
+              <Progress value={progress} className="h-1.5" />
+              <p className="text-xs text-ink-muted">{progress}% complete</p>
             </div>
           )}
 
           {/* Success Indicator */}
           {progress === 100 && (
-            <div className="flex items-center gap-2 text-green-600">
+            <div className="flex items-center gap-2 text-success">
               <CheckCircle2 className="h-4 w-4" />
               <p className="text-sm font-medium">Upload complete!</p>
             </div>
           )}
 
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-ink-muted">
             Recommended: Square image, at least 200x200px. Max 5MB.
           </p>
         </div>

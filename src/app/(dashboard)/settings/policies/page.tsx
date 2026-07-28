@@ -4,8 +4,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Panel, PanelHead } from '@/components/workspace/primitives'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { Button, Textarea } from '@/components/ui'
 import type { GymPolicies } from '@/features/settings/types'
 import {
   DEFAULT_GYM_RULES,
@@ -136,6 +135,7 @@ export default function GymPoliciesPage() {
 
       <div>
         <Button
+          variant="accent"
           onClick={handleSave}
           disabled={saveMutation.isPending}
           size="sm"

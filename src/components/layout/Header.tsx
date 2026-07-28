@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/ui'
 import { LogOut, Loader2 } from 'lucide-react'
 import { ProAvatarRing, useSubscription } from '@/features/subscriptions'
 import type { GymProfile } from '@/features/auth/types'
@@ -64,10 +64,10 @@ export default function Header() {
   // Show loading state while fetching
   if (!gymProfile) {
     return (
-      <header className="hidden lg:block sticky top-0 z-40 bg-white border-b border-gray-200">
+      <header className="hidden lg:block sticky top-0 z-40 bg-surface-card border-b border-line-1">
         <div className="flex h-16 items-center justify-between px-4 lg:px-8">
-          <div className="h-6 w-32 bg-gray-200 animate-pulse rounded" />
-          <div className="h-10 w-20 bg-gray-200 animate-pulse rounded" />
+          <div className="h-6 w-32 bg-surface-hover animate-pulse rounded" />
+          <div className="h-10 w-20 bg-surface-hover animate-pulse rounded" />
         </div>
       </header>
     )
@@ -83,13 +83,13 @@ export default function Header() {
   }
 
   return (
-    <header className="hidden lg:block sticky top-0 z-40 bg-white border-b border-gray-200">
+    <header className="hidden lg:block sticky top-0 z-40 bg-surface-card border-b border-line-1">
       <div className="flex h-16 items-center justify-between px-4 lg:px-8">
         {/* Gym name with profile picture */}
         <div className="flex items-center gap-3">
           {/* Profile Picture — Pro/Enterprise subscribers get the animated ring */}
           <ProAvatarRing tier={subscription?.subscription.subscriptionTier}>
-            <div className="h-10 w-10 rounded-full border-2 border-gray-200 overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shrink-0">
+            <div className="h-10 w-10 rounded-full border-2 border-line-1 overflow-hidden bg-accentui flex items-center justify-center shrink-0">
               {gymProfile.profile_image_url ? (
                 <img
                   src={gymProfile.profile_image_url}
@@ -97,14 +97,14 @@ export default function Header() {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <span className="text-white text-sm font-bold">
+                <span className="text-accentui-text text-sm font-bold">
                   {getInitials()}
                 </span>
               )}
             </div>
           </ProAvatarRing>
 
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-ink">
             {gymProfile.gym_name}
           </h2>
         </div>
@@ -112,10 +112,10 @@ export default function Header() {
         {/* Right side - User info and logout */}
         <div className="flex items-center gap-4">
           <div className="hidden sm:block text-right">
-            <p className="text-sm font-medium text-gray-900">
+            <p className="text-sm font-medium text-ink">
               {gymProfile.username}
             </p>
-            <p className="text-xs text-gray-500">{gymProfile.email}</p>
+            <p className="text-xs text-ink-muted">{gymProfile.email}</p>
           </div>
 
           <Button
