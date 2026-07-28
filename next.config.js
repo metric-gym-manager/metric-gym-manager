@@ -56,14 +56,9 @@ const nextConfig = {
     optimizePackageImports: [
       '@supabase/supabase-js',
       'lucide-react',
-      'date-fns',
       'recharts',
       '@radix-ui/react-dialog',
-      '@radix-ui/react-select',
-      '@radix-ui/react-checkbox',
-      '@radix-ui/react-label',
       '@radix-ui/react-slot',
-      'react-day-picker',
     ],
   },
   async headers() {
