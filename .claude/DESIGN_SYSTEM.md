@@ -331,10 +331,22 @@ retired** so there is one visual language and one implementation per pattern:
 - Historical traced inventory + decision-free mapping:
   `docs/architecture/legacy-ui-migration.md`.
 
+**Known unwired UI (retained, not dead).** Two components currently have zero
+importers and are **not** exported from any barrel, but were migrated onto the
+Metric system and are intentionally kept — they are staged for future wiring,
+not dead code, so do not delete them on a dead-code sweep without confirming
+intent, and do not assume they are mounted:
+
+- `src/features/revenue/components/RevenueMetricCard.tsx` — composes the DS
+  `MetricCard` composite; awaiting a revenue-dashboard placement.
+- `src/components/pwa/InstallButton.tsx` — PWA install CTA (native + iOS
+  instructions); awaiting a landing/marketing placement.
+
 > **State.** The design-system foundation (Phases 0–3) merged to master via
-> PR #42. The L4/L5 consumer migration + legacy retirement lives on branch
-> `claude/design-system-foundation-jeovtj`, green on the full functional gate
-> (`tsc` + `arch:check` + `eslint` 0 errors + `jest`), pending visual QA.
+> PR #42. The L4/L5 consumer migration + legacy retirement was then merged to
+> master from branch `claude/design-system-foundation-jeovtj`, green on the full
+> functional gate (`tsc` + `arch:check` + `eslint` 0 errors + `jest`). Visual QA
+> was deferred to post-merge review.
 
 ---
 
