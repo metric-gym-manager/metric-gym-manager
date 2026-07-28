@@ -11,6 +11,7 @@
 
 > On-demand reference. Loaded when working in this area, not auto-injected.
 > Governing rules (also indexed in `.claude/rules/architecture.md`):
+
 - **§2.9 Admin dashboard** — Provide a separate technical dashboard for admins, gated by a Supabase session + `saas_admins` membership; never expose infrastructure errors to gym managers.
 
 ---
@@ -26,14 +27,15 @@
 export async function GET(request: NextRequest) {
   const { data: failures } = await supabase
     .from('sms_logs')
-    .select('*, error_message')  // WRONG - technical errors visible to gym managers
-    .eq('delivery_status', 'failed');
+    .select('*, error_message') // WRONG - technical errors visible to gym managers
+    .eq('delivery_status', 'failed')
 
-  return NextResponse.json({ failures });  // Exposed to all authenticated users
+  return NextResponse.json({ failures }) // Exposed to all authenticated users
 }
 ```
 
 **Problems**:
+
 - Technical infrastructure details exposed to end users
 - Stack traces reveal implementation details and potential vulnerabilities
 - Database error messages expose schema information
@@ -46,62 +48,67 @@ export async function GET(request: NextRequest) {
 
 ```typescript
 // src/app/api/admin/system-health/cron-stats/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function GET(request: NextRequest) {
   try {
     // CRITICAL: Strict authorization check BEFORE any database queries
-    const authHeader = request.headers.get('authorization');
-    const adminSecret = process.env.ADMIN_API_SECRET;
+    const authHeader = request.headers.get('authorization')
+    const adminSecret = process.env.ADMIN_API_SECRET
 
     if (!adminSecret) {
-      console.error('ADMIN_API_SECRET not configured');
+      console.error('ADMIN_API_SECRET not configured')
       return NextResponse.json(
         { success: false, error: 'Admin API not configured' },
         { status: 500 }
-      );
+      )
     }
 
     if (authHeader !== `Bearer ${adminSecret}`) {
-      console.warn('Unauthorized admin API access attempt');
+      console.warn('Unauthorized admin API access attempt')
       return NextResponse.json(
         { success: false, error: 'Forbidden - Invalid admin credentials' },
         { status: 403 }
-      );
+      )
     }
 
     // Only execute queries AFTER authorization passes
-    const supabase = createAdminClient();
+    const supabase = createAdminClient()
     const { data: jobNames } = await supabase
       .from('cron_logs')
       .select('job_name')
-      .order('job_name');
+      .order('job_name')
 
     const uniqueJobNames = Array.from(
       new Set((jobNames || []).map((row) => row.job_name))
-    );
+    )
 
-    const cronStats: Record<string, any[]> = {};
+    const cronStats: Record<string, any[]> = {}
 
     for (const jobName of uniqueJobNames) {
       const { data: executions } = await supabase
         .from('cron_logs')
-        .select('id, job_name, started_at, completed_at, status, summary, errors')
+        .select(
+          'id, job_name, started_at, completed_at, status, summary, errors'
+        )
         .eq('job_name', jobName)
         .order('started_at', { ascending: false })
-        .limit(10);
+        .limit(10)
 
-      cronStats[jobName] = executions || [];
+      cronStats[jobName] = executions || []
     }
 
-    return NextResponse.json({ success: true, data: cronStats }, { status: 200 });
+    return NextResponse.json(
+      { success: true, data: cronStats },
+      { status: 200 }
+    )
   } catch (error) {
-    console.error('Cron stats API error:', error);
+    console.error('Cron stats API error:', error)
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
-    );
+    )
   }
 }
 ```
@@ -113,37 +120,39 @@ export async function GET(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     // Authorization check (same pattern as above)
-    const authHeader = request.headers.get('authorization');
-    const adminSecret = process.env.ADMIN_API_SECRET;
+    const authHeader = request.headers.get('authorization')
+    const adminSecret = process.env.ADMIN_API_SECRET
 
     if (authHeader !== `Bearer ${adminSecret}`) {
       return NextResponse.json(
         { success: false, error: 'Forbidden' },
         { status: 403 }
-      );
+      )
     }
 
     // Extract optional gymId query parameter for gym-specific drilldown
-    const { searchParams } = new URL(request.url);
-    const gymId = searchParams.get('gymId');
+    const { searchParams } = new URL(request.url)
+    const gymId = searchParams.get('gymId')
 
-    const supabase = createAdminClient();
+    const supabase = createAdminClient()
 
     // Build query with optional gym filter
     let query = supabase
       .from('sms_logs')
-      .select('id, gym_id, member_id, sms_type, phone_number, message_body, sent_at, delivery_status, error_message, text_lk_message_id')
-      .eq('delivery_status', 'failed');
+      .select(
+        'id, gym_id, member_id, sms_type, phone_number, message_body, sent_at, delivery_status, error_message, text_lk_message_id'
+      )
+      .eq('delivery_status', 'failed')
 
     // Apply gym filter if gymId provided
     if (gymId) {
-      query = query.eq('gym_id', gymId);
+      query = query.eq('gym_id', gymId)
     }
 
     // Execute query with ordering and limit
     const { data: failures } = await query
       .order('sent_at', { ascending: false })
-      .limit(50);
+      .limit(50)
 
     return NextResponse.json({
       success: true,
@@ -151,21 +160,22 @@ export async function GET(request: NextRequest) {
         failures: failures || [],
         totalCount: (failures || []).length,
         filters: {
-          gymId: gymId || null,  // Include applied filters in response
+          gymId: gymId || null, // Include applied filters in response
         },
       },
-    });
+    })
   } catch (error) {
-    console.error('SMS failures API error:', error);
+    console.error('SMS failures API error:', error)
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
-    );
+    )
   }
 }
 ```
 
 **Performance Optimization**:
+
 - Composite index created: `idx_sms_logs_gym_failures (gym_id, delivery_status, sent_at DESC)`
 - Partial index with `WHERE delivery_status = 'failed'` clause
 - Provides 10-100x speedup for gym-filtered queries on large datasets
@@ -177,7 +187,7 @@ export async function GET(request: NextRequest) {
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui';
 import { RefreshCw, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react';
 
 export default function CronStatusGrid() {
@@ -275,9 +285,17 @@ export default function CronStatusGrid() {
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  Input,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui';
 import { Copy, Check, Filter, X } from 'lucide-react';
 import { useState } from 'react';
 
@@ -589,10 +607,10 @@ NEXT_PUBLIC_ADMIN_API_SECRET=your-admin-api-secret
 ```typescript
 // Database-backed admin allow-list (shipped): Supabase session + saas_admins row
 export async function GET(request: NextRequest) {
-  const admin = await getSaasAdmin(); // null unless a saas_admins row exists
+  const admin = await getSaasAdmin() // null unless a saas_admins row exists
 
   if (!admin) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   // Proceed with admin operations
