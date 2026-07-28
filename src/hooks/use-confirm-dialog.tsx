@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal, Button } from '@/components/ui'
+import { ConfirmDialog as ConfirmDialogComposite } from '@/components/common/composites'
 
 interface ConfirmOptions {
   title: string
@@ -14,6 +14,12 @@ interface ConfirmDialogState extends ConfirmOptions {
   resolve?: (value: boolean) => void
 }
 
+/**
+ * Imperative confirmation prompt: `await confirm({ ... })` resolves to the
+ * user's choice. Renders the Metric `ConfirmDialog` composite (Layer 3) — the
+ * single confirm-dialog implementation — so the imperative and declarative
+ * entry points share one UI.
+ */
 export function useConfirmDialog() {
   const [state, setState] = useState<ConfirmDialogState>({
     isOpen: false,
@@ -47,31 +53,18 @@ export function useConfirmDialog() {
     setState((prev) => ({ ...prev, isOpen: false }))
   }
 
-  const destructive = state.variant === 'destructive'
-
   const ConfirmDialog = () => (
-    <Modal
+    <ConfirmDialogComposite
       open={state.isOpen}
       onOpenChange={(open) => {
         if (!open) handleCancel()
       }}
       title={state.title}
       description={state.description}
-      destructive={destructive}
-      footer={
-        <>
-          <Button type="button" variant="secondary" onClick={handleCancel}>
-            {state.cancelText}
-          </Button>
-          <Button
-            type="button"
-            variant={destructive ? 'destructive' : 'accent'}
-            onClick={handleConfirm}
-          >
-            {state.confirmText}
-          </Button>
-        </>
-      }
+      confirmLabel={state.confirmText}
+      cancelLabel={state.cancelText}
+      destructive={state.variant === 'destructive'}
+      onConfirm={handleConfirm}
     />
   )
 
