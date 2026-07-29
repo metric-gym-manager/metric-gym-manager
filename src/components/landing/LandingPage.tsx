@@ -140,7 +140,6 @@ html:has(.landing-root){scroll-behavior:smooth}
 @media (max-width:480px){
   #preview-stats{grid-template-columns:1fr!important}
   #footer-grid{grid-template-columns:1fr!important}
-  #nav-login{display:none!important}
   #trust-logos span{font-size:16px!important}
 }
 `
