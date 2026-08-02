@@ -135,6 +135,11 @@ export const collectPaymentSchema = z.object({
     .positive('Plan amount must be greater than 0')
     .max(1000000, 'Plan amount is too large'),
 
+  // Optional plan switch applied during reactivation. When present, the member
+  // is moved onto this plan (with `planAmount` as the new recurring price)
+  // before the due date is recalculated. Omitted for a regular "mark paid".
+  planType: MemberPlanType.optional(),
+
   discountId: z.string().uuid().nullable().optional(),
 
   paymentAmount: z

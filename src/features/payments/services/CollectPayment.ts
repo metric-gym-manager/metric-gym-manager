@@ -8,25 +8,31 @@
  * This use case orchestrates:
  * 1. Fetching member from repository
  * 2. Validating member exists
- * 3. Calculating next due date (with deductOverduePeriod option)
- * 4. Activating/renewing member (state machine + active-member quota enforced;
- *    a quota block fails BEFORE any write — see step-4 comment in execute())
- * 5. Creating payment record
- * 6. Resetting reminder flags for new billing period
- * 7. Sending receipt SMS and logging it (awaited so serverless
- *    freeze after the response cannot drop the sms_logs write)
+ * 3. Applying an optional plan change (reactivation may switch the plan)
+ * 4. Calculating next due date (with deductOverduePeriod option)
+ * 5. Activating/renewing member (state machine + active-member quota enforced;
+ *    a quota block fails BEFORE any write — see step-5 comment in execute())
+ * 6. Creating payment record
+ * 7. Resetting reminder flags for new billing period
+ * 8. Sending the payment SMS and logging it (awaited so serverless
+ *    freeze after the response cannot drop the sms_logs write) — the
+ *    reactivation template for suspended/cancelled -> active, else the receipt
  */
 
-import { Member } from '@/features/members/domain/Member';
-import { Payment } from '@/features/payments/domain/Payment';
-import { IMemberRepository } from '@/features/members/services/IMemberRepository';
-import { IPaymentRepository } from './IPaymentRepository';
-import { ISMSRepository } from '@/features/sms/services/ISMSRepository';
-import { ISMSProvider } from '@/features/sms/services/ISMSProvider';
-import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
-import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate';
-import { formatDateForDisplay } from '@/utils/date/date';
-import { NotFoundError, ValidationError } from '@/utils/errors';
+import { Member, MemberStatus } from '@/features/members/domain/Member'
+import { Payment } from '@/features/payments/domain/Payment'
+import { PlanType } from '@/features/members/config/PlanConfig'
+import { IMemberRepository } from '@/features/members/services/IMemberRepository'
+import { IPaymentRepository } from './IPaymentRepository'
+import { ISMSRepository } from '@/features/sms/services/ISMSRepository'
+import { ISMSProvider } from '@/features/sms/services/ISMSProvider'
+import {
+  SMSDeliveryStatus,
+  type SMSType,
+} from '@/features/sms/services/ISMSRepository'
+import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
+import { formatDateForDisplay } from '@/utils/date/date'
+import { NotFoundError, ValidationError } from '@/utils/errors'
 
 /**
  * Discount information for payment
@@ -35,17 +41,17 @@ export interface DiscountInfo {
   /**
    * Discount ID
    */
-  discountId: string;
+  discountId: string
 
   /**
    * Discount name (for display)
    */
-  discountName: string;
+  discountName: string
 
   /**
    * Discount percentage (0-100)
    */
-  discountPercentage: number;
+  discountPercentage: number
 }
 
 /**
@@ -55,32 +61,32 @@ export interface CollectPaymentInput {
   /**
    * Gym ID (for multi-tenancy)
    */
-  gymId: string;
+  gymId: string
 
   /**
    * Member ID
    */
-  memberId: string;
+  memberId: string
 
   /**
    * Payment date
    */
-  paymentDate: Date;
+  paymentDate: Date
 
   /**
    * Payment amount in LKR
    */
-  paymentAmount: number;
+  paymentAmount: number
 
   /**
    * Discount ID (optional)
    */
-  discountId?: string | null;
+  discountId?: string | null
 
   /**
    * Discount information (for receipt)
    */
-  discount?: DiscountInfo | null;
+  discount?: DiscountInfo | null
 
   /**
    * Whether to deduct overdue period when calculating next due date
@@ -90,7 +96,26 @@ export interface CollectPaymentInput {
    *
    * @default true
    */
-  deductOverduePeriod?: boolean;
+  deductOverduePeriod?: boolean
+
+  /**
+   * New plan type to switch the member onto as part of this payment.
+   *
+   * Used by the reactivation flow, where the operator may change the plan when
+   * bringing a cancelled/suspended member back. When provided, the member's plan
+   * is updated BEFORE the next due date is calculated (so the new plan's
+   * duration drives the due date) and BEFORE the status flip. Omit to keep the
+   * member's existing plan (regular "mark paid" behavior).
+   */
+  planType?: PlanType
+
+  /**
+   * New recurring plan base amount (LKR) to persist on the member alongside
+   * `planType`. Only applied when `planType` is provided; defaults to the
+   * member's current plan amount when omitted. This is the recurring price
+   * stored on the member, distinct from `paymentAmount` (what is collected now).
+   */
+  planAmount?: number
 }
 
 /**
@@ -100,12 +125,12 @@ export interface CollectPaymentOutput {
   /**
    * Updated member (with new status and due date)
    */
-  member: Member;
+  member: Member
 
   /**
    * Payment record
    */
-  payment: Payment;
+  payment: Payment
 }
 
 /**
@@ -147,32 +172,54 @@ export class CollectPayment {
    */
   async execute(input: CollectPaymentInput): Promise<CollectPaymentOutput> {
     // 1. Get member from repository
-    const member = await this.memberRepo.findById(input.memberId, input.gymId);
+    const member = await this.memberRepo.findById(input.memberId, input.gymId)
 
     if (!member) {
-      throw new NotFoundError(`Member ${input.memberId}`);
+      throw new NotFoundError(`Member ${input.memberId}`)
     }
 
     // 2. Validate payment amount
     if (input.paymentAmount <= 0) {
-      throw new ValidationError('Payment amount must be greater than zero');
+      throw new ValidationError('Payment amount must be greater than zero')
     }
 
-    // 3. Calculate next due date
+    // Capture the status BEFORE the flip so we can pick the right SMS template:
+    // bringing a suspended/cancelled member back is a "reactivation", whereas a
+    // paying active/expired member gets the usual payment receipt.
+    const wasReactivation =
+      member.status === MemberStatus.Suspended ||
+      member.status === MemberStatus.Cancelled
+
+    // 3. Apply an optional plan change (reactivation may switch the plan).
+    // Done first so the new plan's duration drives the next due date and the
+    // updated plan is carried through the single memberRepo.update() below.
+    const planChangedMember =
+      input.planType !== undefined
+        ? member.updatePlan(
+            input.planType,
+            input.planAmount ?? member.planAmount
+          )
+        : member
+
+    // 4. Calculate next due date
     // If deductOverduePeriod is true (default), calculate from payment date
     // If false, calculate from current next_due_date (allows members to pay early)
     const baseDate =
-      input.deductOverduePeriod ?? true
+      (input.deductOverduePeriod ?? true)
         ? input.paymentDate
-        : member.nextDueDate;
+        : planChangedMember.nextDueDate
 
-    const nextDueDate = calculateNextDueDate(baseDate, member.planType, {
-      deductOverduePeriod: input.deductOverduePeriod ?? true,
-    });
+    const nextDueDate = calculateNextDueDate(
+      baseDate,
+      planChangedMember.planType,
+      {
+        deductOverduePeriod: input.deductOverduePeriod ?? true,
+      }
+    )
 
-    // 4. Activate or renew member based on current status (state machine enforced)
+    // 5. Activate or renew member based on current status (state machine enforced)
     // - If member is already Active: renew (early payment/extension)
-    // - If member is Expired/Suspended: activate (reactivation)
+    // - If member is Expired/Suspended/Cancelled: activate (reactivation)
     // Note: Reminder flags will be reset by the repository when updating a member
     // (this keeps the domain model clean from SMS tracking concerns)
     //
@@ -182,13 +229,13 @@ export class CollectPayment {
     // means a quota block records nothing — no orphaned payment row, and a
     // retry after upgrading cannot double-record the payment.
     const processedMember =
-      member.status === 'active'
-        ? member.renew(nextDueDate)  // Early renewal for active members
-        : member.activate(nextDueDate); // Reactivation for expired/suspended
+      planChangedMember.status === MemberStatus.Active
+        ? planChangedMember.renew(nextDueDate) // Early renewal for active members
+        : planChangedMember.activate(nextDueDate) // Reactivation for expired/suspended/cancelled
 
-    const updatedMember = await this.memberRepo.update(processedMember);
+    const updatedMember = await this.memberRepo.update(processedMember)
 
-    // 5. Create payment record
+    // 6. Create payment record
     const payment = Payment.create({
       memberId: input.memberId,
       gymId: input.gymId,
@@ -197,88 +244,94 @@ export class CollectPayment {
       discountApplied: input.discount?.discountId || null,
       discountPercentage: input.discount?.discountPercentage || null,
       nextDueDateCalculated: nextDueDate,
-    });
+    })
 
-    const savedPayment = await this.paymentRepo.create(payment);
+    const savedPayment = await this.paymentRepo.create(payment)
 
-    // 6. Send receipt SMS and log it BEFORE returning.
+    // 7. Send the payment SMS and log it BEFORE returning.
     // On serverless runtimes the function can be frozen as soon as the
     // response is sent, so a fire-and-forget send drops the sms_logs
-    // write (and sometimes the SMS itself) mid-flight. sendReceiptSMS
+    // write (and sometimes the SMS itself) mid-flight. sendPaymentSMS
     // handles provider failures internally, so a failed SMS never
-    // fails the payment.
+    // fails the payment. A reactivation (suspended/cancelled -> active)
+    // gets the reactivation template; everything else gets the receipt.
     try {
-      await this.sendReceiptSMS(
+      await this.sendPaymentSMS(
         updatedMember,
         input.paymentAmount,
         nextDueDate,
-        input.discount
-      );
+        input.discount,
+        wasReactivation
+      )
     } catch (error) {
-      console.error('Failed to send receipt SMS:', error);
+      console.error('Failed to send payment SMS:', error)
     }
 
     return {
       member: updatedMember,
       payment: savedPayment,
-    };
+    }
   }
 
   /**
-   * Send receipt SMS to member
+   * Send the payment SMS to the member and log it.
+   *
+   * Chooses the template by whether this payment reactivated the member:
+   * - reactivation (suspended/cancelled -> active): "welcome back" message
+   * - otherwise: standard payment receipt
    *
    * @param member - Member who made payment
    * @param amountPaid - Payment amount
    * @param nextDueDate - Next due date
    * @param discount - Discount information (optional)
+   * @param isReactivation - True when the payment brought the member back to active
    */
-  private async sendReceiptSMS(
+  private async sendPaymentSMS(
     member: Member,
     amountPaid: number,
     nextDueDate: Date,
-    discount?: DiscountInfo | null
+    discount: DiscountInfo | null | undefined,
+    isReactivation: boolean
   ): Promise<void> {
-    const message = this.generateReceiptMessage(
-      member,
-      amountPaid,
-      nextDueDate,
-      discount
-    );
+    const smsType: SMSType = isReactivation ? 'reactivation' : 'receipt'
+    const message = isReactivation
+      ? this.generateReactivationMessage(member, amountPaid, nextDueDate)
+      : this.generateReceiptMessage(member, amountPaid, nextDueDate, discount)
 
     try {
       // Send SMS
       const result = await this.smsProvider.send({
         to: member.phoneNumber,
         message,
-      });
+      })
 
       if (result.success) {
         // Log successful SMS to database
         await this.smsRepo.create({
           memberId: member.id,
           gymId: member.gymId,
-          smsType: 'receipt',
+          smsType,
           phoneNumber: member.phoneNumber,
           messageBody: message,
           sentAt: new Date(),
           deliveryStatus: SMSDeliveryStatus.Sent,
           textLkMessageId: result.messageId || null,
           errorMessage: null,
-        });
+        })
       } else {
         // Log failed SMS to database with error message
         await this.smsRepo.create({
           memberId: member.id,
           gymId: member.gymId,
-          smsType: 'receipt',
+          smsType,
           phoneNumber: member.phoneNumber,
           messageBody: message,
           sentAt: new Date(),
           deliveryStatus: SMSDeliveryStatus.Failed,
           textLkMessageId: null,
           errorMessage: result.error || 'Unknown error',
-        });
-        console.error('Receipt SMS failed:', result.error);
+        })
+        console.error('Payment SMS failed:', result.error)
       }
     } catch (error) {
       // Log exception to database
@@ -286,20 +339,47 @@ export class CollectPayment {
         await this.smsRepo.create({
           memberId: member.id,
           gymId: member.gymId,
-          smsType: 'receipt',
+          smsType,
           phoneNumber: member.phoneNumber,
           messageBody: message,
           sentAt: new Date(),
           deliveryStatus: SMSDeliveryStatus.Failed,
           textLkMessageId: null,
-          errorMessage: error instanceof Error ? error.message : 'Exception sending SMS',
-        });
+          errorMessage:
+            error instanceof Error ? error.message : 'Exception sending SMS',
+        })
       } catch (logError) {
-        console.error('Failed to log SMS failure:', logError);
+        console.error('Failed to log SMS failure:', logError)
       }
-      console.error('Exception sending receipt SMS:', error);
+      console.error('Exception sending payment SMS:', error)
       // Don't throw - this is a non-critical operation
     }
+  }
+
+  /**
+   * Generate reactivation SMS message.
+   *
+   * Sent when a suspended or cancelled member is brought back to active status
+   * through a fresh payment.
+   *
+   * @param member - Member who was reactivated
+   * @param amountPaid - Payment amount
+   * @param nextDueDate - Next due date
+   * @returns SMS message body
+   */
+  private generateReactivationMessage(
+    member: Member,
+    amountPaid: number,
+    nextDueDate: Date
+  ): string {
+    const amountFormatted = `Rs.${amountPaid.toFixed(2)}`
+    const dueDateFormatted = formatDateForDisplay(nextDueDate)
+
+    return (
+      `Welcome back, ${member.name}! Your membership has been reactivated ` +
+      `(payment of ${amountFormatted} received). ` +
+      `Next due date: ${dueDateFormatted}. Thank you!`
+    )
   }
 
   /**
@@ -317,8 +397,8 @@ export class CollectPayment {
     nextDueDate: Date,
     discount?: DiscountInfo | null
   ): string {
-    const amountFormatted = `Rs.${amountPaid.toFixed(2)}`;
-    const dueDateFormatted = formatDateForDisplay(nextDueDate);
+    const amountFormatted = `Rs.${amountPaid.toFixed(2)}`
+    const dueDateFormatted = formatDateForDisplay(nextDueDate)
 
     // Include discount in message if applied
     if (discount?.discountName && discount?.discountPercentage) {
@@ -326,12 +406,12 @@ export class CollectPayment {
         `Dear ${member.name}, payment of ${amountFormatted} received ` +
         `(Discount: ${discount.discountName} ${discount.discountPercentage}% applied). ` +
         `Next due date: ${dueDateFormatted}. Thank you!`
-      );
+      )
     }
 
     return (
       `Dear ${member.name}, payment of ${amountFormatted} received. ` +
       `Next due date: ${dueDateFormatted}. Thank you!`
-    );
+    )
   }
 }

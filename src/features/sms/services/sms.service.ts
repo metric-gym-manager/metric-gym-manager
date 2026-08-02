@@ -295,6 +295,11 @@ function formatSMSMessage(
     case 'overdue':
       return `Dear ${member.name}, your ${planType} membership at ${gymName} was due on ${dueDate}. Amount: ${amount}. Please make payment. Thank you.`
 
+    case 'reactivation': {
+      const paid = paymentAmount ? `Rs.${paymentAmount.toFixed(2)}` : amount
+      return `Welcome back to ${gymName}, ${member.name}! Your ${planType} membership has been reactivated (payment of ${paid} received). Next due date: ${dueDate}. Thank you!`
+    }
+
     case 'receipt':
       // This will be formatted in the payment service with actual payment details
       return ''

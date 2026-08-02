@@ -5,7 +5,7 @@
  * This stores records of all SMS messages sent by the system.
  */
 
-import { ReminderType } from '@/features/sms/config/ReminderConfig';
+import { ReminderType } from '@/features/sms/config/ReminderConfig'
 
 /**
  * SMS types
@@ -14,9 +14,10 @@ export type SMSType =
   | ReminderType
   | 'receipt'
   | 'welcome'
+  | 'reactivation'
   | 'cancellation'
   | 'manual'
-  | 'other';
+  | 'other'
 
 /**
  * SMS delivery status
@@ -32,22 +33,22 @@ export enum SMSDeliveryStatus {
  * SMS log entry
  */
 export interface SMSLog {
-  id: string;
-  memberId: string;
-  gymId: string;
-  smsType: SMSType;
-  phoneNumber: string;
-  messageBody: string;
-  sentAt: Date;
-  deliveryStatus: SMSDeliveryStatus;
-  textLkMessageId: string | null;
-  errorMessage: string | null;
+  id: string
+  memberId: string
+  gymId: string
+  smsType: SMSType
+  phoneNumber: string
+  messageBody: string
+  sentAt: Date
+  deliveryStatus: SMSDeliveryStatus
+  textLkMessageId: string | null
+  errorMessage: string | null
 }
 
 /**
  * Properties for creating a new SMS log
  */
-export type CreateSMSLogProps = Omit<SMSLog, 'id'>;
+export type CreateSMSLogProps = Omit<SMSLog, 'id'>
 
 /**
  * SMS query filters
@@ -56,42 +57,42 @@ export interface SMSFilters {
   /**
    * Gym ID (required for multi-tenancy)
    */
-  gymId: string;
+  gymId: string
 
   /**
    * Filter by member ID
    */
-  memberId?: string;
+  memberId?: string
 
   /**
    * Filter by SMS type
    */
-  smsType?: SMSType;
+  smsType?: SMSType
 
   /**
    * Filter by delivery status
    */
-  deliveryStatus?: SMSDeliveryStatus;
+  deliveryStatus?: SMSDeliveryStatus
 
   /**
    * Filter by date range (start)
    */
-  startDate?: Date;
+  startDate?: Date
 
   /**
    * Filter by date range (end)
    */
-  endDate?: Date;
+  endDate?: Date
 
   /**
    * Pagination: page number (1-indexed)
    */
-  page?: number;
+  page?: number
 
   /**
    * Pagination: items per page
    */
-  limit?: number;
+  limit?: number
 }
 
 /**
@@ -128,7 +129,7 @@ export interface ISMSRepository {
    * @param id - SMS log ID
    * @returns SMS log if found, null otherwise
    */
-  findById(id: string): Promise<SMSLog | null>;
+  findById(id: string): Promise<SMSLog | null>
 
   /**
    * Find all SMS logs for a member
@@ -138,7 +139,7 @@ export interface ISMSRepository {
    * @param memberId - Member ID
    * @returns Array of SMS logs sorted by date (newest first)
    */
-  findByMemberId(memberId: string): Promise<SMSLog[]>;
+  findByMemberId(memberId: string): Promise<SMSLog[]>
 
   /**
    * Find all SMS logs with filters
@@ -146,7 +147,7 @@ export interface ISMSRepository {
    * @param filters - Query filters
    * @returns Array of SMS logs
    */
-  findAll(filters: SMSFilters): Promise<SMSLog[]>;
+  findAll(filters: SMSFilters): Promise<SMSLog[]>
 
   /**
    * Create a new SMS log entry
@@ -154,7 +155,7 @@ export interface ISMSRepository {
    * @param log - SMS log data
    * @returns Created SMS log with assigned ID
    */
-  create(log: CreateSMSLogProps): Promise<SMSLog>;
+  create(log: CreateSMSLogProps): Promise<SMSLog>
 
   /**
    * Check if SMS was already sent today
@@ -166,7 +167,7 @@ export interface ISMSRepository {
    * @param smsType - Type of SMS
    * @returns True if SMS was already sent today
    */
-  existsForToday(memberId: string, smsType: SMSType): Promise<boolean>;
+  existsForToday(memberId: string, smsType: SMSType): Promise<boolean>
 
   /**
    * Get SMS count by type for a gym
@@ -182,7 +183,7 @@ export interface ISMSRepository {
     gymId: string,
     startDate: Date,
     endDate: Date
-  ): Promise<Record<SMSType, number>>;
+  ): Promise<Record<SMSType, number>>
 
   /**
    * Get failed SMS logs
@@ -193,7 +194,7 @@ export interface ISMSRepository {
    * @param limit - Maximum number of logs to return
    * @returns Array of failed SMS logs
    */
-  getFailedMessages(gymId: string, limit?: number): Promise<SMSLog[]>;
+  getFailedMessages(gymId: string, limit?: number): Promise<SMSLog[]>
 
   /**
    * Update delivery status
@@ -206,7 +207,7 @@ export interface ISMSRepository {
   updateDeliveryStatus(
     messageId: string,
     status: SMSDeliveryStatus
-  ): Promise<void>;
+  ): Promise<void>
 
   /**
    * Get SMS stats for dashboard
@@ -221,9 +222,9 @@ export interface ISMSRepository {
     startDate: Date,
     endDate: Date
   ): Promise<{
-    totalSent: number;
-    totalDelivered: number;
-    totalFailed: number;
-    byType: Record<SMSType, number>;
-  }>;
+    totalSent: number
+    totalDelivered: number
+    totalFailed: number
+    byType: Record<SMSType, number>
+  }>
 }
