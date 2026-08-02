@@ -47,6 +47,86 @@ export async function searchMemberSuggestions(
   return (data ?? []) as MemberSuggestion[]
 }
 
+export interface PlanEnrolment {
+  planType: string
+  activeCount: number
+}
+
+/** Group plan-type occurrences into descending-count enrolment rows (pure, testable). */
+export function tallyEnrolmentByPlan(planTypes: string[]): PlanEnrolment[] {
+  const counts = new Map<string, number>()
+  for (const p of planTypes) counts.set(p, (counts.get(p) ?? 0) + 1)
+  return Array.from(counts.entries())
+    .map(([planType, activeCount]) => ({ planType, activeCount }))
+    .sort((a, b) => b.activeCount - a.activeCount)
+}
+
+/**
+ * Active-member enrolment counts grouped by plan type (RLS-scoped to the gym).
+ * Powers the Revenue "breakdown by plan" enrolment column — a true member count,
+ * distinct from the per-plan payment count aggregated from collected payments.
+ */
+export async function getEnrolmentByPlan(
+  gymId: string
+): Promise<PlanEnrolment[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('members')
+    .select('plan_type')
+    .eq('gym_id', gymId)
+    .eq('status', 'active')
+
+  if (error) throw new Error(error.message)
+
+  return tallyEnrolmentByPlan(
+    ((data ?? []) as { plan_type: string }[]).map((r) => r.plan_type)
+  )
+}
+
+export interface DiscountUsage {
+  discountId: string
+  memberCount: number
+}
+
+/** Count non-null discount references into descending-usage rows (pure, testable). */
+export function tallyDiscountUsage(
+  discountIds: (string | null)[]
+): DiscountUsage[] {
+  const counts = new Map<string, number>()
+  for (const id of discountIds) {
+    if (!id) continue
+    counts.set(id, (counts.get(id) ?? 0) + 1)
+  }
+  return Array.from(counts.entries())
+    .map(([discountId, memberCount]) => ({ discountId, memberCount }))
+    .sort((a, b) => b.memberCount - a.memberCount)
+}
+
+/**
+ * How many active members currently have each discount applied (RLS-scoped to
+ * the gym), keyed by discount id. Powers the Billing-Setup discounts "In use"
+ * column — a member usage count distinct from the discount definition itself.
+ */
+export async function getDiscountUsage(
+  gymId: string
+): Promise<DiscountUsage[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('members')
+    .select('discount_id')
+    .eq('gym_id', gymId)
+    .eq('status', 'active')
+    .not('discount_id', 'is', null)
+
+  if (error) throw new Error(error.message)
+
+  return tallyDiscountUsage(
+    ((data ?? []) as { discount_id: string | null }[]).map((r) => r.discount_id)
+  )
+}
+
 export interface MemberDetail {
   member: Record<string, unknown>
   payments: Record<string, unknown>[]

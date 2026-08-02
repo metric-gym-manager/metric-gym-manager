@@ -3,10 +3,25 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
-  Panel,
-  PanelHead,
-  StatusBadge,
-} from '@/components/workspace/primitives'
+  Button,
+  Card,
+  CardHeader,
+  CardLabel,
+  CardBody,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Badge,
+  Label,
+  Select,
+  Textarea,
+  HelperText,
+  type BadgeProps,
+} from '@/components/ui'
+import { PageHeader } from '@/components/common/composites'
 import AnnouncementProgress from '@/features/announcements/components/AnnouncementProgress'
 import { FeatureGate } from '@/features/subscriptions'
 import type { Announcement } from '@/features/announcements/types'
@@ -20,6 +35,31 @@ const AUDIENCE_OPTIONS: { value: Audience; label: string }[] = [
   { value: 'active', label: 'Active members only' },
   { value: 'expired', label: 'Expired members only' },
 ]
+
+/**
+ * Per-broadcast delivery status → badge. Uses the persisted status +
+ * failed_count on the announcement row (surfaced via the Announcement type),
+ * so the log shows a true DELIVERED / PARTIAL / FAILED history rather than a
+ * flat "SENT".
+ */
+function deliveryBadge(a: Announcement): {
+  variant: BadgeProps['variant']
+  label: string
+} {
+  switch (a.status) {
+    case 'completed':
+      return a.failed_count > 0
+        ? { variant: 'warning', label: 'PARTIAL' }
+        : { variant: 'success', label: 'DELIVERED' }
+    case 'sending':
+      return { variant: 'accent', label: 'SENDING' }
+    case 'failed':
+      return { variant: 'error', label: 'FAILED' }
+    case 'pending':
+    default:
+      return { variant: 'neutral', label: 'PENDING' }
+  }
+}
 
 export default function MakeAnnouncementPage() {
   // Announcements are enabled on every paid tier — the gate passes today but
@@ -90,9 +130,13 @@ function AnnouncementComposer() {
     sendMutation.mutate({ message, audience })
   }
 
+  const confirmAudienceWord = AUDIENCE_OPTIONS.find((o) => o.value === audience)
+    ?.label.split(' ')[0]
+    .toLowerCase()
+
   return (
-    <div className="flex flex-col gap-4" style={{ maxWidth: 1200 }}>
-      <h1 className="mws-h1">Announcements</h1>
+    <div className="flex max-w-app flex-col gap-4">
+      <PageHeader title="Announcements" />
 
       {currentAnnouncementId && (
         <AnnouncementProgress
@@ -104,39 +148,34 @@ function AnnouncementComposer() {
         />
       )}
 
-      <div
-        className="mws-two-col"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '440px 1fr',
-          gap: 12,
-          alignItems: 'start',
-        }}
-      >
+      <div className="grid grid-cols-1 items-start gap-3 lg:grid-cols-3">
         {/* Compose */}
-        <Panel>
-          <PanelHead label="Compose broadcast" />
-          <div style={{ padding: 16 }} className="flex flex-col gap-3">
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardLabel>Compose broadcast</CardLabel>
+          </CardHeader>
+          <CardBody className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
-              <label className="mws-label">Audience</label>
-              <select
+              <Label htmlFor="audience">Audience</Label>
+              <Select
+                id="audience"
                 value={audience}
                 onChange={(e) => {
                   setAudience(e.target.value as Audience)
                   setConfirming(false)
                 }}
-                className="mws-select"
               >
                 {AUDIENCE_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
                     {o.label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
             <div className="flex flex-col gap-1.5">
-              <label className="mws-label">Message</label>
-              <textarea
+              <Label htmlFor="message">Message</Label>
+              <Textarea
+                id="message"
                 value={message}
                 onChange={(e) => {
                   setMessage(e.target.value)
@@ -145,130 +184,108 @@ function AnnouncementComposer() {
                 placeholder="SMS body — Sinhala, Tamil and English supported"
                 rows={5}
                 maxLength={MAX_MESSAGE_LENGTH}
-                className="mws-textarea"
+                error={isOverLimit}
               />
             </div>
-            <div
-              className="flex justify-between mws-mono"
-              style={{
-                fontSize: 11,
-                color: isOverLimit ? 'var(--mws-err)' : 'var(--mws-t3)',
-              }}
-            >
-              <span>
-                {len}/{MAX_MESSAGE_LENGTH} · {segments} segment(s)
-              </span>
-            </div>
-            <button
-              type="button"
+            <HelperText tone={isOverLimit ? 'error' : 'muted'}>
+              {len}/{MAX_MESSAGE_LENGTH} · {segments} segment(s)
+            </HelperText>
+            <Button
+              variant="primary"
               onClick={handleSend}
-              disabled={!trimmed || isOverLimit || sendMutation.isPending}
-              className="mws-btn mws-btn-primary"
-              style={{ height: 32 }}
+              disabled={!trimmed || isOverLimit}
+              loading={sendMutation.isPending}
             >
-              {sendMutation.isPending
-                ? 'Queuing…'
-                : confirming
-                  ? `Confirm — send to ${AUDIENCE_OPTIONS.find(
-                      (o) => o.value === audience
-                    )
-                      ?.label.split(' ')[0]
-                      .toLowerCase()} members`
-                  : 'Send broadcast'}
-            </button>
+              {confirming
+                ? `Confirm — send to ${confirmAudienceWord} members`
+                : 'Send broadcast'}
+            </Button>
             {confirming && !sendMutation.isPending && (
-              <button
-                type="button"
-                className="mws-btn mws-btn-sm"
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={() => setConfirming(false)}
               >
                 Cancel
-              </button>
+              </Button>
             )}
             {sendMutation.isError && (
-              <p style={{ fontSize: 12, color: 'var(--mws-err)' }}>
+              <p className="text-body-sm text-error">
                 {sendMutation.error instanceof Error
                   ? sendMutation.error.message
                   : 'Failed to send announcement'}
               </p>
             )}
-          </div>
-        </Panel>
+          </CardBody>
+        </Card>
 
         {/* Delivery log */}
-        <Panel style={{ overflow: 'hidden' }}>
-          <PanelHead label="Delivery log" />
-          <div className="mws-table-scroll">
-            <table className="mws-table">
-              <thead>
-                <tr>
-                  <th>Message</th>
-                  <th>Sent</th>
-                  <th style={{ textAlign: 'right' }}>Recipients</th>
-                  <th style={{ textAlign: 'right' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
+        <Card className="overflow-hidden lg:col-span-2">
+          <CardHeader>
+            <CardLabel>Delivery log</CardLabel>
+          </CardHeader>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Message</TableHead>
+                  <TableHead>Sent</TableHead>
+                  <TableHead numeric>Delivered</TableHead>
+                  <TableHead numeric>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {isLoading && (
-                  <tr>
-                    <td
+                  <TableRow>
+                    <TableCell
                       colSpan={4}
-                      style={{
-                        padding: 24,
-                        textAlign: 'center',
-                        color: 'var(--mws-t3)',
-                      }}
+                      className="py-6 text-center text-ink-muted"
                     >
                       Loading…
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 )}
                 {!isLoading &&
                   (!announcements || announcements.length === 0) && (
-                    <tr>
-                      <td
+                    <TableRow>
+                      <TableCell
                         colSpan={4}
-                        style={{
-                          padding: 24,
-                          textAlign: 'center',
-                          color: 'var(--mws-t3)',
-                        }}
+                        className="py-6 text-center text-ink-muted"
                       >
                         No announcements sent yet.
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   )}
-                {announcements?.map((a) => (
-                  <tr key={a.id}>
-                    <td
-                      style={{
-                        maxWidth: 320,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        color: 'var(--mws-t2)',
-                      }}
-                    >
-                      {a.message}
-                    </td>
-                    <td
-                      className="mws-mono"
-                      style={{ fontSize: 12, color: 'var(--mws-t3)' }}
-                    >
-                      {new Date(a.sent_at).toLocaleDateString('en-CA')}
-                    </td>
-                    <td className="mws-num" style={{ color: 'var(--mws-t2)' }}>
-                      {a.recipient_count}
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                      <StatusBadge tone="ok">SENT</StatusBadge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                {announcements?.map((a) => {
+                  const badge = deliveryBadge(a)
+                  return (
+                    <TableRow key={a.id}>
+                      <TableCell className="max-w-xs truncate text-ink-secondary">
+                        {a.message}
+                      </TableCell>
+                      <TableCell className="font-mono text-mono-sm text-ink-muted">
+                        {new Date(a.sent_at).toLocaleDateString('en-CA')}
+                      </TableCell>
+                      <TableCell numeric>
+                        <span className="text-ink">
+                          {a.sent_count}/{a.recipient_count}
+                        </span>
+                        {a.failed_count > 0 && (
+                          <span className="ml-2 text-error">
+                            {a.failed_count} failed
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell numeric>
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
           </div>
-        </Panel>
+        </Card>
       </div>
     </div>
   )

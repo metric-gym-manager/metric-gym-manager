@@ -1,91 +1,57 @@
 'use client'
 
-import { useState } from 'react'
 import dynamic from 'next/dynamic'
-import { cn } from '@/lib/utils'
+import {
+  Skeleton,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from '@/components/ui'
+import { PageHeader } from '@/components/common/composites'
 
-// Full-CRUD tab bodies (plan-type + discount management) are preserved as-is
-// and rendered inside the App Workspace frame (heading + mws tab bar).
+// Full-CRUD tab bodies (plan-type + discount + admission-fee management) are
+// lazy-loaded and rendered inside the Metric DS Tabs frame. Radix Tabs mounts
+// only the active tab's content, preserving the on-demand load.
+const tabLoading = () => <Skeleton className="h-60 w-full" />
 const PlanTypesTab = dynamic(() => import('./PlanTypesTab'), {
   ssr: false,
-  loading: () => (
-    <div
-      style={{ height: 240 }}
-      className="animate-pulse rounded bg-gray-100"
-    />
-  ),
+  loading: tabLoading,
 })
 const DiscountsTab = dynamic(() => import('./DiscountsTab'), {
   ssr: false,
-  loading: () => (
-    <div
-      style={{ height: 240 }}
-      className="animate-pulse rounded bg-gray-100"
-    />
-  ),
+  loading: tabLoading,
 })
 const AdmissionFeeTab = dynamic(() => import('./AdmissionFeeTab'), {
   ssr: false,
-  loading: () => (
-    <div
-      style={{ height: 240 }}
-      className="animate-pulse rounded bg-gray-100"
-    />
-  ),
+  loading: tabLoading,
 })
 
-type Tab = 'plans' | 'discounts' | 'admission-fee'
-
 export default function BillingSetupPageClient() {
-  const [activeTab, setActiveTab] = useState<Tab>('plans')
-
   return (
-    <div className="flex flex-col gap-4" style={{ maxWidth: 1200 }}>
-      <div>
-        <h1 className="mws-h1">Membership Setup</h1>
-        <p className="mws-row-sub" style={{ marginTop: 4 }}>
-          Configure membership plan types and discount presets
-        </p>
-      </div>
+    <div className="flex max-w-app flex-col gap-4">
+      <PageHeader
+        title="Membership Setup"
+        description="Configure membership plan types and discount presets"
+      />
 
-      <div
-        className="flex"
-        style={{ gap: 2, borderBottom: '1px solid var(--mws-b1)' }}
-      >
-        <button
-          type="button"
-          onClick={() => setActiveTab('plans')}
-          className={cn('mws-tab', activeTab === 'plans' && 'mws-tab-active')}
-        >
-          Plan types
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('discounts')}
-          className={cn(
-            'mws-tab',
-            activeTab === 'discounts' && 'mws-tab-active'
-          )}
-        >
-          Discounts
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('admission-fee')}
-          className={cn(
-            'mws-tab',
-            activeTab === 'admission-fee' && 'mws-tab-active'
-          )}
-        >
-          Admission fee
-        </button>
-      </div>
+      <Tabs defaultValue="plans">
+        <TabsList>
+          <TabsTrigger value="plans">Plan types</TabsTrigger>
+          <TabsTrigger value="discounts">Discounts</TabsTrigger>
+          <TabsTrigger value="admission-fee">Admission fee</TabsTrigger>
+        </TabsList>
 
-      <div>
-        {activeTab === 'plans' && <PlanTypesTab />}
-        {activeTab === 'discounts' && <DiscountsTab />}
-        {activeTab === 'admission-fee' && <AdmissionFeeTab />}
-      </div>
+        <TabsContent value="plans">
+          <PlanTypesTab />
+        </TabsContent>
+        <TabsContent value="discounts">
+          <DiscountsTab />
+        </TabsContent>
+        <TabsContent value="admission-fee">
+          <AdmissionFeeTab />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }
