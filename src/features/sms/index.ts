@@ -7,14 +7,14 @@ export {
   createSMSProvider,
   createSMSRepository,
   createSendAutomatedReminders,
-} from './services/factory';
+} from './services/factory'
 
 // Use case
 export {
   SendAutomatedReminders,
   type SendAutomatedRemindersInput,
   type ReminderSummary,
-} from './services/SendAutomatedReminders';
+} from './services/SendAutomatedReminders'
 
 // Ports (interfaces) owned by this feature
 export type {
@@ -22,7 +22,7 @@ export type {
   ISMSTemplate,
   SMSMessage,
   SMSSendResult,
-} from './services/ISMSProvider';
+} from './services/ISMSProvider'
 export {
   type ISMSRepository,
   type SMSLog as SMSLogRecord,
@@ -30,10 +30,10 @@ export {
   type SMSFilters,
   type SMSType as SMSLogType,
   SMSDeliveryStatus,
-} from './services/ISMSRepository';
+} from './services/ISMSRepository'
 
 // Providers
-export { TextLkSMSProvider, MockSMSProvider } from './services/providers';
+export { TextLkSMSProvider, MockSMSProvider } from './services/providers'
 
 // Reminder configuration (windows/types for automated reminders)
 export {
@@ -47,20 +47,28 @@ export {
   getReminderDays,
   hasReminders,
   getReminderTypeLabel,
-} from './config/ReminderConfig';
+} from './config/ReminderConfig'
+
+// Reminder-queue read model (upcoming automated reminders → dashboard panel)
+export {
+  getReminderQueue,
+  computeReminderQueue,
+  type ReminderQueueEntry,
+  type ReminderQueueResult,
+} from './services/reminder-queue.service'
 
 // Browser/server API-client services
 export {
   sendSMS,
   getReminderStatus,
   formatReceiptSMS,
-} from './services/sms.service';
+} from './services/sms.service'
 
 export {
   sendSmsViaTextLk,
   getSmsDeliveryStatus,
   getTextLkBalance,
-} from './services/textlk.service';
+} from './services/textlk.service'
 
 // Types
 export type {
@@ -71,15 +79,9 @@ export type {
   SendSMSRequest,
   SendSMSResponse,
   ReminderStatusResponse,
-} from './types';
+} from './types'
 
 // Schemas
-export {
-  sendSMSSchema,
-  reminderFiltersSchema,
-} from './schemas/sms.schemas';
+export { sendSMSSchema, reminderFiltersSchema } from './schemas/sms.schemas'
 
-export type {
-  SendSMSInput,
-  ReminderFiltersInput,
-} from './schemas/sms.schemas';
+export type { SendSMSInput, ReminderFiltersInput } from './schemas/sms.schemas'
