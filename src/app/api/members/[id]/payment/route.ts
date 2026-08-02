@@ -1,12 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { collectPaymentSchema } from '@/features/members/schemas/member.schemas';
-import { createClient } from '@/lib/supabase/server';
-import { createCollectPayment } from '@/features/payments';
-import { getDiscountInfoById } from '@/features/settings/services/settings.service';
-import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
-import { ResponseBuilder } from '@/utils/api/ApiResponse';
-import { NotFoundError, ValidationError, InvalidStatusTransitionError, MemberLimitError } from '@/utils/errors';
+import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentGymProfile } from '@/lib/middleware/auth'
+import { collectPaymentSchema } from '@/features/members/schemas/member.schemas'
+import { createClient } from '@/lib/supabase/server'
+import { createCollectPayment } from '@/features/payments'
+import { getDiscountInfoById } from '@/features/settings/services/settings.service'
+import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI'
+import { fromDatabasePlanType } from '@/features/members/config/PlanConfig'
+import { ResponseBuilder } from '@/utils/api/ApiResponse'
+import {
+  NotFoundError,
+  ValidationError,
+  InvalidStatusTransitionError,
+  MemberLimitError,
+} from '@/utils/errors'
 
 // ============================================================
 // POST /api/members/[id]/payment - Collect payment
@@ -17,24 +23,24 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const gymProfile = await getCurrentGymProfile();
-    const body = await request.json();
+    const { id } = await params
+    const gymProfile = await getCurrentGymProfile()
+    const body = await request.json()
 
     // Validate input
     const validatedData = collectPaymentSchema.parse({
       ...body,
       memberId: id,
-    });
+    })
 
     // Get discount info if applicable
-    let discount = null;
+    let discount = null
     if (validatedData.discountId) {
-      discount = await getDiscountInfoById(validatedData.discountId);
+      discount = await getDiscountInfoById(validatedData.discountId)
     }
 
     // Collect payment via use case
-    const collectPayment = createCollectPayment(await createClient());
+    const collectPayment = createCollectPayment(await createClient())
 
     const result = await collectPayment.execute({
       gymId: gymProfile.id,
@@ -44,11 +50,17 @@ export async function POST(
       discountId: validatedData.discountId || null,
       discount,
       deductOverduePeriod: validatedData.deductOverduePeriod ?? true,
-    });
+      // Optional plan switch (reactivation flow). planAmount is the new
+      // recurring price to persist alongside the plan type.
+      planType: validatedData.planType
+        ? fromDatabasePlanType(validatedData.planType)
+        : undefined,
+      planAmount: validatedData.planType ? validatedData.planAmount : undefined,
+    })
 
     // Convert domain entities to database format for API response
-    const memberData = serializeMemberForAPI(result.member);
-    const paymentData = result.payment.toDatabase();
+    const memberData = serializeMemberForAPI(result.member)
+    const paymentData = result.payment.toDatabase()
 
     return NextResponse.json(
       ResponseBuilder.success(
@@ -59,29 +71,28 @@ export async function POST(
         { message: 'Payment collected successfully' }
       ),
       { status: 201 }
-    );
+    )
   } catch (error) {
-    console.error('Collect payment API error:', error);
+    console.error('Collect payment API error:', error)
 
     if (error instanceof NotFoundError) {
-      return NextResponse.json(
-        ResponseBuilder.notFound(error.message),
-        { status: 404 }
-      );
+      return NextResponse.json(ResponseBuilder.notFound(error.message), {
+        status: 404,
+      })
     }
 
     if (error instanceof ValidationError) {
       return NextResponse.json(
         ResponseBuilder.validationError({ general: [error.message] }),
         { status: 400 }
-      );
+      )
     }
 
     if (error instanceof InvalidStatusTransitionError) {
       return NextResponse.json(
         ResponseBuilder.error(error.message, 'INVALID_STATUS_TRANSITION'),
         { status: 400 }
-      );
+      )
     }
 
     if (error instanceof MemberLimitError) {
@@ -92,26 +103,23 @@ export async function POST(
       return NextResponse.json(
         ResponseBuilder.error(error.message, 'MEMBER_LIMIT_REACHED'),
         { status: 403 }
-      );
+      )
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        ResponseBuilder.unauthorized(),
-        { status: 401 }
-      );
+      return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 })
     }
 
     if (error instanceof Error && error.name === 'ZodError') {
       return NextResponse.json(
         ResponseBuilder.validationError({ general: ['Invalid input data'] }),
         { status: 400 }
-      );
+      )
     }
 
     return NextResponse.json(
       ResponseBuilder.error('Failed to collect payment', 'PAYMENT_ERROR'),
       { status: 500 }
-    );
+    )
   }
 }

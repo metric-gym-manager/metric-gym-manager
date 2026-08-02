@@ -447,6 +447,7 @@ export class Member {
    * This is called when:
    * - Payment is collected (expired → active)
    * - Member is reactivated from suspended
+   * - Member is reactivated from cancelled (fresh payment)
    *
    * @param newDueDate - The new next due date
    * @returns New Member instance with Active status
@@ -553,7 +554,8 @@ export class Member {
   /**
    * Cancel member
    *
-   * This is a permanent action. Cancelled members cannot be reactivated.
+   * Cancelled members can later be reactivated with a fresh payment via the
+   * reactivation flow (Cancelled → Active), so this is not a terminal state.
    *
    * @returns New Member instance with Cancelled status
    * @throws InvalidStatusTransitionError if transition not allowed

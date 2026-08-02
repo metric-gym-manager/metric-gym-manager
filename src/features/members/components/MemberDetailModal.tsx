@@ -19,6 +19,9 @@ import {
   Label,
 } from '@/components/ui'
 import MarkPaidDialog from '@/features/payments/components/MarkPaidDialog'
+import ReactivationDialog, {
+  type ReactivationConfirm,
+} from '@/features/payments/components/ReactivationDialog'
 import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog'
 import MemberPhotoSection from './MemberPhotoSection'
 import type { MemberWithDiscount, Payment } from '@/features/members/types'
@@ -46,6 +49,7 @@ export default function MemberDetailModal({
   const [isMarkingRegularPaid, setIsMarkingRegularPaid] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showMarkPaidDialog, setShowMarkPaidDialog] = useState(false)
+  const [showReactivateDialog, setShowReactivateDialog] = useState(false)
   const [showActivateDialog, setShowActivateDialog] = useState(false)
   // Opened when an into-active transition (reactivate / pay-to-reactivate) is
   // rejected by the active-member quota (403 MEMBER_LIMIT_REACHED).
@@ -221,6 +225,57 @@ export default function MemberDetailModal({
     setShowMarkPaidDialog(false)
   }
 
+  // Reactivate a cancelled/suspended member with a fresh payment. Reuses the
+  // payment endpoint (which flips status to active) but also allows switching
+  // the plan; the server sends the reactivation SMS for these members.
+  const reactivateMutation = useMutation({
+    mutationFn: async (values: ReactivationConfirm) => {
+      if (!member) throw new Error('No member selected')
+
+      const res = await fetch(`/api/members/${member.id}/payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          planType: values.planType,
+          planAmount: values.planAmount,
+          paymentAmount: values.paymentAmount,
+          paymentDate: values.paymentDate,
+          deductOverduePeriod: true,
+        }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => null)
+        const err = new Error(
+          body?.error?.message || 'Failed to reactivate member'
+        ) as Error & { code?: string }
+        err.code = body?.error?.code
+        throw err
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] })
+      queryClient.invalidateQueries({ queryKey: ['regular-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['member-detail', member?.id] })
+      setShowReactivateDialog(false)
+      toast.success('Member reactivated — confirmation SMS sent')
+    },
+    onError: (error) => {
+      // Reactivation flips into active and can hit the active-member quota;
+      // the flip is blocked before anything is charged (see CollectPayment).
+      if (
+        (error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED'
+      ) {
+        setShowReactivateDialog(false)
+        setShowReactivationLimit(true)
+        return
+      }
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to reactivate member'
+      )
+    },
+  })
+
   // Delete member mutation
   const deleteMemberMutation = useMutation({
     mutationFn: async (memberId: string) => {
@@ -358,14 +413,27 @@ export default function MemberDetailModal({
             <Button variant="secondary" onClick={onClose}>
               Close
             </Button>
-            <Button
-              variant="accent"
-              onClick={() => setShowMarkPaidDialog(true)}
-              disabled={isMarkingRegularPaid}
-              loading={isMarkingRegularPaid}
-            >
-              {isMarkingRegularPaid ? 'Processing...' : 'Mark Paid'}
-            </Button>
+            {member.status === 'cancelled' || member.status === 'suspended' ? (
+              <Button
+                variant="accent"
+                onClick={() => setShowReactivateDialog(true)}
+                disabled={reactivateMutation.isPending}
+                loading={reactivateMutation.isPending}
+              >
+                {reactivateMutation.isPending
+                  ? 'Reactivating...'
+                  : 'Re-activate'}
+              </Button>
+            ) : (
+              <Button
+                variant="accent"
+                onClick={() => setShowMarkPaidDialog(true)}
+                disabled={isMarkingRegularPaid}
+                loading={isMarkingRegularPaid}
+              >
+                {isMarkingRegularPaid ? 'Processing...' : 'Mark Paid'}
+              </Button>
+            )}
           </>
         }
       >
@@ -522,11 +590,11 @@ export default function MemberDetailModal({
                 </Button>
               )}
 
-              {/* Cancelled → No actions available (terminal state) */}
+              {/* Cancelled → Reactivate with a fresh payment (see footer) */}
               {member.status === 'cancelled' && (
                 <p className="text-sm text-ink-secondary italic">
-                  No status actions available. Member is in terminal cancelled
-                  state.
+                  Use <strong>Re-activate</strong> below to bring this member
+                  back with a new payment.
                 </p>
               )}
             </div>
@@ -664,6 +732,16 @@ export default function MemberDetailModal({
         }
         planType={member.plan_type}
         onConfirm={handleMarkPaidConfirm}
+      />
+
+      {/* Reactivation Dialog (cancelled/suspended → active with payment) */}
+      <ReactivationDialog
+        open={showReactivateDialog}
+        onOpenChange={setShowReactivateDialog}
+        memberName={member.name}
+        currentPlanType={member.plan_type}
+        currentPlanAmount={member.plan_amount}
+        onConfirm={(values) => reactivateMutation.mutate(values)}
       />
 
       {/* Activate Member Dialog */}

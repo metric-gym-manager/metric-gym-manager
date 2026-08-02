@@ -64,8 +64,9 @@ export enum MemberStatus {
   Suspended = 'suspended',
 
   /**
-   * Member has permanently cancelled their membership
-   * This is a TERMINAL state - no transitions out
+   * Member has cancelled their membership (voluntarily or auto-cancelled after
+   * 14+ days overdue). Can be brought back with a fresh payment via the
+   * reactivation flow (Cancelled → Active).
    */
   Cancelled = 'cancelled',
 }
@@ -111,7 +112,7 @@ export interface StatusTransition {
  * - Suspended → Active: Member reactivated (admin only)
  * - Suspended → Expired: Time passes while suspended (system)
  * - Suspended → Cancelled: Permanent ban (admin only)
- * - Cancelled → (none): Terminal state, cannot be undone
+ * - Cancelled → Active: Member reactivated with a fresh payment (admin only)
  *
  * DO NOT allow transitions not listed here!
  */
@@ -167,7 +168,13 @@ export const VALID_TRANSITIONS: readonly StatusTransition[] = [
     description: 'Membership permanently cancelled (ban)',
   },
 
-  // Cancelled is a TERMINAL state - no transitions out
+  // Cancelled transitions (1 outgoing)
+  {
+    from: MemberStatus.Cancelled,
+    to: MemberStatus.Active,
+    allowedBy: ['admin'],
+    description: 'Membership reactivated with a fresh payment',
+  },
 ] as const
 
 /**
@@ -180,7 +187,7 @@ export const VALID_TRANSITIONS: readonly StatusTransition[] = [
  * @example
  * canTransition(MemberStatus.Active, MemberStatus.Expired) // true
  * canTransition(MemberStatus.Active, MemberStatus.Cancelled) // false (must go through expired)
- * canTransition(MemberStatus.Cancelled, MemberStatus.Active) // false (terminal state)
+ * canTransition(MemberStatus.Cancelled, MemberStatus.Active) // true (reactivation)
  */
 export function canTransition(
   from: MemberStatus | string,
@@ -197,7 +204,7 @@ export function canTransition(
  *
  * @example
  * getValidTransitionsFrom(MemberStatus.Active) // [{ from: Active, to: Expired, ... }, ...]
- * getValidTransitionsFrom(MemberStatus.Cancelled) // [] (terminal state)
+ * getValidTransitionsFrom(MemberStatus.Cancelled) // [{ from: Cancelled, to: Active, ... }]
  */
 export function getValidTransitionsFrom(
   from: MemberStatus | string
@@ -228,7 +235,7 @@ export function getValidTransitionsTo(
  *
  * @example
  * getValidTransitions(MemberStatus.Active) // [MemberStatus.Expired, MemberStatus.Suspended]
- * getValidTransitions(MemberStatus.Cancelled) // [] (terminal state)
+ * getValidTransitions(MemberStatus.Cancelled) // [MemberStatus.Active] (reactivation)
  */
 export function getValidTransitions(
   from: MemberStatus | string
