@@ -53,6 +53,24 @@ export default function DiscountsTab() {
     },
   })
 
+  // Active-member usage per discount (In-use column). Read-only count, owned by
+  // the members feature (GET /api/members/discount-usage).
+  const { data: usage } = useQuery<
+    { discountId: string; memberCount: number }[]
+  >({
+    queryKey: ['members', 'discount-usage'],
+    queryFn: async () => {
+      const response = await fetch('/api/members/discount-usage')
+      if (!response.ok) throw new Error('Failed to fetch discount usage')
+      const result = await response.json()
+      return result.data
+    },
+    staleTime: 60_000,
+  })
+  const usageMap = new Map(
+    (usage ?? []).map((u) => [u.discountId, u.memberCount])
+  )
+
   // Create discount mutation
   const createMutation = useMutation({
     mutationFn: async (data: CreateDiscountInput) => {
@@ -162,6 +180,7 @@ export default function DiscountsTab() {
                 <TableHead>Discount Name</TableHead>
                 <TableHead>Percentage</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead numeric>In use</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -176,6 +195,9 @@ export default function DiscountsTab() {
                     <Badge variant={discount.is_active ? 'success' : 'neutral'}>
                       {discount.is_active ? 'Active' : 'Inactive'}
                     </Badge>
+                  </TableCell>
+                  <TableCell numeric>
+                    {usageMap.get(discount.id) ?? 0}
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">

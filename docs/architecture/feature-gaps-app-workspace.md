@@ -74,10 +74,10 @@ The design system lives in `src/app/globals.css` under the `.mws-*` namespace
 
 ## Membership / Billing Setup
 
-| Design element                                          | Status         | Notes                                                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Heading + tabs (Plan types / Discounts / Admission fee) | WIRED (framed) | App Workspace heading + `.mws-tab` bar wrapping the existing full-CRUD `PlanTypesTab` / `DiscountsTab`. Their inner tables retain the prior styling — a follow-up can re-cut them to the design's read tables. Design's **Cycle / Enrolled / In-use** columns are not surfaced by the plan/discount endpoints.                                                   |
-| **Admission fee** tab                                   | WIRED          | Gym-level one-time registration fee (`admission_fee` / `admission_fee_enabled` on `gyms`). `GET`/`PATCH /api/billing-setup/admission-fee`. When enabled it appears on the public self-registration form and is added to the first payment; the charged amount is always resolved **server-side** (never from client input), same trust model as the plan amount. |
+| Design element                                          | Status | Notes                                                                                                                                                                                                                                                                                                                                                            |
+| ------------------------------------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Heading + tabs (Plan types / Discounts / Admission fee) | WIRED  | Migrated onto the Metric DS (`PageHeader` + DS `Tabs`); the full-CRUD tab bodies compose DS primitives. **Enrolled** (active members per plan) is surfaced from `GET /api/members/enrolment-by-plan` and **In use** (active members per discount) from `GET /api/members/discount-usage`.                                                                        |
+| **Admission fee** tab                                   | WIRED  | Gym-level one-time registration fee (`admission_fee` / `admission_fee_enabled` on `gyms`). `GET`/`PATCH /api/billing-setup/admission-fee`. When enabled it appears on the public self-registration form and is added to the first payment; the charged amount is always resolved **server-side** (never from client input), same trust model as the plan amount. |
 
 ## Settings
 
@@ -109,17 +109,16 @@ Status after the App-Workspace follow-up pass:
    was exposing them via the list type + UI.
 2. ✅ **Done** — reminder-queue read endpoint `GET /api/reminders/queue`
    (`features/sms` → `getReminderQueue`) powers a live dashboard panel.
-3. ✅ **Done (enrolment)** — `GET /api/members/enrolment-by-plan` restores the
-   Members column on the Revenue breakdown. Discount-usage counts remain a
-   future follow-up.
+3. ✅ **Done** — `GET /api/members/enrolment-by-plan` restores the Members
+   column on the Revenue breakdown; `GET /api/members/discount-usage` adds the
+   discounts "In use" count. Both are member-owned read models.
 4. ❌ **Removed** — gym-scoped intake automation is intentionally not offered;
    the dead-code toggle was deleted.
-5. ✅ **Largely done** — the member drawer, Security and Subscription screens
-   were migrated onto the Metric Design System by the platform DS work; the
-   Dashboard, Announcements and Revenue pages were migrated onto the DS in this
-   pass (`@/components/ui` + `@/components/common/composites`, replacing the
-   legacy `.mws-*` markup). Re-cutting the Billing-Setup inner tables to the DS
-   remains open.
+5. ✅ **Done** — the member drawer, Security and Subscription screens were
+   migrated onto the Metric Design System by the platform DS work; the
+   Dashboard, Announcements, Revenue and Billing-Setup pages were migrated onto
+   the DS in this pass (`@/components/ui` + `@/components/common/composites`,
+   replacing the legacy `.mws-*` markup).
 
 > **Design-system note.** The original overhaul shipped the `.mws-*` namespace
 > (still valid — re-pointed at the `--ds-*` tokens). The platform has since

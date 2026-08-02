@@ -45,6 +45,24 @@ export default function PlanTypesTab() {
     },
   })
 
+  // Active-member enrolment per plan type (Enrolled column). Read-only count,
+  // owned by the members feature (GET /api/members/enrolment-by-plan).
+  const { data: enrolment } = useQuery<
+    { planType: string; activeCount: number }[]
+  >({
+    queryKey: ['members', 'enrolment-by-plan'],
+    queryFn: async () => {
+      const response = await fetch('/api/members/enrolment-by-plan')
+      if (!response.ok) throw new Error('Failed to fetch enrolment by plan')
+      const result = await response.json()
+      return result.data
+    },
+    staleTime: 60_000,
+  })
+  const enrolMap = new Map(
+    (enrolment ?? []).map((e) => [e.planType, e.activeCount])
+  )
+
   // Create plan type mutation
   const createMutation = useMutation({
     mutationFn: async (data: {
@@ -317,6 +335,9 @@ export default function PlanTypesTab() {
                         </h3>
                         <Badge variant={plan.is_active ? 'success' : 'neutral'}>
                           {plan.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                        <Badge variant="neutral">
+                          {enrolMap.get(plan.plan_type) ?? 0} enrolled
                         </Badge>
                       </div>
 
