@@ -3,13 +3,21 @@
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Panel,
-  PanelHead,
-  StatusBadge,
-  formatNumber,
-  formatLKR,
-  type StatusTone,
-} from '@/components/workspace/primitives'
+  Badge,
+  BarChart,
+  Card,
+  CardBody,
+  CardHeader,
+  CardLabel,
+  EmptyState,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui'
+import { PageHeader, StatCard, ChartCard } from '@/components/common/composites'
 import type { MonthlyRevenueResponse } from '@/features/revenue/types'
 
 interface DashboardMetrics {
@@ -37,14 +45,42 @@ interface CollectedResponse {
   summary: { totalRevenue: number; paymentCount: number }
 }
 
+interface ReminderQueueEntry {
+  memberId: string
+  memberName: string
+  planType: string
+  reminderType: string
+  scheduledInDays: number
+  nextDueDate: string
+  amount: number
+}
+
+interface ReminderQueueResult {
+  entries: ReminderQueueEntry[]
+  total: number
+}
+
+const REMINDER_LABEL: Record<string, string> = {
+  reminder_7day: '7-day reminder',
+  reminder_3day: '3-day reminder',
+  due_today: 'Due-today reminder',
+  overdue: 'Overdue reminder',
+}
+
+const fmt = (n: number) => n.toLocaleString('en-US')
+
+function whenLabel(days: number): string {
+  if (days <= 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  return `in ${days} days`
+}
+
 /**
- * Dashboard "Overview" — App Workspace design (Enterprise UI/UX overhaul).
- *
- * Wired to live data: stat tiles → /api/dashboard/metrics, revenue chart →
- * /api/revenue/monthly (trailing months), recent payments →
- * /api/payment-collection/collected. The reminder-queue panel is a design-only
- * surface — there is no reminder-queue API yet (see docs/architecture/
- * feature-gaps-app-workspace.md), so it renders representative rows.
+ * Dashboard "Overview" — Metric Design System. Wired to live data: stat tiles →
+ * /api/dashboard/metrics, revenue chart → /api/revenue/monthly (trailing
+ * months), recent payments → /api/payment-collection/collected, and the
+ * reminder-queue panel → /api/reminders/queue (upcoming automated reminders
+ * derived from active members' due dates + plan thresholds).
  */
 export default function DashboardClient() {
   const router = useRouter()
@@ -93,6 +129,17 @@ export default function DashboardClient() {
     staleTime: 60_000,
   })
 
+  const { data: reminderQueue } = useQuery<ReminderQueueResult>({
+    queryKey: ['reminder-queue'],
+    queryFn: async () => {
+      const response = await fetch('/api/reminders/queue')
+      if (!response.ok) throw new Error('Failed to fetch reminder queue')
+      const result = await response.json()
+      return result.data
+    },
+    staleTime: 60_000,
+  })
+
   const stamp = now
     .toLocaleString('en-US', {
       month: 'short',
@@ -107,18 +154,13 @@ export default function DashboardClient() {
 
   if (error) {
     return (
-      <div style={{ maxWidth: 1200 }} className="flex flex-col gap-4">
-        <h1 className="mws-h1">Overview</h1>
-        <Panel
-          style={{
-            borderColor: 'var(--mws-err-br)',
-            background: 'var(--mws-err-bg)',
-          }}
-        >
-          <div style={{ padding: 16, fontSize: 13, color: 'var(--mws-err)' }}>
+      <div className="flex max-w-app flex-col gap-4">
+        <PageHeader title="Overview" />
+        <Card className="border-error-border bg-error-bg">
+          <CardBody className="text-body text-error">
             Failed to load dashboard metrics. Please try again.
-          </div>
-        </Panel>
+          </CardBody>
+        </Card>
       </div>
     )
   }
@@ -126,290 +168,181 @@ export default function DashboardClient() {
   const m = metricsRes?.data
   const tiles: Array<{
     label: string
-    value: string
+    value: React.ReactNode
     sub: string
-    color: string
     href: string
   }> = [
     {
       label: 'Overdue members',
-      value: m ? formatNumber(m.overdueMembers.count) : '—',
+      value: (
+        <span className="text-error">
+          {m ? fmt(m.overdueMembers.count) : '—'}
+        </span>
+      ),
       sub: m
         ? `${m.overdueMembers.critical} critical · ${m.overdueMembers.warning} warning · ${m.overdueMembers.mild} mild`
         : ' ',
-      color: 'var(--mws-err)',
       href: '/payment-collection',
     },
     {
       label: `Revenue · ${now.toLocaleString('en-US', { month: 'long' })}`,
-      value: m ? formatLKR(m.revenueThisMonth, { prefix: false }) : '—',
+      value: m ? fmt(m.revenueThisMonth) : '—',
       sub: 'LKR · collected this month',
-      color: 'var(--mws-t1)',
       href: '/revenue',
     },
     {
       label: 'Expires this week',
-      value: m ? formatNumber(m.membersDueThisWeek.count) : '—',
-      sub: m ? `${formatLKR(m.membersDueThisWeek.totalAmount)} expected` : ' ',
-      color: 'var(--mws-warn)',
+      value: (
+        <span className="text-warning">
+          {m ? fmt(m.membersDueThisWeek.count) : '—'}
+        </span>
+      ),
+      sub: m ? `LKR ${fmt(m.membersDueThisWeek.totalAmount)} expected` : ' ',
       href: '/payment-collection',
     },
     {
       label: 'Active members',
-      value: m ? formatNumber(m.activeMembers) : '—',
+      value: (
+        <span className="text-success">{m ? fmt(m.activeMembers) : '—'}</span>
+      ),
       sub: 'Currently active subscriptions',
-      color: 'var(--mws-ok)',
       href: '/members',
     },
   ]
 
-  // Trailing revenue bars (last 8 months, ×1,000, current month accented).
+  // Trailing revenue bars (last 8 months).
   const history = (revenue?.historicalData ?? []).slice(-8)
-  const maxRev = Math.max(1, ...history.map((h) => h.collectedRevenue))
+  const chartData = history.map((h) => ({
+    month: h.monthLabel.split(' ')[0],
+    revenue: h.collectedRevenue,
+  }))
+
+  const queue = reminderQueue?.entries ?? []
+  const queueTotal = reminderQueue?.total ?? 0
 
   return (
-    <div style={{ maxWidth: 1200 }} className="flex flex-col gap-4">
-      <div className="flex items-baseline justify-between">
-        <h1 className="mws-h1">Overview</h1>
-        <span
-          className="mws-mono"
-          style={{ fontSize: 11, color: 'var(--mws-t3)' }}
-        >
-          {stamp} IST
-        </span>
-      </div>
+    <div className="flex max-w-app flex-col gap-4">
+      <PageHeader
+        title="Overview"
+        actions={
+          <span className="font-mono text-mono-sm text-ink-muted">
+            {stamp} IST
+          </span>
+        }
+      />
 
       {/* Stat tiles */}
-      <div
-        className="mws-stat-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 12,
-        }}
-      >
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {tiles.map((t) => (
-          <button
+          <StatCard
             key={t.label}
-            type="button"
+            label={t.label}
+            value={isLoading ? '—' : t.value}
+            sub={t.sub}
             onClick={() => router.push(t.href)}
-            className="mws-stat"
-          >
-            <div className="mws-label">{t.label}</div>
-            <div className="mws-stat-value" style={{ color: t.color }}>
-              {isLoading ? '—' : t.value}
-            </div>
-            <div style={{ fontSize: 12, color: 'var(--mws-t2)' }}>{t.sub}</div>
-          </button>
+          />
         ))}
       </div>
 
       {/* Revenue chart + reminder queue */}
-      <div
-        className="mws-dash-split"
-        style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 12 }}
-      >
-        <Panel className="flex flex-col" style={{ padding: 16, gap: 12 }}>
-          <div className="flex items-center justify-between">
-            <span className="mws-label">
-              Revenue · Trailing {history.length || 8} months
-            </span>
-            <span
-              className="mws-mono"
-              style={{ fontSize: 11, color: 'var(--mws-t2)' }}
-            >
-              LKR ×1,000
-            </span>
-          </div>
-          <div
-            className="flex items-end"
-            style={{ gap: 10, height: 120, paddingTop: 8 }}
-          >
-            {history.length === 0
-              ? Array.from({ length: 8 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex-1"
-                    style={{
-                      height: 8,
-                      background: 'var(--mws-b1)',
-                      borderRadius: '2px 2px 0 0',
-                      alignSelf: 'flex-end',
-                    }}
-                  />
-                ))
-              : history.map((h, i) => {
-                  const barH = Math.max(
-                    2,
-                    Math.round((h.collectedRevenue / maxRev) * 96)
-                  )
-                  const isCurrent = i === history.length - 1
-                  return (
-                    <div
-                      key={h.monthLabel}
-                      className="flex-1 flex flex-col items-center justify-end"
-                      style={{ gap: 6, height: '100%' }}
-                    >
-                      <span
-                        className="mws-mono"
-                        style={{ fontSize: 10, color: 'var(--mws-t3)' }}
-                      >
-                        {Math.round(h.collectedRevenue / 1000)}
-                      </span>
-                      <div
-                        style={{
-                          width: '100%',
-                          height: barH,
-                          background: isCurrent
-                            ? 'var(--mws-accent)'
-                            : 'rgba(0,0,0,0.14)',
-                          borderRadius: '2px 2px 0 0',
-                        }}
-                      />
-                      <span
-                        className="mws-mono"
-                        style={{
-                          fontSize: 10,
-                          color: 'var(--mws-t3)',
-                          textTransform: 'uppercase',
-                        }}
-                      >
-                        {h.monthLabel.split(' ')[0]}
-                      </span>
-                    </div>
-                  )
-                })}
-          </div>
-        </Panel>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <ChartCard
+          className="lg:col-span-2"
+          title={`Revenue · Trailing ${history.length || 8} months`}
+          scale="LKR"
+          bodyClassName="pt-2"
+        >
+          <BarChart
+            data={chartData}
+            xKey="month"
+            series={[{ key: 'revenue', label: 'Collected' }]}
+            valueFormatter={(v) => `LKR ${Number(v).toLocaleString('en-US')}`}
+            height={160}
+            label="Trailing monthly collected revenue"
+            loading={!revenue}
+            empty={<EmptyState title="No revenue history for this period." />}
+          />
+        </ChartCard>
 
-        <ReminderQueue dueCount={m?.membersDueThisWeek.count ?? 0} />
+        <Card className="flex flex-col lg:col-span-1">
+          <CardHeader>
+            <CardLabel>Reminder queue</CardLabel>
+            <Badge variant={queueTotal > 0 ? 'warning' : 'success'}>
+              {queueTotal} QUEUED
+            </Badge>
+          </CardHeader>
+          {queue.length === 0 ? (
+            <EmptyState
+              className="py-10"
+              title="No reminders scheduled"
+              description="No automated reminders are due in the next 7 days."
+            />
+          ) : (
+            queue.map((row) => (
+              <div
+                key={row.memberId}
+                className="flex items-center justify-between gap-3 border-b border-line-subtle px-4 py-2.5 last:border-0"
+              >
+                <div className="flex min-w-0 flex-col">
+                  <span className="truncate text-body text-ink">
+                    {row.memberName}
+                  </span>
+                  <span className="font-mono text-mono-sm text-ink-muted">
+                    {REMINDER_LABEL[row.reminderType] ?? 'Reminder'} ·{' '}
+                    {whenLabel(row.scheduledInDays)}
+                  </span>
+                </div>
+                <span className="shrink-0 font-mono text-body-sm tabular-nums text-ink-secondary">
+                  {fmt(row.amount)}
+                </span>
+              </div>
+            ))
+          )}
+        </Card>
       </div>
 
       {/* Recent payments */}
-      <Panel style={{ overflow: 'hidden' }}>
-        <PanelHead label="Recent payments" />
-        <table className="mws-table">
-          <thead>
-            <tr>
-              <th>Member</th>
-              <th>Plan</th>
-              <th>Date</th>
-              <th style={{ textAlign: 'right' }}>Amount (LKR)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(collected?.payments ?? []).slice(0, 6).map((p) => (
-              <tr key={p.paymentId}>
-                <td style={{ fontWeight: 500 }}>{p.memberName}</td>
-                <td
-                  style={{
-                    color: 'var(--mws-t2)',
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {p.planType}
-                </td>
-                <td
-                  className="mws-mono"
-                  style={{ fontSize: 12, color: 'var(--mws-t3)' }}
-                >
-                  {p.paymentDate}
-                </td>
-                <td className="mws-num">
-                  {formatLKR(p.amountPaid, { prefix: false })}
-                </td>
-              </tr>
-            ))}
-            {(!collected || collected.payments.length === 0) && (
-              <tr>
-                <td
-                  colSpan={4}
-                  style={{
-                    padding: 16,
-                    textAlign: 'center',
-                    color: 'var(--mws-t3)',
-                  }}
-                >
-                  No payments collected this month yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </Panel>
-    </div>
-  )
-}
-
-/**
- * Reminder-queue panel — DESIGN-ONLY (feature gap). No API surfaces the
- * scheduled automated-reminder queue to the dashboard; automated reminders are
- * dispatched by the send-reminders cron. Rendered as dead-code with
- * representative rows so the design is complete; the header count reflects the
- * real "expires this week" figure. See the gap report.
- */
-function ReminderQueue({ dueCount }: { dueCount: number }) {
-  const sample: Array<{
-    name: string
-    channel: string
-    when: string
-    amount: string
-  }> = [
-    { name: 'Kasun Silva', channel: 'SMS', when: 'in 12 min', amount: '3,500' },
-    {
-      name: 'Chamara Dissanayake',
-      channel: 'SMS',
-      when: 'in 12 min',
-      amount: '3,500',
-    },
-    {
-      name: 'Tharindu Bandara',
-      channel: 'SMS',
-      when: 'tomorrow 09:00',
-      amount: '15,500',
-    },
-    {
-      name: 'Dinithi Samaraweera',
-      channel: 'SMS',
-      when: 'tomorrow 09:00',
-      amount: '3,500',
-    },
-  ]
-  const tone: StatusTone = dueCount > 0 ? 'warn' : 'ok'
-  return (
-    <Panel className="flex flex-col">
-      <PanelHead
-        label="Reminder queue"
-        right={<StatusBadge tone={tone}>{dueCount} QUEUED</StatusBadge>}
-      />
-      {sample.map((q, i) => (
-        <div
-          key={i}
-          className="flex items-center justify-between"
-          style={{
-            padding: '9px 16px',
-            borderBottom: '1px solid rgba(0,0,0,0.05)',
-          }}
-        >
-          <div className="flex flex-col min-w-0">
-            <span className="truncate" style={{ fontSize: 13 }}>
-              {q.name}
-            </span>
-            <span
-              className="mws-mono"
-              style={{ fontSize: 11, color: 'var(--mws-t3)' }}
-            >
-              {q.channel} · {q.when}
-            </span>
-          </div>
-          <span
-            className="mws-mono"
-            style={{ fontSize: 12, color: 'var(--mws-t2)' }}
-          >
-            {q.amount}
-          </span>
+      <Card className="overflow-hidden">
+        <CardHeader>
+          <CardLabel>Recent payments</CardLabel>
+        </CardHeader>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Member</TableHead>
+                <TableHead>Plan</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead numeric>Amount (LKR)</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(collected?.payments ?? []).slice(0, 6).map((p) => (
+                <TableRow key={p.paymentId}>
+                  <TableCell className="font-medium">{p.memberName}</TableCell>
+                  <TableCell className="capitalize text-ink-secondary">
+                    {p.planType}
+                  </TableCell>
+                  <TableCell className="font-mono text-mono-sm text-ink-muted">
+                    {p.paymentDate}
+                  </TableCell>
+                  <TableCell numeric>{fmt(p.amountPaid)}</TableCell>
+                </TableRow>
+              ))}
+              {(!collected || collected.payments.length === 0) && (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="py-6 text-center text-ink-muted"
+                  >
+                    No payments collected this month yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </div>
-      ))}
-    </Panel>
+      </Card>
+    </div>
   )
 }
