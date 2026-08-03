@@ -76,6 +76,18 @@ events to a URL we supply:
    There is no "upload a face image" endpoint, so the member photos we already
    hold in R2 **cannot** be converted into templates. The UI must say so.
 
+   **The estate is ~90% fingerprint readers**, so fingerprint is the primary
+   flow and face is the exception — not the other way round. Three consequences
+   the vendor docs do not settle (VFT email §2):
+   - enrolment has **no completion callback**, so it is modelled as *pending
+     until observed* by polling `GET /api/template` — the pending-vs-error
+     distinction of rule 2.8, again;
+   - templates are assumed **not** to propagate automatically between a gym's
+     devices, so a successful enrolment enqueues a **template-propagation
+     intent** to the gym's other devices through the same outbox;
+   - devices have a finite template capacity (commonly 1,500–3,000), so
+     `access_devices` tracks a template count and warns the gym before the cap.
+
 ---
 
 ## 3. Target architecture
@@ -176,8 +188,8 @@ export interface IAccessControlProvider {
   grantAccess(c: AccessCredentials, t: SubjectOnDevice): Promise<void>
   blockAccess(c: AccessCredentials, t: SubjectOnDevice): Promise<void>
 
-  startFaceEnrolment(c: AccessCredentials, t: SubjectOnDevice): Promise<void>
   startFingerEnrolment(c: AccessCredentials, t: SubjectOnDevice & { fingerId: number }): Promise<void>
+  startFaceEnrolment(c: AccessCredentials, t: SubjectOnDevice): Promise<void>
 
   openDoor(c: AccessCredentials, serial: string): Promise<void>
   rebootDevice(c: AccessCredentials, serial: string): Promise<void>
@@ -230,8 +242,9 @@ access_control_secrets     account_id UNIQUE, email_ciphertext, password_ciphert
                            api_token_ciphertext, token_expires_at  -- service-role ONLY, no gym policies
 access_devices             gym_id, device_serial, device_name, area_id, timezone_offset,
                            purpose('entry'|'exit'|'both'), is_active, last_seen_at, last_synced_at
-member_access_subjects     gym_id, member_id UNIQUE, subject_id, face_enrolled,
-                           finger_count, provisioned_at, last_synced_at, sync_state
+member_access_subjects     gym_id, member_id UNIQUE, subject_id, finger_count,
+                           enrolled_finger_ids INT[], face_enrolled,
+                           provisioned_at, last_synced_at, sync_state
 access_sync_jobs           gym_id, member_id?, device_id?, intent, payload JSONB,
                            status('pending'|'in_flight'|'succeeded'|'failed'|'dead'),
                            attempts, next_attempt_at, last_error, provider_command_id
@@ -293,7 +306,7 @@ POST      /api/access-control/devices/[id]/disable  # state transition → dedic
 POST      /api/access-control/devices/[id]/open     # remote unlock — audited, rate-limited
 POST      /api/access-control/devices/[id]/reboot
 POST      /api/access-control/members/[id]/sync     # force re-assert
-POST      /api/access-control/members/[id]/enrol    # {method:'face'|'finger', deviceId, fingerId?}
+POST      /api/access-control/members/[id]/enrol    # {method:'finger'|'face', deviceId, fingerId?}
 GET       /api/access-control/events                # check-in log, paginated
 
 POST      /api/webhooks/access-control/[token]      # inbound attendance events
@@ -506,10 +519,14 @@ the network.
 
 ## 12. Open questions
 
-**Questions for VFT** are maintained as a standalone, sendable document:
-**`docs/integrations/vft/vft-api-questions.md`** (13 questions, each with why
-it blocks us and what we will assume if unanswered). Q1–Q4 there are hard
-blockers for Phase 2.
+**Questions for VFT** live in `docs/integrations/vft/`:
+
+- **`vft-api-questions-email.md`** — the ready-to-send email, grouped into six
+  sections. Sections 1 (account structure / `EmpId`) and 2 (fingerprint
+  enrolment and templates) are hard blockers for Phase 2.
+- **`vft-api-questions.md`** — internal companion: why each question matters,
+  the fallback assumption if it goes unanswered, the risk if that assumption is
+  wrong, and the five things to verify by hand on the first test device.
 
 Internal product/legal decisions — ours, not the vendor's:
 
