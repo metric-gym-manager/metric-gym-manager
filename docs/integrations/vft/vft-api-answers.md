@@ -164,10 +164,20 @@ Cheaper to measure than to ask again, in rough priority order:
 
 ## 8. Still ours to decide
 
-1. **Gym stops paying — do members get locked out?** Recommendation: stop
-   syncing, leave devices in their last known state, show the gym a banner.
-   Mass-blocking a gym's members over a SaaS billing lapse is a physical-safety
-   and reputational risk. Needs a product call before Phase 3.
+1. ~~**Member stops paying — locked out?**~~ **Settled: yes.** A member is
+   admitted for the whole of `next_due_date` and refused from **00:00 the next
+   day** — due on the 15th means training on the 15th and refused from 16th
+   00:00. This is local gym culture and it is exactly what the design already
+   produces (`validTo = next_due_date` + VFT's inclusive `EndDate`). The
+   *device* enforces it from its own clock, so the lockout does not wait for our
+   daily cron. See §3.4 of the plan.
+
+   ⚠️ **Separate and still open: the _gym_ stops paying _us_.** Different
+   question — whether a whole gym's members lose door access because the gym's
+   Metric subscription lapsed. Recommendation: **no**. Stop syncing, leave
+   devices in their last known state, banner the gym. The members did nothing
+   wrong, and mass-locking them over their gym's billing dispute is a
+   physical-safety and reputational risk. Needs a product call before Phase 3.
 2. **Biometric consent.** Fingerprint templates are sensitive personal data.
    They live on VFT's hardware, but we trigger enrolment — so the privacy policy
    needs a biometric disclosure and registration needs a consent alongside

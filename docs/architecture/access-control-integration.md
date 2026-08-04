@@ -281,6 +281,62 @@ export function resolveAccessDecision(input: {
 This function is the *only* place access policy exists. Everything else
 transports its output.
 
+**Invariant that follows — and it prevents a real defect.** The daily
+reconciler pushes *the decision*, never a blanket "refresh everyone's
+`validperiod`". A suspended member whose `next_due_date` is still in the future
+resolves to `allowed: false`, so the reconciler issues `accessblock` for them
+and no `validperiod` at all.
+
+This matters because we do not yet know whether a later `validperiod` silently
+clears an earlier `accessblock` on the device (round-2 question 3.1/3.3). If it
+does, a naive nightly refresh would **un-suspend every suspended member** —
+silently, nightly, and with the door as the only evidence. Driving every write
+from `resolveAccessDecision` makes that unreachable regardless of how the
+hardware behaves.
+
+### 3.4 The lockout boundary — the rule the whole integration exists to enforce
+
+**Stated precisely:** a member is admitted for the whole of their
+`next_due_date` and refused from **00:00 the following day**.
+
+> A member due on the **15th** may train on the 15th, right up to 23:59:59.
+> From **16th 00:00** the gate refuses them.
+
+This is the gym culture here, it is what `StatusConfig` already encodes (expiry
+is immediate, with **no grace period**), and it needs no special handling: it is
+what `validTo = next_due_date` produces once VFT's confirmed **inclusive
+`EndDate` through 23:59:59** is applied. The 15th is pushed as `EndDate`, the
+device admits through the 15th, and refuses from midnight.
+
+**The valuable property: the door locks itself, on time, with no cron
+involved.** `update-expired-status` runs once a day at 09:00 SLT, but the
+*device* enforces `EndDate` from its own clock at 00:00. There is no window in
+which an expired member can still walk in because a job hasn't run yet — and no
+dependency on our servers, our network, or the gym's internet being up at
+midnight.
+
+#### The one subtlety this creates
+
+Between **00:00 and the cron run**, the door has already locked the member out
+while our database still says `Active`. The divergence is in the safe direction
+— the door is stricter than the record — but staff must not see "Active" in the
+app while the member is being refused at the gate.
+
+**So the member access panel derives its state from `resolveAccessDecision`,
+never from `members.status` directly.** Because the function takes
+`nextDueDate`, it returns *blocked, reason: expired* from 00:00 regardless of
+what the status column still says. App and door agree at every instant, and the
+cron becomes a bookkeeping job rather than the thing that gates the door.
+
+#### The dependency this creates
+
+The boundary is enforced by **the device's own clock**, so a drifting clock
+drifts the lockout with it — a device an hour slow admits an expired member for
+an extra hour. Device time sync is therefore a real operational dependency, not
+a detail; it is question **1.1** in the round-2 list
+(`vft-api-questions-round-2.md`). Sri Lanka has no DST, which removes the other
+half of this problem.
+
 ---
 
 ## 4. Database schema
@@ -532,7 +588,11 @@ CI runs never touch real hardware.
 ## 8. Testing (70/20/10)
 
 **Unit** — `resolveAccessDecision` across the full status × dates × verified ×
-day-pass matrix; `YYYYMMDD` formatting and the inclusive paid-through boundary;
+day-pass matrix, with the **midnight boundary of §3.4 as its own test group**:
+due on the 15th ⇒ allowed at 15th 23:59:59, blocked at 16th 00:00:00, and
+blocked at 16th 00:00 *while `status` is still `Active`* (the pre-cron window —
+the case where app and door would otherwise disagree);
+`YYYYMMDD` formatting and the inclusive paid-through boundary;
 retry/backoff maths; Zod parsing of vendor responses *and* of malformed ones;
 webhook payload normalisation including duplicate events; credential
 encrypt/decrypt round-trip.
@@ -685,9 +745,16 @@ Phase 1. What remains:
 
 **Ours to decide, not VFT's**
 
-1. **Gym stops paying — do members get locked out?** Recommendation remains:
-   stop syncing, leave devices in their last known state, show the gym a banner.
-   Needs a product call before Phase 3.
+1. ~~**Member stops paying — do they get locked out?**~~ **Settled: yes**, from
+   00:00 the day after `next_due_date` (§3.4). Already what the design produces.
+
+   ⚠️ **Separate and still open — the *gym* stops paying *us*.** That is a
+   different question from member expiry: it asks whether a whole gym's members
+   lose door access because the gym's own Metric subscription lapsed.
+   Recommendation remains **no** — stop syncing, leave devices in their last
+   known state, show the gym a banner. Mass-locking a gym's paying members over
+   the gym's billing dispute is a physical-safety and reputational risk, and the
+   members did nothing wrong. Needs a product call before Phase 3.
 2. **Biometric consent.** Fingerprint templates are sensitive personal data.
    Even though they live on VFT's hardware, we trigger enrolment — so the
    privacy policy needs a biometric disclosure and registration needs a consent
