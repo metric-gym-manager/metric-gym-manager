@@ -266,8 +266,23 @@ export function resolveAccessDecision(input: {
   registrationSource: RegistrationSource
   verifiedAt: Date | null
   dayPassValidOn?: Date | null
+  /**
+   * The gym's *local* calendar day (Asia/Colombo), supplied by the caller.
+   * Never derived inside this function: `new Date()` here would silently make
+   * the verdict server-timezone-dependent, which is the exact bug §3.4
+   * describes. Passing it in keeps the function pure and the timezone explicit
+   * at the boundary.
+   */
+  today: Date
 }): { allowed: boolean; validFrom: Date | null; validTo: Date | null; reason: AccessDenialReason | null }
 ```
+
+The Colombo-aware `today` comes from a small pure helper in
+`features/access-control/utils/`. It lives in the feature rather than
+`src/utils/date/` because only this feature needs it today (R8 — don't promote
+a single-feature helper to shared utils speculatively). When the app-wide
+timezone correction described in §3.4 happens, that helper is the natural thing
+to promote.
 
 | Member state | Decision |
 | --- | --- |
@@ -309,33 +324,69 @@ what `validTo = next_due_date` produces once VFT's confirmed **inclusive
 device admits through the 15th, and refuses from midnight.
 
 **The valuable property: the door locks itself, on time, with no cron
-involved.** `update-expired-status` runs once a day at 09:00 SLT, but the
-*device* enforces `EndDate` from its own clock at 00:00. There is no window in
-which an expired member can still walk in because a job hasn't run yet — and no
-dependency on our servers, our network, or the gym's internet being up at
-midnight.
+involved.** The *device* enforces `EndDate` from its own clock at local
+midnight. There is no window in which an expired member walks in because a job
+hasn't run yet — and no dependency on our servers, our network, or the gym's
+internet being up at midnight.
 
-#### The one subtlety this creates
+#### The subtlety: a 5.5-hour window where the app disagrees with the door
 
-Between **00:00 and the cron run**, the door has already locked the member out
-while our database still says `Active`. The divergence is in the safe direction
-— the door is stricter than the record — but staff must not see "Active" in the
-app while the member is being refused at the gate.
+`update-expired-status` runs `0 0 * * *` — **00:00 UTC, which is 05:30 SLT.**
+So between 00:00 and 05:30 local, the door has already refused the member while
+`members.status` still reads `Active`. Safe direction (the door is stricter),
+but staff seeing "Active" while a member is turned away at the gate is exactly
+the confusion this integration must not create.
 
-**So the member access panel derives its state from `resolveAccessDecision`,
-never from `members.status` directly.** Because the function takes
-`nextDueDate`, it returns *blocked, reason: expired* from 00:00 regardless of
-what the status column still says. App and door agree at every instant, and the
-cron becomes a bookkeeping job rather than the thing that gates the door.
+**Fix: the member access panel derives its state from `resolveAccessDecision`,
+never from `members.status`.** The function takes `nextDueDate`, so it returns
+*blocked — expired* from 00:00 regardless of what the status column still says.
+App and door agree at every instant. The status cron becomes bookkeeping (quota
+counting, the cancellation chain) rather than the thing that gates the door.
 
-#### The dependency this creates
+#### Why we do *not* move the existing cron to local midnight
 
-The boundary is enforced by **the device's own clock**, so a drifting clock
-drifts the lockout with it — a device an hour slow admits an expired member for
-an extra hour. Device time sync is therefore a real operational dependency, not
-a detail; it is question **1.1** in the round-2 list
-(`vft-api-questions-round-2.md`). Sri Lanka has no DST, which removes the other
-half of this problem.
+Moving `update-expired-status` to 18:30 UTC (= 00:00 SLT) looks like the
+obvious fix. It would break two things:
+
+1. **The date maths is server-local, i.e. UTC.** `UpdateExpiredStatus` does
+   `new Date(); today.setHours(0,0,0,0)` → midnight **UTC**; the SQL helper
+   `get_overdue_members()` uses `CURRENT_DATE`, also UTC. Fired at 18:30 UTC on
+   the 15th, the UTC date is *still the 15th* while Sri Lanka is already on the
+   16th — so a member due the 15th fails the `next_due_date < today` test and is
+   **not** expired. They would expire 24 hours late. That is worse than the
+   5.5-hour cosmetic window it was meant to fix.
+2. **The nightly status chain is ordered and pinned.**
+   `update-expired-status` (00:00) and `expire-suspended-members` (00:15) feed
+   `cancel-overdue-members` (00:30); `cron-schedule-order.test.ts` asserts this
+   against `vercel.json`. Moving one feeder to 18:30 inverts the order — the
+   test fails, and every newly-expired member waits an extra day to be
+   cancelled. Moving the whole chain drags `charge-renewals`, `process-dunning`
+   and `process-trial-expiry` with it.
+
+Making the whole app Colombo-correct is worthwhile eventually — `getDaysUntilDue`
+is UTC-based too, so the app's own day arithmetic is already off by one for
+anyone using it between 00:00 and 05:30 SLT — but it is a timezone refactor
+touching reminders, member display and revenue. It is not access-control work
+and must not ride in on this branch.
+
+#### What we do instead: put the *new* cron at local midnight
+
+`reconcile-access` is new code with no legacy coupling, so it is scheduled at
+**`30 18 * * *` (18:30 UTC = 00:00 SLT)** and computes "today" in
+**Asia/Colombo**, not server-local. That buys the thing that actually matters:
+
+**An explicit `accessblock` is clock-independent.** The device obeys a command;
+it does not evaluate a date. So a job firing at local midnight that pushes
+blocks for the members who just expired closes the gap left by a **drifting
+device clock** — a reader running an hour slow would otherwise keep admitting
+them for that hour, and nobody would notice.
+
+Two honest limits: it only helps for devices that are **online and polling**
+(bounded by the poll interval — round-2 question 1.4), and a **fast** clock
+locks members out early, which no cron of ours can prevent. Device time sync
+therefore remains a genuine operational dependency and stays as round-2
+questions 1.1–1.3. Sri Lanka has no DST, which removes the other half of the
+problem.
 
 ---
 
@@ -438,7 +489,7 @@ GET       /api/access-control/events                # check-in log, paginated
 
 POST      /api/webhooks/access-control/[token]      # inbound attendance events
 GET|POST  /api/cron/drain-access-sync               # every 5 min
-GET|POST  /api/cron/reconcile-access                # daily, AFTER update-expired-status
+GET|POST  /api/cron/reconcile-access                # `30 18 * * *` = 18:30 UTC = 00:00 SLT (§3.4)
 ```
 
 `DELETE /members/[id]/biometric` maps to VFT's
@@ -463,9 +514,23 @@ never handed to `JSON` (rule 2.11).
 **Client selection (R7):** dashboard routes pass the session `createClient()`
 so RLS scopes the gym; the webhook and both crons pass `createAdminClient()`.
 
-**Cron ordering is load-bearing.** `update-expired-status` flips Active →
-Expired; `reconcile-access` must run after it, or the day's expiries won't
-reach the doors until the following run.
+**Correction to an earlier draft: there is _no_ ordering dependency on the
+status chain.** This document previously claimed `reconcile-access` had to run
+after `update-expired-status`. It does not, and the reason matters:
+`resolveAccessDecision` derives expiry from **`next_due_date`**, not from
+`members.status`. So the reconciler reaches the correct verdict whether or not
+the status cron has run yet.
+
+That is precisely what lets `reconcile-access` sit at 18:30 UTC — six hours
+*before* the status chain — and enforce the lockout at local midnight (§3.4).
+Suspensions and cancellations are status-driven, but those are admin actions
+that reach the outbox through the trigger immediately, so they do not wait for a
+cron either.
+
+`reconcile-access` is therefore **excluded from
+`cron-schedule-order.test.ts`**, which pins the Active→Expired→Cancelled chain.
+Adding it there would assert a dependency that does not exist and would block
+the 18:30 slot.
 
 Both crons use `CronLogger` (rule 2.6). What each audience sees is deliberately
 different (rules 2.8 / 2.9):
@@ -690,8 +755,12 @@ Landing Phase 1 must **also**:
 2. add a Pattern Index row (`2.18`) in `.claude/rules/architecture.md` pointing
    at this file — **only once code exists**, since that index lists enforced
    rules, not plans;
-3. document the two new cron jobs wherever the existing cron schedule is
-   recorded, including the ordering constraint against `update-expired-status`.
+3. add the two new cron jobs to `docs/ops/CRON_JOBS.md` and `vercel.json` —
+   `drain-access-sync` (every 5 min) and `reconcile-access` (`30 18 * * *`,
+   00:00 SLT). Record in that doc **why** `reconcile-access` sits outside the
+   pinned member-status chain (§3.4/§5): it is date-driven, not status-driven,
+   so it has no ordering dependency and must not be added to
+   `cron-schedule-order.test.ts`.
 
 ---
 
