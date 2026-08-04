@@ -1,7 +1,11 @@
 # Access Control Integration (VFT GYM API v2.0)
 
 > On-demand reference. Not auto-injected.
-> **Status:** PLAN — nothing in this document is implemented yet.
+> **Status:** PLAN — nothing in this document is implemented yet. Vendor
+> questions are **answered** (`docs/integrations/vft/vft-api-answers.md`), so
+> Phase 1 is unblocked.
+> **Hardware:** ~90% fingerprint readers, one gate per gym, one finger per
+> member. Those three facts narrow the scope considerably — see §2.1.
 > **Scope:** biometric door/turnstile hardware integration, the Enterprise-tier
 > differentiator already declared in the `PlanRestrictions` capability matrix
 > (`accessControlHardware`).
@@ -63,30 +67,78 @@ events to a URL we supply:
    "DeviceID": "QEM1253800017" }]
 ```
 
-### 2.1 The two properties that drive the whole design
+### 2.1 The three properties that drive the whole design
 
-1. **Commands are queued, not applied synchronously.** `/api/devicecmd/*` puts
-   a command in a queue the device polls; `GET /api/devicecmd/{DevSN}` lists
-   what is still pending. **HTTP 200 means "queued", not "the door knows".**
-   Anything built as fire-and-forget will silently drift out of sync the first
-   time a device is offline. → we need an **outbox + reconciliation loop**, not
-   direct calls.
-2. **Biometric enrolment is physical.** `enrollface` / `enrollfinger` put a
-   *device* into enrolment mode for a subject; the member must walk up to it.
-   There is no "upload a face image" endpoint, so the member photos we already
-   hold in R2 **cannot** be converted into templates. The UI must say so.
+*All three are now confirmed by VFT — see
+`docs/integrations/vft/vft-api-answers.md` for the full reply.*
+
+1. **Commands are queued, not applied synchronously.** `/api/devicecmd/*`
+   enqueues a command the device collects on its next PUSH poll;
+   `GET /api/devicecmd/{DevSN}` lists what is still pending.
+   **HTTP 200 confirms queuing, not execution.** VFT confirmed that a device
+   coming back online **fetches its queued buffer sequentially**, so commands
+   issued to an offline device are *not* lost.
+
+   That is better than feared, and it sharpens what the outbox is for: not
+   guarding against loss in transit, but knowing **when a command has actually
+   been applied**. Queue drainage is the only completion signal — there is no
+   per-command status field and no success callback.
+
+2. **Biometric enrolment is physical and two-part.** This is the confirmed
+   operational flow, and it matches how Sri Lankan gyms already work:
+
+   > **Part 1** — the member is registered in our SaaS registry (existing desk
+   > or QR flow, no hardware involved).
+   > **Part 2** — staff walk them to the fingerprint reader and their finger is
+   > scanned onto the device.
+
+   `enrollfinger` queues a command that puts the *device* into enrolment mode;
+   the member must be standing at it. Enrolment has **no completion callback**,
+   so it is modelled as *pending until observed* by polling `GET /api/template`
+   — the pending-vs-error distinction of rule 2.8 again.
 
    **The estate is ~90% fingerprint readers**, so fingerprint is the primary
-   flow and face is the exception — not the other way round. Three consequences
-   the vendor docs do not settle (VFT email §2):
-   - enrolment has **no completion callback**, so it is modelled as *pending
-     until observed* by polling `GET /api/template` — the pending-vs-error
-     distinction of rule 2.8, again;
-   - templates are assumed **not** to propagate automatically between a gym's
-     devices, so a successful enrolment enqueues a **template-propagation
-     intent** to the gym's other devices through the same outbox;
-   - devices have a finite template capacity (commonly 1,500–3,000), so
-     `access_devices` tracks a template count and warns the gym before the cap.
+   flow and face is the exception. Two simplifications follow from local
+   practice and are deliberate scope reductions:
+   - **One finger per member** (the index finger of one hand). The API supports
+     `fingerId` 0–9, but multi-finger enrolment is out of scope — the schema
+     records a single finger, not a set.
+   - **Single gate per gym** (one reader serving entry and exit). Cross-device
+     template propagation and device-replacement migration are therefore *not*
+     concerns for this build, even though VFT confirmed both are supported via
+     `syncone` / `syncsometoone`. The port keeps the sync calls; nothing in the
+     product depends on them.
+
+3. **The registry and the biometric are separate lifecycles.** A member's
+   fingerprint must be removable **without** deleting their membership record.
+   VFT supports exactly this split:
+   - `DELETE /api/template/fromdev/{id}` — clears templates from devices,
+     **keeps** the employee record;
+   - `DELETE /api/template/{id}` — deletes employee *and* templates.
+
+   So revoking a biometric is a first-class operation in our app, independent
+   of member status, and never touches the `members` row.
+
+### 2.2 Confirmed code tables
+
+VFT supplied these, so `config/AccessControlConfig.ts` gets real enums instead
+of the "store raw, decode later" fallback the earlier draft assumed:
+
+| Field | Values |
+| --- | --- |
+| `VerifyType` | `1` Fingerprint · `2` Card · `3` Password · `15` Face |
+| `CheckingStatus` | `0` Check-In · `1` Check-Out · `4` Overtime In · `5` Overtime Out |
+| `Event` | `3` Door Unlocked / Access Granted |
+
+Validated with `z.nativeEnum()` (rule 2.2), with the raw payload still kept in
+`access_events.raw` for values that appear later.
+
+**Treat `CheckingStatus` as advisory, not as truth.** With one reader serving
+both entry and exit, the device cannot reliably distinguish direction — it
+reports whatever mode it is configured in. So we model `access_events` as a
+stream of **visits**, not as paired in/out sessions, and we do not build
+time-in-gym or occupancy features on it. Recording that would be inventing data
+the hardware does not have.
 
 ---
 
@@ -236,22 +288,40 @@ transports its output.
 One migration, idempotent and replayable (R11).
 
 ```
-access_control_accounts    gym_id UNIQUE, base_url, default_area_id, is_active,
-                           last_verified_at, subject_id_strategy   -- NON-secret, gym-readable
+access_control_accounts    gym_id UNIQUE, base_url, area_id, is_active,
+                           last_verified_at                        -- NON-secret, gym-readable
 access_control_secrets     account_id UNIQUE, email_ciphertext, password_ciphertext,
                            api_token_ciphertext, token_expires_at  -- service-role ONLY, no gym policies
-access_devices             gym_id, device_serial, device_name, area_id, timezone_offset,
-                           purpose('entry'|'exit'|'both'), is_active, last_seen_at, last_synced_at
-member_access_subjects     gym_id, member_id UNIQUE, subject_id, finger_count,
-                           enrolled_finger_ids INT[], face_enrolled,
+access_devices             gym_id, device_serial UNIQUE, device_name, area_id, timezone_offset,
+                           is_active, last_seen_at, last_synced_at
+member_access_subjects     gym_id, member_id UNIQUE, subject_id BIGINT UNIQUE,
+                           finger_enrolled, finger_id, enrolled_at,
                            provisioned_at, last_synced_at, sync_state
 access_sync_jobs           gym_id, member_id?, device_id?, intent, payload JSONB,
                            status('pending'|'in_flight'|'succeeded'|'failed'|'dead'),
                            attempts, next_attempt_at, last_error, provider_command_id
 access_events              gym_id, member_id?, device_serial, subject_id, occurred_at,
-                           direction, verify_type, event_code, raw JSONB
+                           checking_status, verify_type, event_code, raw JSONB
                            UNIQUE(gym_id, device_serial, subject_id, occurred_at)  -- idempotency
+
+access_subject_id_seq      -- Postgres SEQUENCE, global across all gyms (see §6)
 ```
+
+Three schema points come straight from VFT's answers:
+
+- **`area_id` is the tenant boundary, not a default.** VFT confirmed the API has
+  no native tenant isolation — a single JWT sees everything, and `EmpId` is a
+  **flat identifier** unless scoped by `AreaID`. Each gym therefore gets its own
+  `AreaID`, and it is mandatory on employee creation (per §6.4 of their reply).
+- **`device_serial` is globally unique, not per-gym.** It is how we route
+  inbound webhook events back to a gym (§5.1), so it cannot collide.
+- **`subject_id` is `BIGINT` from a global sequence** and globally unique —
+  never `member_number`. See §6.
+
+Dropped from the earlier draft: `purpose` on devices and `enrolled_finger_ids[]`
+on subjects. Sri Lankan gyms run **one gate** and record **one finger**, so both
+were modelling flexibility nobody uses. A single `finger_id` records which
+finger was scanned.
 
 **Secrets split is deliberate.** Gym owners need to see *whether* access control
 is configured and when it last verified; they must never be able to read back
@@ -299,20 +369,32 @@ Responses via `ResponseBuilder` (rule 2.3).
 GET|PUT   /api/access-control/account               # configure credentials (write-only secrets)
 POST      /api/access-control/account/verify        # sign-in probe, sets last_verified_at
 GET|POST  /api/access-control/devices
-PATCH     /api/access-control/devices/[id]          # NON-state props only: name, purpose (rule 2.5.1)
-DELETE    /api/access-control/devices/[id]
+PATCH     /api/access-control/devices/[id]          # NON-state props only: name (rule 2.5.1)
 POST      /api/access-control/devices/[id]/enable   # state transition → dedicated endpoint (rule 2.5)
 POST      /api/access-control/devices/[id]/disable  # state transition → dedicated endpoint (rule 2.5)
+POST      /api/access-control/devices/[id]/unlink   # removes from OUR db only — VFT has no device DELETE
 POST      /api/access-control/devices/[id]/open     # remote unlock — audited, rate-limited
 POST      /api/access-control/devices/[id]/reboot
-POST      /api/access-control/members/[id]/sync     # force re-assert
-POST      /api/access-control/members/[id]/enrol    # {method:'finger'|'face', deviceId, fingerId?}
+POST      /api/access-control/members/[id]/sync     # force re-assert of validity window
+POST      /api/access-control/members/[id]/enrol    # put the reader into enrolment mode (part 2 of §2.1)
+DELETE    /api/access-control/members/[id]/biometric # clear the fingerprint, KEEP the member
 GET       /api/access-control/events                # check-in log, paginated
 
 POST      /api/webhooks/access-control/[token]      # inbound attendance events
 GET|POST  /api/cron/drain-access-sync               # every 5 min
 GET|POST  /api/cron/reconcile-access                # daily, AFTER update-expired-status
 ```
+
+`DELETE /members/[id]/biometric` maps to VFT's
+`DELETE /api/template/fromdev/{id}` — templates off the reader, employee record
+intact — and clears `finger_enrolled` on our side. It **never** touches the
+`members` row. This is the registry/biometric separation from §2.1 property 3,
+and it is why it is a route of its own rather than a flag on member update:
+deleting someone's fingerprint is not an edit to their membership.
+
+There is deliberately **no `DELETE /devices/[id]`**: VFT confirmed no device or
+area delete endpoint exists. `/unlink` removes the device from our database only,
+and the UI says so rather than implying the hardware was deprovisioned.
 
 **No generic update endpoint may change device or access state** (rule 2.5).
 Enabling/disabling a device and granting/blocking a member are transitions and
@@ -342,41 +424,93 @@ And because every command is queued, **pending is not failure** (rule 2.8): a
 job awaiting device pickup renders as in-progress, and only an exhausted retry
 budget or an explicit vendor error renders as an error state.
 
-### 5.1 The webhook needs authentication we have to invent
+### 5.1 The webhook: one URL for every gym, routed by device serial
 
-The vendor spec ships the webhook with **no signature and no auth header** —
-unlike text.lk (HMAC) and PayHere. Anyone who learns the URL could forge
-check-ins. Mitigation:
+VFT confirmed two things that change this design from the earlier draft:
 
-- an unguessable per-gym token in the **path**, reusing the
-  `gym_registration_links` token pattern (≥128 bits, rotatable);
-- an optional `ACCESS_CONTROL_WEBHOOK_SECRET` header check, enabled if the
-  vendor confirms custom headers are supported (open question Q2);
-- per-token rate limiting, strict Zod parsing of the array, per-event
-  idempotency on `UNIQUE(gym_id, device_serial, subject_id, occurred_at)`, and
-  an **always-200** contract so the vendor does not retry-storm us — the same
-  contract the PayHere webhook already follows.
+> **Auth:** no header signature is defined for incoming push webhooks.
+> Verification requires **path-based secret tokens or IP whitelisting**.
+>
+> **Routing:** the callback is configured **at server/account level**.
+
+So the per-gym callback URL is *not* available on a shared account — there is
+**one** endpoint receiving events for every gym. That kills the per-gym path
+token as a routing mechanism, though not as an auth mechanism:
+
+- **One platform-wide path token** (≥128 bits, rotatable) authenticates the
+  endpoint — this is VFT's own recommended approach, so we are not improvising.
+- **The gym is resolved from `DeviceID`** (the `DevSN`) via `access_devices`,
+  which is why that column is globally unique (§4). An event for an unknown
+  serial is logged and dropped, never guessed at.
+- **Optional IP allowlist** as a second factor, the other mechanism VFT
+  suggested, once we know their egress addresses.
+- Rate limiting, strict Zod parsing of the array, per-event idempotency on
+  `UNIQUE(gym_id, device_serial, subject_id, occurred_at)`, and an
+  **always-200** contract — the same contract the PayHere webhook follows.
+
+**Security consequence worth stating plainly:** on a shared account we receive
+attendance events for *every* gym on that account, including any that are not
+our customers. We store only events whose `DevSN` maps to a device we know, and
+the ingestion path never trusts a gym id from the payload.
+
+### 5.2 Denied scans are not ingested — deliberately
+
+VFT confirmed that rejections (expired validity, unknown template) do **not**
+arrive on the webhook. They land in the device transaction table, reachable
+only by polling `DATA QUERY tablename=transaction` — a raw, queued command.
+
+We are not building that polling loop, because we do not need it. Your
+description of the member experience is the reason:
+
+> When a membership is expired, the gate simply does not open and the reader
+> shows an error on its screen.
+
+Our database already knows *why* — expired, suspended, cancelled, unverified.
+The front desk sees the real reason in our app the moment they look the member
+up; the member sees the device error at the gate. Polling the vendor to be told
+something we already know would add a queued command per device per interval
+for no information gain.
+
+`access_events` therefore records **successful entries only**. If denial
+analytics are ever wanted, the transaction-table poll is the documented way in.
 
 ---
 
-## 6. Identity mapping — the one thing to decide before coding
+## 6. Identity mapping — settled
 
-Vendor `EmpId` is a short string backed by a ZKTeco `Pin` (numeric, limited
-width). Our member IDs are UUIDs and **cannot** be pushed.
+VFT confirmed the two facts that decide this:
 
-We already have `members.member_number` — a per-gym 1-based sequence — which is
-the natural `EmpId`… but it is only unique *within a gym*. So:
+> `EmpId` corresponds directly to the ZKTeco hardware `Pin`. Numeric strings
+> only (up to 9 or 24 digits depending on model). **UUIDs cannot be used.**
+>
+> The API exposes no tenant-isolation endpoints. `EmpId` operates as a **flat
+> identifier** unless explicitly scoped by `AreaID`.
 
-- **Recommended: one VFT account per gym.** `subject_id = member_number`.
-  Namespaces are naturally isolated, a compromised credential blasts one
-  tenant, and it matches how gyms buy hardware. Requires the vendor to issue
-  per-gym accounts.
-- **Fallback: one shared VFT account.** Needs a global `subject_id` sequence
-  stored in `member_access_subjects` — never derivable from `member_number`,
-  and multi-tenant isolation then rests entirely on our own code.
+**Decision: allocate `subject_id` from a single global Postgres sequence,
+zero-padded to at most 9 digits. Never use `members.member_number`.**
 
-`subject_id_strategy` on the account row keeps both viable, but the schema
-should be built for the per-gym default.
+`member_number` is per-gym and 1-based, so two gyms both have a member `1`. On
+a flat `EmpId` namespace that is a collision — and a collision here means **one
+gym's member opens another gym's door**. A global sequence costs nothing and is
+correct under both deployment models:
+
+| If VFT issues… | Global sequence still correct? |
+| --- | --- |
+| separate credentials per gym | Yes — IDs are merely sparse, which is harmless |
+| one shared account for all gyms | Yes — and it is the *only* safe option |
+
+Because VFT would not commit to per-gym credentials (they offered it as an
+option, not a product feature), the shared-account case must be assumed. The
+earlier `subject_id_strategy` column is therefore deleted: there is one strategy.
+
+**9 digits, not 24.** The ceiling varies by hardware model and we cannot audit
+every unit a gym might own, so we stay inside the narrowest documented limit.
+A sequence starting at 100000 leaves headroom for ~999 million members.
+
+**Verify truncation empirically** on the first test device: push a 9-digit
+`EmpId` and confirm the device stores it whole rather than silently truncating.
+Silent truncation is the failure mode that grants the wrong member access, and
+it is invisible until someone walks through a door they shouldn't.
 
 ---
 
@@ -508,7 +642,7 @@ the network.
 
 | Phase | Content |
 | --- | --- |
-| **0** | Vendor clarifications (§12) + the identity decision (§6). Runs in parallel with Phase 1. |
+| ~~**0**~~ | ~~Vendor clarifications~~ — **done**. VFT answered; the identity question (§6) is settled. Phase 1 is unblocked. |
 | **1** | Migration, config, `resolveAccessDecision`, port, Mock provider, repository, factory, unit tests. Zero network. |
 | **2** | `VftAccessControlProvider`, credentials + device settings UI behind `FeatureGate`, "verify connection". |
 | **3** | Member sync: trigger outbox, drain + reconcile crons, member access panel, enrolment trigger, `/system-health` surfacing. |
@@ -517,16 +651,57 @@ the network.
 
 ---
 
-## 12. Open questions
+## 12. What is still open
 
-**Questions for VFT** live in `docs/integrations/vft/`:
+VFT's full reply and the resulting decisions are recorded in
+**`docs/integrations/vft/vft-api-answers.md`**. Nothing outstanding blocks
+Phase 1. What remains:
 
-- **`vft-api-questions-email.md`** — the ready-to-send email, grouped into six
-  sections. Sections 1 (account structure / `EmpId`) and 2 (fingerprint
-  enrolment and templates) are hard blockers for Phase 2.
-- **`vft-api-questions.md`** — internal companion: why each question matters,
-  the fallback assumption if it goes unanswered, the risk if that assumption is
-  wrong, and the five things to verify by hand on the first test device.
+**Unanswered by VFT — mitigated, not blocking**
+
+| Gap | Mitigation in place |
+| --- | --- |
+| Rate limits never specified | Pace at ~1 req/s per gym; chunk the daily reconcile |
+| Error body shapes / status codes never specified | Retry 5xx and timeouts with backoff; never retry 4xx; dead-letter after the budget |
+| Webhook retry & duplicate-delivery behaviour not stated | Always-200 plus the idempotency constraint — correct under any retry policy |
+| Whether re-signin invalidates a prior token | Central per-gym cached token with TTL, refresh once on 401 (VFT explicitly endorsed central token storage for serverless) |
+| Enrolment-mode timeout on the device | Enrolment shown as *pending*; staff can re-issue. Confirm the real timeout on the test device |
+
+**To verify on the first test device** — cheaper to measure than to ask again:
+
+1. **9-digit `EmpId`** stores whole, without silent truncation (§6). Highest
+   severity: truncation grants the wrong member access.
+2. **`EndDate` inclusivity** — VFT says inclusive through 23:59:59; confirm a
+   member whose window ends today still gets in today.
+3. **`validperiod` vs raw `DATA UPDATE user`** — the collection exposes the typed
+   `POST /api/devicecmd/validperiod`, but VFT's answer described expiry via the
+   raw `DATA UPDATE user Pin=… StartTime=… EndTime=…` form. Confirm the typed
+   endpoint works; if it does not, the raw string stays confined to
+   `lib/access-control/`, never leaking into the feature.
+4. **Command acknowledgement** — that a command really does vanish from
+   `GET /api/devicecmd/{DevSN}` once applied, since that is our only completion
+   signal.
+5. **Offline buffering** — unplug, send `accessblock`, reconnect, confirm it lands.
+
+**Ours to decide, not VFT's**
+
+1. **Gym stops paying — do members get locked out?** Recommendation remains:
+   stop syncing, leave devices in their last known state, show the gym a banner.
+   Needs a product call before Phase 3.
+2. **Biometric consent.** Fingerprint templates are sensitive personal data.
+   Even though they live on VFT's hardware, we trigger enrolment — so the
+   privacy policy needs a biometric disclosure and registration needs a consent
+   alongside `accepted_terms_at` / `accepted_gym_rules_at`. Settle before
+   Phase 3.
+3. **Remote door-open** stays Enterprise-only, gym-owner-only, rate-limited and
+   audited with actor and timestamp.
+
+**Explicitly out of scope** (your calls, recorded so they are not re-litigated):
+multi-finger enrolment, cross-device template propagation, device-replacement
+migration, duplicate-finger detection, and template upload/restore. VFT
+confirmed raw template upload is technically possible via
+`DATA UPDATE tablename=templatev10`, so backup/restore remains available later
+if it is ever wanted — but nothing in this build depends on it.
 
 Internal product/legal decisions — ours, not the vendor's:
 
