@@ -1,11 +1,18 @@
 # Access Control Integration (VFT GYM API v2.0)
 
 > On-demand reference. Not auto-injected.
-> **Status:** PLAN — nothing in this document is implemented yet. Vendor
-> questions are **answered** (`docs/integrations/vft/vft-api-answers.md`), so
-> Phase 1 is unblocked.
+> **Status:** PLAN — nothing in this document is implemented yet.
+>
+> ⚠️ **Provenance: VFT has not been asked anything yet.** Every statement here
+> about how the VFT API behaves is a **working assumption**, derived from the
+> v2.0 PDF, the Postman collection, and general ZKTeco/ADMS behaviour. None of
+> it is a vendor commitment. Assumptions and their blast radius are listed in
+> `docs/integrations/vft/vft-api-assumptions.md`; the questions that would
+> confirm them are in `vft-integration-questions.md`. Treat anything marked
+> **unverified** as provisional until VFT replies or we test it on hardware.
+>
 > **Hardware:** ~90% fingerprint readers, one gate per gym, one finger per
-> member. Those three facts narrow the scope considerably — see §2.1.
+> member. Those three are confirmed by the product owner — see §2.1.
 > **Scope:** biometric door/turnstile hardware integration, the Enterprise-tier
 > differentiator already declared in the `PlanRestrictions` capability matrix
 > (`accessControlHardware`).
@@ -69,13 +76,13 @@ events to a URL we supply:
 
 ### 2.1 The three properties that drive the whole design
 
-*All three are now confirmed by VFT — see
-`docs/integrations/vft/vft-api-answers.md` for the full reply.*
+*All three are **working assumptions**, not vendor statements — see
+`docs/integrations/vft/vft-api-assumptions.md`.*
 
 1. **Commands are queued, not applied synchronously.** `/api/devicecmd/*`
    enqueues a command the device collects on its next PUSH poll;
    `GET /api/devicecmd/{DevSN}` lists what is still pending.
-   **HTTP 200 confirms queuing, not execution.** VFT confirmed that a device
+   **HTTP 200 confirms queuing, not execution.** We assume (**unverified**) that a device
    coming back online **fetches its queued buffer sequentially**, so commands
    issued to an offline device are *not* lost.
 
@@ -84,8 +91,9 @@ events to a URL we supply:
    been applied**. Queue drainage is the only completion signal — there is no
    per-command status field and no success callback.
 
-2. **Biometric enrolment is physical and two-part.** This is the confirmed
-   operational flow, and it matches how Sri Lankan gyms already work:
+2. **Biometric enrolment is physical and two-part.** The hardware side is an
+   assumption; the operational flow is confirmed by the product owner and
+   matches how Sri Lankan gyms already work:
 
    > **Part 1** — the member is registered in our SaaS registry (existing desk
    > or QR flow, no hardware involved).
@@ -105,13 +113,13 @@ events to a URL we supply:
      records a single finger, not a set.
    - **Single gate per gym** (one reader serving entry and exit). Cross-device
      template propagation and device-replacement migration are therefore *not*
-     concerns for this build, even though VFT confirmed both are supported via
+     concerns for this build, even though both are probably supported via
      `syncone` / `syncsometoone`. The port keeps the sync calls; nothing in the
      product depends on them.
 
 3. **The registry and the biometric are separate lifecycles.** A member's
    fingerprint must be removable **without** deleting their membership record.
-   VFT supports exactly this split:
+   The endpoints suggest the API supports this split (**unverified**):
    - `DELETE /api/template/fromdev/{id}` — clears templates from devices,
      **keeps** the employee record;
    - `DELETE /api/template/{id}` — deletes employee *and* templates.
@@ -119,10 +127,11 @@ events to a URL we supply:
    So revoking a biometric is a first-class operation in our app, independent
    of member status, and never touches the `members` row.
 
-### 2.2 Confirmed code tables
+### 2.2 Assumed code tables
 
-VFT supplied these, so `config/AccessControlConfig.ts` gets real enums instead
-of the "store raw, decode later" fallback the earlier draft assumed:
+These are **assumed** ZKTeco defaults, **not vendor-supplied**. If VFT confirms
+them, `config/AccessControlConfig.ts` can hold real enums; until then the raw
+payload is retained in `access_events.raw` and decoding stays provisional:
 
 | Field | Values |
 | --- | --- |
@@ -296,13 +305,13 @@ to promote.
 This function is the *only* place access policy exists. Everything else
 transports its output.
 
-**Invariant that follows — and VFT confirmed it prevents a real defect.** The
+**Invariant that follows — and it guards a defect we cannot rule out.** The
 reconciler pushes *the decision*, never a blanket "refresh everyone's
 `validperiod`". A suspended member whose `next_due_date` is still in the future
 resolves to `allowed: false`, so the reconciler issues `accessblock` for them
 and **no `validperiod` at all**.
 
-This is no longer hypothetical. VFT's answer:
+This is no longer hypothetical. Assumed behaviour (**unverified**):
 
 > `accessblock` updates privilege flags in device memory. Re-issuing a
 > `validperiod` command or updating user properties **can re-write user record
@@ -317,15 +326,13 @@ evidence. Two defences, both adopted:
 1. **Never send `validperiod` to a blocked subject.** Guaranteed by driving
    every write from `resolveAccessDecision`, and asserted directly in the
    reconciler's unit tests rather than left as an emergent property.
-2. **Template revocation for hard suspensions.** VFT's own recommendation for
-   determinism: `DELETE /api/template/fromdev/{id}` removes the fingerprint
+2. **Template revocation for hard suspensions.** The likely deterministic route: `DELETE /api/template/fromdev/{id}` removes the fingerprint
    itself, so no privilege flag can be flipped back by a later write. Used for
    `Cancelled` and for administrative suspensions, where re-enrolment on return
    is acceptable. Ordinary expiry keeps using the validity window, which needs
    no command at all.
 
-**Corollary — never issue a second credential.** VFT confirmed that after
-template revocation, *"if card numbers, PINs, or passwords remain assigned to
+**Corollary — never issue a second credential.** After template revocation, *"if card numbers, PINs, or passwords remain assigned to
 that `EmpId`, access via those secondary vectors remains active"*. We therefore
 **never set `CardNo` or `Password`** on a subject: the fingerprint is the sole
 credential, which is the only thing that makes revocation a true lockout. The
@@ -404,7 +411,7 @@ blocks for the members who just expired closes the gap left by a **drifting
 device clock** — a reader running an hour slow would otherwise keep admitting
 them for that hour, and nobody would notice.
 
-VFT confirmed the mechanism exactly: validity bounds are *"evaluated entirely on
+General ZKTeco behaviour suggests (**unverified**): validity bounds are *"evaluated entirely on
 the device's local processor using its internal RTC and configured `TimeZone`
 offset … access termination occurs at 23:59:59 local device time without
 requiring real-time server connectivity."* That is §3.4 working as designed.
@@ -418,7 +425,7 @@ and a **fast** clock locks members out early, which no cron of ours can prevent.
 
 #### Detecting clock drift without an API for it
 
-VFT confirmed there is **no endpoint to read or set device time** — drift is
+We have found **no endpoint to read or set device time** (**unverified**) — drift is
 corrected during PUSH sync only *"if server time parameters are active"*, or by
 configuring NTP on the hardware itself. So we cannot query a device's clock.
 
@@ -461,10 +468,10 @@ access_subject_id_seq      -- Postgres SEQUENCE, global across all gyms (see §6
 
 Three schema points come straight from VFT's answers:
 
-- **`area_id` is the tenant boundary, not a default.** VFT confirmed the API has
+- **`area_id` is the tenant boundary, not a default.** We assume (**unverified**) the API has
   no native tenant isolation — a single JWT sees everything, and `EmpId` is a
   **flat identifier** unless scoped by `AreaID`. Each gym therefore gets its own
-  `AreaID`, and it is mandatory on employee creation (per §6.4 of their reply).
+  `AreaID`, and we assume it is required on employee creation.
 - **`device_serial` is globally unique, not per-gym.** It is how we route
   inbound webhook events back to a gym (§5.1), so it cannot collide.
 - **`subject_id` is `BIGINT` from a global sequence** and globally unique —
@@ -512,7 +519,7 @@ reacts in under a minute.
 
 ### 4.2 The queue drains **in order, serialized per member**
 
-VFT confirmed provisioning has a required sequence:
+Expected provisioning sequence (**unverified**):
 
 > Standard ZKTeco firmware requires a user profile (`Pin`) to exist in device
 > memory before validity periods can be bound to it.
@@ -533,7 +540,7 @@ it is a property the drainer's tests assert directly.
 
 ### 4.3 The reconciler enqueues **diffs, not everything**
 
-VFT confirmed there is **no bulk validity endpoint** — re-asserting is one call
+There appears to be **no bulk validity endpoint** (**unverified**) — re-asserting is one call
 per member per device. At the confirmed ceiling of *"under 10 requests per
 second"* (we pace at ~5/s for margin), re-asserting a 500-member gym nightly
 would be ~100 seconds of pure churn for, on a typical night, a handful of actual
@@ -583,8 +590,7 @@ intact — and clears `finger_enrolled` on our side. It **never** touches the
 and it is why it is a route of its own rather than a flag on member update:
 deleting someone's fingerprint is not an edit to their membership.
 
-There is deliberately **no `DELETE /devices/[id]`**: VFT confirmed no device or
-area delete endpoint exists. `/unlink` removes the device from our database only,
+There is deliberately **no `DELETE /devices/[id]`**: No device or area delete endpoint appears to exist. `/unlink` removes the device from our database only,
 and the UI says so rather than implying the hardware was deprovisioned.
 
 **No generic update endpoint may change device or access state** (rule 2.5).
@@ -631,7 +637,7 @@ budget or an explicit vendor error renders as an error state.
 
 ### 5.1 The webhook: one URL for every gym, routed by device serial
 
-VFT confirmed two things that change this design from the earlier draft:
+Two working assumptions shape this design (**both unverified**):
 
 > **Auth:** no header signature is defined for incoming push webhooks.
 > Verification requires **path-based secret tokens or IP whitelisting**.
@@ -643,7 +649,7 @@ So the per-gym callback URL is *not* available on a shared account — there is
 token as a routing mechanism, though not as an auth mechanism:
 
 - **One platform-wide path token** (≥128 bits, rotatable) authenticates the
-  endpoint — this is VFT's own recommended approach, so we are not improvising.
+  endpoint — the standard approach for a webhook with no signature scheme.
 - **The gym is resolved from `DeviceID`** (the `DevSN`) via `access_devices`,
   which is why that column is globally unique (§4). An event for an unknown
   serial is logged and dropped, never guessed at.
@@ -660,7 +666,7 @@ the ingestion path never trusts a gym id from the payload.
 
 ### 5.2 Denied scans are not ingested — deliberately
 
-VFT confirmed that rejections (expired validity, unknown template) do **not**
+We assume rejections (expired validity, unknown template) do **not**
 arrive on the webhook. They land in the device transaction table, reachable
 only by polling `DATA QUERY tablename=transaction` — a raw, queued command.
 
@@ -683,7 +689,7 @@ analytics are ever wanted, the transaction-table poll is the documented way in.
 
 ## 6. Identity mapping — settled
 
-VFT confirmed the two facts that decide this:
+Working assumption on the two facts that decide this (**unverified**):
 
 > `EmpId` corresponds directly to the ZKTeco hardware `Pin`. Numeric strings
 > only (up to 9 or 24 digits depending on model). **UUIDs cannot be used.**
@@ -708,7 +714,7 @@ Because VFT offered per-gym credentials as an option rather than a product
 feature, the shared-account case must be assumed. The earlier
 `subject_id_strategy` column is therefore deleted: there is one strategy.
 
-Round 2 made this stronger than "prudent". VFT confirmed `EmpId` is unique
+This is reinforced by the assumption that We assume (**unverified**) `EmpId` is unique
 **account-wide**, and that reusing one across areas *"will overwrite or mutate
 the existing user record"* — so a collision does not error, it **silently
 overwrites another gym's member**. The global sequence is mandatory.
@@ -722,7 +728,7 @@ A sequence starting at 100000 leaves headroom for ~999 million members.
 Silent truncation is the failure mode that grants the wrong member access, and
 it is invisible until someone walks through a door they shouldn't.
 
-VFT named the deployed fleet as **MB20, K40, F18 and SpeedFace** terminals.
+The fleet is **assumed** to be **MB20, K40, F18 and SpeedFace** terminals.
 K40 and F18 are older entry-level units, and some of their firmware builds cap
 the user `Pin` well below 9 digits. **If the real cap turns out to be 5 digits,
 the global namespace is only 99,999 subjects across every gym on the account** —
@@ -732,8 +738,7 @@ namespace per account). This is the strongest technical argument for §6.1 below
 
 ### 6.1 `AreaID` is a filter, not a security boundary
 
-VFT was explicit, and this is the most security-significant answer in either
-round:
+This is the most security-significant assumption in the whole design, and it is **unverified**:
 
 > `AreaID` functions as a **logical filter, not a strict multi-tenant
 > authorization barrier**. An `APIToken` issued for the account has **full
@@ -741,7 +746,7 @@ round:
 > `AreaID` records** unless the client application explicitly scopes every
 > request payload.
 
-Combined with §2.2 of their reply — `EmpId` is unique **account-wide**, and
+Combined with the assumption that `EmpId` is unique **account-wide**, and
 reusing one across areas *"will overwrite or mutate the existing user record"* —
 this means: on a shared account, **our application code is the only thing
 standing between one gym and another gym's members and doors.** A scoping bug
@@ -904,7 +909,7 @@ the network.
 
 | Phase | Content |
 | --- | --- |
-| ~~**0**~~ | ~~Vendor clarifications~~ — **done**. VFT answered; the identity question (§6) is settled. Phase 1 is unblocked. |
+| **0** | **Send `vft-integration-questions.md` and request test hardware.** Runs in parallel with Phase 1 — Phase 1 touches no network, so it is not blocked. Phase 2 is. |
 | **1** | Migration, config, `resolveAccessDecision`, port, Mock provider, repository, factory, unit tests. Zero network. |
 | **2** | `VftAccessControlProvider`, credentials + device settings UI behind `FeatureGate`, "verify connection". |
 | **3** | Member sync: trigger outbox, drain + reconcile crons, member access panel, enrolment trigger, `/system-health` surfacing. |
@@ -916,7 +921,7 @@ the network.
 ## 12. What is still open
 
 VFT's full reply and the resulting decisions are recorded in
-**`docs/integrations/vft/vft-api-answers.md`**. Nothing outstanding blocks
+**`docs/integrations/vft/vft-api-assumptions.md`**. Nothing outstanding blocks
 Phase 1. What remains:
 
 **Operational parameters — now quantified, and built to them**
@@ -936,7 +941,7 @@ Phase 1. What remains:
 K40/F18 firmware (§6).
 
 **To verify on the first test device** — cheaper to measure than to ask again.
-VFT confirmed sandbox/test hardware needs manual provisioning by their admins,
+We assume (**unverified**) sandbox/test hardware needs manual provisioning by their admins,
 so **request it now**; it gates nothing but shortens Phase 2 considerably.
 
 1. **`EmpId` width on a K40 or F18** — does a 9-digit id store whole, or
@@ -977,7 +982,7 @@ so **request it now**; it gates nothing but shortens Phase 2 considerably.
 3. **Remote door-open** stays Enterprise-only, gym-owner-only, rate-limited and
    audited with actor and timestamp.
 4. **Per-gym VFT credentials — now a commercial ask, not just a preference.**
-   Round 2 established that `AreaID` is a filter and not an authorization
+   The working assumptions are that `AreaID` is a filter and not an authorization
    boundary (§6.1), that `EmpId` is unique account-wide and reusing one
    *overwrites another tenant's user record*, and that the deployed fleet may
    cap `Pin` well below 9 digits. Each of those, on its own, is survivable; the

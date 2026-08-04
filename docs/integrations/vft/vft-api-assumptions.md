@@ -1,19 +1,27 @@
-# VFT GYM API v2.0 — vendor answers and resulting decisions
+# VFT GYM API v2.0 — working assumptions
 
-> Record of what VFT confirmed, plus the local-market context that narrowed the
-> scope, and the decision taken in each case. Supersedes the question list and
-> the outbound email (both in git history).
+> ⚠️ **None of this came from VFT. VFT has not been contacted.**
+>
+> Every "answer" below was derived from the v2.0 PDF, the Postman collection,
+> and general ZKTeco/ADMS behaviour published online. It is a **working
+> assumption set**, not a vendor commitment, and any item may be wrong.
+>
+> This file exists so the design's foundations are auditable: each row records
+> what we assumed, what we decided because of it, and therefore what has to be
+> revisited if the assumption falls. The questions that would confirm them are
+> in `vft-integration-questions.md`.
+>
+> **Confirmed by the product owner** (not assumptions): hardware is ~90%
+> fingerprint readers; **one gate per gym**; **one finger per member**; members
+> are admitted through their paid-through date and refused from midnight.
 >
 > Design: `docs/architecture/access-control-integration.md`.
->
-> **Hardware:** ~90% fingerprint readers. **One gate per gym** (a single reader
-> serves entry and exit). **One finger per member** (index finger, one hand).
 
 ---
 
 ## 1. Account structure and identity
 
-| Asked | VFT answer | Decision |
+| Question | Assumed answer (unverified) | Decision taken |
 | --- | --- | --- |
 | Per-gym API credentials? | No native tenant isolation. A single JWT; isolation must be logical via `AreaID`, or by maintaining separate service credentials per tenant | Assume a **shared account**. `AreaID` is the tenant boundary — one per gym, mandatory on employee create |
 | Is `EmpId` a flat namespace? | Yes — flat unless scoped by `AreaID` | Drives the decision below |
@@ -33,7 +41,7 @@ audit every hardware model a gym might own.
 
 ## 2. Fingerprint enrolment and templates
 
-| Asked | VFT answer | Decision |
+| Question | Assumed answer (unverified) | Decision taken |
 | --- | --- | --- |
 | Where do templates live? | Centralised, in `templatev10`, exposed via `/api/template` | Confirmed — we hold no template data ourselves |
 | Automatic propagation between devices? | **No.** Explicit `syncall` / `syncone` / `syncsometoall` / `syncsometoone` | Moot — **single gate per gym**. Port keeps the calls; nothing depends on them |
@@ -70,9 +78,9 @@ and VFT supports precisely that split. So:
 
 ## 3. Webhook and events
 
-| Asked | VFT answer | Decision |
+| Question | Assumed answer (unverified) | Decision taken |
 | --- | --- | --- |
-| Webhook authentication | None defined. Use **path-based secret tokens or IP whitelisting** | One platform-wide path token (≥128 bits, rotatable) + optional IP allowlist. Our original approach, now vendor-endorsed |
+| Webhook authentication | None defined. Use **path-based secret tokens or IP whitelisting** | One platform-wide path token (≥128 bits, rotatable) + optional IP allowlist. Our original approach, now not yet vendor-confirmed |
 | Per-gym callback URL | Configured at **server/account level** | **One URL for all gyms.** Gym resolved from `DeviceID` → `access_devices` (hence its global uniqueness) |
 | Code tables | `VerifyType` 1 Finger / 2 Card / 3 Password / 15 Face · `CheckingStatus` 0 In / 1 Out / 4 OT-In / 5 OT-Out · `Event` 3 Door Unlocked | Real `z.nativeEnum()` enums; raw payload still retained in `access_events.raw` |
 | Denied-access events | **Not** pushed. They land in the device transaction table, reachable only by polling `DATA QUERY tablename=transaction` | **Not ingested** — see below |
@@ -102,7 +110,7 @@ maps to a device we know, and never trust a gym id from the payload.
 
 ## 4. Command delivery
 
-| Asked | VFT answer | Decision |
+| Question | Assumed answer (unverified) | Decision taken |
 | --- | --- | --- |
 | Does 200 mean applied? | No — it confirms **queuing**. The command string is enqueued in the database | Outbox design confirmed correct |
 | Offline devices | On reconnect the device **fetches its queued buffer sequentially** via the PUSH pull | Commands are **not lost**. The outbox exists to know when a command was *applied*, not to guard against loss |
@@ -116,7 +124,7 @@ maps to a device we know, and never trust a gym id from the payload.
 
 ## 5. Dates and time zones
 
-| Asked | VFT answer | Decision |
+| Question | Assumed answer (unverified) | Decision taken |
 | --- | --- | --- |
 | `EndDate` inclusive? | **Yes** — inclusive through 23:59:59 of the given date | Matches our assumption. `validTo = next_due_date` is correct as-is. Still worth confirming on hardware |
 | `AttTime` timezone | Device-local, per the device's `TimeZone` (minutes from UTC, e.g. `330` = UTC+5:30) | Convert using the device's stored offset → persist UTC. Do not assume Asia/Colombo; read the device's own value |
@@ -143,11 +151,11 @@ the hardware was deprovisioned.
 
 ---
 
-## 6b. Round 2 — answers and decisions
+## 6b. Second pass — further assumptions
 
 ### Device timekeeping
 
-| Asked | VFT answer | Decision |
+| Question | Assumed answer (unverified) | Decision taken |
 | --- | --- | --- |
 | Clock sync | Hardware RTC; corrected via NTP if enabled, or heartbeat params during PUSH sync *"if server time parameters are active"* | Drift is possible and not guaranteed corrected |
 | Read/set device time via API | **No endpoint.** Requires low-level parameter commands or physical NTP config | Cannot query a clock → **infer skew** from normalised `AttTime` vs our receipt time, on every event. Free, and turns an invisible failure into a monitored one |
@@ -156,7 +164,7 @@ the hardware was deprovisioned.
 
 ### Tenancy — the security finding
 
-| Asked | VFT answer | Decision |
+| Question | Assumed answer (unverified) | Decision taken |
 | --- | --- | --- |
 | Is `AreaID` a filter or a boundary? | **A logical filter, not an authorization barrier.** The token has full admin access across *all* areas unless the client scopes every request | Our code is the only tenant guard. Every identifier sent to the provider is resolved from our DB under RLS, never from request input (§6.1) |
 | `EmpId` scope | Unique **account-wide**, not per area. Reusing one across areas *"will overwrite or mutate the existing user record"* | Global sequence confirmed **mandatory**. A collision silently corrupts another gym's member |
@@ -166,11 +174,11 @@ the hardware was deprovisioned.
 
 ### Command semantics
 
-| Asked | VFT answer | Decision |
+| Question | Assumed answer (unverified) | Decision taken |
 | --- | --- | --- |
 | `validperiod` vs raw `DATA UPDATE user` | Identical effect; the REST endpoint is **preferred** | Use the typed endpoint. Raw strings stay out of the codebase |
 | Call sequence | Profile must exist in device memory **before** validity binds: provision + sync templates → then `validperiod` | Outbox drains **serialized and ordered per member** (§4.2) — a correctness requirement |
-| `accessblock` vs `validperiod` | **Confirmed hazard.** A later `validperiod` or user-property write *"can re-write user record flags on specific firmware builds, potentially clearing an active block"*. Their advice: revoke templates, or avoid `validperiod` on blocked ids | Both adopted (§3.3): never `validperiod` a blocked subject, and use template revocation for hard suspensions |
+| `accessblock` vs `validperiod` | **Confirmed hazard.** A later `validperiod` or user-property write *"can re-write user record flags on specific firmware builds, potentially clearing an active block"*. Likely remedy: revoke templates, or avoid `validperiod` on blocked ids | Both adopted (§3.3): never `validperiod` a blocked subject, and use template revocation for hard suspensions |
 | Bulk validity | **None.** One call per member/device | Diff-based reconcile (§4.3) becomes a requirement, not an optimisation |
 | Access after template deletion | Card/PIN/password remain live if assigned | **Never set `CardNo` or `Password`.** The fingerprint stays the sole credential, so revocation is a true lockout |
 
@@ -243,6 +251,6 @@ Recorded so they are not re-litigated: multi-finger enrolment, cross-device
 template propagation, device-replacement migration, duplicate-finger detection,
 denial-event ingestion, and template upload/restore.
 
-VFT confirmed raw template upload is technically possible
+We assume (**unverified**) raw template upload is technically possible
 (`DATA UPDATE tablename=templatev10`), so backup and restore remain available
 later if ever wanted — but nothing in this build depends on it.
