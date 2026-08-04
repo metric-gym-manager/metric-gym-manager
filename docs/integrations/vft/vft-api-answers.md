@@ -143,6 +143,58 @@ the hardware was deprovisioned.
 
 ---
 
+## 6b. Round 2 — answers and decisions
+
+### Device timekeeping
+
+| Asked | VFT answer | Decision |
+| --- | --- | --- |
+| Clock sync | Hardware RTC; corrected via NTP if enabled, or heartbeat params during PUSH sync *"if server time parameters are active"* | Drift is possible and not guaranteed corrected |
+| Read/set device time via API | **No endpoint.** Requires low-level parameter commands or physical NTP config | Cannot query a clock → **infer skew** from normalised `AttTime` vs our receipt time, on every event. Free, and turns an invisible failure into a monitored one |
+| Cutover evaluation | Entirely on the device RTC + its `TimeZone` offset; terminates at 23:59:59 **local**, no server connectivity needed | Confirms §3.4 exactly |
+| Poll interval | **5–30 seconds** | A block reaches an online device in under a minute. UI can say "within about a minute" honestly |
+
+### Tenancy — the security finding
+
+| Asked | VFT answer | Decision |
+| --- | --- | --- |
+| Is `AreaID` a filter or a boundary? | **A logical filter, not an authorization barrier.** The token has full admin access across *all* areas unless the client scopes every request | Our code is the only tenant guard. Every identifier sent to the provider is resolved from our DB under RLS, never from request input (§6.1) |
+| `EmpId` scope | Unique **account-wide**, not per area. Reusing one across areas *"will overwrite or mutate the existing user record"* | Global sequence confirmed **mandatory**. A collision silently corrupts another gym's member |
+| `DevSN` global uniqueness | Yes — hardware serial, globally unique | Webhook routing by `DeviceID` is sound |
+| Area creation | `POST /api/area`, backend assigns integer ids, no documented limit | One area per gym at onboarding |
+| Cross-tenant webhook events | Account-level callback receives **all** devices/areas on the account | Filter by `DevSN` in application logic; store only known devices |
+
+### Command semantics
+
+| Asked | VFT answer | Decision |
+| --- | --- | --- |
+| `validperiod` vs raw `DATA UPDATE user` | Identical effect; the REST endpoint is **preferred** | Use the typed endpoint. Raw strings stay out of the codebase |
+| Call sequence | Profile must exist in device memory **before** validity binds: provision + sync templates → then `validperiod` | Outbox drains **serialized and ordered per member** (§4.2) — a correctness requirement |
+| `accessblock` vs `validperiod` | **Confirmed hazard.** A later `validperiod` or user-property write *"can re-write user record flags on specific firmware builds, potentially clearing an active block"*. Their advice: revoke templates, or avoid `validperiod` on blocked ids | Both adopted (§3.3): never `validperiod` a blocked subject, and use template revocation for hard suspensions |
+| Bulk validity | **None.** One call per member/device | Diff-based reconcile (§4.3) becomes a requirement, not an optimisation |
+| Access after template deletion | Card/PIN/password remain live if assigned | **Never set `CardNo` or `Password`.** The fingerprint stays the sole credential, so revocation is a true lockout |
+
+### Operational parameters
+
+Rate limit: keep **under 10 req/s** (we pace at ~5). Errors: standard `401` /
+`400` / `500`. Tokens: **a new sign-in does not invalidate prior tokens** — so
+concurrent serverless instances are safe; expiry duration still unstated.
+Webhooks: ack immediately with `200`. Enrolment mode times out after **30–60 s**
+of sensor inactivity.
+
+### Hardware
+
+Fleet is **MB20, K40, F18, SpeedFace**; capacity 1,000–3,000 templates, with the
+PUSH loop returning error codes when full. Sandbox/test hardware **requires
+manual provisioning by VFT admins — request it now.**
+
+⚠️ **K40 and F18 are older entry-level units.** Some firmware builds cap the user
+`Pin` well below 9 digits. If the real cap is 5, the global namespace is 99,999
+subjects across *every* gym on the account — a real ceiling. Then the options are
+id recycling or per-gym accounts. Top item to measure on the test device.
+
+---
+
 ## 7. Verify on the first test device
 
 Cheaper to measure than to ask again, in rough priority order:

@@ -296,18 +296,41 @@ to promote.
 This function is the *only* place access policy exists. Everything else
 transports its output.
 
-**Invariant that follows — and it prevents a real defect.** The daily
+**Invariant that follows — and VFT confirmed it prevents a real defect.** The
 reconciler pushes *the decision*, never a blanket "refresh everyone's
 `validperiod`". A suspended member whose `next_due_date` is still in the future
 resolves to `allowed: false`, so the reconciler issues `accessblock` for them
-and no `validperiod` at all.
+and **no `validperiod` at all**.
 
-This matters because we do not yet know whether a later `validperiod` silently
-clears an earlier `accessblock` on the device (round-2 question 3.1/3.3). If it
-does, a naive nightly refresh would **un-suspend every suspended member** —
-silently, nightly, and with the door as the only evidence. Driving every write
-from `resolveAccessDecision` makes that unreachable regardless of how the
-hardware behaves.
+This is no longer hypothetical. VFT's answer:
+
+> `accessblock` updates privilege flags in device memory. Re-issuing a
+> `validperiod` command or updating user properties **can re-write user record
+> flags on specific firmware builds, potentially clearing an active block
+> state.** To ensure deterministic suspensions … avoid sending subsequent
+> `validperiod` updates to blocked IDs.
+
+A naive nightly refresh would therefore **un-suspend suspended members** —
+silently, nightly, on some firmware but not others, with the door as the only
+evidence. Two defences, both adopted:
+
+1. **Never send `validperiod` to a blocked subject.** Guaranteed by driving
+   every write from `resolveAccessDecision`, and asserted directly in the
+   reconciler's unit tests rather than left as an emergent property.
+2. **Template revocation for hard suspensions.** VFT's own recommendation for
+   determinism: `DELETE /api/template/fromdev/{id}` removes the fingerprint
+   itself, so no privilege flag can be flipped back by a later write. Used for
+   `Cancelled` and for administrative suspensions, where re-enrolment on return
+   is acceptable. Ordinary expiry keeps using the validity window, which needs
+   no command at all.
+
+**Corollary — never issue a second credential.** VFT confirmed that after
+template revocation, *"if card numbers, PINs, or passwords remain assigned to
+that `EmpId`, access via those secondary vectors remains active"*. We therefore
+**never set `CardNo` or `Password`** on a subject: the fingerprint is the sole
+credential, which is the only thing that makes revocation a true lockout. The
+raw ZKTeco examples in the vendor docs do set `Password=…` — that form must
+never be copied.
 
 ### 3.4 The lockout boundary — the rule the whole integration exists to enforce
 
@@ -381,12 +404,34 @@ blocks for the members who just expired closes the gap left by a **drifting
 device clock** — a reader running an hour slow would otherwise keep admitting
 them for that hour, and nobody would notice.
 
-Two honest limits: it only helps for devices that are **online and polling**
-(bounded by the poll interval — round-2 question 1.4), and a **fast** clock
-locks members out early, which no cron of ours can prevent. Device time sync
-therefore remains a genuine operational dependency and stays as round-2
-questions 1.1–1.3. Sri Lanka has no DST, which removes the other half of the
-problem.
+VFT confirmed the mechanism exactly: validity bounds are *"evaluated entirely on
+the device's local processor using its internal RTC and configured `TimeZone`
+offset … access termination occurs at 23:59:59 local device time without
+requiring real-time server connectivity."* That is §3.4 working as designed.
+
+**The poll interval is 5–30 seconds**, so a block reaches an online device in
+well under a minute. The UI can honestly tell staff a suspension takes effect
+"within about a minute" rather than hedging.
+
+Two honest limits remain: it only helps devices that are **online and polling**,
+and a **fast** clock locks members out early, which no cron of ours can prevent.
+
+#### Detecting clock drift without an API for it
+
+VFT confirmed there is **no endpoint to read or set device time** — drift is
+corrected during PUSH sync only *"if server time parameters are active"*, or by
+configuring NTP on the hardware itself. So we cannot query a device's clock.
+
+We can, however, **infer** it from data we already ingest. Every webhook event
+carries `AttTime` in device-local time, and we know the device's `TimeZone`
+offset. Comparing the normalised `AttTime` against our own receipt timestamp
+yields the device's skew for free, on every scan. Persistent skew beyond a
+threshold raises a `/system-health` alert for the SaaS admin and a sanitized
+"device clock needs attention" note for the gym (rules 2.8/2.9).
+
+This costs one comparison per event, needs no extra vendor calls, and turns an
+invisible failure mode into a monitored one. Sri Lanka has no DST, which removes
+the other half of the problem.
 
 ---
 
@@ -462,7 +507,46 @@ The trigger only *enqueues* — it never calls out and never writes
 
 Latency is covered by a hybrid: the trigger guarantees eventual delivery, and
 the suspend/cancel/verify routes additionally kick a best-effort immediate
-drain for that one member so the door reacts in seconds.
+drain for that one member. With VFT's confirmed 5–30 s poll interval, the door
+reacts in under a minute.
+
+### 4.2 The queue drains **in order, serialized per member**
+
+VFT confirmed provisioning has a required sequence:
+
+> Standard ZKTeco firmware requires a user profile (`Pin`) to exist in device
+> memory before validity periods can be bound to it.
+> **1.** Provision the employee profile and sync it to the device.
+> **2.** Issue the `validperiod` command.
+
+So a new member's intents form an ordered chain — `upsertSubject` →
+`syncSubjectsToDevice` → `setValidPeriod` → (physical) `startFingerEnrolment` —
+and running them concurrently would land `validperiod` against a profile the
+device does not yet hold. It would fail silently, leaving a member with a
+fingerprint and no validity window: refused at the door with no obvious cause.
+
+`DrainAccessSyncQueue` therefore processes **at most one in-flight job per
+member**, in `created_at` order, and a failed job blocks its own member's chain
+(not the whole queue) until it succeeds or dead-letters. Different members drain
+in parallel. This is a correctness requirement, not a throughput preference, and
+it is a property the drainer's tests assert directly.
+
+### 4.3 The reconciler enqueues **diffs, not everything**
+
+VFT confirmed there is **no bulk validity endpoint** — re-asserting is one call
+per member per device. At the confirmed ceiling of *"under 10 requests per
+second"* (we pace at ~5/s for margin), re-asserting a 500-member gym nightly
+would be ~100 seconds of pure churn for, on a typical night, a handful of actual
+changes.
+
+So `ReconcileMemberAccess` compares each member's resolved decision against the
+last-synced state recorded on `member_access_subjects` and enqueues **only the
+differences**. Nightly volume becomes proportional to members whose access
+actually changed — normally those expiring at midnight.
+
+This also shrinks the §3.3 hazard surface: every `validperiod` write is a chance
+to clear a block on some firmware, so writing only when something changed means
+strictly fewer opportunities for that bug to exist at all.
 
 ---
 
@@ -620,9 +704,14 @@ correct under both deployment models:
 | separate credentials per gym | Yes — IDs are merely sparse, which is harmless |
 | one shared account for all gyms | Yes — and it is the *only* safe option |
 
-Because VFT would not commit to per-gym credentials (they offered it as an
-option, not a product feature), the shared-account case must be assumed. The
-earlier `subject_id_strategy` column is therefore deleted: there is one strategy.
+Because VFT offered per-gym credentials as an option rather than a product
+feature, the shared-account case must be assumed. The earlier
+`subject_id_strategy` column is therefore deleted: there is one strategy.
+
+Round 2 made this stronger than "prudent". VFT confirmed `EmpId` is unique
+**account-wide**, and that reusing one across areas *"will overwrite or mutate
+the existing user record"* — so a collision does not error, it **silently
+overwrites another gym's member**. The global sequence is mandatory.
 
 **9 digits, not 24.** The ceiling varies by hardware model and we cannot audit
 every unit a gym might own, so we stay inside the narrowest documented limit.
@@ -632,6 +721,50 @@ A sequence starting at 100000 leaves headroom for ~999 million members.
 `EmpId` and confirm the device stores it whole rather than silently truncating.
 Silent truncation is the failure mode that grants the wrong member access, and
 it is invisible until someone walks through a door they shouldn't.
+
+VFT named the deployed fleet as **MB20, K40, F18 and SpeedFace** terminals.
+K40 and F18 are older entry-level units, and some of their firmware builds cap
+the user `Pin` well below 9 digits. **If the real cap turns out to be 5 digits,
+the global namespace is only 99,999 subjects across every gym on the account** —
+which is a genuine ceiling, not a theoretical one. In that case the options are
+recycling ids from long-cancelled members, or per-gym accounts (which resets the
+namespace per account). This is the strongest technical argument for §6.1 below.
+
+### 6.1 `AreaID` is a filter, not a security boundary
+
+VFT was explicit, and this is the most security-significant answer in either
+round:
+
+> `AreaID` functions as a **logical filter, not a strict multi-tenant
+> authorization barrier**. An `APIToken` issued for the account has **full
+> administrative access to query, modify, or delete records across all
+> `AreaID` records** unless the client application explicitly scopes every
+> request payload.
+
+Combined with §2.2 of their reply — `EmpId` is unique **account-wide**, and
+reusing one across areas *"will overwrite or mutate the existing user record"* —
+this means: on a shared account, **our application code is the only thing
+standing between one gym and another gym's members and doors.** A scoping bug
+does not produce an error; it silently mutates another tenant's data.
+
+Three consequences, all binding:
+
+1. **Credentials never reach a gym user.** Already the design (§4: secrets in a
+   service-role-only table, AES-256-GCM, no gym-side read policy). This answer
+   is why that is non-negotiable rather than merely tidy — anyone holding the
+   credentials holds every gym on the account.
+2. **Every identifier sent to the provider is resolved from our own database
+   under RLS — never from request input.** A route accepts a `memberId`; the
+   repository resolves gym → `area_id` → `subject_id` → `device_serial` from
+   rows the session's RLS already permits. The provider is never handed an id
+   that came off the wire. This is the single invariant that makes the shared
+   account survivable, and it belongs in the repository layer where it cannot
+   be forgotten per-route.
+3. **Per-gym accounts become a commercial ask, not just an architectural
+   preference.** Technically we can operate on a shared account; the isolation
+   simply rests entirely on us. Given (1), (2), and the possible 5-digit `Pin`
+   ceiling above, it is worth pressing VFT for per-gym credentials as a
+   contractual matter.
 
 ---
 
@@ -786,31 +919,43 @@ VFT's full reply and the resulting decisions are recorded in
 **`docs/integrations/vft/vft-api-answers.md`**. Nothing outstanding blocks
 Phase 1. What remains:
 
-**Unanswered by VFT — mitigated, not blocking**
+**Operational parameters — now quantified, and built to them**
 
-| Gap | Mitigation in place |
-| --- | --- |
-| Rate limits never specified | Pace at ~1 req/s per gym; chunk the daily reconcile |
-| Error body shapes / status codes never specified | Retry 5xx and timeouts with backoff; never retry 4xx; dead-letter after the budget |
-| Webhook retry & duplicate-delivery behaviour not stated | Always-200 plus the idempotency constraint — correct under any retry policy |
-| Whether re-signin invalidates a prior token | Central per-gym cached token with TTL, refresh once on 401 (VFT explicitly endorsed central token storage for serverless) |
-| Enrolment-mode timeout on the device | Enrolment shown as *pending*; staff can re-issue. Confirm the real timeout on the test device |
+| Parameter | VFT's answer | Built as |
+| --- | --- | --- |
+| Rate limit | Undocumented; keep **under 10 req/s** | Pace at ~5/s for margin; diff-based reconcile (§4.3) keeps volume low anyway |
+| Error responses | Undocumented; standard `401` / `400` / `500` | Retry `500` + timeouts with backoff; never retry `400`; on `401` refresh the token once, then retry once |
+| Token invalidation | Tokens stay valid until expiry; a new sign-in does **not** invalidate prior ones | Concurrent serverless instances are safe. Per-gym cached token, refresh on `401`. Expiry duration still unstated → proactive refresh |
+| Webhook retries | Undocumented; ack immediately with `200` | Always-200 + idempotency constraint — correct under any retry policy |
+| Enrolment timeout | **30–60 s** of sensor inactivity | ~60 s countdown in the enrolment dialog, then poll `GET /api/template` to confirm |
+| Poll interval | **5–30 s** | "Takes effect within about a minute" is an honest promise to staff |
+| Device capacity | 1,000–3,000 templates; PUSH loop returns error codes when full | Detect from sync errors; warn the gym before the cap |
+| Bulk validity | **No bulk endpoint** | One call per member/device → §4.3 diff-based reconcile is a requirement, not an optimisation |
 
-**To verify on the first test device** — cheaper to measure than to ask again:
+**Still genuinely unknown:** token expiry duration, and the real `Pin` width on
+K40/F18 firmware (§6).
 
-1. **9-digit `EmpId`** stores whole, without silent truncation (§6). Highest
-   severity: truncation grants the wrong member access.
-2. **`EndDate` inclusivity** — VFT says inclusive through 23:59:59; confirm a
-   member whose window ends today still gets in today.
-3. **`validperiod` vs raw `DATA UPDATE user`** — the collection exposes the typed
-   `POST /api/devicecmd/validperiod`, but VFT's answer described expiry via the
-   raw `DATA UPDATE user Pin=… StartTime=… EndTime=…` form. Confirm the typed
-   endpoint works; if it does not, the raw string stays confined to
-   `lib/access-control/`, never leaking into the feature.
+**To verify on the first test device** — cheaper to measure than to ask again.
+VFT confirmed sandbox/test hardware needs manual provisioning by their admins,
+so **request it now**; it gates nothing but shortens Phase 2 considerably.
+
+1. **`EmpId` width on a K40 or F18** — does a 9-digit id store whole, or
+   truncate? Highest severity in the whole integration: truncation grants the
+   wrong member access and is invisible until someone walks through a door they
+   shouldn't. If the real cap is 5 digits, §6's global namespace is 99,999 and
+   the allocation strategy has to change.
+2. **`EndDate` inclusivity** — VFT says inclusive through 23:59:59 local;
+   confirm a member whose window ends today still gets in today.
+3. **The §3.3 firmware hazard** — on the actual fleet, does a `validperiod`
+   write clear an active `accessblock`? Our invariant makes this unreachable,
+   but knowing the answer tells us whether template revocation is *required* for
+   suspensions or merely belt-and-braces.
 4. **Command acknowledgement** — that a command really does vanish from
    `GET /api/devicecmd/{DevSN}` once applied, since that is our only completion
    signal.
 5. **Offline buffering** — unplug, send `accessblock`, reconnect, confirm it lands.
+6. **Clock skew detection** — that normalised `AttTime` minus receipt time is a
+   usable drift signal in practice (§3.4).
 
 **Ours to decide, not VFT's**
 
@@ -831,6 +976,15 @@ Phase 1. What remains:
    Phase 3.
 3. **Remote door-open** stays Enterprise-only, gym-owner-only, rate-limited and
    audited with actor and timestamp.
+4. **Per-gym VFT credentials — now a commercial ask, not just a preference.**
+   Round 2 established that `AreaID` is a filter and not an authorization
+   boundary (§6.1), that `EmpId` is unique account-wide and reusing one
+   *overwrites another tenant's user record*, and that the deployed fleet may
+   cap `Pin` well below 9 digits. Each of those, on its own, is survivable; the
+   combination means a single scoping bug in our code can silently mutate
+   another gym's members, and a single leaked credential exposes every gym at
+   once. Worth pressing VFT on contractually, even though the design works
+   without it.
 
 **Explicitly out of scope** (your calls, recorded so they are not re-litigated):
 multi-finger enrolment, cross-device template propagation, device-replacement
