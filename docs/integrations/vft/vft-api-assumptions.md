@@ -53,15 +53,38 @@ audit every hardware model a gym might own.
 | Removing biometrics | `DELETE /api/template/fromdev/{id}` clears templates, keeps the employee. `DELETE /api/template/{id}` deletes both | **Adopted as a first-class flow** — see below |
 | Remote enrolment from stored data | Physical enrolment required; raw upload possible via `DATA UPDATE tablename=templatev10` | **Treated as not possible.** No enrol-from-photo, ever |
 
-### The confirmed enrolment flow
+### The enrolment flow — ✅ OBSERVED FIRSTHAND, not assumed
 
-> **Part 1** — member is registered in our SaaS registry (existing desk or QR
-> flow, no hardware).
-> **Part 2** — staff walk them to the reader; their finger is scanned onto the
-> device.
+The one item on this page backed by direct evidence. The product owner went
+through enrolment at a gym running this hardware:
+
+> Staff walked the member to the wall-mounted reader, **pressed buttons on the
+> device itself** to start enrolment, the finger was placed **three times**, and
+> it was confirmed with the OK key. No software was involved at any visible
+> point.
+
+Three captures is the standard ZKTeco template-building sequence, so this is an
+ordinary **device-local admin-menu enrolment** — *not* the
+`POST /api/devicecmd/enrollfinger` path the Postman collection exposes.
+
+> **Part 1** — member is registered in our registry (desk or QR flow, no
+> hardware).
+> **Part 2** — staff enrol the finger **at the device**.
 
 The UI must reflect exactly this: a member exists and is billable the moment
 Part 1 completes, showing *Biometric: not enrolled* until Part 2 happens.
+
+**This overturned an earlier assumption.** We had assumed our app *triggers*
+enrolment via `enrollfinger` and waits. In practice we trigger nothing — our
+only job is to **detect** that enrolment happened. The trigger endpoint becomes
+optional, and polling `GET /api/template` becomes the sole detection mechanism.
+
+**Still unverified, and it is the sharpest open question in the integration:**
+when staff enrol at the terminal, do they *select an employee record we pushed*,
+or *create one locally and key in an id*? If the latter, device-side ids can
+collide with our global sequence and silently overwrite a real member — a hazard
+no code of ours can prevent. Whether it also uploads the template back to the
+platform, and how soon `GET /api/template` reflects it, are open with it.
 
 ### Registry and biometric are separate lifecycles
 

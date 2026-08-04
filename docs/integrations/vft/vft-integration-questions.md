@@ -110,22 +110,35 @@ which approach you'd recommend.*
 
 ## 5. Fingerprint enrolment
 
-Our understanding is that `enrollfinger` puts the **terminal** into enrolment
-mode for a given employee, and the member must present their finger at that
-terminal — there's no way to upload a fingerprint from our side. Is that
-correct?
+We've been through enrolment at a gym running your hardware. A staff member took
+us to the wall-mounted terminal, pressed buttons **on the device itself** to
+start enrolment, had the same finger placed three times, and confirmed with the
+OK key. Nothing appeared to be initiated from software.
 
-- Does the employee need to be synced to the terminal (via
-  `/api/template/syncsometoone`) **before** `enrollfinger` and `validperiod`
-  will work? What's the correct order for a brand-new member?
-- **How do we confirm an enrolment succeeded?** What does `GET /api/template`
-  return per employee — a per-finger record, a template count, an enrolment
-  timestamp?
-- How long does the terminal stay in enrolment mode before timing out?
+That raises the questions below, because our platform is the thing that assigns
+member identifiers.
 
-*Our front desk needs to tell the member "you're set up" while they're still
-standing at the reader, so a way to confirm success matters more to us than it
-might sound.*
+- Is enrolment **at the terminal** the expected flow, or is
+  `POST /api/devicecmd/enrollfinger` an equally supported path? Which do you
+  recommend for a system like ours?
+- **When staff enrol at the terminal, do they select an employee record that is
+  already on the device, or do they create one there and key in the ID?**
+  This is the one that matters most to us. We assign each member a numeric
+  `EmpId` and push it down; if operators key in their own IDs at the terminal
+  instead, the two will not line up and we need to know that before we build the
+  allocation.
+- Does a fingerprint enrolled at the terminal get **uploaded back to the VFT
+  platform** — on the device's next sync, or not at all?
+- Once it has, does `GET /api/template` reflect it? What comes back per employee
+  — a per-finger record, a template count, an enrolment timestamp?
+- Does an employee need to be synced to the terminal (via
+  `/api/template/syncsometoone`) before a `validperiod` command will bind to
+  them?
+
+*Enrolment happens at the wall, where our software can't see it. So we need to
+detect it from the platform instead — the staff screen should flip from "not
+enrolled" to "enrolled" on its own. Knowing what to poll, and how soon it shows
+up, tells us whether that's achievable.*
 
 ## 6. Attendance webhook
 

@@ -91,19 +91,51 @@ events to a URL we supply:
    been applied**. Queue drainage is the only completion signal — there is no
    per-command status field and no success callback.
 
-2. **Biometric enrolment is physical and two-part.** The hardware side is an
-   assumption; the operational flow is confirmed by the product owner and
-   matches how Sri Lankan gyms already work:
+2. **Biometric enrolment is physical, two-part, and — critically — appears to be
+   driven from the terminal, not from software.**
 
-   > **Part 1** — the member is registered in our SaaS registry (existing desk
-   > or QR flow, no hardware involved).
-   > **Part 2** — staff walk them to the fingerprint reader and their finger is
-   > scanned onto the device.
+   **Observed firsthand** at a gym running this hardware (the strongest evidence
+   we have on any point in this document): a staff member walked the new member
+   to the wall-mounted reader, **pressed buttons on the device itself** to begin
+   enrolment, the finger was placed three times, and it was confirmed with the
+   OK key. No software was involved at any visible point.
 
-   `enrollfinger` queues a command that puts the *device* into enrolment mode;
-   the member must be standing at it. Enrolment has **no completion callback**,
-   so it is modelled as *pending until observed* by polling `GET /api/template`
-   — the pending-vs-error distinction of rule 2.8 again.
+   Three captures is the standard ZKTeco template-building sequence, so this
+   reads as an ordinary device-local admin-menu enrolment — **not** the
+   `POST /api/devicecmd/enrollfinger` path the Postman collection exposes.
+
+   > **Part 1** — the member is registered in our registry (existing desk or QR
+   > flow, no hardware involved).
+   > **Part 2** — staff walk them to the reader and enrol the finger **at the
+   > device**.
+
+   **This inverts our role in Part 2.** The earlier draft assumed we *trigger*
+   enrolment via `enrollfinger` and then wait. If enrolment is started at the
+   terminal, we trigger nothing — our only job is to **detect** that it
+   happened. `POST /api/access-control/members/[id]/enrol` therefore becomes
+   optional (a convenience for gyms whose staff prefer to start it from the
+   desk), not the primary path, and it must not be the only way a member can
+   become enrolled.
+
+   Detection is by polling `GET /api/template`, which makes that endpoint's
+   response shape load-bearing rather than incidental — hence the sharpened
+   question to VFT. Enrolment stays modelled as *pending until observed*
+   (rule 2.8).
+
+   ⚠️ **The risk this surfaces: who assigns the `EmpId`?** Our design allocates
+   member ids from a global sequence and pushes them down (§6). That only holds
+   if staff at the terminal **select an employee record we already created**. If
+   the terminal lets an operator key in an id and create a user locally, we get
+   device-side records our system has never heard of — and worse, ids that can
+   **collide with our sequence** and silently overwrite a real member. Nothing in
+   our code can prevent that; it is a device-configuration and staff-training
+   matter. This is the single most important thing to establish before Phase 3,
+   and it is why the enrolment question to VFT leads with it.
+
+   The mitigation, if operators can create users locally: reconcile in the other
+   direction too — pull `GET /api/template` and flag any device-side `EmpId` that
+   does not correspond to one of our subjects, rather than assuming our view is
+   complete.
 
    **The estate is ~90% fingerprint readers**, so fingerprint is the primary
    flow and face is the exception. Two simplifications follow from local
