@@ -16,11 +16,11 @@ const sections: LegalSection[] = [
     title: 'Overview',
     body: (
       <LegalP>
-        Metric Gym Manager, a product of Capitalist One (Pvt) Ltd, is a software-as-a-service platform
+        Metric Gym OS, a product of Capitalist One (Pvt) Ltd, is a software-as-a-service platform
         for gym and fitness businesses, offered on a monthly subscription basis. Subscription payments
         are processed securely by PayHere, our authorized payment gateway. This policy explains how
         subscription cancellations and refunds work. It applies only to the subscription fees you pay
-        to us for using Metric Gym Manager.
+        to us for using Metric Gym OS.
       </LegalP>
     ),
   },
@@ -31,7 +31,7 @@ const sections: LegalSection[] = [
       <LegalP>
         Every new account starts with a 30-day free trial with full access to the platform. No payment
         details are required to start the trial, and no charges are made during it. The trial is
-        designed to let you fully evaluate Metric Gym Manager before committing to a paid plan. If you
+        designed to let you fully evaluate Metric Gym OS before committing to a paid plan. If you
         choose not to subscribe, your account simply pauses at the end of the trial - you will never be
         charged for a trial.
       </LegalP>
@@ -123,7 +123,7 @@ const sections: LegalSection[] = [
     title: 'Payments Between Gyms and Their Members',
     body: (
       <LegalP>
-        Metric Gym Manager is used by gym operators to record membership payments they collect from
+        Metric Gym OS is used by gym operators to record membership payments they collect from
         their own members. Those payments are made directly to the gym and are governed by each
         gym&apos;s own terms and refund practices. If you are a gym member seeking a refund for a gym
         membership fee, please contact your gym directly - this policy covers only the platform
@@ -142,9 +142,9 @@ const sections: LegalSection[] = [
         </LegalP>
         <LegalContactList>
           <LegalContactItem label="Business:">Capitalist One (Pvt) Ltd</LegalContactItem>
-          <LegalContactItem label="Email:">support@metricgymmanager.com</LegalContactItem>
+          <LegalContactItem label="Email:">support@metricgymos.com</LegalContactItem>
           <LegalContactItem label="Phone:">+94 70 437 9967</LegalContactItem>
-          <LegalContactItem label="Website:">www.metricgymmanager.com</LegalContactItem>
+          <LegalContactItem label="Website:">www.metricgymos.com</LegalContactItem>
           <LegalContactItem label="Address:">
             150/1, 3rd Baptist Rd, Beddagana North, Kotte, Sri Lanka
           </LegalContactItem>

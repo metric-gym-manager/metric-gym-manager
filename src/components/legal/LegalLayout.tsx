@@ -274,7 +274,7 @@ export function LegalLayout({ activeDoc, title, lastUpdated, sections, footnote 
             {title}
           </h1>
           <p style={{ margin: '0 0 24px', fontSize: '13px', color: '#64646d', fontFamily: mono }}>
-            CAPITALIST ONE (PVT) LTD · METRIC GYM MANAGER · LAST UPDATED {lastUpdated.toUpperCase()}
+            CAPITALIST ONE (PVT) LTD · METRIC GYM OS · LAST UPDATED {lastUpdated.toUpperCase()}
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>

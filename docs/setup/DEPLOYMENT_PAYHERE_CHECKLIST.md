@@ -6,10 +6,10 @@ an external dashboard, an email approval, or the Vercel Firewall — none of it
 ships in the repo. Work top to bottom; nothing here blocks a deploy, but PayHere
 billing is not live until all of it is done.
 
-- **Production domain:** `metricgymmanager.com` (also `www.metricgymmanager.com`)
+- **Production domain:** `metricgymos.com` (also `www.metricgymos.com`)
 - **Vercel project:** `gym-management-saas` (team `shyans-projects-7b2901b0`)
-- **Webhook (notify) URL:** `https://metricgymmanager.com/api/webhooks/payhere`
-- **Return / cancel URLs:** `https://metricgymmanager.com/settings/billing`
+- **Webhook (notify) URL:** `https://metricgymos.com/api/webhooks/payhere`
+- **Return / cancel URLs:** `https://metricgymos.com/settings/billing`
 
 The DB migrations (`20260704000001..3`, `20260706000002`, `20260707000001`,
 `20260708000001..2`) are already applied to the production Supabase project and
@@ -100,10 +100,10 @@ from the request.
 ## 2. PayHere dashboard — domain whitelisting
 
 Two **separate** whitelists in the PayHere dashboard, both keyed to
-`metricgymmanager.com`:
+`metricgymos.com`:
 
 1. **Merchant Secret** (Settings → Domains & Credentials): add
-   `metricgymmanager.com`. This is what signs/verifies the `md5sig` on the
+   `metricgymos.com`. This is what signs/verifies the `md5sig` on the
    checkout hand-off and the notify webhook. Approval can take up to 24h.
 2. **API key / App** (the `PAYHERE_APP_ID`): add the same domain to the app so
    the OAuth REST calls (subscription cancel/list) are authorized.

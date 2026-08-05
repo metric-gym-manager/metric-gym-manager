@@ -1,4 +1,4 @@
-# Metric Gym Manager
+# Metric Gym OS
 
 A production-grade, multi-tenant SaaS platform for gym and fitness center management. Solution provided by [Holtzman Labs Software](https://holtzmanlabs.com).
 

@@ -1,12 +1,12 @@
-﻿Metric Gym Manager
+﻿Metric Gym OS
 Terms of Service
 Last updated: July 2026
 
 1. Agreement to Terms
-By accessing or using Metric Gym Manager, including our web dashboard, mobile applications, and any related integrations, you agree to be bound by these Terms of Service. If you do not agree to any part of these terms, you must not access or use our platform. These terms apply to gym owners, administrators, and staff members who use the platform to manage their fitness business.
+By accessing or using Metric Gym OS, including our web dashboard, mobile applications, and any related integrations, you agree to be bound by these Terms of Service. If you do not agree to any part of these terms, you must not access or use our platform. These terms apply to gym owners, administrators, and staff members who use the platform to manage their fitness business.
 
 2. Use License
-We grant you a limited, non-exclusive, non-transferable license to access and use Metric Gym Manager for legitimate gym management purposes. Under this license, you may not:
+We grant you a limited, non-exclusive, non-transferable license to access and use Metric Gym OS for legitimate gym management purposes. Under this license, you may not:
 • Modify, copy, decompile, or reverse engineer any part of the platform
 • Use the service for any purpose outside of gym and fitness business management
 • Attempt to bypass, disable, or interfere with any security or access control features
@@ -15,7 +15,7 @@ We grant you a limited, non-exclusive, non-transferable license to access and us
 • Resell, sublicense, or transfer access to the service without our written authorization
 
 3. Account Registration
-To use Metric Gym Manager, you must register for an account. By registering, you agree to:
+To use Metric Gym OS, you must register for an account. By registering, you agree to:
 • Provide accurate, current, and complete information during sign-up
 • Keep your account information up to date
 • Maintain the confidentiality of your login credentials
@@ -24,7 +24,7 @@ To use Metric Gym Manager, you must register for an account. By registering, you
 Each account is for use by a single gym business. You are responsible for all activity that occurs under your account.
 
 4. Subscription and Payment
-Metric Gym Manager is offered on a subscription basis with a flat monthly fee per gym. By subscribing, you agree to the following:
+Metric Gym OS is offered on a subscription basis with a flat monthly fee per gym. By subscribing, you agree to the following:
 • Every new account starts with a 14-day free trial; no charges are made until you subscribe to a paid plan
 • Subscriptions are billed in advance on a recurring monthly cycle through PayHere, our authorized payment gateway
 • Payments are non-refundable except where required by applicable law
@@ -37,7 +37,7 @@ For full details on cancellations and refunds, please see our Refund & Cancellat
 We are not responsible for fees charged by your bank or payment provider in connection with your subscription.
 
 5. User Responsibilities
-As a gym operator using Metric Gym Manager, you are responsible for:
+As a gym operator using Metric Gym OS, you are responsible for:
 • Maintaining the confidentiality of your account credentials and ensuring staff access is appropriately managed
 • All activities carried out under your account, including actions taken by your staff
 • Ensuring that all member data entered into the platform is accurate and lawfully obtained
@@ -46,7 +46,7 @@ As a gym operator using Metric Gym Manager, you are responsible for:
 • Adequately training staff on proper use of the platform
 
 6. Prohibited Activities
-You agree not to use Metric Gym Manager to:
+You agree not to use Metric Gym OS to:
 • Engage in any unlawful activity or facilitate illegal conduct
 • Gain unauthorized access to other accounts, systems, or networks
 • Disrupt, degrade, or interfere with the platform or its underlying infrastructure
@@ -55,7 +55,7 @@ You agree not to use Metric Gym Manager to:
 • Collect or harvest data from the platform for purposes beyond your own gym's management
 
 7. Intellectual Property
-Metric Gym Manager and all associated content, features, design, and functionality are the exclusive property of Capitalist One (Pvt) Ltd and its licensors. The platform is protected by copyright, trademark, and other applicable laws.
+Metric Gym OS and all associated content, features, design, and functionality are the exclusive property of Capitalist One (Pvt) Ltd and its licensors. The platform is protected by copyright, trademark, and other applicable laws.
 
 You retain ownership of all member data you input into the platform. By using the platform, you grant us a limited license to store and process that data solely for the purpose of providing our services to you.
 
@@ -65,7 +65,7 @@ We aim to provide a reliable and accessible platform. However, we do not guarant
 We are not liable for any losses arising from planned or unplanned service interruptions.
 
 9. SMS Notifications
-Metric Gym Manager enables gym operators to send automated SMS payment reminders to their members. By enabling this feature, you confirm that:
+Metric Gym OS enables gym operators to send automated SMS payment reminders to their members. By enabling this feature, you confirm that:
 • You have obtained the necessary consent from each member to receive SMS communications
 • You will use SMS notifications only for the permitted purposes outlined in our platform (payment reminders, renewal alerts, and expiry notifications)
 • You will not use our SMS integration to send spam, promotional content unrelated to memberships, or any communications that violate applicable telecommunications laws
@@ -73,7 +73,7 @@ Metric Gym Manager enables gym operators to send automated SMS payment reminders
 We reserve the right to suspend SMS functionality if we have reason to believe it is being misused.
 
 10. Limitation of Liability
-To the fullest extent permitted by law, Capitalist One (Pvt) Ltd and its directors, employees, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of - or inability to use - Metric Gym Manager. This includes but is not limited to loss of data, loss of revenue, or loss of business.
+To the fullest extent permitted by law, Capitalist One (Pvt) Ltd and its directors, employees, and affiliates shall not be liable for any indirect, incidental, special, consequential, or punitive damages arising from your use of - or inability to use - Metric Gym OS. This includes but is not limited to loss of data, loss of revenue, or loss of business.
 
 Our total liability to you for any claim arising from these terms or your use of the platform shall not exceed the amount you paid us in the three months preceding the claim.
 
@@ -98,7 +98,7 @@ Your continued use of the platform after any changes constitutes your acceptance
 If you have any questions about these Terms of Service, please reach out to us:
 
 • Business: Capitalist One (Pvt) Ltd
-• Email: privacy@metricgymmanager.com
+• Email: privacy@metricgymos.com
 • Phone: +94 70 437 9967
-• Website: www.metricgymmanager.com
+• Website: www.metricgymos.com
 • Address: 150/1, 3rd Baptist Rd, Beddagana North, Kotte, Sri Lanka

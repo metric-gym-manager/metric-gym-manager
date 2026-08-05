@@ -33,10 +33,10 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Metric Gym Manager',
+  title: 'Metric Gym OS',
   description:
     'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
-  metadataBase: new URL('https://metricgymmanager.com'),
+  metadataBase: new URL('https://metricgymos.com'),
   manifest: '/manifest.json',
   icons: [
     { rel: 'icon', url: '/favicon.svg' },
@@ -46,17 +46,17 @@ export const metadata: Metadata = {
     'theme-color': '#000000',
   },
   openGraph: {
-    title: 'Metric Gym Manager',
+    title: 'Metric Gym OS',
     description:
       'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
-    url: 'https://metricgymmanager.com',
-    siteName: 'Metric Gym Manager',
+    url: 'https://metricgymos.com',
+    siteName: 'Metric Gym OS',
     images: [
       {
         url: '/linkPreviewLogo.png',
         width: 1200,
         height: 630,
-        alt: 'Metric Gym Manager',
+        alt: 'Metric Gym OS',
       },
     ],
     locale: 'en_US',
@@ -64,7 +64,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Metric Gym Manager',
+    title: 'Metric Gym OS',
     description:
       'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
     images: ['/linkPreviewLogo.png'],

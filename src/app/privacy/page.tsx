@@ -17,7 +17,7 @@ const sections: LegalSection[] = [
     title: 'Introduction',
     body: (
       <LegalP>
-        Welcome to Metric Gym Manager - a gym management platform built for fitness businesses in Sri
+        Welcome to Metric Gym OS - a gym management platform built for fitness businesses in Sri
         Lanka and beyond. We are committed to protecting your personal data and handling it
         responsibly. This Privacy Policy explains what information we collect, how we use it, and the
         rights you have over your data when you use our platform, including our web dashboard, mobile
@@ -89,7 +89,7 @@ const sections: LegalSection[] = [
       <>
         <LegalP>We use your personal data only when the law allows us to. We use it to:</LegalP>
         <LegalList>
-          <LegalLI>Provide and operate the Metric Gym Manager platform and its features</LegalLI>
+          <LegalLI>Provide and operate the Metric Gym OS platform and its features</LegalLI>
           <LegalLI>Manage member registrations, memberships, and renewals</LegalLI>
           <LegalLI>Send automated payment reminders and renewal notifications via SMS</LegalLI>
           <LegalLI>
@@ -110,7 +110,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <LegalP>
-          Metric Gym Manager sends SMS notifications to gym members on behalf of gym operators. These
+          Metric Gym OS sends SMS notifications to gym members on behalf of gym operators. These
           messages are limited to:
         </LegalP>
         <LegalList>
@@ -254,9 +254,9 @@ const sections: LegalSection[] = [
         </LegalP>
         <LegalContactList>
           <LegalContactItem label="Business:">Capitalist One (Pvt) Ltd</LegalContactItem>
-          <LegalContactItem label="Email:">privacy@metricgymmanager.com</LegalContactItem>
+          <LegalContactItem label="Email:">privacy@metricgymos.com</LegalContactItem>
           <LegalContactItem label="Phone:">+94 70 437 9967</LegalContactItem>
-          <LegalContactItem label="Website:">www.metricgymmanager.com</LegalContactItem>
+          <LegalContactItem label="Website:">www.metricgymos.com</LegalContactItem>
           <LegalContactItem label="Address:">
             150/1, 3rd Baptist Rd, Beddagana North, Kotte, Sri Lanka
           </LegalContactItem>

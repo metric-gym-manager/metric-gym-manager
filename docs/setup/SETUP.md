@@ -1,6 +1,6 @@
 # Setup Guide
 
-End-to-end local setup for Metric Gym Manager. Consolidates the former
+End-to-end local setup for Metric Gym OS. Consolidates the former
 `DATABASE_SETUP.md`, `ENV_SETUP_GUIDE.md`, and `SUPABASE_CONFIG_REQUIRED.md`.
 
 ## Prerequisites

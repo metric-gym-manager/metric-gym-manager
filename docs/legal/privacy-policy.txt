@@ -1,9 +1,9 @@
-﻿Metric Gym Manager
+﻿Metric Gym OS
 Privacy Policy
 Last updated: July 2026
 
 1. Introduction
-Welcome to Metric Gym Manager - a gym management platform built for fitness businesses in Sri Lanka and beyond. We are committed to protecting your personal data and handling it responsibly. This Privacy Policy explains what information we collect, how we use it, and the rights you have over your data when you use our platform, including our web dashboard, mobile applications, and any related integrations.
+Welcome to Metric Gym OS - a gym management platform built for fitness businesses in Sri Lanka and beyond. We are committed to protecting your personal data and handling it responsibly. This Privacy Policy explains what information we collect, how we use it, and the rights you have over your data when you use our platform, including our web dashboard, mobile applications, and any related integrations.
 
 2. Information We Collect
 We collect and process the following categories of personal data:
@@ -35,7 +35,7 @@ Usage Data:
 
 3. How We Use Your Information
 We use your personal data only when the law allows us to. We use it to:
-• Provide and operate the Metric Gym Manager platform and its features
+• Provide and operate the Metric Gym OS platform and its features
 • Manage member registrations, memberships, and renewals
 • Send automated payment reminders and renewal notifications via SMS
 • Generate attendance reports, revenue dashboards, and retention analytics for gym owners
@@ -46,7 +46,7 @@ We use your personal data only when the law allows us to. We use it to:
 • Comply with legal obligations applicable to our operations
 
 4. SMS Communications
-Metric Gym Manager sends SMS notifications to gym members on behalf of gym operators. These messages are limited to:
+Metric Gym OS sends SMS notifications to gym members on behalf of gym operators. These messages are limited to:
 • Payment due reminders
 • Membership renewal notifications
 • Expiry alerts
@@ -98,7 +98,7 @@ We encourage you to review this policy periodically to stay informed about how w
 If you have any questions, concerns, or requests regarding this Privacy Policy or how we handle your personal data, please contact us:
 
 • Business: Capitalist One (Pvt) Ltd
-• Email: privacy@metricgymmanager.com
+• Email: privacy@metricgymos.com
 • Phone: +94 70 437 9967
-• Website: www.metricgymmanager.com
+• Website: www.metricgymos.com
 • Address: 150/1, 3rd Baptist Rd, Beddagana North, Kotte, Sri Lanka

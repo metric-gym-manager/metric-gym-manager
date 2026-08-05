@@ -17,7 +17,7 @@ const sections: LegalSection[] = [
     title: 'Agreement to Terms',
     body: (
       <LegalP>
-        By accessing or using Metric Gym Manager, including our web dashboard, mobile applications,
+        By accessing or using Metric Gym OS, including our web dashboard, mobile applications,
         and any related integrations, you agree to be bound by these Terms of Service. If you do not
         agree to any part of these terms, you must not access or use our platform. These terms apply
         to gym owners, administrators, and staff members who use the platform to manage their fitness
@@ -57,7 +57,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <LegalP>
-          To use Metric Gym Manager, you must register for an account. By registering, you agree to:
+          To use Metric Gym OS, you must register for an account. By registering, you agree to:
         </LegalP>
         <LegalList>
           <LegalLI>Provide accurate, current, and complete information during sign-up</LegalLI>
@@ -78,7 +78,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <LegalP>
-          Metric Gym Manager is offered on a subscription basis with a flat monthly fee per gym. By
+          Metric Gym OS is offered on a subscription basis with a flat monthly fee per gym. By
           subscribing, you agree to the following:
         </LegalP>
         <LegalList>
@@ -114,7 +114,7 @@ const sections: LegalSection[] = [
     title: 'User Responsibilities',
     body: (
       <>
-        <LegalP>As a gym operator using Metric Gym Manager, you are responsible for:</LegalP>
+        <LegalP>As a gym operator using Metric Gym OS, you are responsible for:</LegalP>
         <LegalList>
           <LegalLI>
             Maintaining the confidentiality of your account credentials and ensuring staff access is
@@ -144,7 +144,7 @@ const sections: LegalSection[] = [
     title: 'Prohibited Activities',
     body: (
       <>
-        <LegalP>You agree not to use Metric Gym Manager to:</LegalP>
+        <LegalP>You agree not to use Metric Gym OS to:</LegalP>
         <LegalList>
           <LegalLI>Engage in any unlawful activity or facilitate illegal conduct</LegalLI>
           <LegalLI>Gain unauthorized access to other accounts, systems, or networks</LegalLI>
@@ -167,7 +167,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <LegalP>
-          Metric Gym Manager and all associated content, features, design, and functionality are the
+          Metric Gym OS and all associated content, features, design, and functionality are the
           exclusive property of Capitalist One (Pvt) Ltd and its licensors. The platform is protected
           by copyright, trademark, and other applicable laws.
         </LegalP>
@@ -202,7 +202,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <LegalP>
-          Metric Gym Manager enables gym operators to send automated SMS payment reminders to their
+          Metric Gym OS enables gym operators to send automated SMS payment reminders to their
           members. By enabling this feature, you confirm that:
         </LegalP>
         <LegalList>
@@ -314,9 +314,9 @@ const sections: LegalSection[] = [
         </LegalP>
         <LegalContactList>
           <LegalContactItem label="Business:">Capitalist One (Pvt) Ltd</LegalContactItem>
-          <LegalContactItem label="Email:">privacy@metricgymmanager.com</LegalContactItem>
+          <LegalContactItem label="Email:">privacy@metricgymos.com</LegalContactItem>
           <LegalContactItem label="Phone:">+94 70 437 9967</LegalContactItem>
-          <LegalContactItem label="Website:">www.metricgymmanager.com</LegalContactItem>
+          <LegalContactItem label="Website:">www.metricgymos.com</LegalContactItem>
           <LegalContactItem label="Address:">
             150/1, 3rd Baptist Rd, Beddagana North, Kotte, Sri Lanka
           </LegalContactItem>
