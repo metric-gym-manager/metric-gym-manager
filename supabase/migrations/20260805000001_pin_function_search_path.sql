@@ -38,6 +38,19 @@
 --                           and closes that hole. Omitting it would leave the
 --                           linter satisfied but the function still shadowable.
 --
+-- Do NOT "simplify" this to `SET search_path = ''`. That is the remediation the
+-- Supabase docs suggest, and it does silence the linter, but it does not list
+-- `pg_temp` either — so the temp schema is still searched first and the
+-- shadowing hole stays wide open. Verified on PostgreSQL 16 by planting a temp
+-- table named `gyms` and calling `is_gym_owner()` as a non-owner:
+--
+--     mutable search_path (before)      -> true   (attacker "owns" the gym)
+--     search_path = pg_catalog,public,pg_temp -> false  (correct)
+--     search_path = pg_catalog,public   -> true   (still exploitable)
+--     search_path = ''                  -> true   (still exploitable)
+--
+-- Only the three-element form is actually safe. Keep `pg_temp` last.
+--
 -- Deliberately NOT touched: the `auth`, `storage`, `realtime`, `extensions` and
 -- `graphql_public` schemas. Those functions are Supabase-managed and are reset
 -- by platform upgrades; the linter excludes them and so do we. pg_trgm's own
