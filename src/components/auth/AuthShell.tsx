@@ -47,7 +47,7 @@ export default function AuthShell({
               whiteSpace: 'nowrap',
             }}
           >
-            metricgym.lk
+            metricgymos.com
           </span>
         </Link>
 

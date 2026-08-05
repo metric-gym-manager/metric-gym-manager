@@ -281,7 +281,7 @@ export function LandingPage() {
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <a
                 className="l-btn-solid"
-                href="mailto:founder@metric.lk?subject=Book a live demo"
+                href="mailto:founder@metricgymos.com?subject=Book a live demo"
                 style={{
                   whiteSpace: 'nowrap',
                   display: 'inline-flex',
@@ -830,7 +830,7 @@ export function LandingPage() {
               </div>
               <a
                 className="l-btn-ghost"
-                href="mailto:founder@metric.lk?subject=Get started with Starter"
+                href="mailto:founder@metricgymos.com?subject=Get started with Starter"
                 style={{
                   marginTop: 'auto',
                   whiteSpace: 'nowrap',
@@ -895,7 +895,7 @@ export function LandingPage() {
               </div>
               <a
                 className="l-btn-solid"
-                href="mailto:founder@metric.lk?subject=Get started with Growth"
+                href="mailto:founder@metricgymos.com?subject=Get started with Growth"
                 style={{
                   marginTop: 'auto',
                   whiteSpace: 'nowrap',
@@ -948,7 +948,7 @@ export function LandingPage() {
               </div>
               <a
                 className="l-btn-ghost"
-                href="mailto:sales@metric.lk"
+                href="mailto:sales@metricgymos.com"
                 style={{
                   marginTop: 'auto',
                   whiteSpace: 'nowrap',
@@ -1012,7 +1012,7 @@ export function LandingPage() {
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', justifyContent: 'center' }}>
             <a
               className="l-btn-solid"
-              href="mailto:founder@metric.lk?subject=Book a live demo"
+              href="mailto:founder@metricgymos.com?subject=Book a live demo"
               style={{
                 whiteSpace: 'nowrap',
                 display: 'inline-flex',
@@ -1031,7 +1031,7 @@ export function LandingPage() {
             </a>
             <a
               className="l-btn-ghost"
-              href="mailto:founder@metric.lk"
+              href="mailto:founder@metricgymos.com"
               style={{
                 whiteSpace: 'nowrap',
                 display: 'inline-flex',
@@ -1103,7 +1103,7 @@ export function LandingPage() {
               </span>
               <a href="#platform" style={{ fontSize: '13px' }}>Platform</a>
               <a href="#pricing" style={{ fontSize: '13px' }}>Pricing</a>
-              <a href="mailto:founder@metric.lk" style={{ fontSize: '13px' }}>Log in</a>
+              <a href="mailto:founder@metricgymos.com" style={{ fontSize: '13px' }}>Log in</a>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <span
@@ -1117,7 +1117,7 @@ export function LandingPage() {
               >
                 Company
               </span>
-              <a href="mailto:founder@metric.lk" style={{ fontSize: '13px' }}>Contact</a>
+              <a href="mailto:founder@metricgymos.com" style={{ fontSize: '13px' }}>Contact</a>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               <span
