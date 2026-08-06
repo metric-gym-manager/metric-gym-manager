@@ -168,7 +168,7 @@ export default function DiscountsTab() {
       </div>
 
       {/* Discounts Table */}
-      <div className="rounded-lg border border-line-1 bg-surface-card">
+      <div className="rounded-lg border border-line-1 bg-surface-card overflow-x-auto">
         {isLoading ? (
           <div className="flex h-48 items-center justify-center">
             <p className="text-sm text-ink-muted">Loading discounts...</p>

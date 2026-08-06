@@ -327,7 +327,7 @@ export default function PlanTypesTab() {
 
               return (
                 <div key={plan.plan_type} className="p-6">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-base font-semibold">
