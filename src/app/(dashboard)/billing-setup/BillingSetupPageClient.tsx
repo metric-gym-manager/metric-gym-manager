@@ -1,6 +1,8 @@
 'use client'
 
+import { useState } from 'react'
 import dynamic from 'next/dynamic'
+import { ChevronRight, ChevronLeft } from 'lucide-react'
 import {
   Skeleton,
   Tabs,
@@ -10,9 +12,26 @@ import {
 } from '@/components/ui'
 import { PageHeader } from '@/components/common/composites'
 
-// Full-CRUD tab bodies (plan-type + discount + admission-fee management) are
-// lazy-loaded and rendered inside the Metric DS Tabs frame. Radix Tabs mounts
-// only the active tab's content, preserving the on-demand load.
+type MobileSection = 'plans' | 'discounts' | 'admission-fee'
+
+const SECTIONS: { id: MobileSection; label: string; description: string }[] = [
+  {
+    id: 'plans',
+    label: 'Plan types',
+    description: 'Manage membership plan types and pricing',
+  },
+  {
+    id: 'discounts',
+    label: 'Discounts',
+    description: 'Configure discount presets for registrations',
+  },
+  {
+    id: 'admission-fee',
+    label: 'Admission fee',
+    description: 'One-time registration fee settings',
+  },
+]
+
 const tabLoading = () => <Skeleton className="h-60 w-full" />
 const PlanTypesTab = dynamic(() => import('./PlanTypesTab'), {
   ssr: false,
@@ -27,31 +46,84 @@ const AdmissionFeeTab = dynamic(() => import('./AdmissionFeeTab'), {
   loading: tabLoading,
 })
 
+const sectionContent: Record<MobileSection, React.ReactNode> = {
+  plans: <PlanTypesTab />,
+  discounts: <DiscountsTab />,
+  'admission-fee': <AdmissionFeeTab />,
+}
+
 export default function BillingSetupPageClient() {
+  const [mobileSection, setMobileSection] = useState<MobileSection | null>(null)
+
   return (
     <div className="flex max-w-app flex-col gap-4">
-      <PageHeader
-        title="Membership Setup"
-        description="Configure membership plan types and discount presets"
-      />
+      {/* Header — full page header when on menu; back button when inside a section */}
+      {mobileSection ? (
+        <button
+          className="mws-back-btn"
+          style={{ display: 'flex' }}
+          onClick={() => setMobileSection(null)}
+        >
+          <ChevronLeft style={{ width: 14, height: 14 }} />
+          Membership Setup
+        </button>
+      ) : (
+        <PageHeader
+          title="Membership Setup"
+          description="Configure membership plan types and discount presets"
+        />
+      )}
 
-      <Tabs defaultValue="plans">
-        <TabsList>
-          <TabsTrigger value="plans">Plan types</TabsTrigger>
-          <TabsTrigger value="discounts">Discounts</TabsTrigger>
-          <TabsTrigger value="admission-fee">Admission fee</TabsTrigger>
-        </TabsList>
+      {/* ── Mobile view (below tablet breakpoint) ── */}
+      <div className="tablet:hidden">
+        {mobileSection ? (
+          sectionContent[mobileSection]
+        ) : (
+          <div className="rounded-lg border border-line-1 bg-surface-card divide-y divide-line-1">
+            {SECTIONS.map((section) => (
+              <button
+                key={section.id}
+                className="w-full flex items-center justify-between p-4 text-left hover:bg-surface-hover transition-colors"
+                onClick={() => setMobileSection(section.id)}
+              >
+                <div>
+                  <p className="text-sm font-medium text-ink">
+                    {section.label}
+                  </p>
+                  <p className="text-xs text-ink-muted mt-0.5">
+                    {section.description}
+                  </p>
+                </div>
+                <ChevronRight
+                  className="text-ink-muted flex-shrink-0 ml-3"
+                  style={{ width: 14, height: 14 }}
+                />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-        <TabsContent value="plans">
-          <PlanTypesTab />
-        </TabsContent>
-        <TabsContent value="discounts">
-          <DiscountsTab />
-        </TabsContent>
-        <TabsContent value="admission-fee">
-          <AdmissionFeeTab />
-        </TabsContent>
-      </Tabs>
+      {/* ── Desktop view (tablet breakpoint and above) ── */}
+      <div className="hidden tablet:block">
+        <Tabs defaultValue="plans">
+          <TabsList>
+            <TabsTrigger value="plans">Plan types</TabsTrigger>
+            <TabsTrigger value="discounts">Discounts</TabsTrigger>
+            <TabsTrigger value="admission-fee">Admission fee</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="plans">
+            <PlanTypesTab />
+          </TabsContent>
+          <TabsContent value="discounts">
+            <DiscountsTab />
+          </TabsContent>
+          <TabsContent value="admission-fee">
+            <AdmissionFeeTab />
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   )
 }

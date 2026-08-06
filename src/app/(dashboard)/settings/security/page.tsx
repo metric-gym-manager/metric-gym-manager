@@ -845,7 +845,7 @@ export default function AccountSecurityPage() {
         <div className="space-y-4">
           {/* Username Section */}
           <div className="rounded-lg border border-line-1 bg-surface-card p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div>
                 <h3 className="text-base font-semibold">Username</h3>
                 <p className="text-sm text-ink-secondary mt-1">
@@ -857,6 +857,7 @@ export default function AccountSecurityPage() {
               </div>
               <Button
                 variant="secondary"
+                className="self-start tablet:self-auto"
                 onClick={() => setUsernameModalOpen(true)}
                 disabled={!gymProfile?.username}
               >
@@ -867,7 +868,7 @@ export default function AccountSecurityPage() {
 
           {/* Email Section */}
           <div className="rounded-lg border border-line-1 bg-surface-card p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-semibold">Email Address</h3>
@@ -908,6 +909,7 @@ export default function AccountSecurityPage() {
               </div>
               <Button
                 variant="secondary"
+                className="self-start tablet:self-auto"
                 onClick={() => setEmailModalOpen(true)}
                 disabled={!gymProfile?.email}
               >
@@ -918,7 +920,7 @@ export default function AccountSecurityPage() {
 
           {/* Phone Number Section */}
           <div className="rounded-lg border border-line-1 bg-surface-card p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div>
                 <h3 className="text-base font-semibold">Phone Number</h3>
                 <p className="text-sm text-ink-secondary mt-1">
@@ -930,6 +932,7 @@ export default function AccountSecurityPage() {
               </div>
               <Button
                 variant="secondary"
+                className="self-start tablet:self-auto"
                 onClick={() => setPhoneModalOpen(true)}
               >
                 Update Phone
@@ -939,7 +942,7 @@ export default function AccountSecurityPage() {
 
           {/* Password Section */}
           <div className="rounded-lg border border-line-1 bg-surface-card p-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div>
                 <h3 className="text-base font-semibold">Password</h3>
                 <p className="text-sm text-ink-secondary mt-1">••••••••</p>
@@ -949,6 +952,7 @@ export default function AccountSecurityPage() {
               </div>
               <Button
                 variant="secondary"
+                className="self-start tablet:self-auto"
                 onClick={() => setPasswordModalOpen(true)}
               >
                 Change Password
