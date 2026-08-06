@@ -1,11 +1,12 @@
 export const NEW_MEMBER_DAYS = 7
 
 /**
- * Returns true if the member registered within the last NEW_MEMBER_DAYS days.
- * Used to show a transient "NEW" badge in the members table and dashboard.
+ * Returns true if the member's record was created within the last NEW_MEMBER_DAYS days.
+ * Pass `created_at` (the actual DB row creation timestamp), not `registered_date`
+ * (which stores the membership start date and can be backdated).
  */
-export function isNewMember(registeredDate: string): boolean {
-  const registered = new Date(registeredDate)
+export function isNewMember(dateStr: string): boolean {
+  const registered = new Date(dateStr)
   const now = new Date()
   const diffMs = now.getTime() - registered.getTime()
   const diffDays = diffMs / (1000 * 60 * 60 * 24)
