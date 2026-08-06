@@ -19,6 +19,7 @@ import {
 } from '@/components/ui'
 import { PageHeader, StatCard, ChartCard } from '@/components/common/composites'
 import type { MonthlyRevenueResponse } from '@/features/revenue/types'
+import { isNewMember } from '@/features/members'
 
 interface DashboardMetrics {
   overdueMembers: {
@@ -36,6 +37,7 @@ interface CollectedPayment {
   paymentId: string
   memberName: string
   planType: string
+  registeredDate: string
   amountPaid: number
   paymentDate: string
 }
@@ -319,7 +321,14 @@ export default function DashboardClient() {
             <TableBody>
               {(collected?.payments ?? []).slice(0, 6).map((p) => (
                 <TableRow key={p.paymentId}>
-                  <TableCell className="font-medium">{p.memberName}</TableCell>
+                  <TableCell className="font-medium">
+                    <span className="flex items-center gap-2">
+                      {p.memberName}
+                      {isNewMember(p.registeredDate) && (
+                        <Badge variant="accent">NEW</Badge>
+                      )}
+                    </span>
+                  </TableCell>
                   <TableCell className="capitalize text-ink-secondary">
                     {p.planType}
                   </TableCell>
