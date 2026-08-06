@@ -89,25 +89,32 @@ export default function AdmissionFeeTab() {
           <p className="text-sm text-ink-muted">Loading...</p>
         ) : (
           <>
+            {/* Checkbox and its text sit in two flex items so the copy wraps as
+                one column. (The DS `Label` is itself a flex row, so nesting the
+                description inside it made each run a sibling flex item and
+                shattered the text across narrow columns.) */}
             <div className="flex items-start gap-2">
               <Checkbox
                 id="admission-fee-enabled"
+                className="mt-1"
                 checked={enabled}
                 onChange={(e) => setEnabled(e.target.checked)}
               />
-              <Label
-                htmlFor="admission-fee-enabled"
-                className="text-sm font-normal leading-snug"
-              >
-                Enable admission fee
-                <span className="block text-xs text-ink-muted mt-0.5">
+              <div className="min-w-0 space-y-0.5">
+                <label
+                  htmlFor="admission-fee-enabled"
+                  className="block cursor-pointer text-body font-medium text-ink"
+                >
+                  Enable admission fee
+                </label>
+                <p className="text-caption text-ink-muted">
                   When enabled, the fee appears on the self-registration form
                   and is added to the amount due.
-                </span>
-              </Label>
+                </p>
+              </div>
             </div>
 
-            <div>
+            <div className="space-y-1.5">
               <Label htmlFor="admission-fee-amount">Admission Fee (LKR)</Label>
               <Input
                 id="admission-fee-amount"
