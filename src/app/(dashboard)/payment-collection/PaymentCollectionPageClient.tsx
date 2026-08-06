@@ -11,6 +11,7 @@ import {
   type StatusTone,
 } from '@/components/workspace/primitives'
 import { useMemberModal } from '@/contexts/member-modal.context'
+import { MemberAvatar } from '@/features/members'
 
 type Tab = 'expired' | 'due' | 'collected'
 
@@ -21,6 +22,8 @@ interface DueRow {
   effectiveAmount: number
   nextDueDate: string
   daysUntilDue: number
+  photoPath?: string | null
+  photoUpdatedAt?: string | null
 }
 interface RegularPaymentsResponse {
   success: boolean
@@ -33,6 +36,8 @@ interface CollectedRow {
   planType: string
   amountPaid: number
   paymentDate: string
+  photoPath?: string | null
+  photoUpdatedAt?: string | null
 }
 interface CollectedResponse {
   payments: CollectedRow[]
@@ -191,7 +196,18 @@ export default function PaymentCollectionPageClient() {
                 ) : (
                   collectedRows.map((r) => (
                     <tr key={r.paymentId}>
-                      <td style={{ fontWeight: 500 }}>{r.memberName}</td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <MemberAvatar
+                            name={r.memberName}
+                            photoPath={r.photoPath}
+                            photoUpdatedAt={r.photoUpdatedAt}
+                          />
+                          <span style={{ fontWeight: 500 }}>
+                            {r.memberName}
+                          </span>
+                        </div>
+                      </td>
                       <td
                         className="mws-mono"
                         style={{ fontSize: 12, color: 'var(--mws-t3)' }}
@@ -228,7 +244,16 @@ export default function PaymentCollectionPageClient() {
                     )
                   return rows.map((r) => (
                     <tr key={r.id}>
-                      <td style={{ fontWeight: 500 }}>{r.name}</td>
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <MemberAvatar
+                            name={r.name}
+                            photoPath={r.photoPath}
+                            photoUpdatedAt={r.photoUpdatedAt}
+                          />
+                          <span style={{ fontWeight: 500 }}>{r.name}</span>
+                        </div>
+                      </td>
                       <td>
                         {tab === 'expired' ? (
                           <StatusBadge tone="err">

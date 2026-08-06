@@ -19,6 +19,8 @@ interface MemberData {
   registered_date: string
   discount_id: string | null
   discount: DiscountData | null
+  photo_path: string | null
+  photo_updated_at: string | null
 }
 
 interface DiscountData {
@@ -48,6 +50,8 @@ interface PaymentCollectedRow {
   discountPct: number | null
   paymentDate: string
   nextDueDate: string
+  photoPath: string | null
+  photoUpdatedAt: string | null
 }
 
 /** Date range for a given month (YYYY-MM). */
@@ -111,6 +115,8 @@ export async function getCollectedPayments(
         plan_type,
         registered_date,
         discount_id,
+        photo_path,
+        photo_updated_at,
         discount:discounts (
           id,
           discount_name,
@@ -147,6 +153,8 @@ export async function getCollectedPayments(
       discountPct: discountObj?.discount_percentage ?? null,
       paymentDate: p.payment_date,
       nextDueDate: p.next_due_date_calculated,
+      photoPath: member.photo_path,
+      photoUpdatedAt: member.photo_updated_at,
       // Include snake_case for backward compatibility
       payment_id: p.id,
       member_id: member.id,
@@ -209,6 +217,8 @@ export async function getRegularPayments(
       recurring_discount,
       next_due_date,
       status,
+      photo_path,
+      photo_updated_at,
       discount:discounts(id, discount_name, discount_percentage)
     `
     )
@@ -257,6 +267,8 @@ export async function getRegularPayments(
       nextDueDate: m.next_due_date as string,
       daysUntilDue,
       memberStatus: m.status as string,
+      photoPath: (m.photo_path as string | null) ?? null,
+      photoUpdatedAt: (m.photo_updated_at as string | null) ?? null,
     }
   })
 

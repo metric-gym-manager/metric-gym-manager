@@ -18,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui'
 import { PageHeader, StatCard, ChartCard } from '@/components/common/composites'
+import { MemberAvatar } from '@/features/members'
 import type { MonthlyRevenueResponse } from '@/features/revenue/types'
 import { isNewMember } from '@/features/members'
 
@@ -40,6 +41,8 @@ interface CollectedPayment {
   registeredDate: string
   amountPaid: number
   paymentDate: string
+  photoPath?: string | null
+  photoUpdatedAt?: string | null
 }
 
 interface CollectedResponse {
@@ -321,13 +324,18 @@ export default function DashboardClient() {
             <TableBody>
               {(collected?.payments ?? []).slice(0, 6).map((p) => (
                 <TableRow key={p.paymentId}>
-                  <TableCell className="font-medium">
-                    <span className="flex items-center gap-2">
-                      {p.memberName}
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <MemberAvatar
+                        name={p.memberName}
+                        photoPath={p.photoPath ?? null}
+                        photoUpdatedAt={p.photoUpdatedAt ?? null}
+                      />
+                      <span className="font-medium">{p.memberName}</span>
                       {isNewMember(p.registeredDate) && (
                         <Badge variant="accent">NEW</Badge>
                       )}
-                    </span>
+                    </div>
                   </TableCell>
                   <TableCell className="capitalize text-ink-secondary">
                     {p.planType}
