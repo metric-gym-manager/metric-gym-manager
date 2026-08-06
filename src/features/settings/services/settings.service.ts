@@ -400,6 +400,20 @@ export async function updateGymProfileImage(
   }
 }
 
+/** Clear the gym profile image, resetting it to the initials fallback. */
+export async function removeGymProfileImage(gymId: string): Promise<void> {
+  const supabase = await createClient()
+
+  const { error } = await supabase
+    .from('gyms')
+    .update({ profile_image_url: null })
+    .eq('id', gymId)
+
+  if (error) {
+    throw new Error(`Failed to remove profile image: ${error.message}`)
+  }
+}
+
 export type UpdateUsernameResult =
   | { status: 'taken' }
   | { status: 'error' }
