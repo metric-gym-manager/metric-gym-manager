@@ -20,6 +20,7 @@ import {
 import { PageHeader, StatCard, ChartCard } from '@/components/common/composites'
 import { MemberAvatar } from '@/features/members'
 import type { MonthlyRevenueResponse } from '@/features/revenue/types'
+import { isNewMember } from '@/features/members'
 
 interface DashboardMetrics {
   overdueMembers: {
@@ -37,6 +38,7 @@ interface CollectedPayment {
   paymentId: string
   memberName: string
   planType: string
+  registeredDate: string
   amountPaid: number
   paymentDate: string
   photoPath?: string | null
@@ -324,8 +326,15 @@ export default function DashboardClient() {
                 <TableRow key={p.paymentId}>
                   <TableCell>
                     <div className="flex items-center gap-2">
-                      <MemberAvatar name={p.memberName} photoPath={p.photoPath} photoUpdatedAt={p.photoUpdatedAt} />
+                      <MemberAvatar
+                        name={p.memberName}
+                        photoPath={p.photoPath ?? null}
+                        photoUpdatedAt={p.photoUpdatedAt ?? null}
+                      />
                       <span className="font-medium">{p.memberName}</span>
+                      {isNewMember(p.registeredDate) && (
+                        <Badge variant="accent">NEW</Badge>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell className="capitalize text-ink-secondary">

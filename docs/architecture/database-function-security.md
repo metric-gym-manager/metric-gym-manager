@@ -16,7 +16,7 @@ Established by `supabase/migrations/20260805000001`–`20260805000005`.
 `register_member_guarded`, `assert_gym_can_add_active_member` and
 `save_gym_subscription`, which enforce the multi-tenant quota and billing gates.
 
-Because they bypass RLS, two things are the *only* controls standing between a
+Because they bypass RLS, two things are the _only_ controls standing between a
 caller and a privileged body:
 
 1. **Name resolution** — which table the body actually reads.
@@ -39,11 +39,11 @@ ALTER FUNCTION public.some_function(args)
 
 Each element earns its place:
 
-| Element | Why |
-| --- | --- |
-| `pg_catalog` **first** | Built-in functions and operators can never be shadowed. |
-| `public` | Every table, view and enum this project uses lives here (pg_trgm too), so bodies resolve exactly as before. This is what makes pinning behaviour-preserving — **no function body needs rewriting with qualified names**. |
-| `pg_temp` **last** | The part everyone misses. See below. |
+| Element                | Why                                                                                                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `pg_catalog` **first** | Built-in functions and operators can never be shadowed.                                                                                                                                                                  |
+| `public`               | Every table, view and enum this project uses lives here (pg_trgm too), so bodies resolve exactly as before. This is what makes pinning behaviour-preserving — **no function body needs rewriting with qualified names**. |
+| `pg_temp` **last**     | The part everyone misses. See below.                                                                                                                                                                                     |
 
 ### 2.1 `pg_temp` must be listed, and listed last
 
@@ -65,12 +65,12 @@ Verified on PostgreSQL 16 by planting a temp table named `gyms` claiming an
 attacker owned a real gym, then calling `is_gym_owner()` as a non-owner. The
 correct answer is `false` in every row:
 
-| `search_path` | `is_gym_owner()` returns | Safe? |
-| --- | --- | --- |
-| *(mutable — the original state)* | `true` | ✗ cross-tenant ownership bypass |
-| `pg_catalog, public, pg_temp` | `false` | ✓ |
-| `pg_catalog, public` | `true` | ✗ still exploitable |
-| `''` | `true` | ✗ still exploitable |
+| `search_path`                    | `is_gym_owner()` returns | Safe?                           |
+| -------------------------------- | ------------------------ | ------------------------------- |
+| _(mutable — the original state)_ | `true`                   | ✗ cross-tenant ownership bypass |
+| `pg_catalog, public, pg_temp`    | `false`                  | ✓                               |
+| `pg_catalog, public`             | `true`                   | ✗ still exploitable             |
+| `''`                             | `true`                   | ✗ still exploitable             |
 
 Only the three-element form is actually safe. All four pass or silence the
 linter — the linter is not a proof of correctness here.
@@ -103,18 +103,18 @@ registration (`app/api/public/registrations/route.ts`). Nothing calls a
 
 The five currently granted:
 
-| Function | Caller |
-| --- | --- |
-| `register_member_guarded` | `features/members/services/SupabaseMemberRepository.ts` |
-| `save_gym_subscription` | `features/subscriptions/services/SupabaseGymSubscriptionRepository.ts` |
-| `process_dunning_suspensions` | ″ (cron) |
-| `process_trial_expiry` | ″ (cron) |
-| `schedule_charge_retry` | ″ (webhook/cron) |
+| Function                      | Caller                                                                 |
+| ----------------------------- | ---------------------------------------------------------------------- |
+| `register_member_guarded`     | `features/members/services/SupabaseMemberRepository.ts`                |
+| `save_gym_subscription`       | `features/subscriptions/services/SupabaseGymSubscriptionRepository.ts` |
+| `process_dunning_suspensions` | ″ (cron)                                                               |
+| `process_trial_expiry`        | ″ (cron)                                                               |
+| `schedule_charge_retry`       | ″ (webhook/cron)                                                       |
 
 ### 3.2 Trigger functions need no grant at all
 
 PostgreSQL does **not** check `EXECUTE` on a trigger function when the trigger
-fires; permission is checked when the trigger is *created*. So
+fires; permission is checked when the trigger is _created_. So
 `assign_member_number`, `enforce_active_member_quota` and
 `sync_gym_member_count` are revoked from everyone and still work.
 
@@ -132,7 +132,7 @@ explicitly.
 ## 4. Footgun: `DROP`/`CREATE` silently discards both properties
 
 Changing a function's `RETURNS TABLE` column type requires `DROP` + `CREATE`
-(`CREATE OR REPLACE` cannot do it). **`DROP` discards `pg_proc.proconfig` *and*
+(`CREATE OR REPLACE` cannot do it). **`DROP` discards `pg_proc.proconfig` _and_
 `pg_proc.proacl`** — so the pinned `search_path` and the `EXECUTE` revocation
 both vanish.
 
@@ -173,7 +173,7 @@ REVOKE ALL ON FUNCTION public.f(args) FROM PUBLIC, anon, authenticated;
 - [ ] `REVOKE ALL ... FROM PUBLIC, anon, authenticated`.
 - [ ] `GRANT EXECUTE ... TO service_role` **only** if a `.rpc(` call site exists.
 - [ ] Trigger function? No grant needed.
-- [ ] Dropping and recreating? Re-apply the pin *and* the revocation.
+- [ ] Dropping and recreating? Re-apply the pin _and_ the revocation.
 - [ ] Add an assertion so a regression fails the migration.
 - [ ] Never touch `auth`, `storage`, `realtime`, `extensions` or `graphql_public` —
       Supabase-managed and reset by platform upgrades. Extension-owned functions

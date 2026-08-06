@@ -198,8 +198,14 @@ export default function PaymentCollectionPageClient() {
                     <tr key={r.paymentId}>
                       <td>
                         <div className="flex items-center gap-2">
-                          <MemberAvatar name={r.memberName} photoPath={r.photoPath} photoUpdatedAt={r.photoUpdatedAt} />
-                          <span style={{ fontWeight: 500 }}>{r.memberName}</span>
+                          <MemberAvatar
+                            name={r.memberName}
+                            photoPath={r.photoPath}
+                            photoUpdatedAt={r.photoUpdatedAt}
+                          />
+                          <span style={{ fontWeight: 500 }}>
+                            {r.memberName}
+                          </span>
                         </div>
                       </td>
                       <td
@@ -240,7 +246,11 @@ export default function PaymentCollectionPageClient() {
                     <tr key={r.id}>
                       <td>
                         <div className="flex items-center gap-2">
-                          <MemberAvatar name={r.name} photoPath={r.photoPath} photoUpdatedAt={r.photoUpdatedAt} />
+                          <MemberAvatar
+                            name={r.name}
+                            photoPath={r.photoPath}
+                            photoUpdatedAt={r.photoUpdatedAt}
+                          />
                           <span style={{ fontWeight: 500 }}>{r.name}</span>
                         </div>
                       </td>
