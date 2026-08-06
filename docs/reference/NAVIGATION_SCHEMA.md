@@ -35,6 +35,7 @@ Metric Gym Manager
 **Mobile:** Visible in bottom navigation
 
 **Key Features:**
+
 - **Overdue Members Card**
   - Displays count of members with overdue payments
   - Breakdown by urgency (Over 14 days, 7-14 days, Under 7 days)
@@ -71,6 +72,7 @@ Metric Gym Manager
 **Mobile:** Visible in bottom navigation
 
 **Key Features:**
+
 - **Member List Table**
   - Sortable columns (Name, Phone, Plan Type, Amount, Status, Next Due Date)
   - Pagination (20 members per page)
@@ -83,7 +85,7 @@ Metric Gym Manager
   - Automatic next due date calculation
   - Visible on all screen sizes
 
-- **Bulk Register Button** *(Desktop/Tablet Only)*
+- **Bulk Register Button** _(Desktop/Tablet Only)_
   - CSV upload for bulk member registration
   - Template download available
   - Validation and preview before import
@@ -96,6 +98,7 @@ Metric Gym Manager
   - Status management
 
 **Filtering Options:**
+
 - Status filter (Active, Expired, Suspended, Cancelled)
 - Search by name or phone
 - Sort by registration date (newest/oldest)
@@ -112,6 +115,7 @@ Metric Gym Manager
 **Mobile:** Visible in bottom navigation
 
 **Key Features:**
+
 - **Revenue Summary**
   - Total revenue for selected period
   - Monthly breakdown
@@ -143,6 +147,7 @@ Metric Gym Manager
 #### 4.1 Regular Payments (Default Tab)
 
 **Key Features:**
+
 - **Payment Table**
   - Members listed by next due date
   - Status indicators (Active, Expired)
@@ -170,6 +175,7 @@ Metric Gym Manager
 #### 4.2 Reminders Tab
 
 **Key Features:**
+
 - **Reminder Schedule Overview**
   - Automatic reminders: 7 days before, 3 days before, due date
   - Manual reminder option
@@ -199,6 +205,7 @@ Metric Gym Manager
 **Mobile:** Visible in bottom navigation
 
 **Key Features:**
+
 - **Announcement Composer**
   - Text message input (160 char recommended)
   - Character counter
@@ -238,6 +245,7 @@ Metric Gym Manager
 #### 6.1 Plan Types (Default Tab)
 
 **Key Features:**
+
 - **Plan List**
   - Plan type name (e.g., monthly, daily, annual)
   - Default amount in LKR
@@ -254,6 +262,7 @@ Metric Gym Manager
   - Deactivate instead of delete (data integrity)
 
 **Usage:**
+
 - Plans are referenced when adding members
 - Members can have custom amounts overriding defaults
 
@@ -263,6 +272,7 @@ Metric Gym Manager
 #### 6.2 Discounts Tab
 
 **Key Features:**
+
 - **Discount List**
   - Discount name/label
   - Percentage (1-100%)
@@ -278,6 +288,7 @@ Metric Gym Manager
   - Deactivate unused discounts
 
 **Usage:**
+
 - Discounts applied when recording payments
 - Can be set as recurring (applies to all future payments)
 - Discounts snapshotted in payment records
@@ -298,6 +309,7 @@ Metric Gym Manager
 #### 7.1 Gym Information (`/settings/gym` - Default)
 
 **Key Features:**
+
 - **Profile Management**
   - Gym name
   - Username (unique, 3-50 chars)
@@ -318,6 +330,7 @@ Metric Gym Manager
 #### 7.2 Account Security (`/settings/security`)
 
 **Key Features:**
+
 - **Password Management**
   - Change password
   - Password strength requirements
@@ -344,6 +357,7 @@ Metric Gym Manager
 **Mobile:** Visible in bottom navigation
 
 **Key Features:**
+
 - **Contact Information**
   - Phone: 0704379967
   - WhatsApp link
@@ -354,7 +368,7 @@ Metric Gym Manager
   - Documentation links
   - Video tutorials
 
-- **Support Ticket System** *(Future)*
+- **Support Ticket System** _(Future)_
   - Submit issues
   - Track ticket status
 
@@ -365,16 +379,19 @@ Metric Gym Manager
 ## Mobile Navigation Behavior
 
 ### Bottom Navigation Bar
+
 - **Visible Pages:** All 8 main navigation items
 - **Scroll:** Horizontally swipable
 - **Active Indicator:** Blue icon and text
 - **Font Scaling:** Labels >8 characters auto-scale to smaller font (10px vs 12px)
 
 ### Hidden Elements on Mobile
+
 - **Bulk Register Button** (Members page) - Hidden on screens <640px
 - **Long text labels** automatically scaled down
 
 ### Responsive Design Breakpoints
+
 - **Mobile:** < 640px (sm)
 - **Tablet:** 640px - 1024px (sm to lg)
 - **Desktop:** ≥ 1024px (lg+)
@@ -384,15 +401,19 @@ Metric Gym Manager
 ## Authentication Flow
 
 ### Login (`/login`)
+
 **Post-Login Redirect:** `/dashboard`
 
 ### Registration (`/register`)
+
 **Post-Registration:** Email verification required → `/login`
 
 ### Email Verification (`/verify-email`)
+
 **Success:** Redirects to `/login` with success message
 
 ### Forgot Password (`/forgot-password`)
+
 **Reset Link:** Sent via email
 
 ---
@@ -400,9 +421,11 @@ Metric Gym Manager
 ## Access Control
 
 ### Row Level Security (RLS)
+
 All database queries are filtered by `gym_id`, ensuring complete data isolation between gyms.
 
 ### Authentication
+
 - **Provider:** Supabase Auth
 - **Session:** Cookie-based with automatic refresh
 - **Logout:** Clears all client cache and redirects to `/login`
@@ -412,19 +435,23 @@ All database queries are filtered by `gym_id`, ensuring complete data isolation 
 ## API Endpoints Overview
 
 ### Dashboard
+
 - `GET /api/dashboard/metrics` - Fetch dashboard metrics
 
 ### Members
+
 - `GET /api/members` - List members (paginated, filtered)
 - `POST /api/members` - Add new member
 - `PATCH /api/members` - Update member
 - `DELETE /api/members` - Soft delete member
 
 ### Payments
+
 - `GET /api/payments` - List payments
 - `POST /api/payments` - Record payment
 
 ### Billing Setup
+
 - `GET /api/billing-setup/plans` - List plan types
 - `POST /api/billing-setup/plans` - Create plan type
 - `PATCH /api/billing-setup/plans` - Update plan type
@@ -435,11 +462,13 @@ All database queries are filtered by `gym_id`, ensuring complete data isolation 
 - `DELETE /api/billing-setup/discounts/[id]` - Delete discount
 
 ### SMS
+
 - `POST /api/sms/send` - Send individual SMS
 - `POST /api/sms/bulk` - Send bulk SMS
 - `GET /api/sms/logs` - Fetch SMS history
 
 ### Auth
+
 - `POST /api/auth/login` - Authenticate user
 - `POST /api/auth/logout` - End session
 - `GET /api/auth/profile` - Fetch gym profile
@@ -450,27 +479,32 @@ All database queries are filtered by `gym_id`, ensuring complete data isolation 
 ## Key Modals & Dialogs
 
 ### Add Member Modal
+
 - **Trigger:** "+ Add Member" button on Members page
 - **Fields:** Name, Phone, Plan Type, Amount, Discount, Start Date
 - **Validation:** Zod schemas
 - **Action:** Creates member record
 
 ### Edit Member Modal
+
 - **Trigger:** Click member row in table
 - **Fields:** All member fields editable
 - **Actions:** Save changes, View payment history
 
 ### Bulk Add Members Modal
+
 - **Trigger:** "Bulk Register" button (desktop/tablet only)
 - **Steps:** Upload CSV → Validate → Preview → Confirm → Import
 - **Max:** 1000 members per batch
 
 ### Mark as Paid Dialog
+
 - **Trigger:** "Mark Paid" button in Fee Collection
 - **Fields:** Payment date, Amount, Discount, Receipt SMS option
 - **Action:** Records payment, updates next due date, sends SMS receipt
 
 ### SMS History Modal
+
 - **Trigger:** View history link in Reminders table
 - **Content:** Complete SMS log for selected member
 
