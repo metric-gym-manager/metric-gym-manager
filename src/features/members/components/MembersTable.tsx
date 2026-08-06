@@ -492,7 +492,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                           className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`}
                         />
                         {member.name}
-                        {isNewMember(member.registered_date) && (
+                        {isNewMember(member.created_at) && (
                           <Badge variant="accent">NEW</Badge>
                         )}
                       </span>
@@ -572,7 +572,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                           className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`}
                         />
                         {member.name}
-                        {isNewMember(member.registered_date) && (
+                        {isNewMember(member.created_at) && (
                           <Badge variant="accent">NEW</Badge>
                         )}
                       </span>
