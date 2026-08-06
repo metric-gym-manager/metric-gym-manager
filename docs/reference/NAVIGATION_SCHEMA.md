@@ -11,7 +11,7 @@ Metric Gym Manager
 ├── Dashboard
 ├── Members
 ├── Revenue
-├── Fee Collection
+├── Renewals
 │   ├── Regular Payments (tab)
 │   └── Reminders (tab)
 ├── Announcements
@@ -40,7 +40,7 @@ Metric Gym Manager
   - Displays count of members with overdue payments
   - Breakdown by urgency (Over 14 days, 7-14 days, Under 7 days)
   - Color-coded badges (red, orange, yellow)
-  - Links to Fee Collection page filtered by overdue status
+  - Links to Renewals page filtered by overdue status
 
 - **Revenue This Month Card**
   - Shows total revenue collected in current month
@@ -52,7 +52,7 @@ Metric Gym Manager
   - Count of members with payments due in next 7 days
   - Expected total amount to be collected
   - Member count breakdown
-  - Links to Fee Collection page filtered by upcoming payments
+  - Links to Renewals page filtered by upcoming payments
 
 - **Active Members Card**
   - Count of currently active members
@@ -136,11 +136,11 @@ Metric Gym Manager
 
 ---
 
-### 4. Fee Collection (`/payment-collection`)
+### 4. Renewals (`/payment-collection`)
 
 **Icon:** CreditCard
 **Purpose:** Manage payment collection and send SMS reminders
-**Mobile:** Visible as "Fee Collection" (auto-scaled font)
+**Mobile:** Visible as "Renewals" (auto-scaled font)
 
 **Sub-tabs:**
 
@@ -499,7 +499,7 @@ All database queries are filtered by `gym_id`, ensuring complete data isolation 
 
 ### Mark as Paid Dialog
 
-- **Trigger:** "Mark Paid" button in Fee Collection
+- **Trigger:** "Mark Paid" button in Renewals
 - **Fields:** Payment date, Amount, Discount, Receipt SMS option
 - **Action:** Records payment, updates next due date, sends SMS receipt
 

@@ -496,7 +496,7 @@ export function LandingPage() {
                 </div>
                 <div style={sidebarItem}>Members</div>
                 <div style={sidebarItem}>Revenue</div>
-                <div style={sidebarItem}>Fee Collection</div>
+                <div style={sidebarItem}>Renewals</div>
                 <div style={sidebarHeading}>Operations</div>
                 <div style={sidebarItem}>Announcements</div>
                 <div style={sidebarItem}>Billing Setup</div>

@@ -47,7 +47,7 @@ function reminderType(daysUntilDue: number): string {
 }
 
 /**
- * Fee Collection — App Workspace design. Three tabs (Expired / Expires this
+ * Renewals — App Workspace design. Three tabs (Expired / Expires this
  * week / Collected) over live data: dues come from /api/regular-payments,
  * collected from /api/payment-collection/collected. "Remind" sends a
  * per-member SMS (POST /api/sms/send); "Record payment" / "Receipt" open the
@@ -145,7 +145,7 @@ export default function PaymentCollectionPageClient() {
 
   return (
     <div className="flex flex-col gap-4" style={{ maxWidth: 1200 }}>
-      <h1 className="mws-h1">Fee Collection</h1>
+      <h1 className="mws-h1">Renewals</h1>
 
       {/* Tabs */}
       <div

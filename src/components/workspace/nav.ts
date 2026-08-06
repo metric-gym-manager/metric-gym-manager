@@ -35,7 +35,7 @@ export const WORKSPACE_NAV: WorkspaceNavGroup[] = [
       { name: 'Dashboard', href: '/dashboard', icon: Home, crumb: 'Overview' },
       { name: 'Members', href: '/members', icon: Users },
       { name: 'Revenue', href: '/revenue', icon: BarChart3 },
-      { name: 'Fee Collection', href: '/payment-collection', icon: CreditCard },
+      { name: 'Renewals', href: '/payment-collection', icon: CreditCard },
     ],
   },
   {
