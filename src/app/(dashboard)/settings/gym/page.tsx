@@ -96,7 +96,7 @@ export default function GymInformationPage() {
           }
         />
 
-        <div style={{ padding: 16 }}>
+        <div className="p-4 border-b border-line-1">
           {gymProfile ? (
             <ProfileImageUpload
               currentImageUrl={gymProfile.profile_image_url}
@@ -186,49 +186,42 @@ export default function GymInformationPage() {
           </div>
         </div>
 
-        <div
-          className="flex items-center justify-end gap-2"
-          style={{ padding: '12px 16px' }}
-        >
+        <div className="flex flex-col gap-2 p-3 tablet:flex-row tablet:items-center tablet:justify-end">
           {successMessage && (
             <span
-              style={{
-                fontSize: 12,
-                color: 'var(--mws-ok)',
-                marginRight: 'auto',
-              }}
+              className="text-xs tablet:mr-auto"
+              style={{ color: 'var(--mws-ok)' }}
             >
               {successMessage}
             </span>
           )}
           {updateMutation.isError && (
             <span
-              style={{
-                fontSize: 12,
-                color: 'var(--mws-err)',
-                marginRight: 'auto',
-              }}
+              className="text-xs tablet:mr-auto"
+              style={{ color: 'var(--mws-err)' }}
             >
               {updateMutation.error instanceof Error
                 ? updateMutation.error.message
                 : 'Failed to save'}
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => reset()}
-            disabled={!isDirty || updateMutation.isPending}
-            className="mws-btn mws-btn-sm"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={!isDirty || updateMutation.isPending}
-            className="mws-btn mws-btn-sm mws-btn-primary"
-          >
-            {updateMutation.isPending ? 'Saving…' : 'Save changes'}
-          </button>
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => reset()}
+              disabled={!isDirty || updateMutation.isPending}
+              className="mws-btn mws-btn-sm"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!isDirty || updateMutation.isPending}
+              className="mws-btn mws-btn-sm mws-btn-primary"
+            >
+              {updateMutation.isPending ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
         </div>
       </Panel>
     </form>

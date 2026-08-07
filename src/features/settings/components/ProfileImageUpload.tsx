@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Button, Label, Progress } from '@/components/ui'
+import { Button, Progress } from '@/components/ui'
 import { Upload, Loader2, CheckCircle2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PROFILE_IMAGE_WEBP_MESSAGE } from '@/features/settings/utils/profileImage'
@@ -65,7 +65,9 @@ export default function ProfileImageUpload({
       toast.success('Profile image removed')
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove image')
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to remove image'
+      )
     },
   })
 
@@ -161,10 +163,8 @@ export default function ProfileImageUpload({
   }
 
   return (
-    <div className="space-y-4">
-      <Label>Profile Image</Label>
-
-      <div className="flex items-center gap-6">
+    <div className="space-y-3">
+      <div className="flex items-center gap-4 tablet:gap-6">
         {/* Profile Picture Preview */}
         <div className="relative">
           <div className="h-24 w-24 rounded-full border-2 border-line-2 overflow-hidden bg-accentui flex items-center justify-center">
