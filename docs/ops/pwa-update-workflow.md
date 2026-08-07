@@ -216,7 +216,7 @@ Before deploying icon updates:
 ✅ **Git-Friendly**: Generated files committed to repo (required for static serving)
 ✅ **Zero Data Loss**: User controls update timing, no forced reloads during active work
 ✅ **User-Friendly UX**: Clear banner with "Refresh Now" / "Later" options
-✅ **Smart Defaults**: Updates apply on next session if dismissed
+✅ **No Refresh Loop**: The page reloads once and only on a user-initiated update
 
 ## Files Modified by This System
 

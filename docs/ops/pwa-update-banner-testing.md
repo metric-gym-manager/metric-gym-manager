@@ -32,12 +32,13 @@ Service Worker detects update
     │
     └─→ User clicks "Later"
             ↓
-        Banner dismisses
+        Banner dismisses (session-scoped)
         User continues work (NO INTERRUPTION)
             ↓
         User closes tab / ends session
             ↓
-        [Next visit]: Silent auto-reload to v1.0.1
+        [Next visit]: Banner reappears — update applied only on "Refresh Now"
+                      (page is NEVER auto-reloaded)
 ```
 
 ### State Management
@@ -119,10 +120,9 @@ sessionStorage.getItem('pwa_update_dismissed') // Should return null
 
 **Expected:**
 
-- ✅ Page reloads immediately (within 1 second)
+- ✅ Page reloads once (after the new worker takes control)
 - ✅ New version (v1.0.1) active after reload
-- ✅ Banner does NOT reappear
-- ✅ localStorage flags cleared
+- ✅ Banner does NOT reappear (no worker left waiting)
 
 **Verify After Reload:**
 
@@ -408,10 +408,10 @@ New: Banner dismissal → Request completes, user happy
 
 ### Next Session
 
-- [ ] Silent auto-reload on first visit
-- [ ] New version active after reload
-- [ ] Flags cleared in localStorage
-- [ ] Old cache deleted
+- [ ] Banner reappears (worker still waiting) — no auto-reload
+- [ ] "Refresh Now" applies the update; new version active after the single reload
+- [ ] `sessionStorage` dismissal did not carry over from the previous session
+- [ ] Old cache deleted after update applied
 
 ## Browser DevTools Commands
 
@@ -486,8 +486,11 @@ localStorage key should exist) and unregister any stale worker.
 
 ### Issue: Update doesn't apply on next visit
 
-**Cause:** `pwa_update_dismissed` flag stuck in localStorage
-**Solution:** Clear localStorage flags manually (see commands above)
+**Cause:** By design the app never auto-applies on next visit — it re-shows the
+banner and waits for "Refresh Now". If the banner does not appear, the worker
+may not have detected the update yet (navigate again to trigger `reg.update()`).
+**Solution:** Click "Refresh Now", or clear the session dismissal with
+`sessionStorage.removeItem('pwa_update_dismissed')`.
 
 ## Performance Impact
 
