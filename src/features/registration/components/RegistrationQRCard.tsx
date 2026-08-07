@@ -89,8 +89,8 @@ export default function RegistrationQRCard({
         </p>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-6 items-start">
-        <div className="rounded-xl border border-line-1 p-4 bg-surface-card">
+      <div className="flex flex-col tablet:flex-row gap-6 items-center tablet:items-start">
+        <div className="rounded-xl border border-line-1 p-4 bg-surface-card flex-shrink-0">
           <QRCodeCanvas
             value={link.joinUrl}
             size={192}
@@ -99,7 +99,7 @@ export default function RegistrationQRCard({
           />
         </div>
 
-        <div className="flex-1 space-y-3">
+        <div className="flex-1 space-y-3 w-full">
           <div className="rounded-lg bg-surface-input px-3 py-2 text-xs text-ink-secondary break-all">
             {link.joinUrl}
           </div>
