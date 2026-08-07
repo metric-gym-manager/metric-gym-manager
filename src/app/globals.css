@@ -747,6 +747,15 @@ button.mws-stat:hover {
   .mws-settings-nav-root .mws-settings-chevron {
     display: block;
   }
+  /* Control rows — stack vertically on mobile so labels and inputs each get full width */
+  .mws-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .mws-row-input {
+    width: 100%;
+  }
 }
 
 /* Horizontal scroll wrapper for wide tables on small screens */
@@ -851,6 +860,11 @@ button.mws-stat:hover {
 .mws-row-sub {
   font-size: 12px;
   color: var(--mws-t3);
+}
+/* Fixed-width input container in a .mws-row — collapses to full width on mobile */
+.mws-row-input {
+  width: 260px;
+  flex-shrink: 0;
 }
 
 /* Toggle switch */
