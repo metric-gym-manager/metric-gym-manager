@@ -11,6 +11,7 @@ Metric Gym Manager
 ├── Dashboard
 ├── Members
 ├── Revenue
+├── Member Analytics
 ├── Renewals
 │   ├── Regular Payments (tab)
 │   └── Reminders (tab)
@@ -133,6 +134,50 @@ Metric Gym Manager
 
 **Access Level:** All authenticated gym owners
 **Data Source:** Payments table with member joins
+
+---
+
+### 3a. Member Analytics (`/member-analytics`)
+
+**Icon:** LineChart
+**Purpose:** Membership trend analytics — sign-up, renewal, churn and retention
+insight over a stock-chart style range selector
+**Mobile:** Visible in bottom navigation
+**Placement:** Primary group, immediately after Revenue
+
+**Range Selector (stock-chart style):**
+
+- `1M` / `3M` — trailing days (daily buckets)
+- `YTD` — Jan 1 of the current year → today (monthly buckets)
+- `1Y` — a selected calendar year, this or any past year (year picker)
+- `MAX` — gym creation → today (monthly, or yearly for long spans)
+
+**Key Features:**
+
+- **Headline KPI tiles**
+  - Active members (with total count)
+  - New sign-ups this month, with year-over-year same-month delta
+  - Renewal rate (over the selected range)
+  - Churn rate (with retention shown alongside)
+
+- **Membership trend chart** — range-switchable primary time-series that toggles
+  between Sign-ups, Active members, Renewal %, Churn % and Retention %
+
+- **Year-over-year sign-ups** — this year vs. last year, month by month
+
+- **At-risk / due-soon** — members overdue or due within 7 days, bucketed by
+  days-until-due (churn early warning)
+
+- **Cohort retention** — retention of each sign-up-month cohort over subsequent
+  months
+
+**Data Source:** `members` (registrations + current status) and the immutable
+`payments` ledger. Renewal, churn, retention and cohort figures are **derived
+estimates** from payment coverage (there is no recorded status-change event) and
+are labeled as such in the UI.
+
+**Access Level:** All authenticated gym owners
+**Data Isolation:** RLS enforced — each gym sees only its own members/payments
 
 ---
 
@@ -450,6 +495,10 @@ All database queries are filtered by `gym_id`, ensuring complete data isolation 
 - `GET /api/payments` - List payments
 - `POST /api/payments` - Record payment
 
+### Analytics
+
+- `GET /api/analytics/members` - Member trends for a range/year (`range`, `year`, optional `metric`)
+
 ### Billing Setup
 
 - `GET /api/billing-setup/plans` - List plan types
@@ -521,6 +570,6 @@ All database queries are filtered by `gym_id`, ensuring complete data isolation 
 
 ---
 
-**Last Updated:** 2026-03-21
-**Version:** 1.0
+**Last Updated:** 2026-08-06
+**Version:** 1.1
 **Maintained By:** Development Team

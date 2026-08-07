@@ -17,6 +17,7 @@ interface MemberData {
   phone_number: string
   plan_type: string
   registered_date: string
+  created_at: string
   discount_id: string | null
   discount: DiscountData | null
   photo_path: string | null
@@ -44,7 +45,7 @@ interface PaymentCollectedRow {
   memberName: string
   phoneNumber: string
   planType: string
-  registeredDate: string
+  memberCreatedAt: string
   amountPaid: number
   discountName: string | null
   discountPct: number | null
@@ -114,6 +115,7 @@ export async function getCollectedPayments(
         phone_number,
         plan_type,
         registered_date,
+        created_at,
         discount_id,
         photo_path,
         photo_updated_at,
@@ -147,7 +149,7 @@ export async function getCollectedPayments(
       memberName: member.name,
       phoneNumber: member.phone_number,
       planType: member.plan_type,
-      registeredDate: member.registered_date,
+      memberCreatedAt: member.created_at,
       amountPaid: p.amount_paid,
       discountName: discountObj?.discount_name ?? null,
       discountPct: discountObj?.discount_percentage ?? null,

@@ -38,7 +38,7 @@ interface CollectedPayment {
   paymentId: string
   memberName: string
   planType: string
-  registeredDate: string
+  memberCreatedAt: string
   amountPaid: number
   paymentDate: string
   photoPath?: string | null
@@ -332,7 +332,7 @@ export default function DashboardClient() {
                         photoUpdatedAt={p.photoUpdatedAt ?? null}
                       />
                       <span className="font-medium">{p.memberName}</span>
-                      {isNewMember(p.registeredDate) && (
+                      {isNewMember(p.memberCreatedAt) && (
                         <Badge variant="accent">NEW</Badge>
                       )}
                     </div>

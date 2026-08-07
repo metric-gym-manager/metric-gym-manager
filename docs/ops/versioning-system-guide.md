@@ -3,6 +3,7 @@
 ## Overview
 
 Complete automated versioning system with:
+
 - ✅ **Conventional Commits** format enforcement
 - ✅ **Automatic changelog generation** from git commits
 - ✅ **Semantic Versioning** (major/minor/patch)
@@ -21,6 +22,7 @@ npm run hooks:install
 ```
 
 This installs:
+
 - `commit-msg` hook - Validates commit message format
 - `post-merge` hook - Auto-generates draft changelog
 
@@ -48,6 +50,7 @@ Opens at: **http://localhost:3001**
 ### 4. Create Release
 
 In the GUI:
+
 1. Review commits since last version
 2. See suggested version bump (auto-calculated)
 3. Edit release notes if needed
@@ -71,23 +74,24 @@ Done! Version bumped, changelog updated, PWA assets regenerated.
 
 ### Valid Types
 
-| Type | Description | Version Bump | Example |
-|------|-------------|--------------|---------|
-| `feat` | New feature | **MINOR** | `feat: add member export` |
-| `fix` | Bug fix | **PATCH** | `fix: resolve payment error` |
-| `feat!` | Breaking change | **MAJOR** | `feat!: redesign auth API` |
-| `fix!` | Breaking fix | **MAJOR** | `fix!: change status enum` |
-| `docs` | Documentation | None | `docs: update README` |
-| `style` | Formatting | None | `style: format with prettier` |
-| `refactor` | Code refactoring | None | `refactor: simplify service` |
-| `perf` | Performance | **PATCH** | `perf: optimize queries` |
-| `test` | Tests | None | `test: add member tests` |
-| `chore` | Maintenance | None | `chore: update dependencies` |
-| `ci` | CI/CD | None | `ci: add GitHub Actions` |
+| Type       | Description      | Version Bump | Example                       |
+| ---------- | ---------------- | ------------ | ----------------------------- |
+| `feat`     | New feature      | **MINOR**    | `feat: add member export`     |
+| `fix`      | Bug fix          | **PATCH**    | `fix: resolve payment error`  |
+| `feat!`    | Breaking change  | **MAJOR**    | `feat!: redesign auth API`    |
+| `fix!`     | Breaking fix     | **MAJOR**    | `fix!: change status enum`    |
+| `docs`     | Documentation    | None         | `docs: update README`         |
+| `style`    | Formatting       | None         | `style: format with prettier` |
+| `refactor` | Code refactoring | None         | `refactor: simplify service`  |
+| `perf`     | Performance      | **PATCH**    | `perf: optimize queries`      |
+| `test`     | Tests            | None         | `test: add member tests`      |
+| `chore`    | Maintenance      | None         | `chore: update dependencies`  |
+| `ci`       | CI/CD            | None         | `ci: add GitHub Actions`      |
 
 ### Scopes (Optional but Recommended)
 
 Common scopes for this project:
+
 - `members` - Member management
 - `payments` - Payment processing
 - `auth` - Authentication/authorization
@@ -99,6 +103,7 @@ Common scopes for this project:
 ### Examples
 
 **Good:**
+
 ```bash
 feat(members): add bulk import with CSV validation
 fix(payments): correct installment calculation
@@ -107,6 +112,7 @@ perf(dashboard): lazy load chart components
 ```
 
 **Bad:**
+
 ```bash
 ❌ update stuff
 ❌ fix bug
@@ -135,6 +141,7 @@ Examples:
 ```
 
 **Bypass (not recommended):**
+
 ```bash
 git commit --no-verify -m "bypass validation"
 ```
@@ -154,6 +161,7 @@ Opens at: **http://localhost:3001**
 ### Features
 
 #### 1. **Current Status**
+
 - Current version
 - Last git tag
 - Active branch
@@ -162,13 +170,16 @@ Opens at: **http://localhost:3001**
 - **Suggested version bump** (auto-calculated)
 
 #### 2. **Commits Since Last Release**
+
 Shows all commits grouped by type:
+
 - ⚠️ Breaking changes
 - ✨ Features
 - 🐛 Fixes
 - 📦 Other
 
 #### 3. **Create Release**
+
 - Select version bump (major/minor/patch)
 - Preview new version number
 - **Auto-generated changelog** (editable!)
@@ -176,11 +187,13 @@ Shows all commits grouped by type:
 - One-click release
 
 #### 4. **Version History**
+
 - All past releases
 - Release dates
 - Release notes
 
 #### 5. **Changelog Preview**
+
 - View current CHANGELOG.md
 - See how it will look after release
 
@@ -238,6 +251,7 @@ npm run version:bump patch
 ```
 
 **Example Output:**
+
 ```
 🔍 Analyzing repository...
 
@@ -284,12 +298,14 @@ Hooks are also installed automatically on `npm install` via `postinstall` script
 **Purpose:** Validates commit message format
 
 **What it checks:**
+
 - Matches Conventional Commits pattern
 - Type is valid (feat/fix/docs/etc.)
 - Description is at least 10 characters
 - Format: `type(scope): description`
 
 **Example Rejection:**
+
 ```bash
 $ git commit -m "fix bug"
 
@@ -298,6 +314,7 @@ $ git commit -m "fix bug"
 ```
 
 **Example Success:**
+
 ```bash
 $ git commit -m "fix(payments): resolve rounding error in installment calculations"
 
@@ -311,12 +328,14 @@ $ git commit -m "fix(payments): resolve rounding error in installment calculatio
 **Purpose:** Auto-generates draft changelog after merging to main
 
 **What it does:**
+
 1. Checks if on `main` or `master` branch
 2. Gets commits since last version tag
 3. Generates "Unreleased" section in CHANGELOG.md
 4. Does NOT auto-bump version (manual trigger only)
 
 **Example Output:**
+
 ```bash
 $ git pull origin main
 
@@ -416,6 +435,7 @@ git push origin main --tags
 ### Automatic PWA Asset Regeneration
 
 When you bump the version:
+
 1. `package.json` version updates
 2. `npm run pwa:generate` runs automatically
 3. PWA icons get new version query params:
@@ -442,7 +462,7 @@ User clicks "Later"
     ↓
 Continues working (no interruption)
     ↓
-Next visit: Silent auto-reload to v1.1.0
+Next visit: Banner reappears — update applies on "Refresh Now" (never auto-reloads)
 ```
 
 No reinstall required! See `docs/pwa-update-workflow.md` for details.
@@ -459,20 +479,24 @@ Generated changelog follows [Keep a Changelog](https://keepachangelog.com/) form
 ## [Unreleased]
 
 ### Added
+
 - **members**: CSV export with validation
 - **dashboard**: Revenue chart with filters
 
 ### Fixed
+
 - **payments**: Rounding error in installments
 - **auth**: Session timeout issue
 
 ## [1.1.0] - 2024-03-02
 
 ### Added
+
 - **members**: Bulk import functionality
 - **sms**: Reminder scheduling
 
 ### Fixed
+
 - **dashboard**: Chart loading performance
 
 ## [1.0.0] - 2024-02-28
@@ -496,17 +520,20 @@ Initial release
 ### Commit Rejected by Hook
 
 **Problem:**
+
 ```
 ❌ Commit message does not follow Conventional Commits format
 ```
 
 **Solution:**
 Use correct format:
+
 ```bash
 git commit -m "feat: add feature description"
 ```
 
 Not:
+
 ```bash
 git commit -m "added feature"
 ```
@@ -514,11 +541,13 @@ git commit -m "added feature"
 ### Version GUI Won't Start
 
 **Problem:**
+
 ```
 Error: Port 3001 already in use
 ```
 
 **Solution:**
+
 ```bash
 # Kill process on port 3001
 npx kill-port 3001
@@ -533,6 +562,7 @@ PORT=3002 npm run version:gui
 Post-merge hook doesn't generate changelog
 
 **Solution:**
+
 1. Check if on `main`/`master` branch
 2. Verify commits exist since last tag
 3. Manually run:
@@ -546,6 +576,7 @@ Post-merge hook doesn't generate changelog
 GUI suggests patch but you added features
 
 **Solution:**
+
 - Check commit messages follow Conventional Commits
 - `feat:` commits → minor bump
 - `fix:` commits → patch bump
@@ -558,6 +589,7 @@ GUI suggests patch but you added features
 Commits succeed with invalid messages
 
 **Solution:**
+
 ```bash
 # Reinstall hooks
 npm run hooks:install
@@ -576,6 +608,7 @@ ls -la .git/hooks/
 Version bumped but icons unchanged
 
 **Solution:**
+
 ```bash
 # Manually regenerate
 npm run pwa:generate
@@ -592,6 +625,7 @@ cat public/manifest.json | grep "v="
 ### Created/Modified Files
 
 **Scripts:**
+
 - `scripts/version-bump.js` - Version bumping logic
 - `scripts/generate-changelog.js` - Changelog generator
 - `scripts/install-git-hooks.js` - Git hooks installer
@@ -603,11 +637,13 @@ cat public/manifest.json | grep "v="
 - `scripts/hooks/post-merge` - Changelog auto-generator
 
 **Documentation:**
+
 - `.claude/rules/versioning.md` - Rules for Claude Code
 - `docs/versioning-system-guide.md` - This file
 - `CHANGELOG.md` - Auto-generated changelog
 
 **Modified:**
+
 - `package.json` - Added versioning scripts
 
 ### package.json Scripts
@@ -631,11 +667,13 @@ cat public/manifest.json | grep "v="
 ### ✅ DO
 
 - **Use meaningful commit messages**
+
   ```bash
   feat(members): add CSV export with column selection and validation
   ```
 
 - **Break down large changes into multiple commits**
+
   ```bash
   feat(export): add CSV formatting logic
   feat(export): add column selection UI
@@ -644,6 +682,7 @@ cat public/manifest.json | grep "v="
   ```
 
 - **Include scope for better changelog organization**
+
   ```bash
   fix(payments): resolve rounding error
   # Better than: fix: resolve error
@@ -659,6 +698,7 @@ cat public/manifest.json | grep "v="
 ### ❌ DON'T
 
 - **Don't use vague commit messages**
+
   ```bash
   ❌ fix bug
   ❌ update code
@@ -667,6 +707,7 @@ cat public/manifest.json | grep "v="
   ```
 
 - **Don't bypass commit hooks without good reason**
+
   ```bash
   git commit --no-verify  # Avoid this!
   ```
@@ -675,6 +716,7 @@ cat public/manifest.json | grep "v="
   - Use GUI or `npm run version:bump`
 
 - **Don't forget to push tags**
+
   ```bash
   # Wrong (tags not pushed):
   git push origin main
@@ -705,6 +747,7 @@ A: Yes, but they're included by default. Types like `chore`, `style`, `refactor`
 
 **Q: How do I rollback a version bump?**
 A:
+
 ```bash
 git reset --hard HEAD~1  # Undo commit
 git tag -d v1.1.0        # Delete tag
@@ -715,6 +758,7 @@ A: No, coordinate releases. Last push wins, but may cause conflicts.
 
 **Q: Does this work with GitHub/GitLab?**
 A: Yes! Tags appear as releases. You can enhance with:
+
 - GitHub: `gh release create v1.1.0 --notes-file CHANGELOG.md`
 - GitLab: CI/CD pipeline triggers on tag push
 
