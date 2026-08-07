@@ -1,107 +1,151 @@
-'use client';
+'use client'
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-const UPDATE_AVAILABLE_KEY = 'pwa_update_available';
-const UPDATE_DISMISSED_KEY = 'pwa_update_dismissed';
+// Session-scoped dismissal. A user who picks "Later" is not nagged again for the
+// rest of THIS browsing session (tab). It deliberately does NOT persist across
+// sessions — the banner returns on the next visit while the update still waits,
+// but no forced reload is ever triggered.
+const DISMISSED_KEY = 'pwa_update_dismissed'
 
+function isDismissed(): boolean {
+  try {
+    return sessionStorage.getItem(DISMISSED_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+function setDismissed(value: boolean): void {
+  try {
+    if (value) sessionStorage.setItem(DISMISSED_KEY, 'true')
+    else sessionStorage.removeItem(DISMISSED_KEY)
+  } catch {
+    // Storage may be unavailable (private mode) — dismissal simply won't persist.
+  }
+}
+
+/**
+ * Registers the PWA service worker and surfaces an in-app "new version" banner.
+ *
+ * Reload discipline (this is what prevents the historical refresh loop): the
+ * page reloads EXACTLY ONCE, and only in response to a `controllerchange` event
+ * that WE initiated by asking a waiting worker to activate. We never reload the
+ * page while leaving the old worker in place — the previous implementation did
+ * exactly that (a localStorage flag drove `window.location.reload()` without
+ * ever activating the waiting worker, so the worker kept re-arming the flag and
+ * every navigation reloaded again).
+ */
 export function ServiceWorkerRegistration() {
-  const [updateAvailable, setUpdateAvailable] = useState(false);
-  const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const [updateAvailable, setUpdateAvailable] = useState(false)
+  const waitingWorkerRef = useRef<ServiceWorker | null>(null)
+  // Set to true only when we deliberately activate a worker (user clicked
+  // "Refresh Now"). Gates the one-time reload so the automatic
+  // `controllerchange` from a first-ever install (`clients.claim()`) — or from
+  // another tab applying the update — never forces a reload here.
+  const reloadInitiatedRef = useRef(false)
+
+  const reloadOnce = useCallback(() => {
+    if (!reloadInitiatedRef.current) return
+    reloadInitiatedRef.current = false // dedupe: only ever reload once
+    window.location.reload()
+  }, [])
 
   useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
+    if (!('serviceWorker' in navigator)) return
 
-    // Check if user returned from a previous session with pending update
-    const hadPendingUpdate = localStorage.getItem(UPDATE_AVAILABLE_KEY) === 'true';
-    const wasDismissed = localStorage.getItem(UPDATE_DISMISSED_KEY) === 'true';
+    // The new worker taking control is the single, authoritative signal to
+    // reload. Gated by reloadInitiatedRef so it only fires on a user-initiated
+    // update.
+    navigator.serviceWorker.addEventListener('controllerchange', reloadOnce)
 
-    if (hadPendingUpdate && !wasDismissed) {
-      // User left and came back - silently apply the update
-      localStorage.removeItem(UPDATE_AVAILABLE_KEY);
-      localStorage.removeItem(UPDATE_DISMISSED_KEY);
-      window.location.reload();
-      return;
-    }
-
-    // Clear dismissed state on new session (user came back)
-    if (hadPendingUpdate && wasDismissed) {
-      localStorage.removeItem(UPDATE_DISMISSED_KEY);
+    const showBanner = (worker: ServiceWorker) => {
+      waitingWorkerRef.current = worker
+      if (isDismissed()) return // user chose "Later" this session
+      setUpdateAvailable(true)
     }
 
     navigator.serviceWorker
       .register('/service-worker.js')
       .then((reg) => {
-        console.log('Service Worker registered', reg.scope);
-
-        // Check for updates on page load
-        reg.update();
-
-        // Check if there's already a waiting worker
-        if (reg.waiting) {
-          setWaitingWorker(reg.waiting);
-          setUpdateAvailable(true);
-          localStorage.setItem(UPDATE_AVAILABLE_KEY, 'true');
+        // A worker already waiting from a previous load. Only prompt when a
+        // controller already exists — i.e. this is an UPDATE to an installed
+        // app, not the very first install (which must never force a reload).
+        if (reg.waiting && navigator.serviceWorker.controller) {
+          showBanner(reg.waiting)
         }
 
-        // When a new service worker is found
         reg.addEventListener('updatefound', () => {
-          const newWorker = reg.installing;
-          if (!newWorker) return;
+          const newWorker = reg.installing
+          if (!newWorker) return
 
           newWorker.addEventListener('statechange', () => {
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New service worker is waiting - don't auto-reload!
-              // Instead, show banner and let user decide
-              setWaitingWorker(newWorker);
-              setUpdateAvailable(true);
-              localStorage.setItem(UPDATE_AVAILABLE_KEY, 'true');
-              console.log('Update available - waiting for user action');
+            if (
+              newWorker.state === 'installed' &&
+              navigator.serviceWorker.controller
+            ) {
+              // New worker is waiting — do NOT auto-activate. Let the user
+              // decide via the banner so in-flight work is never lost.
+              showBanner(newWorker)
             }
-          });
-        });
+          })
+        })
 
-        // Listen for messages from the service worker
-        navigator.serviceWorker.addEventListener('message', (event) => {
-          if (event.data?.type === 'RELOAD_PAGE') {
-            window.location.reload();
-          }
-        });
+        // Check for a newer worker on load.
+        reg.update()
       })
-      .catch((err) => console.log('Service Worker registration failed', err));
-  }, []);
+      .catch(() => {
+        // Registration failure is non-fatal: the app runs without the SW.
+      })
+
+    return () => {
+      navigator.serviceWorker.removeEventListener(
+        'controllerchange',
+        reloadOnce
+      )
+    }
+  }, [reloadOnce])
 
   const handleRefreshNow = () => {
-    if (!waitingWorker) return;
+    const worker = waitingWorkerRef.current
+    setUpdateAvailable(false)
+    setDismissed(false)
 
-    // Tell the waiting service worker to skip waiting and activate
-    waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+    if (!worker) {
+      // Nothing to activate (edge case) — just reload to pick up new assets.
+      window.location.reload()
+      return
+    }
 
-    // Clean up state
-    localStorage.removeItem(UPDATE_AVAILABLE_KEY);
-    localStorage.removeItem(UPDATE_DISMISSED_KEY);
+    // Ask the waiting worker to take over. When it activates and claims this
+    // client, `controllerchange` fires and reloadOnce() reloads the page.
+    reloadInitiatedRef.current = true
+    worker.postMessage({ type: 'SKIP_WAITING' })
 
-    // The service worker will send a message back to reload
-    // Adding a fallback timeout in case the message doesn't arrive
-    setTimeout(() => {
-      window.location.reload();
-    }, 1000);
-  };
+    // Safety net: if the worker never takes control (message dropped, no
+    // clients.claim()), reload anyway. reloadOnce()'s guard keeps it to a
+    // single reload even if controllerchange also fires.
+    window.setTimeout(reloadOnce, 3000)
+  }
 
   const handleDismiss = () => {
-    setUpdateAvailable(false);
-    // Keep UPDATE_AVAILABLE_KEY so it applies on next session
-    // Set dismissed flag so we don't auto-reload if user navigates
-    localStorage.setItem(UPDATE_DISMISSED_KEY, 'true');
-  };
+    setUpdateAvailable(false)
+    setDismissed(true)
+  }
 
   return updateAvailable ? (
     <UpdateBanner onRefresh={handleRefreshNow} onDismiss={handleDismiss} />
-  ) : null;
+  ) : null
 }
 
 // Update banner component
-function UpdateBanner({ onRefresh, onDismiss }: { onRefresh: () => void; onDismiss: () => void }) {
+function UpdateBanner({
+  onRefresh,
+  onDismiss,
+}: {
+  onRefresh: () => void
+  onDismiss: () => void
+}) {
   return (
     <div
       className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white px-4 py-3 shadow-lg"
@@ -140,5 +184,5 @@ function UpdateBanner({ onRefresh, onDismiss }: { onRefresh: () => void; onDismi
         </div>
       </div>
     </div>
-  );
+  )
 }
