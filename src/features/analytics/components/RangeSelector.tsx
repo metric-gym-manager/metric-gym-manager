@@ -26,11 +26,11 @@ export function RangeSelector({
   onYearChange,
 }: RangeSelectorProps) {
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <div
         role="group"
         aria-label="Time range"
-        className="flex items-center gap-0.5 rounded-md border border-line-1 p-0.5"
+        className="flex flex-wrap items-center gap-0.5 rounded-md border border-line-1 p-0.5"
       >
         {ANALYTICS_RANGES.map((r) => (
           <Button

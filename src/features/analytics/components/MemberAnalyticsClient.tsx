@@ -170,17 +170,16 @@ export default function MemberAnalyticsClient() {
 
   return (
     <div className="flex max-w-app flex-col gap-4">
-      <PageHeader
-        title="Member Analytics"
-        actions={
-          <RangeSelector
-            range={range}
-            year={year}
-            yearOptions={yearOptions}
-            onRangeChange={setRange}
-            onYearChange={setYear}
-          />
-        }
+      <PageHeader title="Member Analytics" />
+
+      {/* Range controls in their own row so the pill + year picker wrap on
+          mobile instead of overflowing the (shrink-0) page-header actions. */}
+      <RangeSelector
+        range={range}
+        year={year}
+        yearOptions={yearOptions}
+        onRangeChange={setRange}
+        onYearChange={setYear}
       />
 
       {/* Headline KPI tiles */}
@@ -200,27 +199,27 @@ export default function MemberAnalyticsClient() {
       <ChartCard
         title="Membership trend"
         scale={activeMeta.percent ? '%' : 'members'}
-        actions={
-          <div
-            role="group"
-            aria-label="Metric"
-            className="flex items-center gap-0.5 rounded-md border border-line-1 p-0.5"
-          >
-            {METRICS.map((m) => (
-              <Button
-                key={m.key}
-                size="xs"
-                variant={m.key === metric ? 'primary' : 'ghost'}
-                aria-pressed={m.key === metric}
-                onClick={() => setMetric(m.key)}
-              >
-                {m.label}
-              </Button>
-            ))}
-          </div>
-        }
         bodyClassName="pt-2"
       >
+        {/* Metric toggle lives in the body (not the shrink-0 header) so it
+            wraps to multiple rows on mobile instead of overflowing. */}
+        <div
+          role="group"
+          aria-label="Metric"
+          className="mb-3 flex w-fit max-w-full flex-wrap gap-0.5 rounded-md border border-line-1 p-0.5"
+        >
+          {METRICS.map((m) => (
+            <Button
+              key={m.key}
+              size="xs"
+              variant={m.key === metric ? 'primary' : 'ghost'}
+              aria-pressed={m.key === metric}
+              onClick={() => setMetric(m.key)}
+            >
+              {m.label}
+            </Button>
+          ))}
+        </div>
         <ChartComp
           data={chartData}
           xKey="label"

@@ -198,6 +198,8 @@ export function LineChart<T>({
           tick={axisTick}
           tickLine={false}
           axisLine={false}
+          interval="preserveStartEnd"
+          minTickGap={16}
         />
         <YAxis tick={axisTick} tickLine={false} axisLine={false} width={40} />
         <DSTooltip valueFormatter={valueFormatter} />
@@ -239,6 +241,8 @@ export function BarChart<T>({
           tick={axisTick}
           tickLine={false}
           axisLine={false}
+          interval="preserveStartEnd"
+          minTickGap={16}
         />
         <YAxis tick={axisTick} tickLine={false} axisLine={false} width={40} />
         <DSTooltip valueFormatter={valueFormatter} />
@@ -304,6 +308,8 @@ export function AreaChart<T>({
           tick={axisTick}
           tickLine={false}
           axisLine={false}
+          interval="preserveStartEnd"
+          minTickGap={16}
         />
         <YAxis tick={axisTick} tickLine={false} axisLine={false} width={40} />
         <DSTooltip valueFormatter={valueFormatter} />
