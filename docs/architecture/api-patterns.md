@@ -2,6 +2,7 @@
 
 > On-demand reference. Loaded when working in this area, not auto-injected.
 > Governing rules (also indexed in `.claude/rules/architecture.md`):
+
 - **§2.3 ResponseBuilder** — All API routes construct responses via the `ResponseBuilder` utility for consistent shape, typed payloads, and machine-readable error codes. Routes returning **binary assets** (e.g. the QR poster PNGs, §2.16) use `ResponseBuilder.binary(body, contentType, …)` for the payload and the JSON error builders for failures.
 - **§2.11 Serialization** — Never serialize domain entities directly to HTTP. Use dedicated serialization helpers that format dates (YYYY-MM-DD) and emit both camelCase and snake_case fields.
 
@@ -17,36 +18,37 @@
 // ❌ NEVER construct responses manually
 export async function POST(request: NextRequest) {
   try {
-    const data = await doSomething();
+    const data = await doSomething()
 
     // WRONG - Inconsistent success format
     return NextResponse.json({
       success: true,
       data: data,
-    });
+    })
   } catch (error) {
     // WRONG - Inconsistent error format
     return NextResponse.json(
       { success: false, error: 'Something failed' },
       { status: 500 }
-    );
+    )
   }
 }
 
 // ❌ NEVER use different response structures
 return NextResponse.json(
-  { ok: true, result: data },  // Different structure
+  { ok: true, result: data }, // Different structure
   { status: 200 }
-);
+)
 
 // ❌ NEVER omit error codes
 return NextResponse.json(
-  { success: false, message: 'Invalid input' },  // No error code
+  { success: false, message: 'Invalid input' }, // No error code
   { status: 400 }
-);
+)
 ```
 
 **Problems:**
+
 - Inconsistent response formats across endpoints
 - Missing machine-readable error codes
 - No structured error details for debugging
@@ -61,8 +63,8 @@ return NextResponse.json(
 
 ```typescript
 // src/app/api/members/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
+import { NextRequest, NextResponse } from 'next/server'
+import { ResponseBuilder } from '@/core/utils/api/ApiResponse'
 ```
 
 **Step 2: Use Appropriate Methods**
@@ -71,31 +73,29 @@ import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
 export async function POST(request: NextRequest) {
   try {
     // Validation
-    const body = await request.json();
-    const validated = schema.parse(body);
+    const body = await request.json()
+    const validated = schema.parse(body)
 
     // Business logic
-    const result = await createMember(validated);
+    const result = await createMember(validated)
 
     // ✅ Success response with data
-    return NextResponse.json(
-      ResponseBuilder.success(result),
-      { status: 201 }
-    );
+    return NextResponse.json(ResponseBuilder.success(result), { status: 201 })
   } catch (error) {
     // ✅ Handle specific error types
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        ResponseBuilder.badRequest('Invalid input data', { errors: error.errors }),
+        ResponseBuilder.badRequest('Invalid input data', {
+          errors: error.errors,
+        }),
         { status: 400 }
-      );
+      )
     }
 
     if (error instanceof Error && error.name === 'ConflictError') {
-      return NextResponse.json(
-        ResponseBuilder.conflict(error.message),
-        { status: 409 }
-      );
+      return NextResponse.json(ResponseBuilder.conflict(error.message), {
+        status: 409,
+      })
     }
 
     // ✅ Catch-all with stack trace (dev only)
@@ -105,28 +105,29 @@ export async function POST(request: NextRequest) {
         error instanceof Error ? error.stack : undefined
       ),
       { status: 500 }
-    );
+    )
   }
 }
 ```
 
 #### Available ResponseBuilder Methods
 
-| Method | Purpose | Error Code | HTTP Status | Example Use Case |
-|--------|---------|------------|-------------|------------------|
-| `success(data, meta?)` | Successful operation | N/A | 200/201 | Return data with optional pagination |
-| `error(message, code, details?, stack?)` | Generic error | Custom | Any | Custom error scenarios |
-| `validationError(errors)` | Input validation failed | `VALIDATION_ERROR` | 400 | Zod/form validation failures |
-| `badRequest(message, details?)` | Invalid request | `BAD_REQUEST` | 400 | Business rule violations |
-| `unauthorized(message?)` | Authentication failed | `UNAUTHORIZED` | 401 | Missing/invalid JWT token |
-| `forbidden(message?)` | Authorization failed | `FORBIDDEN` | 403 | Insufficient permissions |
-| `notFound(resource)` | Resource not found | `NOT_FOUND` | 404 | Member/Payment not found |
-| `conflict(message, details?)` | Resource conflict | `CONFLICT` | 409 | Duplicate phone number |
-| `internalError(message?, stack?)` | Server error | `INTERNAL_ERROR` | 500 | Unhandled exceptions |
+| Method                                   | Purpose                 | Error Code         | HTTP Status | Example Use Case                     |
+| ---------------------------------------- | ----------------------- | ------------------ | ----------- | ------------------------------------ |
+| `success(data, meta?)`                   | Successful operation    | N/A                | 200/201     | Return data with optional pagination |
+| `error(message, code, details?, stack?)` | Generic error           | Custom             | Any         | Custom error scenarios               |
+| `validationError(errors)`                | Input validation failed | `VALIDATION_ERROR` | 400         | Zod/form validation failures         |
+| `badRequest(message, details?)`          | Invalid request         | `BAD_REQUEST`      | 400         | Business rule violations             |
+| `unauthorized(message?)`                 | Authentication failed   | `UNAUTHORIZED`     | 401         | Missing/invalid JWT token            |
+| `forbidden(message?)`                    | Authorization failed    | `FORBIDDEN`        | 403         | Insufficient permissions             |
+| `notFound(resource)`                     | Resource not found      | `NOT_FOUND`        | 404         | Member/Payment not found             |
+| `conflict(message, details?)`            | Resource conflict       | `CONFLICT`         | 409         | Duplicate phone number               |
+| `internalError(message?, stack?)`        | Server error            | `INTERNAL_ERROR`   | 500         | Unhandled exceptions                 |
 
 #### Response Format Examples
 
 **Success Response:**
+
 ```json
 {
   "success": true,
@@ -142,6 +143,7 @@ export async function POST(request: NextRequest) {
 ```
 
 **Success with Pagination:**
+
 ```json
 {
   "success": true,
@@ -160,6 +162,7 @@ export async function POST(request: NextRequest) {
 ```
 
 **Error Response:**
+
 ```json
 {
   "success": false,
@@ -171,6 +174,7 @@ export async function POST(request: NextRequest) {
 ```
 
 **Validation Error Response:**
+
 ```json
 {
   "success": false,
@@ -188,6 +192,7 @@ export async function POST(request: NextRequest) {
 ```
 
 **Internal Error Response (Development):**
+
 ```json
 {
   "success": false,
@@ -204,15 +209,13 @@ export async function POST(request: NextRequest) {
 #### Common Patterns
 
 **Pattern 1: Authentication Check**
+
 ```typescript
 export async function GET(request: NextRequest) {
-  const gymProfile = await getCurrentGymProfile();
+  const gymProfile = await getCurrentGymProfile()
 
   if (!gymProfile) {
-    return NextResponse.json(
-      ResponseBuilder.unauthorized(),
-      { status: 401 }
-    );
+    return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 })
   }
 
   // Continue with authenticated logic
@@ -220,48 +223,49 @@ export async function GET(request: NextRequest) {
 ```
 
 **Pattern 2: Zod Validation**
+
 ```typescript
 try {
-  const validated = schema.parse(body);
+  const validated = schema.parse(body)
 } catch (err) {
   if (err instanceof z.ZodError) {
     return NextResponse.json(
       ResponseBuilder.badRequest('Invalid input data', { errors: err.errors }),
       { status: 400 }
-    );
+    )
   }
-  throw err;
+  throw err
 }
 ```
 
 **Pattern 3: Resource Lookup**
+
 ```typescript
-const member = await memberRepo.findById(id);
+const member = await memberRepo.findById(id)
 
 if (!member) {
-  return NextResponse.json(
-    ResponseBuilder.notFound('Member'),
-    { status: 404 }
-  );
+  return NextResponse.json(ResponseBuilder.notFound('Member'), { status: 404 })
 }
 ```
 
 **Pattern 4: Conflict Detection**
+
 ```typescript
-const existing = await memberRepo.findByPhoneNumber(phoneNumber);
+const existing = await memberRepo.findByPhoneNumber(phoneNumber)
 
 if (existing) {
   return NextResponse.json(
     ResponseBuilder.conflict('Phone number already registered', {
       phoneNumber,
-      existingMemberId: existing.id
+      existingMemberId: existing.id,
     }),
     { status: 409 }
-  );
+  )
 }
 ```
 
 **Pattern 5: Bulk Operations**
+
 ```typescript
 return NextResponse.json(
   ResponseBuilder.success({
@@ -269,11 +273,11 @@ return NextResponse.json(
     summary: {
       total: results.length,
       succeeded: successCount,
-      failed: failureCount
-    }
+      failed: failureCount,
+    },
   }),
   { status: 200 }
-);
+)
 ```
 
 #### Benefits of This Pattern
@@ -291,15 +295,17 @@ return NextResponse.json(
 
 ```typescript
 // Client-side types automatically inferred
-import type { ApiResponse } from '@/core/utils/api/ApiResponse';
+import type { ApiResponse } from '@/core/utils/api/ApiResponse'
 
 // Type-safe response handling
-const response: ApiResponse<Member> = await fetch('/api/members/123').then(r => r.json());
+const response: ApiResponse<Member> = await fetch('/api/members/123').then(
+  (r) => r.json()
+)
 
 if (response.success) {
-  console.log(response.data.name);  // ✅ Type-safe access
+  console.log(response.data.name) // ✅ Type-safe access
 } else {
-  console.error(response.error.code);  // ✅ Type-safe error handling
+  console.error(response.error.code) // ✅ Type-safe error handling
 }
 ```
 
@@ -308,15 +314,16 @@ if (response.success) {
 Use the provided `HTTP_STATUS` constants for consistency:
 
 ```typescript
-import { ResponseBuilder, HTTP_STATUS } from '@/core/utils/api/ApiResponse';
+import { ResponseBuilder, HTTP_STATUS } from '@/core/utils/api/ApiResponse'
 
 return NextResponse.json(
   ResponseBuilder.success(data),
-  { status: HTTP_STATUS.CREATED }  // 201
-);
+  { status: HTTP_STATUS.CREATED } // 201
+)
 ```
 
 Available constants:
+
 - `HTTP_STATUS.OK` → 200
 - `HTTP_STATUS.CREATED` → 201
 - `HTTP_STATUS.NO_CONTENT` → 204
@@ -347,10 +354,12 @@ Available constants:
 #### Enforcement
 
 **Build-Time Validation:**
+
 - TypeScript strict mode (`noUnusedLocals: true`) catches unused imports
 - Type checking ensures correct usage of response methods
 
 **Code Review Checklist:**
+
 - [ ] All API routes import `ResponseBuilder`
 - [ ] No manual response construction (`{ success: true, data: ... }`)
 - [ ] Error responses include error codes
@@ -358,9 +367,56 @@ Available constants:
 - [ ] Auth errors use `unauthorized()` or `forbidden()`
 - [ ] Resource not found uses `notFound()`
 - [ ] Generic errors use `internalError()` with stack traces
+- [ ] Tenant-specific GET routes use `Cache-Control: private, no-store`
 
 ---
 
+### Cache-Control Policy for Tenant-Specific Routes
+
+**CRITICAL RULE**: Every GET route that returns data scoped to an authenticated gym MUST emit `Cache-Control: private, no-store`.
+
+#### Why `private, no-store`
+
+The browser's HTTP cache keys responses by URL alone unless a `Vary` header is present. Without `no-store`, a response cached for Gym A can be returned to Gym B if they visit the same URL within the TTL — even after a full page reload that wipes the React Query in-memory cache — because the browser cache layer sits below JavaScript entirely.
+
+- `private` — prevents CDN/shared-proxy caching (necessary but not sufficient for tenant isolation).
+- `no-store` — instructs the browser never to write the response to any cache. Every fetch goes to the network and resolves the current session cookie, guaranteeing the correct tenant's data is returned.
+
+#### ❌ WRONG — Causes cross-tenant data leakage
+
+```typescript
+return NextResponse.json(data, {
+  headers: {
+    // Browser caches by URL; Gym B receives Gym A's data after account switch
+    'Cache-Control': 'private, max-age=300, stale-while-revalidate=600',
+  },
+})
+```
+
+#### ✅ CORRECT
+
+```typescript
+return NextResponse.json(data, {
+  headers: {
+    'Cache-Control': 'private, no-store',
+  },
+})
+```
+
+#### When each directive applies
+
+| Route type                                             | Correct directive                      | Reason                                            |
+| ------------------------------------------------------ | -------------------------------------- | ------------------------------------------------- |
+| Tenant-specific data (plans, discounts, members, fees) | `private, no-store`                    | Never safe to cache across account switches       |
+| Auth identity (`/api/auth/profile`)                    | `private, no-cache`                    | Revalidate on every request; identity never stale |
+| Public, non-tenant data                                | `public, max-age=N`                    | Safe to cache; no session dependency              |
+| Static assets                                          | Handled by Next.js / CDN automatically | —                                                 |
+
+#### Real-world incident
+
+**Gym Management SaaS (2026-08-08)** — Plan types, discounts, and admission-fee config from Gym A appeared in Gym B's membership setup and registration forms after an account switch on the same browser. Root cause: five billing-setup and settings GET routes used `max-age=300, stale-while-revalidate=600` with no `Vary: Cookie`, so the browser served Gym A's cached response body for up to 10 minutes. Fix: changed all five to `private, no-store`.
+
+---
 
 ---
 
@@ -373,18 +429,17 @@ Available constants:
 ```typescript
 // ❌ NEVER use domain entity methods directly in API responses
 export async function GET(request: NextRequest) {
-  const members = await memberRepo.findAll({ gymId });
+  const members = await memberRepo.findAll({ gymId })
 
   // WRONG: toDatabase() returns Date objects
-  const membersData = members.map(member => member.toDatabase());
+  const membersData = members.map((member) => member.toDatabase())
 
-  return NextResponse.json(
-    ResponseBuilder.success({ members: membersData })
-  );
+  return NextResponse.json(ResponseBuilder.success({ members: membersData }))
 }
 ```
 
 **Problems**:
+
 - `toDatabase()` returns Date objects intended for repository layer, not HTTP API
 - `NextResponse.json()` serializes Date objects as ISO timestamps: `"2024-01-15T00:00:00.000Z"`
 - Frontend expects YYYY-MM-DD format: `"2024-01-15"`
@@ -392,6 +447,7 @@ export async function GET(request: NextRequest) {
 - Missing field name convention handling (camelCase vs snake_case)
 
 **Example Bug**:
+
 ```typescript
 // Domain entity toDatabase() returns:
 {
@@ -435,9 +491,13 @@ export async function GET(request: NextRequest) {
  */
 function serializeMemberForAPI(
   member: Member,
-  discount?: { id: string; discount_name: string; discount_percentage: number } | null
+  discount?: {
+    id: string
+    discount_name: string
+    discount_percentage: number
+  } | null
 ) {
-  const props = member.toDatabase();
+  const props = member.toDatabase()
 
   return {
     id: props.id,
@@ -467,7 +527,9 @@ function serializeMemberForAPI(
     registered_date: props.registeredDate.toISOString().split('T')[0],
 
     membershipStartDate: props.membershipStartDate.toISOString().split('T')[0],
-    membership_start_date: props.membershipStartDate.toISOString().split('T')[0],
+    membership_start_date: props.membershipStartDate
+      .toISOString()
+      .split('T')[0],
 
     nextDueDate: props.nextDueDate.toISOString().split('T')[0],
     next_due_date: props.nextDueDate.toISOString().split('T')[0],
@@ -481,7 +543,7 @@ function serializeMemberForAPI(
 
     // Include joined discount data if available
     discount: discount || null,
-  };
+  }
 }
 ```
 
@@ -490,37 +552,40 @@ function serializeMemberForAPI(
 ```typescript
 // GET /api/members
 export async function GET(request: NextRequest) {
-  const result = await memberRepo.findAll({ gymId, ...filters });
+  const result = await memberRepo.findAll({ gymId, ...filters })
 
   // Fetch discount data for members that have discounts
   const discountIds = result.items
-    .map(member => member.toDatabase().discountId)
-    .filter((id): id is string => id !== null);
+    .map((member) => member.toDatabase().discountId)
+    .filter((id): id is string => id !== null)
 
-  const uniqueDiscountIds = Array.from(new Set(discountIds));
+  const uniqueDiscountIds = Array.from(new Set(discountIds))
 
-  let discountsMap: Record<string, DiscountData> = {};
+  let discountsMap: Record<string, DiscountData> = {}
 
   if (uniqueDiscountIds.length > 0) {
     const { data: discounts } = await supabase
       .from('discounts')
       .select('id, discount_name, discount_percentage')
-      .in('id', uniqueDiscountIds);
+      .in('id', uniqueDiscountIds)
 
     if (discounts) {
-      discountsMap = discounts.reduce((acc, discount) => {
-        acc[discount.id] = discount;
-        return acc;
-      }, {} as Record<string, DiscountData>);
+      discountsMap = discounts.reduce(
+        (acc, discount) => {
+          acc[discount.id] = discount
+          return acc
+        },
+        {} as Record<string, DiscountData>
+      )
     }
   }
 
   // Serialize domain entities with proper date formatting
-  const membersData = result.items.map(member => {
-    const props = member.toDatabase();
-    const discount = props.discountId ? discountsMap[props.discountId] : null;
-    return serializeMemberForAPI(member, discount);
-  });
+  const membersData = result.items.map((member) => {
+    const props = member.toDatabase()
+    const discount = props.discountId ? discountsMap[props.discountId] : null
+    return serializeMemberForAPI(member, discount)
+  })
 
   return NextResponse.json(
     ResponseBuilder.success({
@@ -529,30 +594,32 @@ export async function GET(request: NextRequest) {
       page: result.page,
       totalPages: result.totalPages,
     })
-  );
+  )
 }
 
 // POST /api/members
 export async function POST(request: NextRequest) {
-  const result = await registerMember.execute(input);
+  const result = await registerMember.execute(input)
 
   // Serialize domain entity for API response
-  const memberData = serializeMemberForAPI(result.member);
+  const memberData = serializeMemberForAPI(result.member)
 
   return NextResponse.json(
-    ResponseBuilder.success(memberData, { message: 'Member registered successfully' }),
+    ResponseBuilder.success(memberData, {
+      message: 'Member registered successfully',
+    }),
     { status: 201 }
-  );
+  )
 }
 ```
 
 #### Date Formatting Rules
 
-| Field Type | Format | Method | Example |
-|------------|--------|--------|---------|
-| **Business Date** (registered_date, next_due_date) | YYYY-MM-DD | `.toISOString().split('T')[0]` | `"2024-01-15"` |
-| **Timestamp** (created_at, updated_at) | ISO 8601 | `.toISOString()` | `"2024-01-15T10:30:00.000Z"` |
-| **Display Date** (frontend only) | DD MMM YYYY | `formatDate()` utility | `"15 Jan 2024"` |
+| Field Type                                         | Format      | Method                         | Example                      |
+| -------------------------------------------------- | ----------- | ------------------------------ | ---------------------------- |
+| **Business Date** (registered_date, next_due_date) | YYYY-MM-DD  | `.toISOString().split('T')[0]` | `"2024-01-15"`               |
+| **Timestamp** (created_at, updated_at)             | ISO 8601    | `.toISOString()`               | `"2024-01-15T10:30:00.000Z"` |
+| **Display Date** (frontend only)                   | DD MMM YYYY | `formatDate()` utility         | `"15 Jan 2024"`              |
 
 #### Field Naming Conventions
 
@@ -569,10 +636,11 @@ return {
   phone_number: props.phoneNumber,
   plan_type: props.planType,
   next_due_date: props.nextDueDate.toISOString().split('T')[0],
-};
+}
 ```
 
 **Benefits**:
+
 - ✅ Works with existing frontend code expecting snake_case
 - ✅ Enables gradual migration to camelCase
 - ✅ No breaking changes for deployed clients
@@ -603,43 +671,46 @@ return {
 #### Common Mistakes
 
 **Mistake 1: Using .toJSON() on Date Objects**
+
 ```typescript
 // ❌ WRONG - Still produces ISO timestamp
-registeredDate: props.registeredDate.toJSON()  // "2024-01-15T00:00:00.000Z"
+registeredDate: props.registeredDate.toJSON() // "2024-01-15T00:00:00.000Z"
 
 // ✅ CORRECT - Produces YYYY-MM-DD format
-registeredDate: props.registeredDate.toISOString().split('T')[0]  // "2024-01-15"
+registeredDate: props.registeredDate.toISOString().split('T')[0] // "2024-01-15"
 ```
 
 **Mistake 2: Inconsistent Field Names**
+
 ```typescript
 // ❌ WRONG - Frontend receives mix of conventions
 return {
-  phoneNumber: props.phoneNumber,  // camelCase
-  plan_type: props.planType,       // snake_case
+  phoneNumber: props.phoneNumber, // camelCase
+  plan_type: props.planType, // snake_case
   // Frontend breaks when expecting consistent naming
-};
+}
 
 // ✅ CORRECT - Include both conventions
 return {
   phoneNumber: props.phoneNumber,
-  phone_number: props.phoneNumber,  // Both provided
+  phone_number: props.phoneNumber, // Both provided
   planType: props.planType,
   plan_type: props.planType,
-};
+}
 ```
 
 **Mistake 3: Missing Discount Data**
+
 ```typescript
 // ❌ WRONG - Repository query doesn't join discounts
-const members = await memberRepo.findAll({ gymId });
+const members = await memberRepo.findAll({ gymId })
 // Frontend expects discount object but receives undefined
 
 // ✅ CORRECT - Fetch discounts separately and include in serialization
-const discountsMap = await fetchDiscountsForMembers(members);
-const membersData = members.map(member =>
+const discountsMap = await fetchDiscountsForMembers(members)
+const membersData = members.map((member) =>
   serializeMemberForAPI(member, discountsMap[member.discountId])
-);
+)
 ```
 
 #### Testing This Pattern
@@ -651,53 +722,58 @@ describe('serializeMemberForAPI', () => {
       ...props,
       registeredDate: new Date('2024-01-15'),
       nextDueDate: new Date('2024-02-15'),
-    });
+    })
 
-    const serialized = serializeMemberForAPI(member);
+    const serialized = serializeMemberForAPI(member)
 
-    expect(serialized.registeredDate).toBe('2024-01-15');
-    expect(serialized.registered_date).toBe('2024-01-15');
-    expect(serialized.nextDueDate).toBe('2024-02-15');
-    expect(serialized.next_due_date).toBe('2024-02-15');
-  });
+    expect(serialized.registeredDate).toBe('2024-01-15')
+    expect(serialized.registered_date).toBe('2024-01-15')
+    expect(serialized.nextDueDate).toBe('2024-02-15')
+    expect(serialized.next_due_date).toBe('2024-02-15')
+  })
 
   it('includes both camelCase and snake_case fields', () => {
     const member = Member.create({
       ...props,
       phoneNumber: '+94712345678',
       planType: 'monthly',
-    });
+    })
 
-    const serialized = serializeMemberForAPI(member);
+    const serialized = serializeMemberForAPI(member)
 
-    expect(serialized.phoneNumber).toBe('+94712345678');
-    expect(serialized.phone_number).toBe('+94712345678');
-    expect(serialized.planType).toBe('monthly');
-    expect(serialized.plan_type).toBe('monthly');
-  });
+    expect(serialized.phoneNumber).toBe('+94712345678')
+    expect(serialized.phone_number).toBe('+94712345678')
+    expect(serialized.planType).toBe('monthly')
+    expect(serialized.plan_type).toBe('monthly')
+  })
 
   it('includes discount data when provided', () => {
-    const member = Member.create({ ...props, discountId: 'uuid' });
-    const discount = { id: 'uuid', discount_name: 'Student', discount_percentage: 20 };
+    const member = Member.create({ ...props, discountId: 'uuid' })
+    const discount = {
+      id: 'uuid',
+      discount_name: 'Student',
+      discount_percentage: 20,
+    }
 
-    const serialized = serializeMemberForAPI(member, discount);
+    const serialized = serializeMemberForAPI(member, discount)
 
-    expect(serialized.discount).toEqual(discount);
-  });
+    expect(serialized.discount).toEqual(discount)
+  })
 
   it('sets discount to null when not provided', () => {
-    const member = Member.create({ ...props, discountId: null });
+    const member = Member.create({ ...props, discountId: null })
 
-    const serialized = serializeMemberForAPI(member);
+    const serialized = serializeMemberForAPI(member)
 
-    expect(serialized.discount).toBeNull();
-  });
-});
+    expect(serialized.discount).toBeNull()
+  })
+})
 ```
 
 #### Real-World Impact
 
 **Bug Example**: Gym Management SaaS (2026-04-16)
+
 - **Issue**: Member detail table showed "Invalid Date", phone numbers hidden, plan badges hidden
 - **Root Cause**: API used `member.toDatabase()` returning Date objects, `NextResponse.json()` serialized as ISO timestamps
 - **Users Affected**: All gym managers viewing member directory
