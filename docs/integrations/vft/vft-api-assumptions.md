@@ -1,279 +1,244 @@
-# VFT GYM API v2.0 — working assumptions
+# VFT / ZKTeco — evidence-graded assumptions
 
-> ⚠️ **None of this came from VFT. VFT has not been contacted.**
+> **VFT never replied** (5 days). We are proceeding on researched assumptions
+> rather than waiting. This document exists so that decision is auditable: every
+> assumption below carries its **evidence grade**, the **decision** it drove,
+> what **breaks if it is wrong**, and how the design **contains** that.
 >
-> Every "answer" below was derived from the v2.0 PDF, the Postman collection,
-> and general ZKTeco/ADMS behaviour published online. It is a **working
-> assumption set**, not a vendor commitment, and any item may be wrong.
->
-> This file exists so the design's foundations are auditable: each row records
-> what we assumed, what we decided because of it, and therefore what has to be
-> revisited if the assumption falls. The questions that would confirm them are
-> in `vft-integration-questions.md`.
->
-> **Confirmed by the product owner** (not assumptions): hardware is ~90%
-> fingerprint readers; **one gate per gym**; **one finger per member**; members
-> are admitted through their paid-through date and refused from midnight.
->
+> Questions we would still like answered: `vft-integration-questions.md`.
 > Design: `docs/architecture/access-control-integration.md`.
 
----
+## Why proceeding is reasonable
 
-## 1. Account structure and identity
+The VFT GYM API is a thin REST wrapper over **ZKTeco's PUSH (ADMS) protocol**,
+which is not proprietary knowledge — it is published, reverse-engineered, and
+implemented in numerous open-source libraries. Every endpoint in the Postman
+collection maps onto a documented PUSH primitive:
 
-| Question | Assumed answer (unverified) | Decision taken |
-| --- | --- | --- |
-| Per-gym API credentials? | No native tenant isolation. A single JWT; isolation must be logical via `AreaID`, or by maintaining separate service credentials per tenant | Assume a **shared account**. `AreaID` is the tenant boundary — one per gym, mandatory on employee create |
-| Is `EmpId` a flat namespace? | Yes — flat unless scoped by `AreaID` | Drives the decision below |
-| `EmpId` constraints | Maps directly to ZKTeco `Pin`. Numeric strings only, up to 9 or 24 digits by model. **UUIDs cannot be used** | **Global Postgres sequence, ≤ 9 digits.** Never `member_number` |
+| VFT endpoint                 | Underlying PUSH mechanism                                        |
+| ---------------------------- | ---------------------------------------------------------------- |
+| `POST /api/devicecmd`        | server queues `C:<CmdID>:<TYPE> <params>`                        |
+| `GET /api/devicecmd/{DevSN}` | commands awaiting the device's `GET /iclock/getrequest?SN=` poll |
+| `validperiod`                | `DATA UPDATE user … StartTime=… EndTime=…`                       |
+| `enrollfinger`               | `C:<id>:ENROLL_FP`                                               |
+| webhook attendance array     | device `POST /iclock/cdata?table=ATTLOG`                         |
 
-**Why this matters more than it looks.** `members.member_number` is per-gym and
-1-based, so every gym has a member `1`. On a flat `EmpId` namespace that is a
-collision — and a collision here means *one gym's member opens another gym's
-door*. The global sequence is correct whether or not VFT ever issues per-gym
-credentials, so it is the only safe choice. The earlier `subject_id_strategy`
-column is dropped: there is one strategy.
+So the risk is not "we are guessing at a black box". It is "we are relying on a
+documented protocol whose _wrapper_ we have not yet exercised". That is an
+ordinary integration risk, and the design below is built to absorb it.
 
-We stay inside **9 digits**, the narrowest documented limit, because we cannot
-audit every hardware model a gym might own.
+**Evidence grades**
 
----
-
-## 2. Fingerprint enrolment and templates
-
-| Question | Assumed answer (unverified) | Decision taken |
-| --- | --- | --- |
-| Where do templates live? | Centralised, in `templatev10`, exposed via `/api/template` | Confirmed — we hold no template data ourselves |
-| Automatic propagation between devices? | **No.** Explicit `syncall` / `syncone` / `syncsometoall` / `syncsometoone` | Moot — **single gate per gym**. Port keeps the calls; nothing depends on them |
-| Device replacement / template portability? | Supported: `syncone` at the new `DevSN` rewrites stored templates; compatible across standard ZKTeco readers on Template v10 | **Out of scope.** Good to know the escape hatch exists |
-| `fingerId` semantics | Range 0–9, up to 10 fingers per `EmpId` | **One finger per member.** Schema records a single `finger_id`, not a set |
-| Enrolment completion signal | None. `enrollfinger` queues a command; the reader enters enrolment mode on collection. Confirm by polling `GET /api/template` | **Pending until observed** — the rule 2.8 pending-vs-error distinction |
-| Device capacity | Model-dependent (1,000–3,000 entry-level, 10,000+ high-end). Over capacity, the PUSH loop returns execution errors on sync | Detect from sync errors rather than proactive counting. Low risk at Sri Lankan gym sizes |
-| Duplicate-finger detection | Handled at the sensor during local enrolment, if enabled in device firmware | **Not a concern** — one fingerprint per membership |
-| Removing biometrics | `DELETE /api/template/fromdev/{id}` clears templates, keeps the employee. `DELETE /api/template/{id}` deletes both | **Adopted as a first-class flow** — see below |
-| Remote enrolment from stored data | Physical enrolment required; raw upload possible via `DATA UPDATE tablename=templatev10` | **Treated as not possible.** No enrol-from-photo, ever |
-
-### The enrolment flow — ✅ OBSERVED FIRSTHAND, not assumed
-
-The one item on this page backed by direct evidence. The product owner went
-through enrolment at a gym running this hardware:
-
-> Staff walked the member to the wall-mounted reader, **pressed buttons on the
-> device itself** to start enrolment, the finger was placed **three times**, and
-> it was confirmed with the OK key. No software was involved at any visible
-> point.
-
-Three captures is the standard ZKTeco template-building sequence, so this is an
-ordinary **device-local admin-menu enrolment** — *not* the
-`POST /api/devicecmd/enrollfinger` path the Postman collection exposes.
-
-> **Part 1** — member is registered in our registry (desk or QR flow, no
-> hardware).
-> **Part 2** — staff enrol the finger **at the device**.
-
-The UI must reflect exactly this: a member exists and is billable the moment
-Part 1 completes, showing *Biometric: not enrolled* until Part 2 happens.
-
-**This overturned an earlier assumption.** We had assumed our app *triggers*
-enrolment via `enrollfinger` and waits. In practice we trigger nothing — our
-only job is to **detect** that enrolment happened. The trigger endpoint becomes
-optional, and polling `GET /api/template` becomes the sole detection mechanism.
-
-**Still unverified, and it is the sharpest open question in the integration:**
-when staff enrol at the terminal, do they *select an employee record we pushed*,
-or *create one locally and key in an id*? If the latter, device-side ids can
-collide with our global sequence and silently overwrite a real member — a hazard
-no code of ours can prevent. Whether it also uploads the template back to the
-platform, and how soon `GET /api/template` reflects it, are open with it.
-
-### Registry and biometric are separate lifecycles
-
-A fingerprint must be removable **without** deleting the membership record —
-and VFT supports precisely that split. So:
-
-- `DELETE /api/access-control/members/[id]/biometric` → VFT
-  `DELETE /api/template/fromdev/{id}`, clears `finger_enrolled`, **never**
-  touches the `members` row;
-- deleting a member's fingerprint is not an edit to their membership, which is
-  why it is its own route rather than a flag on member update.
+- **A — Observed.** Seen firsthand on real hardware.
+- **B — Documented.** In the ZKTeco PUSH/ADMS spec, official manuals, or
+  multiple independent implementations.
+- **C — Inferred.** Follows from A/B plus the VFT collection, but not directly
+  attested.
+- **D — Guess.** Reasonable, unattested. _No D assumption is allowed to gate
+  door access._
 
 ---
 
-## 3. Webhook and events
+## The assumptions
 
-| Question | Assumed answer (unverified) | Decision taken |
-| --- | --- | --- |
-| Webhook authentication | None defined. Use **path-based secret tokens or IP whitelisting** | One platform-wide path token (≥128 bits, rotatable) + optional IP allowlist. Our original approach, now not yet vendor-confirmed |
-| Per-gym callback URL | Configured at **server/account level** | **One URL for all gyms.** Gym resolved from `DeviceID` → `access_devices` (hence its global uniqueness) |
-| Code tables | `VerifyType` 1 Finger / 2 Card / 3 Password / 15 Face · `CheckingStatus` 0 In / 1 Out / 4 OT-In / 5 OT-Out · `Event` 3 Door Unlocked | Real `z.nativeEnum()` enums; raw payload still retained in `access_events.raw` |
-| Denied-access events | **Not** pushed. They land in the device transaction table, reachable only by polling `DATA QUERY tablename=transaction` | **Not ingested** — see below |
-| Retry / duplicate delivery | Not answered | Always-200 + idempotency on `(gym, device, subject, occurred_at)` — correct under any policy |
+### A1 — Personnel ID is numeric, ≤ 9 chars, valid range 1–79,999,999 · **grade B**
 
-### Two consequences worth being explicit about
+ZKBioSecurity documents Personnel ID as max 9 characters with a valid range of
+**1 to 79,999,999**. `EmpId` maps to this field.
 
-**We do not poll for denials.** When a membership is expired the gate simply
-does not open and the reader shows an error on its own screen. Our database
-already knows *why* — expired, suspended, cancelled, unverified — so the front
-desk sees the real reason in our app the moment they look the member up.
-Polling the vendor to be told something we already know would add a queued
-command per device per interval for no information gain. `access_events`
-records **successful entries only**.
+**Decision.** `subject_id` comes from a Postgres sequence starting at `100000`
+and is **hard-capped at 79,999,999** in code, with the cap asserted in tests.
+Never `member_number` (per-gym, so it collides on a flat namespace).
 
-**`CheckingStatus` is advisory.** With one reader serving both entry and exit,
-the device cannot reliably tell direction — it reports whatever mode it is in.
-So the data is modelled as a stream of **visits**, not paired in/out sessions,
-and no time-in-gym or occupancy feature is built on it. Anything else would be
-inventing data the hardware does not have.
+**If wrong (cap is lower, e.g. 5 digits on older K40/F18 firmware):** ~79.9M
+addresses shrink to 99,999. Contained: the cap is one constant, ids are
+allocated lazily _at first provisioning_ rather than at registration, and a
+`subject_id` is released back when a member is purged. Changing the constant is
+a one-line change plus a re-provision.
 
-**Shared-account note:** one callback URL means we receive events for every gym
-on the account, including non-customers. We store only events whose `DevSN`
-maps to a device we know, and never trust a gym id from the payload.
+**Why this is safe to build on:** the failure is _exhaustion_, which is loud and
+slow, not _truncation_, which is silent. We additionally verify the round-trip
+(§ Verification) so truncation cannot pass unnoticed.
+
+### A2 — Devices acknowledge command execution with a return code · **grade B**
+
+This corrects an earlier assumption. The PUSH protocol has an explicit
+acknowledgement path: after executing a command the device POSTs to
+`/iclock/devicecmd?SN=<serial>` with `ID=<CmdID>&Return=<value>&CMD=<TYPE>`,
+where `Return >= 0` means success and negative values are documented errors.
+
+**Decision.** Command completion is **not** inferred from disappearance alone.
+`VftAccessControlProvider.listPendingCommands()` surfaces whatever return/result
+field the wrapper exposes; the drainer treats an explicit non-negative return as
+success, an explicit negative as failure, and _absence from the queue with no
+return_ as the weaker "presumed applied" signal.
+
+**If wrong (the VFT wrapper hides the return code):** we degrade to
+disappearance-as-completion — the earlier design — which still works. This is
+why the provider returns a discriminated result rather than a boolean.
+
+### A3 — Device poll interval is ~30 s · **grade B**
+
+The PUSH spec describes the device polling `GET /iclock/getrequest?SN=` at a
+default interval commonly documented as 30 seconds (implementations report
+5–30 s).
+
+**Decision.** Suspension latency is presented to staff as **"within a minute"**,
+never "instantly". The outbox drainer runs every 5 minutes for bulk work, with
+an immediate best-effort dispatch on suspend/cancel.
+
+**If wrong (slower):** the UI promise is wrong, not the security. The door still
+closes; the copy is a constant.
+
+### A4 — Fingerprint templates enrolled at the device reach the platform · **grade B/C**
+
+Devices push enrolment data to the server over `POST /iclock/cdata`, and the
+PUSH SDK documents devices sending fingerprint templates, face templates and
+biophotos base64-encoded. Combined with **A6** (enrolment happens at the
+terminal), this is what makes detection possible at all.
+
+**Decision.** Enrolment is detected by polling `GET /api/template`, not by
+triggering and assuming. `member_access_subjects.finger_enrolled` flips only on
+positive observation.
+
+**If wrong (templates never surface via the VFT wrapper):** we cannot confirm
+enrolment programmatically. Contained: staff can mark a member enrolled manually
+from the access panel, and the door still works — because **access is governed by
+the validity window, not by our enrolment flag**. The flag is bookkeeping.
+
+### A5 — `EndTime`/`EndDate` is inclusive, evaluated on-device · **grade B/C**
+
+`DATA UPDATE user … StartTime=YYYYMMDD EndTime=YYYYMMDD` is a documented PUSH
+user-table update, and validity is evaluated by the terminal's own firmware
+against its RTC — which is why access control keeps working when the network is
+down. Date-only bounds in this family are inclusive of the end date.
+
+**Decision.** `validTo = next_due_date`. A member paid through the 15th is
+admitted all of the 15th and refused from the 16th at 00:00 local.
+
+**If wrong (exclusive):** members would be locked out one day early — highly
+visible, and the worst failure in the system for customer trust. **This is the
+single assumption most worth verifying on the first live terminal.** Contained:
+it is one `+1 day` in `resolveAccessDecision`, covered by a dedicated test group
+so the fix is a one-line change with a failing test to prove it.
+
+### A6 — Enrolment is performed at the terminal by staff · **grade A (observed)**
+
+Directly observed: staff pressed buttons on the wall-mounted reader, the finger
+was placed three times (the standard ZKTeco capture count), confirmed with OK.
+No software involvement at any visible point.
+
+**Decision.** Our app **detects**, it does not drive. The trigger endpoint is
+optional; nothing in the access path depends on it.
+
+**Open sub-risk (grade D — and the reason it is fenced off):** whether staff
+select a record we pushed or key in an id locally. If the latter, device-side
+ids can collide with our sequence. Contained by A7.
+
+### A7 — Reverse reconciliation, because our view may be incomplete · **design decision**
+
+Not an assumption — a hedge against A6's sub-risk. We pull `GET /api/template`
+and flag any device-side `EmpId` with no corresponding subject, instead of
+assuming our records are authoritative.
+
+### A8 — Attendance code tables · **grade B**
+
+Corrected by research. Earlier draft had `3 = Password`, which was wrong.
+
+| Field                    | Values                                                                                     |
+| ------------------------ | ------------------------------------------------------------------------------------------ |
+| `VerifyType`             | **0** Password · **1** Fingerprint · **2** Card · **15** Face                              |
+| `CheckingStatus` (State) | **0** CheckIn · **1** CheckOut · **2** BreakOut · **3** BreakIn · **4** OTIn · **5** OTOut |
+| `Event`                  | `3` observed as door-unlock/granted in the VFT sample                                      |
+
+**Decision.** Enums for `VerifyType` and `CheckingStatus`; `Event` stays
+**unmapped** and raw, since only one sample value is attested (grade D — so it
+gets no semantics). Raw payload always retained in `access_events.raw`.
+
+**Direction is still advisory** regardless of the code table: with one reader
+serving entry and exit, `CheckingStatus` reflects the device's configured mode,
+not reality. Events are modelled as **visits**, not paired sessions.
+
+### A9 — `AreaID` is a filter, not an authorization boundary · **grade C**
+
+The PUSH protocol has no tenant concept — a device belongs to a server, and an
+ADMS account addresses all its devices. Areas are an organisational field.
+
+**Decision.** Treated as **zero isolation**. Every identifier reaching the
+provider is resolved from our own database under RLS, never from request input.
+Credentials never reach a gym user.
+
+**If wrong (it does isolate):** we were merely stricter than necessary. This
+assumption is safe _because_ being wrong costs nothing.
+
+### A10 — `accessblock` state can be disturbed by later user-table writes · **grade C/D**
+
+`accessblock` and `validperiod` both write the device user record. Whether one
+clobbers the other's flags is firmware-specific and we cannot attest it.
+
+**Decision.** Never send `validperiod` to a subject that resolves to blocked.
+Every write is driven by `resolveAccessDecision`, so a blanket refresh is
+unreachable by construction.
+
+**Why this is the right call even at grade D:** the guard costs nothing, and the
+failure it prevents — silently un-suspending barred members nightly — is one we
+would likely never detect from inside the app.
 
 ---
 
-## 4. Command delivery
+## The design principle these feed
 
-| Question | Assumed answer (unverified) | Decision taken |
-| --- | --- | --- |
-| Does 200 mean applied? | No — it confirms **queuing**. The command string is enqueued in the database | Outbox design confirmed correct |
-| Offline devices | On reconnect the device **fetches its queued buffer sequentially** via the PUSH pull | Commands are **not lost**. The outbox exists to know when a command was *applied*, not to guard against loss |
-| Per-command status | None beyond queue listing (`GET /api/devicecmd`, `/api/devicecmd/{DevSN}`) | Queue drainage is the only completion signal |
-| Validity window | Described via raw `DATA UPDATE user Pin=… StartTime=… EndTime=…` | Prefer the typed `POST /api/devicecmd/validperiod` from the collection; **verify on the test device**. Raw strings stay confined to `lib/access-control/` |
-| Token management | JWT from `POST /api/user/`, validated at `GET /api/user/auth`. Serverless needs central token state | Per-gym cached token with TTL, refresh once on 401. Vendor explicitly endorses central storage |
-| Rate limits | Not answered | Pace at ~1 req/s per gym; chunk the daily reconcile |
-| Error shapes | Not answered | Retry 5xx/timeouts with backoff; never retry 4xx; dead-letter after budget |
+**Where an assumption could fail, it must fail toward refusing access, never
+toward granting it — except where refusing would lock out a paying member, in
+which case it must be loud.**
 
----
+Concretely:
 
-## 5. Dates and time zones
-
-| Question | Assumed answer (unverified) | Decision taken |
-| --- | --- | --- |
-| `EndDate` inclusive? | **Yes** — inclusive through 23:59:59 of the given date | Matches our assumption. `validTo = next_due_date` is correct as-is. Still worth confirming on hardware |
-| `AttTime` timezone | Device-local, per the device's `TimeZone` (minutes from UTC, e.g. `330` = UTC+5:30) | Convert using the device's stored offset → persist UTC. Do not assume Asia/Colombo; read the device's own value |
-
-The `AttTime` answer is a small but real correction to the earlier assumption:
-the offset comes from the **device record**, not from a hardcoded gym timezone.
+- **The device's validity window is the primary authority.** If our sync dies
+  completely, every member's access still expires correctly on their paid-through
+  date, because the terminal enforces it from its own RTC with no network. The
+  worst sustained outage degrades us to "expiry works, new payments don't extend"
+  — recoverable, not dangerous.
+- **Our database is never the thing that opens a door.** We push windows and
+  blocks; we never gate an entry in real time. So our downtime cannot lock a gym
+  out of its own building.
+- **Blocks are explicit commands, not the absence of a grant.** A dropped
+  message cannot silently grant access.
+- **No grade-D assumption gates access.** A8's `Event` mapping and A6's
+  sub-risk are the only Ds, and both are confined to bookkeeping.
 
 ---
 
-## 6. Documentation discrepancies — resolved
+## Verification on the first live terminal
 
-| Topic | Use |
-| --- | --- |
-| Auth header | `ApiToken` (headers are case-insensitive, but match the collection) |
-| Logout | `POST /api/user/logout` |
-| Device update path | `PUT /api/device/{DevSN}` — serial, not integer id |
-| Employee create | **Include** `AreaID` (integer) for automatic area linkage |
-| Area create | **Omit** `AreaID`; the backend assigns an integer |
-| Deletion | `DELETE` exists **only** for employees, device templates, and command queues. **No area or device delete** |
+The build is complete and testable without any of these; these are the checks
+that convert grades B/C into A. In priority order:
 
-The last row has a product consequence: `POST /devices/[id]/unlink` removes a
-device from *our* database only, and the UI must say so rather than implying
-the hardware was deprovisioned.
+1. **A5 — `EndDate` inclusivity.** Set a member to end today; confirm entry
+   today and refusal tomorrow. _One-line fix if wrong; most visible failure._
+2. **A1 — id round-trip.** Provision a 8-digit id (e.g. `79999999`), read it
+   back via `GET /api/template`, confirm it is unchanged. _Detects silent
+   truncation, which is the only failure here that grants wrong access._
+3. **A2 — return codes.** Send a `validperiod`, inspect `GET /api/devicecmd`
+   before and after the device picks it up; look for a return/result field.
+4. **A4 — enrolment visibility.** Enrol at the terminal, poll `GET /api/template`,
+   measure how long until it appears.
+5. **A6 sub-risk — who assigns the id.** Watch a real enrolment: does the
+   operator pick our pushed record or type an id?
+6. **A3 — poll latency.** Time a `accessblock` from dispatch to effect.
 
----
-
-## 6b. Second pass — further assumptions
-
-### Device timekeeping
-
-| Question | Assumed answer (unverified) | Decision taken |
-| --- | --- | --- |
-| Clock sync | Hardware RTC; corrected via NTP if enabled, or heartbeat params during PUSH sync *"if server time parameters are active"* | Drift is possible and not guaranteed corrected |
-| Read/set device time via API | **No endpoint.** Requires low-level parameter commands or physical NTP config | Cannot query a clock → **infer skew** from normalised `AttTime` vs our receipt time, on every event. Free, and turns an invisible failure into a monitored one |
-| Cutover evaluation | Entirely on the device RTC + its `TimeZone` offset; terminates at 23:59:59 **local**, no server connectivity needed | Confirms §3.4 exactly |
-| Poll interval | **5–30 seconds** | A block reaches an online device in under a minute. UI can say "within about a minute" honestly |
-
-### Tenancy — the security finding
-
-| Question | Assumed answer (unverified) | Decision taken |
-| --- | --- | --- |
-| Is `AreaID` a filter or a boundary? | **A logical filter, not an authorization barrier.** The token has full admin access across *all* areas unless the client scopes every request | Our code is the only tenant guard. Every identifier sent to the provider is resolved from our DB under RLS, never from request input (§6.1) |
-| `EmpId` scope | Unique **account-wide**, not per area. Reusing one across areas *"will overwrite or mutate the existing user record"* | Global sequence confirmed **mandatory**. A collision silently corrupts another gym's member |
-| `DevSN` global uniqueness | Yes — hardware serial, globally unique | Webhook routing by `DeviceID` is sound |
-| Area creation | `POST /api/area`, backend assigns integer ids, no documented limit | One area per gym at onboarding |
-| Cross-tenant webhook events | Account-level callback receives **all** devices/areas on the account | Filter by `DevSN` in application logic; store only known devices |
-
-### Command semantics
-
-| Question | Assumed answer (unverified) | Decision taken |
-| --- | --- | --- |
-| `validperiod` vs raw `DATA UPDATE user` | Identical effect; the REST endpoint is **preferred** | Use the typed endpoint. Raw strings stay out of the codebase |
-| Call sequence | Profile must exist in device memory **before** validity binds: provision + sync templates → then `validperiod` | Outbox drains **serialized and ordered per member** (§4.2) — a correctness requirement |
-| `accessblock` vs `validperiod` | **Confirmed hazard.** A later `validperiod` or user-property write *"can re-write user record flags on specific firmware builds, potentially clearing an active block"*. Likely remedy: revoke templates, or avoid `validperiod` on blocked ids | Both adopted (§3.3): never `validperiod` a blocked subject, and use template revocation for hard suspensions |
-| Bulk validity | **None.** One call per member/device | Diff-based reconcile (§4.3) becomes a requirement, not an optimisation |
-| Access after template deletion | Card/PIN/password remain live if assigned | **Never set `CardNo` or `Password`.** The fingerprint stays the sole credential, so revocation is a true lockout |
-
-### Operational parameters
-
-Rate limit: keep **under 10 req/s** (we pace at ~5). Errors: standard `401` /
-`400` / `500`. Tokens: **a new sign-in does not invalidate prior tokens** — so
-concurrent serverless instances are safe; expiry duration still unstated.
-Webhooks: ack immediately with `200`. Enrolment mode times out after **30–60 s**
-of sensor inactivity.
-
-### Hardware
-
-Fleet is **MB20, K40, F18, SpeedFace**; capacity 1,000–3,000 templates, with the
-PUSH loop returning error codes when full. Sandbox/test hardware **requires
-manual provisioning by VFT admins — request it now.**
-
-⚠️ **K40 and F18 are older entry-level units.** Some firmware builds cap the user
-`Pin` well below 9 digits. If the real cap is 5, the global namespace is 99,999
-subjects across *every* gym on the account — a real ceiling. Then the options are
-id recycling or per-gym accounts. Top item to measure on the test device.
+Each maps to a test in `features/access-control/tests/` that currently asserts
+the _assumed_ behaviour — so when hardware contradicts one, the failing test
+tells you exactly what to change.
 
 ---
 
-## 7. Verify on the first test device
+## Sources
 
-Cheaper to measure than to ask again, in rough priority order:
-
-1. **9-digit `EmpId`** stores whole, no silent truncation. *Highest severity —
-   truncation grants the wrong member access, and it is invisible until someone
-   walks through a door they shouldn't.*
-2. **`EndDate` inclusivity** — a member whose window ends today still gets in
-   today.
-3. **`validperiod` typed endpoint** works, or we fall back to the raw
-   `DATA UPDATE user` form.
-4. **Command acknowledgement** — a command really does vanish from
-   `GET /api/devicecmd/{DevSN}` once applied.
-5. **Offline buffering** — unplug, send `accessblock`, reconnect, confirm it
-   lands.
-6. **Enrolment-mode timeout** — how long the reader waits before giving up.
-
----
-
-## 8. Still ours to decide
-
-1. ~~**Member stops paying — locked out?**~~ **Settled: yes.** A member is
-   admitted for the whole of `next_due_date` and refused from **00:00 the next
-   day** — due on the 15th means training on the 15th and refused from 16th
-   00:00. This is local gym culture and it is exactly what the design already
-   produces (`validTo = next_due_date` + VFT's inclusive `EndDate`). The
-   *device* enforces it from its own clock, so the lockout does not wait for our
-   daily cron. See §3.4 of the plan.
-
-   ⚠️ **Separate and still open: the _gym_ stops paying _us_.** Different
-   question — whether a whole gym's members lose door access because the gym's
-   Metric subscription lapsed. Recommendation: **no**. Stop syncing, leave
-   devices in their last known state, banner the gym. The members did nothing
-   wrong, and mass-locking them over their gym's billing dispute is a
-   physical-safety and reputational risk. Needs a product call before Phase 3.
-2. **Biometric consent.** Fingerprint templates are sensitive personal data.
-   They live on VFT's hardware, but we trigger enrolment — so the privacy policy
-   needs a biometric disclosure and registration needs a consent alongside
-   `accepted_terms_at` / `accepted_gym_rules_at`. Before Phase 3.
-3. **Remote door-open** stays Enterprise-only, gym-owner-only, rate-limited,
-   audited with actor and timestamp.
-
-## 9. Explicitly out of scope
-
-Recorded so they are not re-litigated: multi-finger enrolment, cross-device
-template propagation, device-replacement migration, duplicate-finger detection,
-denial-event ingestion, and template upload/restore.
-
-We assume (**unverified**) raw template upload is technically possible
-(`DATA UPDATE tablename=templatev10`), so backup and restore remain available
-later if ever wanted — but nothing in this build depends on it.
+- [ZKTeco PUSH SDK communication protocol](https://www.scribd.com/document/695654988/PUSH-SDK-Communication-Protocol-V2-0-1)
+- [HTTP PUSH SDK 2.0.1 (PDF)](http://f02.s.alicdn.com/kf/HTB1PANmFVXXXXaCXVXX.PRXFXXXk.pdf)
+- [ZKBioSecurity user manual — Personnel ID limits](https://www.zkteco.co.za/softwarenew/user_manuals/ZKBioSecurity_3.2.0_user_manual.pdf)
+- [zk-protocol reverse-engineered spec](https://github.com/adrobinoga/zk-protocol/blob/master/protocol.md)
+- [zkteco-adms (Go implementation)](https://github.com/s0x90/zkteco-adms)
+- [go-zkteco — attendance log VerifyType/State codes](https://pkg.go.dev/github.com/farizfadian/go-zkteco)
+- [ZKTeco ADMS protocol overview](https://www.linkedin.com/pulse/zkteco-adms-protocol-link-your-zk-device-server-herbin-tsobeng-qg0ze)

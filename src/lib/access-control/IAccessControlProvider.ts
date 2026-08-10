@@ -1,0 +1,177 @@
+/**
+ * Access Control Provider Interface (Port)
+ *
+ * The contract for biometric door hardware. Vendor-neutral by design: no VFT or
+ * ZKTeco noun appears here, so a second vendor drops in behind the same port.
+ *
+ * Credentials are a **parameter on every call**, not constructor state. This is
+ * a multi-tenant platform and each gym may have its own account; a provider
+ * instance is therefore stateless with respect to tenancy.
+ *
+ * Mirrors the `ISMSProvider` / `IStorageProvider` precedent, and lives in
+ * `lib/` alongside `lib/payhere` and `lib/storage` because it wraps an external
+ * service (R8). It must contain no gym business rules.
+ */
+
+/** Credentials for one gym's vendor account. */
+export interface AccessCredentials {
+  baseUrl: string
+  email: string
+  password: string
+  /** Cached bearer token, if the caller holds a valid one. */
+  apiToken?: string | null
+  /** Vendor area id for this gym. Organisational, not a security boundary. */
+  areaId?: number | null
+}
+
+/**
+ * Outcome of a command sent to the hardware.
+ *
+ * Deliberately three-valued rather than boolean. The hardware protocol queues
+ * commands for the terminal to collect on its next poll, and returns an
+ * execution result separately — so "the API accepted it" and "the door knows"
+ * are genuinely different states, and conflating them into `true` would let
+ * silent drift go undetected.
+ */
+export type CommandOutcome =
+  /** The device executed it and reported success. */
+  | { status: 'applied'; commandId?: string }
+  /** Accepted and queued; the device has not collected it yet. */
+  | { status: 'queued'; commandId?: string }
+  /** Rejected, or the device reported an execution failure. */
+  | { status: 'failed'; error: string; retryable: boolean }
+
+/** A terminal as the vendor reports it. */
+export interface AccessDeviceInfo {
+  serial: string
+  name: string
+  areaId: number | null
+  /** Minutes from UTC, as configured on the device. */
+  timezoneOffsetMinutes: number | null
+}
+
+/** A subject (member) as the vendor holds it. */
+export interface AccessSubjectInfo {
+  subjectId: string
+  name: string
+  areaId: number | null
+  /** Number of biometric templates on record, when the vendor reports it. */
+  templateCount: number | null
+}
+
+/** A command still awaiting collection by a device. */
+export interface PendingCommand {
+  commandId: string
+  deviceSerial: string
+  /** Vendor return code, when exposed. `>= 0` is success in the ZKTeco family. */
+  returnCode: number | null
+}
+
+/** Target of a per-subject command. */
+export interface SubjectOnDevice {
+  deviceSerial: string
+  subjectId: string
+}
+
+/** A validity window to push. `validTo` is inclusive of that whole day. */
+export interface ValidPeriodInput extends SubjectOnDevice {
+  /** `YYYYMMDD`. */
+  startDate: string
+  /** `YYYYMMDD`, inclusive. */
+  endDate: string
+}
+
+export interface IAccessControlProvider {
+  /** Provider name, for logs. */
+  getProviderName(): string
+
+  /** Whether real hardware calls are enabled in this environment. */
+  isEnabled(): boolean
+
+  /**
+   * Authenticate and return a bearer token.
+   *
+   * @throws if the credentials are rejected.
+   */
+  signIn(credentials: AccessCredentials): Promise<string>
+
+  /** Cheap probe that the stored credentials still work. */
+  verifyCredentials(credentials: AccessCredentials): Promise<boolean>
+
+  /** All terminals visible to the account. */
+  listDevices(credentials: AccessCredentials): Promise<AccessDeviceInfo[]>
+
+  /** Create or update a subject record. */
+  upsertSubject(
+    credentials: AccessCredentials,
+    subject: { subjectId: string; name: string; areaId?: number | null }
+  ): Promise<CommandOutcome>
+
+  /** Delete a subject and its templates. */
+  removeSubject(
+    credentials: AccessCredentials,
+    subjectId: string
+  ): Promise<CommandOutcome>
+
+  /**
+   * Clear a subject's biometric templates from devices while keeping the
+   * subject record. This is what "revoke fingerprint, keep the membership" maps
+   * onto.
+   */
+  revokeBiometrics(
+    credentials: AccessCredentials,
+    subjectId: string
+  ): Promise<CommandOutcome>
+
+  /** Push subjects to one terminal so their records exist in its memory. */
+  syncSubjectsToDevice(
+    credentials: AccessCredentials,
+    deviceSerial: string,
+    subjectIds: string[]
+  ): Promise<CommandOutcome>
+
+  /** Set the validity window. The device enforces it from its own clock. */
+  setValidPeriod(
+    credentials: AccessCredentials,
+    input: ValidPeriodInput
+  ): Promise<CommandOutcome>
+
+  /** Grant access (lift a block). */
+  grantAccess(
+    credentials: AccessCredentials,
+    target: SubjectOnDevice
+  ): Promise<CommandOutcome>
+
+  /** Block access immediately, independent of any validity window. */
+  blockAccess(
+    credentials: AccessCredentials,
+    target: SubjectOnDevice
+  ): Promise<CommandOutcome>
+
+  /** Read subjects the vendor holds — the basis for reverse reconciliation. */
+  listSubjects(credentials: AccessCredentials): Promise<AccessSubjectInfo[]>
+
+  /** Put a terminal into fingerprint enrolment mode for a subject. */
+  startFingerEnrolment(
+    credentials: AccessCredentials,
+    target: SubjectOnDevice & { fingerId?: number }
+  ): Promise<CommandOutcome>
+
+  /** Remote unlock. Physically consequential — callers must audit it. */
+  openDoor(
+    credentials: AccessCredentials,
+    deviceSerial: string
+  ): Promise<CommandOutcome>
+
+  /** Reboot a terminal. */
+  rebootDevice(
+    credentials: AccessCredentials,
+    deviceSerial: string
+  ): Promise<CommandOutcome>
+
+  /** Commands not yet collected, for drift detection. */
+  listPendingCommands(
+    credentials: AccessCredentials,
+    deviceSerial?: string
+  ): Promise<PendingCommand[]>
+}
