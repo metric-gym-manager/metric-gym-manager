@@ -68,59 +68,236 @@ helps us. It's only _our_ IP that we can't pin down.)
 
 ## 3. The seven questions to ask
 
-Priority order. If the call runs short, 1–4 are the ones that matter.
+Each one below gives you: **what we need**, **where it is (or isn't) in their own
+documents**, **the question to say out loud**, and **why we're asking** — so when
+they say "why do you need that?", you have an answer ready.
 
-**Q1. What's the maximum length of the user ID (`EmpId` / `Pin`) on the readers
-you deploy — and what happens if we send one that's too long?**
-_Why it matters, if they ask:_ "We assign every member a numeric ID from our
-side. If it silently truncates, two members could collide and the wrong person
-gets in."
-_What good looks like:_ a specific number. Also ask **which reader models** they
-deploy.
+Naming the page or endpoint is what makes these land. It shows you've read their
+material properly, which is worth more than any technical vocabulary.
 
-**Q2. Do we get separate API credentials per gym, or one account for all of
-them?**
-_Why:_ "We're multi-tenant. If it's one shared account, we need to know whether
-one gym's operator can see or change another gym's members."
-_Follow-up:_ "Is `EmpId` unique across the whole account, or per area?"
+If the call runs short, **Q1–Q4** are the ones that matter.
 
-**Q3. When we send a command, how do we know the reader actually applied it — as
-opposed to it just being queued?**
-_Why:_ "We need to know a member's access really changed, not just that we asked
-for it."
-_Follow-up:_ "If the reader is offline, is the command held and delivered when it
-reconnects? For how long?"
+---
 
-**Q4. Is the validity end date inclusive?**
-Say it concretely — this one is easy to get a clear answer on:
+### Q1 · How long can a member ID be?
 
-> "If we set a member's end date to the 15th, do they still get in during the day
-> on the 15th, or are they blocked from the start of the 15th?"
-> _Why:_ "Our members are paid through their due date. If it's exclusive we'd lock
-> everyone out a day early."
+**What we need:** every member gets a number that we generate and send to the
+reader. We need to know the maximum length before we start handing them out.
 
-**Q5. How is the attendance webhook secured, and can we get a separate callback
-URL per gym?**
-_Why:_ "We couldn't find a signature or auth header in the documentation. We plan
-to use a secret token in the URL — we want to confirm that's the right approach."
-_Follow-up:_ "Do you retry failed deliveries? Can the same scan arrive twice?"
+**In their docs:** the PDF has a "Field Specifications" table for **devices**
+(§3.2 — `DevSN`, `DevName`, `TimeZone`, `AreaID`, `IsReboot`, with types and
+whether each is required). **Section 5, Employee Management, has no equivalent
+table.** `EmpId` just appears as `"166"` in the example body. The Postman
+collection's _AddEmployee_ sends `"EmpId": "168"`. In §4.2 the same field appears
+as the raw ZKTeco `Pin=8` and `Pin=1001`.
 
-**Q6. Can you send us the code tables for `CheckingStatus`, `VerifyType` and
-`Event`?**
-This is a documentation request, not a question — easy for them to say yes to.
-_Follow-up:_ "Does a **refused** scan generate an event, or only successful
-entries?"
+> **Ask:** "Your section 3.2 gives field specifications for devices — types,
+> required, examples. Section 5 doesn't have the same for employees. What are the
+> constraints on `EmpId`? Maximum length, digits only or alphanumeric? And if we
+> send one that's too long, does the API reject it, or does the reader truncate
+> it silently?"
+>
+> **Follow-up:** "Which reader models are actually deployed with gyms here? I
+> assume the limit is per model."
 
-**Q7. When staff enrol a fingerprint at the reader, do they pick a member record
-we've already sent, or do they create one and type in an ID at the device?**
-_Why:_ "We assign the IDs from our side. If staff key in their own at the
-terminal, the two won't match."
+**Why we're asking:** our internal member IDs can't go on a device, so we
+generate numeric ones. If a value gets silently shortened, two members could end
+up with the same ID on the reader — and the wrong person walks through the door.
+That's not something we'd notice until it happened.
 
-**And the ask that saves the most time:**
+**A good answer is a number.** "It's the ZKTeco Pin field" is not enough on its
+own — ask what the limit is on _their_ readers.
 
-> "Can we get a test account and one spare terminal for our staging environment?
-> Most of these would be faster for us to verify ourselves than for you to write
-> up."
+---
+
+### Q2 · One account for all gyms, or one per gym?
+
+**What we need:** we run many gyms on one platform. We need to know whether their
+API keeps those gyms apart, or whether that's entirely our job.
+
+**In their docs:** PDF §1.1 shows sign-in as a single email and password
+returning one token. There's nothing about which devices or members that token
+can reach. §2 introduces **Areas** (`/api/area`), and the Postman _AddEmployee_
+attaches an employee to `"AreaID": 1` — so areas look like the grouping
+mechanism, but nothing says whether they're a security boundary.
+
+> **Ask:** "Can you issue separate API credentials per gym, or is the expected
+> setup one account with an area per gym? And if it's one shared account — can a
+> token issued for one area read or modify employees in a different area, or is
+> it scoped?"
+>
+> **Follow-up:** "Is `EmpId` unique across the whole account, or per area? If two
+> areas both use employee ID 100, is that two separate people or does one
+> overwrite the other?"
+
+**Why we're asking:** if one token reaches every gym on the account, then our
+code is the only thing keeping one gym's staff away from another gym's members
+and doors. We'd want to know that going in, and we'd design for it.
+
+---
+
+### Q3 · How do we know a command actually worked?
+
+**What we need:** when we tell a reader "this member's access ends on the 15th",
+we need to know it took effect — not just that the request was accepted.
+
+**In their docs:** PDF §4.1 documents `POST /api/devicecmd`. The Postman
+collection then has a whole **DeviceCommand** folder for _managing_ commands:
+`GET /api/devicecmd` (list all), `GET /api/devicecmd/{DevSN}` (list for one
+device), `DELETE /api/devicecmd/{id}`, and `DELETE /api/devicecmd` (delete all).
+Being able to list and delete commands strongly implies they sit in a **queue**
+waiting for the reader to collect them. But nothing in either document describes
+a status, a result, or an error code per command.
+
+> **Ask:** "The collection has endpoints to list and delete commands, which
+> suggests they queue up until the device collects them. So when I get a 200 back
+> from `/api/devicecmd`, does that mean queued or executed? And how do I confirm
+> it actually ran — is a command disappearing from `GET /api/devicecmd/{DevSN}`
+> the only signal, or is there a status or return code I've missed?"
+>
+> **Follow-up:** "If the reader is offline when we send something, is it held and
+> delivered when it reconnects? And how long before you discard it?"
+
+**Why we're asking:** if we suspend a member, we need to know the door really
+stopped letting them in. "We asked" isn't the same as "it happened", and if
+there's no confirmation available we'll design around that — but we need to know.
+
+---
+
+### Q4 · Does the end date include the last day?
+
+**What we need:** a one-word answer, and it's the single most likely thing to go
+wrong in front of real members.
+
+**In their docs:** the Postman _SetValidTimePeriod_ request is
+`POST /api/devicecmd/validperiod?DevSN=…&EmployeeId=168&StartDate=20251214&EndDate=20260107`.
+PDF §4.2 shows the same thing as a raw command:
+`DATA UPDATE user Pin=8 StartTime=20241010 EndTime=20251020`. **Neither says
+whether the end date is inclusive.**
+
+> **Ask:** "For `validperiod` — if I set a member's `EndDate` to the 15th, do they
+> still get in during the day on the 15th, or are they blocked from the start of
+> the 15th?"
+
+**Why we're asking:** our members pay through a due date. If we set the 15th and
+the reader blocks them on the 15th, every member gets locked out a day early —
+and we'd hear about it from every gym at once.
+
+**Push for a clear yes or no.** If they're unsure, that's the first thing we test
+on a real terminal.
+
+---
+
+### Q5 · How is the attendance webhook secured?
+
+**What we need:** their system will POST attendance data to a URL of ours. We
+need to know how we can tell it's really them.
+
+**In their docs:** the Postman collection's **WebhookCheck** folder posts an
+array of scan records to `{your_webhook_url}` — and the request's header list is
+**empty**. No signature, no API key, nothing. Compare that with every other
+request in the collection, which carries `ApiToken`.
+
+> **Ask:** "The webhook example in your collection posts to our URL with no
+> headers at all — no signature or key. How is it authenticated? Can you send a
+> custom header, or sign the payload? Our plan is to put a long secret token in
+> the URL path, but I'd rather match whatever you already support."
+>
+> **Follow-up 1:** "Can the callback URL be set per gym, or is it one per
+> account?"
+> **Follow-up 2:** "Do you retry if our endpoint is down? And can the same scan
+> arrive twice?"
+
+**Why we're asking:** if anyone who learns the URL can post to it, they could
+fake attendance records into a customer's account. And if you retry, we need to
+handle the same scan arriving more than once without double-counting it.
+
+---
+
+### Q6 · What do the attendance codes mean?
+
+**What we need:** a legend. This is a documentation request, so it's an easy yes.
+
+**In their docs:** the WebhookCheck sample payload is
+`{"EmpId":"168","AttTime":"2024-01-15 08:30:15","CheckingStatus":"0","VerifyType":"1","Event":"3","DeviceID":"QEM1253800017"}`.
+We get the values `0`, `1` and `3` — but there's **no table anywhere in the PDF**
+saying what they mean.
+
+> **Ask:** "Could you send us the code tables for `CheckingStatus`, `VerifyType`
+> and `Event`? The sample payload has values but no legend."
+>
+> **Follow-up:** "Does a **refused** scan produce an event — an expired member, or
+> a finger the reader doesn't recognise — or do we only receive successful
+> entries?"
+
+**Why we're asking:** without the legend we can log that someone scanned, but not
+whether they got in. And knowing whether refusals come through decides whether we
+can show a gym "three people were turned away yesterday."
+
+---
+
+### Q7 · Who types in the member ID at enrolment?
+
+**What we need:** to know whether the IDs we generate actually reach the reader,
+or whether staff invent their own at the device.
+
+**In their docs:** the collection has
+`POST /api/devicecmd/enrollfinger?DevSN=…&employeeId=168&fingerId=1`, which
+suggests we can start enrolment from software. But when we went through enrolment
+at a gym using your hardware, a staff member did the whole thing at the
+wall-mounted reader — pressed buttons on the device, finger three times, OK. No
+software involved.
+
+> **Ask:** "We've seen enrolment done entirely at the reader by staff, but your
+> API also has `enrollfinger`. Which is the intended flow? And when staff enrol at
+> the device, do they pick a member record we've already sent down, or do they
+> create one there and key in the ID themselves?"
+>
+> **Follow-up:** "Once a fingerprint is enrolled at the reader, does it come back
+> up to your platform — so we'd see it via `GET /api/template`?"
+
+**Why we're asking:** we assign member IDs on our side and push them down. If
+staff type their own numbers at the terminal, the two never line up — and we'd be
+tracking a member the reader has never heard of.
+
+---
+
+### The ask that saves the most time
+
+> "Could we get a test account and one spare terminal for a staging environment?
+> Several of these would be faster for us to verify ourselves in an afternoon than
+> for you to write up — and it means we come to you with specifics rather than
+> questions."
+
+---
+
+### If they ask "why so detailed?"
+
+> "We've built the integration already, against your documentation and the ZKTeco
+> PUSH protocol. These are the handful of places where the docs don't settle it
+> and guessing wrong would mean rebuilding rather than adjusting."
+
+That's true, and it explains the specificity without overclaiming.
+
+---
+
+### Bonus: two inconsistencies worth mentioning
+
+Dropping one of these in shows you've read closely. Use them lightly — the point
+is credibility, not correcting them.
+
+1. **Parameter casing.** In the collection, `validperiod`, `accessgrant` and
+   `accessblock` all take **`EmployeeId`** with a capital E — but `enrollfinger`
+   and `enrollface` take **`employeeId`** with a lowercase e. Worth asking which
+   is correct, since one of them may just be tolerated.
+2. **Your own PDF flags one.** §1.3 notes "Header naming inconsistency — uses
+   `ApiToken` instead of `apitoken`". Also, §1.3 documents logout as **GET** while
+   the collection sends **POST**, and §3.3 documents device update as
+   `PUT /api/device/{id}` with an integer id while the collection calls
+   `PUT /api/device/QEM1253800017` with a serial.
+
+> "We're following the Postman collection wherever it differs from the PDF, on the
+> assumption it's more current — tell me if that's wrong."
 
 ---
 
