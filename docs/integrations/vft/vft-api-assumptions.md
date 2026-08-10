@@ -106,7 +106,7 @@ enrolment programmatically. Contained: staff can mark a member enrolled manually
 from the access panel, and the door still works — because **access is governed by
 the validity window, not by our enrolment flag**. The flag is bookkeeping.
 
-### A5 — `EndTime`/`EndDate` is inclusive, evaluated on-device · **grade B/C**
+### A5 — `EndTime`/`EndDate` is inclusive, evaluated on-device · **grade A — CONFIRMED**
 
 `DATA UPDATE user … StartTime=YYYYMMDD EndTime=YYYYMMDD` is a documented PUSH
 user-table update, and validity is evaluated by the terminal's own firmware
@@ -116,24 +116,30 @@ down. Date-only bounds in this family are inclusive of the end date.
 **Decision.** `validTo = next_due_date`. A member paid through the 15th is
 admitted all of the 15th and refused from the 16th at 00:00 local.
 
-**If wrong (exclusive):** members would be locked out one day early — highly
-visible, and the worst failure in the system for customer trust. **This is the
-single assumption most worth verifying on the first live terminal.** Contained:
-it is one `+1 day` in `resolveAccessDecision`, covered by a dedicated test group
-so the fix is a one-line change with a failing test to prove it.
+**Confirmed by VFT on the call:** _"expires on 15th means the member can walk
+in until 00:00 on the 16th."_ Exactly what `validTo = next_due_date` produces.
+This was the highest-risk assumption in the integration — the one that would
+have locked every member out a day early — and it is now fact. The dedicated
+test group in `AccessDecision.test.ts` locks the behaviour in.
 
-### A6 — Enrolment is performed at the terminal by staff · **grade A (observed)**
+### A6 — Enrolment is API-triggered, then completed at the terminal · **grade A — CONFIRMED**
 
 Directly observed: staff pressed buttons on the wall-mounted reader, the finger
 was placed three times (the standard ZKTeco capture count), confirmed with OK.
 No software involvement at any visible point.
 
-**Decision.** Our app **detects**, it does not drive. The trigger endpoint is
-optional; nothing in the access path depends on it.
+**Revised after the call.** Both paths exist, and VFT confirmed the API one is
+intended: calling `enrollfinger` makes the **terminal change state** — a prompt
+appears on the reader — and the member then presents their finger there. What
+was observed at the gym was staff using the device's own menu instead.
 
-**Open sub-risk (grade D — and the reason it is fenced off):** whether staff
-select a record we pushed or key in an id locally. If the latter, device-side
-ids can collide with our sequence. Contained by A7.
+**Decision.** Our app **drives** enrolment (a button in the member modal), and
+**detects** completion by polling. The trigger endpoint is no longer optional —
+it is the primary flow. See `access-control-ui-and-capacity.md` §2.
+
+**Sub-risk retired:** because we trigger enrolment against an `EmpId` we
+allocated, staff never key in an identifier. The collision hedge in A7 stays as
+a cheap safety net, not a necessity.
 
 ### A7 — Reverse reconciliation, because our view may be incomplete · **design decision**
 
