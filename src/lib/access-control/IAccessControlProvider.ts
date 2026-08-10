@@ -39,7 +39,20 @@ export type CommandOutcome =
   /** Accepted and queued; the device has not collected it yet. */
   | { status: 'queued'; commandId?: string }
   /** Rejected, or the device reported an execution failure. */
-  | { status: 'failed'; error: string; retryable: boolean }
+  | {
+      status: 'failed'
+      error: string
+      /** Whether the outbox should try again with backoff. */
+      retryable: boolean
+      /**
+       * A person has to fix this — a full terminal, a template the device
+       * rejected. Surfaced to SaaS admins instead of being retried into the
+       * void.
+       */
+      needsAttention?: boolean
+      /** The raw device return code, when one was reported. */
+      returnCode?: number
+    }
 
 /** A terminal as the vendor reports it. */
 export interface AccessDeviceInfo {

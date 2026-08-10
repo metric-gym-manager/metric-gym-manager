@@ -37,6 +37,12 @@ import type {
   ValidPeriodInput,
 } from './IAccessControlProvider'
 import { VENDOR_REQUEST_TIMEOUT_MS, isAccessControlEnabled } from './config'
+import {
+  ReturnCodeClass,
+  classifyReturnCode,
+  describeReturnCode,
+} from './returnCodes'
+import { assertValidSubjectId, formatSubjectName } from './fieldLimits'
 
 // ============================================================
 // Vendor response shapes
@@ -190,12 +196,18 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     credentials: AccessCredentials,
     subject: { subjectId: string; name: string; areaId?: number | null }
   ): Promise<CommandOutcome> {
+    // Identity must never be silently reshaped: a truncated id could collide
+    // with another member's and open a door for the wrong person.
+    assertValidSubjectId(subject.subjectId)
+
     return this.command(credentials, {
       method: 'POST',
       path: '/api/template/add',
       body: {
         EmpId: subject.subjectId,
-        EmpName: subject.name,
+        // 24 characters, underscores for spaces — a vendor constraint, so it is
+        // applied here rather than trusted to callers.
+        EmpName: formatSubjectName(subject.name),
         // Included deliberately: the collection sends it and the terminal needs
         // an area to associate the record with. Never set CardNo or Password —
         // the fingerprint must remain the sole credential, or revoking it would
@@ -388,20 +400,32 @@ export class VftAccessControlProvider implements IAccessControlProvider {
         ? toNumberOrNull(parsed.data.Return)
         : null
 
-      // A negative return code is the PUSH protocol's execution-failure signal.
-      if (returnCode !== null && returnCode < 0) {
+      if (returnCode !== null) {
+        const classification = classifyReturnCode(returnCode)
+
+        // `>= 0` is success. `-7` (already queued) and `-28` (door already
+        // open) are benign: the desired state is in flight or already true, so
+        // re-sending would be the actual mistake.
+        if (
+          classification === ReturnCodeClass.Success ||
+          classification === ReturnCodeClass.Benign
+        ) {
+          return {
+            status: 'applied',
+            commandId: commandId != null ? String(commandId) : undefined,
+          }
+        }
+
+        // Not every negative code means the same thing. "Failed to send" is a
+        // blip worth retrying; "device storage full" will fail identically
+        // until someone clears the terminal. Retrying the second kind burns
+        // quota and buries the real problem.
         return {
           status: 'failed',
-          error: `Device reported error code ${returnCode}`,
-          retryable: false,
-        }
-      }
-
-      // A non-negative return code means the device actually ran it.
-      if (returnCode !== null) {
-        return {
-          status: 'applied',
-          commandId: commandId != null ? String(commandId) : undefined,
+          error: describeReturnCode(returnCode),
+          retryable: classification === ReturnCodeClass.Retryable,
+          needsAttention: classification === ReturnCodeClass.NeedsAttention,
+          returnCode,
         }
       }
 

@@ -35,6 +35,21 @@ export {
 } from './config'
 
 export {
+  ReturnCodeClass,
+  classifyReturnCode,
+  isRetryableReturnCode,
+  describeReturnCode,
+} from './returnCodes'
+
+export {
+  formatSubjectName,
+  isValidSubjectId,
+  assertValidSubjectId,
+  EMP_ID_MAX_LENGTH,
+  EMP_NAME_MAX_LENGTH,
+} from './fieldLimits'
+
+export {
   encryptSecret,
   decryptSecret,
   generateWebhookToken,

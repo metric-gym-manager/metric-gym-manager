@@ -42,6 +42,14 @@ export {
   DEVICE_CLOCK_SKEW_ALERT_SECONDS,
 } from './config/AccessControlConfig'
 
+export {
+  DeviceEventKind,
+  classifyDeviceEvent,
+  describeDeviceEvent,
+  isUrgentEvent,
+  toDenialReason,
+} from './config/DeviceEventCodes'
+
 // Date helpers — gym-local calendar days and device formatting
 export {
   getGymToday,
