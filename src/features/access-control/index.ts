@@ -92,6 +92,5 @@ export type {
   MemberAccessSubject,
   AccessSyncJob,
   AccessEvent,
-  AccessControlCredentials,
   MemberAccessStatus,
 } from './types'

@@ -107,15 +107,10 @@ export interface AccessEvent {
   created_at: string
 }
 
-/** Decrypted vendor credentials. Never leaves the server. */
-export interface AccessControlCredentials {
-  baseUrl: string
-  email: string
-  password: string
-  /** Cached bearer token, when one is still valid. */
-  apiToken?: string | null
-  areaId?: number | null
-}
+// Vendor credentials are deliberately NOT redeclared here. The shape is owned
+// by the port in `@/lib/access-control` (`AccessCredentials`) — duplicating it
+// would give two definitions that could drift apart, which is the failure R5
+// exists to prevent. Import it from the port.
 
 /** Staff-facing access state for one member. Sanitized (rules 2.8/2.9). */
 export interface MemberAccessStatus {
