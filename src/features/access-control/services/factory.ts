@@ -12,8 +12,14 @@ import {
   isAccessControlEnabled,
   type IAccessControlProvider,
 } from '@/lib/access-control'
+import { SupabaseGymSubscriptionRepository } from '@/features/subscriptions/services/SupabaseGymSubscriptionRepository'
 import { SupabaseAccessControlRepository } from './SupabaseAccessControlRepository'
 import { SyncMemberAccess } from './SyncMemberAccess'
+import { DrainAccessSyncQueue } from './DrainAccessSyncQueue'
+import { ReconcileMemberAccess } from './ReconcileMemberAccess'
+import { RecordAccessEvents } from './RecordAccessEvents'
+import { EvictInactiveSubjects } from './EvictInactiveSubjects'
+import { OperateDevice } from './OperateDevice'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 
 /**
@@ -51,6 +57,63 @@ export function createSyncMemberAccess(
   supabase: SupabaseClient
 ): SyncMemberAccess {
   return new SyncMemberAccess(
+    createAccessControlRepository(supabase),
+    createAccessControlProvider()
+  )
+}
+
+/** Remote unlock and restart. */
+export function createOperateDevice(supabase: SupabaseClient): OperateDevice {
+  return new OperateDevice(
+    createAccessControlRepository(supabase),
+    createAccessControlProvider()
+  )
+}
+
+/**
+ * The outbox worker.
+ *
+ * Service-role only: it works across every gym's queue, so a session client
+ * would silently drain nothing.
+ */
+export function createDrainAccessSyncQueue(
+  supabase: SupabaseClient
+): DrainAccessSyncQueue {
+  return new DrainAccessSyncQueue(
+    createAccessControlRepository(supabase),
+    createSyncMemberAccess(supabase),
+    createOperateDevice(supabase),
+    createAccessControlProvider()
+  )
+}
+
+/** The nightly diff. Service-role only, for the same reason as the drainer. */
+export function createReconcileMemberAccess(
+  supabase: SupabaseClient
+): ReconcileMemberAccess {
+  return new ReconcileMemberAccess(
+    createAccessControlRepository(supabase),
+    new SupabaseGymSubscriptionRepository(supabase)
+  )
+}
+
+/**
+ * Webhook ingestion.
+ *
+ * The callback is unauthenticated and account-wide, so this resolves the gym
+ * from the device serial in our own records — never from the payload.
+ */
+export function createRecordAccessEvents(
+  supabase: SupabaseClient
+): RecordAccessEvents {
+  return new RecordAccessEvents(createAccessControlRepository(supabase))
+}
+
+/** Capacity reclamation. */
+export function createEvictInactiveSubjects(
+  supabase: SupabaseClient
+): EvictInactiveSubjects {
+  return new EvictInactiveSubjects(
     createAccessControlRepository(supabase),
     createAccessControlProvider()
   )

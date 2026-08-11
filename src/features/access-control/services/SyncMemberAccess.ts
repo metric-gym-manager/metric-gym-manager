@@ -17,7 +17,10 @@
  * because the terminal enforces it from its own clock with no network.
  */
 
-import type { IAccessControlProvider } from '@/lib/access-control'
+import type {
+  CommandOutcome,
+  IAccessControlProvider,
+} from '@/lib/access-control'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 import { resolveAccessDecision } from '@/features/access-control/domain/AccessDecision'
 import {
@@ -33,6 +36,24 @@ export interface SyncMemberAccessInput {
   today?: Date
 }
 
+/**
+ * Why a sync failed, in the terms the outbox needs to act on.
+ *
+ * A bare message would force the drainer to guess whether to retry — and the
+ * return-code classification in `lib/access-control/returnCodes.ts` exists
+ * precisely so it does not have to. A full terminal must not be retried
+ * forever; a momentary "no response" must not be dead-lettered.
+ */
+export interface SyncFailure {
+  message: string
+  /** Worth trying again with backoff. */
+  retryable: boolean
+  /** A person has to intervene — a full reader, a rejected template. */
+  needsAttention: boolean
+  /** Raw device return code, when the vendor reported one. */
+  returnCode?: number
+}
+
 export interface SyncMemberAccessResult {
   /** False when the gym has no access control configured — not an error. */
   applicable: boolean
@@ -41,7 +62,7 @@ export interface SyncMemberAccessResult {
   commandsSent: number
   /** Commands the hardware has not confirmed yet. */
   commandsPending: number
-  errors: string[]
+  failures: SyncFailure[]
 }
 
 export class SyncMemberAccess {
@@ -62,7 +83,7 @@ export class SyncMemberAccess {
       allowed: false,
       commandsSent: 0,
       commandsPending: 0,
-      errors: [],
+      failures: [],
     }
 
     const context = await this.repo.getMemberAccessContext(input.memberId)
@@ -109,7 +130,7 @@ export class SyncMemberAccess {
       deviceSerials,
     })
 
-    const errors: string[] = []
+    const failures: SyncFailure[] = []
     let sent = 0
     let pending = 0
 
@@ -121,7 +142,12 @@ export class SyncMemberAccess {
       )
 
       if (outcome.status === 'failed') {
-        errors.push(outcome.error)
+        failures.push({
+          message: outcome.error,
+          retryable: outcome.retryable,
+          needsAttention: outcome.needsAttention ?? false,
+          returnCode: outcome.returnCode,
+        })
         // Stop at the first failure: the sequence is ordered, so continuing
         // could land a validity period against a profile that never arrived.
         break
@@ -134,7 +160,7 @@ export class SyncMemberAccess {
     // Only claim the hardware matches if every command got through. A partial
     // run leaves the recorded state behind, so the next reconcile retries the
     // remainder rather than assuming success.
-    if (errors.length === 0 && commands.length > 0) {
+    if (failures.length === 0 && commands.length > 0) {
       await this.repo.updateSyncState(context.memberId, {
         // Stays true through cancellation: we revoke the template from the
         // reader but the vendor keeps the subject record, which is what lets a
@@ -156,16 +182,44 @@ export class SyncMemberAccess {
       allowed: decision.allowed,
       commandsSent: sent,
       commandsPending: pending,
-      errors,
+      failures,
     }
   }
 
-  /** Route one derived command to the matching provider call. */
+  /**
+   * Route one derived command to the matching provider call.
+   *
+   * Never throws. `assertValidSubjectId` throws by design, and transport errors
+   * (network, malformed JSON) throw too — but an exception escaping here would
+   * abort the drainer mid-batch and strand every already-claimed job in
+   * `in_flight`, where nothing picks it up again. Those members would never
+   * sync, and nothing would report it. So every throw becomes a failed outcome
+   * for this member alone.
+   */
   private async dispatch(
     command: AccessCommand,
     credentials: Parameters<IAccessControlProvider['upsertSubject']>[0],
     memberName: string
-  ) {
+  ): Promise<CommandOutcome> {
+    try {
+      return await this.dispatchUnsafe(command, credentials, memberName)
+    } catch (error) {
+      return {
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Unknown sync error',
+        // A thrown error is either our bug (an invalid identifier) or a
+        // transport fault. Retrying is safe — every command here is
+        // idempotent — and the retry budget caps the cost either way.
+        retryable: true,
+      }
+    }
+  }
+
+  private async dispatchUnsafe(
+    command: AccessCommand,
+    credentials: Parameters<IAccessControlProvider['upsertSubject']>[0],
+    memberName: string
+  ): Promise<CommandOutcome> {
     const target = {
       deviceSerial: command.deviceSerial,
       subjectId: command.subjectId,

@@ -50,6 +50,15 @@ export interface SyncStateUpdate {
   blocked: boolean
 }
 
+/** A subject eligible for capacity eviction, with what the ordering needs. */
+export interface EvictionCandidate {
+  memberId: string
+  subjectId: number
+  status: MemberStatus
+  /** Paid-through date; how long-expired a member is orders the queue. */
+  nextDueDate: Date
+}
+
 /** A normalised inbound scan, ready to store. */
 export interface IncomingAccessEvent {
   deviceSerial: string
@@ -128,10 +137,40 @@ export interface IAccessControlRepository {
   /**
    * Members whose access may have changed, for the nightly reconcile.
    *
-   * Implementations return only members of gyms that have access control
-   * configured and whose own subscription is in good standing.
+   * Returns ids only; prefer `listSubjectsForReconcile` when the caller needs
+   * to diff, since that avoids a query per member.
    */
   listMembersNeedingReconcile(gymId: string): Promise<string[]>
+
+  /**
+   * Full context for every provisioned member of a gym.
+   *
+   * The reconciler diffs in memory against `last_synced_*` rather than issuing
+   * a query per member — there is no bulk validity endpoint, so the point of
+   * the diff is to keep vendor traffic proportional to real changes.
+   */
+  listSubjectsForReconcile(gymId: string): Promise<MemberAccessContext[]>
+
+  /**
+   * Gyms with access control configured and active.
+   *
+   * The reconciler has no other way to find its work.
+   */
+  listGymsWithAccessControl(): Promise<string[]>
+
+  /**
+   * Subjects on the reader that could be evicted to reclaim capacity.
+   *
+   * Only members who cannot currently enter. Active members are never
+   * candidates and implementations must not return them.
+   */
+  listEvictionCandidates(gymId: string): Promise<EvictionCandidate[]>
+
+  /** Record that a member's template is no longer on the reader. */
+  markSubjectOffDevice(memberId: string): Promise<void>
+
+  /** Recompute how many templates a reader holds. */
+  recountDeviceTemplates(deviceId: string): Promise<number>
 
   /**
    * Allocate the next device identifier from the global sequence.
@@ -183,6 +222,17 @@ export interface IAccessControlRepository {
 
   /** Jobs stuck in `dead`, for the SaaS-admin health view. */
   countDeadJobs(): Promise<number>
+
+  /**
+   * Return jobs abandoned by a dead worker to `pending`.
+   *
+   * Called at the start of every drain, so each run heals the previous run's
+   * casualties. Without it a killed invocation strands its claimed jobs in
+   * `in_flight` forever and those members never sync again.
+   *
+   * @returns How many jobs were reclaimed.
+   */
+  reclaimStaleJobs(olderThanSeconds: number): Promise<number>
 
   // ---- Events --------------------------------------------------------------
 

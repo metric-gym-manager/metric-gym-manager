@@ -79,6 +79,10 @@ export enum AccessIntent {
   RemoveSubject = 'remove_subject',
   /** Recompute and push whatever differs. Enqueued by the members trigger. */
   ReconcileMember = 'reconcile_member',
+  /** Remote unlock. Device-level, so it carries no member. */
+  OpenDoor = 'open_door',
+  /** Remote restart. Device-level. */
+  RebootDevice = 'reboot_device',
 }
 
 /** Lifecycle of an outbox job. Mirrors the `access_sync_status` SQL enum. */
@@ -149,3 +153,26 @@ export const VENDOR_MAX_REQUESTS_PER_SECOND = 5
  * so we infer it from attendance-event timestamps instead.
  */
 export const DEVICE_CLOCK_SKEW_ALERT_SECONDS = 300
+
+/**
+ * How long an in-flight job may sit before a later drain reclaims it.
+ *
+ * Longer than a healthy drain run, so a slow-but-alive worker is never robbed
+ * of its own job; far shorter than anyone would notice at a door.
+ *
+ * SQL mirror: the default on `reclaim_stale_access_sync_jobs`.
+ */
+export const STALE_JOB_RECLAIM_SECONDS = 600
+
+/** Jobs claimed per drain run. */
+export const DRAIN_BATCH_SIZE = 25
+
+/**
+ * Reader usage above which the nightly reconcile evicts inactive members,
+ * and the level it frees down to.
+ *
+ * Two thresholds rather than one so a gym sitting at the limit does not
+ * re-run eviction every single night for the sake of a handful of slots.
+ */
+export const DEVICE_CAPACITY_EVICT_ABOVE = 0.85
+export const DEVICE_CAPACITY_TARGET = 0.7

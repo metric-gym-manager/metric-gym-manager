@@ -13,6 +13,19 @@ import { PlanType } from '@/features/members/config/PlanConfig'
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository'
 import { NotFoundError, ValidationError } from '@/utils/errors'
 
+/**
+ * A date relative to today.
+ *
+ * The fixture used to pin calendar dates, which quietly rotted once real time
+ * passed them: `Member.renew` rejects a due date in the past, so the suite
+ * started failing on a clock change rather than a code change.
+ */
+function daysFromToday(days: number): Date {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  return date
+}
+
 function buildMember(
   overrides: Partial<Parameters<typeof Member.create>[0]> = {}
 ): Member {
@@ -25,9 +38,9 @@ function buildMember(
     discountId: null,
     recurringDiscount: false,
     status: MemberStatus.Active,
-    registeredDate: new Date('2026-01-01'),
-    membershipStartDate: new Date('2026-01-01'),
-    nextDueDate: new Date('2026-07-01'),
+    registeredDate: daysFromToday(-180),
+    membershipStartDate: daysFromToday(-180),
+    nextDueDate: daysFromToday(5),
     ...overrides,
   })
 }
@@ -59,7 +72,7 @@ describe('CollectPayment', () => {
   const input = {
     gymId: 'gym-1',
     memberId: 'member-1',
-    paymentDate: new Date('2026-07-02'),
+    paymentDate: daysFromToday(0),
     paymentAmount: 3500,
   }
 

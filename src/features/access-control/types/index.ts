@@ -37,6 +37,21 @@ export interface AccessDevice {
   is_active: boolean
   last_seen_at: string | null
   last_synced_at: string | null
+  /**
+   * Templates the reader holds, as counted from our own subject rows.
+   *
+   * Recounted rather than incremented, so a partial eviction run cannot leave
+   * the figure drifting away from reality.
+   */
+  template_count: number
+  /**
+   * What the reader holds in total, or `null` until we learn it.
+   *
+   * Unknown capacity means eviction stays its hand — we find the real limit
+   * from a `-18` (device storage full), and guessing could evict members from
+   * a reader with plenty of room.
+   */
+  template_capacity: number | null
   /** Inferred drift; the expiry cutover runs on this clock. */
   clock_skew_seconds: number | null
   clock_skew_measured_at: string | null

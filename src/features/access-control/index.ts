@@ -27,6 +27,13 @@ export {
   type SubjectSyncState,
 } from './domain/AccessCommands'
 
+export {
+  selectEvictionCandidates,
+  slotsToReclaim,
+  type EvictableSubject,
+  type EvictionSelection,
+} from './domain/EvictionPolicy'
+
 // Config — owned here, imported by everyone else (R5)
 export {
   AccessDenialReason,
@@ -64,17 +71,34 @@ export { SyncMemberAccess } from './services/SyncMemberAccess'
 export type {
   SyncMemberAccessInput,
   SyncMemberAccessResult,
+  SyncFailure,
 } from './services/SyncMemberAccess'
+export { DrainAccessSyncQueue } from './services/DrainAccessSyncQueue'
+export type { DrainAccessSyncQueueSummary } from './services/DrainAccessSyncQueue'
+export { ReconcileMemberAccess } from './services/ReconcileMemberAccess'
+export type { ReconcileMemberAccessSummary } from './services/ReconcileMemberAccess'
+export { RecordAccessEvents } from './services/RecordAccessEvents'
+export type { RecordAccessEventsSummary } from './services/RecordAccessEvents'
+export { EvictInactiveSubjects } from './services/EvictInactiveSubjects'
+export type { EvictInactiveSubjectsSummary } from './services/EvictInactiveSubjects'
+export { OperateDevice } from './services/OperateDevice'
+export type { OperateDeviceResult } from './services/OperateDevice'
 export type {
   IAccessControlRepository,
   MemberAccessContext,
   SyncStateUpdate,
   IncomingAccessEvent,
+  EvictionCandidate,
 } from './services/IAccessControlRepository'
 export {
   createAccessControlProvider,
   createAccessControlRepository,
   createSyncMemberAccess,
+  createDrainAccessSyncQueue,
+  createReconcileMemberAccess,
+  createRecordAccessEvents,
+  createEvictInactiveSubjects,
+  createOperateDevice,
 } from './services/factory'
 export { SupabaseAccessControlRepository } from './services/SupabaseAccessControlRepository'
 

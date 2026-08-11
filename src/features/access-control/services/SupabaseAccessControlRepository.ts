@@ -43,6 +43,7 @@ import type {
   MemberAccessSubject,
 } from '@/features/access-control/types'
 import type {
+  EvictionCandidate,
   IAccessControlRepository,
   IncomingAccessEvent,
   MemberAccessContext,
@@ -341,7 +342,11 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
 
     if (!data) return null
 
-    const row = data as unknown as MemberContextRow
+    return this.toMemberContext(data as unknown as MemberContextRow)
+  }
+
+  /** Map a joined member row into the context the domain layer expects. */
+  private toMemberContext(row: MemberContextRow): MemberAccessContext {
     const subject = Array.isArray(row.member_access_subjects)
       ? (row.member_access_subjects[0] ?? null)
       : (row.member_access_subjects ?? null)
@@ -371,6 +376,105 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     )
 
     return rows.map((r) => r.member_id)
+  }
+
+  async listSubjectsForReconcile(
+    gymId: string
+  ): Promise<MemberAccessContext[]> {
+    const rows = await this.pageAll<MemberContextRow>(
+      'members',
+      (query) => query.eq('gym_id', gymId).order('id', { ascending: true }),
+      `id, gym_id, name, status, membership_start_date, next_due_date,
+       registration_source, verified_at, member_access_subjects!inner (*)`
+    )
+
+    return rows.map((row) => this.toMemberContext(row))
+  }
+
+  async listGymsWithAccessControl(): Promise<string[]> {
+    const rows = await this.pageAll<{ gym_id: string }>(
+      'access_control_accounts',
+      (query) =>
+        query.eq('is_active', true).order('created_at', { ascending: true }),
+      'gym_id'
+    )
+
+    return rows.map((r) => r.gym_id)
+  }
+
+  /**
+   * Subjects that could be evicted to reclaim reader capacity.
+   *
+   * Filtered to members who cannot currently enter — an active member is never
+   * a candidate, and the query enforces that rather than trusting the caller.
+   * Ordering is left to the pure selector in `domain/EvictionPolicy.ts`.
+   */
+  async listEvictionCandidates(gymId: string): Promise<EvictionCandidate[]> {
+    const rows = await this.pageAll<{
+      member_id: string
+      subject_id: number
+      members: { status: MemberStatus; next_due_date: string } | null
+    }>(
+      'member_access_subjects',
+      (query) =>
+        query
+          .eq('gym_id', gymId)
+          .eq('on_device', true)
+          .order('created_at', { ascending: true }),
+      'member_id, subject_id, members!inner (status, next_due_date)'
+    )
+
+    return rows
+      .filter((row) => row.members && row.members.status !== 'active')
+      .map((row) => ({
+        memberId: row.member_id,
+        subjectId: row.subject_id,
+        status: row.members!.status,
+        nextDueDate: parseCalendarDate(row.members!.next_due_date),
+      }))
+  }
+
+  async markSubjectOffDevice(memberId: string): Promise<void> {
+    const now = new Date().toISOString()
+
+    const { error } = await this.supabase
+      .from('member_access_subjects')
+      .update({ on_device: false, device_removed_at: now, updated_at: now })
+      .eq('member_id', memberId)
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to mark subject off device: ${error.message}`
+      )
+    }
+  }
+
+  async recountDeviceTemplates(deviceId: string): Promise<number> {
+    const { data, error } = await this.supabase.rpc(
+      'recount_device_templates',
+      { p_device_id: deviceId }
+    )
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to recount device templates: ${error.message}`
+      )
+    }
+
+    return Number(data ?? 0)
+  }
+
+  async reclaimStaleJobs(olderThanSeconds: number): Promise<number> {
+    const { data, error } = await this.supabase.rpc(
+      'reclaim_stale_access_sync_jobs',
+      { p_older_than_seconds: olderThanSeconds }
+    )
+
+    if (error) {
+      throw new DatabaseError(`Failed to reclaim stale jobs: ${error.message}`)
+    }
+
+    return Number(data ?? 0)
   }
 
   async allocateSubjectId(): Promise<number> {
