@@ -71,7 +71,12 @@ export type {
   SyncStateUpdate,
   IncomingAccessEvent,
 } from './services/IAccessControlRepository'
-export { createAccessControlProvider } from './services/factory'
+export {
+  createAccessControlProvider,
+  createAccessControlRepository,
+  createSyncMemberAccess,
+} from './services/factory'
+export { SupabaseAccessControlRepository } from './services/SupabaseAccessControlRepository'
 
 // Schemas
 export {
