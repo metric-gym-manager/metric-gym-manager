@@ -101,6 +101,7 @@ export class SyncMemberAccess {
         subjectId: String(subject.subject_id),
         memberName: context.memberName,
         provisioned: subject.provisioned_at !== null,
+        onDevice: subject.on_device ?? false,
         lastSyncedValidFrom: subject.last_synced_valid_from,
         lastSyncedValidTo: subject.last_synced_valid_to,
         lastSyncedBlocked: subject.last_synced_blocked,
@@ -135,7 +136,15 @@ export class SyncMemberAccess {
     // remainder rather than assuming success.
     if (errors.length === 0 && commands.length > 0) {
       await this.repo.updateSyncState(context.memberId, {
-        provisioned: !decision.removeFromDevice,
+        // Stays true through cancellation: we revoke the template from the
+        // reader but the vendor keeps the subject record, which is what lets a
+        // returning member back in without re-enrolling.
+        provisioned: true,
+        onDevice: commands.some((c) => c.intent === AccessIntent.SyncToDevice)
+          ? true
+          : commands.some((c) => c.intent === AccessIntent.RevokeBiometric)
+            ? false
+            : (subject?.on_device ?? false),
         validFrom: formatOrNull(commands, 'startDate'),
         validTo: formatOrNull(commands, 'endDate'),
         blocked: !decision.allowed,

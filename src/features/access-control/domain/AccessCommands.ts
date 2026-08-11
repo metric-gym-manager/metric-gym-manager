@@ -34,12 +34,29 @@ export interface AccessCommand {
   endDate?: string
 }
 
-/** What we know about the member's current presence on the hardware. */
+/**
+ * What we know about the member's current presence on the hardware.
+ *
+ * `provisioned` and `onDevice` are deliberately separate, because the vendor
+ * keeps templates centrally while each reader holds its own copy. A member can
+ * exist on the vendor with no template on the reader — that is precisely the
+ * state a cancelled or evicted member is left in, and it is what makes them
+ * restorable without ever touching the scanner again.
+ */
 export interface SubjectSyncState {
   subjectId: string
   memberName: string
-  /** Whether the subject record has been pushed to the vendor at least once. */
+  /** Whether the subject record exists on the vendor platform. */
   provisioned: boolean
+  /**
+   * Whether this reader currently holds the member's template.
+   *
+   * Goes false on cancellation and on capacity eviction. An allowed member who
+   * is not on the device needs a re-sync before their validity window means
+   * anything — without it the reader has a window for somebody it cannot
+   * recognise, and the door stays shut while our records say it should open.
+   */
+  onDevice: boolean
   /** Last window we pushed, for diffing. `null` when never pushed. */
   lastSyncedValidFrom: string | null
   lastSyncedValidTo: string | null
@@ -78,30 +95,65 @@ export function deriveAccessCommands(
     return []
   }
 
-  // Cancellation takes the record off the hardware entirely; nothing else is
-  // worth sending afterwards.
+  // Nothing on the hardware to change. A member who cannot get in and was
+  // never pushed to the reader needs no commands at all — provisioning them
+  // just to block them costs three API calls and creates a record that the
+  // capacity policy then has to claw back.
+  if (!decision.allowed && !subject.provisioned) {
+    return []
+  }
+
+  // Cancellation shuts the door, but must NOT destroy the enrolled
+  // fingerprint. `RevokeBiometric` (fromdev) clears the template from the
+  // reader while the vendor keeps its central copy, so a member who rejoins is
+  // restored by a plain re-sync and never has to touch the scanner again.
+  //
+  // A full `RemoveSubject` would delete the central template too. Cancelled →
+  // Active is an explicit, supported transition, so that would silently lock a
+  // returning, paying member out — while our records still said they were
+  // fine. `RemoveSubject` is reserved for genuine erasure requests.
+  //
+  // Block first, then revoke: either one alone shuts the door, so if the
+  // second call fails the member is still out.
   if (decision.removeFromDevice) {
-    return [
-      {
-        intent: AccessIntent.RemoveSubject,
-        deviceSerial: deviceSerials[0],
+    const commands: AccessCommand[] = []
+
+    for (const deviceSerial of deviceSerials) {
+      commands.push({
+        intent: AccessIntent.Block,
+        deviceSerial,
         subjectId: subject.subjectId,
-      },
-    ]
+      })
+      commands.push({
+        intent: AccessIntent.RevokeBiometric,
+        deviceSerial,
+        subjectId: subject.subjectId,
+      })
+    }
+
+    return commands
   }
 
   const commands: AccessCommand[] = []
 
-  // The subject record must exist on the vendor, and be pushed to a terminal,
-  // before a validity period will bind to it. Ordering here is a hardware
-  // requirement, not a preference.
+  // The subject record must exist on the vendor before anything can reference
+  // it. This is a hardware ordering requirement, not a preference.
   if (!subject.provisioned) {
     commands.push({
       intent: AccessIntent.Provision,
       deviceSerial: deviceSerials[0],
       subjectId: subject.subjectId,
     })
+  }
 
+  // Push the member to the readers whenever they may enter but the reader does
+  // not hold them. Covers three cases with one rule: a brand-new member, a
+  // member returning after cancellation, and a member restored after being
+  // evicted for capacity.
+  //
+  // Skipped for blocked members on purpose — loading a template for somebody
+  // who cannot get in wastes a finite reader slot.
+  if (decision.allowed && !subject.onDevice) {
     for (const deviceSerial of deviceSerials) {
       commands.push({
         intent: AccessIntent.SyncToDevice,
@@ -148,7 +200,12 @@ export function deriveAccessCommands(
     }
   }
 
+  // A member who was not on the reader always gets the window re-pushed, even
+  // if it matches what we last recorded: we cannot assume a re-sync carried the
+  // validity dates with it, and a reader holding a member with no window is a
+  // member refused at a door our records call open.
   const windowUnchanged =
+    subject.onDevice &&
     subject.provisioned &&
     subject.lastSyncedBlocked !== true &&
     subject.lastSyncedValidFrom === (startDate ?? null) &&

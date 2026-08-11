@@ -25,6 +25,7 @@ function subject(overrides: Partial<SubjectSyncState> = {}): SubjectSyncState {
     subjectId: '100001',
     memberName: 'Test Member',
     provisioned: true,
+    onDevice: true,
     lastSyncedValidFrom: null,
     lastSyncedValidTo: null,
     lastSyncedBlocked: false,
@@ -95,7 +96,7 @@ describe('deriveAccessCommands', () => {
       // with a fingerprint and no window.
       const commands = deriveAccessCommands({
         decision: decisionFor(MemberStatus.Active),
-        subject: subject({ provisioned: false }),
+        subject: subject({ provisioned: false, onDevice: false }),
         deviceSerials: ['DEV-1'],
       })
 
@@ -203,15 +204,57 @@ describe('deriveAccessCommands', () => {
   })
 
   describe('cancellation', () => {
-    it('removes the subject from the hardware', () => {
+    it('blocks the member and clears their template from the reader', () => {
       const commands = deriveAccessCommands({
         decision: decisionFor(MemberStatus.Cancelled),
         subject: subject(),
         deviceSerials: ['DEV-1'],
       })
 
-      expect(commands).toHaveLength(1)
-      expect(commands[0].intent).toBe(AccessIntent.RemoveSubject)
+      const intents = commands.map((c) => c.intent)
+
+      expect(intents).toContain(AccessIntent.Block)
+      expect(intents).toContain(AccessIntent.RevokeBiometric)
+    })
+
+    it('never destroys the vendor-side record', () => {
+      // Regression: cancellation used to emit RemoveSubject, which deletes the
+      // central template too. Cancelled -> Active is a supported transition, so
+      // that silently locked a returning, paying member out while our records
+      // still said they were fine. Caught by the reverse test.
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Cancelled),
+        subject: subject(),
+        deviceSerials: ['DEV-1'],
+      })
+
+      expect(commands.map((c) => c.intent)).not.toContain(
+        AccessIntent.RemoveSubject
+      )
+    })
+
+    it('blocks before revoking, so a failed second call still shuts the door', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Cancelled),
+        subject: subject(),
+        deviceSerials: ['DEV-1'],
+      })
+
+      const intents = commands.map((c) => c.intent)
+
+      expect(intents.indexOf(AccessIntent.Block)).toBeLessThan(
+        intents.indexOf(AccessIntent.RevokeBiometric)
+      )
+    })
+
+    it('sends nothing for a member who was never on the hardware', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Cancelled),
+        subject: subject({ provisioned: false, onDevice: false }),
+        deviceSerials: ['DEV-1'],
+      })
+
+      expect(commands).toHaveLength(0)
     })
   })
 
@@ -219,7 +262,7 @@ describe('deriveAccessCommands', () => {
     it('returns nothing when the gym has no devices', () => {
       const commands = deriveAccessCommands({
         decision: decisionFor(MemberStatus.Active),
-        subject: subject({ provisioned: false }),
+        subject: subject({ provisioned: false, onDevice: false }),
         deviceSerials: [],
       })
 

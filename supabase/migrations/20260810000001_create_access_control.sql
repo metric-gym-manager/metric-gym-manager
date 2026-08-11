@@ -126,6 +126,15 @@ CREATE TABLE IF NOT EXISTS member_access_subjects (
   enrolled_at TIMESTAMPTZ,
 
   provisioned_at TIMESTAMPTZ,
+
+  -- Whether the reader currently holds this member's template. Separate from
+  -- provisioned_at (vendor-side) and finger_enrolled (a template exists at
+  -- all): cancellation and capacity eviction clear this one only, via
+  -- DELETE /api/template/fromdev/{EmpId}, so the vendor keeps its central copy
+  -- and a returning member never has to re-enrol.
+  on_device BOOLEAN NOT NULL DEFAULT FALSE,
+  device_removed_at TIMESTAMPTZ,
+
   last_synced_at TIMESTAMPTZ,
 
   -- Last state we believe the device holds. The reconciler diffs the resolved

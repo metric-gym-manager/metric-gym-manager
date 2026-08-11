@@ -55,6 +55,16 @@ export interface MemberAccessSubject {
   finger_id: number | null
   enrolled_at: string | null
   provisioned_at: string | null
+  /**
+   * Whether this reader currently holds the member's template.
+   *
+   * Distinct from `provisioned` (which is vendor-side) and from
+   * `finger_enrolled` (which is whether a template exists at all). Cancellation
+   * and capacity eviction clear this while leaving the other two intact — that
+   * separation is what lets a returning member be restored without going back
+   * to the scanner.
+   */
+  on_device: boolean
   last_synced_at: string | null
   /** What we believe the terminal currently holds — the reconcile diff basis. */
   last_synced_valid_from: string | null

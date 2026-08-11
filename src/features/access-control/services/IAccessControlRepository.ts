@@ -41,7 +41,10 @@ export interface MemberAccessContext {
 
 /** State to persist after a successful push. */
 export interface SyncStateUpdate {
+  /** Subject record exists on the vendor platform. */
   provisioned: boolean
+  /** This reader currently holds the member's fingerprint template. */
+  onDevice: boolean
   validFrom: string | null
   validTo: string | null
   blocked: boolean
