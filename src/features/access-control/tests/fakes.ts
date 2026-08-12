@@ -14,6 +14,7 @@ import { AccessSyncStatus } from '@/features/access-control/config/AccessControl
 import type {
   AccessControlAccount,
   AccessDevice,
+  AccessEvent,
   AccessSyncJob,
   MemberAccessSubject,
 } from '@/features/access-control/types'
@@ -143,6 +144,8 @@ export interface FakeRepositoryOptions {
   evictionCandidates?: EvictionCandidate[]
   claimable?: AccessSyncJob[]
   staleJobs?: number
+  pendingJobs?: number
+  events?: AccessEvent[]
 }
 
 /**
@@ -208,6 +211,17 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     return (this.options.devices ?? [])
       .filter((d) => d.is_active)
       .map((d) => d.device_serial)
+  }
+
+  async findDeviceById(
+    gymId: string,
+    deviceId: string
+  ): Promise<AccessDevice | null> {
+    return (
+      (this.options.devices ?? []).find(
+        (d) => d.id === deviceId && d.gym_id === gymId
+      ) ?? null
+    )
   }
 
   async findDeviceBySerial(deviceSerial: string): Promise<AccessDevice | null> {
@@ -337,6 +351,10 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     return 0
   }
 
+  async countPendingJobs(_memberId: string): Promise<number> {
+    return this.options.pendingJobs ?? 0
+  }
+
   async reclaimStaleJobs(_olderThanSeconds: number): Promise<number> {
     return this.options.staleJobs ?? 0
   }
@@ -364,6 +382,16 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     }
 
     return { inserted, duplicates }
+  }
+
+  async listEvents(
+    _gymId: string,
+    query: { page: number; limit: number; memberId?: string }
+  ): Promise<{ events: AccessEvent[]; total: number }> {
+    const all = this.options.events ?? []
+    const from = (query.page - 1) * query.limit
+
+    return { events: all.slice(from, from + query.limit), total: all.length }
   }
 
   async findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null> {

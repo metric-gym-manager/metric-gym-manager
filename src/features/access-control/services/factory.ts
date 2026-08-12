@@ -20,6 +20,9 @@ import { ReconcileMemberAccess } from './ReconcileMemberAccess'
 import { RecordAccessEvents } from './RecordAccessEvents'
 import { EvictInactiveSubjects } from './EvictInactiveSubjects'
 import { OperateDevice } from './OperateDevice'
+import { VerifyAccessAccount } from './VerifyAccessAccount'
+import { ManageMemberBiometric } from './ManageMemberBiometric'
+import { GetMemberAccessStatus } from './GetMemberAccessStatus'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 
 /**
@@ -107,6 +110,33 @@ export function createRecordAccessEvents(
   supabase: SupabaseClient
 ): RecordAccessEvents {
   return new RecordAccessEvents(createAccessControlRepository(supabase))
+}
+
+/** Credential probe for the settings page. */
+export function createVerifyAccessAccount(
+  supabase: SupabaseClient
+): VerifyAccessAccount {
+  return new VerifyAccessAccount(
+    createAccessControlRepository(supabase),
+    createAccessControlProvider()
+  )
+}
+
+/** Fingerprint enrolment and clearing. */
+export function createManageMemberBiometric(
+  supabase: SupabaseClient
+): ManageMemberBiometric {
+  return new ManageMemberBiometric(
+    createAccessControlRepository(supabase),
+    createAccessControlProvider()
+  )
+}
+
+/** The sanitized member access state for the dashboard. */
+export function createGetMemberAccessStatus(
+  supabase: SupabaseClient
+): GetMemberAccessStatus {
+  return new GetMemberAccessStatus(createAccessControlRepository(supabase))
 }
 
 /** Capacity reclamation. */

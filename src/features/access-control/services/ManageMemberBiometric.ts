@@ -1,0 +1,166 @@
+/**
+ * Enrolling and clearing a member's fingerprint.
+ *
+ * ## Why enrolment is two-part
+ *
+ * We cannot capture a fingerprint from a browser. Pressing "Enrol" here puts
+ * the reader into enrolment mode for one specific subject; the member then
+ * presents their finger at the terminal. The template is created on the
+ * hardware and travels to the vendor platform — it never passes through us,
+ * which is also why we hold no biometric data of our own.
+ *
+ * The member must already exist on the reader before this can target them, so
+ * enrolment provisions first when necessary.
+ *
+ * ## Why clearing is its own operation
+ *
+ * Deleting someone's fingerprint is not an edit to their membership. It maps
+ * to the vendor's `fromdev` delete — template off the reader, employee record
+ * intact — and touches no `members` row. Registry and biometrics stay
+ * separable in both directions: a member can lose their fingerprint and keep
+ * their membership, and can be evicted from a reader and be restored later
+ * without re-enrolling.
+ */
+
+import type { IAccessControlProvider } from '@/lib/access-control'
+import type { IAccessControlRepository } from './IAccessControlRepository'
+
+export interface EnrolMemberBiometricInput {
+  gymId: string
+  memberId: string
+  /** Which reader the member will present their finger to. */
+  deviceId: string
+  /** Finger index. Gyms here record one finger, so this rarely moves. */
+  fingerId?: number
+}
+
+export interface BiometricOperationResult {
+  /** False when the gym has no access control configured. */
+  applicable: boolean
+  /** True once the vendor accepted the command. */
+  dispatched: boolean
+  /** Sanitized reason — never a vendor error string (rules 2.8 / 2.9). */
+  error?: string
+}
+
+export class ManageMemberBiometric {
+  constructor(
+    private readonly repo: IAccessControlRepository,
+    private readonly provider: IAccessControlProvider
+  ) {}
+
+  /**
+   * Put a reader into enrolment mode for one member.
+   *
+   * @param input - Gym, member, target reader and optional finger index.
+   */
+  async enrol(
+    input: EnrolMemberBiometricInput
+  ): Promise<BiometricOperationResult> {
+    const credentials = await this.repo.getCredentials(input.gymId)
+    if (!credentials) return { applicable: false, dispatched: false }
+
+    const device = await this.repo.findDeviceById(input.gymId, input.deviceId)
+    if (!device || !device.is_active) {
+      return {
+        applicable: true,
+        dispatched: false,
+        error: 'Reader not found or not active',
+      }
+    }
+
+    const context = await this.repo.getMemberAccessContext(input.memberId)
+    if (!context || context.gymId !== input.gymId) {
+      return { applicable: true, dispatched: false, error: 'Member not found' }
+    }
+
+    let subject = context.subject
+    if (!subject) {
+      const subjectId = await this.repo.allocateSubjectId()
+      subject = await this.repo.createSubject(
+        input.gymId,
+        input.memberId,
+        subjectId
+      )
+    }
+
+    if (!subject.provisioned_at) {
+      // The reader can only enrol a subject it already knows about, so a
+      // member enrolled before their first sync needs provisioning here.
+      const provisioned = await this.provider.upsertSubject(credentials, {
+        subjectId: String(subject.subject_id),
+        name: context.memberName,
+        areaId: credentials.areaId,
+      })
+
+      if (provisioned.status === 'failed') {
+        return {
+          applicable: true,
+          dispatched: false,
+          error: 'Could not prepare the member on the reader',
+        }
+      }
+
+      await this.repo.updateSyncState(input.memberId, {
+        provisioned: true,
+        onDevice: subject.on_device ?? false,
+        validFrom: subject.last_synced_valid_from,
+        validTo: subject.last_synced_valid_to,
+        blocked: subject.last_synced_blocked ?? false,
+      })
+    }
+
+    const outcome = await this.provider.startFingerEnrolment(credentials, {
+      deviceSerial: device.device_serial,
+      subjectId: String(subject.subject_id),
+      fingerId: input.fingerId,
+    })
+
+    if (outcome.status === 'failed') {
+      return {
+        applicable: true,
+        dispatched: false,
+        error: 'The reader did not accept the enrolment request',
+      }
+    }
+
+    return { applicable: true, dispatched: true }
+  }
+
+  /**
+   * Clear a member's fingerprint, keeping their membership untouched.
+   *
+   * @param gymId - Owning gym.
+   * @param memberId - Member whose template to remove.
+   */
+  async clear(
+    gymId: string,
+    memberId: string
+  ): Promise<BiometricOperationResult> {
+    const credentials = await this.repo.getCredentials(gymId)
+    if (!credentials) return { applicable: false, dispatched: false }
+
+    const context = await this.repo.getMemberAccessContext(memberId)
+    if (!context || context.gymId !== gymId || !context.subject) {
+      return { applicable: true, dispatched: false, error: 'Member not found' }
+    }
+
+    const outcome = await this.provider.revokeBiometrics(
+      credentials,
+      String(context.subject.subject_id)
+    )
+
+    if (outcome.status === 'failed') {
+      return {
+        applicable: true,
+        dispatched: false,
+        error: 'The reader did not accept the request',
+      }
+    }
+
+    await this.repo.setBiometricEnrolled(memberId, false, null)
+    await this.repo.markSubjectOffDevice(memberId)
+
+    return { applicable: true, dispatched: true }
+  }
+}

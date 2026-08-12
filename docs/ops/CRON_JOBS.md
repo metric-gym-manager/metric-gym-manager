@@ -19,16 +19,18 @@ are documented in `docs/reference/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`.
 **Vercel evaluates cron expressions in UTC.** The schedule column is the source
 of truth; Sri Lanka local time (UTC+5:30) is shown for convenience only.
 
-| Job                      | Schedule     | Time (UTC)   | Time (Sri Lanka) | Frequency |
-| ------------------------ | ------------ | ------------ | ---------------- | --------- |
-| Update Expired Status    | `0 0 * * *`  | 00:00        | 5:30 AM          | Daily     |
-| Expire Suspended Members | `15 0 * * *` | 00:15        | 5:45 AM          | Daily     |
-| Cancel Overdue Members   | `30 0 * * *` | 00:30        | 6:00 AM          | Daily     |
-| Charge Renewals          | `30 0 * * *` | 00:30        | 6:00 AM          | Daily     |
-| Process Dunning          | `45 0 * * *` | 00:45        | 6:15 AM          | Daily     |
-| Process Trial Expiry     | `50 0 * * *` | 00:50        | 6:20 AM          | Daily     |
-| Send Reminders           | `30 3 * * *` | 03:30        | 9:00 AM          | Daily     |
-| Archive Members          | `0 1 1 * *`  | 01:00 on 1st | 6:30 AM on 1st   | Monthly   |
+| Job                      | Schedule      | Time (UTC)   | Time (Sri Lanka) | Frequency  |
+| ------------------------ | ------------- | ------------ | ---------------- | ---------- |
+| Update Expired Status    | `0 0 * * *`   | 00:00        | 5:30 AM          | Daily      |
+| Expire Suspended Members | `15 0 * * *`  | 00:15        | 5:45 AM          | Daily      |
+| Cancel Overdue Members   | `30 0 * * *`  | 00:30        | 6:00 AM          | Daily      |
+| Charge Renewals          | `30 0 * * *`  | 00:30        | 6:00 AM          | Daily      |
+| Process Dunning          | `45 0 * * *`  | 00:45        | 6:15 AM          | Daily      |
+| Process Trial Expiry     | `50 0 * * *`  | 00:50        | 6:20 AM          | Daily      |
+| Send Reminders           | `30 3 * * *`  | 03:30        | 9:00 AM          | Daily      |
+| Reconcile Access         | `30 18 * * *` | 18:30        | 12:00 AM (next)  | Daily      |
+| Drain Access Sync        | `*/5 * * * *` | every 5 min  | every 5 min      | 5-minutely |
+| Archive Members          | `0 1 1 * *`   | 01:00 on 1st | 6:30 AM on 1st   | Monthly    |
 
 ### Member-status chain — ORDER MATTERS
 
@@ -48,6 +50,28 @@ ordering is pinned by `src/app/api/cron/__tests__/cron-schedule-order.test.ts`.
 
 `cancel-overdue-members` and `charge-renewals` share the 00:30 slot; they touch
 disjoint tables (members vs. SaaS billing) and are safe to run concurrently.
+
+### `reconcile-access` sits OUTSIDE that chain — deliberately
+
+It runs at 18:30 UTC, six hours _before_ `update-expired-status`, and that is
+correct rather than an oversight.
+
+The access decision (`resolveAccessDecision`) derives expiry from
+**`next_due_date`**, not from `members.status`. So it reaches the right verdict
+whether or not the status chain has run yet — there is no ordering dependency
+to preserve.
+
+That independence is what frees the job to sit where it actually needs to be:
+18:30 UTC is **00:00 Sri Lanka time**, and the whole point of the job is to
+assert the lockout boundary at local midnight. A membership paid through the
+15th admits the member for all of the 15th and refuses them from the 16th at
+midnight _local_. Moving it into the 00:00 UTC block would apply that boundary
+5½ hours late, every day, for every member.
+
+**Do not add it to `cron-schedule-order.test.ts`.** That test pins the
+Active→Expired→Cancelled chain; adding this job would assert a dependency that
+does not exist and would block the 18:30 slot. Its own schedule is pinned in
+`src/app/api/cron/__tests__/access-control-crons.test.ts` instead.
 
 > **IMPORTANT:** Vercel Cron invokes cron paths with an **HTTP GET** request
 > (with `Authorization: Bearer <CRON_SECRET>` attached automatically when the
@@ -219,6 +243,119 @@ Archives (soft deletes) expired members who haven't been updated in 2 years.
 - 2-year grace period before archival
 - Soft delete preserves payment history for revenue reports
 - Archived members have status "cancelled"
+
+## 5. Reconcile Access
+
+**Endpoint:** `GET|POST /api/cron/reconcile-access`
+**Schedule:** `30 18 * * *` — 18:30 UTC = **00:00 Sri Lanka time**
+
+### What It Does
+
+Enqueues sync work for members whose door access has changed — chiefly the ones
+expiring at that exact moment.
+
+### Why it diffs instead of re-asserting
+
+The vendor exposes no bulk validity endpoint: re-pushing a window is one HTTP
+call per member per device. Blindly refreshing a 500-member gym nightly would
+be 500 calls to change nothing.
+
+It is also not merely wasteful. Every validity write is another chance for
+firmware to disturb an existing block, so writing only where something changed
+shrinks that hazard as well.
+
+### Process Flow
+
+1. List gyms with access control configured
+2. Skip any gym whose own SaaS subscription is not in good standing
+3. Per gym, resolve each provisioned member's access decision
+4. Compare against `last_synced_valid_from/to/blocked`
+5. Enqueue only the members whose desired state differs
+
+### Skipping a gym leaves its members' access intact
+
+Note the effect is the _opposite_ of the SMS equivalent. Not sending an SMS
+means the member hears nothing; not syncing means every member **keeps** the
+access they already have, because the reader enforces the window from its own
+clock. A gym's billing dispute must not lock out members who paid.
+
+### Response Example
+
+```json
+{
+  "success": true,
+  "data": {
+    "gymsConsidered": 4,
+    "gymsSkippedBilling": 1,
+    "membersChecked": 512,
+    "membersEnqueued": 7,
+    "errors": [],
+    "duration": "1840ms"
+  }
+}
+```
+
+## 6. Drain Access Sync
+
+**Endpoint:** `GET|POST /api/cron/drain-access-sync`
+**Schedule:** `*/5 * * * *`
+
+### What It Does
+
+Drains the `access_sync_jobs` outbox onto the hardware. **This is the only
+thing that moves queued changes to the readers** — without it the rows the
+members trigger writes simply accumulate.
+
+### Why every five minutes
+
+Registrations and payments dispatch inline, so this is the retry and catch-up
+path rather than the happy path. Five minutes means a member whose change
+missed the inline attempt waits minutes rather than hours, without hammering
+the vendor on a tighter loop for a case that mostly does not arise.
+
+### Process Flow
+
+1. **Reclaim** `in_flight` jobs abandoned by a killed run (older than 10 min)
+2. **Claim** a batch, at most one job per member, oldest first
+3. Route each job: member intents to `SyncMemberAccess`, device intents to
+   `OperateDevice`
+4. Settle: success, retry with backoff, or dead-letter
+
+Step 1 comes first on purpose. A serverless invocation killed mid-drain
+(timeout, deploy, OOM) leaves its claimed jobs `in_flight`, and the claim
+function only picks up `pending` and `failed` — so without the reclaim those
+members would never sync again and nothing would say so. Every run heals the
+previous run's casualties.
+
+### Retry vs. dead-letter
+
+Vendor return codes are classified, not treated alike. A transient fault
+("no response from device") is rescheduled with backoff; a permanent one
+("command not supported") or one needing a person ("device storage full") is
+dead-lettered immediately, because retrying buries the real problem behind
+noise.
+
+A run that dead-letters work needing a person is logged as a **failure** even
+though the run itself succeeded, so it surfaces on `/system-health` rather than
+sitting quietly inside a green result.
+
+### Response Example
+
+```json
+{
+  "success": true,
+  "data": {
+    "reclaimed": 0,
+    "claimed": 12,
+    "succeeded": 11,
+    "retrying": 1,
+    "deadLettered": 0,
+    "needingAttention": 0,
+    "errors": [],
+    "duration": "3120ms"
+  }
+}
+```
 
 ## Security
 

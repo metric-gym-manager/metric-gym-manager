@@ -39,6 +39,7 @@ import type { RegistrationSource } from '@/features/members/config/RegistrationC
 import type {
   AccessControlAccount,
   AccessDevice,
+  AccessEvent,
   AccessSyncJob,
   MemberAccessSubject,
 } from '@/features/access-control/types'
@@ -233,6 +234,28 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     )
 
     return devices.map((d) => d.device_serial)
+  }
+
+  async findDeviceById(
+    gymId: string,
+    deviceId: string
+  ): Promise<AccessDevice | null> {
+    // Filtered on both columns rather than relying on RLS alone. The vendor
+    // token reaches every terminal on the account, so a device operation that
+    // resolved its target by id only would be one policy change away from
+    // opening another gym's door.
+    const { data, error } = await this.supabase
+      .from('access_devices')
+      .select('*')
+      .eq('gym_id', gymId)
+      .eq('id', deviceId)
+      .maybeSingle()
+
+    if (error) {
+      throw new DatabaseError(`Failed to load device: ${error.message}`)
+    }
+
+    return (data as AccessDevice | null) ?? null
   }
 
   async findDeviceBySerial(deviceSerial: string): Promise<AccessDevice | null> {
@@ -685,6 +708,24 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     return count ?? 0
   }
 
+  async countPendingJobs(memberId: string): Promise<number> {
+    const { count, error } = await this.supabase
+      .from('access_sync_jobs')
+      .select('*', { count: 'exact', head: true })
+      .eq('member_id', memberId)
+      .in('status', [
+        AccessSyncStatus.Pending,
+        AccessSyncStatus.InFlight,
+        AccessSyncStatus.Failed,
+      ])
+
+    if (error) {
+      throw new DatabaseError(`Failed to count pending jobs: ${error.message}`)
+    }
+
+    return count ?? 0
+  }
+
   // ============================================================
   // Events
   // ============================================================
@@ -723,6 +764,37 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     const inserted = (data as { id: string }[] | null)?.length ?? 0
 
     return { inserted, duplicates: events.length - inserted }
+  }
+
+  async listEvents(
+    gymId: string,
+    query: { page: number; limit: number; memberId?: string }
+  ): Promise<{ events: AccessEvent[]; total: number }> {
+    const from = (query.page - 1) * query.limit
+    const to = from + query.limit - 1
+
+    let request = this.supabase
+      .from('access_events')
+      .select('*', { count: 'exact' })
+      .eq('gym_id', gymId)
+      // Newest first (rule 2.10): the log is read from the top, and a
+      // most-recent lookup over an unordered result is a coin toss.
+      .order('occurred_at', { ascending: false })
+
+    if (query.memberId) {
+      request = request.eq('member_id', query.memberId)
+    }
+
+    const { data, error, count } = await request.range(from, to)
+
+    if (error) {
+      throw new DatabaseError(`Failed to load access events: ${error.message}`)
+    }
+
+    return {
+      events: (data as AccessEvent[] | null) ?? [],
+      total: count ?? 0,
+    }
   }
 
   async findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null> {

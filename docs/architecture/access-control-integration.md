@@ -24,18 +24,18 @@
 Two things are already in place and this integration must slot into them rather
 than invent new mechanisms:
 
-| Existing | Consequence for this work |
-| --- | --- |
-| `accessControlHardware` is a live key in `PlanRestrictions` (Enterprise only), with `Subscription.hasAccessControlHardware()` and the `FeatureGate` component already wired | The tier gate is **not** new code. Every route and use case reads the matrix; no ad-hoc `tier === 'enterprise'` conditionals (rule 2.13 / R5). |
-| `ISMSProvider` + `IStorageProvider` ports, each with a real provider, a Mock fallback, and a `factory.ts` that picks by env var | The vendor API gets the **same** treatment: `IAccessControlProvider` port, `VftAccessControlProvider`, `MockAccessControlProvider`. No VFT noun ever leaks past the port. |
-| Member lifecycle is a strict state machine (`StatusConfig.VALID_TRANSITIONS`), expiry is immediate with **no grace period**, and `next_due_date` is the paid-through date | Door access is a *pure projection* of member state. It gets a pure domain function, not scattered branching. |
+| Existing                                                                                                                                                                    | Consequence for this work                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `accessControlHardware` is a live key in `PlanRestrictions` (Enterprise only), with `Subscription.hasAccessControlHardware()` and the `FeatureGate` component already wired | The tier gate is **not** new code. Every route and use case reads the matrix; no ad-hoc `tier === 'enterprise'` conditionals (rule 2.13 / R5).                            |
+| `ISMSProvider` + `IStorageProvider` ports, each with a real provider, a Mock fallback, and a `factory.ts` that picks by env var                                             | The vendor API gets the **same** treatment: `IAccessControlProvider` port, `VftAccessControlProvider`, `MockAccessControlProvider`. No VFT noun ever leaks past the port. |
+| Member lifecycle is a strict state machine (`StatusConfig.VALID_TRANSITIONS`), expiry is immediate with **no grace period**, and `next_due_date` is the paid-through date   | Door access is a _pure projection_ of member state. It gets a pure domain function, not scattered branching.                                                              |
 
 The single most important discovery in the vendor API is
 `POST /api/devicecmd/validperiod?DevSN=&EmployeeId=&StartDate=&EndDate=`. It
 lets us push the member's **paid-through window down to the device**, so the
 turnstile enforces expiry by itself even if our sync is down or the gym's
-internet is out. That makes valid-period the *primary* mechanism and
-grant/block the *secondary* one for immediate events (suspension, cancellation).
+internet is out. That makes valid-period the _primary_ mechanism and
+grant/block the _secondary_ one for immediate events (suspension, cancellation).
 
 ---
 
@@ -50,7 +50,7 @@ Base URL is per-deployment; auth is a JWT from sign-in sent back as a header.
 `DevSN`, `DevName`, `TimeZone` as a minutes offset e.g. `"330"`, `AreaID`,
 `IsReboot`).
 
-**Subjects** — the API calls them *employees*, at `/api/template*`
+**Subjects** — the API calls them _employees_, at `/api/template*`
 (`EmpId`, `EmpName`, `AreaID`). For us an "employee" is a gym **member**.
 Templates (biometric enrolments) are pushed to devices with
 `/api/template/syncall | syncone | syncsometoall | syncsometoone`.
@@ -65,26 +65,33 @@ Templates (biometric enrolments) are pushed to devices with
 raw command strings: they are unvalidated, untyped, and device-firmware
 specific. The typed endpoints cover every flow we need.
 
-**Inbound webhook** — the device platform POSTs an *array* of attendance
+**Inbound webhook** — the device platform POSTs an _array_ of attendance
 events to a URL we supply:
 
 ```json
-[{ "EmpId": "168", "AttTime": "2024-01-15 08:30:15",
-   "CheckingStatus": "0", "VerifyType": "1", "Event": "3",
-   "DeviceID": "QEM1253800017" }]
+[
+  {
+    "EmpId": "168",
+    "AttTime": "2024-01-15 08:30:15",
+    "CheckingStatus": "0",
+    "VerifyType": "1",
+    "Event": "3",
+    "DeviceID": "QEM1253800017"
+  }
+]
 ```
 
 ### 2.1 The three properties that drive the whole design
 
-*All three are **working assumptions**, not vendor statements — see
-`docs/integrations/vft/vft-api-assumptions.md`.*
+_All three are **working assumptions**, not vendor statements — see
+`docs/integrations/vft/vft-api-assumptions.md`._
 
 1. **Commands are queued, not applied synchronously.** `/api/devicecmd/*`
    enqueues a command the device collects on its next PUSH poll;
    `GET /api/devicecmd/{DevSN}` lists what is still pending.
    **HTTP 200 confirms queuing, not execution.** We assume (**unverified**) that a device
    coming back online **fetches its queued buffer sequentially**, so commands
-   issued to an offline device are *not* lost.
+   issued to an offline device are _not_ lost.
 
    That is better than feared, and it sharpens what the outbox is for: not
    guarding against loss in transit, but knowing **when a command has actually
@@ -109,7 +116,7 @@ events to a URL we supply:
    > **Part 2** — staff walk them to the reader and enrol the finger **at the
    > device**.
 
-   **This inverts our role in Part 2.** The earlier draft assumed we *trigger*
+   **This inverts our role in Part 2.** The earlier draft assumed we _trigger_
    enrolment via `enrollfinger` and then wait. If enrolment is started at the
    terminal, we trigger nothing — our only job is to **detect** that it
    happened. `POST /api/access-control/members/[id]/enrol` therefore becomes
@@ -119,7 +126,7 @@ events to a URL we supply:
 
    Detection is by polling `GET /api/template`, which makes that endpoint's
    response shape load-bearing rather than incidental — hence the sharpened
-   question to VFT. Enrolment stays modelled as *pending until observed*
+   question to VFT. Enrolment stays modelled as _pending until observed_
    (rule 2.8).
 
    ⚠️ **The risk this surfaces: who assigns the `EmpId`?** Our design allocates
@@ -144,7 +151,7 @@ events to a URL we supply:
      `fingerId` 0–9, but multi-finger enrolment is out of scope — the schema
      records a single finger, not a set.
    - **Single gate per gym** (one reader serving entry and exit). Cross-device
-     template propagation and device-replacement migration are therefore *not*
+     template propagation and device-replacement migration are therefore _not_
      concerns for this build, even though both are probably supported via
      `syncone` / `syncsometoone`. The port keeps the sync calls; nothing in the
      product depends on them.
@@ -154,7 +161,7 @@ events to a URL we supply:
    The endpoints suggest the API supports this split (**unverified**):
    - `DELETE /api/template/fromdev/{id}` — clears templates from devices,
      **keeps** the employee record;
-   - `DELETE /api/template/{id}` — deletes employee *and* templates.
+   - `DELETE /api/template/{id}` — deletes employee _and_ templates.
 
    So revoking a biometric is a first-class operation in our app, independent
    of member status, and never touches the `members` row.
@@ -165,11 +172,11 @@ These are **assumed** ZKTeco defaults, **not vendor-supplied**. If VFT confirms
 them, `config/AccessControlConfig.ts` can hold real enums; until then the raw
 payload is retained in `access_events.raw` and decoding stays provisional:
 
-| Field | Values |
-| --- | --- |
-| `VerifyType` | `1` Fingerprint · `2` Card · `3` Password · `15` Face |
+| Field            | Values                                                            |
+| ---------------- | ----------------------------------------------------------------- |
+| `VerifyType`     | `1` Fingerprint · `2` Card · `3` Password · `15` Face             |
 | `CheckingStatus` | `0` Check-In · `1` Check-Out · `4` Overtime In · `5` Overtime Out |
-| `Event` | `3` Door Unlocked / Access Granted |
+| `Event`          | `3` Door Unlocked / Access Granted                                |
 
 Validated with `z.nativeEnum()` (rule 2.2), with the raw payload still kept in
 `access_events.raw` for values that appear later.
@@ -191,15 +198,15 @@ it).
 
 ### 3.0 Where the vendor client lives — `lib/`, not the feature
 
-R8 is explicit: *"`src/lib/` = third-party glue **only** … If it wraps an
-external service or framework, it belongs here."* The repo has two precedents
+R8 is explicit: _"`src/lib/` = third-party glue **only** … If it wraps an
+external service or framework, it belongs here."_ The repo has two precedents
 and they disagree, so this needs deciding rather than copying:
 
-| Precedent | Port location | Implementation location |
-| --- | --- | --- |
-| **PayHere** (external HTTP gateway) | `lib/payhere/IPaymentGateway.ts` | `lib/payhere/PayHereGateway.ts` + `config.ts` + `crypto.ts` |
-| **R2 storage** (external HTTP service) | `lib/storage/IStorageProvider.ts` | `lib/storage/R2StorageProvider.ts` + `MockStorageProvider.ts` |
-| **SMS** (Text.lk) | `features/sms/services/ISMSProvider.ts` | `features/sms/services/providers/` |
+| Precedent                              | Port location                           | Implementation location                                       |
+| -------------------------------------- | --------------------------------------- | ------------------------------------------------------------- |
+| **PayHere** (external HTTP gateway)    | `lib/payhere/IPaymentGateway.ts`        | `lib/payhere/PayHereGateway.ts` + `config.ts` + `crypto.ts`   |
+| **R2 storage** (external HTTP service) | `lib/storage/IStorageProvider.ts`       | `lib/storage/R2StorageProvider.ts` + `MockStorageProvider.ts` |
+| **SMS** (Text.lk)                      | `features/sms/services/ISMSProvider.ts` | `features/sms/services/providers/`                            |
 
 Two of three — and the literal text of R8 — put **both the port and the vendor
 implementation in `lib/`**. SMS is the outlier. PayHere is also the closest
@@ -275,18 +282,28 @@ export interface IAccessControlProvider {
 
   upsertSubject(c: AccessCredentials, s: SubjectInput): Promise<void>
   removeSubject(c: AccessCredentials, subjectId: string): Promise<void>
-  syncSubjectsToDevice(c: AccessCredentials, serial: string, ids: string[]): Promise<void>
+  syncSubjectsToDevice(
+    c: AccessCredentials,
+    serial: string,
+    ids: string[]
+  ): Promise<void>
 
   setValidPeriod(c: AccessCredentials, p: ValidPeriodInput): Promise<void>
   grantAccess(c: AccessCredentials, t: SubjectOnDevice): Promise<void>
   blockAccess(c: AccessCredentials, t: SubjectOnDevice): Promise<void>
 
-  startFingerEnrolment(c: AccessCredentials, t: SubjectOnDevice & { fingerId: number }): Promise<void>
+  startFingerEnrolment(
+    c: AccessCredentials,
+    t: SubjectOnDevice & { fingerId: number }
+  ): Promise<void>
   startFaceEnrolment(c: AccessCredentials, t: SubjectOnDevice): Promise<void>
 
   openDoor(c: AccessCredentials, serial: string): Promise<void>
   rebootDevice(c: AccessCredentials, serial: string): Promise<void>
-  listPendingCommands(c: AccessCredentials, serial?: string): Promise<PendingCommand[]>
+  listPendingCommands(
+    c: AccessCredentials,
+    serial?: string
+  ): Promise<PendingCommand[]>
 }
 ```
 
@@ -315,7 +332,12 @@ export function resolveAccessDecision(input: {
    * at the boundary.
    */
   today: Date
-}): { allowed: boolean; validFrom: Date | null; validTo: Date | null; reason: AccessDenialReason | null }
+}): {
+  allowed: boolean
+  validFrom: Date | null
+  validTo: Date | null
+  reason: AccessDenialReason | null
+}
 ```
 
 The Colombo-aware `today` comes from a small pure helper in
@@ -325,20 +347,20 @@ a single-feature helper to shared utils speculatively). When the app-wide
 timezone correction described in §3.4 happens, that helper is the natural thing
 to promote.
 
-| Member state | Decision |
-| --- | --- |
-| `Active` | allow, `validFrom = membership_start_date`, `validTo = next_due_date` (paid-through, inclusive — matches the no-grace rule) |
-| `Expired` | block (device self-expires anyway; we assert it) |
-| `Suspended` | block **immediately** — this is the case that must not wait for a cron |
-| `Cancelled` | block **and** remove the subject from devices |
-| QR registration, `verified_at IS NULL` | block until the front desk verifies — a self-registered stranger must not get a door open |
-| Day pass | allow for that day only (`validTo = today`) |
+| Member state                           | Decision                                                                                                                    |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `Active`                               | allow, `validFrom = membership_start_date`, `validTo = next_due_date` (paid-through, inclusive — matches the no-grace rule) |
+| `Expired`                              | block (device self-expires anyway; we assert it)                                                                            |
+| `Suspended`                            | block **immediately** — this is the case that must not wait for a cron                                                      |
+| `Cancelled`                            | block **and** remove the subject from devices                                                                               |
+| QR registration, `verified_at IS NULL` | block until the front desk verifies — a self-registered stranger must not get a door open                                   |
+| Day pass                               | allow for that day only (`validTo = today`)                                                                                 |
 
-This function is the *only* place access policy exists. Everything else
+This function is the _only_ place access policy exists. Everything else
 transports its output.
 
 **Invariant that follows — and it guards a defect we cannot rule out.** The
-reconciler pushes *the decision*, never a blanket "refresh everyone's
+reconciler pushes _the decision_, never a blanket "refresh everyone's
 `validperiod`". A suspended member whose `next_due_date` is still in the future
 resolves to `allowed: false`, so the reconciler issues `accessblock` for them
 and **no `validperiod` at all**.
@@ -364,8 +386,8 @@ evidence. Two defences, both adopted:
    is acceptable. Ordinary expiry keeps using the validity window, which needs
    no command at all.
 
-**Corollary — never issue a second credential.** After template revocation, *"if card numbers, PINs, or passwords remain assigned to
-that `EmpId`, access via those secondary vectors remains active"*. We therefore
+**Corollary — never issue a second credential.** After template revocation, _"if card numbers, PINs, or passwords remain assigned to
+that `EmpId`, access via those secondary vectors remains active"_. We therefore
 **never set `CardNo` or `Password`** on a subject: the fingerprint is the sole
 credential, which is the only thing that makes revocation a true lockout. The
 raw ZKTeco examples in the vendor docs do set `Password=…` — that form must
@@ -386,7 +408,7 @@ what `validTo = next_due_date` produces once VFT's confirmed **inclusive
 device admits through the 15th, and refuses from midnight.
 
 **The valuable property: the door locks itself, on time, with no cron
-involved.** The *device* enforces `EndDate` from its own clock at local
+involved.** The _device_ enforces `EndDate` from its own clock at local
 midnight. There is no window in which an expired member walks in because a job
 hasn't run yet — and no dependency on our servers, our network, or the gym's
 internet being up at midnight.
@@ -401,11 +423,11 @@ the confusion this integration must not create.
 
 **Fix: the member access panel derives its state from `resolveAccessDecision`,
 never from `members.status`.** The function takes `nextDueDate`, so it returns
-*blocked — expired* from 00:00 regardless of what the status column still says.
+_blocked — expired_ from 00:00 regardless of what the status column still says.
 App and door agree at every instant. The status cron becomes bookkeeping (quota
 counting, the cancellation chain) rather than the thing that gates the door.
 
-#### Why we do *not* move the existing cron to local midnight
+#### Why we do _not_ move the existing cron to local midnight
 
 Moving `update-expired-status` to 18:30 UTC (= 00:00 SLT) looks like the
 obvious fix. It would break two things:
@@ -413,7 +435,7 @@ obvious fix. It would break two things:
 1. **The date maths is server-local, i.e. UTC.** `UpdateExpiredStatus` does
    `new Date(); today.setHours(0,0,0,0)` → midnight **UTC**; the SQL helper
    `get_overdue_members()` uses `CURRENT_DATE`, also UTC. Fired at 18:30 UTC on
-   the 15th, the UTC date is *still the 15th* while Sri Lanka is already on the
+   the 15th, the UTC date is _still the 15th_ while Sri Lanka is already on the
    16th — so a member due the 15th fails the `next_due_date < today` test and is
    **not** expired. They would expire 24 hours late. That is worse than the
    5.5-hour cosmetic window it was meant to fix.
@@ -431,7 +453,7 @@ anyone using it between 00:00 and 05:30 SLT — but it is a timezone refactor
 touching reminders, member display and revenue. It is not access-control work
 and must not ride in on this branch.
 
-#### What we do instead: put the *new* cron at local midnight
+#### What we do instead: put the _new_ cron at local midnight
 
 `reconcile-access` is new code with no legacy coupling, so it is scheduled at
 **`30 18 * * *` (18:30 UTC = 00:00 SLT)** and computes "today" in
@@ -443,10 +465,10 @@ blocks for the members who just expired closes the gap left by a **drifting
 device clock** — a reader running an hour slow would otherwise keep admitting
 them for that hour, and nobody would notice.
 
-General ZKTeco behaviour suggests (**unverified**): validity bounds are *"evaluated entirely on
+General ZKTeco behaviour suggests (**unverified**): validity bounds are _"evaluated entirely on
 the device's local processor using its internal RTC and configured `TimeZone`
 offset … access termination occurs at 23:59:59 local device time without
-requiring real-time server connectivity."* That is §3.4 working as designed.
+requiring real-time server connectivity."_ That is §3.4 working as designed.
 
 **The poll interval is 5–30 seconds**, so a block reaches an online device in
 well under a minute. The UI can honestly tell staff a suspension takes effect
@@ -458,7 +480,7 @@ and a **fast** clock locks members out early, which no cron of ours can prevent.
 #### Detecting clock drift without an API for it
 
 We have found **no endpoint to read or set device time** (**unverified**) — drift is
-corrected during PUSH sync only *"if server time parameters are active"*, or by
+corrected during PUSH sync only _"if server time parameters are active"_, or by
 configuring NTP on the hardware itself. So we cannot query a device's clock.
 
 We can, however, **infer** it from data we already ingest. Every webhook event
@@ -514,7 +536,7 @@ on subjects. Sri Lankan gyms run **one gate** and record **one finger**, so both
 were modelling flexibility nobody uses. A single `finger_id` records which
 finger was scanned.
 
-**Secrets split is deliberate.** Gym owners need to see *whether* access control
+**Secrets split is deliberate.** Gym owners need to see _whether_ access control
 is configured and when it last verified; they must never be able to read back
 the stored vendor password or token. Splitting the secret columns into a table
 with RLS enabled and **no gym-side policies at all** (service-role only) is the
@@ -540,7 +562,7 @@ cases, because:
   keeps `features/members` deletable in isolation (R2) and its routes thin (R6);
 - it mirrors the existing `sync_gym_member_count` trigger precedent.
 
-The trigger only *enqueues* — it never calls out and never writes
+The trigger only _enqueues_ — it never calls out and never writes
 `members.status`, so it does not repeat the mistake migration
 `20260727000002` reverted.
 
@@ -573,8 +595,8 @@ it is a property the drainer's tests assert directly.
 ### 4.3 The reconciler enqueues **diffs, not everything**
 
 There appears to be **no bulk validity endpoint** (**unverified**) — re-asserting is one call
-per member per device. At the confirmed ceiling of *"under 10 requests per
-second"* (we pace at ~5/s for margin), re-asserting a 500-member gym nightly
+per member per device. At the confirmed ceiling of _"under 10 requests per
+second"_ (we pace at ~5/s for margin), re-asserting a 500-member gym nightly
 would be ~100 seconds of pure churn for, on a typical night, a handful of actual
 changes.
 
@@ -644,7 +666,7 @@ after `update-expired-status`. It does not, and the reason matters:
 the status cron has run yet.
 
 That is precisely what lets `reconcile-access` sit at 18:30 UTC — six hours
-*before* the status chain — and enforce the lockout at local midnight (§3.4).
+_before_ the status chain — and enforce the lockout at local midnight (§3.4).
 Suspensions and cancellations are status-driven, but those are admin actions
 that reach the outbox through the trigger immediately, so they do not wait for a
 cron either.
@@ -676,7 +698,7 @@ Two working assumptions shape this design (**both unverified**):
 >
 > **Routing:** the callback is configured **at server/account level**.
 
-So the per-gym callback URL is *not* available on a shared account — there is
+So the per-gym callback URL is _not_ available on a shared account — there is
 **one** endpoint receiving events for every gym. That kills the per-gym path
 token as a routing mechanism, though not as an auth mechanism:
 
@@ -692,7 +714,7 @@ token as a routing mechanism, though not as an auth mechanism:
   **always-200** contract — the same contract the PayHere webhook follows.
 
 **Security consequence worth stating plainly:** on a shared account we receive
-attendance events for *every* gym on that account, including any that are not
+attendance events for _every_ gym on that account, including any that are not
 our customers. We store only events whose `DevSN` maps to a device we know, and
 the ingestion path never trusts a gym id from the payload.
 
@@ -708,7 +730,7 @@ description of the member experience is the reason:
 > When a membership is expired, the gate simply does not open and the reader
 > shows an error on its screen.
 
-Our database already knows *why* — expired, suspended, cancelled, unverified.
+Our database already knows _why_ — expired, suspended, cancelled, unverified.
 The front desk sees the real reason in our app the moment they look the member
 up; the member sees the device error at the gate. Polling the vendor to be told
 something we already know would add a queued command per device per interval
@@ -737,18 +759,18 @@ a flat `EmpId` namespace that is a collision — and a collision here means **on
 gym's member opens another gym's door**. A global sequence costs nothing and is
 correct under both deployment models:
 
-| If VFT issues… | Global sequence still correct? |
-| --- | --- |
-| separate credentials per gym | Yes — IDs are merely sparse, which is harmless |
-| one shared account for all gyms | Yes — and it is the *only* safe option |
+| If VFT issues…                  | Global sequence still correct?                 |
+| ------------------------------- | ---------------------------------------------- |
+| separate credentials per gym    | Yes — IDs are merely sparse, which is harmless |
+| one shared account for all gyms | Yes — and it is the _only_ safe option         |
 
 Because VFT offered per-gym credentials as an option rather than a product
 feature, the shared-account case must be assumed. The earlier
 `subject_id_strategy` column is therefore deleted: there is one strategy.
 
 This is reinforced by the assumption that We assume (**unverified**) `EmpId` is unique
-**account-wide**, and that reusing one across areas *"will overwrite or mutate
-the existing user record"* — so a collision does not error, it **silently
+**account-wide**, and that reusing one across areas _"will overwrite or mutate
+the existing user record"_ — so a collision does not error, it **silently
 overwrites another gym's member**. The global sequence is mandatory.
 
 **9 digits, not 24.** The ceiling varies by hardware model and we cannot audit
@@ -779,7 +801,7 @@ This is the most security-significant assumption in the whole design, and it is 
 > request payload.
 
 Combined with the assumption that `EmpId` is unique **account-wide**, and
-reusing one across areas *"will overwrite or mutate the existing user record"* —
+reusing one across areas _"will overwrite or mutate the existing user record"_ —
 this means: on a shared account, **our application code is the only thing
 standing between one gym and another gym's members and doors.** A scoping bug
 does not produce an error; it silently mutates another tenant's data.
@@ -825,10 +847,10 @@ CI runs never touch real hardware.
 **Unit** — `resolveAccessDecision` across the full status × dates × verified ×
 day-pass matrix, with the **midnight boundary of §3.4 as its own test group**:
 due on the 15th ⇒ allowed at 15th 23:59:59, blocked at 16th 00:00:00, and
-blocked at 16th 00:00 *while `status` is still `Active`* (the pre-cron window —
+blocked at 16th 00:00 _while `status` is still `Active`_ (the pre-cron window —
 the case where app and door would otherwise disagree);
 `YYYYMMDD` formatting and the inclusive paid-through boundary;
-retry/backoff maths; Zod parsing of vendor responses *and* of malformed ones;
+retry/backoff maths; Zod parsing of vendor responses _and_ of malformed ones;
 webhook payload normalisation including duplicate events; credential
 encrypt/decrypt round-trip.
 
@@ -874,38 +896,38 @@ this document has been corrected for both.
 
 ### Findings (corrected above)
 
-| # | Finding | Resolution |
-| --- | --- | --- |
+| #      | Finding                                                                                                                                                                                                                                                                           | Resolution                                                                                                                                                      |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **F1** | The first draft put `IAccessControlProvider` and the VFT client inside `features/access-control/services/providers/`, copying the SMS layout. R8 says external-service wrappers belong in `lib/`, and both PayHere and R2 put the **port itself** there too — SMS is the outlier. | Split into `src/lib/access-control/` (port, VFT client, Mock, config, crypto) and `src/features/access-control/` (domain, use-cases, repository, factory). §3.0 |
-| **F2** | The first draft exposed `PATCH /devices/[id]` as a general update endpoint, which would let a device be enabled/disabled through a generic write — rule 2.5 forbids exactly that. | Dedicated `/enable` + `/disable` transition endpoints; `PATCH` reduced to name/purpose per rule 2.5.1. §5 |
+| **F2** | The first draft exposed `PATCH /devices/[id]` as a general update endpoint, which would let a device be enabled/disabled through a generic write — rule 2.5 forbids exactly that.                                                                                                 | Dedicated `/enable` + `/disable` transition endpoints; `PATCH` reduced to name/purpose per rule 2.5.1. §5                                                       |
 
 ### Rule-by-rule
 
-| Rule | Status |
-| --- | --- |
-| **R1** one architecture | ✅ no `core/`/`infrastructure/`/`presentation/`/`services/`; logic in `features/`, glue in `lib/`. `arch:check` clean. |
-| **R2** deletable in isolation | ✅ after the §9 composition rule — no feature imports access-control. ⚠️ one honest caveat below. |
-| **R3** internal shape | ✅ only canonical folders (`config/ domain/ services/ schemas/ utils/ components/ types/ tests/`). |
-| **R4** `index.ts` barrel | ✅ — and it must land in the **first** Phase-1 commit, or the pre-commit `arch:check` fails. |
-| **R5** single ownership | ✅ `MemberStatus`/`PlanType` imported from `features/members/config/`, `SaasTier` from `SubscriptionConfig.ts`, `accessControlHardware` read from `PlanRestrictions`. New enums owned solely by `AccessControlConfig.ts`. No duplication. |
-| **R6** thin routes | ✅ auth → capability check → Zod → one factory call. No new R6 exception is requested. |
-| **R7** factory composition | ✅ `services/factory.ts` is the only wiring point; session vs service-role client specified per route (§5). |
-| **R8** layer discipline | ✅ **after F1**. `lib/` holds zero gym rules; `utils/` stays pure; feature UI stays in the feature. |
-| **R9** tests with code | ✅ locations pinned in §8. |
-| **R10** clean root/docs | ✅ this doc is in `docs/architecture/`; vendor questions in `docs/integrations/vft/`. No root files. |
-| **R11** migrations | ✅ single unique-timestamp migration, `CREATE TABLE IF NOT EXISTS`, `DROP TRIGGER IF EXISTS` before create, empty-DB replayable. |
-| **R12** commits/releases | ✅ Conventional Commits; no version bump, no CHANGELOG release edit, no tags. |
-| **R13** types & validation | ✅ `strict`, zero `any` (vendor responses parsed from `unknown`), Zod on every input, **`z.nativeEnum()`** for the new domain enums (rule 2.2), `ResponseBuilder` + serializers (rules 2.3 / 2.11). |
-| **2.6** cron logging | ✅ both crons via `CronLogger`. |
-| **2.8 / 2.9** error surfacing | ✅ pending ≠ error; sanitized for gym managers, raw for SaaS admins. |
-| **2.10** query ordering | ✅ `access_events` and `access_sync_jobs` are time-series — "latest" reads always `ORDER BY … DESC` in SQL before any `.find()`. |
-| **2.13** tier gating | ✅ capability read from the `PlanRestrictions` matrix only; no `tier === 'enterprise'` anywhere. |
-| **2.17** design system | ✅ §9. |
+| Rule                          | Status                                                                                                                                                                                                                                    |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **R1** one architecture       | ✅ no `core/`/`infrastructure/`/`presentation/`/`services/`; logic in `features/`, glue in `lib/`. `arch:check` clean.                                                                                                                    |
+| **R2** deletable in isolation | ✅ after the §9 composition rule — no feature imports access-control. ⚠️ one honest caveat below.                                                                                                                                         |
+| **R3** internal shape         | ✅ only canonical folders (`config/ domain/ services/ schemas/ utils/ components/ types/ tests/`).                                                                                                                                        |
+| **R4** `index.ts` barrel      | ✅ — and it must land in the **first** Phase-1 commit, or the pre-commit `arch:check` fails.                                                                                                                                              |
+| **R5** single ownership       | ✅ `MemberStatus`/`PlanType` imported from `features/members/config/`, `SaasTier` from `SubscriptionConfig.ts`, `accessControlHardware` read from `PlanRestrictions`. New enums owned solely by `AccessControlConfig.ts`. No duplication. |
+| **R6** thin routes            | ✅ auth → capability check → Zod → one factory call. No new R6 exception is requested.                                                                                                                                                    |
+| **R7** factory composition    | ✅ `services/factory.ts` is the only wiring point; session vs service-role client specified per route (§5).                                                                                                                               |
+| **R8** layer discipline       | ✅ **after F1**. `lib/` holds zero gym rules; `utils/` stays pure; feature UI stays in the feature.                                                                                                                                       |
+| **R9** tests with code        | ✅ locations pinned in §8.                                                                                                                                                                                                                |
+| **R10** clean root/docs       | ✅ this doc is in `docs/architecture/`; vendor questions in `docs/integrations/vft/`. No root files.                                                                                                                                      |
+| **R11** migrations            | ✅ single unique-timestamp migration, `CREATE TABLE IF NOT EXISTS`, `DROP TRIGGER IF EXISTS` before create, empty-DB replayable.                                                                                                          |
+| **R12** commits/releases      | ✅ Conventional Commits; no version bump, no CHANGELOG release edit, no tags.                                                                                                                                                             |
+| **R13** types & validation    | ✅ `strict`, zero `any` (vendor responses parsed from `unknown`), Zod on every input, **`z.nativeEnum()`** for the new domain enums (rule 2.2), `ResponseBuilder` + serializers (rules 2.3 / 2.11).                                       |
+| **2.6** cron logging          | ✅ both crons via `CronLogger`.                                                                                                                                                                                                           |
+| **2.8 / 2.9** error surfacing | ✅ pending ≠ error; sanitized for gym managers, raw for SaaS admins.                                                                                                                                                                      |
+| **2.10** query ordering       | ✅ `access_events` and `access_sync_jobs` are time-series — "latest" reads always `ORDER BY … DESC` in SQL before any `.find()`.                                                                                                          |
+| **2.13** tier gating          | ✅ capability read from the `PlanRestrictions` matrix only; no `tier === 'enterprise'` anywhere.                                                                                                                                          |
+| **2.17** design system        | ✅ §9.                                                                                                                                                                                                                                    |
 
 ### Honest caveat on R2
 
 The outbox is enqueued by a trigger on the `members` table (§4.1), so the
-*database* carries a dependency that the *code* does not. Deleting
+_database_ carries a dependency that the _code_ does not. Deleting
 `features/access-control/` would leave an orphan trigger behind. R2 governs
 code coupling — and by that measure the design is clean, since `features/members`
 contains zero references to access-control. To keep the DB honest too:
@@ -915,22 +937,23 @@ contains zero references to access-control. To keep the DB honest too:
 - feature removal ships a paired teardown migration, noted here so it is not
   discovered later.
 
-### Follow-ups this integration owes the rulebook
+### Follow-ups this integration owed the rulebook — **done**
 
-Landing Phase 1 must **also**:
+All three landed with the routes and crons:
 
-1. add `access-control` to the feature lists in `CLAUDE.md`, in
-   `.claude/rules/architecture.md` §1.1/§2.4, and in the canonical structure
-   block of `feature-first-growth-rules.md` (they enumerate features by name);
-2. add a Pattern Index row (`2.18`) in `.claude/rules/architecture.md` pointing
-   at this file — **only once code exists**, since that index lists enforced
-   rules, not plans;
-3. add the two new cron jobs to `docs/ops/CRON_JOBS.md` and `vercel.json` —
+1. ✅ `access-control` added to the feature lists in `CLAUDE.md`,
+   `.claude/rules/architecture.md` §1.1, and the canonical structure block of
+   `feature-first-growth-rules.md`;
+2. ✅ Pattern Index row **2.18** added in `.claude/rules/architecture.md`,
+   pointing at this file — added only now that the code exists, since that
+   index lists enforced rules rather than plans;
+3. ✅ both cron jobs added to `docs/ops/CRON_JOBS.md` and `vercel.json` —
    `drain-access-sync` (every 5 min) and `reconcile-access` (`30 18 * * *`,
-   00:00 SLT). Record in that doc **why** `reconcile-access` sits outside the
-   pinned member-status chain (§3.4/§5): it is date-driven, not status-driven,
-   so it has no ordering dependency and must not be added to
-   `cron-schedule-order.test.ts`.
+   00:00 SLT). `CRON_JOBS.md` records **why** `reconcile-access` sits outside
+   the pinned member-status chain (§3.4/§5): it is date-driven, not
+   status-driven, so it has no ordering dependency and must not be added to
+   `cron-schedule-order.test.ts`. Its schedule is pinned in
+   `src/app/api/cron/__tests__/access-control-crons.test.ts` instead.
 
 ---
 
@@ -939,14 +962,14 @@ Landing Phase 1 must **also**:
 Each phase ships and is independently useful; nothing before Phase 2 touches
 the network.
 
-| Phase | Content |
-| --- | --- |
+| Phase | Content                                                                                                                                                          |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **0** | **Send `vft-integration-questions.md` and request test hardware.** Runs in parallel with Phase 1 — Phase 1 touches no network, so it is not blocked. Phase 2 is. |
-| **1** | Migration, config, `resolveAccessDecision`, port, Mock provider, repository, factory, unit tests. Zero network. |
-| **2** | `VftAccessControlProvider`, credentials + device settings UI behind `FeatureGate`, "verify connection". |
-| **3** | Member sync: trigger outbox, drain + reconcile crons, member access panel, enrolment trigger, `/system-health` surfacing. |
-| **4** | Attendance webhook + check-in log UI — a genuinely new capability (the app has no attendance data today). |
-| **5** | Remote unlock, reboot, device command console, audit trail. |
+| **1** | Migration, config, `resolveAccessDecision`, port, Mock provider, repository, factory, unit tests. Zero network.                                                  |
+| **2** | `VftAccessControlProvider`, credentials + device settings UI behind `FeatureGate`, "verify connection".                                                          |
+| **3** | Member sync: trigger outbox, drain + reconcile crons, member access panel, enrolment trigger, `/system-health` surfacing.                                        |
+| **4** | Attendance webhook + check-in log UI — a genuinely new capability (the app has no attendance data today).                                                        |
+| **5** | Remote unlock, reboot, device command console, audit trail.                                                                                                      |
 
 ---
 
@@ -958,16 +981,16 @@ Phase 1. What remains:
 
 **Operational parameters — now quantified, and built to them**
 
-| Parameter | VFT's answer | Built as |
-| --- | --- | --- |
-| Rate limit | Undocumented; keep **under 10 req/s** | Pace at ~5/s for margin; diff-based reconcile (§4.3) keeps volume low anyway |
-| Error responses | Undocumented; standard `401` / `400` / `500` | Retry `500` + timeouts with backoff; never retry `400`; on `401` refresh the token once, then retry once |
+| Parameter          | VFT's answer                                                                     | Built as                                                                                                                             |
+| ------------------ | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Rate limit         | Undocumented; keep **under 10 req/s**                                            | Pace at ~5/s for margin; diff-based reconcile (§4.3) keeps volume low anyway                                                         |
+| Error responses    | Undocumented; standard `401` / `400` / `500`                                     | Retry `500` + timeouts with backoff; never retry `400`; on `401` refresh the token once, then retry once                             |
 | Token invalidation | Tokens stay valid until expiry; a new sign-in does **not** invalidate prior ones | Concurrent serverless instances are safe. Per-gym cached token, refresh on `401`. Expiry duration still unstated → proactive refresh |
-| Webhook retries | Undocumented; ack immediately with `200` | Always-200 + idempotency constraint — correct under any retry policy |
-| Enrolment timeout | **30–60 s** of sensor inactivity | ~60 s countdown in the enrolment dialog, then poll `GET /api/template` to confirm |
-| Poll interval | **5–30 s** | "Takes effect within about a minute" is an honest promise to staff |
-| Device capacity | 1,000–3,000 templates; PUSH loop returns error codes when full | Detect from sync errors; warn the gym before the cap |
-| Bulk validity | **No bulk endpoint** | One call per member/device → §4.3 diff-based reconcile is a requirement, not an optimisation |
+| Webhook retries    | Undocumented; ack immediately with `200`                                         | Always-200 + idempotency constraint — correct under any retry policy                                                                 |
+| Enrolment timeout  | **30–60 s** of sensor inactivity                                                 | ~60 s countdown in the enrolment dialog, then poll `GET /api/template` to confirm                                                    |
+| Poll interval      | **5–30 s**                                                                       | "Takes effect within about a minute" is an honest promise to staff                                                                   |
+| Device capacity    | 1,000–3,000 templates; PUSH loop returns error codes when full                   | Detect from sync errors; warn the gym before the cap                                                                                 |
+| Bulk validity      | **No bulk endpoint**                                                             | One call per member/device → §4.3 diff-based reconcile is a requirement, not an optimisation                                         |
 
 **Still genuinely unknown:** token expiry duration, and the real `Pin` width on
 K40/F18 firmware (§6).
@@ -985,7 +1008,7 @@ so **request it now**; it gates nothing but shortens Phase 2 considerably.
    confirm a member whose window ends today still gets in today.
 3. **The §3.3 firmware hazard** — on the actual fleet, does a `validperiod`
    write clear an active `accessblock`? Our invariant makes this unreachable,
-   but knowing the answer tells us whether template revocation is *required* for
+   but knowing the answer tells us whether template revocation is _required_ for
    suspensions or merely belt-and-braces.
 4. **Command acknowledgement** — that a command really does vanish from
    `GET /api/devicecmd/{DevSN}` once applied, since that is our only completion
@@ -999,13 +1022,14 @@ so **request it now**; it gates nothing but shortens Phase 2 considerably.
 1. ~~**Member stops paying — do they get locked out?**~~ **Settled: yes**, from
    00:00 the day after `next_due_date` (§3.4). Already what the design produces.
 
-   ⚠️ **Separate and still open — the *gym* stops paying *us*.** That is a
+   ⚠️ **Separate and still open — the _gym_ stops paying _us_.** That is a
    different question from member expiry: it asks whether a whole gym's members
    lose door access because the gym's own Metric subscription lapsed.
    Recommendation remains **no** — stop syncing, leave devices in their last
    known state, show the gym a banner. Mass-locking a gym's paying members over
    the gym's billing dispute is a physical-safety and reputational risk, and the
    members did nothing wrong. Needs a product call before Phase 3.
+
 2. **Biometric consent.** Fingerprint templates are sensitive personal data.
    Even though they live on VFT's hardware, we trigger enrolment — so the
    privacy policy needs a biometric disclosure and registration needs a consent
@@ -1016,7 +1040,7 @@ so **request it now**; it gates nothing but shortens Phase 2 considerably.
 4. **Per-gym VFT credentials — now a commercial ask, not just a preference.**
    The working assumptions are that `AreaID` is a filter and not an authorization
    boundary (§6.1), that `EmpId` is unique account-wide and reusing one
-   *overwrites another tenant's user record*, and that the deployed fleet may
+   _overwrites another tenant's user record_, and that the deployed fleet may
    cap `Pin` well below 9 digits. Each of those, on its own, is survivable; the
    combination means a single scoping bug in our code can silently mutate
    another gym's members, and a single leaked credential exposes every gym at
@@ -1032,13 +1056,13 @@ if it is ever wanted — but nothing in this build depends on it.
 
 Internal product/legal decisions — ours, not the vendor's:
 
-1. **Gym stops paying — do members get locked out?** Suspending a *gym's* SaaS
+1. **Gym stops paying — do members get locked out?** Suspending a _gym's_ SaaS
    subscription and mass-blocking its members at the door is a physical-safety
    and reputational risk. Recommendation: **stop syncing, leave devices in
    their last known state**, and show the gym a banner. Needs an explicit
    product call before Phase 3.
 2. **Biometric data is sensitive personal data.** Face and fingerprint
-   templates live on the vendor's devices, but *we* trigger enrolment, so the
+   templates live on the vendor's devices, but _we_ trigger enrolment, so the
    privacy policy needs a biometric-processing disclosure and registration
    needs an access-control consent alongside the existing `accepted_terms_at` /
    `accepted_gym_rules_at`. Settle before Phase 3 ships.

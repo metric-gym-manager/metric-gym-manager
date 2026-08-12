@@ -21,6 +21,7 @@ import type { AccessSyncStatus } from '@/features/access-control/config/AccessCo
 import type {
   AccessControlAccount,
   AccessDevice,
+  AccessEvent,
   AccessSyncJob,
   MemberAccessSubject,
 } from '@/features/access-control/types'
@@ -101,6 +102,15 @@ export interface IAccessControlRepository {
   // ---- Devices -------------------------------------------------------------
 
   listDevices(gymId: string): Promise<AccessDevice[]>
+
+  /**
+   * One device, scoped to its gym.
+   *
+   * Takes `gymId` and not just the device id on purpose: the vendor token
+   * reaches every terminal on the account, so resolving the device against the
+   * caller's own gym is the tenant boundary for every device operation.
+   */
+  findDeviceById(gymId: string, deviceId: string): Promise<AccessDevice | null>
 
   /** Serials of the gym's active terminals — the targets for every command. */
   listActiveDeviceSerials(gymId: string): Promise<string[]>
@@ -224,6 +234,15 @@ export interface IAccessControlRepository {
   countDeadJobs(): Promise<number>
 
   /**
+   * Queued work outstanding for one member.
+   *
+   * Drives the "pending, not failed" distinction (rule 2.8): a member whose
+   * change has not reached the reader yet is in progress, and the front desk
+   * must not be shown that as an error.
+   */
+  countPendingJobs(memberId: string): Promise<number>
+
+  /**
    * Return jobs abandoned by a dead worker to `pending`.
    *
    * Called at the start of every drain, so each run heals the previous run's
@@ -241,6 +260,12 @@ export interface IAccessControlRepository {
     gymId: string,
     events: IncomingAccessEvent[]
   ): Promise<{ inserted: number; duplicates: number }>
+
+  /** One page of the check-in log, newest first. */
+  listEvents(
+    gymId: string,
+    query: { page: number; limit: number; memberId?: string }
+  ): Promise<{ events: AccessEvent[]; total: number }>
 
   /** Resolve a device serial to its gym — how webhook events are routed. */
   findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null>

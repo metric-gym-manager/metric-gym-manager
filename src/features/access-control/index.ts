@@ -83,6 +83,10 @@ export { EvictInactiveSubjects } from './services/EvictInactiveSubjects'
 export type { EvictInactiveSubjectsSummary } from './services/EvictInactiveSubjects'
 export { OperateDevice } from './services/OperateDevice'
 export type { OperateDeviceResult } from './services/OperateDevice'
+export { VerifyAccessAccount } from './services/VerifyAccessAccount'
+export { ManageMemberBiometric } from './services/ManageMemberBiometric'
+export type { BiometricOperationResult } from './services/ManageMemberBiometric'
+export { GetMemberAccessStatus } from './services/GetMemberAccessStatus'
 export type {
   IAccessControlRepository,
   MemberAccessContext,
@@ -99,7 +103,22 @@ export {
   createRecordAccessEvents,
   createEvictInactiveSubjects,
   createOperateDevice,
+  createVerifyAccessAccount,
+  createManageMemberBiometric,
+  createGetMemberAccessStatus,
 } from './services/factory'
+
+// Serializers — no database row is handed to JSON directly (rule 2.11)
+export {
+  serializeAccessAccountForAPI,
+  serializeAccessDeviceForAPI,
+  serializeAccessEventForAPI,
+} from './utils/serializeAccessForAPI'
+export type {
+  SerializedAccessAccount,
+  SerializedAccessDevice,
+  SerializedAccessEvent,
+} from './utils/serializeAccessForAPI'
 export { SupabaseAccessControlRepository } from './services/SupabaseAccessControlRepository'
 
 // Schemas

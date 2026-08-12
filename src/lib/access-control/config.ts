@@ -21,10 +21,26 @@ export function getDefaultBaseUrl(): string | null {
 }
 
 /**
+ * The unguessable token in the inbound webhook's URL path.
+ *
+ * The vendor protocol defines no signature scheme, so this is the **primary**
+ * (and, unless an IP allowlist is added, the only) credential on that
+ * endpoint. `null` means the endpoint refuses everything: accepting anonymous
+ * writes would be worse than dropping events.
+ *
+ * One platform-wide value rather than one per gym, because the vendor callback
+ * is configured at account level — there is no per-gym URL to hand out. The
+ * gym is resolved from the device serial instead.
+ */
+export function getWebhookPathToken(): string | null {
+  return process.env.ACCESS_CONTROL_WEBHOOK_TOKEN ?? null
+}
+
+/**
  * Shared secret expected on inbound webhook calls, when configured.
  *
- * The vendor protocol defines no signature scheme, so the primary defence is an
- * unguessable token in the URL path. This is an optional second factor.
+ * An optional second factor alongside the path token, for a deployment that
+ * can arrange one.
  */
 export function getWebhookSecret(): string | null {
   return process.env.ACCESS_CONTROL_WEBHOOK_SECRET ?? null

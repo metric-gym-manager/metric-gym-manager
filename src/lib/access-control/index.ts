@@ -29,6 +29,7 @@ export {
 export {
   isAccessControlEnabled,
   getDefaultBaseUrl,
+  getWebhookPathToken,
   getWebhookSecret,
   VENDOR_REQUEST_TIMEOUT_MS,
   TOKEN_CACHE_TTL_SECONDS,
