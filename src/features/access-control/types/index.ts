@@ -71,13 +71,21 @@ export interface MemberAccessSubject {
   enrolled_at: string | null
   provisioned_at: string | null
   /**
-   * Whether this reader currently holds the member's template.
+   * Serials of the readers currently holding this member's template.
    *
-   * Distinct from `provisioned` (which is vendor-side) and from
-   * `finger_enrolled` (which is whether a template exists at all). Cancellation
-   * and capacity eviction clear this while leaving the other two intact — that
-   * separation is what lets a returning member be restored without going back
-   * to the scanner.
+   * The authority for whether a push is needed. Per reader, because templates
+   * live on each terminal independently — a gym with two entrances has readers
+   * holding different sets of members.
+   *
+   * Distinct from `provisioned_at` (vendor-side) and from `finger_enrolled`
+   * (whether a template exists at all). Cancellation and capacity eviction
+   * empty this while leaving the other two intact — that separation is what
+   * lets a returning member be restored without going back to the scanner.
+   */
+  synced_device_serials: string[]
+  /**
+   * DERIVED by the database from `synced_device_serials`: whether any reader
+   * holds this member. Read-only — never write it.
    */
   on_device: boolean
   last_synced_at: string | null
@@ -140,4 +148,13 @@ export interface MemberAccessStatus {
   validTo: string | null
   /** True while changes are queued for the hardware — pending, not failed. */
   syncPending: boolean
+  /**
+   * True when a change gave up before reaching the hardware.
+   *
+   * The counterpart to `syncPending`, and the reason both exist. Without it a
+   * member whose job exhausted its retries reads as allowed with nothing
+   * queued — a green tick on the screen and a door that stays shut. Pending is
+   * not failure, but failure is not "fine" either.
+   */
+  syncFailed: boolean
 }

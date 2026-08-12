@@ -28,6 +28,7 @@
  */
 
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig'
+import { isFeatureEnabled } from '@/features/subscriptions/domain/PlanRestrictions'
 import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 import { resolveAccessDecision } from '@/features/access-control/domain/AccessDecision'
@@ -48,6 +49,14 @@ export interface ReconcileMemberAccessSummary {
   gymsConsidered: number
   /** Skipped because the gym's own subscription is not in good standing. */
   gymsSkippedBilling: number
+  /**
+   * Skipped because the gym's plan no longer includes door hardware.
+   *
+   * Counted separately from a billing lapse: one is "pay your bill", the other
+   * is "you downgraded", and an operator reading the cron log needs to tell
+   * them apart.
+   */
+  gymsSkippedNotEntitled: number
   membersChecked: number
   /** Members whose hardware state no longer matches their access. */
   membersEnqueued: number
@@ -71,6 +80,7 @@ export class ReconcileMemberAccess {
     const summary: ReconcileMemberAccessSummary = {
       gymsConsidered: 0,
       gymsSkippedBilling: 0,
+      gymsSkippedNotEntitled: 0,
       membersChecked: 0,
       membersEnqueued: 0,
       errors: [],
@@ -87,8 +97,14 @@ export class ReconcileMemberAccess {
     for (const gymId of gymIds) {
       // One gym's failure must not stop the sweep — the others are unrelated.
       try {
-        if (!(await this.isGymInGoodStanding(gymId))) {
-          summary.gymsSkippedBilling += 1
+        const standing = await this.resolveStanding(gymId)
+
+        if (standing !== 'ok') {
+          summary[
+            standing === 'not_entitled'
+              ? 'gymsSkippedNotEntitled'
+              : 'gymsSkippedBilling'
+          ] += 1
           continue
         }
 
@@ -148,21 +164,37 @@ export class ReconcileMemberAccess {
   /**
    * Whether a gym's own subscription permits us to keep pushing changes.
    *
-   * Fails closed: an unresolvable subscription means we stop syncing, which
-   * leaves members' existing access intact rather than removing it.
+   * Two independent questions, because they fail for different reasons and an
+   * operator needs to tell them apart:
+   *
+   *  - **Entitlement.** Door hardware is an Enterprise capability. A gym that
+   *    downgrades keeps its devices registered and its account row, so without
+   *    this check the cron would carry on syncing hardware the API refuses to
+   *    let them touch — the schedule quietly granting what every route denies.
+   *  - **Standing.** A lapsed subscription stops the sync.
+   *
+   * Both fail closed, and closed is safe here: we stop pushing changes, which
+   * leaves every member's existing access intact rather than removing it.
    */
-  private async isGymInGoodStanding(gymId: string): Promise<boolean> {
+  private async resolveStanding(
+    gymId: string
+  ): Promise<'ok' | 'not_entitled' | 'lapsed'> {
     const sub = await this.gymSubscriptionRepo.findByGymId(gymId)
-    if (!sub) return false
+    if (!sub) return 'lapsed'
+
+    if (!isFeatureEnabled(sub.tier, 'accessControlHardware')) {
+      return 'not_entitled'
+    }
 
     const now = new Date()
 
-    return (
+    const inGoodStanding =
       sub.status === SaasStatus.Trialing ||
       sub.status === SaasStatus.Active ||
       (sub.status === SaasStatus.PastDue && !sub.isGraceExpired(now)) ||
       (sub.status === SaasStatus.Canceled && sub.isPaidThrough(now))
-    )
+
+    return inGoodStanding ? 'ok' : 'lapsed'
   }
 }
 

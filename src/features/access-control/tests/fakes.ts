@@ -62,7 +62,7 @@ export function makeDevice(
 export function makeSubject(
   overrides: Partial<MemberAccessSubject> = {}
 ): MemberAccessSubject {
-  return {
+  const base = {
     id: 'subject-row-1',
     gym_id: 'gym-1',
     member_id: 'member-1',
@@ -71,7 +71,7 @@ export function makeSubject(
     finger_id: 6,
     enrolled_at: '2026-01-01T00:00:00Z',
     provisioned_at: '2026-01-01T00:00:00Z',
-    on_device: true,
+    synced_device_serials: ['SER-001'],
     last_synced_at: '2026-01-01T00:00:00Z',
     last_synced_valid_from: null,
     last_synced_valid_to: null,
@@ -80,6 +80,11 @@ export function makeSubject(
     updated_at: '2026-01-01T00:00:00Z',
     ...overrides,
   }
+
+  // Derived here exactly as the database derives it, so a fixture can never
+  // express the impossible state (`on_device` true with no serials) that the
+  // generated column exists to rule out.
+  return { ...base, on_device: base.synced_device_serials.length > 0 }
 }
 
 export function makeContext(
@@ -145,6 +150,7 @@ export interface FakeRepositoryOptions {
   claimable?: AccessSyncJob[]
   staleJobs?: number
   pendingJobs?: number
+  deadJobs?: number
   events?: AccessEvent[]
 }
 
@@ -347,8 +353,8 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     this.settled.push({ jobId, outcome: 'failed', error, retryable })
   }
 
-  async countDeadJobs(): Promise<number> {
-    return 0
+  async countDeadJobs(_memberId?: string): Promise<number> {
+    return this.options.deadJobs ?? 0
   }
 
   async countPendingJobs(_memberId: string): Promise<number> {

@@ -83,7 +83,7 @@ export class RecordAccessEvents {
         }
 
         const normalised: IncomingAccessEvent[] = []
-        let firstSkewSeconds: number | null = null
+        let newestScan: Date | null = null
 
         for (const event of events) {
           const occurredAt = parseDeviceTime(
@@ -96,10 +96,8 @@ export class RecordAccessEvents {
             continue
           }
 
-          if (firstSkewSeconds === null) {
-            firstSkewSeconds = Math.round(
-              (occurredAt.getTime() - receivedAt.getTime()) / 1000
-            )
+          if (!newestScan || occurredAt > newestScan) {
+            newestScan = occurredAt
           }
 
           const subjectId = Number(event.EmpId)
@@ -110,13 +108,17 @@ export class RecordAccessEvents {
           normalised.push({
             deviceSerial,
             subjectId: Number.isFinite(subjectId) ? subjectId : 0,
+            // Stored as a column, not merely inside `raw`: the check-in log
+            // filters by member, and a member id buried in a JSON blob cannot
+            // answer "show me this member's entries".
+            memberId,
             occurredAt,
             verifyType: toNumberOrNull(event.VerifyType),
             checkingStatus: toNumberOrNull(event.CheckingStatus),
             eventCode: event.Event ?? null,
             // Kept whole: the code tables are vendor-supplied but not
             // exhaustive, so an unmapped value must still be recoverable.
-            raw: { ...event, resolvedMemberId: memberId },
+            raw: { ...event },
           })
         }
 
@@ -126,13 +128,28 @@ export class RecordAccessEvents {
           summary.duplicates += result.duplicates
         }
 
-        if (firstSkewSeconds !== null) {
-          await this.repo.recordDeviceClockSkew(deviceSerial, firstSkewSeconds)
+        if (newestScan) {
+          // Measured from the NEWEST scan in the batch, not the first one.
+          //
+          // Readers batch, so the oldest scan in a delivery can be an hour old
+          // with nothing wrong at all — judging drift from it makes every
+          // batching reader look broken, which trains an operator to ignore
+          // the one signal we have about the clock the lockout runs on.
+          //
+          // The asymmetry is deliberate and worth stating: batching can only
+          // make a reader look SLOW, never fast. So a fast clock is detected
+          // exactly, while a slow one is detected only once it exceeds normal
+          // delivery lag. Under-reporting is the right way to be wrong here.
+          const skewSeconds = Math.round(
+            (newestScan.getTime() - receivedAt.getTime()) / 1000
+          )
+
+          await this.repo.recordDeviceClockSkew(deviceSerial, skewSeconds)
 
           // The expiry cutover is evaluated against this clock, so drift moves
           // the moment a member stops being admitted. There is no API to read
           // device time, which makes inferring it the only visibility we get.
-          if (Math.abs(firstSkewSeconds) > DEVICE_CLOCK_SKEW_ALERT_SECONDS) {
+          if (Math.abs(skewSeconds) > DEVICE_CLOCK_SKEW_ALERT_SECONDS) {
             summary.driftingDevices.push(deviceSerial)
           }
         }

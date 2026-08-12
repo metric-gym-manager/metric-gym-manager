@@ -101,9 +101,13 @@ export class ManageMemberBiometric {
         }
       }
 
+      // Records provisioning only. The reader list is untouched: creating the
+      // subject on the vendor is not the same as a reader holding a template,
+      // and claiming otherwise here would tell the sync path there is nothing
+      // left to push.
       await this.repo.updateSyncState(input.memberId, {
         provisioned: true,
-        onDevice: subject.on_device ?? false,
+        syncedDeviceSerials: subject.synced_device_serials ?? [],
         validFrom: subject.last_synced_valid_from,
         validTo: subject.last_synced_valid_to,
         blocked: subject.last_synced_blocked ?? false,

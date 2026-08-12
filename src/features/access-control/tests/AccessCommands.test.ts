@@ -25,7 +25,7 @@ function subject(overrides: Partial<SubjectSyncState> = {}): SubjectSyncState {
     subjectId: '100001',
     memberName: 'Test Member',
     provisioned: true,
-    onDevice: true,
+    syncedDeviceSerials: ['DEV-1', 'DEV-2'],
     lastSyncedValidFrom: null,
     lastSyncedValidTo: null,
     lastSyncedBlocked: false,
@@ -96,7 +96,7 @@ describe('deriveAccessCommands', () => {
       // with a fingerprint and no window.
       const commands = deriveAccessCommands({
         decision: decisionFor(MemberStatus.Active),
-        subject: subject({ provisioned: false, onDevice: false }),
+        subject: subject({ provisioned: false, syncedDeviceSerials: [] }),
         deviceSerials: ['DEV-1'],
       })
 
@@ -250,7 +250,7 @@ describe('deriveAccessCommands', () => {
     it('sends nothing for a member who was never on the hardware', () => {
       const commands = deriveAccessCommands({
         decision: decisionFor(MemberStatus.Cancelled),
-        subject: subject({ provisioned: false, onDevice: false }),
+        subject: subject({ provisioned: false, syncedDeviceSerials: [] }),
         deviceSerials: ['DEV-1'],
       })
 
@@ -262,7 +262,7 @@ describe('deriveAccessCommands', () => {
     it('returns nothing when the gym has no devices', () => {
       const commands = deriveAccessCommands({
         decision: decisionFor(MemberStatus.Active),
-        subject: subject({ provisioned: false, onDevice: false }),
+        subject: subject({ provisioned: false, syncedDeviceSerials: [] }),
         deviceSerials: [],
       })
 

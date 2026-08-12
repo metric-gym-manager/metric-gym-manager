@@ -81,9 +81,8 @@ describe('RecordAccessEvents', () => {
         verifyType: 1,
         checkingStatus: 0,
       })
-      expect(repo.storedEvents[0]?.raw).toMatchObject({
-        resolvedMemberId: 'member-1',
-      })
+      // A column, not a field inside `raw`: the check-in log filters on it.
+      expect(repo.storedEvents[0]?.memberId).toBe('member-1')
     })
 
     it('keeps the raw event whole, including codes we do not map', async () => {

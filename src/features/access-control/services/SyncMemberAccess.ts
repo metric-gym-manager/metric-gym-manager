@@ -116,13 +116,15 @@ export class SyncMemberAccess {
       )
     }
 
+    const heldBefore = subject.synced_device_serials ?? []
+
     const commands = deriveAccessCommands({
       decision,
       subject: {
         subjectId: String(subject.subject_id),
         memberName: context.memberName,
         provisioned: subject.provisioned_at !== null,
-        onDevice: subject.on_device ?? false,
+        syncedDeviceSerials: heldBefore,
         lastSyncedValidFrom: subject.last_synced_valid_from,
         lastSyncedValidTo: subject.last_synced_valid_to,
         lastSyncedBlocked: subject.last_synced_blocked,
@@ -166,11 +168,7 @@ export class SyncMemberAccess {
         // reader but the vendor keeps the subject record, which is what lets a
         // returning member back in without re-enrolling.
         provisioned: true,
-        onDevice: commands.some((c) => c.intent === AccessIntent.SyncToDevice)
-          ? true
-          : commands.some((c) => c.intent === AccessIntent.RevokeBiometric)
-            ? false
-            : (subject?.on_device ?? false),
+        syncedDeviceSerials: resolveHeldSerials(commands, heldBefore),
         validFrom: formatOrNull(commands, 'startDate'),
         validTo: formatOrNull(commands, 'endDate'),
         blocked: !decision.allowed,
@@ -267,6 +265,37 @@ export class SyncMemberAccess {
         }
     }
   }
+}
+
+/**
+ * Which readers hold the member once this command set has been applied.
+ *
+ * Derived from the commands rather than from a flag, so the record can never
+ * claim a reader holds a member it was never sent. Revocation is evaluated
+ * after the pushes because the cancellation sequence contains both and
+ * revocation is what it means.
+ *
+ * @param commands - The commands that all succeeded.
+ * @param heldBefore - Readers that already held the member.
+ */
+function resolveHeldSerials(
+  commands: AccessCommand[],
+  heldBefore: string[]
+): string[] {
+  const revoked = new Set(
+    commands
+      .filter((c) => c.intent === AccessIntent.RevokeBiometric)
+      .map((c) => c.deviceSerial)
+  )
+
+  const pushed = commands
+    .filter((c) => c.intent === AccessIntent.SyncToDevice)
+    .map((c) => c.deviceSerial)
+
+  const held = new Set([...heldBefore, ...pushed])
+  for (const serial of revoked) held.delete(serial)
+
+  return [...held]
 }
 
 /** Pull the window off whichever command carried it, if any. */

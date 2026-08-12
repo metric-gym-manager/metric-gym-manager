@@ -462,7 +462,13 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
 
     const { error } = await this.supabase
       .from('member_access_subjects')
-      .update({ on_device: false, device_removed_at: now, updated_at: now })
+      // Emptying the array is what takes the member off every reader;
+      // `on_device` follows from it automatically.
+      .update({
+        synced_device_serials: [],
+        device_removed_at: now,
+        updated_at: now,
+      })
       .eq('member_id', memberId)
 
     if (error) {
@@ -553,8 +559,10 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       .from('member_access_subjects')
       .update({
         provisioned_at: update.provisioned ? now : null,
-        on_device: update.onDevice,
-        device_removed_at: update.onDevice ? null : now,
+        // `on_device` is generated from this array — never written directly,
+        // so the two cannot drift apart the way a hand-maintained pair did.
+        synced_device_serials: update.syncedDeviceSerials,
+        device_removed_at: update.syncedDeviceSerials.length > 0 ? null : now,
         last_synced_at: now,
         last_synced_valid_from: update.validFrom
           ? toIsoDate(update.validFrom)
@@ -695,11 +703,17 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     }
   }
 
-  async countDeadJobs(): Promise<number> {
-    const { count, error } = await this.supabase
+  async countDeadJobs(memberId?: string): Promise<number> {
+    let query = this.supabase
       .from('access_sync_jobs')
       .select('*', { count: 'exact', head: true })
       .eq('status', AccessSyncStatus.Dead)
+
+    if (memberId) {
+      query = query.eq('member_id', memberId)
+    }
+
+    const { count, error } = await query
 
     if (error) {
       throw new DatabaseError(`Failed to count dead jobs: ${error.message}`)
@@ -738,6 +752,7 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
 
     const rows = events.map((event) => ({
       gym_id: gymId,
+      member_id: event.memberId,
       device_serial: event.deviceSerial,
       subject_id: event.subjectId,
       occurred_at: event.occurredAt.toISOString(),

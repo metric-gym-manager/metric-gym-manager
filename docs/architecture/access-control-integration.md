@@ -973,6 +973,53 @@ the network.
 
 ---
 
+## 11.1 Inverted-assumption audit — five defects found and fixed
+
+After the routes and crons landed, every assumption the design rests on was
+negated and the flows replayed against the real code
+(`src/features/access-control/tests/InvertedAssumptions.reverse.test.ts`).
+Five defects surfaced. All five were invisible to the forward tests, because a
+forward test asks whether the code does what it was written to do.
+
+| #      | Inverted assumption                           | What was actually wrong                                                                                                                                                                                                                                                                                                                                                                         |
+| ------ | --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **D1** | "A gym has one reader, and always did"        | `on_device` was **one boolean per member**, but templates live on each reader independently. A gym installing a second entrance left every existing member looking already-synced, so the new door **never opened for anyone who joined before it** — no error, no failed job, nothing on the health view. The same bug made `recount_device_templates` report the same count for every reader. |
+| **D2** | "An entitled gym stays entitled"              | The reconciler checked SaaS _status_ but not the `accessControlHardware` capability, so a gym that downgraded off Enterprise kept full hardware sync. **The cron quietly granted what every route denies.**                                                                                                                                                                                     |
+| **D3** | "A member whose sync fails is visibly broken" | `MemberAccessStatus` had `syncPending` and no failure state. A member whose job exhausted its retries read as allowed with nothing queued — a green tick on the screen and a door that stays shut. Pending is not failure, but failure is not "fine".                                                                                                                                           |
+| **D4** | "Scans reach us promptly"                     | Clock skew was measured from the **first** event in a batch, which is the oldest. Readers batch, so a normal delivery looked like an hour of drift — training operators to ignore the one signal we have about the clock the lockout runs on.                                                                                                                                                   |
+| **D5** | "A resolved scan stays attributed"            | `RecordAccessEvents` resolved the member and then stored it only inside `raw.resolvedMemberId`. `access_events.member_id` was always `NULL`, so the per-member filter and the serializer's `memberId` were **permanently empty** — "show me this member's entries" could never answer.                                                                                                          |
+
+### The fixes
+
+**D1** is a schema change (`20260812000001_per_device_templates.sql`).
+`synced_device_serials TEXT[]` is now the single source of truth for which
+readers hold a member; `on_device` survives as a **generated column**
+(`CARDINALITY(...) > 0`) so the capacity and eviction queries keep a cheap
+boolean that _cannot_ disagree with the array. Command derivation is per
+reader: a member missing from any active reader is pushed to it, and the
+newly-installed-reader case now also re-pushes the validity window, since a
+template with no window is a member refused at a door our records call open.
+
+**D2** splits the reconciler's gate into two questions with separate counters
+(`gymsSkippedNotEntitled` vs `gymsSkippedBilling`) — "you downgraded" and "pay
+your bill" need different answers from whoever reads the cron log.
+
+**D3** adds `syncFailed`, backed by a per-member dead-job count.
+
+**D4** measures from the **newest** scan in the batch. The asymmetry is
+deliberate: batching can only make a reader look slow, never fast, so a fast
+clock is detected exactly while a slow one is detected only once it exceeds
+normal delivery lag. Under-reporting is the right way to be wrong here.
+
+**D5** adds `memberId` to `IncomingAccessEvent` and persists `member_id`.
+
+Four assumptions were inverted and held: a paid-through date moving _backwards_
+tightens the window correctly; cancel→rejoin→cancel churn never destroys the
+central template; and the reconciler settles after a sync, a block and a
+cancellation alike, rather than re-enqueueing every member nightly.
+
+---
+
 ## 12. What is still open
 
 VFT's full reply and the resulting decisions are recorded in

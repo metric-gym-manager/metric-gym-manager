@@ -55,7 +55,10 @@ export class GetMemberAccessStatus {
       today,
     })
 
-    const pending = await this.repo.countPendingJobs(memberId)
+    const [pending, dead] = await Promise.all([
+      this.repo.countPendingJobs(memberId),
+      this.repo.countDeadJobs(memberId),
+    ])
 
     return {
       memberId: context.memberId,
@@ -70,6 +73,7 @@ export class GetMemberAccessStatus {
         : null,
       validTo: decision.validTo ? formatDeviceDate(decision.validTo) : null,
       syncPending: pending > 0,
+      syncFailed: dead > 0,
     }
   }
 }

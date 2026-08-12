@@ -13,7 +13,10 @@
  */
 
 import { ReconcileMemberAccess } from '@/features/access-control/services/ReconcileMemberAccess'
-import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig'
+import {
+  SaasStatus,
+  SaasTier,
+} from '@/features/subscriptions/config/SubscriptionConfig'
 import {
   makeSubscription,
   mockSubscriptionRepo,
@@ -34,7 +37,11 @@ const TODAY = day('2026-01-10')
 function build(
   contexts: ReturnType<typeof makeContext>[],
   subscriptions: Record<string, Subscription | null> = {
-    'gym-1': makeSubscription({ gymId: 'gym-1', status: SaasStatus.Active }),
+    'gym-1': makeSubscription({
+      gymId: 'gym-1',
+      tier: SaasTier.Enterprise,
+      status: SaasStatus.Active,
+    }),
   },
   gymIds: string[] = ['gym-1']
 ) {
@@ -154,7 +161,13 @@ describe('ReconcileMemberAccess', () => {
     ])('reconciles a %s gym', async (_label, status) => {
       const { useCase } = build(
         [makeContext({ subject: makeSubject({ last_synced_blocked: true }) })],
-        { 'gym-1': makeSubscription({ gymId: 'gym-1', status }) }
+        {
+          'gym-1': makeSubscription({
+            gymId: 'gym-1',
+            tier: SaasTier.Enterprise,
+            status,
+          }),
+        }
       )
 
       const summary = await useCase.execute({ today: TODAY })
@@ -169,6 +182,7 @@ describe('ReconcileMemberAccess', () => {
         {
           'gym-1': makeSubscription({
             gymId: 'gym-1',
+            tier: SaasTier.Enterprise,
             status: SaasStatus.Suspended,
           }),
         }
@@ -192,12 +206,38 @@ describe('ReconcileMemberAccess', () => {
       expect(summary.gymsSkippedBilling).toBe(1)
     })
 
+    it.each([
+      ['Lite', SaasTier.Lite],
+      ['Pro', SaasTier.Pro],
+    ])(
+      'skips a paid-up %s gym, which is not entitled to hardware',
+      async (_label, tier) => {
+        const { repo, useCase } = build(
+          [
+            makeContext({
+              subject: makeSubject({ last_synced_blocked: true }),
+            }),
+          ],
+          { 'gym-1': makeSubscription({ gymId: 'gym-1', tier }) }
+        )
+
+        const summary = await useCase.execute({ today: TODAY })
+
+        // Counted apart from a billing lapse: "you downgraded" and "pay your
+        // bill" need different answers from whoever reads the cron log.
+        expect(summary.gymsSkippedNotEntitled).toBe(1)
+        expect(summary.gymsSkippedBilling).toBe(0)
+        expect(repo.enqueued).toHaveLength(0)
+      }
+    )
+
     it('reconciles a past-due gym still inside its grace period', async () => {
       const { useCase } = build(
         [makeContext({ subject: makeSubject({ last_synced_blocked: true }) })],
         {
           'gym-1': makeSubscription({
             gymId: 'gym-1',
+            tier: SaasTier.Enterprise,
             status: SaasStatus.PastDue,
             currentPeriodEnd: new Date(Date.now() + 24 * 60 * 60 * 1000),
           }),
@@ -215,8 +255,14 @@ describe('ReconcileMemberAccess', () => {
       const { repo, useCase } = build(
         [makeContext({ gymId: 'gym-2', memberId: 'member-2' })],
         {
-          'gym-1': makeSubscription({ gymId: 'gym-1' }),
-          'gym-2': makeSubscription({ gymId: 'gym-2' }),
+          'gym-1': makeSubscription({
+            gymId: 'gym-1',
+            tier: SaasTier.Enterprise,
+          }),
+          'gym-2': makeSubscription({
+            gymId: 'gym-2',
+            tier: SaasTier.Enterprise,
+          }),
         },
         ['gym-1', 'gym-2']
       )

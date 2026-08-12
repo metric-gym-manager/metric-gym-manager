@@ -49,14 +49,20 @@ export interface SubjectSyncState {
   /** Whether the subject record exists on the vendor platform. */
   provisioned: boolean
   /**
-   * Whether this reader currently holds the member's template.
+   * Serials of the readers that currently hold this member's template.
    *
-   * Goes false on cancellation and on capacity eviction. An allowed member who
-   * is not on the device needs a re-sync before their validity window means
-   * anything — without it the reader has a window for somebody it cannot
+   * Per reader, not a single flag, because templates live on each terminal
+   * independently. A gym that opens a second entrance has readers holding
+   * different sets of members, and a boolean cannot express that: every
+   * existing member would look already-synced and the new door would never
+   * open for any of them — silently, with no failed job to notice.
+   *
+   * Emptied on cancellation and on capacity eviction. An allowed member
+   * missing from a reader needs a push before their validity window means
+   * anything there; without it the reader has a window for somebody it cannot
    * recognise, and the door stays shut while our records say it should open.
    */
-  onDevice: boolean
+  syncedDeviceSerials: string[]
   /** Last window we pushed, for diffing. `null` when never pushed. */
   lastSyncedValidFrom: string | null
   lastSyncedValidTo: string | null
@@ -146,21 +152,24 @@ export function deriveAccessCommands(
     })
   }
 
-  // Push the member to the readers whenever they may enter but the reader does
-  // not hold them. Covers three cases with one rule: a brand-new member, a
-  // member returning after cancellation, and a member restored after being
-  // evicted for capacity.
+  // Push the member to every reader that may admit them but does not hold
+  // them. Evaluated per reader, which covers four cases with one rule: a
+  // brand-new member, a member returning after cancellation, a member restored
+  // after capacity eviction, and — the case a single flag could never see — an
+  // existing member when the gym installs an additional reader.
   //
-  // Skipped for blocked members on purpose — loading a template for somebody
+  // Skipped for blocked members on purpose: loading a template for somebody
   // who cannot get in wastes a finite reader slot.
-  if (decision.allowed && !subject.onDevice) {
-    for (const deviceSerial of deviceSerials) {
-      commands.push({
-        intent: AccessIntent.SyncToDevice,
-        deviceSerial,
-        subjectId: subject.subjectId,
-      })
-    }
+  const missingFrom = decision.allowed
+    ? deviceSerials.filter((s) => !subject.syncedDeviceSerials.includes(s))
+    : []
+
+  for (const deviceSerial of missingFrom) {
+    commands.push({
+      intent: AccessIntent.SyncToDevice,
+      deviceSerial,
+      subjectId: subject.subjectId,
+    })
   }
 
   if (!decision.allowed) {
@@ -200,12 +209,16 @@ export function deriveAccessCommands(
     }
   }
 
-  // A member who was not on the reader always gets the window re-pushed, even
-  // if it matches what we last recorded: we cannot assume a re-sync carried the
-  // validity dates with it, and a reader holding a member with no window is a
-  // member refused at a door our records call open.
+  // Any reader that was just handed the member gets the window re-pushed, even
+  // when it matches what we last recorded: we cannot assume a template push
+  // carried the validity dates with it, and a reader holding a member with no
+  // window is a member refused at a door our records call open.
+  //
+  // `missingFrom` being non-empty is therefore enough on its own — that is the
+  // newly-installed-reader case, where the dates are unchanged but one
+  // terminal has never seen them.
   const windowUnchanged =
-    subject.onDevice &&
+    missingFrom.length === 0 &&
     subject.provisioned &&
     subject.lastSyncedBlocked !== true &&
     subject.lastSyncedValidFrom === (startDate ?? null) &&

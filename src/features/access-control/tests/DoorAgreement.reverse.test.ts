@@ -188,7 +188,7 @@ function syncOnce(
       subjectId: SUBJECT_ID,
       memberName: 'Test Member',
       provisioned: synced.provisioned,
-      onDevice: synced.onDevice,
+      syncedDeviceSerials: synced.onDevice ? ['DEV-1'] : [],
       lastSyncedValidFrom: synced.validFrom,
       lastSyncedValidTo: synced.validTo,
       lastSyncedBlocked: synced.blocked,

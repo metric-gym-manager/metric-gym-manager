@@ -44,8 +44,11 @@ export interface MemberAccessContext {
 export interface SyncStateUpdate {
   /** Subject record exists on the vendor platform. */
   provisioned: boolean
-  /** This reader currently holds the member's fingerprint template. */
-  onDevice: boolean
+  /**
+   * Readers that now hold the member's template — the complete set, not a
+   * delta. Empty means no reader holds them.
+   */
+  syncedDeviceSerials: string[]
   validFrom: string | null
   validTo: string | null
   blocked: boolean
@@ -64,6 +67,13 @@ export interface EvictionCandidate {
 export interface IncomingAccessEvent {
   deviceSerial: string
   subjectId: number
+  /**
+   * The member this scan belongs to, resolved from OUR subject mapping.
+   *
+   * `null` when the subject id maps to nothing we know — which is real: a
+   * template can outlive the member row that owned it.
+   */
+  memberId: string | null
   occurredAt: Date
   verifyType: number | null
   checkingStatus: number | null
@@ -230,8 +240,14 @@ export interface IAccessControlRepository {
 
   failJob(jobId: string, error: string, retryable: boolean): Promise<void>
 
-  /** Jobs stuck in `dead`, for the SaaS-admin health view. */
-  countDeadJobs(): Promise<number>
+  /**
+   * Jobs stuck in `dead`.
+   *
+   * With no argument: the platform-wide count for the SaaS-admin health view.
+   * With a member id: whether that member's access has stopped being applied,
+   * which is the difference between "syncing" and "broken" at the front desk.
+   */
+  countDeadJobs(memberId?: string): Promise<number>
 
   /**
    * Queued work outstanding for one member.

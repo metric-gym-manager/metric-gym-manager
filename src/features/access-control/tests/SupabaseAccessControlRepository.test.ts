@@ -360,6 +360,7 @@ function makeEvent(occurredAt: string) {
   return {
     deviceSerial: 'DEV-1',
     subjectId: 100042,
+    memberId: 'member-1',
     occurredAt: new Date(occurredAt),
     verifyType: 1,
     checkingStatus: 0,
