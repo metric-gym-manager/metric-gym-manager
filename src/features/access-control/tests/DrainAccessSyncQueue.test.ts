@@ -17,6 +17,7 @@
 import { DrainAccessSyncQueue } from '@/features/access-control/services/DrainAccessSyncQueue'
 import { SyncMemberAccess } from '@/features/access-control/services/SyncMemberAccess'
 import { OperateDevice } from '@/features/access-control/services/OperateDevice'
+import { EvictInactiveSubjects } from '@/features/access-control/services/EvictInactiveSubjects'
 import { MockAccessControlProvider } from '@/lib/access-control'
 import type {
   CommandOutcome,
@@ -94,6 +95,7 @@ function build(
     repo,
     new SyncMemberAccess(repo, provider),
     new OperateDevice(repo, provider),
+    new EvictInactiveSubjects(repo, provider),
     provider
   )
 
@@ -131,6 +133,7 @@ describe('DrainAccessSyncQueue', () => {
         repo,
         new SyncMemberAccess(repo, provider),
         new OperateDevice(repo, provider),
+        new EvictInactiveSubjects(repo, provider),
         provider
       )
 

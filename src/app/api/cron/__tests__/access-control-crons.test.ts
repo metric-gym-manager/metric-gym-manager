@@ -18,12 +18,14 @@ import { NextRequest } from 'next/server'
 
 const mockDrain = jest.fn()
 const mockReconcile = jest.fn()
+const mockRefreshPresence = jest.fn()
 const mockLogSuccess = jest.fn().mockResolvedValue(undefined)
 const mockLogFailure = jest.fn().mockResolvedValue(undefined)
 
 jest.mock('@/features/access-control', () => ({
   createDrainAccessSyncQueue: jest.fn(() => ({ execute: mockDrain })),
   createReconcileMemberAccess: jest.fn(() => ({ execute: mockReconcile })),
+  createRefreshDeviceStatus: jest.fn(() => ({ execute: mockRefreshPresence })),
 }))
 
 jest.mock('@/lib/supabase/admin', () => ({
@@ -63,6 +65,14 @@ const cleanDrain = {
   errors: [],
 }
 
+const cleanPresence = {
+  gymsChecked: 1,
+  devicesChecked: 1,
+  devicesSeen: 1,
+  unknownToVendor: [],
+  errors: [],
+}
+
 const cleanReconcile = {
   gymsConsidered: 1,
   gymsSkippedBilling: 0,
@@ -76,6 +86,7 @@ describe('Access-control cron routes', () => {
     jest.clearAllMocks()
     process.env.CRON_SECRET = CRON_SECRET
     mockDrain.mockResolvedValue(cleanDrain)
+    mockRefreshPresence.mockResolvedValue(cleanPresence)
     mockReconcile.mockResolvedValue(cleanReconcile)
   })
 
@@ -137,6 +148,47 @@ describe('Access-control cron routes', () => {
       expect(execute).not.toHaveBeenCalled()
     }
   )
+
+  describe('device presence rides along with the drain', () => {
+    it('refreshes presence on every drain run', async () => {
+      await drainRoute.GET(makeRequest(`Bearer ${CRON_SECRET}`))
+
+      // Webhook events only arrive when somebody scans, so without this a gym
+      // that closed at 10pm shows every reader offline by morning.
+      expect(mockRefreshPresence).toHaveBeenCalledTimes(1)
+    })
+
+    it('reports readers the vendor does not recognise', async () => {
+      mockRefreshPresence.mockResolvedValue({
+        ...cleanPresence,
+        unknownToVendor: ['SER-404'],
+      })
+
+      const body = await (
+        await drainRoute.GET(makeRequest(`Bearer ${CRON_SECRET}`))
+      ).json()
+
+      // A configuration problem, not an outage — wrong account or mistyped
+      // serial — so it is named separately in the log.
+      expect(body.data.devicesUnknownToVendor).toEqual(['SER-404'])
+    })
+
+    it('does not let a presence failure hide a clean drain', async () => {
+      mockRefreshPresence.mockResolvedValue({
+        ...cleanPresence,
+        errors: ['Gym gym-1: vendor unreachable'],
+      })
+
+      const response = await drainRoute.GET(
+        makeRequest(`Bearer ${CRON_SECRET}`)
+      )
+      const body = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(body.data.succeeded).toBe(2)
+      expect(body.data.errors).toContain('Gym gym-1: vendor unreachable')
+    })
+  })
 
   describe('audit logging (rule 2.6)', () => {
     it('logs a clean drain as a success', async () => {

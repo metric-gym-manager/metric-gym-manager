@@ -1,0 +1,101 @@
+/**
+ * Find out whether a fingerprint actually arrived.
+ *
+ * ## Why this has to be polled
+ *
+ * Enrolment is two-part and physical: we put the reader into enrolment mode,
+ * the member walks over and presents their finger, and the template is created
+ * on the hardware. There is **no completion callback** — nothing tells us it
+ * worked. So the only honest way to know is to ask the vendor whether the
+ * subject now has a template.
+ *
+ * That shapes the UI as much as the code: the dialog has to say "waiting" and
+ * mean it, rather than claiming success the moment the command was accepted.
+ *
+ * ## The tenant trap in here
+ *
+ * `listSubjects` returns every subject on the **vendor account**, which on a
+ * shared account includes other companies' people. Matching is therefore
+ * against our own `member_access_subjects` rows for this gym, never against
+ * the vendor's list as though it were ours.
+ *
+ * ## What this deliberately does not do
+ *
+ * It does not run on a schedule. A background sweep would also catch
+ * enrolments performed at the terminal's own admin menu — but whether those
+ * ever reach the platform is assumption A-4/A-5, unverified, and building a
+ * polling loop against an unverified assumption produces code nobody can later
+ * justify. It is one test in the simulator plan; the sweep follows the answer.
+ *
+ * Until then a device-local enrolment shows as "not enrolled" — cosmetic, since
+ * the door is driven by validity windows rather than by this flag.
+ */
+
+import type { IAccessControlProvider } from '@/lib/access-control'
+import type { IAccessControlRepository } from './IAccessControlRepository'
+
+export interface DetectBiometricEnrolmentResult {
+  /** False when the gym has no access control configured. */
+  applicable: boolean
+  /** Whether the member we asked about now has a template. */
+  enrolled: boolean
+  /** Members whose stored flag this call corrected. */
+  updated: number
+}
+
+export class DetectBiometricEnrolment {
+  constructor(
+    private readonly repo: IAccessControlRepository,
+    private readonly provider: IAccessControlProvider
+  ) {}
+
+  /**
+   * Check the vendor for templates and reconcile our enrolment flags.
+   *
+   * One vendor call regardless of how many members it resolves, so the
+   * enrolment dialog polling every few seconds costs one request per poll
+   * rather than one per member.
+   *
+   * @param gymId - The gym whose subjects to reconcile.
+   * @param memberId - The member the caller is waiting on.
+   */
+  async execute(
+    gymId: string,
+    memberId: string
+  ): Promise<DetectBiometricEnrolmentResult> {
+    const idle = { applicable: false, enrolled: false, updated: 0 }
+
+    const credentials = await this.repo.getCredentials(gymId)
+    if (!credentials) return idle
+
+    const context = await this.repo.getMemberAccessContext(memberId)
+    if (!context || context.gymId !== gymId || !context.subject) return idle
+
+    const vendorSubjects = await this.provider.listSubjects(credentials)
+
+    // Index by id so the lookup below is against the vendor's answer for OUR
+    // subject, not a scan of a list that may contain other tenants.
+    const templateCounts = new Map(
+      vendorSubjects.map((s) => [s.subjectId, s.templateCount ?? 0])
+    )
+
+    const ourId = String(context.subject.subject_id)
+    const hasTemplate = (templateCounts.get(ourId) ?? 0) > 0
+
+    let updated = 0
+
+    // Written only on a change. This is polled every few seconds while a
+    // dialog is open, and an unconditional write would be a row update per
+    // poll for every member being enrolled.
+    if (hasTemplate !== context.subject.finger_enrolled) {
+      await this.repo.setBiometricEnrolled(
+        memberId,
+        hasTemplate,
+        context.subject.finger_id
+      )
+      updated += 1
+    }
+
+    return { applicable: true, enrolled: hasTemplate, updated }
+  }
+}

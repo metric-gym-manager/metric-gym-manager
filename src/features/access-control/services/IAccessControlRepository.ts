@@ -144,6 +144,25 @@ export interface IAccessControlRepository {
   /** Remove from our records only — the vendor exposes no device delete. */
   unlinkDevice(deviceId: string): Promise<void>
 
+  /**
+   * Record that a reader was heard from.
+   *
+   * Separate from the clock-skew write because the sources differ: a scan
+   * proves contact *and* reveals the device clock, whereas the vendor's device
+   * list proves contact and says nothing about time.
+   */
+  markDeviceSeen(deviceSerial: string, seenAt: Date): Promise<void>
+
+  /**
+   * Record what a reader's real template limit turned out to be.
+   *
+   * Capacity is unknown until the hardware tells us, and the way it tells us
+   * is by refusing an enrolment. This is how the system learns — and until it
+   * has, the proactive capacity check cannot fire at all, because
+   * `slotsToReclaim` declines to guess.
+   */
+  recordDeviceCapacity(deviceSerial: string, capacity: number): Promise<void>
+
   /** Persist inferred clock drift for monitoring. */
   recordDeviceClockSkew(
     deviceSerial: string,

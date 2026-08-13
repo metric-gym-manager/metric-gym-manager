@@ -322,6 +322,42 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     }
   }
 
+  async markDeviceSeen(deviceSerial: string, seenAt: Date): Promise<void> {
+    // Never moves `last_seen_at` backwards: contact evidence arrives from two
+    // sources at different latencies, and an older vendor timestamp must not
+    // overwrite a fresher scan.
+    const { error } = await this.supabase
+      .from('access_devices')
+      .update({ last_seen_at: seenAt.toISOString() })
+      .eq('device_serial', deviceSerial)
+      .or(`last_seen_at.is.null,last_seen_at.lt.${seenAt.toISOString()}`)
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to record device contact: ${error.message}`
+      )
+    }
+  }
+
+  async recordDeviceCapacity(
+    deviceSerial: string,
+    capacity: number
+  ): Promise<void> {
+    const { error } = await this.supabase
+      .from('access_devices')
+      .update({
+        template_capacity: capacity,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('device_serial', deviceSerial)
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to record device capacity: ${error.message}`
+      )
+    }
+  }
+
   async recordDeviceClockSkew(
     deviceSerial: string,
     skewSeconds: number

@@ -26,6 +26,7 @@ import { ReconcileMemberAccess } from '@/features/access-control/services/Reconc
 import { RecordAccessEvents } from '@/features/access-control/services/RecordAccessEvents'
 import { GetMemberAccessStatus } from '@/features/access-control/services/GetMemberAccessStatus'
 import { MockAccessControlProvider } from '@/lib/access-control'
+import { EvictInactiveSubjects } from '@/features/access-control/services/EvictInactiveSubjects'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig'
 import {
@@ -107,7 +108,11 @@ function simulation(options: {
     makeSubscription({ gymId: 'gym-1', status: SaasStatus.Active })
   )
 
-  const reconcile = new ReconcileMemberAccess(repo, subscriptionRepo)
+  const reconcile = new ReconcileMemberAccess(
+    repo,
+    subscriptionRepo,
+    new EvictInactiveSubjects(repo, provider)
+  )
 
   return { repo, provider, sync, reconcile, state }
 }
@@ -292,7 +297,8 @@ describe('Inverted assumption 4 — an entitled gym stays entitled', () => {
 
     const summary = await new ReconcileMemberAccess(
       repo,
-      subscriptionRepo
+      subscriptionRepo,
+      new EvictInactiveSubjects(repo, new MockAccessControlProvider())
     ).execute({ today: TODAY })
 
     expect(summary.membersEnqueued).toBe(0)

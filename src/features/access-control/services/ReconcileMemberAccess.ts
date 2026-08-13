@@ -31,6 +31,7 @@ import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig'
 import { isFeatureEnabled } from '@/features/subscriptions/domain/PlanRestrictions'
 import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository'
 import type { IAccessControlRepository } from './IAccessControlRepository'
+import type { EvictInactiveSubjects } from './EvictInactiveSubjects'
 import { resolveAccessDecision } from '@/features/access-control/domain/AccessDecision'
 import {
   formatDeviceDate,
@@ -60,13 +61,24 @@ export interface ReconcileMemberAccessSummary {
   membersChecked: number
   /** Members whose hardware state no longer matches their access. */
   membersEnqueued: number
+  /**
+   * Reader slots reclaimed by the proactive capacity sweep.
+   *
+   * Only ever non-zero for a gym whose reader capacity is already known — and
+   * capacity is only learned from a reader refusing an enrolment. So this stays
+   * at zero until the reactive path has fired at least once, which is correct
+   * rather than a bug: guessing a limit could evict members from a reader with
+   * plenty of room.
+   */
+  slotsReclaimed: number
   errors: string[]
 }
 
 export class ReconcileMemberAccess {
   constructor(
     private readonly repo: IAccessControlRepository,
-    private readonly gymSubscriptionRepo: IGymSubscriptionRepository
+    private readonly gymSubscriptionRepo: IGymSubscriptionRepository,
+    private readonly evictSubjects: EvictInactiveSubjects
   ) {}
 
   /**
@@ -83,6 +95,7 @@ export class ReconcileMemberAccess {
       gymsSkippedNotEntitled: 0,
       membersChecked: 0,
       membersEnqueued: 0,
+      slotsReclaimed: 0,
       errors: [],
     }
 
@@ -151,6 +164,15 @@ export class ReconcileMemberAccess {
 
           summary.membersEnqueued += 1
         }
+
+        // Capacity housekeeping, after the diff rather than before it: a
+        // member whose access changed tonight should be queued even if the
+        // reader turns out to be full, so the drainer's own reactive path can
+        // deal with that and the two mechanisms cannot fight over the same
+        // slots in the same run.
+        const eviction = await this.evictSubjects.execute({ gymId })
+        summary.slotsReclaimed += eviction.evicted
+        summary.errors.push(...eviction.errors)
       } catch (error) {
         summary.errors.push(
           `Gym ${gymId}: ${error instanceof Error ? error.message : 'Unknown error'}`

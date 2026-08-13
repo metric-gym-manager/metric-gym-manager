@@ -320,6 +320,47 @@ the vendor on a tighter loop for a case that mostly does not arise.
 3. Route each job: member intents to `SyncMemberAccess`, device intents to
    `OperateDevice`
 4. Settle: success, retry with backoff, or dead-letter
+5. **Refresh device presence** from the vendor's own device list
+
+### Why presence rides along here
+
+Step 5 is not really a drain concern, but it belongs on this schedule. We stamp
+`last_seen_at` whenever a scan arrives on the webhook — but scans only happen
+when _members_ do, so a gym that closes at 10pm produces no contact overnight
+and every reader would read "offline since 22:14" by morning.
+
+That matters because the device card's whole job is to stop staff panicking
+about an offline reader (the door keeps working from the terminal's own
+records). A dashboard that cries wolf nightly teaches people to ignore it, and
+then the one real outage is ignored too.
+
+No vendor presence field is documented, so this takes an explicit online flag
+if one is offered, a last-activity timestamp if not, and reports **unknown**
+rather than inventing a verdict when neither arrives. A reader we have
+registered that the vendor does not list at all is reported separately as
+`devicesUnknownToVendor` — that is a configuration problem (wrong account,
+mistyped serial), not an outage.
+
+### Capacity reclamation on `-18`
+
+When a reader answers "device storage is full", the drain does not simply
+dead-letter the job. It:
+
+1. Records `template_capacity = template_count` — "full" means the current
+   count _is_ the limit, and this is the only way the system ever learns it
+2. Evicts inactive members (cancelled first, then longest-expired)
+3. **Reschedules** the job, so the member who triggered it gets on at the next
+   pass rather than waiting for someone to notice a dead job
+
+If nothing can be freed — every remaining member on the reader can currently
+enter — it dead-letters and a person is told. That is a second-reader
+conversation, not something to solve by locking out someone who paid.
+
+Note the ordering dependency: the proactive nightly capacity check in
+`reconcile-access` **cannot fire until this has happened at least once**,
+because `slotsToReclaim` refuses to guess at an unknown capacity. That is
+deliberate — guessing a limit could evict members from a reader with plenty of
+room.
 
 Step 1 comes first on purpose. A serverless invocation killed mid-drain
 (timeout, deploy, OOM) leaves its claimed jobs `in_flight`, and the claim

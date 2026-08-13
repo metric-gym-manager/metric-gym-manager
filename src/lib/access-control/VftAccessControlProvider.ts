@@ -64,6 +64,17 @@ const deviceSchema = z.object({
   DevName: z.string().optional(),
   TimeZone: z.union([z.string(), z.number()]).optional(),
   AreaID: z.union([z.string(), z.number()]).nullish(),
+  // Presence fields. NONE of these is documented — the field names below are
+  // the ones ZKTeco-derived wrappers commonly use, accepted optionally so the
+  // parse cannot fail on a build that omits them. Whichever (if any) the
+  // simulator actually returns is test A-2 in the simulator plan.
+  //
+  // If none arrives we report presence as unknown rather than guessing, and
+  // fall back to the webhook contact time. Claiming a reader is online on no
+  // evidence is worse than admitting we cannot tell.
+  LastActivity: z.string().nullish(),
+  LastSeen: z.string().nullish(),
+  IsOnline: z.union([z.boolean(), z.string(), z.number()]).nullish(),
 })
 
 const deviceListSchema = z.union([
@@ -189,6 +200,8 @@ export class VftAccessControlProvider implements IAccessControlProvider {
       name: device.DevName ?? device.DevSN,
       areaId: toNumberOrNull(device.AreaID),
       timezoneOffsetMinutes: toNumberOrNull(device.TimeZone),
+      lastSeenAt: parseVendorDate(device.LastActivity ?? device.LastSeen),
+      online: toBooleanOrNull(device.IsOnline),
     }))
   }
 
@@ -554,4 +567,39 @@ function toNumberOrNull(
   if (value === null || value === undefined || value === '') return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+/**
+ * Parse a presence flag that may arrive as a boolean, `"1"`, or `"true"`.
+ *
+ * Returns `null` for anything unrecognised rather than defaulting to `false`:
+ * "the vendor did not say" and "the vendor said no" mean different things on a
+ * screen a gym manager reads.
+ */
+function toBooleanOrNull(
+  value: boolean | string | number | null | undefined
+): boolean | null {
+  if (value === null || value === undefined || value === '') return null
+  if (typeof value === 'boolean') return value
+  if (typeof value === 'number') return value !== 0
+
+  const normalised = value.trim().toLowerCase()
+  if (['true', '1', 'yes', 'online'].includes(normalised)) return true
+  if (['false', '0', 'no', 'offline'].includes(normalised)) return false
+
+  return null
+}
+
+/**
+ * Parse a vendor timestamp, tolerating the space-separated form.
+ *
+ * These fields are undocumented, so an unparseable value is treated as absent
+ * rather than as an error — a presence hint we cannot read is not a reason to
+ * fail a device listing.
+ */
+function parseVendorDate(value: string | null | undefined): Date | null {
+  if (!value) return null
+
+  const parsed = new Date(value.includes('T') ? value : value.replace(' ', 'T'))
+  return Number.isNaN(parsed.getTime()) ? null : parsed
 }

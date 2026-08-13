@@ -25,6 +25,7 @@ import { RequestPacer } from '@/lib/access-control/rateLimit'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 import type { SyncMemberAccess, SyncFailure } from './SyncMemberAccess'
 import type { OperateDevice } from './OperateDevice'
+import type { EvictInactiveSubjects } from './EvictInactiveSubjects'
 import {
   AccessIntent,
   AccessSyncStatus,
@@ -50,14 +51,35 @@ export interface DrainAccessSyncQueueSummary {
   deadLettered: number
   /** Dead-lettered failures that need a person — a full reader, for example. */
   needingAttention: number
+  /** Slots reclaimed after a reader reported itself full. */
+  evicted: number
   errors: string[]
 }
+
+/**
+ * Vendor return code for "the device has insufficient space".
+ *
+ * Singled out because it is the one failure the system can resolve on its own:
+ * a full reader is a capacity problem, and we hold a policy for reclaiming
+ * capacity from members who cannot get in anyway.
+ */
+const DEVICE_STORAGE_FULL = -18
+
+/**
+ * Slots to reclaim when a reader reports itself full.
+ *
+ * More than the one the blocked member needs, so a gym churning members does
+ * not hit `-18` again on the very next enrolment and pay another round trip
+ * for every single one.
+ */
+const EVICTION_BATCH_ON_FULL = 25
 
 export class DrainAccessSyncQueue {
   constructor(
     private readonly repo: IAccessControlRepository,
     private readonly syncMember: SyncMemberAccess,
     private readonly operateDevice: OperateDevice,
+    private readonly evictSubjects: EvictInactiveSubjects,
     private readonly provider: IAccessControlProvider
   ) {}
 
@@ -77,6 +99,7 @@ export class DrainAccessSyncQueue {
       retrying: 0,
       deadLettered: 0,
       needingAttention: 0,
+      evicted: 0,
       errors: [],
     }
 
@@ -105,7 +128,7 @@ export class DrainAccessSyncQueue {
           continue
         }
 
-        await this.settleFailure(job.id, failures[0], summary)
+        await this.settleFailure(job.id, failures[0], summary, job.gym_id)
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown drain error'
@@ -194,11 +217,29 @@ export class DrainAccessSyncQueue {
   private async settleFailure(
     jobId: string,
     failure: SyncFailure,
-    summary: DrainAccessSyncQueueSummary
+    summary: DrainAccessSyncQueueSummary,
+    gymId: string
   ): Promise<void> {
+    // A full reader is the one failure we can act on rather than merely
+    // report. Reclaim capacity from members who cannot get in anyway, then
+    // reschedule — so the member who triggered it gets on at the next pass
+    // instead of waiting for someone to notice a dead-lettered job.
+    if (failure.returnCode === DEVICE_STORAGE_FULL) {
+      const freed = await this.freeCapacity(gymId, summary)
+
+      if (freed > 0) {
+        await this.repo.failJob(jobId, failure.message, true)
+        summary.retrying += 1
+        return
+      }
+      // Nothing could be freed: every remaining member on the reader can
+      // currently enter. That is a second-reader conversation, so it falls
+      // through to dead-letter and a person is told.
+    }
+
     // A retryable failure goes back with backoff; anything else stops here.
-    // Retrying a permanent failure — an unsupported command, a full reader —
-    // burns quota and buries the real problem behind noise.
+    // Retrying a permanent failure — an unsupported command, a reader we could
+    // not free — burns quota and buries the real problem behind noise.
     const retryable = failure.retryable && !failure.needsAttention
 
     await this.repo.failJob(jobId, failure.message, retryable)
@@ -213,6 +254,54 @@ export class DrainAccessSyncQueue {
       summary.needingAttention += 1
     }
     summary.errors.push(failure.message)
+  }
+
+  /**
+   * Reclaim reader slots after a device reported itself full.
+   *
+   * Also the moment the system **learns the reader's real capacity**: "full"
+   * means the current template count is the limit, and until we know that
+   * number the proactive capacity check cannot fire at all, because
+   * `slotsToReclaim` refuses to guess at an unknown capacity.
+   *
+   * @returns Slots actually freed.
+   */
+  private async freeCapacity(
+    gymId: string,
+    summary: DrainAccessSyncQueueSummary
+  ): Promise<number> {
+    try {
+      const devices = await this.repo.listDevices(gymId)
+
+      for (const device of devices.filter((d) => d.is_active)) {
+        if (device.template_capacity === null && device.template_count > 0) {
+          await this.repo.recordDeviceCapacity(
+            device.device_serial,
+            device.template_count
+          )
+        }
+      }
+
+      const result = await this.evictSubjects.execute({
+        gymId,
+        // The reader is full right now, whatever our recorded count says, so
+        // the usage-fraction thresholds are bypassed in favour of a concrete
+        // ask: free enough for this member and a little headroom.
+        forceSlots: EVICTION_BATCH_ON_FULL,
+      })
+
+      summary.evicted += result.evicted
+      summary.errors.push(...result.errors)
+
+      return result.evicted
+    } catch (error) {
+      summary.errors.push(
+        `Capacity reclamation failed for gym ${gymId}: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`
+      )
+      return 0
+    }
   }
 
   /** Provider name, for the cron log. */

@@ -176,3 +176,16 @@ export const DRAIN_BATCH_SIZE = 25
  */
 export const DEVICE_CAPACITY_EVICT_ABOVE = 0.85
 export const DEVICE_CAPACITY_TARGET = 0.7
+
+/**
+ * How long since last contact before a reader is presented as offline.
+ *
+ * VFT quoted a 2-minute device timeout, so this is that plus headroom for one
+ * missed poll — a reader that misses a single beat should not flicker offline
+ * on the dashboard.
+ *
+ * Being generous here is the safe direction. Showing a working reader as
+ * offline invites staff to start letting people in manually, which is a worse
+ * outcome than showing a dead reader as online for another three minutes.
+ */
+export const DEVICE_OFFLINE_AFTER_SECONDS = 300

@@ -61,6 +61,21 @@ export interface AccessDeviceInfo {
   areaId: number | null
   /** Minutes from UTC, as configured on the device. */
   timezoneOffsetMinutes: number | null
+  /**
+   * When the vendor last heard from this reader, if they say.
+   *
+   * `null` means the vendor told us nothing — not that the reader is silent.
+   * The two are very different to a gym manager, so the distinction survives
+   * all the way to the screen rather than collapsing into a false "offline".
+   */
+  lastSeenAt: Date | null
+  /**
+   * The vendor's own online verdict, when it offers one.
+   *
+   * `null` = unknown. Preferred over our inference when present, because the
+   * vendor is talking to the device and we are only observing scans.
+   */
+  online: boolean | null
 }
 
 /** A subject (member) as the vendor holds it. */

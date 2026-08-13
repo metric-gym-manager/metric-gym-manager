@@ -21,7 +21,10 @@ import {
   describeDeviceEvent,
   classifyDeviceEvent,
 } from '@/features/access-control/config/DeviceEventCodes'
-import { DEVICE_CLOCK_SKEW_ALERT_SECONDS } from '@/features/access-control/config/AccessControlConfig'
+import {
+  DEVICE_CLOCK_SKEW_ALERT_SECONDS,
+  DEVICE_OFFLINE_AFTER_SECONDS,
+} from '@/features/access-control/config/AccessControlConfig'
 
 export interface SerializedAccessAccount {
   id: string
@@ -66,6 +69,14 @@ export interface SerializedAccessDevice {
   capacityUsed: number | null
   /** True when the reader's clock has drifted far enough to matter. */
   clockDrifting: boolean
+  /**
+   * Presence, with "we don't know" as a first-class answer.
+   *
+   * `unknown` is not a failure state and must not render like one: it means we
+   * have simply never heard from this reader, which is the normal state of a
+   * device registered minutes ago.
+   */
+  presence: 'online' | 'offline' | 'unknown'
 }
 
 /**
@@ -95,7 +106,28 @@ export function serializeAccessDeviceForAPI(
     clockDrifting:
       device.clock_skew_seconds !== null &&
       Math.abs(device.clock_skew_seconds) > DEVICE_CLOCK_SKEW_ALERT_SECONDS,
+    presence: resolvePresence(device.last_seen_at),
   }
+}
+
+/**
+ * Turn a last-contact time into the verdict shown on the card.
+ *
+ * Three outcomes, not two. A reader we have never heard from is `unknown` —
+ * newly registered, or one whose gym has had no scans and whose vendor gives
+ * no presence field. Rendering that as "offline" would be a false alarm on the
+ * one screen whose job is to prevent exactly that.
+ *
+ * @param lastSeenAt - ISO contact time, or `null` if never.
+ */
+function resolvePresence(
+  lastSeenAt: string | null
+): 'online' | 'offline' | 'unknown' {
+  if (!lastSeenAt) return 'unknown'
+
+  const elapsedSeconds = (Date.now() - new Date(lastSeenAt).getTime()) / 1000
+
+  return elapsedSeconds <= DEVICE_OFFLINE_AFTER_SECONDS ? 'online' : 'offline'
 }
 
 export interface SerializedAccessEvent {

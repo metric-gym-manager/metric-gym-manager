@@ -87,6 +87,10 @@ export { VerifyAccessAccount } from './services/VerifyAccessAccount'
 export { ManageMemberBiometric } from './services/ManageMemberBiometric'
 export type { BiometricOperationResult } from './services/ManageMemberBiometric'
 export { GetMemberAccessStatus } from './services/GetMemberAccessStatus'
+export { RefreshDeviceStatus } from './services/RefreshDeviceStatus'
+export type { RefreshDeviceStatusSummary } from './services/RefreshDeviceStatus'
+export { DetectBiometricEnrolment } from './services/DetectBiometricEnrolment'
+export type { DetectBiometricEnrolmentResult } from './services/DetectBiometricEnrolment'
 export type {
   IAccessControlRepository,
   MemberAccessContext,
@@ -106,6 +110,8 @@ export {
   createVerifyAccessAccount,
   createManageMemberBiometric,
   createGetMemberAccessStatus,
+  createRefreshDeviceStatus,
+  createDetectBiometricEnrolment,
 } from './services/factory'
 
 // Serializers — no database row is handed to JSON directly (rule 2.11)

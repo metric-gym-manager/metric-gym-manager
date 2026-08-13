@@ -13,6 +13,8 @@
  */
 
 import { ReconcileMemberAccess } from '@/features/access-control/services/ReconcileMemberAccess'
+import { EvictInactiveSubjects } from '@/features/access-control/services/EvictInactiveSubjects'
+import { MockAccessControlProvider } from '@/lib/access-control'
 import {
   SaasStatus,
   SaasTier,
@@ -59,7 +61,11 @@ function build(
   return {
     repo,
     subscriptionRepo,
-    useCase: new ReconcileMemberAccess(repo, subscriptionRepo),
+    useCase: new ReconcileMemberAccess(
+      repo,
+      subscriptionRepo,
+      new EvictInactiveSubjects(repo, new MockAccessControlProvider())
+    ),
   }
 }
 

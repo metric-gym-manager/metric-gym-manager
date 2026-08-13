@@ -30,7 +30,25 @@ export interface EvictInactiveSubjectsInput {
    * now, whatever our recorded count says.
    */
   forceSlots?: number
+  /**
+   * Why eviction was asked for. Decides what to do when capacity is unknown.
+   *
+   * `proactive` (the default) declines to act — a nightly sweep must not guess
+   * at a reader's limit and evict from one with plenty of room. `manual` is a
+   * person pressing a button having read a capacity warning, so a modest batch
+   * is honoured rather than silently doing nothing.
+   */
+  reason?: 'proactive' | 'manual'
 }
+
+/**
+ * Slots freed when a person asks but the reader's true capacity is unknown.
+ *
+ * Small on purpose. Every candidate is restorable by re-sync, but eviction
+ * still costs a vendor round trip each, and a button that quietly removed
+ * hundreds of members would be a surprise.
+ */
+const MANUAL_EVICTION_BATCH = 25
 
 export interface EvictInactiveSubjectsSummary {
   /** False when the gym has no access control configured. */
@@ -79,19 +97,33 @@ export class EvictInactiveSubjects {
 
     // The fullest reader sets the requirement: a member's template sits on
     // every reader the gym has, so freeing one frees all of them equally.
-    const needed =
-      input.forceSlots ??
-      Math.max(
-        0,
-        ...activeDevices.map((device) =>
-          slotsToReclaim(
-            device.template_count ?? 0,
-            device.template_capacity ?? null,
-            DEVICE_CAPACITY_EVICT_ABOVE,
-            DEVICE_CAPACITY_TARGET
-          )
+    const fromThresholds = Math.max(
+      0,
+      ...activeDevices.map((device) =>
+        slotsToReclaim(
+          device.template_count ?? 0,
+          device.template_capacity ?? null,
+          DEVICE_CAPACITY_EVICT_ABOVE,
+          DEVICE_CAPACITY_TARGET
         )
       )
+    )
+
+    // A person who pressed the button after reading a capacity warning gets a
+    // batch even when we do not know the reader's true limit — otherwise the
+    // button does nothing at all on every reader whose capacity has not yet
+    // been learned, which is all of them until one reports itself full.
+    const capacityUnknown = activeDevices.every(
+      (device) => device.template_capacity === null
+    )
+
+    const needed =
+      input.forceSlots ??
+      (fromThresholds > 0
+        ? fromThresholds
+        : input.reason === 'manual' && capacityUnknown
+          ? MANUAL_EVICTION_BATCH
+          : 0)
 
     if (needed <= 0) return summary
 

@@ -169,6 +169,16 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
   readonly syncStates = new Map<string, SyncStateUpdate>()
   readonly storedEvents: IncomingAccessEvent[] = []
   readonly clockSkews: Array<{ deviceSerial: string; skewSeconds: number }> = []
+  readonly seenDevices: Array<{ deviceSerial: string; seenAt: Date }> = []
+  readonly enrolments: Array<{
+    memberId: string
+    enrolled: boolean
+    fingerId: number | null
+  }> = []
+  readonly learnedCapacities: Array<{
+    deviceSerial: string
+    capacity: number
+  }> = []
 
   /** Serials already stored, so a repeat delivery counts as a duplicate. */
   private readonly seenEventKeys = new Set<string>()
@@ -255,6 +265,17 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     this.clockSkews.push({ deviceSerial, skewSeconds })
   }
 
+  async markDeviceSeen(deviceSerial: string, seenAt: Date): Promise<void> {
+    this.seenDevices.push({ deviceSerial, seenAt })
+  }
+
+  async recordDeviceCapacity(
+    deviceSerial: string,
+    capacity: number
+  ): Promise<void> {
+    this.learnedCapacities.push({ deviceSerial, capacity })
+  }
+
   // ---- Subjects ------------------------------------------------------------
 
   async getMemberAccessContext(
@@ -320,7 +341,13 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     this.syncStates.set(memberId, update)
   }
 
-  async setBiometricEnrolled(): Promise<void> {}
+  async setBiometricEnrolled(
+    memberId: string,
+    enrolled: boolean,
+    fingerId?: number | null
+  ): Promise<void> {
+    this.enrolments.push({ memberId, enrolled, fingerId: fingerId ?? null })
+  }
 
   // ---- Outbox --------------------------------------------------------------
 

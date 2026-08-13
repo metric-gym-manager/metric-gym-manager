@@ -44,10 +44,13 @@ Initialize a production-ready `[project-type]` following these constraints.
           /route.ts               # GET all gyms' registration links
           /regenerate/route.ts    # POST rotate one gym's token (invalidates printed QRs)
         /qr-poster/route.ts       # GET a gym's 2b poster PNG (ResponseBuilder.binary)
+        /system-health/access-control/route.ts  # Raw vendor errors, dead jobs,
+                        # drifting clocks, near-capacity readers (rule 2.9)
       /access-control/  # Gym-facing door hardware (session + Enterprise capability
                         # via requireAccessControlGym): account, devices (+ enable/
-                        # disable/unlink/open/reboot), members (sync/enrol/biometric),
-                        # events. State transitions get dedicated endpoints (rule 2.5).
+                        # disable/unlink/open/reboot/free-space), members
+                        # (sync/enrol/enrolment/biometric), events. State
+                        # transitions get dedicated endpoints (rule 2.5).
       /webhooks/
         /access-control/[token]/route.ts  # Inbound device scans. Platform-wide path
                         # token is the ONLY credential (no signature scheme exists);

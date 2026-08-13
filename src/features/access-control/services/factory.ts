@@ -23,6 +23,8 @@ import { OperateDevice } from './OperateDevice'
 import { VerifyAccessAccount } from './VerifyAccessAccount'
 import { ManageMemberBiometric } from './ManageMemberBiometric'
 import { GetMemberAccessStatus } from './GetMemberAccessStatus'
+import { RefreshDeviceStatus } from './RefreshDeviceStatus'
+import { DetectBiometricEnrolment } from './DetectBiometricEnrolment'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 
 /**
@@ -86,6 +88,17 @@ export function createDrainAccessSyncQueue(
     createAccessControlRepository(supabase),
     createSyncMemberAccess(supabase),
     createOperateDevice(supabase),
+    createEvictInactiveSubjects(supabase),
+    createAccessControlProvider()
+  )
+}
+
+/** Device presence refresh, run alongside the drain. */
+export function createRefreshDeviceStatus(
+  supabase: SupabaseClient
+): RefreshDeviceStatus {
+  return new RefreshDeviceStatus(
+    createAccessControlRepository(supabase),
     createAccessControlProvider()
   )
 }
@@ -96,7 +109,8 @@ export function createReconcileMemberAccess(
 ): ReconcileMemberAccess {
   return new ReconcileMemberAccess(
     createAccessControlRepository(supabase),
-    new SupabaseGymSubscriptionRepository(supabase)
+    new SupabaseGymSubscriptionRepository(supabase),
+    createEvictInactiveSubjects(supabase)
   )
 }
 
@@ -127,6 +141,16 @@ export function createManageMemberBiometric(
   supabase: SupabaseClient
 ): ManageMemberBiometric {
   return new ManageMemberBiometric(
+    createAccessControlRepository(supabase),
+    createAccessControlProvider()
+  )
+}
+
+/** "Has the finger arrived yet?" — polled by the enrolment dialog. */
+export function createDetectBiometricEnrolment(
+  supabase: SupabaseClient
+): DetectBiometricEnrolment {
+  return new DetectBiometricEnrolment(
     createAccessControlRepository(supabase),
     createAccessControlProvider()
   )

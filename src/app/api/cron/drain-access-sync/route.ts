@@ -17,7 +17,10 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createDrainAccessSyncQueue } from '@/features/access-control'
+import {
+  createDrainAccessSyncQueue,
+  createRefreshDeviceStatus,
+} from '@/features/access-control'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { CronLogger } from '@/lib/cron'
 
@@ -50,8 +53,20 @@ async function runDrain(request: NextRequest) {
 
     const summary = await createDrainAccessSyncQueue(supabase).execute()
 
+    // Presence rides along with the drain rather than getting its own
+    // schedule. Webhook events only arrive when somebody scans, so a gym that
+    // closed at 10pm would otherwise show every reader as offline by morning —
+    // a false alarm on the one screen whose job is to prevent exactly that.
+    const presence = await createRefreshDeviceStatus(supabase).execute()
+
     const payload = {
       ...summary,
+      devicesChecked: presence.devicesChecked,
+      devicesSeen: presence.devicesSeen,
+      // A registered reader the vendor does not know is a configuration
+      // problem, not an outage, and reads differently in the log.
+      devicesUnknownToVendor: presence.unknownToVendor,
+      errors: [...summary.errors, ...presence.errors],
       duration: `${Date.now() - startedAt}ms`,
     }
 
