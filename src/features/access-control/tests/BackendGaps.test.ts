@@ -399,15 +399,18 @@ describe('Gap 3 — enrolment detection', () => {
     expect(result.enrolled).toBe(false)
   })
 
-  it('notices a template that has disappeared', async () => {
+  it('reports a vanished template without un-enrolling the member', async () => {
     const { enrolled, useCase } = build([vendorSubject('100001', 0)], true)
 
     const result = await useCase.execute('gym-1', 'member-1')
 
+    // Detection is additive only. A zero count is ambiguous — it may mean the
+    // member was evicted for capacity while the vendor still holds their
+    // central copy — and clearing the flag on that would send the desk to walk
+    // them back to the scanner for nothing. The explicit clear path stays the
+    // sole way `finger_enrolled` goes false.
     expect(result.enrolled).toBe(false)
-    expect(enrolled).toEqual([
-      { memberId: 'member-1', enrolled: false, fingerId: 6 },
-    ])
+    expect(enrolled).toHaveLength(0)
   })
 
   it('does nothing for a member of another gym', async () => {

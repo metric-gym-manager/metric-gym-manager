@@ -354,6 +354,74 @@ describe('SupabaseAccessControlRepository', () => {
       expect(updates[0].status).toBe(AccessSyncStatus.Dead)
     })
   })
+
+  describe('device contact never moves backwards', () => {
+    it('guards the write with a filter rather than trusting call order', async () => {
+      // Contact evidence has two sources at different latencies: a scan hits
+      // the webhook instantly, the vendor's device listing can be minutes
+      // behind. An unguarded write would let the stale one age a live reader
+      // backwards and flip it to offline on the dashboard.
+      //
+      // The guard belongs in the WHERE clause, not in application code, so two
+      // concurrent writers obey it too.
+      const filters: string[] = []
+
+      const client = {
+        from: () => ({
+          update: () => ({
+            eq: () => ({
+              or: (filter: string) => {
+                filters.push(filter)
+                return Promise.resolve({ data: null, error: null })
+              },
+            }),
+          }),
+        }),
+      } as unknown as SupabaseClient
+
+      const repo = new SupabaseAccessControlRepository(client)
+      const seenAt = new Date('2026-01-10T09:00:00.000Z')
+
+      await repo.markDeviceSeen('SER-001', seenAt)
+
+      expect(filters).toHaveLength(1)
+      expect(filters[0]).toBe(
+        'last_seen_at.is.null,last_seen_at.lt.2026-01-10T09:00:00.000Z'
+      )
+    })
+
+    it('sends a timestamp PostgREST can parse in a filter value', async () => {
+      // PostgREST splits `column.operator.value` on the first two dots and
+      // takes the rest verbatim, so the dots inside an ISO timestamp are safe
+      // — but a comma, bracket or space would need quoting and would silently
+      // corrupt the filter. `toISOString()` produces none of those; a locale
+      // string would produce all of them.
+      const filters: string[] = []
+
+      const client = {
+        from: () => ({
+          update: () => ({
+            eq: () => ({
+              or: (filter: string) => {
+                filters.push(filter)
+                return Promise.resolve({ data: null, error: null })
+              },
+            }),
+          }),
+        }),
+      } as unknown as SupabaseClient
+
+      await new SupabaseAccessControlRepository(client).markDeviceSeen(
+        'SER-001',
+        new Date('2026-01-10T09:00:00.000Z')
+      )
+
+      const value = filters[0].split('last_seen_at.lt.')[1]
+
+      expect(value).toMatch(/^\d{4}-\d{2}-\d{2}T[\d:.]+Z$/)
+      expect(value).not.toMatch(/[,()\s]/)
+    })
+  })
 })
 
 function makeEvent(occurredAt: string) {

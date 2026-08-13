@@ -1018,6 +1018,52 @@ tightens the window correctly; cancel→rejoin→cancel churn never destroys the
 central template; and the reconciler settles after a sync, a block and a
 cancellation alike, rather than re-enqueueing every member nightly.
 
+## 11.2 Second inverted-assumption audit — four more defects
+
+Run after the operability gaps landed, targeting the new code and — more
+productively — the places where two independently-reasonable decisions
+**interact**. Four defects, five failing simulations
+(`InvertedAssumptionsTwo.reverse.test.ts`).
+
+| #      | Inverted assumption                                       | What was actually wrong                                                                                                                                                                                                                                                                                                                              |
+| ------ | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **N1** | "A gym reporting a full reader has only one reader"       | On `-18` the drain stamped `template_capacity = template_count` on **every** active reader. A gym running an old full reader beside a new roomy one would have the roomy one's capacity recorded as its current count — and the nightly sweep would then evict from a reader with thousands of free slots, indefinitely, with nothing looking wrong. |
+| **N2** | "Constants chosen separately can be read separately"      | `DEVICE_OFFLINE_AFTER_SECONDS` (300s) exactly equalled the drain interval that refreshes presence (300s). Every healthy reader would spend the tail of every interval reading **offline** — a permanent flicker on the one screen built to prevent false alarms. Neither constant was wrong alone.                                                   |
+| **N3** | "A template missing from the vendor means no fingerprint" | `DetectBiometricEnrolment` cleared `finger_enrolled` on a zero template count. But whether `GET /api/template` reports central copies or per-reader ones is unverified (A-5) — if per-reader, a member evicted for capacity reads as zero while their fingerprint is very much on file, and the desk would be told to walk them back to the scanner. |
+| **N4** | "A reader that has never been counted can be measured"    | Capacity was learned from `template_count`, which is only ever written by a recount, which until now only ran _during_ eviction. A brand-new gym's first `-18` found zero and recorded nothing, so the limit stayed unknown until the reader refused a second time.                                                                                  |
+
+### The fixes
+
+**N1** threads the failing terminal's serial through `CommandOutcome` →
+`SyncFailure` → the drainer, taken from the _command_ rather than the vendor's
+error text (which says nothing about which reader refused). Capacity is stamped
+for that reader alone, and **no serial means no stamp** — doing nothing beats
+acting on a guess. `Provision` is excluded from serial attribution: it targets
+the vendor's records and only borrows a serial for command ordering.
+
+**N2** makes the relationship explicit rather than coincidental:
+`DRAIN_INTERVAL_SECONDS` is now declared in config and
+`DEVICE_OFFLINE_AFTER_SECONDS` is derived as three times it, with the reasoning
+written where the next person will change it. A test asserts the inequality
+directly, so re-tuning either constant in isolation fails the build.
+
+**N3** makes detection **additive only** — it can set `finger_enrolled` true
+and never false. Deliberately clearing a fingerprint already has its own path
+(`ManageMemberBiometric.clear`), which knows it meant it.
+
+**N4** recounts the refusing reader _before_ measuring it, so the limit is
+learned on the first refusal.
+
+A fifth finding was in the test doubles rather than the code: the fake
+repository's `recountDeviceTemplates` returned a flat zero, which is a lie in
+exactly the direction that matters — capacity learning reads that number, and
+zero reads as "nothing to measure". It now returns the device's recorded count.
+
+Two further inversions held: a stale vendor timestamp cannot age a reader
+backwards (the guard is a `WHERE` clause, so concurrent writers obey it too),
+and another company's healthy reader on a shared vendor account is never read
+as ours.
+
 ---
 
 ## 12. What is still open

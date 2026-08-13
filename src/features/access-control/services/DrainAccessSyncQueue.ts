@@ -225,7 +225,11 @@ export class DrainAccessSyncQueue {
     // reschedule — so the member who triggered it gets on at the next pass
     // instead of waiting for someone to notice a dead-lettered job.
     if (failure.returnCode === DEVICE_STORAGE_FULL) {
-      const freed = await this.freeCapacity(gymId, summary)
+      const freed = await this.freeCapacity(
+        gymId,
+        summary,
+        failure.deviceSerial
+      )
 
       if (freed > 0) {
         await this.repo.failJob(jobId, failure.message, true)
@@ -259,26 +263,44 @@ export class DrainAccessSyncQueue {
   /**
    * Reclaim reader slots after a device reported itself full.
    *
-   * Also the moment the system **learns the reader's real capacity**: "full"
-   * means the current template count is the limit, and until we know that
+   * Also the moment the system **learns that reader's real capacity**: "full"
+   * means its current template count is the limit, and until we know that
    * number the proactive capacity check cannot fire at all, because
    * `slotsToReclaim` refuses to guess at an unknown capacity.
+   *
+   * Two things this is careful about, both of which were wrong first time:
+   *
+   *  * **Only the reader that refused.** A gym can run an old full reader and
+   *    a new roomy one. Stamping both would record the roomy one's capacity as
+   *    its current count, and the nightly sweep would then evict from a reader
+   *    with thousands of free slots — for ever, with nothing looking wrong.
+   *    No serial means no stamp: doing nothing beats acting on a guess.
+   *  * **Recount before measuring.** `template_count` is only ever written by
+   *    a recount, so a gym whose reader has never been counted reads zero —
+   *    and a capacity of zero is worse than none. Counting first means the
+   *    limit is learned on the first refusal rather than the second.
    *
    * @returns Slots actually freed.
    */
   private async freeCapacity(
     gymId: string,
-    summary: DrainAccessSyncQueueSummary
+    summary: DrainAccessSyncQueueSummary,
+    fullDeviceSerial?: string
   ): Promise<number> {
     try {
       const devices = await this.repo.listDevices(gymId)
 
-      for (const device of devices.filter((d) => d.is_active)) {
-        if (device.template_capacity === null && device.template_count > 0) {
-          await this.repo.recordDeviceCapacity(
-            device.device_serial,
-            device.template_count
+      const refused = fullDeviceSerial
+        ? devices.find(
+            (d) => d.device_serial === fullDeviceSerial && d.is_active
           )
+        : undefined
+
+      if (refused && refused.template_capacity === null) {
+        const held = await this.repo.recountDeviceTemplates(refused.id)
+
+        if (held > 0) {
+          await this.repo.recordDeviceCapacity(refused.device_serial, held)
         }
       }
 

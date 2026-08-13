@@ -52,6 +52,15 @@ export type CommandOutcome =
       needsAttention?: boolean
       /** The raw device return code, when one was reported. */
       returnCode?: number
+      /**
+       * Which terminal refused, when the command targeted one.
+       *
+       * Carried because some failures are *about a specific reader* rather
+       * than about the member — "device storage is full" being the one that
+       * matters. Without it, a gym with two readers cannot tell which of them
+       * refused, and acting on the wrong one is worse than not acting.
+       */
+      deviceSerial?: string
     }
 
 /** A terminal as the vendor reports it. */

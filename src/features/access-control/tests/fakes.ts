@@ -312,7 +312,15 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
 
   async recountDeviceTemplates(deviceId: string): Promise<number> {
     this.recounted.push(deviceId)
-    return 0
+
+    // Returns the device's recorded count, which is where a real recount
+    // converges when nothing has changed. Returning a flat zero made the fake
+    // lie in the one direction that matters — capacity learning reads this
+    // number, and zero reads as "nothing to measure".
+    return (
+      (this.options.devices ?? []).find((d) => d.id === deviceId)
+        ?.template_count ?? 0
+    )
   }
 
   async allocateSubjectId(): Promise<number> {

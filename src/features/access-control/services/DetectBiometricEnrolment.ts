@@ -84,18 +84,39 @@ export class DetectBiometricEnrolment {
 
     let updated = 0
 
-    // Written only on a change. This is polled every few seconds while a
+    // **Additive only: this never sets `finger_enrolled` back to false.**
+    //
+    // A zero template count is ambiguous. Whether `GET /api/template` reports
+    // the vendor's central copies or the per-reader ones is unverified
+    // (simulator plan, A-5) — and if it is per-reader, then a member evicted
+    // for capacity reads as zero while their fingerprint is very much still on
+    // file. Clearing the flag would send the front desk to walk that member
+    // back to the scanner for no reason.
+    //
+    // Deliberately clearing a fingerprint already has a path of its own
+    // (`ManageMemberBiometric.clear`), which knows it meant it. Detection is
+    // for discovering that a finger arrived, and nothing else.
+    //
+    // Written only on a change, too: this is polled every few seconds while a
     // dialog is open, and an unconditional write would be a row update per
-    // poll for every member being enrolled.
-    if (hasTemplate !== context.subject.finger_enrolled) {
+    // poll per member being enrolled.
+    if (hasTemplate && !context.subject.finger_enrolled) {
       await this.repo.setBiometricEnrolled(
         memberId,
-        hasTemplate,
+        true,
         context.subject.finger_id
       )
       updated += 1
     }
 
-    return { applicable: true, enrolled: hasTemplate, updated }
+    return {
+      applicable: true,
+      // Reports what the vendor says right now, which may legitimately differ
+      // from the stored flag for an evicted member. The caller is a dialog
+      // waiting on a finger, so "is there a template" is the honest answer to
+      // its question.
+      enrolled: hasTemplate,
+      updated,
+    }
   }
 }

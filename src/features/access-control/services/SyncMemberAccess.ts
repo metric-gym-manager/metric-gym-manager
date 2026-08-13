@@ -52,6 +52,16 @@ export interface SyncFailure {
   needsAttention: boolean
   /** Raw device return code, when the vendor reported one. */
   returnCode?: number
+  /**
+   * The terminal the failing command was aimed at.
+   *
+   * Taken from the command rather than the response, so it is present even
+   * when the vendor's error says nothing about which reader it came from. The
+   * drainer needs it to act on a reader-specific failure — telling a gym's
+   * roomy side door that it is full, because its front door was, is worse than
+   * doing nothing.
+   */
+  deviceSerial?: string
 }
 
 export interface SyncMemberAccessResult {
@@ -149,6 +159,14 @@ export class SyncMemberAccess {
           retryable: outcome.retryable,
           needsAttention: outcome.needsAttention ?? false,
           returnCode: outcome.returnCode,
+          // The command knows its target even when the error does not. Only
+          // reported for commands actually aimed at a terminal: `Provision`
+          // targets the vendor's records and borrows a serial for ordering,
+          // so attributing its failure to that reader would be a guess.
+          deviceSerial:
+            command.intent === AccessIntent.Provision
+              ? outcome.deviceSerial
+              : (outcome.deviceSerial ?? command.deviceSerial),
         })
         // Stop at the first failure: the sequence is ordered, so continuing
         // could land a validity period against a profile that never arrived.
