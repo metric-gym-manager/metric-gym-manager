@@ -202,3 +202,28 @@ export const DRAIN_INTERVAL_SECONDS = 300
  * enforcing validity from its own clock either way.
  */
 export const DEVICE_OFFLINE_AFTER_SECONDS = DRAIN_INTERVAL_SECONDS * 3
+
+/**
+ * How often the desk re-checks whether an enrolment has landed.
+ *
+ * The vendor confirms that a reader *accepted* the request, never that a finger
+ * was presented — the template exists only once the member touches the sensor,
+ * and no webhook reports it. Polling is the only way to learn it happened.
+ *
+ * Three seconds because a person is standing there watching a screen, and the
+ * poll is bounded by the timeout below rather than running all day.
+ */
+export const ENROLMENT_POLL_INTERVAL_MS = 3_000
+
+/**
+ * How long the desk waits for a finger before it stops asking.
+ *
+ * Two minutes: long enough for a member to walk from the desk to the reader and
+ * be shown what to do, short enough that a forgotten panel is not still polling
+ * when the next member arrives.
+ *
+ * **Timing out is not failure.** The detection behind the poll is additive — it
+ * can mark a member enrolled, never un-enrol one — so a member who did present
+ * a finger stays correctly enrolled and simply shows it on the next read.
+ */
+export const ENROLMENT_POLL_TIMEOUT_MS = 120_000

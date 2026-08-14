@@ -886,6 +886,67 @@ access panel, but `features/members` must not import `features/access-control`
 the **page level** (L5), so the dependency arrow points page → access-control,
 never members → access-control.
 
+### 9.1 What was built
+
+Three surfaces, split by **who opens them and how often**:
+
+| Surface                    | Opened by                                   | Contents                                                                                                          |
+| -------------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `/settings/access-control` | Owner, once, with an installer on the phone | `AccessAccountCard` (credentials + verify probe), `AccessReadersCard` (register, rename, capacity, pause, forget) |
+| `/access-control`          | Front desk, daily                           | `AccessControlDashboard` — alerts strip, `DeviceStatusCard` per reader, `AccessActivityLog`                       |
+| Member modal               | Front desk, with the member present         | `MemberAccessPanel` — verdict, validity window, sync state, enrolment                                             |
+
+Setup is deliberately **not** on the operations page: a "forget this reader"
+button has no business on a screen used in a hurry.
+
+### 9.2 Client layer
+
+`services/access-control.service.ts` (browser fetch + envelope unwrapping,
+throwing `AccessApiError` with the server's own wording) and
+`hooks/useAccessControl.ts` (React Query, one module because the five queries
+share an invalidation graph).
+
+Both **deep-import** their types from
+`utils/serializeAccessForAPI` and `config/` rather than the feature barrel:
+`index.ts` re-exports `services/factory`, which reaches `next/headers` through
+the Supabase server client and cannot be imported from a client component.
+Same escape as rule 2.15's `getSafeRedirect`.
+
+Nothing polls except enrolment. A door controller's state changes when someone
+changes it, and a dashboard re-querying every few seconds costs a gym's
+connection more than it tells them.
+
+### 9.3 Three UI decisions that follow from the architecture
+
+**Presence renders as three states, never two.** `unknown` is the normal state
+of a reader registered five minutes ago. Collapsing it into `offline` would put
+a false alarm on the one screen built to prevent false alarms, and staff who
+learn to distrust the alarm start letting people in by hand.
+
+**"Offline" is not phrased as an emergency.** Because the terminal is the
+authority, an unreachable reader still admits the right people and refuses the
+wrong ones. What actually stops is _changes landing_. The copy says that
+instead, since "reader offline" invites a panic the situation does not warrant.
+
+**Enrolment times out rather than fails.** The vendor confirms only that a
+reader accepted the request; the template exists once a finger touches the
+sensor, and no webhook reports it — so `useEnrolmentPoll` polls
+(`ENROLMENT_POLL_INTERVAL_MS`, bounded by `ENROLMENT_POLL_TIMEOUT_MS`). The
+detection behind it is **additive**: it can mark a member enrolled, never
+un-enrol one. So giving up leaves a member who did present a finger correctly
+enrolled, and the panel shows it on the next read. Being wrong in that
+direction is a stale screen; the other direction tells a member to re-enrol a
+finger the reader already holds.
+
+### 9.4 Discovery vs. gating
+
+The sidebar's **Door Access** entry is hidden unless the gym's
+server-computed `capabilities.accessControlHardware` is true — a permanent icon
+leading to an upgrade wall is not discovery. The **settings sub-nav row is
+shown to every tier**, and the page renders `FeatureGate`'s upgrade panel; that
+is where a gym finds out the feature exists. Both are UX only: every endpoint
+independently enforces `requireAccessControlGym`.
+
 ---
 
 ## 10. Architecture compliance audit

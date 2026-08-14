@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Trash2, Edit, X, ChevronDown, ChevronUp } from 'lucide-react'
@@ -28,6 +28,8 @@ interface MemberDetailModalMobileProps {
   member: MemberWithDiscount | null
   payments?: Payment[]
   onEditClick: () => void
+  /** Optional door-access panel, injected by the caller. See the responsive wrapper. */
+  accessSlot?: ReactNode
 }
 
 export default function MemberDetailModalMobile({
@@ -35,6 +37,7 @@ export default function MemberDetailModalMobile({
   onClose,
   member,
   payments = [],
+  accessSlot,
   onEditClick,
 }: MemberDetailModalMobileProps) {
   const queryClient = useQueryClient()
@@ -480,6 +483,11 @@ export default function MemberDetailModalMobile({
                 )}
               </div>
             </div>
+
+            {/* Door access, when the caller supplies it. Above payment
+                history because "why can't they get in" is asked far more
+                often than "what have they paid". */}
+            {accessSlot}
 
             {/* Payment History */}
             <div className="rounded-lg border border-line-1 bg-surface-input p-4 space-y-3">
