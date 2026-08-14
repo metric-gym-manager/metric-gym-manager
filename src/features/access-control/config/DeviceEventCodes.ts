@@ -63,8 +63,9 @@ const GRANTED = new Set([
  * an unpaid member produces, which is exactly what we want to show staff.
  */
 const DENIED = new Set([
-  20, 21, 22, 23, 24, 25, 27, 29, 30, 31, 33, 34, 35, 38, 39, 40, 41, 42, 43,
-  44, 45, 48, 49, 50, 52, 53, 56, 59, 61, 62, 63, 67, 68, 69, 73, 74,
+  20, 21, 22, 23, 24, 25, 26, 27, 29, 30, 31, 32, 33, 34, 35, 38, 39, 40, 41,
+  42, 43, 44, 45, 48, 49, 50, 51, 52, 53, 56, 59, 61, 62, 63, 67, 68, 69, 73,
+  74,
 ])
 
 /**
@@ -75,11 +76,18 @@ const DENIED = new Set([
  */
 const ALARM = new Set([100, 101, 102, 103, 104, 58, 109, 110])
 
-/** Device, door and connectivity state — feeds health monitoring. */
+/**
+ * Device, door and connectivity state — feeds health monitoring.
+ *
+ * `254` is the vendor's escape hatch: codes 0–253 ran out, so 254 announces an
+ * extended event number. Classified as system rather than left unknown, since
+ * a firmware that starts using it should not fill a gym's log with "Other".
+ */
 const SYSTEM = new Set([
-  9, 10, 11, 12, 13, 28, 36, 37, 54, 55, 57, 60, 64, 65, 66, 105, 106, 107, 108,
-  200, 201, 204, 205, 206, 210, 211, 212, 213, 214, 217, 220, 221, 225, 226,
-  227, 228, 229, 230, 235, 236, 237, 239, 240, 255,
+  6, 7, 9, 10, 11, 12, 13, 28, 36, 37, 47, 54, 55, 57, 60, 64, 65, 66, 70, 71,
+  72, 105, 106, 107, 108, 200, 201, 204, 205, 206, 210, 211, 212, 213, 214, 217,
+  220, 221, 223, 225, 226, 227, 228, 229, 230, 231, 233, 235, 236, 237, 239,
+  240, 241, 242, 254, 255,
 ])
 
 /**
