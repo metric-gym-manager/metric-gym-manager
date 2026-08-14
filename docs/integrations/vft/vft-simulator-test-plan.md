@@ -47,6 +47,18 @@ finger the reader does not know.
 
 This single answer decides a whole screen. Do it first.
 
+**Also check `POST /api/devicecmd/events`.** The collection exposes it, and it
+is the one endpoint that could let us _pull_ the transaction table rather than
+wait to be pushed. If refused scans never arrive on the webhook but are
+readable here, the answer changes from "cut the refusal rows" to "poll for
+them" — a different design, not a smaller one. Record what it returns, whether
+it accepts a time range, and whether it drains or repeats on a second call.
+
+**What is already built either way.** The activity log's Refusals filter exists
+and runs server-side over the classified code sets, so if events do arrive there
+is nothing to build. If they never arrive, the filter simply returns an empty
+page — correct, and it costs nothing to leave in place while this is unknown.
+
 ### A-2 · Return codes on command execution (assumption A2)
 
 Send a `validperiod` to a device that is **powered off**, then power it on.
@@ -337,6 +349,36 @@ Scan a member while their sync job runs.
 | G-6 | Signed-in user calling `claim_access_sync_jobs` via PostgREST RPC | Permission denied (locked down in `20260813000001`) |
 | G-7 | Gym owner selecting `access_control_secrets` directly             | Zero rows — RLS enabled, no policies                |
 | G-8 | Webhook payload claiming a different gym id                       | Ignored; gym resolved from `device_serial` only     |
+
+---
+
+## Part H — The screens
+
+The UI is built, so the simulator session is the first chance to see whether
+what it says matches what the hardware does. These are not cosmetic checks:
+each one pins a place where the screen could confidently state something false.
+
+| #    | Test                                                                 | Expected                                                                                                                                |
+| ---- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| H-1  | Register a reader, then look at `/access-control` before any scan    | Presence reads **"No contact yet"**, not "Not responding". A brand-new reader must never look broken.                                   |
+| H-2  | Let a registered reader sit idle past `DEVICE_OFFLINE_AFTER_SECONDS` | Still **online** if it is scanning or answering. A healthy reader flickering offline is the failure this threshold exists to prevent.   |
+| H-3  | Unplug a reader and wait out the threshold                           | "Not responding", with the copy saying the door still works. Confirm the door **does** still admit a valid member.                      |
+| H-4  | Enter a capacity in settings, then fill the reader past 85%          | Capacity bar turns warning; the near-full alert appears on the dashboard.                                                               |
+| H-5  | Leave capacity blank                                                 | No bar, no false "0%" — the panel says capacity is unknown. A reader at "0% full" would be a lie.                                       |
+| H-6  | Press **Register fingerprint**, then never touch the sensor          | Reaches `timed-out` after two minutes, worded as still-waiting rather than failed.                                                      |
+| H-7  | Press **Register fingerprint**, present a finger _after_ the timeout | The member still shows as registered on the next open. Detection is additive — this is the whole reason H-6 is not an error.            |
+| H-8  | Close the member modal mid-enrolment                                 | Polling stops. Watch the network tab: no requests after the modal closes.                                                               |
+| H-9  | Rename a member, then check the vendor console                       | The new name is on their subject record. Then break the vendor connection and rename again — the rename must still succeed for the gym. |
+| H-10 | Rename a reader, then check the vendor console                       | Same: name lands, and a vendor failure does not fail the rename.                                                                        |
+| H-11 | Register a new member while a reader is reachable                    | They are pushed immediately — walk them straight to the reader without waiting for the drain.                                           |
+| H-12 | Register a new member with the vendor unreachable                    | Registration **succeeds anyway**. The member exists, the job is queued, and the drain lands it later.                                   |
+| H-13 | Set a member past due, open their record                             | "Cannot get in" with a plain-language reason, and no vendor code anywhere in the panel or the page source.                              |
+| H-14 | Force a job to dead-letter, open the member                          | `syncFailed` shows as "a change did not reach the readers" — not as a green tick with nothing queued.                                   |
+| H-15 | Filter the activity log to Refusals with 60+ events present          | Page count and total describe the _filtered_ set. Page 2 of refusals must not be page 2 of everything.                                  |
+| H-16 | Present an unenrolled finger, then read the log                      | Shows as "Not recognised" rather than being hidden. Depends on A-1.                                                                     |
+| H-17 | Skew a reader's clock past the alert threshold                       | Drift warning on the card and the dashboard, worded as "memberships may end on the wrong day".                                          |
+| H-18 | Open `/access-control` as a Lite gym                                 | Upgrade panel; no sidebar entry; the settings row is still visible and explains the feature.                                            |
+| H-19 | Press **Free up space** on a reader holding only current members     | Warning about the shortfall, not an error toast. This is a buy-another-reader conversation.                                             |
 
 ---
 
