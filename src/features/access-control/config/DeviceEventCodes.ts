@@ -115,6 +115,41 @@ export function classifyDeviceEvent(code: number): DeviceEventKind {
  * Lets the member timeline say "refused — membership expired" using the same
  * wording as the access panel, rather than inventing a parallel set of terms.
  *
+ * Every code belonging to one kind.
+ *
+ * Exists so the check-in log's All / Entries / Refusals / Alerts filter can be
+ * pushed into the database as an `IN (...)` rather than filtering after the
+ * fetch — which would silently break pagination, since a page of 50 rows could
+ * come back with three after filtering.
+ *
+ * Derived from the same sets `classifyDeviceEvent` uses, deliberately. The
+ * alternative was storing the kind as a column at ingestion, which would have
+ * been faster to query and free to drift: a code reclassified here would leave
+ * every historical row filed under the old answer.
+ *
+ * @param kind - The kind to enumerate.
+ * @returns The codes in that kind. Empty for `Other`, which is defined by
+ *   absence rather than membership and so cannot be listed.
+ *
+ * @example
+ * codesForKind(DeviceEventKind.Denied) // => [20, 21, 22, ...]
+ */
+export function codesForKind(kind: DeviceEventKind): number[] {
+  switch (kind) {
+    case DeviceEventKind.Granted:
+      return [...GRANTED]
+    case DeviceEventKind.Denied:
+      return [...DENIED]
+    case DeviceEventKind.Alarm:
+      return [...ALARM]
+    case DeviceEventKind.System:
+      return [...SYSTEM]
+    default:
+      return []
+  }
+}
+
+/**
  * @param code - A device event code.
  * @returns Our denial reason, or `null` if the code is not a denial we model.
  */

@@ -10,9 +10,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   createAccessControlRepository,
+  createPushRename,
   serializeAccessDeviceForAPI,
   updateDeviceSchema,
 } from '@/features/access-control'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAccessControlGym } from '@/lib/auth/requireAccessControlGym'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { toErrorResponse } from '@/lib/middleware/apiErrors'
@@ -45,13 +47,38 @@ export async function PATCH(
       })
     }
 
-    await repo.renameDevice(id, parsed.data.deviceName)
+    if (parsed.data.deviceName) {
+      await repo.renameDevice(id, parsed.data.deviceName)
+
+      // Push the new name to the vendor so their device list matches ours.
+      // Best-effort and non-fatal: a stale label on their console is a
+      // confusion, not an outage, and it must not fail the rename the gym
+      // just performed.
+      await createPushRename(createAdminClient())
+        .device(caller!.gymId, id)
+        .catch((renameError) => {
+          console.error('Device rename did not reach the vendor:', renameError)
+        })
+    }
+
+    if (parsed.data.templateCapacity !== undefined) {
+      // Entered from the reader's spec sheet. Otherwise capacity stays unknown
+      // until the hardware refuses an enrolment, which means the capacity bar
+      // shows nothing and the proactive eviction sweep cannot fire at all
+      // until a gym has already filled a reader.
+      await repo.recordDeviceCapacity(
+        device.device_serial,
+        parsed.data.templateCapacity
+      )
+    }
 
     return NextResponse.json(
       ResponseBuilder.success(
         serializeAccessDeviceForAPI({
           ...device,
-          device_name: parsed.data.deviceName,
+          device_name: parsed.data.deviceName ?? device.device_name,
+          template_capacity:
+            parsed.data.templateCapacity ?? device.template_capacity,
         })
       )
     )

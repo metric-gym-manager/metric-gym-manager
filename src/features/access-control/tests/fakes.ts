@@ -24,6 +24,7 @@ import type {
   IncomingAccessEvent,
   MemberAccessContext,
   SyncStateUpdate,
+  AccessEventWithMember,
 } from '@/features/access-control/services/IAccessControlRepository'
 
 /** A calendar day as a UTC instant, matching how the domain tests build dates. */
@@ -428,11 +429,16 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
   async listEvents(
     _gymId: string,
     query: { page: number; limit: number; memberId?: string }
-  ): Promise<{ events: AccessEvent[]; total: number }> {
+  ): Promise<{ events: AccessEventWithMember[]; total: number }> {
     const all = this.options.events ?? []
     const from = (query.page - 1) * query.limit
 
-    return { events: all.slice(from, from + query.limit), total: all.length }
+    return {
+      events: all
+        .slice(from, from + query.limit)
+        .map((event) => ({ ...event, memberName: null })),
+      total: all.length,
+    }
   }
 
   async findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null> {

@@ -25,6 +25,7 @@ import { ManageMemberBiometric } from './ManageMemberBiometric'
 import { GetMemberAccessStatus } from './GetMemberAccessStatus'
 import { RefreshDeviceStatus } from './RefreshDeviceStatus'
 import { DetectBiometricEnrolment } from './DetectBiometricEnrolment'
+import { PushRename } from './PushRename'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 
 /**
@@ -161,6 +162,14 @@ export function createGetMemberAccessStatus(
   supabase: SupabaseClient
 ): GetMemberAccessStatus {
   return new GetMemberAccessStatus(createAccessControlRepository(supabase))
+}
+
+/** Name synchronisation, for members and readers alike. */
+export function createPushRename(supabase: SupabaseClient): PushRename {
+  return new PushRename(
+    createAccessControlRepository(supabase),
+    createAccessControlProvider()
+  )
 }
 
 /** Capacity reclamation. */

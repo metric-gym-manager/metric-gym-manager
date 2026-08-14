@@ -90,6 +90,9 @@ export { GetMemberAccessStatus } from './services/GetMemberAccessStatus'
 export { RefreshDeviceStatus } from './services/RefreshDeviceStatus'
 export type { RefreshDeviceStatusSummary } from './services/RefreshDeviceStatus'
 export { DetectBiometricEnrolment } from './services/DetectBiometricEnrolment'
+export { PushRename } from './services/PushRename'
+export type { PushRenameResult } from './services/PushRename'
+export { provisionMemberAccessBestEffort } from './services/provisionMemberAccessBestEffort'
 export type { DetectBiometricEnrolmentResult } from './services/DetectBiometricEnrolment'
 export type {
   IAccessControlRepository,
@@ -112,6 +115,7 @@ export {
   createGetMemberAccessStatus,
   createRefreshDeviceStatus,
   createDetectBiometricEnrolment,
+  createPushRename,
 } from './services/factory'
 
 // Serializers — no database row is handed to JSON directly (rule 2.11)

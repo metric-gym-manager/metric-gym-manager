@@ -34,6 +34,10 @@ import {
   SYNC_RETRY_BACKOFF_SECONDS,
 } from '@/features/access-control/config/AccessControlConfig'
 import { toCalendarDay } from '@/features/access-control/utils/getGymToday'
+import {
+  codesForKind,
+  type DeviceEventKind,
+} from '@/features/access-control/config/DeviceEventCodes'
 import type { MemberStatus } from '@/features/members/config/StatusConfig'
 import type { RegistrationSource } from '@/features/members/config/RegistrationConfig'
 import type {
@@ -47,6 +51,7 @@ import type {
   EvictionCandidate,
   IAccessControlRepository,
   IncomingAccessEvent,
+  AccessEventWithMember,
   MemberAccessContext,
   SyncStateUpdate,
 } from './IAccessControlRepository'
@@ -819,14 +824,22 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
 
   async listEvents(
     gymId: string,
-    query: { page: number; limit: number; memberId?: string }
-  ): Promise<{ events: AccessEvent[]; total: number }> {
+    query: {
+      page: number
+      limit: number
+      memberId?: string
+      kind?: DeviceEventKind
+    }
+  ): Promise<{ events: AccessEventWithMember[]; total: number }> {
     const from = (query.page - 1) * query.limit
     const to = from + query.limit - 1
 
     let request = this.supabase
       .from('access_events')
-      .select('*', { count: 'exact' })
+      // The member's name comes from the join rather than being denormalised
+      // onto the event: a log showing UUIDs answers nobody's question, and a
+      // copied name would be wrong the moment the member is renamed.
+      .select('*, members(name)', { count: 'exact' })
       .eq('gym_id', gymId)
       // Newest first (rule 2.10): the log is read from the top, and a
       // most-recent lookup over an unordered result is a coin toss.
@@ -836,14 +849,29 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       request = request.eq('member_id', query.memberId)
     }
 
+    if (query.kind) {
+      // Filtered in the database, not after the fetch. Filtering a page of 50
+      // rows in application code would return however many survived, which
+      // makes pagination lie.
+      request = request.in('event_code', codesForKind(query.kind).map(String))
+    }
+
     const { data, error, count } = await request.range(from, to)
 
     if (error) {
       throw new DatabaseError(`Failed to load access events: ${error.message}`)
     }
 
+    const rows =
+      (data as
+        | (AccessEvent & { members?: { name: string } | null })[]
+        | null) ?? []
+
     return {
-      events: (data as AccessEvent[] | null) ?? [],
+      events: rows.map((row) => ({
+        ...row,
+        memberName: row.members?.name ?? null,
+      })),
       total: count ?? 0,
     }
   }

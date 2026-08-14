@@ -230,6 +230,39 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     })
   }
 
+  async renameSubject(
+    credentials: AccessCredentials,
+    subjectId: string,
+    name: string
+  ): Promise<CommandOutcome> {
+    assertValidSubjectId(subjectId)
+
+    // `PUT /api/template/edit/{EmpId}` with `EmpName` alone, exactly as the
+    // collection sends it. Deliberately does not include AreaID: re-asserting
+    // it on a rename would make a cosmetic edit capable of moving a member
+    // between areas.
+    return this.command(credentials, {
+      method: 'PUT',
+      path: `/api/template/edit/${encodeURIComponent(subjectId)}`,
+      body: { EmpName: formatSubjectName(name) },
+    })
+  }
+
+  async renameDevice(
+    credentials: AccessCredentials,
+    deviceSerial: string,
+    deviceName: string
+  ): Promise<CommandOutcome> {
+    // `PUT /api/device/{DevSN}` with `DevName` alone. The collection shows
+    // AreaID as a commented-out sibling; sending it would silently re-area the
+    // reader, so it stays out.
+    return this.command(credentials, {
+      method: 'PUT',
+      path: `/api/device/${encodeURIComponent(deviceSerial)}`,
+      body: { DevName: deviceName },
+    })
+  }
+
   async removeSubject(
     credentials: AccessCredentials,
     subjectId: string

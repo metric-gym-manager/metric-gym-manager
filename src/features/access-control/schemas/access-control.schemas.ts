@@ -11,6 +11,7 @@ import {
   VerifyType,
   CheckingStatus,
 } from '@/features/access-control/config/AccessControlConfig'
+import { DeviceEventKind } from '@/features/access-control/config/DeviceEventCodes'
 
 /** Vendor credentials submitted by a gym owner. Write-only — never read back. */
 export const accessControlAccountSchema = z.object({
@@ -42,7 +43,19 @@ export type RegisterDeviceInput = z.infer<typeof registerDeviceSchema>
 
 /** Renaming a device. Non-state property only — state has its own endpoints. */
 export const updateDeviceSchema = z.object({
-  deviceName: z.string().min(1).max(100),
+  deviceName: z.string().min(1).max(100).optional(),
+  /**
+   * How many templates this reader holds, from its spec sheet.
+   *
+   * Optional because we also learn it the hard way — a reader answering `-18`
+   * tells us its real limit. But that only happens once a gym has filled a
+   * reader, so without a way to enter it the capacity bar shows nothing and
+   * the proactive eviction sweep cannot fire at all on day one.
+   *
+   * Bounded to the range these terminals actually ship with, so a mistyped
+   * figure cannot make the eviction thresholds nonsensical.
+   */
+  templateCapacity: z.number().int().min(100).max(100_000).optional(),
 })
 
 export type UpdateDeviceInput = z.infer<typeof updateDeviceSchema>
@@ -97,11 +110,19 @@ export const verifyTypeSchema = z.nativeEnum(VerifyType)
 /** Check-in/out code. Advisory: a single reader cannot tell direction. */
 export const checkingStatusSchema = z.nativeEnum(CheckingStatus)
 
-/** Paging for the check-in log. */
+/** Paging and filtering for the check-in log. */
 export const accessEventsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   memberId: z.string().uuid().optional(),
+  /**
+   * Narrow to one kind of event — the All / Entries / Refusals / Alerts filter.
+   *
+   * Validated against the domain enum rather than a duplicate string union
+   * (rule 2.2), so a new event kind cannot be filterable in one place and
+   * unknown in another.
+   */
+  kind: z.nativeEnum(DeviceEventKind).optional(),
 })
 
 export type AccessEventsQuery = z.infer<typeof accessEventsQuerySchema>

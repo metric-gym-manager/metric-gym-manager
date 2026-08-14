@@ -96,6 +96,34 @@ export class MockAccessControlProvider implements IAccessControlProvider {
     return { status: 'applied' }
   }
 
+  async renameSubject(
+    _credentials: AccessCredentials,
+    subjectId: string,
+    name: string
+  ): Promise<CommandOutcome> {
+    this.record({ operation: 'renameSubject', subjectId, details: { name } })
+
+    const existing = this.subjects.get(subjectId)
+    if (existing) {
+      this.subjects.set(subjectId, { ...existing, name })
+    }
+
+    return { status: 'applied' }
+  }
+
+  async renameDevice(
+    _credentials: AccessCredentials,
+    deviceSerial: string,
+    deviceName: string
+  ): Promise<CommandOutcome> {
+    this.record({
+      operation: 'renameDevice',
+      deviceSerial,
+      details: { deviceName },
+    })
+    return { status: 'applied' }
+  }
+
   async removeSubject(
     _credentials: AccessCredentials,
     subjectId: string

@@ -18,6 +18,7 @@ import type { MemberStatus } from '@/features/members/config/StatusConfig'
 import type { RegistrationSource } from '@/features/members/config/RegistrationConfig'
 import type { AccessCredentials } from '@/lib/access-control'
 import type { AccessSyncStatus } from '@/features/access-control/config/AccessControlConfig'
+import type { DeviceEventKind } from '@/features/access-control/config/DeviceEventCodes'
 import type {
   AccessControlAccount,
   AccessDevice,
@@ -61,6 +62,17 @@ export interface EvictionCandidate {
   status: MemberStatus
   /** Paid-through date; how long-expired a member is orders the queue. */
   nextDueDate: Date
+}
+
+/**
+ * An event with the member's name resolved.
+ *
+ * Joined at read time rather than denormalised onto the row: a copied name
+ * would be wrong the moment the member is renamed, and the log's whole job is
+ * to be readable by a human at the desk.
+ */
+export interface AccessEventWithMember extends AccessEvent {
+  memberName: string | null
 }
 
 /** A normalised inbound scan, ready to store. */
@@ -299,8 +311,13 @@ export interface IAccessControlRepository {
   /** One page of the check-in log, newest first. */
   listEvents(
     gymId: string,
-    query: { page: number; limit: number; memberId?: string }
-  ): Promise<{ events: AccessEvent[]; total: number }>
+    query: {
+      page: number
+      limit: number
+      memberId?: string
+      kind?: DeviceEventKind
+    }
+  ): Promise<{ events: AccessEventWithMember[]; total: number }>
 
   /** Resolve a device serial to its gym — how webhook events are routed. */
   findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null>

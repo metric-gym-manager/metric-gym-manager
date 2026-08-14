@@ -144,6 +144,26 @@ export interface IAccessControlProvider {
     subject: { subjectId: string; name: string; areaId?: number | null }
   ): Promise<CommandOutcome>
 
+  /**
+   * Rename an existing subject on the vendor.
+   *
+   * Separate from `upsertSubject` because renaming is a plain property edit:
+   * the vendor's edit endpoint takes the name alone, so it cannot disturb the
+   * area or anything else about the record.
+   */
+  renameSubject(
+    credentials: AccessCredentials,
+    subjectId: string,
+    name: string
+  ): Promise<CommandOutcome>
+
+  /** Rename a terminal on the vendor, so their device list matches ours. */
+  renameDevice(
+    credentials: AccessCredentials,
+    deviceSerial: string,
+    deviceName: string
+  ): Promise<CommandOutcome>
+
   /** Delete a subject and its templates. */
   removeSubject(
     credentials: AccessCredentials,

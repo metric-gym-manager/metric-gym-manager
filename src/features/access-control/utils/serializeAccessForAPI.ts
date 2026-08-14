@@ -133,6 +133,14 @@ function resolvePresence(
 export interface SerializedAccessEvent {
   id: string
   memberId: string | null
+  /**
+   * Who it was, when we can tell.
+   *
+   * `null` is a real and expected answer: an unrecognised finger has no
+   * subject to resolve, and those rows are how a gym notices someone trying
+   * their luck. The log shows them rather than hiding them.
+   */
+  memberName: string | null
   deviceSerial: string
   occurredAt: string
   verifyType: number | null
@@ -150,7 +158,7 @@ export interface SerializedAccessEvent {
  * check-in log.
  */
 export function serializeAccessEventForAPI(
-  event: AccessEvent
+  event: AccessEvent & { memberName?: string | null }
 ): SerializedAccessEvent {
   // The column is text because the device sends strings; an event we cannot
   // read as a code still gets a description, via the code tables' own fallback.
@@ -160,6 +168,7 @@ export function serializeAccessEventForAPI(
   return {
     id: event.id,
     memberId: event.member_id,
+    memberName: event.memberName ?? null,
     deviceSerial: event.device_serial,
     occurredAt: event.occurred_at,
     verifyType: event.verify_type,
