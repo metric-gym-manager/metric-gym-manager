@@ -116,6 +116,17 @@ _All three are **working assumptions**, not vendor statements — see
    > **Part 2** — staff walk them to the reader and enrol the finger **at the
    > device**.
 
+   > **⚠️ Superseded by A6, now grade A.** The paragraph below reasoned that if
+   > enrolment is started at the terminal, we trigger nothing. **VFT confirmed
+   > both paths exist and the API one is intended:** calling `enrollfinger`
+   > makes the terminal change state — a prompt appears on the reader — and the
+   > member then presents their finger there. What was observed at the gym was
+   > staff using the device's own menu instead. So
+   > `POST /api/access-control/members/[id]/enrol` is the **primary** path and
+   > is what the member panel's button calls. Detection by polling remains, for
+   > the device-local path and as confirmation of the API one. The reasoning is
+   > kept because it is why detection exists at all.
+
    **This inverts our role in Part 2.** The earlier draft assumed we _trigger_
    enrolment via `enrollfinger` and then wait. If enrolment is started at the
    terminal, we trigger nothing — our only job is to **detect** that it
@@ -166,20 +177,37 @@ _All three are **working assumptions**, not vendor statements — see
    So revoking a biometric is a first-class operation in our app, independent
    of member status, and never touches the `members` row.
 
-### 2.2 Assumed code tables
+### 2.2 Code tables — now vendor-supplied, no longer assumed
 
-These are **assumed** ZKTeco defaults, **not vendor-supplied**. If VFT confirms
-them, `config/AccessControlConfig.ts` can hold real enums; until then the raw
-payload is retained in `access_events.raw` and decoding stays provisional:
+> **Superseded.** This section previously carried a small table of _assumed_
+> ZKTeco defaults. VFT has since supplied their full documentation, and both
+> complete tables are implemented. The assumed values are gone; what follows is
+> what the vendor actually documents.
 
-| Field            | Values                                                            |
-| ---------------- | ----------------------------------------------------------------- |
-| `VerifyType`     | `1` Fingerprint · `2` Card · `3` Password · `15` Face             |
-| `CheckingStatus` | `0` Check-In · `1` Check-Out · `4` Overtime In · `5` Overtime Out |
-| `Event`          | `3` Door Unlocked / Access Granted                                |
+| Field            | Values                                                                                     |
+| ---------------- | ------------------------------------------------------------------------------------------ |
+| `VerifyType`     | **0** Password · **1** Fingerprint · **2** Card · **15** Face                              |
+| `CheckingStatus` | **0** CheckIn · **1** CheckOut · **2** BreakOut · **3** BreakIn · **4** OTIn · **5** OTOut |
 
-Validated with `z.nativeEnum()` (rule 2.2), with the raw payload still kept in
-`access_events.raw` for values that appear later.
+Note the correction: the earlier draft had `3 = Password`, which was wrong.
+
+**Return codes — 83 documented, implemented in
+`lib/access-control/returnCodes.ts`.** Classified into Retryable (28),
+Permanent (31), NeedsAttention (12) and Benign (2), with 71 carrying
+plain-language descriptions for the SaaS-admin health view. Anything unmapped
+falls through to **Retryable** — bounded retries beat dead-lettering a transient
+failure, and the backoff caps the cost.
+
+**Event codes — 128 documented, implemented in
+`config/DeviceEventCodes.ts`.** Classified as Granted (24), Denied (39),
+Alarm (8) and System (56). `codesForKind()` exposes the lists so the activity
+log filters in SQL rather than in the browser; the four sets are asserted
+**disjoint** by test so a filter cannot double-count. `Other` is defined by
+absence — it has no code list and is deliberately not offered as a filter.
+
+Validated with `z.nativeEnum()` (rule 2.2). The raw payload is still kept in
+`access_events.raw`, because a firmware revision can always emit something these
+tables do not name.
 
 **Treat `CheckingStatus` as advisory, not as truth.** With one reader serving
 both entry and exit, the device cannot reliably distinguish direction — it

@@ -68,7 +68,9 @@ src/
     payments/       #   gym-member payments & day passes
     subscriptions/  #   SaaS billing (config/SubscriptionConfig.ts is the tier/status authority)
     sms/            #   providers, reminders, delivery logs
-    access-control/ #   biometric door hardware (Enterprise-gated)
+    access-control/ #   biometric door hardware (Enterprise-gated) — before
+                    #   touching it, read docs/architecture/access-control-master.md,
+                    #   the single source of truth for the VFT/ZKTeco integration
     auth/ announcements/ registration/ revenue/ settings/
   lib/              # third-party glue: supabase/, payhere/, storage/, cron/, auth/, middleware/
   hooks/            # shared React hooks

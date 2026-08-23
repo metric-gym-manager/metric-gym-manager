@@ -7,6 +7,8 @@
 >
 > Questions we would still like answered: `vft-integration-questions.md`.
 > Design: `docs/architecture/access-control-integration.md`.
+> **Single source of truth: `docs/architecture/access-control-master.md`** — start
+> there; this document is its §3.10 in full.
 
 ## Why proceeding is reasonable
 
