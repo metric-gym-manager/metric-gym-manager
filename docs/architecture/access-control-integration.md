@@ -1033,7 +1033,7 @@ All three landed with the routes and crons:
 1. ✅ `access-control` added to the feature lists in `CLAUDE.md`,
    `.claude/rules/architecture.md` §1.1, and the canonical structure block of
    `feature-first-growth-rules.md`;
-2. ✅ Pattern Index row **2.18** added in `.claude/rules/architecture.md`,
+2. ✅ Pattern Index row **2.20** added in `.claude/rules/architecture.md`,
    pointing at this file — added only now that the code exists, since that
    index lists enforced rules rather than plans;
 3. ✅ both cron jobs added to `docs/ops/CRON_JOBS.md` and `vercel.json` —

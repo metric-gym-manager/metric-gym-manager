@@ -2,8 +2,8 @@
 
 import { useState, useRef } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Button, Label, Progress } from '@/components/ui'
-import { Upload, Loader2, CheckCircle2 } from 'lucide-react'
+import { Button, Progress } from '@/components/ui'
+import { Upload, Loader2, CheckCircle2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PROFILE_IMAGE_WEBP_MESSAGE } from '@/features/settings/utils/profileImage'
 
@@ -47,6 +47,29 @@ export default function ProfileImageUpload({
       reader.readAsDataURL(file)
     })
   }
+
+  const removeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/settings/gym/profile-image', {
+        method: 'DELETE',
+      })
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to remove image')
+      }
+      return response.json()
+    },
+    onSuccess: () => {
+      setPreviewUrl(null)
+      queryClient.refetchQueries({ queryKey: ['gym-profile'] })
+      toast.success('Profile image removed')
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to remove image'
+      )
+    },
+  })
 
   const uploadMutation = useMutation({
     mutationFn: async (svgDataUrl: string) => {
@@ -140,10 +163,8 @@ export default function ProfileImageUpload({
   }
 
   return (
-    <div className="space-y-4">
-      <Label>Profile Image</Label>
-
-      <div className="flex items-center gap-6">
+    <div className="space-y-3">
+      <div className="flex items-center gap-4 tablet:gap-6">
         {/* Profile Picture Preview */}
         <div className="relative">
           <div className="h-24 w-24 rounded-full border-2 border-line-2 overflow-hidden bg-accentui flex items-center justify-center">
@@ -177,25 +198,44 @@ export default function ProfileImageUpload({
             className="hidden"
           />
 
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="gap-2"
-          >
-            {uploading ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Uploading...
-              </>
-            ) : (
-              <>
-                <Upload className="h-4 w-4" />
-                Upload Image
-              </>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || removeMutation.isPending}
+              className="gap-2"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4" />
+                  {previewUrl ? 'Replace Image' : 'Upload Image'}
+                </>
+              )}
+            </Button>
+
+            {previewUrl && (
+              <Button
+                type="button"
+                variant="destructive-ghost"
+                onClick={() => removeMutation.mutate()}
+                disabled={uploading || removeMutation.isPending}
+                className="gap-2"
+              >
+                {removeMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+                Remove
+              </Button>
             )}
-          </Button>
+          </div>
 
           {/* Upload Progress */}
           {uploading && progress < 100 && (

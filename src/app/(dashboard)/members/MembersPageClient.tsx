@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import { useQuery } from '@tanstack/react-query';
 import { Panel, StatusBadge, formatLKR, type StatusTone } from '@/components/workspace/primitives';
 import { useMemberModal } from '@/contexts/member-modal.context';
+import { MemberAvatar } from '@/features/members';
 import type { MembersListResponse, MemberWithDiscount } from '@/features/members/types';
 
 const AddMemberModal = dynamic(
@@ -146,7 +147,12 @@ export default function MembersPageClient() {
                 const b = memberBadge(m.status, m.next_due_date);
                 return (
                   <tr key={m.id} className="mws-row-click" onClick={() => openMember(m.id)}>
-                    <td style={{ fontWeight: 500 }}>{m.name}</td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <MemberAvatar name={m.name} photoPath={m.photo_path} photoUpdatedAt={m.photo_updated_at} />
+                        <span style={{ fontWeight: 500 }}>{m.name}</span>
+                      </div>
+                    </td>
                     <td className="mws-mono" style={{ fontSize: 12, color: 'var(--mws-t2)' }}>{m.phone_number}</td>
                     <td style={{ color: 'var(--mws-t2)' }}>{PLAN_LABEL[m.plan_type] ?? m.plan_type}</td>
                     <td><StatusBadge tone={b.tone}>{b.label}</StatusBadge></td>

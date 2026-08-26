@@ -44,6 +44,9 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
   const queryClient = useQueryClient()
   const [currentStep, setCurrentStep] = useState<1 | 2>(1)
   const [discountPercentage, setDiscountPercentage] = useState<number>(0)
+  // Whether this registration is charged the gym's admission fee. Ticked by
+  // default when the gym has one configured; the desk can waive it per member.
+  const [applyAdmissionFee, setApplyAdmissionFee] = useState(true)
 
   const {
     register,
@@ -100,10 +103,15 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     },
   })
 
-  // One-time admission fee added to the first payment when the gym enabled it.
-  const admissionFee = admissionFeeData?.admission_fee_enabled
+  // One-time admission fee configured by the gym (0 when disabled/unset).
+  const gymAdmissionFee = admissionFeeData?.admission_fee_enabled
     ? admissionFeeData.admission_fee
     : 0
+  // Only offer the choice when the gym actually charges one.
+  const admissionFeeAvailable = gymAdmissionFee > 0
+  // Amount actually added to this member's first payment.
+  const admissionFee =
+    admissionFeeAvailable && applyAdmissionFee ? gymAdmissionFee : 0
 
   const watchPlanType = watch('planType')
   const watchPlanAmount = watch('planAmount')
@@ -217,6 +225,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     })
     setCurrentStep(1)
     setDiscountPercentage(0)
+    setApplyAdmissionFee(true)
     onClose()
   }
 
@@ -503,6 +512,25 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                 </Label>
               </div>
 
+              {admissionFeeAvailable && (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="applyAdmissionFee"
+                    checked={applyAdmissionFee}
+                    onChange={(e) => setApplyAdmissionFee(e.target.checked)}
+                  />
+                  <Label
+                    htmlFor="applyAdmissionFee"
+                    className="text-sm font-normal flex items-center gap-1"
+                  >
+                    {`Charge one-time admission fee (Rs. ${gymAdmissionFee.toLocaleString()})`}
+                    <span title="Ticked by default when your gym charges an admission fee. Untick to waive it for this member — the fee is added to the first payment only.">
+                      <HelpCircle className="h-3.5 w-3.5 text-ink-muted cursor-help" />
+                    </span>
+                  </Label>
+                </div>
+              )}
+
               <div>
                 <Label htmlFor="membershipStartDate">
                   Membership Start Date *
@@ -565,7 +593,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                 )}
                 {admissionFee > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span>Admission Fee:</span>
+                    <span>Admission Fee (one-time):</span>
                     <span className="font-medium">
                       Rs. {admissionFee.toFixed(2)}
                     </span>

@@ -27,10 +27,7 @@ import UrgencyBadge from '@/components/common/UrgencyBadge'
 import { PaymentDetailsModal } from './PaymentDetailsModal'
 import MemberAvatar from './MemberAvatar'
 import { formatMemberNumber } from '@/features/members/utils/formatMemberNumber'
-
-/** True when the member is an unverified QR self-registration (NEW badge) */
-const isNewMember = (member: MemberWithDiscount) =>
-  member.registration_source === 'qr' && !member.verified_at
+import { isNewMember } from '@/features/members/utils/isNewMember'
 
 interface MembersListResponse {
   members: MemberWithDiscount[]
@@ -495,7 +492,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                           className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`}
                         />
                         {member.name}
-                        {isNewMember(member) && (
+                        {isNewMember(member.created_at) && (
                           <Badge variant="accent">NEW</Badge>
                         )}
                       </span>
@@ -575,7 +572,7 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
                           className={`h-2 w-2 rounded-full shrink-0 ${getStatusDotClass(member.status)}`}
                         />
                         {member.name}
-                        {isNewMember(member) && (
+                        {isNewMember(member.created_at) && (
                           <Badge variant="accent">NEW</Badge>
                         )}
                       </span>

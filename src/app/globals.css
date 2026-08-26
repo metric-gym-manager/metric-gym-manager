@@ -688,13 +688,64 @@ button.mws-stat:hover {
     grid-template-columns: 1fr !important;
   }
 }
-@media (max-width: 768px) {
+/* Mobile back-navigation button — hidden on desktop, toggled visible on mobile */
+.mws-back-btn {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--ds-accent-link);
+  font-size: 13px;
+  line-height: 20px;
+  cursor: pointer;
+  text-decoration: none;
+  margin-bottom: 16px;
+}
+.mws-back-btn:hover {
+  color: var(--ds-accent-link-hover);
+}
+
+@media (max-width: 767px) {
   .mws-settings-shell {
     flex-direction: column !important;
-    gap: 16px !important;
+    gap: 0 !important;
+    max-width: 100% !important;
   }
-  .mws-settings-shell > div:last-child {
+  /* Nav column — full-width menu on /settings root */
+  .mws-settings-nav-root {
+    width: 100% !important;
+  }
+  /* Nav column — hidden on sub-pages */
+  .mws-settings-nav-sub {
+    display: none !important;
+  }
+  /* Nav items — larger touch targets + chevron row on mobile */
+  .mws-settings-nav-root .mws-subnav {
+    height: 48px;
+    padding: 0 12px;
+    border-radius: 8px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  /* Content column — hidden on /settings root (show nav only) */
+  .mws-settings-content-root {
+    display: none !important;
+  }
+  /* Content column — reset padding on sub-pages */
+  .mws-settings-content-sub {
     padding-top: 0 !important;
+  }
+  /* Back button — show on mobile */
+  .mws-back-btn {
+    display: flex !important;
+  }
+  /* Chevron — show in mobile nav menu */
+  .mws-settings-nav-root .mws-settings-chevron {
+    display: block;
   }
 }
 
@@ -755,6 +806,12 @@ button.mws-stat:hover {
   border-bottom-color: var(--mws-t1);
 }
 
+/* Settings sub-nav chevron — hidden on desktop, visible in mobile menu */
+.mws-settings-chevron {
+  display: none;
+  color: var(--ds-text-muted);
+}
+
 /* Settings sub-nav pill */
 .mws-subnav {
   height: 30px;
@@ -794,6 +851,25 @@ button.mws-stat:hover {
 .mws-row-sub {
   font-size: 12px;
   color: var(--mws-t3);
+}
+/* Fixed-width input container in a .mws-row — collapses to full width on mobile */
+.mws-row-input {
+  width: 260px;
+  flex-shrink: 0;
+}
+
+/* Mobile: stack rows vertically and stretch children full-width.
+   MUST appear after the base .mws-row rule above — same specificity,
+   later position wins, so this block correctly overrides on small screens. */
+@media (max-width: 767px) {
+  .mws-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .mws-row-input {
+    width: 100%;
+  }
 }
 
 /* Toggle switch */
@@ -928,7 +1004,7 @@ button.mws-stat:hover {
   --ma-warn: var(--ds-warning-text);
   --ma-err: var(--ds-error-text);
 
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   background: var(--ma-bg);
   color: var(--ma-t1);
@@ -963,6 +1039,15 @@ button.mws-stat:hover {
 @media (max-width: 900px) {
   .mauth-rail {
     display: none;
+  }
+  /* Anchor form to top with padding instead of centering — avoids
+     whitespace gaps when 100dvh > visible content on iOS Safari */
+  .mauth-form-col {
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding-top: 48px;
+    padding-bottom: 40px;
+    overflow-y: auto;
   }
 }
 

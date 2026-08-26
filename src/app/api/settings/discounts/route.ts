@@ -1,7 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { createDiscountSchema } from '@/features/settings/schemas/settings.schemas';
-import { getDiscounts, createDiscount } from '@/features/settings/services/settings.service';
+import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentGymProfile } from '@/lib/middleware/auth'
+import { createDiscountSchema } from '@/features/settings/schemas/settings.schemas'
+import {
+  getDiscounts,
+  createDiscount,
+} from '@/features/settings/services/settings.service'
 
 // ============================================================
 // GET /api/settings/discounts - Get discounts
@@ -9,9 +12,9 @@ import { getDiscounts, createDiscount } from '@/features/settings/services/setti
 
 export async function GET(_request: NextRequest) {
   try {
-    const gymProfile = await getCurrentGymProfile();
+    const gymProfile = await getCurrentGymProfile()
 
-    const discounts = await getDiscounts(gymProfile.id);
+    const discounts = await getDiscounts(gymProfile.id)
 
     return NextResponse.json(
       {
@@ -21,24 +24,24 @@ export async function GET(_request: NextRequest) {
       {
         status: 200,
         headers: {
-          'Cache-Control': 'private, max-age=300, stale-while-revalidate=600',
+          'Cache-Control': 'private, no-store',
         },
       }
-    );
+    )
   } catch (error) {
-    console.error('Get discounts API error:', error);
+    console.error('Get discounts API error:', error)
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
-      );
+      )
     }
 
     return NextResponse.json(
       { success: false, error: 'Failed to fetch discounts' },
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -48,14 +51,14 @@ export async function GET(_request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const gymProfile = await getCurrentGymProfile();
-    const body = await request.json();
+    const gymProfile = await getCurrentGymProfile()
+    const body = await request.json()
 
     // Validate input
-    const validatedData = createDiscountSchema.parse(body);
+    const validatedData = createDiscountSchema.parse(body)
 
     // Create discount
-    const discount = await createDiscount(gymProfile.id, validatedData);
+    const discount = await createDiscount(gymProfile.id, validatedData)
 
     return NextResponse.json(
       {
@@ -63,27 +66,27 @@ export async function POST(request: NextRequest) {
         data: discount,
       },
       { status: 201 }
-    );
+    )
   } catch (error) {
-    console.error('Create discount API error:', error);
+    console.error('Create discount API error:', error)
 
     if (error instanceof Error && error.message === 'Unauthorized') {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
-      );
+      )
     }
 
     if (error instanceof Error && error.name === 'ZodError') {
       return NextResponse.json(
         { success: false, error: 'Invalid input data' },
         { status: 400 }
-      );
+      )
     }
 
     return NextResponse.json(
       { success: false, error: 'Failed to create discount' },
       { status: 500 }
-    );
+    )
   }
 }

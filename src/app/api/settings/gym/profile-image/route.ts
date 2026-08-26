@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { updateGymProfileImage } from '@/features/settings/services/settings.service'
+import {
+  updateGymProfileImage,
+  removeGymProfileImage,
+} from '@/features/settings/services/settings.service'
 import {
   PROFILE_IMAGE_WEBP_MESSAGE,
   profileImageContainsWebp,
@@ -91,6 +94,58 @@ export async function POST(request: NextRequest) {
       {
         success: false,
         error: 'Failed to upload profile image',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// ============================================================
+// DELETE /api/settings/gym/profile-image - Remove profile image
+// ============================================================
+
+export async function DELETE(_request: NextRequest) {
+  try {
+    const supabase = await createClient()
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const { data: gymProfile, error: gymError } = await supabase
+      .from('gyms')
+      .select('id')
+      .eq('user_id', user.id)
+      .single()
+
+    if (gymError || !gymProfile) {
+      return NextResponse.json(
+        { success: false, error: 'Gym profile not found' },
+        { status: 404 }
+      )
+    }
+
+    await removeGymProfileImage(gymProfile.id)
+
+    return NextResponse.json(
+      { success: true, message: 'Profile image removed successfully' },
+      { status: 200 }
+    )
+  } catch (error) {
+    console.error('Remove profile image error:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to remove profile image',
         details: error instanceof Error ? error.message : 'Unknown error',
       },
       { status: 500 }

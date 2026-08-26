@@ -1,6 +1,6 @@
-import { permanentRedirect } from 'next/navigation';
-
 export default function SettingsPage() {
-  // Permanent redirect — browser caches the 308 response, avoiding server roundtrip on repeat visits
-  permanentRedirect('/settings/gym');
+  // On desktop the layout shows the sub-nav beside this content area.
+  // On mobile the layout shows the sub-nav as a full-page menu and hides
+  // this content area entirely — no redirect needed.
+  return null
 }

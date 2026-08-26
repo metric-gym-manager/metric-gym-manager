@@ -2,6 +2,7 @@ import {
   Home,
   Users,
   BarChart3,
+  LineChart,
   CreditCard,
   Megaphone,
   ScrollText,
@@ -35,7 +36,13 @@ export const WORKSPACE_NAV: WorkspaceNavGroup[] = [
       { name: 'Dashboard', href: '/dashboard', icon: Home, crumb: 'Overview' },
       { name: 'Members', href: '/members', icon: Users },
       { name: 'Revenue', href: '/revenue', icon: BarChart3 },
-      { name: 'Fee Collection', href: '/payment-collection', icon: CreditCard },
+      {
+        name: 'Member Analytics',
+        href: '/member-analytics',
+        icon: LineChart,
+        crumb: 'Analytics',
+      },
+      { name: 'Renewals', href: '/payment-collection', icon: CreditCard },
     ],
   },
   {

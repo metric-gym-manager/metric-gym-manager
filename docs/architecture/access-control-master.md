@@ -35,7 +35,7 @@
 | `docs/integrations/vft/vft-simulator-test-plan.md`    | The hardware session checklist — Parts A–H, ~90 items                   |
 | `docs/integrations/vft/vft-call-briefing.md`          | The questions asked of VFT and how to position them                     |
 | `docs/integrations/vft/vft-integration-questions.md`  | The original written question set                                       |
-| `.claude/rules/architecture.md` Pattern Index 2.18    | The binding one-paragraph rule                                          |
+| `.claude/rules/architecture.md` Pattern Index 2.20    | The binding one-paragraph rule                                          |
 
 ---
 

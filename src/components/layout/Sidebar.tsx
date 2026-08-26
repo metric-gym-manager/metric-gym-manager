@@ -55,7 +55,7 @@ const navigation: NavItem[] = [
     icon: DollarSign,
   },
   {
-    name: 'Fee Collection',
+    name: 'Renewals',
     href: '/payment-collection',
     icon: CreditCard,
   },
