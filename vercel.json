@@ -37,6 +37,14 @@
     {
       "path": "/api/cron/archive-old-members",
       "schedule": "0 1 1 * *"
+    },
+    {
+      "path": "/api/cron/reconcile-access",
+      "schedule": "30 18 * * *"
+    },
+    {
+      "path": "/api/cron/drain-access-sync",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

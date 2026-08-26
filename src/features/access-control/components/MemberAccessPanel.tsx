@@ -1,0 +1,313 @@
+'use client'
+
+/**
+ * One member's door access, inside their record.
+ *
+ * ## Why this lives in the member modal and not on the access page
+ *
+ * The question it answers — "why can't Nimal get in?" — is asked while looking
+ * at Nimal, usually with Nimal standing there. Making staff leave the member
+ * they are helping to go and search a device screen is how a feature ends up
+ * unused.
+ *
+ * ## Three states that must never be confused
+ *
+ * - **Allowed / not allowed** is our verdict, computed from the same rule the
+ *   door uses, so this panel and the terminal cannot disagree about *why*.
+ * - **Pending** means a change is queued and has not reached the hardware yet.
+ *   It is progress, not failure (rule 2.8) — showing it in red teaches staff to
+ *   distrust the screen for something that resolves in seconds.
+ * - **Failed** means a change gave up before it landed. Without it, a member
+ *   whose job exhausted its retries would read as allowed with nothing queued:
+ *   a green tick and a door that stays shut.
+ *
+ * No vendor detail appears here at all (rule 2.9). "Try again" is the entire
+ * remedy a gym manager gets; the return code lives on the SaaS-admin health
+ * view where someone can act on it.
+ */
+
+import { useState } from 'react'
+import { toast } from 'sonner'
+import {
+  CheckCircle2,
+  Fingerprint,
+  Loader2,
+  RefreshCw,
+  XCircle,
+} from 'lucide-react'
+import { Alert, Badge, Button, Select, Skeleton } from '@/components/ui'
+import { useConfirmDialog } from '@/hooks/use-confirm-dialog'
+import { useSubscription } from '@/features/subscriptions/hooks/useSubscription'
+import {
+  useAccessDevices,
+  useClearMemberBiometric,
+  useEnrolmentPoll,
+  useMemberAccess,
+  useSyncMemberAccess,
+} from '../hooks/useAccessControl'
+
+interface MemberAccessPanelProps {
+  memberId: string
+}
+
+export default function MemberAccessPanel({
+  memberId,
+}: MemberAccessPanelProps) {
+  const { data: subscription } = useSubscription()
+
+  // Gated on the server-computed capability rather than on a failed request,
+  // so a Lite gym opening a member does not fire a 403 for every modal.
+  const entitled = Boolean(
+    subscription?.subscription.capabilities.accessControlHardware
+  )
+
+  const { data: status, isLoading } = useMemberAccess(memberId, {
+    enabled: entitled,
+  })
+  const { data: devices } = useAccessDevices({ enabled: entitled })
+
+  const sync = useSyncMemberAccess()
+  const clearBiometric = useClearMemberBiometric()
+  const enrolment = useEnrolmentPoll(memberId)
+  const { confirm, ConfirmDialog } = useConfirmDialog()
+
+  const [deviceId, setDeviceId] = useState('')
+
+  if (!entitled) return null
+
+  if (isLoading) {
+    return <Skeleton className="h-40 w-full" />
+  }
+
+  // The gym has the plan but has not set the hardware up. Nothing useful to
+  // say about a member's door access when there are no doors.
+  if (!status) return null
+
+  const activeDevices = (devices ?? []).filter((device) => device.isActive)
+  const selectedDevice = deviceId || activeDevices[0]?.id || ''
+
+  const handleSync = async () => {
+    try {
+      const result = await sync.mutateAsync(memberId)
+
+      toast[result.failed ? 'warning' : 'success'](
+        result.failed
+          ? 'Some readers did not respond. We will keep trying.'
+          : result.commandsPending > 0
+            ? 'Queued — the readers will pick this up shortly'
+            : 'Readers updated'
+      )
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Could not update the readers'
+      )
+    }
+  }
+
+  const handleEnrol = async () => {
+    if (!selectedDevice) return
+    await enrolment.start({ deviceId: selectedDevice })
+  }
+
+  const handleClearBiometric = async () => {
+    const confirmed = await confirm({
+      title: 'Remove this fingerprint?',
+      description:
+        'The member will need to scan their finger again before they can use the doors. Their membership and payments are not affected.',
+      confirmText: 'Remove fingerprint',
+      variant: 'destructive',
+    })
+
+    if (!confirmed) return
+
+    try {
+      await clearBiometric.mutateAsync(memberId)
+      enrolment.reset()
+      toast.success('Fingerprint removed. Membership is unchanged.')
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Could not remove the fingerprint'
+      )
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-line-1 bg-surface-input p-4">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-sm font-semibold text-ink">Door Access</h3>
+
+        <Badge variant={status.allowed ? 'success' : 'neutral'} dot>
+          {status.allowed ? 'Can get in' : 'Cannot get in'}
+        </Badge>
+      </div>
+
+      <p className="flex items-start gap-1.5 text-sm text-ink-secondary">
+        {status.allowed ? (
+          <CheckCircle2
+            className="mt-0.5 h-4 w-4 shrink-0 text-success"
+            aria-hidden="true"
+          />
+        ) : (
+          <XCircle
+            className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted"
+            aria-hidden="true"
+          />
+        )}
+        {status.explanation}
+      </p>
+
+      {status.validTo && (
+        <p className="text-xs text-ink-muted">
+          The readers will let this member in until {status.validTo}
+          {status.validFrom ? `, from ${status.validFrom}` : ''}.
+        </p>
+      )}
+
+      {status.syncFailed ? (
+        <Alert variant="warning" title="A change did not reach the readers">
+          This member&rsquo;s access on the doors may not match what you see
+          here. Try again — if it keeps failing, contact support.
+        </Alert>
+      ) : status.syncPending ? (
+        <p className="flex items-center gap-1.5 text-xs text-ink-muted">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />A
+          recent change is still on its way to the readers.
+        </p>
+      ) : null}
+
+      <div className="space-y-2 border-t border-line-1 pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-1.5 text-sm text-ink">
+            <Fingerprint
+              className="h-4 w-4 text-ink-muted"
+              aria-hidden="true"
+            />
+            Fingerprint
+          </span>
+
+          <Badge variant={status.fingerEnrolled ? 'success' : 'neutral'}>
+            {status.fingerEnrolled ? 'Registered' : 'Not registered'}
+          </Badge>
+        </div>
+
+        {status.fingerEnrolled ? (
+          <Button
+            size="sm"
+            variant="destructive-ghost"
+            onClick={handleClearBiometric}
+            loading={clearBiometric.isPending}
+          >
+            Remove fingerprint
+          </Button>
+        ) : activeDevices.length === 0 ? (
+          <p className="text-xs text-ink-muted">
+            No readers are in use, so there is nowhere to register a
+            fingerprint.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {activeDevices.length > 1 && (
+                <Select
+                  value={selectedDevice}
+                  onChange={(event) => setDeviceId(event.target.value)}
+                  aria-label="Reader to register the fingerprint on"
+                  className="max-w-56"
+                >
+                  {activeDevices.map((device) => (
+                    <option key={device.id} value={device.id}>
+                      {device.deviceName}
+                    </option>
+                  ))}
+                </Select>
+              )}
+
+              <Button
+                size="sm"
+                variant="accent"
+                onClick={handleEnrol}
+                loading={enrolment.state === 'starting'}
+                disabled={enrolment.state === 'awaiting'}
+              >
+                <Fingerprint className="h-4 w-4" aria-hidden="true" />
+                Register fingerprint
+              </Button>
+            </div>
+
+            <EnrolmentStatus state={enrolment.state} error={enrolment.error} />
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-line-1 pt-3">
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleSync}
+          loading={sync.isPending}
+        >
+          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          Re-send to readers
+        </Button>
+      </div>
+
+      <ConfirmDialog />
+    </div>
+  )
+}
+
+/**
+ * What the desk is told while an enrolment is in flight.
+ *
+ * The `awaiting` line is an instruction, not a progress bar, because the thing
+ * being waited on is a person walking to a terminal. And a timeout says the
+ * screen is stale rather than that the enrolment failed: detection is additive,
+ * so a member who did present a finger is enrolled regardless of whether we
+ * were still watching when it happened.
+ */
+function EnrolmentStatus({
+  state,
+  error,
+}: {
+  state: ReturnType<typeof useEnrolmentPoll>['state']
+  error: string | null
+}) {
+  if (state === 'awaiting') {
+    return (
+      <p className="flex items-center gap-1.5 text-xs text-brand-link">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+        Ask the member to place their finger on the reader now.
+      </p>
+    )
+  }
+
+  if (state === 'enrolled') {
+    return (
+      <p className="flex items-center gap-1.5 text-xs text-success">
+        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+        Fingerprint registered.
+      </p>
+    )
+  }
+
+  if (state === 'timed-out') {
+    return (
+      <p className="text-xs text-ink-muted">
+        Still waiting for a finger. If the member has already scanned, reopen
+        this member to check — otherwise start again.
+      </p>
+    )
+  }
+
+  if (state === 'failed') {
+    return (
+      <p className="text-xs text-warning">
+        {error ?? 'The reader did not accept the request.'}
+      </p>
+    )
+  }
+
+  return null
+}

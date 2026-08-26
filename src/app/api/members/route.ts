@@ -10,6 +10,10 @@ import {
   createMemberRepository,
   createRegisterMember,
 } from '@/features/members'
+// Composed here, at the app layer, rather than inside `features/members`:
+// that keeps the members feature free of any access-control import and so
+// deletable in isolation (R2).
+import { provisionMemberAccessBestEffort } from '@/features/access-control'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import {
   ConflictError,
@@ -138,6 +142,16 @@ export async function POST(request: NextRequest) {
       acceptedTermsAt: validatedData.acceptedTerms ? new Date() : null,
       acceptedGymRulesAt: validatedData.acceptedGymRules ? new Date() : null,
     })
+
+    // Push the new member to the gym's door readers now rather than waiting up
+    // to five minutes for the drain. Staff typically walk a new member
+    // straight to the reader to enrol a finger, and the subject has to exist
+    // on the vendor before that can target them.
+    //
+    // Never fatal: the member is already registered and the outbox job is
+    // already queued. A gym must be able to sign someone up whether or not a
+    // door controller is reachable.
+    await provisionMemberAccessBestEffort(createAdminClient(), result.member.id)
 
     // Serialize domain entity for API response with properly formatted dates
     const memberData = serializeMemberForAPI(result.member)

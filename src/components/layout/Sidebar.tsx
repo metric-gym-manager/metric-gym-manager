@@ -17,11 +17,28 @@ import {
   Loader2,
   Headset,
   Receipt,
+  DoorOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui'
+import { useSubscription } from '@/features/subscriptions/hooks/useSubscription'
+import type { RestrictedFeature } from '@/features/subscriptions/domain/PlanRestrictions'
 import type { GymProfile } from '@/features/auth/types'
 
-const navigation = [
+interface NavItem {
+  name: string
+  href: string
+  icon: typeof Home
+  /**
+   * Hide this entry unless the gym's plan includes the capability.
+   *
+   * Only for pages that are useless without hardware. Discovery of a gated
+   * feature belongs on a settings row that everyone can see and that explains
+   * the upgrade — not on a permanent sidebar icon leading to a wall.
+   */
+  requiresFeature?: RestrictedFeature
+}
+
+const navigation: NavItem[] = [
   {
     name: 'Dashboard',
     href: '/dashboard',
@@ -53,6 +70,12 @@ const navigation = [
     icon: Receipt,
   },
   {
+    name: 'Door Access',
+    href: '/access-control',
+    icon: DoorOpen,
+    requiresFeature: 'accessControlHardware',
+  },
+  {
     name: 'Settings',
     href: '/settings',
     icon: Settings,
@@ -81,6 +104,17 @@ export default function Sidebar() {
     staleTime: 30000,
     refetchOnWindowFocus: true,
   })
+
+  const { data: subscription } = useSubscription()
+
+  // Gated entries stay hidden until the capability is known to be present, so
+  // a slow subscription load cannot flash a link the gym does not have. The
+  // capabilities are computed server-side — never tier maths here.
+  const visibleNavigation = navigation.filter(
+    (item) =>
+      !item.requiresFeature ||
+      subscription?.subscription.capabilities[item.requiresFeature]
+  )
 
   const handleLogout = async () => {
     if (isLoggingOut) return // Prevent duplicate requests
@@ -135,7 +169,7 @@ export default function Sidebar() {
             <ul role="list" className="flex flex-1 flex-col gap-y-7">
               <li>
                 <ul role="list" className="-mx-2 space-y-1">
-                  {navigation.map((item) => {
+                  {visibleNavigation.map((item) => {
                     const isActive = pathname.startsWith(item.href)
                     const Icon = item.icon
                     return (
@@ -230,7 +264,7 @@ export default function Sidebar() {
         {/* Mobile bottom navigation - Horizontally swipable */}
         <div className="fixed bottom-0 left-0 right-0 z-50 bg-surface-card border-t border-line-1">
           <nav className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory">
-            {navigation.map((item) => {
+            {visibleNavigation.map((item) => {
               const isActive = pathname.startsWith(item.href)
               const Icon = item.icon
               // Determine if label is long

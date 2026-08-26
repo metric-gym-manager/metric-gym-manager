@@ -3,7 +3,7 @@
 > **This document is law.** It is the binding contract for how `metric-gym-manager`
 > grows. It applies equally to **human contributors** and **AI agents** (Claude Code
 > and any other assistant). If a change violates a rule here, the change is wrong —
-> not the rule. When a rule genuinely must bend, you change *this document first*, in
+> not the rule. When a rule genuinely must bend, you change _this document first_, in
 > its own reviewed commit, and explain why; you never quietly violate it.
 
 **Why this exists.** This codebase was refactored out of a real mess: three backend
@@ -42,8 +42,8 @@ src/
   components/     # SHARED UI only: ui/ common/ layout/ landing/ providers/ pwa/ dashboard/
   features/       # ALL business logic. One folder per domain. THE center of gravity.
     members/  payments/  subscriptions/  sms/  auth/
-    announcements/  registration/  revenue/  settings/
-  lib/            # Third-party glue only: supabase/ payhere/ storage/ cron/ auth/ middleware/ ...
+    announcements/  registration/  revenue/  settings/  access-control/
+  lib/            # Third-party glue only: supabase/ payhere/ storage/ cron/ auth/ middleware/ access-control/ ...
   hooks/          # Shared React hooks
   utils/          # Pure, framework-free utility functions: api/ errors/ date/ phone/ money/ ...
   contexts/       # Shared React contexts
@@ -79,7 +79,7 @@ outside this list.
 
 Each rule is imperative. Where a rule is machine-checked, the enforcer is named.
 
-### R1 — One architecture, one home per domain *(machine-enforced)*
+### R1 — One architecture, one home per domain _(machine-enforced)_
 
 All domain/business logic lives under `src/features/<domain>/`. The dissolved layers
 must never return.
@@ -96,8 +96,8 @@ the build on violation).
 
 ### R2 — A feature is deletable in isolation
 
-The litmus test for correct placement: *"If I `rm -rf` this feature folder, does only
-this feature break?"* If deleting `features/revenue/` would break `features/members/`,
+The litmus test for correct placement: _"If I `rm -rf` this feature folder, does only
+this feature break?"_ If deleting `features/revenue/` would break `features/members/`,
 something is in the wrong place. Shared concerns move down to `lib/`, `utils/`, or
 `components/`; they do not sit inside a sibling feature.
 
@@ -114,21 +114,21 @@ feature into a pile of files, and do not invent new sub-folders. Zod schemas in
 
 Enforced by: review + `npm run arch:check` (verifies `index.ts` presence).
 
-### R4 — Every feature publishes a public API via `index.ts` *(presence machine-enforced)*
+### R4 — Every feature publishes a public API via `index.ts` _(presence machine-enforced)_
 
 Each feature exposes its intended surface through `index.ts`. This barrel is the
 feature's contract with the rest of the app.
 
 - ✅ Every `src/features/<domain>/` contains an `index.ts` (enforced by `arch:check`).
 - ✅ **Prefer** importing another feature through its barrel: `import { Member } from
-  '@/features/members'`.
+'@/features/members'`.
 - ✅ **New** cross-feature imports SHOULD go through the barrel, not deep paths.
 - ❌ Never import another feature's `tests/`, mocks, or internal helpers from
   **production** code. Test-only utilities may be shared between test suites, but
   production code treats another feature's `tests/` as private.
 
 **Honest note on today's reality:** much existing cross-feature code still imports
-*stable deep paths* (e.g. `@/features/subscriptions/config/SubscriptionConfig`,
+_stable deep paths_ (e.g. `@/features/subscriptions/config/SubscriptionConfig`,
 `@/features/members/domain/Member`). Those paths are treated as part of the public
 surface and are tolerated; migrating them to the barrel is opportunistic cleanup, not
 a blocking requirement. What is **never** tolerated is reaching past a feature's
@@ -146,7 +146,7 @@ imported from there. Never copy it.
   name in `.claude/rules/architecture.md` rule 2.13 — **do not rename it**).
 - ❌ A second `type Member = …` or a duplicated status list anywhere else.
 
-### R6 — Routes stay thin *(review-enforced)*
+### R6 — Routes stay thin _(review-enforced)_
 
 An App Router handler (`src/app/**/route.ts` or a Server Action) does exactly three
 things: **(1)** authenticate/authorize, **(2)** validate input with a Zod schema, and
@@ -156,11 +156,11 @@ inline Supabase queries** in routes.
 ```ts
 // ✅ correct route shape
 export async function POST(req: NextRequest) {
-  const user = await requireGymOwner();                 // 1. auth
-  const input = createMemberSchema.parse(await req.json()); // 2. validate
+  const user = await requireGymOwner() // 1. auth
+  const input = createMemberSchema.parse(await req.json()) // 2. validate
   const result = await createRegisterMember(await createClient()) // 3. one service call
-    .execute({ gymId: user.gymId, ...input });
-  return ResponseBuilder.ok(result);
+    .execute({ gymId: user.gymId, ...input })
+  return ResponseBuilder.ok(result)
 }
 ```
 
@@ -170,7 +170,7 @@ const { data } = await supabase.from('members').insert(...);
 if (data.length > gym.limit) { /* quota logic in the route */ }
 ```
 
-**Documented exceptions** (these are the *only* ones): per-route auth/tenant `gyms`
+**Documented exceptions** (these are the _only_ ones): per-route auth/tenant `gyms`
 lookups; `api/admin/system-health/*` infra-monitoring reads (no domain owner);
 dev-only `api/demo/*`. Adding a new exception requires updating this list.
 
@@ -207,7 +207,7 @@ Every feature ships tests for the happy path, validation errors, authorization
 errors, and edge cases (see `.claude/rules/testing.md`). TDD is the workflow
 (`.claude/rules/development.md`).
 
-### R10 — The repo root and `docs/` stay clean *(root junk machine-enforced)*
+### R10 — The repo root and `docs/` stay clean _(root junk machine-enforced)_
 
 - The repo root holds only project-level files: `README.md`, `CHANGELOG.md`,
   `CLAUDE.md`, `CONTRIBUTING.md`, `instructions.md`, and configs. **No** dev logs,
@@ -222,7 +222,7 @@ errors, and edge cases (see `.claude/rules/testing.md`). TDD is the workflow
 Enforced by: `npm run arch:check` rejects `*.log`, `*_ANALYSIS.*`, compiler-output
 dumps, `*.tmp`, and root-level `*.sql`. `.gitignore` covers `*.log`.
 
-### R11 — Migrations are idempotent and replay from empty *(duplicate-timestamp machine-enforced)*
+### R11 — Migrations are idempotent and replay from empty _(duplicate-timestamp machine-enforced)_
 
 Every migration in `supabase/migrations/` must rebuild the schema correctly when run
 from an **empty** database (fresh clone, staging, disaster recovery), not just against
@@ -290,7 +290,7 @@ None of the above / it's a brand-new domain?
 ## Adding a new feature (checklist)
 
 1. `src/features/<new-domain>/` with the mandated folders (`components/ services/
-   schemas/ types/ tests/`) plus any optional ones you need.
+schemas/ types/ tests/`) plus any optional ones you need.
 2. Write `index.ts` exporting only the intended public surface.
 3. Business logic as use-case classes/functions in `services/`; wire them in
    `services/factory.ts` (`create<UseCase>(supabase)`).
@@ -303,19 +303,19 @@ None of the above / it's a brand-new domain?
 
 ## Forbidden patterns (quick reference)
 
-| ❌ Never | ✅ Instead |
-|---|---|
-| Recreate `core/`, `infrastructure/`, `presentation/`, or a top-level `services/` | Put logic in `features/<domain>/`; glue in `lib/` |
-| `import … from '@/core/…'` (or infrastructure/presentation/services) | Import from `@/features/<domain>` or `@/lib` / `@/utils` |
-| Inline Supabase query inside a route handler | Call a feature service via its factory (R6/R7) |
-| Duplicate a domain type/enum/config in a second place | Import it from its owning feature (R5) |
-| Feature A importing feature B's `tests/`/mocks from production code | Share only through B's public surface (R4) |
-| Business logic in `src/lib/` or React/Supabase in `src/utils/` | Keep `lib/` = glue, `utils/` = pure (R8) |
-| Feature-specific UI in shared `src/components/` | Put it in `features/<domain>/components/` (R8) |
-| One-off docs / logs / `tsc` dumps / scratch `.sql` at the repo root | Delete them, or file docs under `docs/<taxonomy>/` (R10) |
-| Non-idempotent migration, or duplicate migration timestamp | Idempotent, empty-DB-replayable, unique timestamp (R11) |
-| Bumping version / editing CHANGELOG release sections as normal work | Leave releases to a human via the GUI (R12) |
-| `any`, unvalidated input, raw-entity serialization | `unknown`+narrow, Zod, `ResponseBuilder` + serializer (R13) |
+| ❌ Never                                                                         | ✅ Instead                                                  |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Recreate `core/`, `infrastructure/`, `presentation/`, or a top-level `services/` | Put logic in `features/<domain>/`; glue in `lib/`           |
+| `import … from '@/core/…'` (or infrastructure/presentation/services)             | Import from `@/features/<domain>` or `@/lib` / `@/utils`    |
+| Inline Supabase query inside a route handler                                     | Call a feature service via its factory (R6/R7)              |
+| Duplicate a domain type/enum/config in a second place                            | Import it from its owning feature (R5)                      |
+| Feature A importing feature B's `tests/`/mocks from production code              | Share only through B's public surface (R4)                  |
+| Business logic in `src/lib/` or React/Supabase in `src/utils/`                   | Keep `lib/` = glue, `utils/` = pure (R8)                    |
+| Feature-specific UI in shared `src/components/`                                  | Put it in `features/<domain>/components/` (R8)              |
+| One-off docs / logs / `tsc` dumps / scratch `.sql` at the repo root              | Delete them, or file docs under `docs/<taxonomy>/` (R10)    |
+| Non-idempotent migration, or duplicate migration timestamp                       | Idempotent, empty-DB-replayable, unique timestamp (R11)     |
+| Bumping version / editing CHANGELOG release sections as normal work              | Leave releases to a human via the GUI (R12)                 |
+| `any`, unvalidated input, raw-entity serialization                               | `unknown`+narrow, Zod, `ResponseBuilder` + serializer (R13) |
 
 ---
 
@@ -325,13 +325,13 @@ Two layers, both mandatory.
 
 ### Machine-enforced (fails the build — cannot be merged red)
 
-| Check | Command | Covers |
-|---|---|---|
-| Dissolved-layer import ban | `npm run lint` (ESLint `no-restricted-imports`) | R1 |
-| Structure invariants | `npm run arch:check` | R1 (dirs + imports), R4 (every feature has `index.ts`), R10 (root junk), R11 (duplicate timestamps) |
-| Type safety | `npm run type-check` | R13 (`strict`, no `any`) |
-| Behavior | `npm test` / `npm run test:integration` | R9 and every rule with a test |
-| Commit format | `commit-msg` git hook | R12 |
+| Check                      | Command                                         | Covers                                                                                              |
+| -------------------------- | ----------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Dissolved-layer import ban | `npm run lint` (ESLint `no-restricted-imports`) | R1                                                                                                  |
+| Structure invariants       | `npm run arch:check`                            | R1 (dirs + imports), R4 (every feature has `index.ts`), R10 (root junk), R11 (duplicate timestamps) |
+| Type safety                | `npm run type-check`                            | R13 (`strict`, no `any`)                                                                            |
+| Behavior                   | `npm test` / `npm run test:integration`         | R9 and every rule with a test                                                                       |
+| Commit format              | `commit-msg` git hook                           | R12                                                                                                 |
 
 `npm run arch:check` also runs automatically in the **pre-commit hook** (fast,
 dependency-free) so a violating commit is stopped locally before it is ever pushed.
@@ -369,6 +369,6 @@ dropped).
   promise to clean it up later. There is no later.
 - If a task seems to require breaking a rule, stop and surface the conflict to the
   user rather than working around it. Changing the architecture is a human decision;
-  it starts with editing *this document*.
+  it starts with editing _this document_.
 - Run `npm run arch:check` (and the full gate) as part of finishing any structural
   change, and report the result honestly.

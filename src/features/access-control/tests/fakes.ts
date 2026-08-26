@@ -1,0 +1,459 @@
+/**
+ * In-memory doubles for the access-control use-case suites.
+ *
+ * The point of these is that every invariant worth proving — a stranded job is
+ * reclaimed, a suspended gym is skipped, a blocked member never receives a
+ * validity period — is provable without a database or a terminal. The real
+ * repository is covered separately against a mocked Supabase client.
+ */
+
+import type { AccessCredentials } from '@/lib/access-control'
+import { MemberStatus } from '@/features/members/config/StatusConfig'
+import { RegistrationSource } from '@/features/members/config/RegistrationConfig'
+import { AccessSyncStatus } from '@/features/access-control/config/AccessControlConfig'
+import type {
+  AccessControlAccount,
+  AccessDevice,
+  AccessEvent,
+  AccessSyncJob,
+  MemberAccessSubject,
+} from '@/features/access-control/types'
+import type {
+  EvictionCandidate,
+  IAccessControlRepository,
+  IncomingAccessEvent,
+  MemberAccessContext,
+  SyncStateUpdate,
+  AccessEventWithMember,
+} from '@/features/access-control/services/IAccessControlRepository'
+
+/** A calendar day as a UTC instant, matching how the domain tests build dates. */
+export const day = (iso: string): Date => new Date(`${iso}T00:00:00Z`)
+
+export const testCredentials: AccessCredentials = {
+  baseUrl: 'https://vft.example.com',
+  email: 'gym@example.com',
+  password: 'secret',
+  areaId: 1,
+}
+
+export function makeDevice(
+  overrides: Partial<AccessDevice> = {}
+): AccessDevice {
+  return {
+    id: 'device-1',
+    gym_id: 'gym-1',
+    device_serial: 'SER-001',
+    device_name: 'Front Door',
+    area_id: 1,
+    timezone_offset_minutes: 330,
+    is_active: true,
+    last_seen_at: null,
+    last_synced_at: null,
+    template_count: 0,
+    template_capacity: null,
+    clock_skew_seconds: null,
+    clock_skew_measured_at: null,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  }
+}
+
+export function makeSubject(
+  overrides: Partial<MemberAccessSubject> = {}
+): MemberAccessSubject {
+  const base = {
+    id: 'subject-row-1',
+    gym_id: 'gym-1',
+    member_id: 'member-1',
+    subject_id: 100001,
+    finger_enrolled: true,
+    finger_id: 6,
+    enrolled_at: '2026-01-01T00:00:00Z',
+    provisioned_at: '2026-01-01T00:00:00Z',
+    synced_device_serials: ['SER-001'],
+    last_synced_at: '2026-01-01T00:00:00Z',
+    last_synced_valid_from: null,
+    last_synced_valid_to: null,
+    last_synced_blocked: false,
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  }
+
+  // Derived here exactly as the database derives it, so a fixture can never
+  // express the impossible state (`on_device` true with no serials) that the
+  // generated column exists to rule out.
+  return { ...base, on_device: base.synced_device_serials.length > 0 }
+}
+
+export function makeContext(
+  overrides: Partial<MemberAccessContext> = {}
+): MemberAccessContext {
+  return {
+    memberId: 'member-1',
+    gymId: 'gym-1',
+    memberName: 'Test Member',
+    status: MemberStatus.Active,
+    membershipStartDate: day('2025-12-15'),
+    nextDueDate: day('2026-01-15'),
+    registrationSource: RegistrationSource.Manual,
+    verifiedAt: null,
+    subject: makeSubject(),
+    ...overrides,
+  }
+}
+
+export function makeJob(overrides: Partial<AccessSyncJob> = {}): AccessSyncJob {
+  return {
+    id: 'job-1',
+    gym_id: 'gym-1',
+    member_id: 'member-1',
+    device_id: null,
+    intent: 'reconcile_member' as AccessSyncJob['intent'],
+    payload: {},
+    status: AccessSyncStatus.InFlight,
+    attempts: 1,
+    next_attempt_at: '2026-01-10T00:00:00Z',
+    last_error: null,
+    provider_command_id: null,
+    created_at: '2026-01-10T00:00:00Z',
+    updated_at: '2026-01-10T00:00:00Z',
+    ...overrides,
+  }
+}
+
+/** What a test enqueued, so a suite can assert on it directly. */
+export interface EnqueuedJob {
+  gymId: string
+  memberId: string | null
+  intent: string
+  payload?: Record<string, unknown>
+}
+
+/** How a job was settled, in the order it happened. */
+export interface SettledJob {
+  jobId: string
+  outcome: 'completed' | 'failed'
+  status?: AccessSyncStatus
+  error?: string
+  retryable?: boolean
+}
+
+export interface FakeRepositoryOptions {
+  credentials?: AccessCredentials | null
+  devices?: AccessDevice[]
+  deviceSerials?: string[]
+  contexts?: MemberAccessContext[]
+  gymsWithAccessControl?: string[]
+  evictionCandidates?: EvictionCandidate[]
+  claimable?: AccessSyncJob[]
+  staleJobs?: number
+  pendingJobs?: number
+  deadJobs?: number
+  events?: AccessEvent[]
+}
+
+/**
+ * A recording, in-memory `IAccessControlRepository`.
+ *
+ * Every method is a real (if trivial) implementation rather than a jest mock,
+ * so a use case that starts calling something new fails to compile instead of
+ * silently receiving `undefined`.
+ */
+export class FakeAccessControlRepository implements IAccessControlRepository {
+  readonly enqueued: EnqueuedJob[] = []
+  readonly settled: SettledJob[] = []
+  readonly offDevice: string[] = []
+  readonly recounted: string[] = []
+  readonly syncStates = new Map<string, SyncStateUpdate>()
+  readonly storedEvents: IncomingAccessEvent[] = []
+  readonly clockSkews: Array<{ deviceSerial: string; skewSeconds: number }> = []
+  readonly seenDevices: Array<{ deviceSerial: string; seenAt: Date }> = []
+  readonly enrolments: Array<{
+    memberId: string
+    enrolled: boolean
+    fingerId: number | null
+  }> = []
+  readonly learnedCapacities: Array<{
+    deviceSerial: string
+    capacity: number
+  }> = []
+
+  /** Serials already stored, so a repeat delivery counts as a duplicate. */
+  private readonly seenEventKeys = new Set<string>()
+  private nextSubjectId = 100001
+  private claimed = false
+
+  constructor(private readonly options: FakeRepositoryOptions = {}) {}
+
+  // ---- Account -------------------------------------------------------------
+
+  async findAccountByGymId(
+    gymId: string
+  ): Promise<AccessControlAccount | null> {
+    if (!this.options.credentials) return null
+
+    return {
+      id: 'account-1',
+      gym_id: gymId,
+      base_url: this.options.credentials.baseUrl,
+      area_id: this.options.credentials.areaId ?? null,
+      is_active: true,
+      last_verified_at: null,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    }
+  }
+
+  async getCredentials(_gymId: string): Promise<AccessCredentials | null> {
+    return this.options.credentials ?? null
+  }
+
+  async saveCredentials(): Promise<AccessControlAccount> {
+    throw new Error('not used in these tests')
+  }
+
+  async markAccountVerified(): Promise<void> {}
+
+  // ---- Devices -------------------------------------------------------------
+
+  async listDevices(_gymId: string): Promise<AccessDevice[]> {
+    return this.options.devices ?? []
+  }
+
+  async listActiveDeviceSerials(_gymId: string): Promise<string[]> {
+    if (this.options.deviceSerials) return this.options.deviceSerials
+    return (this.options.devices ?? [])
+      .filter((d) => d.is_active)
+      .map((d) => d.device_serial)
+  }
+
+  async findDeviceById(
+    gymId: string,
+    deviceId: string
+  ): Promise<AccessDevice | null> {
+    return (
+      (this.options.devices ?? []).find(
+        (d) => d.id === deviceId && d.gym_id === gymId
+      ) ?? null
+    )
+  }
+
+  async findDeviceBySerial(deviceSerial: string): Promise<AccessDevice | null> {
+    return (
+      (this.options.devices ?? []).find(
+        (d) => d.device_serial === deviceSerial
+      ) ?? null
+    )
+  }
+
+  async registerDevice(): Promise<AccessDevice> {
+    throw new Error('not used in these tests')
+  }
+
+  async setDeviceActive(): Promise<void> {}
+
+  async renameDevice(): Promise<void> {}
+
+  async unlinkDevice(): Promise<void> {}
+
+  async recordDeviceClockSkew(
+    deviceSerial: string,
+    skewSeconds: number
+  ): Promise<void> {
+    this.clockSkews.push({ deviceSerial, skewSeconds })
+  }
+
+  async markDeviceSeen(deviceSerial: string, seenAt: Date): Promise<void> {
+    this.seenDevices.push({ deviceSerial, seenAt })
+  }
+
+  async recordDeviceCapacity(
+    deviceSerial: string,
+    capacity: number
+  ): Promise<void> {
+    this.learnedCapacities.push({ deviceSerial, capacity })
+  }
+
+  // ---- Subjects ------------------------------------------------------------
+
+  async getMemberAccessContext(
+    memberId: string
+  ): Promise<MemberAccessContext | null> {
+    return (
+      (this.options.contexts ?? []).find((c) => c.memberId === memberId) ?? null
+    )
+  }
+
+  async listMembersNeedingReconcile(gymId: string): Promise<string[]> {
+    return (this.options.contexts ?? [])
+      .filter((c) => c.gymId === gymId)
+      .map((c) => c.memberId)
+  }
+
+  async listSubjectsForReconcile(
+    gymId: string
+  ): Promise<MemberAccessContext[]> {
+    return (this.options.contexts ?? []).filter((c) => c.gymId === gymId)
+  }
+
+  async listGymsWithAccessControl(): Promise<string[]> {
+    return this.options.gymsWithAccessControl ?? []
+  }
+
+  async listEvictionCandidates(_gymId: string): Promise<EvictionCandidate[]> {
+    return this.options.evictionCandidates ?? []
+  }
+
+  async markSubjectOffDevice(memberId: string): Promise<void> {
+    this.offDevice.push(memberId)
+  }
+
+  async recountDeviceTemplates(deviceId: string): Promise<number> {
+    this.recounted.push(deviceId)
+
+    // Returns the device's recorded count, which is where a real recount
+    // converges when nothing has changed. Returning a flat zero made the fake
+    // lie in the one direction that matters — capacity learning reads this
+    // number, and zero reads as "nothing to measure".
+    return (
+      (this.options.devices ?? []).find((d) => d.id === deviceId)
+        ?.template_count ?? 0
+    )
+  }
+
+  async allocateSubjectId(): Promise<number> {
+    return this.nextSubjectId++
+  }
+
+  async createSubject(
+    gymId: string,
+    memberId: string,
+    subjectId: number
+  ): Promise<MemberAccessSubject> {
+    return makeSubject({
+      gym_id: gymId,
+      member_id: memberId,
+      subject_id: subjectId,
+      provisioned_at: null,
+      on_device: false,
+      finger_enrolled: false,
+    })
+  }
+
+  async updateSyncState(
+    memberId: string,
+    update: SyncStateUpdate
+  ): Promise<void> {
+    this.syncStates.set(memberId, update)
+  }
+
+  async setBiometricEnrolled(
+    memberId: string,
+    enrolled: boolean,
+    fingerId?: number | null
+  ): Promise<void> {
+    this.enrolments.push({ memberId, enrolled, fingerId: fingerId ?? null })
+  }
+
+  // ---- Outbox --------------------------------------------------------------
+
+  async enqueue(
+    gymId: string,
+    memberId: string | null,
+    intent: string,
+    payload?: Record<string, unknown>
+  ): Promise<void> {
+    this.enqueued.push({ gymId, memberId, intent, payload })
+  }
+
+  async claimDueJobs(limit: number): Promise<AccessSyncJob[]> {
+    // One batch only: the drainer claims once per run, and returning the same
+    // jobs again would let a test loop forever.
+    if (this.claimed) return []
+    this.claimed = true
+    return (this.options.claimable ?? []).slice(0, limit)
+  }
+
+  async completeJob(jobId: string, status: AccessSyncStatus): Promise<void> {
+    this.settled.push({ jobId, outcome: 'completed', status })
+  }
+
+  async failJob(
+    jobId: string,
+    error: string,
+    retryable: boolean
+  ): Promise<void> {
+    this.settled.push({ jobId, outcome: 'failed', error, retryable })
+  }
+
+  async countDeadJobs(_memberId?: string): Promise<number> {
+    return this.options.deadJobs ?? 0
+  }
+
+  async countPendingJobs(_memberId: string): Promise<number> {
+    return this.options.pendingJobs ?? 0
+  }
+
+  async reclaimStaleJobs(_olderThanSeconds: number): Promise<number> {
+    return this.options.staleJobs ?? 0
+  }
+
+  // ---- Events --------------------------------------------------------------
+
+  async recordEvents(
+    _gymId: string,
+    events: IncomingAccessEvent[]
+  ): Promise<{ inserted: number; duplicates: number }> {
+    let inserted = 0
+    let duplicates = 0
+
+    for (const event of events) {
+      const key = `${event.deviceSerial}|${event.subjectId}|${event.occurredAt.toISOString()}`
+
+      if (this.seenEventKeys.has(key)) {
+        duplicates += 1
+        continue
+      }
+
+      this.seenEventKeys.add(key)
+      this.storedEvents.push(event)
+      inserted += 1
+    }
+
+    return { inserted, duplicates }
+  }
+
+  async listEvents(
+    _gymId: string,
+    query: { page: number; limit: number; memberId?: string }
+  ): Promise<{ events: AccessEventWithMember[]; total: number }> {
+    const all = this.options.events ?? []
+    const from = (query.page - 1) * query.limit
+
+    return {
+      events: all
+        .slice(from, from + query.limit)
+        .map((event) => ({ ...event, memberName: null })),
+      total: all.length,
+    }
+  }
+
+  async findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null> {
+    const device = await this.findDeviceBySerial(deviceSerial)
+    return device?.gym_id ?? null
+  }
+
+  async findMemberIdBySubjectId(
+    gymId: string,
+    subjectId: number
+  ): Promise<string | null> {
+    return (
+      (this.options.contexts ?? []).find(
+        (c) => c.gymId === gymId && c.subject?.subject_id === subjectId
+      )?.memberId ?? null
+    )
+  }
+}

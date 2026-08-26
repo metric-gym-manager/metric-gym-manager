@@ -1,0 +1,249 @@
+/**
+ * Coverage of the vendor's own reference tables.
+ *
+ * These suites answer one question: **is every code the vendor documents
+ * actually handled, or does it silently fall through a default?**
+ *
+ * That matters differently for each table. An unclassified *return* code gets
+ * retried by the outbox, so a permanent failure would burn its whole retry
+ * budget before anyone heard about it. An unclassified *event* code renders as
+ * "Other" in a gym's activity log, which is the difference between "your
+ * membership expired on the 15th" and a shrug.
+ *
+ * The full tables are transcribed from VFT's `CommandsReturnValues.pdf` and
+ * `EventCodes.pdf`.
+ */
+
+import {
+  classifyReturnCode,
+  describeReturnCode,
+  ReturnCodeClass,
+} from '../returnCodes'
+import {
+  classifyDeviceEvent,
+  describeDeviceEvent,
+  DeviceEventKind,
+} from '@/features/access-control/config/DeviceEventCodes'
+
+/** Every return code in the vendor's table. */
+const DOCUMENTED_RETURN_CODES: number[] = [
+  ...Array.from({ length: 28 }, (_, i) => -(i + 1)).filter((c) => c !== -29),
+  -30,
+  -100,
+  -101,
+  -102,
+  -103,
+  -104,
+  -105,
+  -106,
+  -107,
+  -108,
+  -201,
+  -202,
+  -203,
+  -206,
+  -301,
+  -601,
+  -603,
+  -604,
+  -609,
+  -612,
+  -614,
+  -615,
+  -616,
+  -618,
+  -619,
+  -620,
+  -621,
+  -628,
+  -629,
+  -630,
+  -631,
+  -632,
+  -701,
+  -702,
+  -703,
+  -704,
+  -705,
+  -706,
+  -707,
+  -708,
+  -709,
+  -720,
+  -721,
+  -722,
+  -723,
+  -724,
+  -725,
+  -726,
+  -727,
+  -728,
+  -729,
+  -730,
+  -731,
+  -732,
+  -801,
+]
+
+/**
+ * Codes the vendor marks "Reserved. For firmware internal use only".
+ *
+ * Deliberately unclassified: we have no documented meaning to classify them
+ * by, and the bounded-retry default is the safer guess for an unknown failure
+ * than dead-lettering something that might have been transient.
+ */
+const RESERVED = new Set([
+  -601, -701, -702, -703, -704, -705, -706, -707, -723, -724, -727, -729, -732,
+])
+
+/** Every event code in the vendor's table. */
+const DOCUMENTED_EVENT_CODES: number[] = [
+  ...Array.from({ length: 75 }, (_, i) => i).filter((c) => c !== 46),
+  100,
+  101,
+  102,
+  103,
+  104,
+  105,
+  106,
+  107,
+  108,
+  109,
+  110,
+  ...Array.from({ length: 43 }, (_, i) => 200 + i).filter(
+    (c) => ![219, 224, 238, 243].includes(c)
+  ),
+  254,
+  255,
+]
+
+describe('return-code table coverage', () => {
+  it('classifies every documented code that carries a meaning', () => {
+    const unclassified = DOCUMENTED_RETURN_CODES.filter(
+      (code) =>
+        !RESERVED.has(code) &&
+        classifyReturnCode(code) === ReturnCodeClass.Retryable &&
+        // Retryable is also a real classification, so distinguish "we chose
+        // retryable" from "we fell through" by checking for a description.
+        describeReturnCode(code).startsWith('Device error')
+    )
+
+    expect(unclassified).toEqual([])
+  })
+
+  it('describes every documented code except the reserved ones', () => {
+    const undescribed = DOCUMENTED_RETURN_CODES.filter(
+      (code) =>
+        !RESERVED.has(code) &&
+        describeReturnCode(code).startsWith('Device error')
+    )
+
+    expect(undescribed).toEqual([])
+  })
+
+  describe('the classifications that change behaviour', () => {
+    it('never retries a malformed callback URL', () => {
+      // -618 is the device rejecting OUR webhook URL. Retrying it forever
+      // would bury a configuration error behind an infinite backoff.
+      expect(classifyReturnCode(-618)).toBe(ReturnCodeClass.Permanent)
+      expect(describeReturnCode(-618)).toContain('callback URL')
+    })
+
+    it('escalates a failed remote restart rather than retrying it', () => {
+      // The direct answer to our own reboot command. Somebody has to
+      // power-cycle the reader at the door.
+      expect(classifyReturnCode(-615)).toBe(ReturnCodeClass.NeedsAttention)
+    })
+
+    it('escalates a device that is out of memory', () => {
+      expect(classifyReturnCode(-604)).toBe(ReturnCodeClass.NeedsAttention)
+    })
+
+    it('does not retry table-structure errors, which are malformed requests', () => {
+      for (const code of [-100, -101, -102, -103, -106, -107, -108]) {
+        expect(classifyReturnCode(code)).toBe(ReturnCodeClass.Permanent)
+      }
+    })
+
+    it('does retry transfer-integrity failures, which may succeed next time', () => {
+      // Corrupted bytes can arrive clean on the retry — unlike a malformed
+      // request, which will be just as malformed.
+      for (const code of [-4, -5, -6, -9, -10, -19]) {
+        expect(classifyReturnCode(code)).toBe(ReturnCodeClass.Retryable)
+      }
+    })
+
+    it('does not retry operations we never perform', () => {
+      // File and firmware-upgrade codes. If one appears against a command we
+      // actually sent, no retry addresses it.
+      for (const code of [-15, -16, -17, -21, -22, -23, -24, -25]) {
+        expect(classifyReturnCode(code)).toBe(ReturnCodeClass.Permanent)
+      }
+    })
+
+    it('keeps the reserved codes on the bounded-retry default', () => {
+      for (const code of RESERVED) {
+        expect(classifyReturnCode(code)).toBe(ReturnCodeClass.Retryable)
+      }
+    })
+  })
+})
+
+describe('event-code table coverage', () => {
+  it('classifies every documented event code', () => {
+    const unclassified = DOCUMENTED_EVENT_CODES.filter(
+      (code) => classifyDeviceEvent(code) === DeviceEventKind.Other
+    )
+
+    expect(unclassified).toEqual([])
+  })
+
+  it('gives every documented code language a gym manager can read', () => {
+    for (const code of DOCUMENTED_EVENT_CODES) {
+      const text = describeDeviceEvent(code)
+
+      expect(text.length).toBeGreaterThan(0)
+      // Never a bare number on a gym-facing screen (rule 2.9).
+      expect(text).not.toMatch(/^\d+$/)
+    }
+  })
+
+  describe('the classifications that reach a gym manager', () => {
+    it('treats the three merged expiry codes as refusals', () => {
+      // 29/33/53 are the same event on card, fingerprint and password — and
+      // they are what an unpaid member actually produces at the door.
+      for (const code of [29, 33, 53]) {
+        expect(classifyDeviceEvent(code)).toBe(DeviceEventKind.Denied)
+        expect(describeDeviceEvent(code)).toContain('expired')
+      }
+    })
+
+    it('treats the three merged time-period codes as refusals', () => {
+      for (const code of [21, 35, 49]) {
+        expect(classifyDeviceEvent(code)).toBe(DeviceEventKind.Denied)
+      }
+    })
+
+    it('treats multi-user verification waits as refusals, not successes', () => {
+      // 26/32/51 mean the door did NOT open — it is waiting for a second
+      // person. Classifying these as granted would log an entry that never
+      // happened.
+      for (const code of [26, 32, 51]) {
+        expect(classifyDeviceEvent(code)).toBe(DeviceEventKind.Denied)
+      }
+    })
+
+    it('never buries a duress alarm', () => {
+      for (const code of [101, 103]) {
+        expect(classifyDeviceEvent(code)).toBe(DeviceEventKind.Alarm)
+        expect(describeDeviceEvent(code)).toContain('Duress')
+      }
+    })
+
+    it('classifies the extended-event escape hatch rather than leaving it unknown', () => {
+      // 254 announces an extended event number, because 0-253 ran out. A
+      // firmware that starts using it must not fill a gym's log with "Other".
+      expect(classifyDeviceEvent(254)).toBe(DeviceEventKind.System)
+    })
+  })
+})

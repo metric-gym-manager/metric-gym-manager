@@ -10,6 +10,10 @@ const settingsNavigation = [
   { name: 'Registration', href: '/settings/registration' },
   { name: 'Rules & Terms', href: '/settings/policies' },
   { name: 'Security', href: '/settings/security' },
+  // Setup only — the door hardware's day-to-day view is the top-level
+  // /access-control page. Shown to every tier: the page itself renders the
+  // Enterprise upgrade panel, which is how a gym discovers the feature exists.
+  { name: 'Access Control', href: '/settings/access-control' },
   { name: 'Subscription', href: '/settings/billing' },
 ]
 
