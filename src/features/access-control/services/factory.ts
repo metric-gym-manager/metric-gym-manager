@@ -26,6 +26,7 @@ import { GetMemberAccessStatus } from './GetMemberAccessStatus'
 import { RefreshDeviceStatus } from './RefreshDeviceStatus'
 import { DetectBiometricEnrolment } from './DetectBiometricEnrolment'
 import { PushRename } from './PushRename'
+import { PurgeExpiredAccessEvents } from './PurgeExpiredAccessEvents'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 
 /**
@@ -180,4 +181,17 @@ export function createEvictInactiveSubjects(
     createAccessControlRepository(supabase),
     createAccessControlProvider()
   )
+}
+
+/**
+ * The retention purge.
+ *
+ * Service-role only, like the drainer and the reconciler: it deletes across
+ * every gym, so a session client would silently scope it to one and the
+ * retention promise would quietly stop being kept for everyone else.
+ */
+export function createPurgeExpiredAccessEvents(
+  supabase: SupabaseClient
+): PurgeExpiredAccessEvents {
+  return new PurgeExpiredAccessEvents(createAccessControlRepository(supabase))
 }

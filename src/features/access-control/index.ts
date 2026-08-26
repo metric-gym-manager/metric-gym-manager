@@ -47,6 +47,7 @@ export {
   SYNC_MAX_ATTEMPTS,
   VENDOR_MAX_REQUESTS_PER_SECOND,
   DEVICE_CLOCK_SKEW_ALERT_SECONDS,
+  ACCESS_EVENT_RETENTION_DAYS,
 } from './config/AccessControlConfig'
 
 export {
@@ -91,6 +92,8 @@ export { RefreshDeviceStatus } from './services/RefreshDeviceStatus'
 export type { RefreshDeviceStatusSummary } from './services/RefreshDeviceStatus'
 export { DetectBiometricEnrolment } from './services/DetectBiometricEnrolment'
 export { PushRename } from './services/PushRename'
+export { PurgeExpiredAccessEvents } from './services/PurgeExpiredAccessEvents'
+export type { PurgeExpiredAccessEventsSummary } from './services/PurgeExpiredAccessEvents'
 export type { PushRenameResult } from './services/PushRename'
 export { provisionMemberAccessBestEffort } from './services/provisionMemberAccessBestEffort'
 export type { DetectBiometricEnrolmentResult } from './services/DetectBiometricEnrolment'
@@ -116,6 +119,7 @@ export {
   createRefreshDeviceStatus,
   createDetectBiometricEnrolment,
   createPushRename,
+  createPurgeExpiredAccessEvents,
 } from './services/factory'
 
 // Serializers — no database row is handed to JSON directly (rule 2.11)

@@ -3,11 +3,12 @@
  */
 
 /**
- * The two access-control crons.
+ * The three access-control crons.
  *
- * These are the only callers of the drainer and the reconciler, so a route
- * that silently stopped working would look exactly like a feature that was
- * never wired up: jobs accumulate, members stop syncing, nothing errors.
+ * These are the only callers of the drainer, the reconciler and the retention
+ * purge, so a route that silently stopped working would look exactly like a
+ * feature that was never wired up: jobs accumulate, members stop syncing,
+ * deleted-by-now scan records quietly stay forever, and nothing errors.
  *
  * Vercel Cron issues a GET, so GET must run the job — the regression that once
  * disabled every scheduled job in this codebase was a POST-only handler
@@ -19,6 +20,7 @@ import { NextRequest } from 'next/server'
 const mockDrain = jest.fn()
 const mockReconcile = jest.fn()
 const mockRefreshPresence = jest.fn()
+const mockPurge = jest.fn()
 const mockLogSuccess = jest.fn().mockResolvedValue(undefined)
 const mockLogFailure = jest.fn().mockResolvedValue(undefined)
 
@@ -26,6 +28,7 @@ jest.mock('@/features/access-control', () => ({
   createDrainAccessSyncQueue: jest.fn(() => ({ execute: mockDrain })),
   createReconcileMemberAccess: jest.fn(() => ({ execute: mockReconcile })),
   createRefreshDeviceStatus: jest.fn(() => ({ execute: mockRefreshPresence })),
+  createPurgeExpiredAccessEvents: jest.fn(() => ({ execute: mockPurge })),
 }))
 
 jest.mock('@/lib/supabase/admin', () => ({
@@ -42,6 +45,7 @@ jest.mock('@/lib/cron', () => ({
 
 import * as drainRoute from '../drain-access-sync/route'
 import * as reconcileRoute from '../reconcile-access/route'
+import * as purgeRoute from '../purge-access-events/route'
 import vercelConfig from '../../../../../vercel.json'
 
 const CRON_SECRET = 'test-cron-secret'
@@ -81,6 +85,12 @@ const cleanReconcile = {
   errors: [],
 }
 
+const cleanPurge = {
+  deleted: 0,
+  cutoff: '2025-08-26T02:00:00.000Z',
+  backlogRemaining: false,
+}
+
 describe('Access-control cron routes', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -88,6 +98,7 @@ describe('Access-control cron routes', () => {
     mockDrain.mockResolvedValue(cleanDrain)
     mockRefreshPresence.mockResolvedValue(cleanPresence)
     mockReconcile.mockResolvedValue(cleanReconcile)
+    mockPurge.mockResolvedValue(cleanPurge)
   })
 
   afterEach(() => {
@@ -101,6 +112,8 @@ describe('Access-control cron routes', () => {
     ['drain-access-sync (POST)', drainRoute.POST, mockDrain],
     ['reconcile-access (GET)', reconcileRoute.GET, mockReconcile],
     ['reconcile-access (POST)', reconcileRoute.POST, mockReconcile],
+    ['purge-access-events (GET)', purgeRoute.GET, mockPurge],
+    ['purge-access-events (POST)', purgeRoute.POST, mockPurge],
   ]
 
   it.each(cases)(
@@ -263,6 +276,28 @@ describe('Access-control cron schedules', () => {
 
   it('drains the outbox frequently enough to be a catch-up path', () => {
     expect(scheduleFor('/api/cron/drain-access-sync')).toBe('*/5 * * * *')
+  })
+
+  it('purges expired scans daily, so the published figure stays true', () => {
+    // The privacy policy states twelve months. A monthly sweep would let the
+    // oldest scans reach thirteen, making that statement untrue for weeks at
+    // a time.
+    const schedule = scheduleFor('/api/cron/purge-access-events')
+
+    expect(schedule).toBe('0 2 * * *')
+    // Daily: no day-of-month or day-of-week restriction.
+    expect(schedule.split(' ').slice(2)).toEqual(['*', '*', '*'])
+  })
+
+  it('keeps the purge clear of the nightly status chain window', () => {
+    // It shares no data with the status crons in either direction, so it does
+    // not belong in their pinned ordering — it just must not sit inside their
+    // window and compete for the same minutes.
+    const hour = Number(
+      scheduleFor('/api/cron/purge-access-events').split(' ')[1]
+    )
+
+    expect(hour).toBeGreaterThan(0)
   })
 
   it('keeps the reconciler out of the nightly status chain window', () => {

@@ -68,6 +68,7 @@ export class GetMemberAccessStatus {
         ? 'Access is active'
         : describeAccessDenial(decision.reason),
       fingerEnrolled: context.subject?.finger_enrolled ?? false,
+      biometricConsentAt: context.biometricConsentAt?.toISOString() ?? null,
       validFrom: decision.validFrom
         ? formatDeviceDate(decision.validFrom)
         : null,

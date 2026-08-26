@@ -1212,14 +1212,23 @@ so **request it now**; it gates nothing but shortens Phase 2 considerably.
    the gym's billing dispute is a physical-safety and reputational risk, and the
    members did nothing wrong. Needs a product call before Phase 3.
 
-2. **Biometric consent.** Fingerprint templates are sensitive personal data.
-   Even though they live on VFT's hardware, we trigger enrolment — so the
-   privacy policy needs a biometric disclosure and registration needs a consent
-   alongside `accepted_terms_at` / `accepted_gym_rules_at`. Settle before
-   Phase 3.
-3. **Remote door-open** stays Enterprise-only, gym-owner-only, rate-limited and
-   audited with actor and timestamp.
-4. **Per-gym VFT credentials — now a commercial ask, not just a preference.**
+2. ~~**Biometric consent.**~~ **Settled 2026-08-26: consent is captured at the
+   enrolment dialog**, not at registration — that is the moment of collection,
+   and consent to a purpose that does not exist yet is not consent. Recorded on
+   `members.biometric_consent_at`, enforced in `ManageMemberBiometric` (fails
+   closed), cleared when the fingerprint is removed. The privacy policy now
+   carries the disclosure. Full reasoning in
+   `access-control-master.md` §7.1 — do not reopen it there or here.
+3. ~~**Remote door-open** stays Enterprise-only, gym-owner-only…~~ **Settled
+   2026-08-26: Enterprise-only and audited, but NOT owner-only.** Any entitled
+   user may open a door — a gym is one Supabase user (`gyms.user_id`), so
+   "owner" and "front desk" are the same login and there is no role to restrict
+   to. Audit (job actor + the reader's own event 8) is the control, not
+   permission.
+4. ~~**Event retention.**~~ **Settled 2026-08-26: 12 months**, swept nightly by
+   `purge-access-events`. `ACCESS_EVENT_RETENTION_DAYS` is the figure published
+   in the privacy policy; the two move together.
+5. **Per-gym VFT credentials — now a commercial ask, not just a preference.**
    The working assumptions are that `AreaID` is a filter and not an authorization
    boundary (§6.1), that `EmpId` is unique account-wide and reusing one
    _overwrites another tenant's user record_, and that the deployed fleet may
@@ -1243,11 +1252,9 @@ Internal product/legal decisions — ours, not the vendor's:
    and reputational risk. Recommendation: **stop syncing, leave devices in
    their last known state**, and show the gym a banner. Needs an explicit
    product call before Phase 3.
-2. **Biometric data is sensitive personal data.** Face and fingerprint
-   templates live on the vendor's devices, but _we_ trigger enrolment, so the
-   privacy policy needs a biometric-processing disclosure and registration
-   needs an access-control consent alongside the existing `accepted_terms_at` /
-   `accepted_gym_rules_at`. Settle before Phase 3 ships.
-3. **Remote door-open is physical security.** Enterprise-only, gym-owner-only,
-   rate-limited, and every invocation audited with actor and timestamp.
+2. ~~**Biometric data is sensitive personal data.**~~ **Settled** — see the
+   list above and `access-control-master.md` §7.1.
+3. ~~**Remote door-open is physical security.**~~ **Settled** — Enterprise-only
+   and audited, but available to any entitled user rather than owner-only. See
+   above.
 4. **Identity strategy** (§6) — depends on VFT Q1, but the call is ours.

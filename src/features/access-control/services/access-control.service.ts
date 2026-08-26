@@ -298,10 +298,15 @@ export async function syncMemberAccess(
  * `awaitingFinger` is the only honest answer the vendor can give: the template
  * does not exist until the member presents a finger at the terminal, so this
  * never means "enrolled". Poll `getMemberEnrolment` to learn when it lands.
+ *
+ * `consent` carries the desk's confirmation that the member agreed, and is
+ * only needed when none is on file — the server decides that, not this. A
+ * refusal comes back as `BIOMETRIC_CONSENT_REQUIRED`, which the panel treats
+ * as "ask, then retry" rather than as a failure.
  */
 export async function startMemberEnrolment(
   memberId: string,
-  input: { deviceId: string; fingerId?: number }
+  input: { deviceId: string; fingerId?: number; consent?: boolean }
 ): Promise<{ awaitingFinger: boolean }> {
   return post<{ awaitingFinger: boolean }>(
     `/api/access-control/members/${memberId}/enrol`,
@@ -324,6 +329,8 @@ export async function getMemberEnrolment(
  *
  * `membershipUnchanged` comes back from the route deliberately: the desk needs
  * to see that removing a finger did not cancel anyone.
+ *
+ * This also withdraws the member's consent, so a later enrolment asks again.
  */
 export async function clearMemberBiometric(
   memberId: string

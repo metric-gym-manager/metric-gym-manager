@@ -7,10 +7,12 @@
 > whole.** Everything a new session needs to avoid re-deriving, re-deciding, or
 > re-breaking is here.
 >
-> **Status as of 2026-08-23:** backend complete, UI complete, 293 tests green,
-> migrations applied to production. **Not yet exercised against real hardware or
-> the vendor simulator.** Blocked on one product decision before enrolment can
-> ship (§7.1).
+> **Status as of 2026-08-26:** backend complete, UI complete, 333 tests green,
+> merged to `master` in [#63]. The three product decisions that were open at
+> merge — biometric consent, remote door opening, event retention — are
+> **decided and built** (§7.1). **Still not exercised against real hardware or
+> the vendor simulator**, which is now the only thing standing between this and
+> a real gym (§7.3).
 
 ---
 
@@ -24,6 +26,7 @@
 | Preparing for the simulator session      | §3.10, §7.3, then `vft-simulator-test-plan.md` |
 | Wondering why something is written oddly | §6 — it is probably a fix for a real defect    |
 | Adding a feature                         | §9 first. Those are the traps.                 |
+| Touching enrolment or scan retention     | §7.1 — those decisions are made; do not reopen |
 
 **Companion documents** (this one summarises them; they hold the detail):
 
@@ -280,6 +283,8 @@ K40/F18 firmware.
 | `20260810000003_reclaim_stale_sync_jobs.sql`            | `reclaim_stale_access_sync_jobs`                                                                                                          |
 | `20260812000001_per_device_templates.sql`               | **D1 fix** — `synced_device_serials TEXT[]`, `on_device` becomes `GENERATED ALWAYS AS (CARDINALITY(...) > 0) STORED`, per-serial recount  |
 | `20260813000001_lock_down_access_control_functions.sql` | **Security fix** — `REVOKE ALL … FROM PUBLIC, anon, authenticated` on all 5 SECURITY DEFINER functions; `GRANT EXECUTE … TO service_role` |
+| `20260826000001_add_biometric_consent.sql`              | `members.biometric_consent_at` — the enrolment gate. `register_member_guarded` deliberately **not** touched                               |
+| `20260826000002_access_event_retention.sql`             | `idx_access_events_occurred_at` — the retention purge is global and oldest-first, so both tenant-leading indexes are useless to it        |
 
 **All applied to production (`kcafbafxjjrksicwewmp`) and verified.** Supabase
 advisors are clean of everything this feature introduced.
@@ -315,12 +320,12 @@ advisors are clean of everything this feature introduced.
 - `AccessCommands.ts` — derives the command list from a decision + current state
 - `EvictionPolicy.ts` — `selectEvictionCandidates`, `slotsToReclaim`
 
-**Services (14):** `SyncMemberAccess`, `DrainAccessSyncQueue`,
+**Services (15):** `SyncMemberAccess`, `DrainAccessSyncQueue`,
 `ReconcileMemberAccess`, `RecordAccessEvents`, `EvictInactiveSubjects`,
 `OperateDevice`, `VerifyAccessAccount`, `ManageMemberBiometric`,
 `GetMemberAccessStatus`, `RefreshDeviceStatus`, `DetectBiometricEnrolment`,
-`PushRename`, `provisionMemberAccessBestEffort`, plus the Supabase repository.
-Composition through `services/factory.ts` (R7).
+`PushRename`, `PurgeExpiredAccessEvents`, `provisionMemberAccessBestEffort`,
+plus the Supabase repository. Composition through `services/factory.ts` (R7).
 
 **UI (6 components + 2 pages):**
 
@@ -351,7 +356,7 @@ PATCH    /api/access-control/devices/[id]              rename + capacity
 POST     /api/access-control/devices/[id]/enable|disable|unlink|open|reboot|free-space
 GET      /api/access-control/events                     paged, kind-filtered
 GET      /api/access-control/members/[id]               sanitized status
-POST     /api/access-control/members/[id]/sync|enrol
+POST     /api/access-control/members/[id]/sync|enrol   enrol carries `consent`
 GET      /api/access-control/members/[id]/enrolment
 DELETE   /api/access-control/members/[id]/biometric
 POST     /api/webhooks/access-control/[token]           always-200
@@ -364,10 +369,11 @@ effect of an edit nobody reviewed as a state change.
 
 ### 4.5 Crons
 
-| Schedule      | Path                          | Job                                                                 |
-| ------------- | ----------------------------- | ------------------------------------------------------------------- |
-| `*/5 * * * *` | `/api/cron/drain-access-sync` | Drain the outbox; refresh device presence; proactive capacity sweep |
-| `30 18 * * *` | `/api/cron/reconcile-access`  | Nightly diff at 00:00 SLT — the real lockout boundary               |
+| Schedule      | Path                            | Job                                                                                                                                                 |
+| ------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `*/5 * * * *` | `/api/cron/drain-access-sync`   | Drain the outbox; refresh device presence; proactive capacity sweep                                                                                 |
+| `30 18 * * *` | `/api/cron/reconcile-access`    | Nightly diff at 00:00 SLT — the real lockout boundary                                                                                               |
+| `0 2 * * *`   | `/api/cron/purge-access-events` | Delete scans past `ACCESS_EVENT_RETENTION_DAYS`. Daily, because a monthly sweep would let data reach 13 months and make the published figure untrue |
 
 Both log to the cron audit table (rule 2.6).
 
@@ -390,8 +396,11 @@ Both log to the cron audit table (rule 2.6).
 | `DEVICE_OFFLINE_AFTER_SECONDS`    | `DRAIN_INTERVAL_SECONDS * 3` | **N2 fix.** They were equal, so every healthy reader flickered offline. A test asserts the inequality — retuning either in isolation fails the build. |
 | `ENROLMENT_POLL_INTERVAL_MS`      | 3,000                        | A person is watching                                                                                                                                  |
 | `ENROLMENT_POLL_TIMEOUT_MS`       | 120,000                      | Walk from desk to reader, with room                                                                                                                   |
+| `ACCESS_EVENT_RETENTION_DAYS`     | 365                          | **The number published in the privacy policy.** Move one and the other has to move — a test asserts the constant is 365                               |
+| `ACCESS_EVENT_PURGE_BATCH_SIZE`   | 500                          | An unbounded first `DELETE` after a year of collection is how a cron times out and makes no progress at all                                           |
+| `ACCESS_EVENT_PURGE_MAX_BATCHES`  | 500                          | 250,000 rows a run; a larger backlog waits for tomorrow and the summary says so                                                                       |
 
-### 4.7 Tests — 293 across 20 suites
+### 4.7 Tests — 333 across 23 suites
 
 Notable ones, because they encode decisions rather than behaviour:
 
@@ -403,6 +412,10 @@ Notable ones, because they encode decisions rather than behaviour:
 | `vendorTables.test.ts`                   | Return/event code classification                                                                            |
 | `useEnrolmentPoll.test.tsx`              | Timeout ≠ failure, unmount stops polling                                                                    |
 | `RegistrationAndLog.test.ts`             | Inline provision never throws; kind sets disjoint                                                           |
+| `BiometricConsent.test.ts`               | **No enrolment command reaches a reader without a consent record** — and the write happens first            |
+| `AccessEventRetention.test.ts`           | The published 12-month figure is the one actually enforced; batching walks a backlog from the old end       |
+| `RemoteOpenPermission.test.tsx`          | The remote-open decision, so the permissive default is not read as an oversight and "tightened"             |
+| `BiometricConsentPersistence.test.ts`    | (members) Consent survives an ordinary member edit — `update()` writes the whole row, not a patch           |
 
 ### 4.8 Environment
 
@@ -431,10 +444,23 @@ drain sends `validperiod`. The reader admits them through the new date.
 the central copy, so eviction and return are reversible without re-enrolment.
 A blocked subject is **never** sent a validity period (A10 guard).
 
-**Enrolment.** Desk presses the button → `enrollfinger` puts the reader into
+**Enrolment.** Desk ticks the consent box → `members.biometric_consent_at` is
+written **before** anything is dispatched → `enrollfinger` puts the reader into
 enrolment mode → member presents a finger → `useEnrolmentPoll` polls
 `/enrolment` until it appears. Detection is **additive only** — it can set
-`finger_enrolled` true, never false (N3).
+`finger_enrolled` true, never false (N3). With no consent on file the gate
+refuses in `ManageMemberBiometric` (not the route), so no caller can route
+around it, and the refusal is `BIOMETRIC_CONSENT_REQUIRED`/400 rather than a
+502 — nothing failed at the reader.
+
+**Withdrawal.** Removing a fingerprint is the withdrawal: `fromdev` revoke,
+`finger_enrolled` false, subject off-device, **and `biometric_consent_at`
+cleared**. The next enrolment has to ask again. A vendor refusal leaves the
+consent standing — a template that may still be on the reader must not be held
+under a permission we have already erased.
+
+**Retention.** `purge-access-events` deletes scans older than
+`ACCESS_EVENT_RETENTION_DAYS` (365) nightly, in batches, oldest first.
 
 **A scan.** Device → webhook → Zod parse → group by `DeviceID` → resolve gym from
 `device_serial` → normalise `AttTime` by that device's offset → resolve member →
@@ -479,18 +505,46 @@ convenient constant can hide the bug you are hunting.**
 
 ## 7. What is NOT built
 
-### 7.1 Blocking product decisions — these are yours, not engineering's
+### 7.1 Product decisions — all three now made and built (2026-08-26)
 
-1. **Biometric consent. ⚠️ BLOCKS SHIPPING ENROLMENT.** Fingerprint templates are
-   sensitive personal data and we now trigger collection from our own UI. The
-   privacy policy needs a biometric-processing disclosure, and registration needs
-   a consent field alongside `accepted_terms_at` / `accepted_gym_rules_at`. The
-   enrolment dialog is the moment of collection, so this must land first.
-2. **May front-desk staff open a door remotely?** Currently every user with the
-   capability can. `DeviceStatusCard` already takes a `canRemoteOpen` prop
-   (defaulting `true`) — restricting it is a one-line change plus a role check.
-3. **Event retention.** Attendance data about identifiable people, currently kept
-   forever. 12 months is the obvious candidate; the decision is yours.
+1. **Biometric consent. ✅ DECIDED — enrolment is no longer blocked.** Consent is
+   captured at the **enrolment dialog**, which is the moment of collection, and
+   recorded on `members.biometric_consent_at` alongside the two registration
+   consents. The gate lives in `ManageMemberBiometric`, not the route, and fails
+   closed. Removing the fingerprint clears the timestamp — that is the
+   withdrawal record. The privacy policy now carries a Biometric Data section
+   (what is collected, that no template ever reaches us, how to withdraw, and
+   that a fingerprint is never a condition of membership), mirrored in
+   `docs/legal/privacy-policy.txt`.
+
+   > **Deliberately NOT captured at registration**, despite the earlier note
+   > here asking for a registration field. Three reasons, and reverse them
+   > before adding a tick to the sign-up forms: consent to a purpose that does
+   > not exist yet (almost no gym owns a reader) is not meaningful consent; it
+   > would be NULL for every member who registered before this shipped —
+   > exactly the members a gym enrols first, so the enrolment gate is needed
+   > regardless; and it would mean a v7 of `register_member_guarded`, which is
+   > the quota-critical insert path, for no gain. The column sits next to the
+   > other two consents; only the capture point differs.
+
+2. **May front-desk staff open a door remotely? ✅ DECIDED — yes.** Any user
+   with the capability may, which is the behaviour that already shipped. It is
+   the remedy when a paid-up member's finger will not read, and routing it
+   through an owner is how the button ends up unused and the door ends up
+   propped open. There is also nobody to distinguish: **a gym is one Supabase
+   user (`gyms.user_id`)**, so "owner" and "front desk" are the same login and
+   no role check exists that could express a narrower rule. `canRemoteOpen`
+   stays as an addressable prop in case per-user roles ever arrive; do not
+   "tighten" its default. `RemoteOpenPermission.test.tsx` pins this so the
+   permissive default is not mistaken for an oversight. The offsetting control
+   is audit, not permission — the actor on the `access_sync_jobs` row plus
+   event **8** back from the reader.
+
+3. **Event retention. ✅ DECIDED — 12 months.** `ACCESS_EVENT_RETENTION_DAYS`
+   = 365, swept nightly by `purge-access-events` and stated in the privacy
+   policy. **The constant and the published figure are one decision in two
+   places** — a test asserts the constant is 365 precisely so moving it forces
+   someone past the policy text.
 
 ### 7.2 Engineering — known gaps, none blocking
 
@@ -533,24 +587,30 @@ rejects a bad token).
 npm run arch:check && npx tsc --noEmit && npm test && npm run lint
 ```
 
-| Check             | State                                                             |
-| ----------------- | ----------------------------------------------------------------- |
-| `arch:check`      | ✅ feature-first invariants hold                                  |
-| `tsc --noEmit`    | ✅ zero errors                                                    |
-| `npm test`        | ✅ 1,221 passing, 7 skipped (293 in access-control)               |
-| `npm run lint`    | ✅ zero errors (13 pre-existing warnings, none from this feature) |
-| `npm run build`   | ⚠️ blocked in sandbox by Google Fonts only                        |
-| Supabase advisors | ✅ clean of everything this feature introduced                    |
+| Check             | State                                                                    |
+| ----------------- | ------------------------------------------------------------------------ |
+| `arch:check`      | ✅ feature-first invariants hold                                         |
+| `tsc --noEmit`    | ✅ zero errors                                                           |
+| `npm test`        | ✅ 1,317 passing, 7 skipped (333 in access-control)                      |
+| `npm run lint`    | ✅ zero errors (13 pre-existing warnings, none from this feature)        |
+| `npm run build`   | ⚠️ never verified — Google Fonts is unreachable from the build sandboxes |
+| Supabase advisors | ✅ clean as of the #63 merge                                             |
 
-**Branch:** `claude/access-control-integration-h3lg91`.
-Latest commits: `13f02c5` (simulator plan), `44a5b30` (UI), `cc45bd6` (backend
-write-back), `f57a0af` (full code tables).
+**Merged:** [#63] on 2026-08-26 (squashed to `b041349`). The consent, remote-open
+and retention work is the follow-up on `claude/access-control-architecture-b23v6f`.
+
+⚠️ **The two 2026-08-26 migrations are NOT yet applied to production.** Every
+earlier migration in §4.1 is. Apply them before enrolment is used at a real gym:
+without `members.biometric_consent_at` the enrolment gate's read fails, and
+without the index the nightly purge scans the whole table.
+
+[#63]: https://github.com/metric-gym-manager/metric-gym-manager/pull/63
 
 ---
 
 ## 9. Traps for the next session
 
-Ten things that will bite someone who does not know them.
+Thirteen things that will bite someone who does not know them.
 
 1. **Do not import `@/features/access-control` from a client component.** The
    barrel is server-only. Deep-import from `utils/serializeAccessForAPI`,
@@ -576,6 +636,19 @@ Ten things that will bite someone who does not know them.
    puts a false alarm on the screen built to prevent false alarms.
 10. **Enrolment detection is additive only.** It may set `finger_enrolled` true,
     never false. Clearing has its own path, which knows it meant it.
+11. **Never dispatch an enrolment without a consent record**, and never write
+    the record after the command. The gate is in `ManageMemberBiometric` so no
+    caller can bypass it — do not "simplify" it up into the route. A consent
+    with no template is harmless; a template with no consent is the failure the
+    ordering exists to make impossible.
+12. **`members.update()` writes the whole row, not a patch.** `biometric_consent_at`
+    must stay in _both_ halves of `SupabaseMemberRepository`'s mapping. Drop it
+    from the read side and every rename silently erases a consent record — no
+    error, no symptom, and nobody finds out until someone asks for the proof.
+    `BiometricConsentPersistence.test.ts` is the tripwire.
+13. **`ACCESS_EVENT_RETENTION_DAYS` is a published promise, not a tuning knob.**
+    It is the figure in the privacy policy. Changing it means changing the
+    policy text in `src/app/privacy/page.tsx` _and_ `docs/legal/privacy-policy.txt`.
 
 ---
 

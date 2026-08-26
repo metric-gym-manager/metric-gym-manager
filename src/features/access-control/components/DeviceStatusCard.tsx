@@ -43,7 +43,27 @@ import type { SerializedAccessDevice } from '../utils/serializeAccessForAPI'
 
 interface DeviceStatusCardProps {
   device: SerializedAccessDevice
-  /** Whether the desk may remotely unlock this door. */
+  /**
+   * Whether the desk may remotely unlock this door. Defaults to **true**, and
+   * that is a decision rather than a placeholder.
+   *
+   * Front-desk staff are meant to be able to open a door remotely — it is the
+   * remedy when a paid-up member's finger will not read, and making them fetch
+   * an owner defeats the point of having the button. There is also nobody to
+   * distinguish: a gym is one Supabase user (`gyms.user_id`), so "owner" and
+   * "front desk" are the same login and no role check exists that could
+   * express a narrower rule.
+   *
+   * The prop stays because the affordance is worth keeping addressable if
+   * per-user roles ever arrive. Until then, do not "tighten" the default —
+   * every caller passing `false` would be locking out the person the feature
+   * is for.
+   *
+   * A remote open is not unaudited. It writes an `access_sync_jobs` row
+   * carrying the actor, and the reader reports event **8 — "door opened
+   * remotely"** back through the webhook, so the activity log shows it as
+   * hardware-confirmed fact rather than as our own claim.
+   */
   canRemoteOpen?: boolean
 }
 

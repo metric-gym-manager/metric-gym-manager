@@ -24,6 +24,15 @@
  * No vendor detail appears here at all (rule 2.9). "Try again" is the entire
  * remedy a gym manager gets; the return code lives on the SaaS-admin health
  * view where someone can act on it.
+ *
+ * ## The consent tick is not a formality
+ *
+ * Pressing "Register fingerprint" is what causes a fingerprint to be taken, so
+ * this panel is where the member is asked. The tick is required before the
+ * button will fire and the server refuses without it regardless — this is the
+ * courteous half of a gate that does not depend on the UI being honest.
+ * Removing the fingerprint withdraws it again, which is why the button comes
+ * back the next time.
  */
 
 import { useState } from 'react'
@@ -35,7 +44,14 @@ import {
   RefreshCw,
   XCircle,
 } from 'lucide-react'
-import { Alert, Badge, Button, Select, Skeleton } from '@/components/ui'
+import {
+  Alert,
+  Badge,
+  Button,
+  Checkbox,
+  Select,
+  Skeleton,
+} from '@/components/ui'
 import { useConfirmDialog } from '@/hooks/use-confirm-dialog'
 import { useSubscription } from '@/features/subscriptions/hooks/useSubscription'
 import {
@@ -72,6 +88,7 @@ export default function MemberAccessPanel({
   const { confirm, ConfirmDialog } = useConfirmDialog()
 
   const [deviceId, setDeviceId] = useState('')
+  const [consentTicked, setConsentTicked] = useState(false)
 
   if (!entitled) return null
 
@@ -85,6 +102,11 @@ export default function MemberAccessPanel({
 
   const activeDevices = (devices ?? []).filter((device) => device.isActive)
   const selectedDevice = deviceId || activeDevices[0]?.id || ''
+
+  // No record means ask — whether the member has never been asked or has
+  // withdrawn. The two are deliberately indistinguishable here, because the
+  // required action is the same.
+  const consentNeeded = status.biometricConsentAt === null
 
   const handleSync = async () => {
     try {
@@ -106,14 +128,22 @@ export default function MemberAccessPanel({
 
   const handleEnrol = async () => {
     if (!selectedDevice) return
-    await enrolment.start({ deviceId: selectedDevice })
+    if (consentNeeded && !consentTicked) return
+
+    await enrolment.start({
+      deviceId: selectedDevice,
+      // Sent only when it is actually being given. A member who consented
+      // before is not consenting again by being re-enrolled, and their
+      // original timestamp is the one the record keeps.
+      ...(consentNeeded ? { consent: true } : {}),
+    })
   }
 
   const handleClearBiometric = async () => {
     const confirmed = await confirm({
       title: 'Remove this fingerprint?',
       description:
-        'The member will need to scan their finger again before they can use the doors. Their membership and payments are not affected.',
+        'This also withdraws their consent, so they will be asked again before any new fingerprint is recorded. They will need to scan their finger again before they can use the doors. Their membership and payments are not affected.',
       confirmText: 'Remove fingerprint',
       variant: 'destructive',
     })
@@ -123,6 +153,7 @@ export default function MemberAccessPanel({
     try {
       await clearBiometric.mutateAsync(memberId)
       enrolment.reset()
+      setConsentTicked(false)
       toast.success('Fingerprint removed. Membership is unchanged.')
     } catch (error) {
       toast.error(
@@ -192,6 +223,13 @@ export default function MemberAccessPanel({
           </Badge>
         </div>
 
+        {status.biometricConsentAt && (
+          <p className="text-xs text-ink-muted">
+            Consent to record a fingerprint given on{' '}
+            {new Date(status.biometricConsentAt).toLocaleDateString()}.
+          </p>
+        )}
+
         {status.fingerEnrolled ? (
           <Button
             size="sm"
@@ -208,6 +246,20 @@ export default function MemberAccessPanel({
           </p>
         ) : (
           <div className="space-y-2">
+            {consentNeeded && (
+              <Checkbox
+                checked={consentTicked}
+                onChange={(event) => setConsentTicked(event.target.checked)}
+                label={
+                  <span className="text-xs text-ink-secondary">
+                    The member agrees to their fingerprint being recorded and
+                    used to open the gym&rsquo;s doors. They can ask for it to
+                    be removed at any time.
+                  </span>
+                }
+              />
+            )}
+
             <div className="flex flex-wrap items-center gap-2">
               {activeDevices.length > 1 && (
                 <Select
@@ -229,7 +281,10 @@ export default function MemberAccessPanel({
                 variant="accent"
                 onClick={handleEnrol}
                 loading={enrolment.state === 'starting'}
-                disabled={enrolment.state === 'awaiting'}
+                disabled={
+                  enrolment.state === 'awaiting' ||
+                  (consentNeeded && !consentTicked)
+                }
               >
                 <Fingerprint className="h-4 w-4" aria-hidden="true" />
                 Register fingerprint

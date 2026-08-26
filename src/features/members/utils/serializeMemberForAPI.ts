@@ -61,6 +61,10 @@ export function serializeMemberForAPI(
     accepted_terms_at: member.acceptedTermsAt?.toISOString() ?? null, // Include snake_case for backward compatibility
     acceptedGymRulesAt: member.acceptedGymRulesAt?.toISOString() ?? null,
     accepted_gym_rules_at: member.acceptedGymRulesAt?.toISOString() ?? null, // Include snake_case for backward compatibility
+    // camelCase only: this field is new, so it has no snake_case consumer to
+    // keep working. The duplicates above exist for callers that predate the
+    // camelCase contract, and adding to that set would be adopting the debt.
+    biometricConsentAt: member.biometricConsentAt?.toISOString() ?? null,
     discount: discount || null, // Include joined discount data if available
   }
 }

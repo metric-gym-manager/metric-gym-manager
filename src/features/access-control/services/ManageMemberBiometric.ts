@@ -12,11 +12,21 @@
  * The member must already exist on the reader before this can target them, so
  * enrolment provisions first when necessary.
  *
+ * ## Why consent is checked here and not at the route
+ *
+ * This is the last point before a command that causes a fingerprint to be
+ * taken. Putting the gate at the route would leave every other caller of
+ * `enrol` — a future bulk flow, a retry path, a script — free to skip it, and
+ * the one thing that must never happen is a template collected with no
+ * consent record. Fails closed: no record and no consent on the request means
+ * no command is dispatched.
+ *
  * ## Why clearing is its own operation
  *
  * Deleting someone's fingerprint is not an edit to their membership. It maps
  * to the vendor's `fromdev` delete — template off the reader, employee record
- * intact — and touches no `members` row. Registry and biometrics stay
+ * intact — and touches no `members` row except to withdraw the consent that
+ * allowed the template to be taken. Registry and biometrics stay
  * separable in both directions: a member can lose their fingerprint and keep
  * their membership, and can be evicted from a reader and be restored later
  * without re-enrolling.
@@ -32,6 +42,15 @@ export interface EnrolMemberBiometricInput {
   deviceId: string
   /** Finger index. Gyms here record one finger, so this rarely moves. */
   fingerId?: number
+  /**
+   * The member has just consented, at the desk, to their fingerprint being
+   * recorded.
+   *
+   * Only meaningful when no consent is already on file — a member who
+   * consented previously is not re-consenting by being enrolled again, and
+   * their original timestamp is what the audit trail keeps.
+   */
+  consentGranted?: boolean
 }
 
 export interface BiometricOperationResult {
@@ -41,6 +60,14 @@ export interface BiometricOperationResult {
   dispatched: boolean
   /** Sanitized reason — never a vendor error string (rules 2.8 / 2.9). */
   error?: string
+  /**
+   * True when the only thing missing is the member's consent.
+   *
+   * Distinct from a plain failure so the desk is shown a checkbox to tick
+   * rather than an error to retry — nothing is broken, and retrying the same
+   * request unchanged would fail identically.
+   */
+  consentRequired?: boolean
 }
 
 export class ManageMemberBiometric {
@@ -72,6 +99,24 @@ export class ManageMemberBiometric {
     const context = await this.repo.getMemberAccessContext(input.memberId)
     if (!context || context.gymId !== input.gymId) {
       return { applicable: true, dispatched: false, error: 'Member not found' }
+    }
+
+    if (!context.biometricConsentAt) {
+      if (!input.consentGranted) {
+        return {
+          applicable: true,
+          dispatched: false,
+          consentRequired: true,
+          error:
+            'The member must agree to their fingerprint being recorded before it can be registered',
+        }
+      }
+
+      // Written before anything is dispatched, and awaited. If the consent
+      // write fails we throw and never reach the reader — a record with no
+      // template is a harmless outcome, a template with no record is the one
+      // this whole path exists to prevent.
+      await this.repo.recordBiometricConsent(input.memberId, new Date())
     }
 
     let subject = context.subject
@@ -164,6 +209,10 @@ export class ManageMemberBiometric {
 
     await this.repo.setBiometricEnrolled(memberId, false, null)
     await this.repo.markSubjectOffDevice(memberId)
+    // Removing the fingerprint IS the withdrawal, so the consent goes with it.
+    // Leaving the timestamp would let the next enrolment proceed silently on a
+    // permission the member had already taken back.
+    await this.repo.clearBiometricConsent(memberId)
 
     return { applicable: true, dispatched: true }
   }

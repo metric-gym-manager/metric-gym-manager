@@ -9,7 +9,7 @@ import {
   type LegalSection,
 } from '@/components/legal'
 
-const LAST_UPDATED = 'July 2026'
+const LAST_UPDATED = 'August 2026'
 
 const sections: LegalSection[] = [
   {
@@ -73,6 +73,40 @@ const sections: LegalSection[] = [
             </LegalList>
           </div>
           <div>
+            <LegalSubHead>Biometric Data:</LegalSubHead>
+            <LegalList>
+              <LegalLI>
+                Where a gym operates biometric door readers, a fingerprint
+                template may be recorded so the member can open the gym&apos;s
+                doors. This is only ever done with the member&apos;s explicit
+                consent, given at the moment the fingerprint is recorded, and we
+                keep a record of when that consent was given
+              </LegalLI>
+              <LegalLI>
+                The fingerprint template is created on the reader itself and is
+                held by the gym&apos;s access-control hardware provider.{' '}
+                <strong>
+                  Metric never receives, processes or stores a fingerprint image
+                  or template
+                </strong>{' '}
+                - what we hold is a numeric reference to the member&apos;s
+                record on that hardware and a note of whether a fingerprint has
+                been registered
+              </LegalLI>
+              <LegalLI>
+                Members may withdraw consent at any time by asking their gym to
+                remove their fingerprint. Doing so deletes the template from the
+                reader and clears the consent record, and the member will be
+                asked again before any new fingerprint is recorded
+              </LegalLI>
+              <LegalLI>
+                Providing a fingerprint is never a condition of membership.
+                Members who decline continue to use the gym by whatever other
+                means it offers
+              </LegalLI>
+            </LegalList>
+          </div>
+          <div>
             <LegalSubHead>Technical Data:</LegalSubHead>
             <LegalList>
               <LegalLI>
@@ -118,6 +152,11 @@ const sections: LegalSection[] = [
           <LegalLI>
             Generate attendance reports, revenue dashboards, and retention
             analytics for gym owners
+          </LegalLI>
+          <LegalLI>
+            Tell a gym&apos;s door readers how long each member&apos;s
+            membership entitles them to enter, and record the entries and
+            refused attempts those readers report back
           </LegalLI>
           <LegalLI>
             Authenticate users and manage role-based access for gym staff
@@ -199,6 +238,20 @@ const sections: LegalSection[] = [
           legal, accounting, or reporting obligations. When data is no longer
           required, we securely delete or anonymize it.
         </LegalP>
+        <LegalP>Two categories have a specific retention period:</LegalP>
+        <LegalList>
+          <LegalLI>
+            <strong>Door access records</strong> - entries and refused attempts
+            recorded by a gym&apos;s biometric readers are deleted automatically
+            12 months after they occur
+          </LegalLI>
+          <LegalLI>
+            <strong>Fingerprint templates</strong> - held on the gym&apos;s
+            reader and by its access-control hardware provider for as long as
+            the member is enrolled, and deleted from the reader when the member
+            withdraws consent, is removed by the gym, or their membership ends
+          </LegalLI>
+        </LegalList>
         <LegalP>
           Gym operators may request deletion of their account and associated
           member data at any time by contacting us at the address below.
@@ -223,6 +276,13 @@ const sections: LegalSection[] = [
           <LegalLI>
             Cloud infrastructure and hosting providers who process data on our
             behalf under data processing agreements
+          </LegalLI>
+          <LegalLI>
+            Access-control hardware providers, where a gym operates biometric
+            door readers - limited to the member&apos;s name, a numeric
+            reference and the dates their membership permits entry. The
+            fingerprint template itself is created on the reader and held by
+            that provider; it does not pass through us
           </LegalLI>
           <LegalLI>
             Professional advisers such as lawyers or auditors where required by
