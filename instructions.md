@@ -7,7 +7,7 @@ then follow the pointers for the area you are working in.
 
 ## What this product is
 
-Metric Gym Manager is a production-grade, **multi-tenant SaaS** for gym and
+Metric Gym OS is a production-grade, **multi-tenant SaaS** for gym and
 fitness-center management:
 
 - Each gym is an isolated tenant; a gym owner sees only their own data.
@@ -21,14 +21,14 @@ fitness-center management:
 
 ## Where the detailed requirements live
 
-| Topic | Document |
-|---|---|
-| Full product requirements | [`docs/product/PRD.md`](./docs/product/PRD.md) |
-| System behavior reference | [`docs/reference/SYSTEM_MANUAL.md`](./docs/reference/SYSTEM_MANUAL.md) |
-| Use-case catalog | [`docs/reference/USE_CASES.md`](./docs/reference/USE_CASES.md) |
+| Topic                              | Document                                                                                                                                                                                              |
+| ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Full product requirements          | [`docs/product/PRD.md`](./docs/product/PRD.md)                                                                                                                                                        |
+| System behavior reference          | [`docs/reference/SYSTEM_MANUAL.md`](./docs/reference/SYSTEM_MANUAL.md)                                                                                                                                |
+| Use-case catalog                   | [`docs/reference/USE_CASES.md`](./docs/reference/USE_CASES.md)                                                                                                                                        |
 | SaaS subscription/billing contract | [`docs/architecture/saas-subscription.md`](./docs/architecture/saas-subscription.md) and [`docs/reference/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`](./docs/reference/SAAS_SUBSCRIPTION_IMPLEMENTATION.md) |
-| Scheduled jobs | [`docs/ops/CRON_JOBS.md`](./docs/ops/CRON_JOBS.md) |
-| Authentication | [`docs/reference/authentication.md`](./docs/reference/authentication.md) |
+| Scheduled jobs                     | [`docs/ops/CRON_JOBS.md`](./docs/ops/CRON_JOBS.md)                                                                                                                                                    |
+| Authentication                     | [`docs/reference/authentication.md`](./docs/reference/authentication.md)                                                                                                                              |
 
 ## Non-negotiable domain invariants
 

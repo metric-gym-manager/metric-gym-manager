@@ -16,14 +16,25 @@ const sections: LegalSection[] = [
     id: 't1',
     title: 'Agreement to Terms',
     body: (
-      <LegalP>
-        By accessing or using Metric Gym Manager, including our web dashboard,
-        mobile applications, and any related integrations, you agree to be bound
-        by these Terms of Service. If you do not agree to any part of these
-        terms, you must not access or use our platform. These terms apply to gym
-        owners, administrators, and staff members who use the platform to manage
-        their fitness business.
-      </LegalP>
+      <>
+        <LegalP>
+          By accessing or using Metric Gym OS, including our web dashboard,
+          mobile applications, and any related integrations, you agree to be
+          bound by these Terms of Service. If you do not agree to any part of
+          these terms, you must not access or use our platform. These terms
+          apply to:
+        </LegalP>
+        <LegalList>
+          <LegalLI>
+            Gym owners, administrators, and staff members who use the platform
+            to manage their fitness business
+          </LegalLI>
+          <LegalLI>
+            Gym members whose personal information is processed through the
+            platform by gym operators
+          </LegalLI>
+        </LegalList>
+      </>
     ),
   },
   {
@@ -33,8 +44,8 @@ const sections: LegalSection[] = [
       <>
         <LegalP>
           We grant you a limited, non-exclusive, non-transferable license to
-          access and use Metric Gym Manager for legitimate gym management
-          purposes. Under this license, you may not:
+          access and use Metric Gym OS for legitimate gym management purposes.
+          Under this license, you may not:
         </LegalP>
         <LegalList>
           <LegalLI>
@@ -50,7 +61,9 @@ const sections: LegalSection[] = [
             control features
           </LegalLI>
           <LegalLI>
-            Extract, scrape, or export member data for unauthorized purposes
+            Extract, scrape, or bulk-export member data other than through the
+            platform&apos;s supported data-subject-rights, account-termination,
+            or legal-compliance workflows
           </LegalLI>
           <LegalLI>
             Remove or alter any copyright, trademark, or proprietary notices
@@ -60,6 +73,10 @@ const sections: LegalSection[] = [
             written authorization
           </LegalLI>
         </LegalList>
+        <LegalP>
+          All other changes to member data, including deletions, must be
+          performed within the platform.
+        </LegalP>
       </>
     ),
   },
@@ -69,7 +86,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <LegalP>
-          To use Metric Gym Manager, you must register for an account. By
+          To use Metric Gym OS, you must register for an account. By
           registering, you agree to:
         </LegalP>
         <LegalList>
@@ -85,8 +102,9 @@ const sections: LegalSection[] = [
           </LegalLI>
         </LegalList>
         <LegalP>
-          Each account is for use by a single gym business. You are responsible
-          for all activity that occurs under your account.
+          Each account is for use by a single gym business. You are solely and
+          strictly responsible for all activity that occurs under your account,
+          including actions taken by your staff members.
         </LegalP>
       </>
     ),
@@ -97,8 +115,8 @@ const sections: LegalSection[] = [
     body: (
       <>
         <LegalP>
-          Metric Gym Manager is offered on a subscription basis with a flat
-          monthly fee per gym. By subscribing, you agree to the following:
+          Metric Gym OS is offered on a subscription basis with a flat monthly
+          fee per gym. By subscribing, you agree to the following:
         </LegalP>
         <LegalList>
           <LegalLI>
@@ -107,7 +125,7 @@ const sections: LegalSection[] = [
           </LegalLI>
           <LegalLI>
             Subscriptions are billed in advance on a recurring monthly cycle
-            through PayHere, our authorized payment gateway
+            through our authorized payment gateway and processor
           </LegalLI>
           <LegalLI>
             Payments are non-refundable except where required by applicable law
@@ -141,7 +159,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <LegalP>
-          As a gym operator using Metric Gym Manager, you are responsible for:
+          As a gym operator using Metric Gym OS, you are responsible for:
         </LegalP>
         <LegalList>
           <LegalLI>
@@ -158,13 +176,23 @@ const sections: LegalSection[] = [
           </LegalLI>
           <LegalLI>
             Obtaining the necessary consent from your gym members before
-            collecting their personal information and sending SMS notifications
-            on their behalf
+            collecting their personal information — including name, gender, date
+            of birth, phone number, emergency contact details, and selfie (where
+            applicable), biometric data such as fingerprint or face scan (where
+            applicable) — and before sending SMS notifications on their behalf
+          </LegalLI>
+          <LegalLI>
+            Refraining from collecting unnecessary personal data such as
+            National Identity Card (NIC) numbers or home addresses — this data
+            has no operational requirement within the platform, and collecting
+            it may violate the data-minimization requirements of the Sri Lanka
+            Personal Data Protection Act, No. 9 of 2022
           </LegalLI>
           <LegalLI>
             Ensuring your use of the platform complies with applicable Sri
-            Lankan data protection laws and any other regulations relevant to
-            your business
+            Lankan data protection laws, including the Personal Data Protection
+            Act, No. 9 of 2022, and any other regulations relevant to your
+            business
           </LegalLI>
           <LegalLI>
             Adequately training staff on proper use of the platform
@@ -178,7 +206,7 @@ const sections: LegalSection[] = [
     title: 'Prohibited Activities',
     body: (
       <>
-        <LegalP>You agree not to use Metric Gym Manager to:</LegalP>
+        <LegalP>You agree not to use Metric Gym OS to:</LegalP>
         <LegalList>
           <LegalLI>
             Engage in any unlawful activity or facilitate illegal conduct
@@ -206,7 +234,7 @@ const sections: LegalSection[] = [
     body: (
       <>
         <LegalP>
-          Metric Gym Manager and all associated content, features, design, and
+          Metric Gym OS and all associated content, features, design, and
           functionality are the exclusive property of Capitalist One (Pvt) Ltd
           and its licensors. The platform is protected by copyright, trademark,
           and other applicable laws.
@@ -216,6 +244,12 @@ const sections: LegalSection[] = [
           By using the platform, you grant us a limited license to store and
           process that data solely for the purpose of providing our services to
           you.
+        </LegalP>
+        <LegalP>
+          We may use aggregated, anonymized data derived from platform usage for
+          statistical purposes, to improve our platform, understand usage
+          trends, and enhance our services. Such statistical data does not
+          identify any individual data subject.
         </LegalP>
       </>
     ),
@@ -233,7 +267,21 @@ const sections: LegalSection[] = [
         </LegalP>
         <LegalP>
           We are not liable for any losses arising from planned or unplanned
-          service interruptions.
+          service interruptions, including but not limited to:
+        </LegalP>
+        <LegalList>
+          <LegalLI>
+            Technical failures, system outages, or network downtime
+          </LegalLI>
+          <LegalLI>
+            Issues arising from third-party service providers, infrastructure,
+            or internet connectivity
+          </LegalLI>
+          <LegalLI>Force majeure events beyond our reasonable control</LegalLI>
+        </LegalList>
+        <LegalP>
+          We do not guarantee that the platform will be error-free, secure, or
+          available at all times. Your use of the platform is at your own risk.
         </LegalP>
       </>
     ),
@@ -244,14 +292,15 @@ const sections: LegalSection[] = [
     body: (
       <>
         <LegalP>
-          Metric Gym Manager enables gym operators to send automated SMS payment
+          Metric Gym OS enables gym operators to send automated SMS payment
           reminders to their members. By enabling this feature, you confirm
           that:
         </LegalP>
         <LegalList>
           <LegalLI>
             You have obtained the necessary consent from each member to receive
-            SMS communications
+            SMS communications in accordance with the Personal Data Protection
+            Act, No. 9 of 2022
           </LegalLI>
           <LegalLI>
             You will use SMS notifications only for the permitted purposes
@@ -280,9 +329,9 @@ const sections: LegalSection[] = [
           To the fullest extent permitted by law, Capitalist One (Pvt) Ltd and
           its directors, employees, and affiliates shall not be liable for any
           indirect, incidental, special, consequential, or punitive damages
-          arising from your use of - or inability to use - Metric Gym Manager.
-          This includes but is not limited to loss of data, loss of revenue, or
-          loss of business.
+          arising from your use of - or inability to use - Metric Gym OS. This
+          includes but is not limited to loss of data, loss of revenue, or loss
+          of business.
         </LegalP>
         <LegalP>
           Our total liability to you for any claim arising from these terms or
@@ -296,14 +345,24 @@ const sections: LegalSection[] = [
     id: 't11',
     title: 'Indemnification',
     body: (
-      <LegalP>
-        You agree to indemnify and hold harmless Capitalist One (Pvt) Ltd, its
-        affiliates, officers, directors, employees, and agents from and against
-        any claims, damages, liabilities, losses, or expenses (including
-        reasonable legal fees) arising out of or related to your use of the
-        platform, your breach of these terms, or your violation of any
-        third-party rights.
-      </LegalP>
+      <>
+        <LegalP>
+          You agree to indemnify and hold harmless Capitalist One (Pvt) Ltd, its
+          affiliates, officers, directors, employees, and agents from and
+          against any claims, damages, liabilities, losses, or expenses
+          (including reasonable legal fees) arising out of or related to:
+        </LegalP>
+        <LegalList>
+          <LegalLI>Your use of the platform</LegalLI>
+          <LegalLI>Your breach of these terms</LegalLI>
+          <LegalLI>Your violation of any third-party rights</LegalLI>
+          <LegalLI>
+            Your non-compliance with applicable laws, including data protection
+            laws
+          </LegalLI>
+          <LegalLI>Disputes between you and your gym members</LegalLI>
+        </LegalList>
+      </>
     ),
   },
   {
@@ -319,10 +378,12 @@ const sections: LegalSection[] = [
         </LegalP>
         <LegalP>
           Upon termination, your right to access the platform ceases
-          immediately. You may request an export of your data prior to
-          termination by contacting us. We will retain your data for a
-          reasonable period after termination before securely deleting it,
-          unless a longer retention period is required by law.
+          immediately. You are responsible for exporting any data you need
+          before termination, using the export workflows described in Section 2;
+          we do not guarantee the provision of data exports after your account
+          has been terminated. We will retain your data for a reasonable period
+          after termination before securely deleting it, unless a longer
+          retention period is required by law.
         </LegalP>
       </>
     ),
@@ -333,9 +394,10 @@ const sections: LegalSection[] = [
     body: (
       <LegalP>
         These Terms of Service are governed by and construed in accordance with
-        the laws of Sri Lanka. Any disputes arising from these terms or your use
-        of the platform shall be subject to the exclusive jurisdiction of the
-        courts of Sri Lanka.
+        the laws of Sri Lanka, including the Personal Data Protection Act, No. 9
+        of 2022. Any disputes arising from these terms or your use of the
+        platform shall be subject to the exclusive jurisdiction of the courts of
+        Sri Lanka.
       </LegalP>
     ),
   },
@@ -372,12 +434,10 @@ const sections: LegalSection[] = [
             Capitalist One (Pvt) Ltd
           </LegalContactItem>
           <LegalContactItem label="Email:">
-            privacy@metricgymmanager.com
+            privacy@metricgymos.com
           </LegalContactItem>
           <LegalContactItem label="Phone:">+94 70 437 9967</LegalContactItem>
-          <LegalContactItem label="Website:">
-            www.metricgymmanager.com
-          </LegalContactItem>
+          <LegalContactItem label="Website:">metricgymos.com</LegalContactItem>
           <LegalContactItem label="Address:">
             150/1, 3rd Baptist Rd, Beddagana North, Kotte, Sri Lanka
           </LegalContactItem>

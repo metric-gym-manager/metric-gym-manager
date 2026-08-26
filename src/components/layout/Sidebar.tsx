@@ -156,12 +156,12 @@ export default function Sidebar() {
           <div className="flex h-16 shrink-0 items-center gap-2">
             <Image
               src="/logo.svg"
-              alt="Metric Gym Manager Logo"
+              alt="Metric Gym OS Logo"
               width={24}
               height={24}
               className="w-6 h-6"
             />
-            <h1 className="text-xl font-bold text-ink">Metric Gym Manager</h1>
+            <h1 className="text-xl font-bold text-ink">Metric Gym OS</h1>
           </div>
 
           {/* Navigation */}
@@ -234,7 +234,7 @@ export default function Sidebar() {
                     <h1 className="text-sm font-bold text-ink truncate">
                       {gymProfile.gym_name}
                     </h1>
-                    <p className="text-xs text-ink-muted">Metric Gym Manager</p>
+                    <p className="text-xs text-ink-muted">Metric Gym OS</p>
                   </>
                 ) : (
                   <div className="space-y-1">
