@@ -420,6 +420,26 @@ Notable ones, because they encode decisions rather than behaviour:
 | `RemoteOpenPermission.test.tsx`             | The remote-open decision, so the permissive default is not read as an oversight and "tightened"             |
 | `BiometricConsentPersistence.test.ts`       | (members) Consent survives an ordinary member edit — `update()` writes the whole row, not a patch           |
 
+**E2E (Playwright), 14 tests across 3 specs.** Runnable with no hardware and no
+vendor, because `createAccessControlProvider()` returns the mock unless
+`ACCESS_CONTROL_ENABLED=true`. Requires `E2E_ACCESS_CONTROL=1` and a seeded
+Enterprise gym (`E2E_ENTERPRISE_GYM_EMAIL` / `_PASSWORD`); every spec skips
+without them. Highest-value assertions: credentials are never read back; a
+never-contacted reader reads "No contact yet" and not "Not responding"
+(trap 9); the enrol button is inert until consent is ticked; no vendor return
+code appears in the rendered text of either gym-facing screen.
+
+> ⚠️ **The provider factory returns a NEW mock per request**, so nothing it
+> holds in memory survives one HTTP call. `listSubjects` therefore always
+> answers empty and enrolment detection can never flip `finger_enrolled` — the
+> "Fingerprint registered" state cannot be reached from E2E at all. Do not try
+> to force it: the options are global mock state (shared across the whole unit
+> suite) or a test backdoor in the app, and both cost more than the coverage.
+> That leg is covered by `useEnrolmentPoll.test.tsx` and the
+> `DetectBiometricEnrolment` tests. The same lifetime is _why_ the trap-9
+> assertion works — a reader is never marked seen, so `unknown` is its real
+> and correct state.
+
 ### 4.8 Environment
 
 ```bash
@@ -594,14 +614,14 @@ described as though it does.
 
 ### 7.2 Engineering — known gaps, none blocking
 
-| Gap                                              | Note                                                                                                                                                                                                                                              |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No E2E (Playwright) coverage                     | Unit + integration only. Worth adding once the simulator confirms the flows.                                                                                                                                                                      |
-| `npm run build` unverified in CI-like conditions | Blocked in the sandbox by Google Fonts being unreachable — `layout.tsx` fetches Geist/Geist Mono/Inter at build time. **Those three are the only errors; no feature module failed to compile.** Run a real build before merge.                    |
-| Multi-finger enrolment                           | Deliberate scope reduction — one finger per member. The API supports `fingerId` 0–9; the schema records a single finger.                                                                                                                          |
-| Cross-device template migration                  | Deliberate — single gate per gym assumed. The port keeps `syncone`/`syncsometoone`; nothing in the product depends on them.                                                                                                                       |
-| Manual "mark as enrolled" fallback               | The A4 containment plan names it; not built. Only needed if templates never surface via the wrapper.                                                                                                                                              |
-| Occupancy / time-in-gym                          | **Deliberately never.** With one reader serving entry and exit, `CheckingStatus` reports the device's configured mode, not reality. Events are **visits**, not paired sessions. Building this would be inventing data the hardware does not have. |
+| Gap                                              | Note                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E2E covers the three screens, not the hardware   | `tests/e2e/access-control-{setup,dashboard,member}.spec.ts` — 14 tests against `MockAccessControlProvider`, no hardware or vendor needed. Gated on `E2E_ACCESS_CONTROL=1` + a seeded **Enterprise** gym. The "Fingerprint registered" state is **unreachable from E2E** (see §4.7) and stays unit-covered. |
+| `npm run build` unverified in CI-like conditions | Blocked in the sandbox by Google Fonts being unreachable — `layout.tsx` fetches Geist/Geist Mono/Inter at build time. **Those three are the only errors; no feature module failed to compile.** Run a real build before merge.                                                                             |
+| Multi-finger enrolment                           | Deliberate scope reduction — one finger per member. The API supports `fingerId` 0–9; the schema records a single finger.                                                                                                                                                                                   |
+| Cross-device template migration                  | Deliberate — single gate per gym assumed. The port keeps `syncone`/`syncsometoone`; nothing in the product depends on them.                                                                                                                                                                                |
+| Manual "mark as enrolled" fallback               | The A4 containment plan names it; not built. Only needed if templates never surface via the wrapper.                                                                                                                                                                                                       |
+| Occupancy / time-in-gym                          | **Deliberately never.** With one reader serving entry and exit, `CheckingStatus` reports the device's configured mode, not reality. Events are **visits**, not paired sessions. Building this would be inventing data the hardware does not have.                                                          |
 
 ### 7.3 Cannot be resolved without hardware
 
