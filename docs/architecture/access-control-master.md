@@ -26,7 +26,7 @@
 | Preparing for the simulator session      | §3.10, §7.3, then `vft-simulator-test-plan.md` |
 | Wondering why something is written oddly | §6 — it is probably a fix for a real defect    |
 | Adding a feature                         | §9 first. Those are the traps.                 |
-| Touching enrolment or scan retention     | §7.1 — those decisions are made; do not reopen |
+| Touching enrolment, retention or billing | §7.1 — those decisions are made; do not reopen |
 
 **Companion documents** (this one summarises them; they hold the detail):
 
@@ -406,18 +406,19 @@ Both log to the cron audit table (rule 2.6).
 
 Notable ones, because they encode decisions rather than behaviour:
 
-| Suite                                    | Guards                                                                                                      |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `DoorAgreement.reverse.test.ts`          | Our idea of access still matches what a terminal would actually do. **Must stay green through any change.** |
-| `InvertedAssumptions.reverse.test.ts`    | The five D-defects (§6)                                                                                     |
-| `InvertedAssumptionsTwo.reverse.test.ts` | The four N-defects (§6)                                                                                     |
-| `vendorTables.test.ts`                   | Return/event code classification                                                                            |
-| `useEnrolmentPoll.test.tsx`              | Timeout ≠ failure, unmount stops polling                                                                    |
-| `RegistrationAndLog.test.ts`             | Inline provision never throws; kind sets disjoint                                                           |
-| `BiometricConsent.test.ts`               | **No enrolment command reaches a reader without a consent record** — and the write happens first            |
-| `AccessEventRetention.test.ts`           | The published 12-month figure is the one actually enforced; batching walks a backlog from the old end       |
-| `RemoteOpenPermission.test.tsx`          | The remote-open decision, so the permissive default is not read as an oversight and "tightened"             |
-| `BiometricConsentPersistence.test.ts`    | (members) Consent survives an ordinary member edit — `update()` writes the whole row, not a patch           |
+| Suite                                       | Guards                                                                                                      |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `DoorAgreement.reverse.test.ts`             | Our idea of access still matches what a terminal would actually do. **Must stay green through any change.** |
+| `InvertedAssumptions.reverse.test.ts`       | The five D-defects (§6)                                                                                     |
+| `InvertedAssumptionsTwo.reverse.test.ts`    | The four N-defects (§6)                                                                                     |
+| `vendorTables.test.ts`                      | Return/event code classification                                                                            |
+| `useEnrolmentPoll.test.tsx`                 | Timeout ≠ failure, unmount stops polling                                                                    |
+| `RegistrationAndLog.test.ts`                | Inline provision never throws; kind sets disjoint                                                           |
+| `BillingLapseNeverLocksOut.reverse.test.ts` | A gym's unpaid invoice never reaches its members' door access — the drain stays billing-blind               |
+| `BiometricConsent.test.ts`                  | **No enrolment command reaches a reader without a consent record** — and the write happens first            |
+| `AccessEventRetention.test.ts`              | The published 12-month figure is the one actually enforced; batching walks a backlog from the old end       |
+| `RemoteOpenPermission.test.tsx`             | The remote-open decision, so the permissive default is not read as an oversight and "tightened"             |
+| `BiometricConsentPersistence.test.ts`       | (members) Consent survives an ordinary member edit — `update()` writes the whole row, not a patch           |
 
 ### 4.8 Environment
 
@@ -563,7 +564,29 @@ described as though it does.
    is audit, not permission — the actor on the `access_sync_jobs` row plus
    event **8** back from the reader.
 
-3. **Event retention. ✅ DECIDED — 12 months.** `ACCESS_EVENT_RETENTION_DAYS`
+3. **A gym stops paying _us_ — do its members lose the door? ✅ DECIDED — no,
+   never.** The service withheld from a non-paying gym is the dashboard, not
+   the building. Treating a lapsed gym like a cancelled member would refuse
+   every one of its members in person, over an invoice dispute they are not
+   party to and cannot resolve.
+
+   Two paths, and the difference between them is the decision:
+   - The **nightly reconcile skips** a lapsed gym (`gymsSkippedBilling`). It is
+     a diff, so skipping changes nothing on the hardware — every member keeps
+     the window their reader already holds and the reader keeps enforcing it
+     from its own clock. Skipping is a `continue`, never a "block everyone"
+     branch.
+   - The **outbox drain does not consult billing at all**, and must not start.
+     So a member who renews _during_ the lapse still gets their validity period
+     pushed and still gets in. Adding a standing check to the drain looks like
+     an obvious saving and would lock out exactly the people this protects.
+
+   `past_due` is not yet a lapse — the 7-day grace still counts as good
+   standing. Nothing in `features/subscriptions` can reach the outbox; it owns
+   the `accessControlHardware` entitlement flag and nothing else.
+   `BillingLapseNeverLocksOut.reverse.test.ts` pins all three.
+
+4. **Event retention. ✅ DECIDED — 12 months.** `ACCESS_EVENT_RETENTION_DAYS`
    = 365, swept nightly by `purge-access-events` and stated in the privacy
    policy. **The constant and the published figure are one decision in two
    places** — a test asserts the constant is 365 precisely so moving it forces
@@ -641,7 +664,7 @@ those is deliberate: that table is service-role only by design.
 
 ## 9. Traps for the next session
 
-Fifteen things that will bite someone who does not know them.
+Sixteen things that will bite someone who does not know them.
 
 1. **Do not import `@/features/access-control` from a client component.** The
    barrel is server-only. Deep-import from `utils/serializeAccessForAPI`,
@@ -687,6 +710,11 @@ Fifteen things that will bite someone who does not know them.
 15. **`.in()` is a query-string filter, so an id list is a transport limit.**
     `ACCESS_EVENT_DELETE_CHUNK_SIZE` is sized for an ~8 KB request line (C2).
     Raising the read batch is safe; raising the chunk is not.
+16. **Never give the drain a subscription repository.** A gym's billing lapse
+    stops the nightly diff and nothing else; the outbox stays billing-blind so
+    a member who renews mid-lapse still reaches the door (§7.1.3). "Stop doing
+    vendor work for a gym that is not paying" is the plausible-sounding change
+    that locks out paying members.
 
 ---
 

@@ -1204,13 +1204,14 @@ so **request it now**; it gates nothing but shortens Phase 2 considerably.
 1. ~~**Member stops paying — do they get locked out?**~~ **Settled: yes**, from
    00:00 the day after `next_due_date` (§3.4). Already what the design produces.
 
-   ⚠️ **Separate and still open — the _gym_ stops paying _us_.** That is a
-   different question from member expiry: it asks whether a whole gym's members
-   lose door access because the gym's own Metric subscription lapsed.
-   Recommendation remains **no** — stop syncing, leave devices in their last
-   known state, show the gym a banner. Mass-locking a gym's paying members over
-   the gym's billing dispute is a physical-safety and reputational risk, and the
-   members did nothing wrong. Needs a product call before Phase 3.
+   ✅ **Separate, and now also settled (2026-08-26) — the _gym_ stops paying
+   _us_: members never lose the door.** The service withheld from a non-paying
+   gym is the dashboard, not the building. The nightly reconcile skips a lapsed
+   gym (a `continue`, never a "block everyone" branch), and the outbox drain
+   stays billing-blind, so a member who renews during the lapse still gets
+   their validity period pushed. `past_due` inside the 7-day grace is still
+   good standing. Pinned by `BillingLapseNeverLocksOut.reverse.test.ts`; full
+   reasoning in `access-control-master.md` §7.1.3.
 
 2. ~~**Biometric consent.**~~ **Settled 2026-08-26: consent is captured at the
    enrolment dialog**, not at registration — that is the moment of collection,
@@ -1247,11 +1248,10 @@ if it is ever wanted — but nothing in this build depends on it.
 
 Internal product/legal decisions — ours, not the vendor's:
 
-1. **Gym stops paying — do members get locked out?** Suspending a _gym's_ SaaS
-   subscription and mass-blocking its members at the door is a physical-safety
-   and reputational risk. Recommendation: **stop syncing, leave devices in
-   their last known state**, and show the gym a banner. Needs an explicit
-   product call before Phase 3.
+1. ~~**Gym stops paying — do members get locked out?**~~ **Settled 2026-08-26:
+   no, never.** Reconcile skips the gym, the drain stays billing-blind, devices
+   keep their last-pushed windows. See above and
+   `access-control-master.md` §7.1.3.
 2. ~~**Biometric data is sensitive personal data.**~~ **Settled** — see the
    list above and `access-control-master.md` §7.1.
 3. ~~**Remote door-open is physical security.**~~ **Settled** — Enterprise-only
