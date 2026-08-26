@@ -300,6 +300,65 @@ describe('Biometric consent', () => {
     })
   })
 
+  describe('inverted: what if a template arrives without going through us?', () => {
+    it('leaves enrolment detection able to report a template it never consented to', async () => {
+      // Our own path cannot produce this — the gate refuses first. But a
+      // fingerprint enrolled at the terminal's own admin menu, or already on
+      // the vendor account before we were connected, reaches
+      // `DetectBiometricEnrolment`, which is additive (N3) and flips the flag
+      // on without anyone having been asked.
+      //
+      // Detection is NOT made to refuse: the template is real, and hiding it
+      // would leave a fingerprint collected, invisible and unaccounted for.
+      // The status therefore reports the contradictory pair honestly, and the
+      // panel renders it as something needing attention.
+      const repo = new FakeAccessControlRepository({
+        credentials: testCredentials,
+        contexts: [
+          makeContext({
+            biometricConsentAt: null,
+            subject: makeSubject({ finger_enrolled: true }),
+          }),
+        ],
+      })
+
+      const status = await new GetMemberAccessStatus(repo).execute(
+        GYM,
+        MEMBER,
+        day('2026-01-10')
+      )
+
+      expect(status?.fingerEnrolled).toBe(true)
+      expect(status?.biometricConsentAt).toBeNull()
+    })
+
+    it('still refuses a fresh enrolment for that member', async () => {
+      // The flag being set is not consent. Asking the reader to take another
+      // template must still go through the gate.
+      const repo = new FakeAccessControlRepository({
+        credentials: testCredentials,
+        devices: [makeDevice()],
+        contexts: [
+          makeContext({
+            biometricConsentAt: null,
+            subject: makeSubject({ finger_enrolled: true }),
+          }),
+        ],
+      })
+
+      const provider = new MockAccessControlProvider()
+
+      const result = await new ManageMemberBiometric(repo, provider).enrol({
+        gymId: GYM,
+        memberId: MEMBER,
+        deviceId: DEVICE,
+      })
+
+      expect(result.consentRequired).toBe(true)
+      expect(provider.getCommands()).toHaveLength(0)
+    })
+  })
+
   describe('what the front desk is shown', () => {
     it('surfaces the consent date on the member status', async () => {
       const consentedAt = new Date('2026-02-01T09:00:00Z')

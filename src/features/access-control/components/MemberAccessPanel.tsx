@@ -108,6 +108,23 @@ export default function MemberAccessPanel({
   // required action is the same.
   const consentNeeded = status.biometricConsentAt === null
 
+  /**
+   * A fingerprint exists with no consent recorded for it.
+   *
+   * Our own enrolment path cannot produce this — the gate refuses first. It
+   * means the template arrived some other way: enrolled at the terminal's own
+   * admin menu, or already on the vendor account before we were connected.
+   * Detection is additive (N3), so it flips the flag on without ever having
+   * asked anyone.
+   *
+   * Shown rather than hidden. The template is real either way, and the only
+   * useful thing a screen can do about a fingerprint held without a recorded
+   * basis is tell the desk it is there so they can ask or remove it.
+   * Suppressing the badge would leave it collected, invisible, and
+   * unaccounted for.
+   */
+  const enrolledWithoutConsent = status.fingerEnrolled && consentNeeded
+
   const handleSync = async () => {
     try {
       const result = await sync.mutateAsync(memberId)
@@ -223,12 +240,19 @@ export default function MemberAccessPanel({
           </Badge>
         </div>
 
-        {status.biometricConsentAt && (
+        {status.biometricConsentAt ? (
           <p className="text-xs text-ink-muted">
             Consent to record a fingerprint given on{' '}
             {new Date(status.biometricConsentAt).toLocaleDateString()}.
           </p>
-        )}
+        ) : enrolledWithoutConsent ? (
+          <Alert variant="warning" title="No consent recorded">
+            This member has a fingerprint on the reader but no record of them
+            agreeing to it — so it was most likely registered at the reader
+            itself rather than here. Ask them to confirm they are happy with it,
+            or remove it below.
+          </Alert>
+        ) : null}
 
         {status.fingerEnrolled ? (
           <Button

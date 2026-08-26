@@ -30,6 +30,7 @@ import {
   type AccessCredentials,
 } from '@/lib/access-control'
 import {
+  ACCESS_EVENT_DELETE_CHUNK_SIZE,
   AccessSyncStatus,
   SYNC_RETRY_BACKOFF_SECONDS,
 } from '@/features/access-control/config/AccessControlConfig'
@@ -928,12 +929,36 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
   }
 
   /**
-   * Delete a bounded batch of scans older than the cutoff.
+   * Delete a bounded batch of scans received before the cutoff.
    *
-   * Two statements rather than one because PostgREST has no `DELETE ... LIMIT`:
-   * the ids are read first, oldest first, then deleted by primary key. Reading
-   * oldest-first matters — it means repeated calls walk forward through the
-   * backlog instead of re-reading the same arbitrary slice.
+   * ## Why `created_at` and not `occurred_at`
+   *
+   * `occurred_at` comes from the **device's own clock** — it is `AttTime`
+   * parsed against that reader's stored timezone offset. This whole feature
+   * already treats device clocks as untrustworthy: drift is *inferred* rather
+   * than read, and `DEVICE_CLOCK_SKEW_ALERT_SECONDS` exists precisely because
+   * they wander. A reader whose RTC has reset, lost its battery, or been given
+   * the wrong offset stamps today's entries with a date a year or more in the
+   * past, and purging on that figure would delete this morning's scans tonight
+   * — irreversibly, reported as a perfectly normal `deleted: N`.
+   *
+   * `created_at` is set by the database when *we* stored the row. It cannot be
+   * wrong, it is monotonic, and it is what a retention promise actually
+   * measures: how long we keep something after receiving it. A reader that was
+   * offline for months and then uploads its buffer keeps those scans for 12
+   * months from upload — longer than strictly needed, which is the safe
+   * direction. Deletion is not reversible, so this must fail toward keeping.
+   *
+   * ## Why the delete is chunked
+   *
+   * PostgREST has no `DELETE ... LIMIT`, so the ids are read first and deleted
+   * by primary key — and `.in()` puts every id in the **query string**. 500
+   * UUIDs is a 19.5 KB request line, comfortably past the ~8 KB an nginx-family
+   * gateway accepts, so the whole run would fail with a 414 the first time a
+   * gym had a real backlog. Chunking keeps each request near 4 KB.
+   *
+   * Reading oldest-first matters too — it means repeated calls walk forward
+   * through the backlog instead of re-reading the same arbitrary slice.
    *
    * Platform-wide, so this needs a service-role client; under a session client
    * RLS would silently scope it to one gym and the purge would quietly stop
@@ -943,8 +968,8 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     const { data, error } = await this.supabase
       .from('access_events')
       .select('id')
-      .lt('occurred_at', cutoff.toISOString())
-      .order('occurred_at', { ascending: true })
+      .lt('created_at', cutoff.toISOString())
+      .order('created_at', { ascending: true })
       .limit(limit)
 
     if (error) {
@@ -956,15 +981,19 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     const ids = ((data as { id: string }[] | null) ?? []).map((row) => row.id)
     if (ids.length === 0) return 0
 
-    const { error: deleteError } = await this.supabase
-      .from('access_events')
-      .delete()
-      .in('id', ids)
+    for (let i = 0; i < ids.length; i += ACCESS_EVENT_DELETE_CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + ACCESS_EVENT_DELETE_CHUNK_SIZE)
 
-    if (deleteError) {
-      throw new DatabaseError(
-        `Failed to delete expired access events: ${deleteError.message}`
-      )
+      const { error: deleteError } = await this.supabase
+        .from('access_events')
+        .delete()
+        .in('id', chunk)
+
+      if (deleteError) {
+        throw new DatabaseError(
+          `Failed to delete expired access events: ${deleteError.message}`
+        )
+      }
     }
 
     return ids.length

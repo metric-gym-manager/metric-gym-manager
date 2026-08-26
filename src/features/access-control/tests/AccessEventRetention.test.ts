@@ -12,6 +12,7 @@
 
 import { PurgeExpiredAccessEvents } from '@/features/access-control/services/PurgeExpiredAccessEvents'
 import {
+  ACCESS_EVENT_DELETE_CHUNK_SIZE,
   ACCESS_EVENT_PURGE_BATCH_SIZE,
   ACCESS_EVENT_PURGE_MAX_BATCHES,
   ACCESS_EVENT_RETENTION_DAYS,
@@ -22,7 +23,18 @@ import { FakeAccessControlRepository } from './fakes'
 const NOW = new Date('2026-08-26T02:00:00Z')
 const DAY_MS = 24 * 60 * 60 * 1000
 
-function makeEvent(occurredAt: Date, index: number): AccessEvent {
+/**
+ * @param occurredAt - What the *device* claims. Untrustworthy by design.
+ * @param index - Row id suffix.
+ * @param receivedAt - When we stored it. Defaults to matching the device, which
+ *   is the normal case; the two are passed apart where a wrong clock is the
+ *   thing under test.
+ */
+function makeEvent(
+  occurredAt: Date,
+  index: number,
+  receivedAt: Date = occurredAt
+): AccessEvent {
   return {
     id: `event-${index}`,
     gym_id: 'gym-1',
@@ -34,7 +46,7 @@ function makeEvent(occurredAt: Date, index: number): AccessEvent {
     checking_status: 0,
     event_code: '0',
     raw: {},
-    created_at: occurredAt.toISOString(),
+    created_at: receivedAt.toISOString(),
   }
 }
 
@@ -136,6 +148,88 @@ describe('PurgeExpiredAccessEvents', () => {
     expect(summary.deleted).toBe(
       ACCESS_EVENT_PURGE_BATCH_SIZE * ACCESS_EVENT_PURGE_MAX_BATCHES
     )
+  })
+
+  describe('inverted: what if the device clock is wrong?', () => {
+    it('keeps a scan received today even if the reader dates it a year ago', async () => {
+      // The inversion: "the device's timestamp tells us how old a scan is."
+      // A reader whose RTC reset, whose battery died, or whose timezone offset
+      // was mis-entered stamps today's entries far in the past. Purging on
+      // `occurred_at` would delete this morning's scans tonight —
+      // irreversibly, and reported as a perfectly ordinary `deleted: N`.
+      const events = [
+        makeEvent(
+          new Date(NOW.getTime() - (ACCESS_EVENT_RETENTION_DAYS + 30) * DAY_MS),
+          0,
+          NOW // received minutes ago
+        ),
+      ]
+
+      const repo = new FakeAccessControlRepository({ events })
+
+      const summary = await new PurgeExpiredAccessEvents(repo).execute(NOW)
+
+      expect(summary.deleted).toBe(0)
+      expect(events).toHaveLength(1)
+    })
+
+    it('deletes a long-stored scan even if the reader dates it today', async () => {
+      // The mirror case, so the column choice is pinned in both directions
+      // rather than by a test that would also pass on `occurred_at`.
+      const events = [
+        makeEvent(
+          NOW,
+          0,
+          new Date(NOW.getTime() - (ACCESS_EVENT_RETENTION_DAYS + 1) * DAY_MS)
+        ),
+      ]
+
+      const repo = new FakeAccessControlRepository({ events })
+
+      const summary = await new PurgeExpiredAccessEvents(repo).execute(NOW)
+
+      expect(summary.deleted).toBe(1)
+      expect(events).toHaveLength(0)
+    })
+
+    it('errs toward keeping when a reader uploads a stale buffer', async () => {
+      // A reader offline for months uploads scans that genuinely occurred long
+      // ago. Retention runs from when we received them, so they get the full
+      // window — longer than strictly needed, which is the safe direction.
+      const events = [
+        makeEvent(
+          new Date(NOW.getTime() - 400 * DAY_MS),
+          0,
+          new Date(NOW.getTime() - 5 * DAY_MS)
+        ),
+      ]
+
+      const repo = new FakeAccessControlRepository({ events })
+
+      expect(
+        (await new PurgeExpiredAccessEvents(repo).execute(NOW)).deleted
+      ).toBe(0)
+    })
+  })
+
+  describe('inverted: what if a batch is too large to send?', () => {
+    it('keeps every delete request small enough for a gateway to accept', () => {
+      // `.in()` puts each id in the query string, so this is a transport
+      // limit rather than a database one. 500 ids is a ~19.5 KB request line;
+      // nginx-family gateways reject past ~8 KB with a 414, which would fail
+      // the first run at any gym with a real backlog. The fake cannot catch
+      // this — it has no transport — so the bound is asserted directly.
+      const UUID_IN_QUERY_STRING = 36 + '%2C'.length
+      const requestLine =
+        '/rest/v1/access_events?id=in.()'.length +
+        ACCESS_EVENT_DELETE_CHUNK_SIZE * UUID_IN_QUERY_STRING
+
+      expect(requestLine).toBeLessThan(8 * 1024)
+      // And the read batch may be larger than one delete, so it must chunk.
+      expect(ACCESS_EVENT_PURGE_BATCH_SIZE).toBeGreaterThanOrEqual(
+        ACCESS_EVENT_DELETE_CHUNK_SIZE
+      )
+    })
   })
 
   it('takes each bounded batch from the old end first', async () => {

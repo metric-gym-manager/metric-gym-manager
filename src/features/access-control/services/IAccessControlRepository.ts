@@ -268,6 +268,12 @@ export interface IAccessControlRepository {
    * Implementations must not overwrite an existing timestamp — the audit
    * trail is when consent was first given, and re-enrolling a member who
    * already consented is not a new act of consent.
+   *
+   * **What this timestamp is and is not.** It records that the gym asserted,
+   * at the desk, that the member agreed — the same standing as
+   * `accepted_terms_at`. It is not proof a human was asked, and nothing in a
+   * client-server system could be. Do not describe it to anyone as more than
+   * the gym's own attestation.
    */
   recordBiometricConsent(memberId: string, at: Date): Promise<void>
 

@@ -399,6 +399,7 @@ Both log to the cron audit table (rule 2.6).
 | `ACCESS_EVENT_RETENTION_DAYS`     | 365                          | **The number published in the privacy policy.** Move one and the other has to move — a test asserts the constant is 365                               |
 | `ACCESS_EVENT_PURGE_BATCH_SIZE`   | 500                          | An unbounded first `DELETE` after a year of collection is how a cron times out and makes no progress at all                                           |
 | `ACCESS_EVENT_PURGE_MAX_BATCHES`  | 500                          | 250,000 rows a run; a larger backlog waits for tomorrow and the summary says so                                                                       |
+| `ACCESS_EVENT_DELETE_CHUNK_SIZE`  | 100                          | **A transport limit, not a database one** (C2). `.in()` is a query string: 100 ids ≈ 3.9 KB, 500 ≈ 19.5 KB, gateways reject past ~8 KB                |
 
 ### 4.7 Tests — 333 across 23 suites
 
@@ -479,7 +480,7 @@ reader" conversation, not something to solve by locking out someone who paid.
 
 ---
 
-## 6. Defect history — nine defects, found by inverting assumptions
+## 6. Defect history — twelve defects, found by inverting assumptions
 
 **Do not reintroduce these.** Every one was invisible to forward tests and found
 by asking "what if the opposite were true?".
@@ -500,6 +501,27 @@ by asking "what if the opposite were true?".
 `recountDeviceTemplates` returned a flat zero — a lie in exactly the direction
 that mattered, since capacity learning reads that number. **A fake returning a
 convenient constant can hide the bug you are hunting.**
+
+### Third audit (2026-08-26) — the consent and retention work
+
+Run before the migrations were applied, on the same principle.
+
+| #      | Inverted assumption                                    | The defect                                                                                                                                                                                                                                                                                                   |
+| ------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **C1** | "The device's timestamp tells us how old a scan is"    | The purge keyed on `occurred_at`, which is the **reader's own clock**. A reset RTC or a mis-entered offset dates today's scans a year back, so the first run deletes them the same night — irreversibly, reported as an ordinary `deleted: N`. Now keyed on `created_at`, which is ours and cannot be wrong. |
+| **C2** | "A batch that fits in the database fits in a request"  | `.in()` puts every id in the **query string**. 500 UUIDs is a 19.5 KB request line; an nginx-family gateway rejects past ~8 KB with a 414, so the first run at any gym with a real backlog would fail entirely. Reads stay at 500, deletes now chunk at 100 (~3.9 KB).                                       |
+| **C3** | "Our enrolment path is the only way a template exists" | The gate covers what we dispatch. A fingerprint enrolled at the terminal's own admin menu still reaches `DetectBiometricEnrolment`, which is additive (N3) and sets `finger_enrolled` with nobody having been asked. Not suppressed — the template is real, so the panel now shows it as needing attention.  |
+
+**C1 and C2 were both invisible to the forward tests, and C2 was invisible to
+the doubles as well** — the fake has no transport, so no repository-level test
+could have caught a URL-length limit. It is asserted directly against the
+constant instead. The same lesson as the tenth finding above, one layer out:
+**a double cannot fail in a way it does not model.**
+
+**The consent timestamp is the gym's attestation, not proof.** It records that
+the gym said the member agreed, exactly as `accepted_terms_at` does. Nothing in
+a client-server system can prove a human was asked, and the field must not be
+described as though it does.
 
 ---
 
@@ -610,7 +632,7 @@ without the index the nightly purge scans the whole table.
 
 ## 9. Traps for the next session
 
-Thirteen things that will bite someone who does not know them.
+Fifteen things that will bite someone who does not know them.
 
 1. **Do not import `@/features/access-control` from a client component.** The
    barrel is server-only. Deep-import from `utils/serializeAccessForAPI`,
@@ -649,6 +671,13 @@ Thirteen things that will bite someone who does not know them.
 13. **`ACCESS_EVENT_RETENTION_DAYS` is a published promise, not a tuning knob.**
     It is the figure in the privacy policy. Changing it means changing the
     policy text in `src/app/privacy/page.tsx` _and_ `docs/legal/privacy-policy.txt`.
+14. **Never purge on `occurred_at`** (C1). It is the reader's clock. Retention
+    runs on `created_at`, which is when _we_ stored the row — the only clock in
+    this system that cannot be wrong. Deletion does not come back, so this must
+    fail toward keeping.
+15. **`.in()` is a query-string filter, so an id list is a transport limit.**
+    `ACCESS_EVENT_DELETE_CHUNK_SIZE` is sized for an ~8 KB request line (C2).
+    Raising the read batch is safe; raising the chunk is not.
 
 ---
 

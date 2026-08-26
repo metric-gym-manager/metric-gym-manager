@@ -241,6 +241,10 @@ export const ENROLMENT_POLL_TIMEOUT_MS = 120_000
  * look back — a dispute, a "when did we last see this member" — is seasonal,
  * and rather than something longer because there is no purpose left to serve
  * after that. The number is the promise; keep the two in step if it changes.
+ *
+ * Measured from when the row was **stored** (`created_at`), never from the
+ * device's `occurred_at`. See `deleteEventsOlderThan` — a reader with a reset
+ * clock would otherwise have this morning's scans deleted tonight.
  */
 export const ACCESS_EVENT_RETENTION_DAYS = 365
 
@@ -264,3 +268,17 @@ export const ACCESS_EVENT_PURGE_BATCH_SIZE = 500
  * would ever reach it, and the summary says when it did.
  */
 export const ACCESS_EVENT_PURGE_MAX_BATCHES = 500
+
+/**
+ * Ids per `DELETE` statement inside one purge batch.
+ *
+ * PostgREST has no `DELETE ... LIMIT`, so rows are deleted by primary key and
+ * `.in()` puts every id in the **query string**. That makes this a transport
+ * limit, not a database one: 100 UUIDs is a ~3.9 KB request line, 200 is
+ * ~7.8 KB, and 500 is ~19.5 KB — past the ~8 KB an nginx-family gateway
+ * accepts, which comes back as a 414 and fails the entire run.
+ *
+ * So a purge batch is read in one query and deleted in several. Raising
+ * `ACCESS_EVENT_PURGE_BATCH_SIZE` is safe; raising this is not.
+ */
+export const ACCESS_EVENT_DELETE_CHUNK_SIZE = 100

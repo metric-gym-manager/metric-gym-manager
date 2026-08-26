@@ -481,6 +481,11 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
    * returned a convenient constant and hid the bug being hunted. Batching is
    * the whole behaviour under test here, so the double has to actually remove
    * rows, oldest first, and stop at the limit.
+   *
+   * Filters on **`created_at`**, matching the real repository. Filtering on
+   * `occurred_at` here would be the same class of lie: it would let a fixture
+   * with a device clock a year out pass a test that the production query
+   * fails, which is precisely the defect this column choice exists to avoid.
    */
   async deleteEventsOlderThan(cutoff: Date, limit: number): Promise<number> {
     this.purgeCalls.push({ cutoff, limit })
@@ -488,10 +493,10 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     const all = this.options.events ?? []
 
     const doomed = all
-      .filter((event) => new Date(event.occurred_at) < cutoff)
+      .filter((event) => new Date(event.created_at) < cutoff)
       .sort(
         (a, b) =>
-          new Date(a.occurred_at).getTime() - new Date(b.occurred_at).getTime()
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       )
       .slice(0, limit)
 
