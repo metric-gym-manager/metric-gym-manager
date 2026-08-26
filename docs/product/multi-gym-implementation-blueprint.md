@@ -1,6 +1,7 @@
 # Multi-Gym Account Support - Complete Implementation Blueprint
 
 ## Document Purpose
+
 This document provides a complete, step-by-step implementation guide for adding multi-gym account support to the Gym Management SaaS platform. This feature allows users to create and manage multiple gym locations (branches) under a single login with Gmail-style quick switching.
 
 **Status**: Design Complete - Ready for Future Implementation
@@ -10,6 +11,7 @@ This document provides a complete, step-by-step implementation guide for adding 
 ---
 
 ## Table of Contents
+
 1. [Feature Overview](#feature-overview)
 2. [Architecture Analysis](#architecture-analysis)
 3. [Database Schema Changes](#database-schema-changes)
@@ -28,7 +30,9 @@ This document provides a complete, step-by-step implementation guide for adding 
 ## Feature Overview
 
 ### Business Requirements
+
 Users with multiple gym locations (e.g., downtown branch, suburban branch) need to:
+
 - Create additional gym accounts while logged in
 - Switch between gyms quickly without re-authentication (Gmail-style UX)
 - Share settings (plans, discounts, installments) across gyms with per-gym customization
@@ -37,6 +41,7 @@ Users with multiple gym locations (e.g., downtown branch, suburban branch) need 
 - Support future per-gym platform billing
 
 ### User Stories
+
 1. **As a gym owner**, I want to create a second gym account from my dashboard so I can manage multiple locations under one login
 2. **As a gym owner**, I want to quickly switch between my gyms so I can manage them without logging out
 3. **As a gym owner**, I want to create shared membership plans that all my gyms use, with the ability to customize pricing per location
@@ -44,6 +49,7 @@ Users with multiple gym locations (e.g., downtown branch, suburban branch) need 
 5. **As a new user**, I want to register a second gym without creating a new account if I already have one
 
 ### Key Constraints
+
 - Each gym maintains separate member databases (data isolation)
 - Each gym will have separate billing/subscriptions (future feature)
 - Shared settings are optional - gyms can use shared or create their own
@@ -57,6 +63,7 @@ Users with multiple gym locations (e.g., downtown branch, suburban branch) need 
 ### Current State Assessment
 
 #### What Already Works (Strengths ✅)
+
 1. **Database Schema**:
    - `gyms` table has NO unique constraint on `user_id` column
    - Already supports multiple gyms per user at database level
@@ -72,6 +79,7 @@ Users with multiple gym locations (e.g., downtown branch, suburban branch) need 
    - No assumptions about single gym in business logic
 
 #### What Needs Fixing (Limitations ❌)
+
 1. **Auth Middleware**:
    - `getCurrentGymProfile()` uses `.single()` - assumes one gym per user
    - Will throw error if user has multiple gyms
@@ -135,6 +143,7 @@ Users with multiple gym locations (e.g., downtown branch, suburban branch) need 
 ## Database Schema Changes
 
 ### Overview of Changes
+
 - **New Tables**: 3 (gym_memberships, shared_plan_templates, gym_plan_overrides)
 - **Modified Tables**: 1 (gyms - add 2 columns)
 - **New Indexes**: 4
@@ -171,6 +180,7 @@ COMMENT ON COLUMN gyms.is_primary_gym IS 'Marks the first gym created in an orga
 ```
 
 **Rationale**:
+
 - Each existing gym becomes its own organization (backward compatible)
 - When user creates second gym, it joins the organization_id of their first gym
 - is_primary_gym determines which gym can create shared templates
@@ -456,78 +466,78 @@ CREATE POLICY "Users can create gyms"
 ```typescript
 // BEFORE (Current)
 export interface SessionData {
-  user: AuthUser;
-  gymProfile: GymProfile; // Single gym only
+  user: AuthUser
+  gymProfile: GymProfile // Single gym only
 }
 
 export interface GymProfile {
-  id: string;
-  user_id: string;
-  username: string;
-  email: string;
-  email_verified: boolean;
-  phone_number: string | null;
-  gym_name: string;
-  gym_address: string | null;
-  gym_website: string | null;
-  created_at: string;
-  updated_at: string;
+  id: string
+  user_id: string
+  username: string
+  email: string
+  email_verified: boolean
+  phone_number: string | null
+  gym_name: string
+  gym_address: string | null
+  gym_website: string | null
+  created_at: string
+  updated_at: string
 }
 
 // AFTER (Multi-Gym)
 export interface SessionData {
-  user: AuthUser;
-  gymProfiles: GymProfile[]; // Array of all user's gyms
-  activeGymId?: string; // Currently selected gym (optional)
+  user: AuthUser
+  gymProfiles: GymProfile[] // Array of all user's gyms
+  activeGymId?: string // Currently selected gym (optional)
 }
 
 export interface GymProfile {
-  id: string;
-  user_id: string;
-  username: string;
-  email: string;
-  email_verified: boolean;
-  phone_number: string | null;
-  gym_name: string;
-  gym_address: string | null;
-  gym_website: string | null;
-  organization_id: string; // NEW - links gyms in same org
-  is_primary_gym: boolean; // NEW - first gym created
-  created_at: string;
-  updated_at: string;
+  id: string
+  user_id: string
+  username: string
+  email: string
+  email_verified: boolean
+  phone_number: string | null
+  gym_name: string
+  gym_address: string | null
+  gym_website: string | null
+  organization_id: string // NEW - links gyms in same org
+  is_primary_gym: boolean // NEW - first gym created
+  created_at: string
+  updated_at: string
 }
 
 // NEW: Shared settings types
 export interface SharedPlanTemplate {
-  id: string;
-  organization_id: string;
-  plan_type: 'monthly' | 'daily' | 'annual' | 'custom';
-  template_name: string;
-  default_amount: number;
-  description?: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
+  id: string
+  organization_id: string
+  plan_type: 'monthly' | 'daily' | 'annual' | 'custom'
+  template_name: string
+  default_amount: number
+  description?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface GymPlanOverride {
-  id: string;
-  gym_id: string;
-  shared_template_id: string;
-  custom_amount?: number;
-  is_active?: boolean;
-  created_at: string;
-  updated_at: string;
+  id: string
+  gym_id: string
+  shared_template_id: string
+  custom_amount?: number
+  is_active?: boolean
+  created_at: string
+  updated_at: string
 }
 
 export interface EffectivePlan {
-  id: string;
-  plan_type: string;
-  name: string;
-  amount: number;
-  is_active: boolean;
-  source: 'shared' | 'override' | 'gym-specific';
-  shared_template_id?: string; // Present if source is 'shared' or 'override'
+  id: string
+  plan_type: string
+  name: string
+  amount: number
+  is_active: boolean
+  source: 'shared' | 'override' | 'gym-specific'
+  shared_template_id?: string // Present if source is 'shared' or 'override'
 }
 ```
 
@@ -535,26 +545,26 @@ export interface EffectivePlan {
 
 **File**: `src/lib/middleware/auth.ts`
 
-```typescript
-import { createClient } from '@/lib/supabase/server';
-import type { User as SupabaseUser } from '@supabase/supabase-js';
-import type { GymProfile } from '@/features/auth/types';
-import { redirect } from 'next/navigation';
+````typescript
+import { createClient } from '@/lib/supabase/server'
+import type { User as SupabaseUser } from '@supabase/supabase-js'
+import type { GymProfile } from '@/features/auth/types'
+import { redirect } from 'next/navigation'
 
 /**
  * Require authentication - throws if not authenticated
  */
 export async function requireAuth(): Promise<SupabaseUser> {
-  const supabase = await createClient();
+  const supabase = await createClient()
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/login');
+    redirect('/login')
   }
 
-  return user;
+  return user
 }
 
 /**
@@ -564,10 +574,10 @@ export async function requireAuth(): Promise<SupabaseUser> {
  * For backward compatibility, returns the primary gym or first gym.
  */
 export async function getCurrentGymProfile(): Promise<GymProfile> {
-  console.warn('getCurrentGymProfile is deprecated. Use getUserGyms() instead.');
+  console.warn('getCurrentGymProfile is deprecated. Use getUserGyms() instead.')
 
-  const user = await requireAuth();
-  const supabase = await createClient();
+  const user = await requireAuth()
+  const supabase = await createClient()
 
   const { data: gymProfile, error } = await supabase
     .from('gyms')
@@ -575,13 +585,13 @@ export async function getCurrentGymProfile(): Promise<GymProfile> {
     .eq('user_id', user.id)
     .order('is_primary_gym', { ascending: false })
     .limit(1)
-    .single();
+    .single()
 
   if (error || !gymProfile) {
-    throw new Error('Gym profile not found');
+    throw new Error('Gym profile not found')
   }
 
-  return gymProfile;
+  return gymProfile
 }
 
 /**
@@ -592,24 +602,24 @@ export async function getCurrentGymProfile(): Promise<GymProfile> {
  * @throws Error if user not authenticated or has no gyms
  */
 export async function getUserGyms(): Promise<GymProfile[]> {
-  const user = await requireAuth();
-  const supabase = await createClient();
+  const user = await requireAuth()
+  const supabase = await createClient()
 
   const { data: gyms, error } = await supabase
     .from('gyms')
     .select('*')
     .eq('user_id', user.id)
-    .order('is_primary_gym', { ascending: false }); // Primary gym first
+    .order('is_primary_gym', { ascending: false }) // Primary gym first
 
   if (error) {
-    throw new Error('Failed to fetch gyms');
+    throw new Error('Failed to fetch gyms')
   }
 
   if (!gyms || gyms.length === 0) {
-    throw new Error('No gym profiles found');
+    throw new Error('No gym profiles found')
   }
 
-  return gyms;
+  return gyms
 }
 
 /**
@@ -620,13 +630,14 @@ export async function getUserGyms(): Promise<GymProfile[]> {
  * @throws Error if gym not found or user doesn't own it
  */
 export async function getGymById(gymId: string): Promise<GymProfile> {
-  const user = await requireAuth();
-  const supabase = await createClient();
+  const user = await requireAuth()
+  const supabase = await createClient()
 
   // Validate UUID format
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidRegex =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!uuidRegex.test(gymId)) {
-    throw new Error('Invalid gym ID format');
+    throw new Error('Invalid gym ID format')
   }
 
   const { data: gym, error } = await supabase
@@ -634,13 +645,13 @@ export async function getGymById(gymId: string): Promise<GymProfile> {
     .select('*')
     .eq('id', gymId)
     .eq('user_id', user.id) // Verify ownership
-    .single();
+    .single()
 
   if (error || !gym) {
-    throw new Error('Gym not found or access denied');
+    throw new Error('Gym not found or access denied')
   }
 
-  return gym;
+  return gym
 }
 
 /**
@@ -661,7 +672,7 @@ export async function getGymById(gymId: string): Promise<GymProfile> {
  * ```
  */
 export async function requireGymAccess(gymId: string): Promise<GymProfile> {
-  return getGymById(gymId);
+  return getGymById(gymId)
 }
 
 /**
@@ -671,23 +682,25 @@ export async function requireGymAccess(gymId: string): Promise<GymProfile> {
  * @param gymId - UUID of any gym in the organization
  * @returns Array of all gyms in the organization
  */
-export async function getOrganizationGyms(gymId: string): Promise<GymProfile[]> {
-  const gym = await getGymById(gymId); // Verifies ownership
-  const supabase = await createClient();
+export async function getOrganizationGyms(
+  gymId: string
+): Promise<GymProfile[]> {
+  const gym = await getGymById(gymId) // Verifies ownership
+  const supabase = await createClient()
 
   const { data: orgGyms, error } = await supabase
     .from('gyms')
     .select('*')
     .eq('organization_id', gym.organization_id)
-    .order('is_primary_gym', { ascending: false });
+    .order('is_primary_gym', { ascending: false })
 
   if (error) {
-    throw new Error('Failed to fetch organization gyms');
+    throw new Error('Failed to fetch organization gyms')
   }
 
-  return orgGyms || [];
+  return orgGyms || []
 }
-```
+````
 
 ### 3. Auth Service Updates
 
@@ -701,11 +714,13 @@ Update the `getCurrentSession()` function:
  */
 export async function getCurrentSession(): Promise<SessionData | null> {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
     if (!user || !user.email) {
-      return null;
+      return null
     }
 
     // CHANGED: Fetch ALL gyms for this user instead of single
@@ -713,19 +728,19 @@ export async function getCurrentSession(): Promise<SessionData | null> {
       .from('gyms')
       .select('*')
       .eq('user_id', user.id)
-      .order('is_primary_gym', { ascending: false }); // Primary first
+      .order('is_primary_gym', { ascending: false }) // Primary first
 
     if (error || !gymProfiles || gymProfiles.length === 0) {
-      return null;
+      return null
     }
 
     return {
       user: user as AuthUser,
       gymProfiles: gymProfiles as GymProfile[],
-    };
+    }
   } catch (error) {
-    console.error('Get session error:', error);
-    return null;
+    console.error('Get session error:', error)
+    return null
   }
 }
 ```
@@ -740,7 +755,7 @@ export async function loginWithPassword(
   input: LoginInput
 ): Promise<AuthResponse<LoginResponse>> {
   try {
-    const supabase = await createClient();
+    const supabase = await createClient()
 
     // ... existing auth logic ...
 
@@ -749,16 +764,16 @@ export async function loginWithPassword(
       .from('gyms')
       .select('*')
       .eq('user_id', authData.user.id)
-      .order('is_primary_gym', { ascending: false });
+      .order('is_primary_gym', { ascending: false })
 
     if (gymError || !gymProfiles || gymProfiles.length === 0) {
       return {
         success: false,
         error: 'Failed to load gym profile',
-      };
+      }
     }
 
-    const primaryGym = gymProfiles[0]; // First gym (primary or oldest)
+    const primaryGym = gymProfiles[0] // First gym (primary or oldest)
 
     return {
       success: true,
@@ -768,7 +783,7 @@ export async function loginWithPassword(
         primaryGym: primaryGym, // For backward compatibility
         requiresEmailVerification: !primaryGym.email_verified,
       },
-    };
+    }
   } catch (error) {
     // ... error handling ...
   }
@@ -1086,7 +1101,7 @@ export default function Sidebar() {
           {/* Logo */}
           <div className="flex h-16 shrink-0 items-center">
             <h1 className="text-xl font-bold text-gray-900">
-              Metric Gym Manager
+              Metric Gym OS
             </h1>
           </div>
 
@@ -1346,64 +1361,66 @@ export default function CreateGymPage() {
 ### Standard Pattern for All Routes
 
 **Before (Single Gym)**:
+
 ```typescript
 // src/app/api/members/route.ts
 export async function GET(request: NextRequest) {
-  const gymProfile = await getCurrentGymProfile();
+  const gymProfile = await getCurrentGymProfile()
 
   const filters = {
     status: searchParams.get('status'),
     search: searchParams.get('search'),
-  };
+  }
 
-  const result = await getMembersList(gymProfile.id, filters);
-  return NextResponse.json({ success: true, data: result });
+  const result = await getMembersList(gymProfile.id, filters)
+  return NextResponse.json({ success: true, data: result })
 }
 ```
 
 **After (Multi-Gym)**:
+
 ```typescript
 // src/app/api/members/route.ts
 export async function GET(request: NextRequest) {
   try {
     // 1. Extract gymId from query parameter
-    const searchParams = request.nextUrl.searchParams;
-    const gymId = searchParams.get('gymId');
+    const searchParams = request.nextUrl.searchParams
+    const gymId = searchParams.get('gymId')
 
     if (!gymId) {
       return NextResponse.json(
         { success: false, error: 'Please select a gym account to continue.' },
         { status: 400 }
-      );
+      )
     }
 
     // 2. Verify ownership and get gym profile
-    const gymProfile = await requireGymAccess(gymId);
+    const gymProfile = await requireGymAccess(gymId)
 
     // 3. Build filters
     const filters = {
       status: searchParams.get('status'),
       search: searchParams.get('search'),
-    };
+    }
 
     // 4. Use gymId for all operations
-    const result = await getMembersList(gymId, filters);
+    const result = await getMembersList(gymId, filters)
 
-    return NextResponse.json({ success: true, data: result });
+    return NextResponse.json({ success: true, data: result })
   } catch (error) {
-    console.error('Get members error:', error);
+    console.error('Get members error:', error)
 
     if (error.message === 'Gym not found or access denied') {
       return NextResponse.json(
         { success: false, error: 'Gym not found or access denied' },
         { status: 403 }
-      );
+      )
     }
 
     return NextResponse.json(
       { success: false, error: 'Failed to fetch members' },
       { status: 500 }
-    );
+    )
   }
 }
 ```
@@ -1415,8 +1432,8 @@ export async function GET(request: NextRequest) {
 **File**: `src/app/api/gyms/list/route.ts` (NEW)
 
 ```typescript
-import { NextResponse } from 'next/server';
-import { getUserGyms } from '@/lib/middleware/auth';
+import { NextResponse } from 'next/server'
+import { getUserGyms } from '@/lib/middleware/auth'
 
 /**
  * GET /api/gyms/list
@@ -1424,19 +1441,19 @@ import { getUserGyms } from '@/lib/middleware/auth';
  */
 export async function GET() {
   try {
-    const gyms = await getUserGyms();
+    const gyms = await getUserGyms()
 
     return NextResponse.json({
       success: true,
       data: gyms,
-    });
+    })
   } catch (error) {
-    console.error('List gyms error:', error);
+    console.error('List gyms error:', error)
 
     return NextResponse.json(
       { success: false, error: 'Failed to fetch gyms' },
       { status: 500 }
-    );
+    )
   }
 }
 ```
@@ -1446,16 +1463,16 @@ export async function GET() {
 **File**: `src/app/api/gyms/create/route.ts` (NEW)
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/middleware/auth';
-import { createClient } from '@/lib/supabase/server';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/middleware/auth'
+import { createClient } from '@/lib/supabase/server'
+import { z } from 'zod'
 
 const createGymSchema = z.object({
   gymName: z.string().min(2).max(100),
   gymAddress: z.string().min(5).max(200).optional().or(z.literal('')),
   gymWebsite: z.string().url().optional().or(z.literal('')),
-});
+})
 
 /**
  * POST /api/gyms/create
@@ -1470,39 +1487,40 @@ const createGymSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const body = await request.json();
+    const user = await requireAuth()
+    const body = await request.json()
 
     // Validate input
-    const validatedData = createGymSchema.parse(body);
+    const validatedData = createGymSchema.parse(body)
 
-    const supabase = await createClient();
+    const supabase = await createClient()
 
     // Get user's existing gyms to determine organization_id
     const { data: existingGyms, error: existingError } = await supabase
       .from('gyms')
       .select('organization_id, id')
       .eq('user_id', user.id)
-      .limit(1);
+      .limit(1)
 
     if (existingError) {
-      throw new Error('Failed to check existing gyms');
+      throw new Error('Failed to check existing gyms')
     }
 
     // If user has gyms, join their organization. Otherwise create new org.
-    const organizationId = existingGyms && existingGyms.length > 0
-      ? existingGyms[0].organization_id
-      : crypto.randomUUID();
+    const organizationId =
+      existingGyms && existingGyms.length > 0
+        ? existingGyms[0].organization_id
+        : crypto.randomUUID()
 
     // Generate unique username for new gym
     // Pattern: gymname_timestamp
     const baseUsername = validatedData.gymName
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '_')
-      .substring(0, 30);
+      .substring(0, 30)
 
-    const timestamp = Date.now().toString(36);
-    const uniqueUsername = `${baseUsername}_${timestamp}`;
+    const timestamp = Date.now().toString(36)
+    const uniqueUsername = `${baseUsername}_${timestamp}`
 
     // Create new gym
     const { data: newGym, error: createError } = await supabase
@@ -1519,29 +1537,44 @@ export async function POST(request: NextRequest) {
         is_primary_gym: existingGyms.length === 0, // First gym is primary
       })
       .select()
-      .single();
+      .single()
 
     if (createError || !newGym) {
-      console.error('Create gym error:', createError);
+      console.error('Create gym error:', createError)
       return NextResponse.json(
         { success: false, error: 'Failed to create gym account' },
         { status: 500 }
-      );
+      )
     }
 
     // Initialize default plan types for new gym
     const defaultPlans = [
-      { gym_id: newGym.id, plan_type: 'monthly', default_amount: 5000.0, is_active: true },
-      { gym_id: newGym.id, plan_type: 'daily', default_amount: 300.0, is_active: true },
-      { gym_id: newGym.id, plan_type: 'annual', default_amount: 50000.0, is_active: true },
-    ];
+      {
+        gym_id: newGym.id,
+        plan_type: 'monthly',
+        default_amount: 5000.0,
+        is_active: true,
+      },
+      {
+        gym_id: newGym.id,
+        plan_type: 'daily',
+        default_amount: 300.0,
+        is_active: true,
+      },
+      {
+        gym_id: newGym.id,
+        plan_type: 'annual',
+        default_amount: 50000.0,
+        is_active: true,
+      },
+    ]
 
     const { error: planError } = await supabase
       .from('plan_types')
-      .insert(defaultPlans);
+      .insert(defaultPlans)
 
     if (planError) {
-      console.warn('Failed to create default plan types:', planError);
+      console.warn('Failed to create default plan types:', planError)
       // Don't fail the request - plan types can be created manually
     }
 
@@ -1552,9 +1585,9 @@ export async function POST(request: NextRequest) {
         message: 'Gym account created successfully',
       },
       { status: 201 }
-    );
+    )
   } catch (error) {
-    console.error('Create gym error:', error);
+    console.error('Create gym error:', error)
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -1564,13 +1597,13 @@ export async function POST(request: NextRequest) {
           details: error.errors,
         },
         { status: 400 }
-      );
+      )
     }
 
     return NextResponse.json(
       { success: false, error: 'Failed to create gym account' },
       { status: 500 }
-    );
+    )
   }
 }
 ```
@@ -1579,8 +1612,8 @@ export async function POST(request: NextRequest) {
 
 **File**: `src/lib/api/gym-client.ts` (NEW)
 
-```typescript
-import { useActiveGym } from '@/contexts/active-gym.context';
+````typescript
+import { useActiveGym } from '@/contexts/active-gym.context'
 
 /**
  * Custom hook that provides a fetch wrapper which automatically
@@ -1594,32 +1627,36 @@ import { useActiveGym } from '@/contexts/active-gym.context';
  * ```
  */
 export function useGymFetch() {
-  const { activeGymId } = useActiveGym();
+  const { activeGymId } = useActiveGym()
 
   return async (url: string, options?: RequestInit) => {
     if (!activeGymId) {
-      throw new Error('No active gym selected');
+      throw new Error('No active gym selected')
     }
 
     // Add gymId to URL
-    const urlWithGym = new URL(url, window.location.origin);
-    urlWithGym.searchParams.set('gymId', activeGymId);
+    const urlWithGym = new URL(url, window.location.origin)
+    urlWithGym.searchParams.set('gymId', activeGymId)
 
-    return fetch(urlWithGym.toString(), options);
-  };
+    return fetch(urlWithGym.toString(), options)
+  }
 }
 
 /**
  * Alternative: Standalone function that doesn't require React context
  * Use this in non-component code (e.g., utility functions)
  */
-export async function gymFetch(gymId: string, url: string, options?: RequestInit) {
-  const urlWithGym = new URL(url, window.location.origin);
-  urlWithGym.searchParams.set('gymId', gymId);
+export async function gymFetch(
+  gymId: string,
+  url: string,
+  options?: RequestInit
+) {
+  const urlWithGym = new URL(url, window.location.origin)
+  urlWithGym.searchParams.set('gymId', gymId)
 
-  return fetch(urlWithGym.toString(), options);
+  return fetch(urlWithGym.toString(), options)
 }
-```
+````
 
 ### Example Refactored API Routes
 
@@ -1628,71 +1665,71 @@ export async function gymFetch(gymId: string, url: string, options?: RequestInit
 **File**: `src/app/api/members/route.ts` (MODIFY)
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { requireGymAccess } from '@/lib/middleware/auth';
-import { getMembersList, createMember } from '@/features/members/services/member.service';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { requireGymAccess } from '@/lib/middleware/auth'
+import {
+  getMembersList,
+  createMember,
+} from '@/features/members/services/member.service'
+import { z } from 'zod'
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const gymId = searchParams.get('gymId');
+    const searchParams = request.nextUrl.searchParams
+    const gymId = searchParams.get('gymId')
 
     if (!gymId) {
       return NextResponse.json(
         { success: false, error: 'gymId is required' },
         { status: 400 }
-      );
+      )
     }
 
-    await requireGymAccess(gymId);
+    await requireGymAccess(gymId)
 
     const filters = {
       status: searchParams.get('status'),
       search: searchParams.get('search'),
       page: parseInt(searchParams.get('page') || '1'),
       limit: parseInt(searchParams.get('limit') || '20'),
-    };
+    }
 
-    const result = await getMembersList(gymId, filters);
+    const result = await getMembersList(gymId, filters)
 
-    return NextResponse.json({ success: true, data: result });
+    return NextResponse.json({ success: true, data: result })
   } catch (error) {
-    console.error('Get members error:', error);
+    console.error('Get members error:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch members' },
       { status: 500 }
-    );
+    )
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const gymId = searchParams.get('gymId');
+    const searchParams = request.nextUrl.searchParams
+    const gymId = searchParams.get('gymId')
 
     if (!gymId) {
       return NextResponse.json(
         { success: false, error: 'gymId is required' },
         { status: 400 }
-      );
+      )
     }
 
-    await requireGymAccess(gymId);
+    await requireGymAccess(gymId)
 
-    const body = await request.json();
-    const member = await createMember(gymId, body);
+    const body = await request.json()
+    const member = await createMember(gymId, body)
 
-    return NextResponse.json(
-      { success: true, data: member },
-      { status: 201 }
-    );
+    return NextResponse.json({ success: true, data: member }, { status: 201 })
   } catch (error) {
-    console.error('Create member error:', error);
+    console.error('Create member error:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to create member' },
       { status: 500 }
-    );
+    )
   }
 }
 ```
@@ -1706,8 +1743,12 @@ export async function POST(request: NextRequest) {
 **File**: `src/features/settings/services/plan-templates.service.ts` (NEW)
 
 ```typescript
-import { createClient } from '@/lib/supabase/server';
-import type { EffectivePlan, SharedPlanTemplate, GymPlanOverride } from '@/features/auth/types';
+import { createClient } from '@/lib/supabase/server'
+import type {
+  EffectivePlan,
+  SharedPlanTemplate,
+  GymPlanOverride,
+} from '@/features/auth/types'
 
 /**
  * Get effective plan types for a gym.
@@ -1722,18 +1763,20 @@ import type { EffectivePlan, SharedPlanTemplate, GymPlanOverride } from '@/featu
  * @param gymId - UUID of the gym
  * @returns Array of effective plans with source indication
  */
-export async function getEffectivePlanTypes(gymId: string): Promise<EffectivePlan[]> {
-  const supabase = await createClient();
+export async function getEffectivePlanTypes(
+  gymId: string
+): Promise<EffectivePlan[]> {
+  const supabase = await createClient()
 
   // Get gym's organization
   const { data: gym, error: gymError } = await supabase
     .from('gyms')
     .select('organization_id')
     .eq('id', gymId)
-    .single();
+    .single()
 
   if (gymError || !gym) {
-    throw new Error('Gym not found');
+    throw new Error('Gym not found')
   }
 
   // Get shared templates from organization
@@ -1741,26 +1784,28 @@ export async function getEffectivePlanTypes(gymId: string): Promise<EffectivePla
     .from('shared_plan_templates')
     .select('*')
     .eq('organization_id', gym.organization_id)
-    .eq('is_active', true);
+    .eq('is_active', true)
 
   // Get gym overrides
   const { data: overrides } = await supabase
     .from('gym_plan_overrides')
     .select('*, shared_template:shared_plan_templates(*)')
-    .eq('gym_id', gymId);
+    .eq('gym_id', gymId)
 
   // Get gym-specific plans
   const { data: gymPlans } = await supabase
     .from('plan_types')
     .select('*')
     .eq('gym_id', gymId)
-    .eq('is_active', true);
+    .eq('is_active', true)
 
   // Merge: overrides take precedence over shared templates
-  const effectivePlans: EffectivePlan[] = [];
+  const effectivePlans: EffectivePlan[] = []
 
-  sharedTemplates?.forEach(template => {
-    const override = overrides?.find(o => o.shared_template_id === template.id);
+  sharedTemplates?.forEach((template) => {
+    const override = overrides?.find(
+      (o) => o.shared_template_id === template.id
+    )
 
     effectivePlans.push({
       id: override?.id || template.id,
@@ -1770,11 +1815,11 @@ export async function getEffectivePlanTypes(gymId: string): Promise<EffectivePla
       is_active: override?.is_active ?? template.is_active,
       source: override ? 'override' : 'shared',
       shared_template_id: template.id,
-    });
-  });
+    })
+  })
 
   // Add gym-specific plans
-  gymPlans?.forEach(plan => {
+  gymPlans?.forEach((plan) => {
     effectivePlans.push({
       id: plan.id,
       plan_type: plan.plan_type,
@@ -1782,10 +1827,10 @@ export async function getEffectivePlanTypes(gymId: string): Promise<EffectivePla
       amount: plan.default_amount,
       is_active: plan.is_active,
       source: 'gym-specific',
-    });
-  });
+    })
+  })
 
-  return effectivePlans;
+  return effectivePlans
 }
 
 /**
@@ -1799,23 +1844,23 @@ export async function getEffectivePlanTypes(gymId: string): Promise<EffectivePla
 export async function createSharedPlanTemplate(
   gymId: string,
   templateData: {
-    planType: string;
-    templateName: string;
-    defaultAmount: number;
-    description?: string;
+    planType: string
+    templateName: string
+    defaultAmount: number
+    description?: string
   }
 ): Promise<SharedPlanTemplate> {
-  const supabase = await createClient();
+  const supabase = await createClient()
 
   // Verify gym is primary
   const { data: gym } = await supabase
     .from('gyms')
     .select('organization_id, is_primary_gym')
     .eq('id', gymId)
-    .single();
+    .single()
 
   if (!gym?.is_primary_gym) {
-    throw new Error('Only primary gym can create shared templates');
+    throw new Error('Only primary gym can create shared templates')
   }
 
   const { data, error } = await supabase
@@ -1828,10 +1873,10 @@ export async function createSharedPlanTemplate(
       description: templateData.description,
     })
     .select()
-    .single();
+    .single()
 
-  if (error) throw error;
-  return data;
+  if (error) throw error
+  return data
 }
 
 /**
@@ -1846,27 +1891,30 @@ export async function createPlanOverride(
   gymId: string,
   sharedTemplateId: string,
   override: {
-    customAmount?: number;
-    isActive?: boolean;
+    customAmount?: number
+    isActive?: boolean
   }
 ): Promise<GymPlanOverride> {
-  const supabase = await createClient();
+  const supabase = await createClient()
 
   const { data, error } = await supabase
     .from('gym_plan_overrides')
-    .upsert({
-      gym_id: gymId,
-      shared_template_id: sharedTemplateId,
-      custom_amount: override.customAmount,
-      is_active: override.isActive,
-    }, {
-      onConflict: 'gym_id,shared_template_id',
-    })
+    .upsert(
+      {
+        gym_id: gymId,
+        shared_template_id: sharedTemplateId,
+        custom_amount: override.customAmount,
+        is_active: override.isActive,
+      },
+      {
+        onConflict: 'gym_id,shared_template_id',
+      }
+    )
     .select()
-    .single();
+    .single()
 
-  if (error) throw error;
-  return data;
+  if (error) throw error
+  return data
 }
 ```
 
@@ -2001,63 +2049,61 @@ export default function AnalyticsPage() {
 **File**: `src/app/api/analytics/organization/route.ts` (NEW)
 
 ```typescript
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/middleware/auth';
-import { createClient } from '@/lib/supabase/server';
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAuth } from '@/lib/middleware/auth'
+import { createClient } from '@/lib/supabase/server'
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireAuth();
-    const orgId = request.nextUrl.searchParams.get('orgId');
+    const user = await requireAuth()
+    const orgId = request.nextUrl.searchParams.get('orgId')
 
     if (!orgId) {
       return NextResponse.json(
         { success: false, error: 'orgId is required' },
         { status: 400 }
-      );
+      )
     }
 
-    const supabase = await createClient();
+    const supabase = await createClient()
 
     // Verify user owns gyms in this organization
     const { data: userGyms } = await supabase
       .from('gyms')
       .select('id, gym_name')
       .eq('user_id', user.id)
-      .eq('organization_id', orgId);
+      .eq('organization_id', orgId)
 
     if (!userGyms || userGyms.length === 0) {
       return NextResponse.json(
         { success: false, error: 'Access denied' },
         { status: 403 }
-      );
+      )
     }
 
-    const gymIds = userGyms.map(g => g.id);
+    const gymIds = userGyms.map((g) => g.id)
 
     // Aggregate members across all gyms
     const { count: totalMembers } = await supabase
       .from('members')
       .select('*', { count: 'exact', head: true })
       .in('gym_id', gymIds)
-      .neq('status', 'archived');
+      .neq('status', 'archived')
 
     const { count: activeMembers } = await supabase
       .from('members')
       .select('*', { count: 'exact', head: true })
       .in('gym_id', gymIds)
-      .eq('status', 'active');
+      .eq('status', 'active')
 
     // Aggregate revenue
     const { data: payments } = await supabase
       .from('payments')
       .select('amount, member:members!inner(gym_id)')
-      .in('member.gym_id', gymIds);
+      .in('member.gym_id', gymIds)
 
-    const totalRevenue = payments?.reduce(
-      (sum, p) => sum + parseFloat(p.amount),
-      0
-    ) || 0;
+    const totalRevenue =
+      payments?.reduce((sum, p) => sum + parseFloat(p.amount), 0) || 0
 
     // Breakdown by gym
     const gymBreakdown = await Promise.all(
@@ -2066,23 +2112,21 @@ export async function GET(request: NextRequest) {
           .from('members')
           .select('*', { count: 'exact', head: true })
           .eq('gym_id', gym.id)
-          .neq('status', 'archived');
+          .neq('status', 'archived')
 
         const { count: activeMemberCount } = await supabase
           .from('members')
           .select('*', { count: 'exact', head: true })
           .eq('gym_id', gym.id)
-          .eq('status', 'active');
+          .eq('status', 'active')
 
         const { data: gymPayments } = await supabase
           .from('payments')
           .select('amount, member:members!inner(gym_id)')
-          .eq('member.gym_id', gym.id);
+          .eq('member.gym_id', gym.id)
 
-        const revenue = gymPayments?.reduce(
-          (sum, p) => sum + parseFloat(p.amount),
-          0
-        ) || 0;
+        const revenue =
+          gymPayments?.reduce((sum, p) => sum + parseFloat(p.amount), 0) || 0
 
         return {
           gymId: gym.id,
@@ -2090,9 +2134,9 @@ export async function GET(request: NextRequest) {
           memberCount: memberCount || 0,
           activeMembers: activeMemberCount || 0,
           revenue,
-        };
+        }
       })
-    );
+    )
 
     return NextResponse.json({
       success: true,
@@ -2102,13 +2146,13 @@ export async function GET(request: NextRequest) {
         totalRevenue,
         gymBreakdown,
       },
-    });
+    })
   } catch (error) {
-    console.error('Analytics error:', error);
+    console.error('Analytics error:', error)
     return NextResponse.json(
       { success: false, error: 'Failed to fetch analytics' },
       { status: 500 }
-    );
+    )
   }
 }
 ```
@@ -2122,8 +2166,12 @@ export async function GET(request: NextRequest) {
 **File**: `tests/lib/middleware/auth.test.ts` (NEW)
 
 ```typescript
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getUserGyms, requireGymAccess, getOrganizationGyms } from '@/lib/middleware/auth';
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import {
+  getUserGyms,
+  requireGymAccess,
+  getOrganizationGyms,
+} from '@/lib/middleware/auth'
 
 // Mock Supabase client
 vi.mock('@/lib/supabase/server', () => ({
@@ -2158,47 +2206,47 @@ vi.mock('@/lib/supabase/server', () => ({
       })),
     })),
   })),
-}));
+}))
 
 describe('Multi-Gym Auth Helpers', () => {
   describe('getUserGyms', () => {
     it('should fetch all gyms for authenticated user', async () => {
-      const gyms = await getUserGyms();
+      const gyms = await getUserGyms()
 
-      expect(gyms).toHaveLength(2);
-      expect(gyms[0].is_primary_gym).toBe(true);
-      expect(gyms[1].is_primary_gym).toBe(false);
-    });
+      expect(gyms).toHaveLength(2)
+      expect(gyms[0].is_primary_gym).toBe(true)
+      expect(gyms[1].is_primary_gym).toBe(false)
+    })
 
     it('should order gyms with primary first', async () => {
-      const gyms = await getUserGyms();
+      const gyms = await getUserGyms()
 
-      expect(gyms[0].gym_name).toBe('Main Gym');
-    });
-  });
+      expect(gyms[0].gym_name).toBe('Main Gym')
+    })
+  })
 
   describe('requireGymAccess', () => {
     it('should throw error for invalid UUID format', async () => {
-      await expect(
-        requireGymAccess('not-a-uuid')
-      ).rejects.toThrow('Invalid gym ID format');
-    });
+      await expect(requireGymAccess('not-a-uuid')).rejects.toThrow(
+        'Invalid gym ID format'
+      )
+    })
 
     it('should allow access to owned gym', async () => {
-      const gym = await requireGymAccess('gym-1');
-      expect(gym.id).toBe('gym-1');
-    });
-  });
+      const gym = await requireGymAccess('gym-1')
+      expect(gym.id).toBe('gym-1')
+    })
+  })
 
   describe('getOrganizationGyms', () => {
     it('should fetch all gyms in same organization', async () => {
-      const orgGyms = await getOrganizationGyms('gym-1');
+      const orgGyms = await getOrganizationGyms('gym-1')
 
-      expect(orgGyms).toHaveLength(2);
-      expect(orgGyms[0].organization_id).toBe(orgGyms[1].organization_id);
-    });
-  });
-});
+      expect(orgGyms).toHaveLength(2)
+      expect(orgGyms[0].organization_id).toBe(orgGyms[1].organization_id)
+    })
+  })
+})
 ```
 
 ### Integration Tests
@@ -2206,7 +2254,7 @@ describe('Multi-Gym Auth Helpers', () => {
 **File**: `tests/features/gyms/multi-gym.test.ts` (NEW)
 
 ```typescript
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest'
 
 describe('Multi-Gym Integration Tests', () => {
   it('should create new gym and join existing organization', async () => {
@@ -2218,27 +2266,27 @@ describe('Multi-Gym Integration Tests', () => {
         gymName: 'Downtown Branch',
         gymAddress: '456 Oak St',
       }),
-    });
+    })
 
-    const result = await response.json();
+    const result = await response.json()
 
-    expect(response.status).toBe(201);
-    expect(result.success).toBe(true);
-    expect(result.data.gym_name).toBe('Downtown Branch');
-    expect(result.data.is_primary_gym).toBe(false);
-  });
+    expect(response.status).toBe(201)
+    expect(result.success).toBe(true)
+    expect(result.data.gym_name).toBe('Downtown Branch')
+    expect(result.data.is_primary_gym).toBe(false)
+  })
 
   it('should enforce data isolation between gyms', async () => {
     // Create member in gym-1
-    const member = await createMember('gym-1', { name: 'John Doe' });
+    const member = await createMember('gym-1', { name: 'John Doe' })
 
     // Try to fetch members from gym-2
-    const members = await getMembersList('gym-2', {});
+    const members = await getMembersList('gym-2', {})
 
     // Should not include member from gym-1
-    expect(members).not.toContainEqual(member);
-  });
-});
+    expect(members).not.toContainEqual(member)
+  })
+})
 ```
 
 ### E2E Tests (Playwright)
@@ -2246,66 +2294,68 @@ describe('Multi-Gym Integration Tests', () => {
 **File**: `tests/e2e/multi-gym.spec.ts` (NEW)
 
 ```typescript
-import { test, expect } from '@playwright/test';
+import { test, expect } from '@playwright/test'
 
 test.describe('Multi-Gym Functionality', () => {
   test('user can create and switch between gyms', async ({ page }) => {
     // Login
-    await page.goto('/login');
-    await page.fill('input[name="email"]', 'test@gym.com');
-    await page.fill('input[name="password"]', 'Test123!');
-    await page.click('button[type="submit"]');
+    await page.goto('/login')
+    await page.fill('input[name="email"]', 'test@gym.com')
+    await page.fill('input[name="password"]', 'Test123!')
+    await page.click('button[type="submit"]')
 
     // Should land on members page
-    await expect(page).toHaveURL('/members');
+    await expect(page).toHaveURL('/members')
 
     // Open gym switcher
-    await page.click('[role="combobox"]');
+    await page.click('[role="combobox"]')
 
     // Click "Create New Gym"
-    await page.click('text=Create New Gym');
+    await page.click('text=Create New Gym')
 
     // Fill form
-    await page.fill('input#gymName', 'Downtown Branch');
-    await page.fill('input#gymAddress', '456 Oak St');
-    await page.click('button[type="submit"]');
+    await page.fill('input#gymName', 'Downtown Branch')
+    await page.fill('input#gymAddress', '456 Oak St')
+    await page.click('button[type="submit"]')
 
     // Should switch to new gym
-    await expect(page.locator('[role="combobox"]')).toContainText('Downtown Branch');
+    await expect(page.locator('[role="combobox"]')).toContainText(
+      'Downtown Branch'
+    )
 
     // Members list should be empty for new gym
-    await expect(page.locator('text=No members found')).toBeVisible();
+    await expect(page.locator('text=No members found')).toBeVisible()
 
     // Switch back to first gym
-    await page.click('[role="combobox"]');
-    await page.click('text=Main Gym');
+    await page.click('[role="combobox"]')
+    await page.click('text=Main Gym')
 
     // Should have different members
-    await expect(page.locator('[role="combobox"]')).toContainText('Main Gym');
-  });
+    await expect(page.locator('[role="combobox"]')).toContainText('Main Gym')
+  })
 
   test('shared settings are visible across gyms', async ({ page }) => {
     // Navigate to settings as primary gym
-    await page.goto('/settings');
+    await page.goto('/settings')
 
     // Create shared plan template
-    await page.click('text=Create Shared Template');
-    await page.fill('input[name="templateName"]', 'Premium Monthly');
-    await page.fill('input[name="defaultAmount"]', '10000');
-    await page.click('button:has-text("Create")');
+    await page.click('text=Create Shared Template')
+    await page.fill('input[name="templateName"]', 'Premium Monthly')
+    await page.fill('input[name="defaultAmount"]', '10000')
+    await page.click('button:has-text("Create")')
 
     // Switch to second gym
-    await page.click('[role="combobox"]');
-    await page.click('text=Branch 2');
+    await page.click('[role="combobox"]')
+    await page.click('text=Branch 2')
 
     // Navigate to settings
-    await page.goto('/settings');
+    await page.goto('/settings')
 
     // Shared template should be visible
-    await expect(page.locator('text=Premium Monthly')).toBeVisible();
-    await expect(page.locator('text=Shared from Main Gym')).toBeVisible();
-  });
-});
+    await expect(page.locator('text=Premium Monthly')).toBeVisible()
+    await expect(page.locator('text=Shared from Main Gym')).toBeVisible()
+  })
+})
 ```
 
 ---
@@ -2328,6 +2378,7 @@ supabase db reset --local  # Test locally first
 ### Phase 2: Feature Flag Deployment (Week 2)
 
 Add to `.env`:
+
 ```bash
 NEXT_PUBLIC_ENABLE_MULTI_GYM=false
 ```
@@ -2337,20 +2388,23 @@ Deploy code with feature flag off. Database schema is ready but features are dor
 ### Phase 3: Internal Testing (Week 3)
 
 Enable for specific test accounts:
+
 ```typescript
 // In active-gym.context.tsx
-const isMultiGymEnabled = process.env.NEXT_PUBLIC_ENABLE_MULTI_GYM === 'true' ||
-  testAccountEmails.includes(user.email);
+const isMultiGymEnabled =
+  process.env.NEXT_PUBLIC_ENABLE_MULTI_GYM === 'true' ||
+  testAccountEmails.includes(user.email)
 ```
 
 ### Phase 4: Beta Rollout (Week 4)
 
 Enable for 10-20% of users via gradual rollout:
+
 ```typescript
 // Enable for users whose ID hash matches
-const enabledPercentage = 20;
-const userIdHash = hashCode(user.id) % 100;
-const isMultiGymEnabled = userIdHash < enabledPercentage;
+const enabledPercentage = 20
+const userIdHash = hashCode(user.id) % 100
+const isMultiGymEnabled = userIdHash < enabledPercentage
 ```
 
 ### Phase 5: Full Rollout (Week 5)
@@ -2360,6 +2414,7 @@ Set `NEXT_PUBLIC_ENABLE_MULTI_GYM=true` for all users.
 ### Phase 6: Cleanup (Week 6)
 
 Remove deprecated code:
+
 - Remove `getCurrentGymProfile()`
 - Remove feature flag checks
 - Update documentation
@@ -2377,6 +2432,7 @@ Remove deprecated code:
 
 **Cause**: Active Gym Context not fetching gyms
 **Check**:
+
 1. Verify API route `/api/gyms/list` is working
 2. Check browser console for errors
 3. Verify user has at least one gym in database

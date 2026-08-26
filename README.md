@@ -1,4 +1,4 @@
-# Metric Gym Manager
+# Metric Gym OS
 
 A production-grade, multi-tenant SaaS platform for gym and fitness center management. Solution provided by [Holtzman Labs Software](https://holtzmanlabs.com).
 
@@ -14,17 +14,21 @@ A production-grade, multi-tenant SaaS platform for gym and fitness center manage
 ## Getting Started
 
 1. **Install dependencies:**
+
    ```bash
    npm install
    ```
 
 2. **Set up environment variables:**
+
    ```bash
    cp .env.example .env.local
    ```
+
    Fill in your Supabase credentials.
 
 3. **Run the development server:**
+
    ```bash
    npm run dev
    ```
@@ -34,11 +38,13 @@ A production-grade, multi-tenant SaaS platform for gym and fitness center manage
 ## Available Commands
 
 ### Development
+
 - `npm run dev` - Start Next.js development server
 - `npm run build` - Build production bundle
 - `npm start` - Start production server
 
 ### Testing
+
 - `npm test` - Run Jest unit tests
 - `npm run test:watch` - Run tests in watch mode
 - `npm run test:coverage` - Generate coverage report
@@ -47,6 +53,7 @@ A production-grade, multi-tenant SaaS platform for gym and fitness center manage
 - `npm run test:e2e:ui` - Run E2E tests with UI
 
 ### Code Quality
+
 - `npm run type-check` - Run TypeScript compiler without emitting files
 - `npm run lint` - Run ESLint
 - `npm run lint:fix` - Auto-fix ESLint issues
@@ -92,7 +99,9 @@ Docs are organized under [`docs/`](./docs/README.md) by purpose
 ## Future Features (Planned)
 
 ### Multi-Gym Account Support
+
 Complete implementation blueprint available for adding multi-location gym management:
+
 - Gmail-style quick switching between gym locations
 - Shared settings (plans, discounts) across organization with per-gym customization
 - Aggregated analytics dashboard

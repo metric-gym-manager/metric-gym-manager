@@ -1,6 +1,6 @@
 # Setup Guide
 
-End-to-end local setup for Metric Gym Manager. Consolidates the former
+End-to-end local setup for Metric Gym OS. Consolidates the former
 `DATABASE_SETUP.md`, `ENV_SETUP_GUIDE.md`, and `SUPABASE_CONFIG_REQUIRED.md`.
 
 ## Prerequisites
@@ -24,13 +24,13 @@ cp .env.example .env.local
 `.env.example` is the **authoritative, documented list** of every variable —
 fill in `.env.local` from it. The essentials to start:
 
-| Variable | Where to find it |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API → Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same page → anon/public key (safe in the browser) |
-| `SUPABASE_SERVICE_ROLE_KEY` | same page → service_role secret (**server-only, never commit or expose**) |
-| `CRON_SECRET` | generate: `openssl rand -base64 32` |
-| `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` for local dev |
+| Variable                        | Where to find it                                                          |
+| ------------------------------- | ------------------------------------------------------------------------- |
+| `NEXT_PUBLIC_SUPABASE_URL`      | Supabase → Project Settings → API → Project URL                           |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | same page → anon/public key (safe in the browser)                         |
+| `SUPABASE_SERVICE_ROLE_KEY`     | same page → service_role secret (**server-only, never commit or expose**) |
+| `CRON_SECRET`                   | generate: `openssl rand -base64 32`                                       |
+| `NEXT_PUBLIC_APP_URL`           | `http://localhost:3000` for local dev                                     |
 
 Feature integrations (text.lk SMS, PayHere billing, Cloudflare R2 photo
 storage, demo tooling) are documented inline in `.env.example`; leave

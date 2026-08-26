@@ -6,10 +6,10 @@ an external dashboard, an email approval, or the Vercel Firewall — none of it
 ships in the repo. Work top to bottom; nothing here blocks a deploy, but PayHere
 billing is not live until all of it is done.
 
-- **Production domain:** `metricgymmanager.com` (also `www.metricgymmanager.com`)
+- **Production domain:** `metricgymos.com` (also `www.metricgymos.com`)
 - **Vercel project:** `gym-management-saas` (team `shyans-projects-7b2901b0`)
-- **Webhook (notify) URL:** `https://metricgymmanager.com/api/webhooks/payhere`
-- **Return / cancel URLs:** `https://metricgymmanager.com/settings/billing`
+- **Webhook (notify) URL:** `https://metricgymos.com/api/webhooks/payhere`
+- **Return / cancel URLs:** `https://metricgymos.com/settings/billing`
 
 The DB migrations (`20260704000001..3`, `20260706000002`, `20260707000001`,
 `20260708000001..2`) are already applied to the production Supabase project and
@@ -26,6 +26,7 @@ verified (plan §4 acceptance — all probes pass).
 > ships with the same train. Checkout becomes a PayHere **Preapproval** and
 > renewals are charged by OUR `charge-renewals` cron (00:30 UTC) via the REST
 > Charging API — three owner actions are REQUIRED before this earns money:
+>
 > 1. **Ask PayHere to enable Automated Charging (Preapproval + Charging API)**
 >    on the merchant account — it is approval-gated; sandbox first.
 > 2. The API key (`PAYHERE_APP_ID`) needs the Charging permission, and live
@@ -54,16 +55,16 @@ Set these on the `gym-management-saas` project (Settings → Environment
 Variables → Production). Keys mirror `.env.example`; values come from the
 PayHere dashboard. Never commit real values.
 
-| Key | Value | Notes |
-|---|---|---|
-| `PAYHERE_MODE` | `live` | `sandbox` for the preview/staging environment |
-| `PAYHERE_MERCHANT_ID` | *(dashboard)* | Integrations → your merchant id |
-| `PAYHERE_MERCHANT_SECRET` | *(dashboard)* | **per-domain**, server-side only — never `NEXT_PUBLIC_*` |
-| `PAYHERE_LITE_PRICE_LKR` | `2990` | **New** — Lite monthly price. Ship in the SAME release as migration `20260708000003` |
-| `PAYHERE_PRO_PRICE_LKR` | `4990` | **Repurposed** — Pro (unlimited) monthly price. Historical values: `4900` → `2990` → `4990` (see migration `20260708000003`). The var name is stable; its meaning changed with the paid-only ladder. Flip together with `20260708000003` |
-| `PAYHERE_ENTERPRISE_PRICE_LKR` | `6990` | Enterprise monthly price (unchanged) |
-| `PAYHERE_APP_ID` | *(dashboard)* | REST API key (Subscription Manager) |
-| `PAYHERE_APP_SECRET` | *(dashboard)* | REST API secret |
+| Key                            | Value         | Notes                                                                                                                                                                                                                                    |
+| ------------------------------ | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PAYHERE_MODE`                 | `live`        | `sandbox` for the preview/staging environment                                                                                                                                                                                            |
+| `PAYHERE_MERCHANT_ID`          | _(dashboard)_ | Integrations → your merchant id                                                                                                                                                                                                          |
+| `PAYHERE_MERCHANT_SECRET`      | _(dashboard)_ | **per-domain**, server-side only — never `NEXT_PUBLIC_*`                                                                                                                                                                                 |
+| `PAYHERE_LITE_PRICE_LKR`       | `2990`        | **New** — Lite monthly price. Ship in the SAME release as migration `20260708000003`                                                                                                                                                     |
+| `PAYHERE_PRO_PRICE_LKR`        | `4990`        | **Repurposed** — Pro (unlimited) monthly price. Historical values: `4900` → `2990` → `4990` (see migration `20260708000003`). The var name is stable; its meaning changed with the paid-only ladder. Flip together with `20260708000003` |
+| `PAYHERE_ENTERPRISE_PRICE_LKR` | `6990`        | Enterprise monthly price (unchanged)                                                                                                                                                                                                     |
+| `PAYHERE_APP_ID`               | _(dashboard)_ | REST API key (Subscription Manager)                                                                                                                                                                                                      |
+| `PAYHERE_APP_SECRET`           | _(dashboard)_ | REST API secret                                                                                                                                                                                                                          |
 
 After changing any of these, redeploy (env vars are read at build/runtime).
 
@@ -86,7 +87,7 @@ end to end (each link is unit/integration-tested):
 3. The PayHere hand-off `hash` is computed server-side over
    `(merchant_id, order_id, amount, currency)` with the Merchant Secret;
    editing the hidden form's `amount` breaks the hash and PayHere rejects it.
-4. The webhook provisions **only** when the *signed* `payhere_amount` equals
+4. The webhook provisions **only** when the _signed_ `payhere_amount` equals
    the intent's `expected_amount` (2 dp) — mismatch marks the intent `failed`
    and changes nothing (`AmountMismatch`).
 
@@ -100,10 +101,10 @@ from the request.
 ## 2. PayHere dashboard — domain whitelisting
 
 Two **separate** whitelists in the PayHere dashboard, both keyed to
-`metricgymmanager.com`:
+`metricgymos.com`:
 
 1. **Merchant Secret** (Settings → Domains & Credentials): add
-   `metricgymmanager.com`. This is what signs/verifies the `md5sig` on the
+   `metricgymos.com`. This is what signs/verifies the `md5sig` on the
    checkout hand-off and the notify webhook. Approval can take up to 24h.
 2. **API key / App** (the `PAYHERE_APP_ID`): add the same domain to the app so
    the OAuth REST calls (subscription cancel/list) are authorized.
@@ -137,13 +138,13 @@ This is a Vercel **Firewall** rule (Dashboard → project → Firewall → Rate
 Limiting). It is not expressible in `vercel.json` and cannot be set through the
 Vercel API tooling available to automation — create it in the dashboard:
 
-| Field | Value |
-|---|---|
-| Name | `payhere-webhook-per-ip` |
-| Condition | Request Path **equals** `/api/webhooks/payhere` **AND** Method **equals** `POST` |
-| Rate limit key | Client IP (`ip.src`) |
-| Threshold | **60 requests per 60s** per IP |
-| Action when exceeded | Deny (HTTP 429) for the window |
+| Field                | Value                                                                            |
+| -------------------- | -------------------------------------------------------------------------------- |
+| Name                 | `payhere-webhook-per-ip`                                                         |
+| Condition            | Request Path **equals** `/api/webhooks/payhere` **AND** Method **equals** `POST` |
+| Rate limit key       | Client IP (`ip.src`)                                                             |
+| Threshold            | **60 requests per 60s** per IP                                                   |
+| Action when exceeded | Deny (HTTP 429) for the window                                                   |
 
 Rationale (runbook §7.3): legitimate volume is ≈ one notification per gym per
 month plus PayHere's own retries; 60/min/IP is ~5× any realistic peak and only
