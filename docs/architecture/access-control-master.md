@@ -276,18 +276,19 @@ K40/F18 firmware.
 
 ### 4.1 Database — 5 migrations, 6 tables, 5 functions
 
-| Migration                                               | Contents                                                                                                                                  |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `20260810000001_create_access_control.sql`              | 6 tables, subject-id sequence, enqueue trigger, RLS                                                                                       |
-| `20260810000002_access_control_functions.sql`           | `allocate_access_subject_id`, `claim_access_sync_jobs`, `recount_device_templates`                                                        |
-| `20260810000003_reclaim_stale_sync_jobs.sql`            | `reclaim_stale_access_sync_jobs`                                                                                                          |
-| `20260812000001_per_device_templates.sql`               | **D1 fix** — `synced_device_serials TEXT[]`, `on_device` becomes `GENERATED ALWAYS AS (CARDINALITY(...) > 0) STORED`, per-serial recount  |
-| `20260813000001_lock_down_access_control_functions.sql` | **Security fix** — `REVOKE ALL … FROM PUBLIC, anon, authenticated` on all 5 SECURITY DEFINER functions; `GRANT EXECUTE … TO service_role` |
-| `20260826000001_add_biometric_consent.sql`              | `members.biometric_consent_at` — the enrolment gate. `register_member_guarded` deliberately **not** touched                               |
-| `20260826000002_access_event_retention.sql`             | `idx_access_events_occurred_at` — the retention purge is global and oldest-first, so both tenant-leading indexes are useless to it        |
+| Migration                                               | Contents                                                                                                                                                                                      |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `20260810000001_create_access_control.sql`              | 6 tables, subject-id sequence, enqueue trigger, RLS                                                                                                                                           |
+| `20260810000002_access_control_functions.sql`           | `allocate_access_subject_id`, `claim_access_sync_jobs`, `recount_device_templates`                                                                                                            |
+| `20260810000003_reclaim_stale_sync_jobs.sql`            | `reclaim_stale_access_sync_jobs`                                                                                                                                                              |
+| `20260812000001_per_device_templates.sql`               | **D1 fix** — `synced_device_serials TEXT[]`, `on_device` becomes `GENERATED ALWAYS AS (CARDINALITY(...) > 0) STORED`, per-serial recount                                                      |
+| `20260813000001_lock_down_access_control_functions.sql` | **Security fix** — `REVOKE ALL … FROM PUBLIC, anon, authenticated` on all 5 SECURITY DEFINER functions; `GRANT EXECUTE … TO service_role`                                                     |
+| `20260826000001_add_biometric_consent.sql`              | `members.biometric_consent_at` — the enrolment gate. `register_member_guarded` deliberately **not** touched                                                                                   |
+| `20260826000002_access_event_retention.sql`             | `idx_access_events_created_at` — global, oldest-first, and keyed on `created_at` rather than the device's clock (C1); both existing indexes lead with a tenant column the purge cannot supply |
 
-**All applied to production (`kcafbafxjjrksicwewmp`) and verified.** Supabase
-advisors are clean of everything this feature introduced.
+**All applied to production (`kcafbafxjjrksicwewmp`) and verified**, including
+the two dated 2026-08-26. Supabase advisors are clean of everything this
+feature introduced.
 
 | Table                     | Purpose                       | Notable                                                                                                |
 | ------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -621,10 +622,18 @@ npm run arch:check && npx tsc --noEmit && npm test && npm run lint
 **Merged:** [#63] on 2026-08-26 (squashed to `b041349`). The consent, remote-open
 and retention work is the follow-up on `claude/access-control-architecture-b23v6f`.
 
-⚠️ **The two 2026-08-26 migrations are NOT yet applied to production.** Every
-earlier migration in §4.1 is. Apply them before enrolment is used at a real gym:
-without `members.biometric_consent_at` the enrolment gate's read fails, and
-without the index the nightly purge scans the whole table.
+**All migrations in §4.1 are applied to production**, the two 2026-08-26 ones
+included (applied after the third audit, so the index is the corrected
+`created_at` one — see C1). Verified in place: `biometric_consent_at` is a
+nullable `timestamptz`, null for all 345 members because nobody has been asked
+yet; `idx_access_events_created_at` is a btree on `created_at`.
+
+Both were metadata-only in practice: `access_events` was empty, so the index
+build was instant, and a nullable `ADD COLUMN` with no default does not rewrite
+the table. Security advisors show nothing new — the three
+`rls_enabled_no_policy` INFOs (`access_control_secrets`, `access_sync_jobs`,
+`otp_tokens`) and the `pg_trgm` WARN all predate this work, and the first of
+those is deliberate: that table is service-role only by design.
 
 [#63]: https://github.com/metric-gym-manager/metric-gym-manager/pull/63
 
