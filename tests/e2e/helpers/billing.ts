@@ -36,10 +36,20 @@ export async function loginAsGym(
   const email = credentials.email ?? process.env.E2E_GYM_EMAIL ?? ''
   const password = credentials.password ?? process.env.E2E_GYM_PASSWORD ?? ''
 
+  if (!email || !password) {
+    throw new Error(
+      'loginAsGym: no credentials. Set E2E_GYM_EMAIL / E2E_GYM_PASSWORD, or pass them in.'
+    )
+  }
+
   await page.goto('/login')
+
   // Dev-mode hydration can lag behind first paint: values filled into the
   // uncontrolled DOM are wiped when React hydrates the controlled inputs and
   // clicks are swallowed. Re-fill and re-click until the request fires.
+  let status = 0
+  let body = ''
+
   await expect(async () => {
     await page.getByLabel(/email/i).fill(email)
     await page.getByLabel(/password/i).fill(password)
@@ -47,8 +57,23 @@ export async function loginAsGym(
       timeout: 3000,
     })
     await page.getByRole('button', { name: /log ?in|sign ?in/i }).click()
-    await loginResponse
+    const response = await loginResponse
+    status = response.status()
+    body = await response.text().catch(() => '')
   }).toPass({ timeout: 30_000 })
+
+  // Say what actually happened. Retrying a rejected credential cannot help, so
+  // without this a wrong password, an unconfirmed email or a gym pointed at the
+  // wrong Supabase project all present identically: a 30-second timeout inside
+  // `toPass` whose stack blames the retry wrapper rather than the cause.
+  if (status !== 200) {
+    throw new Error(
+      `loginAsGym: /api/auth/login answered ${status} for ${email}. ${body.slice(0, 200)}`
+    )
+  }
+
+  // The redirect is a full-document navigation (rule 2.15), so this waits on a
+  // real page load rather than a client-side route change.
   await page.waitForURL('**/dashboard**')
 }
 
