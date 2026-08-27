@@ -15,6 +15,21 @@ import { loadEnvConfig } from '@next/env'
  */
 loadEnvConfig(process.cwd())
 
+/**
+ * Port the E2E dev server runs on.
+ *
+ * Deliberately not 3000. `reuseExistingServer` treats *anything* answering on
+ * the configured port as "the app is already up" — it does not check that the
+ * thing answering is ours. A Remotion studio on 3000 was silently adopted as
+ * the app under test, and every spec then failed on a page that could not
+ * exist, with no hint that the server was a different program entirely.
+ *
+ * A dedicated port makes that collision unlikely; `E2E_PORT` overrides it when
+ * even this one is taken.
+ */
+const PORT = Number(process.env.E2E_PORT ?? 3100)
+const BASE_URL = `http://localhost:${PORT}`
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -23,7 +38,7 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   reporter: 'html',
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: BASE_URL,
     trace: 'on-first-retry',
   },
   projects: [
@@ -48,7 +63,10 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
-    url: 'http://localhost:3000',
+    // PORT rather than a --port argument: `npm run dev` chains pwa:generate
+    // before `next dev`, so appended args are fragile. Next reads PORT.
+    env: { PORT: String(PORT) },
+    url: BASE_URL,
     reuseExistingServer: !process.env.CI,
   },
 })
