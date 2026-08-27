@@ -44,6 +44,22 @@ export async function loginAsGym(
 
   await page.goto('/login')
 
+  // Exact, not /email/i. The page also carries a resend-verification input
+  // whose aria-label contains "Email"; it is hidden until a verification error
+  // shows it, at which point a loose match resolves to two elements and every
+  // retry below dies on strict mode instead of logging in.
+  const emailField = page.getByLabel('Email', { exact: true })
+  const passwordField = page.getByLabel('Password', { exact: true })
+
+  // Prove the form is there before entering the retry loop. Without this a
+  // missing or renamed field is reported as a 30-second timeout blaming
+  // `toPass`, with no clue which locator failed; this fails in seconds with
+  // Playwright's page snapshot attached.
+  await expect(
+    emailField,
+    `login form never appeared at ${page.url()} — is the dev server serving /login?`
+  ).toBeVisible({ timeout: 15_000 })
+
   // Dev-mode hydration can lag behind first paint: values filled into the
   // uncontrolled DOM are wiped when React hydrates the controlled inputs and
   // clicks are swallowed. Re-fill and re-click until the request fires.
@@ -51,8 +67,8 @@ export async function loginAsGym(
   let body = ''
 
   await expect(async () => {
-    await page.getByLabel(/email/i).fill(email)
-    await page.getByLabel(/password/i).fill(password)
+    await emailField.fill(email)
+    await passwordField.fill(password)
     const loginResponse = page.waitForResponse('**/api/auth/login', {
       timeout: 3000,
     })
