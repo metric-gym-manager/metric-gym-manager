@@ -318,7 +318,7 @@ export default function JoinForm({
               className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
             <span>
-              I accept Metric Gym Manager&apos;s{' '}
+              I accept Metric Gym OS&apos;s{' '}
               <a
                 href="/privacy"
                 target="_blank"

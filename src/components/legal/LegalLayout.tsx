@@ -335,7 +335,7 @@ export function LegalLayout({
               fontFamily: mono,
             }}
           >
-            CAPITALIST ONE (PVT) LTD · METRIC GYM MANAGER · LAST UPDATED{' '}
+            CAPITALIST ONE (PVT) LTD · METRIC GYM OS · LAST UPDATED{' '}
             {lastUpdated.toUpperCase()}
           </p>
 

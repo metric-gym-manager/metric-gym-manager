@@ -16,7 +16,7 @@ const sections: LegalSection[] = [
     title: 'Overview',
     body: (
       <LegalP>
-        Metric Gym Manager, a product of Capitalist One (Pvt) Ltd, is a
+        Metric Gym OS, a product of Capitalist One (Pvt) Ltd, is a
         software-as-a-service platform for gym and fitness businesses, offered
         on a monthly subscription basis. Subscription payments are processed
         securely by PayHere, our authorized payment gateway. This policy
@@ -34,9 +34,9 @@ const sections: LegalSection[] = [
         Every new account starts with a 30-day free trial with full access to
         the platform. No payment details are required to start the trial, and no
         charges are made during it. The trial is designed to let you fully
-        evaluate Metric Gym Manager before committing to a paid plan. If you
-        choose not to subscribe, your account simply pauses at the end of the
-        trial - you will never be charged for a trial.
+        evaluate Metric Gym OS before committing to a paid plan. If you choose
+        not to subscribe, your account simply pauses at the end of the trial -
+        you will never be charged for a trial.
       </LegalP>
     ),
   },
@@ -137,12 +137,12 @@ const sections: LegalSection[] = [
     title: 'Payments Between Gyms and Their Members',
     body: (
       <LegalP>
-        Metric Gym Manager is used by gym operators to record membership
-        payments they collect from their own members. Those payments are made
-        directly to the gym and are governed by each gym&apos;s own terms and
-        refund practices. If you are a gym member seeking a refund for a gym
-        membership fee, please contact your gym directly - this policy covers
-        only the platform subscription fees paid to us by gym operators.
+        Metric Gym OS is used by gym operators to record membership payments
+        they collect from their own members. Those payments are made directly to
+        the gym and are governed by each gym&apos;s own terms and refund
+        practices. If you are a gym member seeking a refund for a gym membership
+        fee, please contact your gym directly - this policy covers only the
+        platform subscription fees paid to us by gym operators.
       </LegalP>
     ),
   },
@@ -160,12 +160,10 @@ const sections: LegalSection[] = [
             Capitalist One (Pvt) Ltd
           </LegalContactItem>
           <LegalContactItem label="Email:">
-            support@metricgymmanager.com
+            support@metricgymos.com
           </LegalContactItem>
           <LegalContactItem label="Phone:">+94 70 437 9967</LegalContactItem>
-          <LegalContactItem label="Website:">
-            www.metricgymmanager.com
-          </LegalContactItem>
+          <LegalContactItem label="Website:">metricgymos.com</LegalContactItem>
           <LegalContactItem label="Address:">
             150/1, 3rd Baptist Rd, Beddagana North, Kotte, Sri Lanka
           </LegalContactItem>
