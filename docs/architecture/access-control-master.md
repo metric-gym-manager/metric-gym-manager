@@ -7,12 +7,12 @@
 > whole.** Everything a new session needs to avoid re-deriving, re-deciding, or
 > re-breaking is here.
 >
-> **Status as of 2026-08-26:** backend complete, UI complete, 333 tests green,
-> merged to `master` in [#63]. The three product decisions that were open at
-> merge — biometric consent, remote door opening, event retention — are
-> **decided and built** (§7.1). **Still not exercised against real hardware or
-> the vendor simulator**, which is now the only thing standing between this and
-> a real gym (§7.3).
+> **Status as of 2026-08-27:** backend complete, UI complete, 333 tests green,
+> all migrations applied to production. **All four product decisions are made
+> and built** (§7.1). A Playwright suite covers the three gym-facing screens
+> but **has never completed a green run** (§4.7) — that is the one thing on
+> this page not yet demonstrated. **Still not exercised against real hardware
+> or the vendor simulator**, which remains the critical path (§7.3).
 
 ---
 
@@ -549,7 +549,7 @@ described as though it does.
 
 ## 7. What is NOT built
 
-### 7.1 Product decisions — all three now made and built (2026-08-26)
+### 7.1 Product decisions — all four made and built (2026-08-26/27)
 
 1. **Biometric consent. ✅ DECIDED — enrolment is no longer blocked.** Consent is
    captured at the **enrolment dialog**, which is the moment of collection, and
@@ -623,6 +623,20 @@ described as though it does.
 | Manual "mark as enrolled" fallback               | The A4 containment plan names it; not built. Only needed if templates never surface via the wrapper.                                                                                                                                                                                                       |
 | Occupancy / time-in-gym                          | **Deliberately never.** With one reader serving entry and exit, `CheckingStatus` reports the device's configured mode, not reality. Events are **visits**, not paired sessions. Building this would be inventing data the hardware does not have.                                                          |
 
+**What the E2E attempt cost, and bought.** Writing the suite uncovered four
+defects that had nothing to do with door hardware and everything to do with
+whether this repo's tests can be trusted: silently skipping Playwright specs,
+unlabelled form fields across all five auth pages, a port collision that
+substituted a different application for the app under test, and permanent
+generated-file churn from `npm run dev`. Three are fixed; the fourth
+(`.prettierignore` for generated outputs) is queued with the wider formatting
+work. The accessibility fix went beyond auth — every filter and bulk-import
+form in the product was announcing its controls as unnamed — and is now
+enforced repo-wide by `jsx-a11y/label-has-associated-control`.
+
+None of that is access-control work. All of it was in the way of proving
+access-control work.
+
 ### 7.3 Cannot be resolved without hardware
 
 The simulator session plan is `vft-simulator-test-plan.md` — Parts A–H, ~90
@@ -653,34 +667,46 @@ rejects a bad token).
 npm run arch:check && npx tsc --noEmit && npm test && npm run lint
 ```
 
-| Check             | State                                                                    |
-| ----------------- | ------------------------------------------------------------------------ |
-| `arch:check`      | ✅ feature-first invariants hold                                         |
-| `tsc --noEmit`    | ✅ zero errors                                                           |
-| `npm test`        | ✅ 1,317 passing, 7 skipped (333 in access-control)                      |
-| `npm run lint`    | ✅ zero errors (13 pre-existing warnings, none from this feature)        |
-| `npm run build`   | ⚠️ never verified — Google Fonts is unreachable from the build sandboxes |
-| Supabase advisors | ✅ clean as of the #63 merge                                             |
+| Check              | State                                                                    |
+| ------------------ | ------------------------------------------------------------------------ |
+| `arch:check`       | ✅ feature-first invariants hold                                         |
+| `tsc --noEmit`     | ✅ zero errors                                                           |
+| `npm test`         | ✅ 1,330 passing, 7 skipped (333 in access-control)                      |
+| `npm run lint`     | ✅ zero errors (13 pre-existing warnings, none from this feature)        |
+| `npm run build`    | ⚠️ never verified — Google Fonts is unreachable from the build sandboxes |
+| **Playwright E2E** | ⚠️ **written, collected, never green** — see below                       |
+| Supabase advisors  | ✅ nothing new; the pre-existing INFO/WARN set is unchanged              |
 
-**Merged:** [#63] on 2026-08-26 (squashed to `b041349`). The consent, remote-open
-and retention work is the follow-up on `claude/access-control-architecture-b23v6f`.
+### The E2E suite has not passed
 
-**All migrations in §4.1 are applied to production**, the two 2026-08-26 ones
-included (applied after the third audit, so the index is the corrected
-`created_at` one — see C1). Verified in place: `biometric_consent_at` is a
-nullable `timestamptz`, null for all 345 members because nobody has been asked
-yet; `idx_access_events_created_at` is a btree on `created_at`.
+This is the honest state and it should not be softened. `npx playwright test
+--list` collects all 14 access-control tests, they compile, and every selector
+was read off the real components — but **no run has ever reached an
+assertion**. Four separate environment defects were found and fixed on the way,
+each hiding the next:
 
-Both were metadata-only in practice: `access_events` was empty, so the index
-build was instant, and a nullable `ADD COLUMN` with no default does not rewrite
-the table. Security advisors show nothing new — the three
-`rls_enabled_no_policy` INFOs (`access_control_secrets`, `access_sync_jobs`,
-`otp_tokens`) and the `pg_trgm` WARN all predate this work, and the first of
-those is deliberate: that table is service-role only by design.
+1. **Playwright never loaded `.env.local`**, so every env-gated spec skipped —
+   and a skip reports green. The billing specs had presumably been skipping
+   since they were written. Fixed with Next's own `loadEnvConfig`.
+2. **The login helper could not fill the form**, because the auth pages'
+   labels were not associated with their inputs (§9, trap 17). `getByLabel`
+   matched nothing.
+3. **A Remotion studio was listening on port 3000.** `reuseExistingServer`
+   adopted it as the app under test and asked it for `/login`; it answered
+   "Composition with ID login not found". The E2E server now runs on 3100.
+4. **Missing Chromium system libraries** on the dev machine
+   (`npx playwright install-deps chromium`).
+
+The suite still fails as of this writing and the cause is not yet known. When
+picking this up: run it, then read
+`test-results/<spec>/error-context.md` **first** — its ARIA snapshot is what
+identified the Remotion collision, and the stack trace pointed nowhere useful
+in every one of these cases.
+
+**Merged:** [#63] on 2026-08-26, then the follow-up branch
+`claude/access-control-architecture-b23v6f`.
 
 [#63]: https://github.com/metric-gym-manager/metric-gym-manager/pull/63
-
----
 
 ## 9. Traps for the next session
 
@@ -731,6 +757,30 @@ Sixteen things that will bite someone who does not know them.
     `ACCESS_EVENT_DELETE_CHUNK_SIZE` is sized for an ~8 KB request line (C2).
     Raising the read batch is safe; raising the chunk is not.
 16. **Never give the drain a subscription repository.** A gym's billing lapse
+    stops the nightly diff and nothing else; the outbox stays billing-blind so
+    a member who renews mid-lapse still reaches the door (§7.1.3). "Stop doing
+    vendor work for a gym that is not paying" is the plausible-sounding change
+    that locks out paying members.
+17. **A test that skips reports green.** Every env-gated Playwright spec in
+    this repo was skipping silently — the access-control ones _and_ the
+    billing ones — because Playwright's process never loaded `.env.local`.
+    Months of "passing" runs had executed nothing. When a suite is suspiciously
+    quiet, check it is running at all before trusting it.
+18. **A lint rule that matches nothing is the same failure.** Both a11y rule
+    landings in this branch were verified by deliberately breaking the code and
+    watching the rule fire, then removing the break. Do that every time; a
+    misconfigured `files:` scope fails silently and looks identical to success.
+19. **`reuseExistingServer` does not check that the server is yours.** It
+    adopts anything answering on the port. A Remotion studio on 3000 was taken
+    as the app under test for two full debugging rounds. The E2E server runs on
+    3100 (`E2E_PORT`) for that reason.
+20. **`npm run dev` dirties `public/service-worker.js` every time.** The
+    committed copy has had Prettier run over it; its generator emits
+    semicolons. The two disagree permanently, so the file shows as modified
+    after any dev run. Do not commit that churn — and fix it by adding the
+    generated outputs to `.prettierignore`, not by reformatting the file again
+    (rule 2.19: edit the generator, never the output).
+21. **Never give the drain a subscription repository.** A gym's billing lapse
     stops the nightly diff and nothing else; the outbox stays billing-blind so
     a member who renews mid-lapse still reaches the door (§7.1.3). "Stop doing
     vendor work for a gym that is not paying" is the plausible-sounding change
