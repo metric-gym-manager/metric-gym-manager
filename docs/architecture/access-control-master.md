@@ -21,6 +21,7 @@
 | If you are…                              | Read                                                            |
 | ---------------------------------------- | --------------------------------------------------------------- |
 | **Asking "what is left to do?"**         | **§8.5 — workload, blockers, and who owns each**                |
+| **Talking to VFT**                       | **§8.6 — what to ask for, what to give them**                   |
 | Starting fresh on this feature           | §1 → §2 → §4 → §7                                               |
 | About to change how access is decided    | §2, §5, §6 — then `domain/AccessDecision.ts`                    |
 | About to touch the vendor client         | §3 in full                                                      |
@@ -927,14 +928,14 @@ table is the gate, and this is where each item actually stands. **Two of the six
 were broken until today**, and both would have ended the session inside the
 first ten minutes with a symptom that looks like the vendor's fault:
 
-| #      | Pre-flight item                                   | State                                                                                                                                                                                                                             |
-| ------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **P1** | `ACCESS_CONTROL_ENABLED=true`, `VFT_API_BASE_URL` | ❌ **Blocked.** The flag is `false` and the URL is still the placeholder `https://vft.example.com`. Needs the real simulator endpoint — nothing else can be tested until it exists.                                               |
-| **P2** | `ACCESS_CONTROL_ENCRYPTION_KEY`, 32 bytes         | ✅ **Fixed today.** It decoded to **17 bytes**, so `getKey()` threw and _no gym could save vendor credentials at all_ (cause 7, §8.3). Every command would have failed before reaching the vendor.                                |
-| **P3** | Webhook token + callback URL registered           | ⚠️ **Token set; the URL does not exist yet.** Needs a publicly reachable host, and `npm run build` is still unverified (§7.2). Inbound scans — Part A-1, the highest-priority unknown — cannot be run from a laptop on port 3100. |
-| **P4** | Enterprise test gym                               | ✅ Seeded and proven: `e2e-enterprise@metricgym.test`, tier `enterprise`, status `active`, one member.                                                                                                                            |
-| **P5** | Two readers registered                            | ✅ **Fixed today.** Reader registration was refused by RLS on every attempt (defect E1, §6) — `POST /devices` wrote through the caller's session client against a SELECT-only table. P5 was unreachable.                          |
-| **P6** | SQL console on the outbox and events              | ✅ Available.                                                                                                                                                                                                                     |
+| #      | Pre-flight item                                   | State                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P1** | `ACCESS_CONTROL_ENABLED=true`, `VFT_API_BASE_URL` | ❌ **Blocked.** The flag is `false` and the URL is still the placeholder `https://vft.example.com`. Needs the real simulator endpoint — nothing else can be tested until it exists.                                                                                                                                                                             |
+| **P2** | `ACCESS_CONTROL_ENCRYPTION_KEY`, 32 bytes         | ✅ **Fixed today.** It decoded to **17 bytes**, so `getKey()` threw and _no gym could save vendor credentials at all_ (cause 7, §8.3). Every command would have failed before reaching the vendor.                                                                                                                                                              |
+| **P3** | Webhook token + callback URL registered           | ⚠️ **A public URL now exists and answers; the token is unverified in the cloud.** See §8.6 for the URL. `ACCESS_CONTROL_WEBHOOK_TOKEN` must be set in the environment that serves it — unset makes `getWebhookPathToken()` return `null` and the endpoint refuses _everything_, which is byte-identical to a wrong token (both 401). Check it, do not infer it. |
+| **P4** | Enterprise test gym                               | ✅ Seeded and proven: `e2e-enterprise@metricgym.test`, tier `enterprise`, status `active`, one member.                                                                                                                                                                                                                                                          |
+| **P5** | Two readers registered                            | ✅ **Fixed today.** Reader registration was refused by RLS on every attempt (defect E1, §6) — `POST /devices` wrote through the caller's session client against a SELECT-only table. P5 was unreachable.                                                                                                                                                        |
+| **P6** | SQL console on the outbox and events              | ✅ Available.                                                                                                                                                                                                                                                                                                                                                   |
 
 **So: the software is ready; the integration is not.** Everything on our side
 of the boundary now works against the mock — all three screens, the outbox, the
@@ -961,14 +962,18 @@ split by who can actually move it.
 
 #### Blockers — none of them code, none of them ours
 
-| #      | Blocker                                                                         | Owner                | Blocks                                                                                                          |
-| ------ | ------------------------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------- |
-| **B1** | A real `VFT_API_BASE_URL` — simulator or hardware. Currently a placeholder.     | **VFT / commercial** | _Everything._ With `ACCESS_CONTROL_ENABLED=false` the mock answers and the session tests nothing.               |
-| **B2** | A publicly reachable deployment, with the callback registered with VFT.         | **Us — infra**       | All inbound scans: Part A-1, the activity log, refusals, presence. A laptop on port 3100 cannot receive a push. |
-| **B3** | `npm run build` has never been verified (Google Fonts unreachable in sandboxes) | **Us — one command** | B2. Do not discover a broken build while a rented simulator slot is running.                                    |
+| #          | Blocker                                                                                                                                                                | Owner                | Blocks                                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **B1**     | A real `VFT_API_BASE_URL` — simulator or hardware. Currently a placeholder.                                                                                            | **VFT / commercial** | _Everything._ With `ACCESS_CONTROL_ENABLED=false` the mock answers and the session tests nothing.          |
+| ~~**B2**~~ | ~~A publicly reachable deployment~~ **Done** — the production alias serves the webhook and answers 401 on a bad token (§8.6). Registering the callback still needs B1. | Us — infra           | —                                                                                                          |
+| ~~**B3**~~ | ~~`npm run build` unverified~~ **Done 2026-08-27** — exits 0, 93 static pages, TypeScript clean.                                                                       | Us                   | —                                                                                                          |
+| **B4**     | Access-control env vars proven present in the **deployed** environment, not just `.env.local` (§8.6, last table).                                                      | **Us**               | Every inbound scan, and every credential save. A missing webhook token is a silent, indistinguishable 401. |
+| **B5**     | Merge this branch, then **promote** master. Production currently serves a build predating the whole feature, so the domains 404 on every access-control route.         | **Us**               | Shipping to real gyms. Not needed for the simulator session, which can use the production alias.           |
 
-B3 is an hour. B2 is a deployment. **B1 is a conversation with a vendor, and it
-is the critical path** — the other two are only worth doing because of it.
+**B1 is the critical path and it is a vendor conversation.** B4 is minutes of
+checking and is the one most likely to be skipped, because nothing about it
+fails loudly. B5 is a release decision, deliberately deferred — the simulator
+session does not need it.
 
 #### Ours — worked through on 2026-08-27
 
@@ -997,6 +1002,71 @@ Multi-finger enrolment, cross-device template migration, and occupancy /
 time-in-gym are **decided against** (§7.2), not pending. Occupancy in particular
 would mean inventing data the hardware does not have. The four §7.1 product
 decisions are settled and closed — do not reopen them for the simulator session.
+
+### 8.6 Vendor handover — what to ask VFT for, and what to give them
+
+One conversation, in both directions. Everything below is derived from the code
+that will consume it, not from the vendor's documentation.
+
+#### Ask VFT for
+
+| #   | Item                                      | Where it lands                                                                                                                             | Why it is not optional                                                                                            |
+| --- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | **API base URL** (simulator or live)      | The `baseUrl` field of the account form (`accessControlAccountSchema`); `VFT_API_BASE_URL` is only a fallback for single-deployment setups | Nothing can be tested without it. The current value is the placeholder `https://vft.example.com`                  |
+| 2   | **Account login** — email + password      | `email` / `password` on the same form, AES-256-GCM at rest in `access_control_secrets`                                                     | This is the whole vendor identity; the client authenticates per gym and caches the bearer token                   |
+| 3   | **`AreaID`**, if their account uses areas | Optional `areaId` on the same form                                                                                                         | Organisational only — **never** a security boundary (A9, trap 6). Tenant scoping is ours regardless               |
+| 4   | **Device serial(s)** — two if possible    | The "Connect a reader" form                                                                                                                | P5. Half the interesting failures only appear with two readers, and serials are how webhook events find their gym |
+| 5   | **Confirmation the callback is live**     | Their account-level callback configuration                                                                                                 | Configured **per account, not per gym** — there is no per-gym URL to hand out                                     |
+| 6   | **Token expiry duration**                 | Answer upgrades §3.10                                                                                                                      | Genuinely unknown. `TOKEN_CACHE_TTL_SECONDS` is a conservative 30 min guess; a 401 refresh covers being wrong     |
+| 7   | **Real `Pin` width on K40/F18 firmware**  | Answer upgrades §3.10                                                                                                                      | The other genuine unknown. Affects the personnel-id ceiling (A1)                                                  |
+
+#### Give VFT
+
+**The callback URL** — the only thing they need from us:
+
+```
+https://<host>/api/webhooks/access-control/<ACCESS_CONTROL_WEBHOOK_TOKEN>
+```
+
+Use the project's **production alias**, which follows master and survives every
+deployment, rather than a branch or per-deployment URL:
+
+```
+https://gym-management-saas-shyans-projects-7b2901b0.vercel.app/api/webhooks/...
+```
+
+Switch it to `https://metricgymos.com/...` once that domain is promoted onto
+the current production deployment — it is presently pinned to an older build
+that has no access-control routes at all and answers **404** on this path.
+
+Tell them, because the protocol gives them no way to discover it:
+
+- **`POST` only**, JSON body. Any other verb is not handled.
+- **The path token is the entire credential.** The push protocol defines no
+  header signature, so the URL must be treated as a secret and delivered
+  accordingly — not pasted into a ticket. It is rotatable; rotating means
+  re-registering with them.
+- **We always answer `200`**, including for events we discard. A non-200 makes
+  senders retry or disable the callback and neither helps; only genuine
+  transient faults return `500` so the delivery repeats.
+- **Events are matched on `device_serial`.** A serial we do not know is counted
+  and dropped, never guessed at. On a shared account we will receive traffic
+  for gyms that are not ours and will store none of it.
+- If they _can_ send a fixed header, `ACCESS_CONTROL_WEBHOOK_SECRET` exists as
+  an optional second factor. An IP allowlist is not practical — the host's
+  egress addresses are not stable.
+
+#### Still ours before the session — do not hand these to VFT
+
+Setting the vendor's answers in `.env.local` is not enough; the environment
+that actually serves the webhook needs them too:
+
+| Variable                        | Consequence if missing in the deployed environment                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `ACCESS_CONTROL_WEBHOOK_TOKEN`  | The endpoint refuses **every** event and logs "rejecting device events". Indistinguishable from a wrong token — both are 401   |
+| `ACCESS_CONTROL_ENCRYPTION_KEY` | Must base64-decode to **exactly 32 bytes**, or no gym can save vendor credentials at all (cause 7)                             |
+| `ACCESS_CONTROL_ENABLED=true`   | Left unset or `false`, every call goes to `MockAccessControlProvider` and the session tests nothing                            |
+| `NEXT_PUBLIC_APP_URL`           | Not access-control, but adjacent: it builds Supabase confirmation links, PayHere return URLs and printed QR registration links |
 
 **Merged:** [#63] on 2026-08-26 (the feature), then [#65] on 2026-08-27 (the
 four product decisions, the E2E suite, and the accessibility work).
