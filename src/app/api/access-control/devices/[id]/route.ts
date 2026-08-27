@@ -39,6 +39,12 @@ export async function PATCH(
 
     const repo = createAccessControlRepository(caller!.supabase)
 
+    // Service-role for the writes below: access_devices carries a SELECT-only
+    // policy, so the owning gym's own session cannot update it. Safe because
+    // the lookup below resolves the reader against the caller's gym first,
+    // which is the tenant boundary and ours to enforce (rule 2.20).
+    const writeRepo = createAccessControlRepository(createAdminClient())
+
     // Resolved against the caller's own gym before anything is written.
     const device = await repo.findDeviceById(caller!.gymId, id)
     if (!device) {
@@ -48,7 +54,7 @@ export async function PATCH(
     }
 
     if (parsed.data.deviceName) {
-      await repo.renameDevice(id, parsed.data.deviceName)
+      await writeRepo.renameDevice(id, parsed.data.deviceName)
 
       // Push the new name to the vendor so their device list matches ours.
       // Best-effort and non-fatal: a stale label on their console is a
@@ -66,7 +72,7 @@ export async function PATCH(
       // until the hardware refuses an enrolment, which means the capacity bar
       // shows nothing and the proactive eviction sweep cannot fire at all
       // until a gym has already filled a reader.
-      await repo.recordDeviceCapacity(
+      await writeRepo.recordDeviceCapacity(
         device.device_serial,
         parsed.data.templateCapacity
       )

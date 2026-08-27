@@ -46,14 +46,43 @@ test.describe.configure({ mode: 'serial' })
 
 const READER = { serial: uniqueSerial('MEMB'), name: 'Member Spec Reader' }
 
+/**
+ * Wait for the access section inside an open member modal.
+ *
+ * `MemberAccessPanel` is a `dynamic()` import, so the modal is visible well
+ * before its Door Access section exists. Every branch below reads `count()`,
+ * which does **not** auto-wait — so a panel that has not rendered yet is
+ * indistinguishable from "no consent gate offered" or "no fingerprint on
+ * file", and the spec quietly takes the wrong branch against a page that is
+ * about to show the opposite. In the withdrawal test that wrong branch is a
+ * `test.skip`, and a skip reports green (trap 17): the assertion never runs
+ * and the run still looks clean.
+ */
+async function waitForAccessPanel(page: Page): Promise<void> {
+  // Longer than the default: this is the first render of a `dynamic()` chunk
+  // against a `next dev` server that compiles it on demand.
+  await expect(page.getByRole('dialog').getByText('Door Access')).toBeVisible({
+    timeout: 30_000,
+  })
+}
+
 /** Open the first member in the list and wait for the modal. */
 async function openFirstMember(page: Page): Promise<void> {
   await page.goto('/members')
 
   // Rows are clickable; the first data row is enough — these assertions are
   // about the panel, not about which member is in it.
-  await page.getByRole('row').nth(1).click()
-  await expect(page.getByRole('dialog')).toBeVisible()
+  // Re-click until the panel opens, rather than click once and wait longer.
+  // Two dev-only effects stack here: the row's handler is not attached until
+  // React hydrates, so an early click is swallowed silently and no amount of
+  // waiting afterwards recovers it; and the modal is a `dynamic()` import, so
+  // the click that does land still pays for compiling that chunk. Waiting
+  // alone only fixes the second. Same treatment as the login form in
+  // `helpers/billing.ts`, for the same reason.
+  await expect(async () => {
+    await page.getByRole('row').nth(1).click()
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5_000 })
+  }).toPass({ timeout: 60_000 })
 }
 
 test.beforeAll(async ({ browser }) => {
@@ -79,6 +108,8 @@ test('shows a verdict in plain language, never a vendor string', async ({
   await loginAsEnterpriseGym(page)
   await openFirstMember(page)
 
+  await waitForAccessPanel(page)
+
   const panel = page.getByRole('dialog')
   await expect(panel.getByText('Door Access')).toBeVisible()
   await expect(panel.getByText(/Can get in|Cannot get in/)).toBeVisible()
@@ -96,6 +127,8 @@ test('will not enrol a fingerprint until consent is given', async ({
 }) => {
   await loginAsEnterpriseGym(page)
   await openFirstMember(page)
+
+  await waitForAccessPanel(page)
 
   const panel = page.getByRole('dialog')
   const enrol = panel.getByRole('button', { name: /register fingerprint/i })
@@ -126,13 +159,22 @@ test('records the consent and starts waiting for a finger', async ({
   await loginAsEnterpriseGym(page)
   await openFirstMember(page)
 
+  await waitForAccessPanel(page)
+
   const panel = page.getByRole('dialog')
   const consent = panel.getByRole('checkbox')
 
+  // Only the tick is conditional. Consent may already be on file — from the
+  // test above, or from an earlier run — and in that state the checkbox is
+  // correctly gone, but the enrolment still has to be dispatched to reach the
+  // waiting state this test is about. Clicking inside the branch conflated
+  // "needs consent" with "needs enrolling", so a member who had already
+  // consented never got as far as the assertion.
   if ((await consent.count()) > 0) {
     await consent.check()
-    await panel.getByRole('button', { name: /register fingerprint/i }).click()
   }
+
+  await panel.getByRole('button', { name: /register fingerprint/i }).click()
 
   // "Awaiting" is an instruction, not a progress bar: the thing being waited
   // on is a person walking to a terminal. It is also the only honest answer
@@ -158,6 +200,8 @@ test('says removing a fingerprint also withdraws the consent', async ({
 }) => {
   await loginAsEnterpriseGym(page)
   await openFirstMember(page)
+
+  await waitForAccessPanel(page)
 
   const panel = page.getByRole('dialog')
   const remove = panel.getByRole('button', { name: /remove fingerprint/i })

@@ -13,6 +13,7 @@ import {
   registerDeviceSchema,
   serializeAccessDeviceForAPI,
 } from '@/features/access-control'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAccessControlGym } from '@/lib/auth/requireAccessControlGym'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { toErrorResponse } from '@/lib/middleware/apiErrors'
@@ -51,8 +52,13 @@ export async function POST(request: NextRequest) {
     // A serial is globally unique: it is how a webhook event finds its gym, so
     // two gyms claiming one reader would make that routing ambiguous. The
     // repository raises a ConflictError, which surfaces as 409.
+    //
+    // Service-role for the write: access_devices carries a SELECT-only policy,
+    // so the owning gym's own session cannot insert into it. The gym id comes
+    // from the guard, never from the body — that is the tenant boundary
+    // (rule 2.20), and it is ours to enforce rather than RLS's.
     const device = await createAccessControlRepository(
-      caller!.supabase
+      createAdminClient()
     ).registerDevice(caller!.gymId, parsed.data)
 
     return NextResponse.json(

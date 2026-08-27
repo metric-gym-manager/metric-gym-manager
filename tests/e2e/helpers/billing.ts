@@ -15,6 +15,39 @@ import { createHash } from 'crypto'
 import { expect } from '@playwright/test'
 import type { APIRequestContext, Page } from '@playwright/test'
 
+/**
+ * A note on sign-in volume, before someone optimises it again.
+ *
+ * Every spec logs in from `beforeEach`, which is roughly twenty sign-ins per
+ * run against Supabase's per-IP limit on the token endpoint. Past that limit
+ * it answers 429, `auth.service.ts` flattens any auth error to one string, and
+ * the run claims "Invalid username or password" for a credential that is
+ * perfectly valid — drifting between tests as the quota is reached at
+ * different points. If that reappears, space the runs out.
+ *
+ * **Two fixes have been tried and both made it worse. Measure before a third.**
+ *
+ * 1. *Caching the session cookies and replaying them.* Supabase rotates
+ *    refresh tokens, so a replayed pair retires the one the next test needs,
+ *    reuse detection revokes the session family, and the page still renders
+ *    from a cookie middleware accepts while every API call beneath it answers
+ *    Unauthorized. 14 passing → 6; Unauthorized 2 → 12. Re-capturing the
+ *    cookies after each replay did not help.
+ *
+ * 2. *`storageState` seeded by a setup project.* Closer — one sign-in for the
+ *    whole run — but it only reaches pages the fixture creates. These specs
+ *    build their own contexts with `browser.newPage()` in `beforeAll` and
+ *    `afterAll`, and those do **not** inherit a project's `storageState`, so
+ *    the run ends up half seeded and half anonymous. The cleanup helpers are
+ *    the ones on the anonymous side, which is why readers stopped being
+ *    forgotten and the next run inherited them. 14 passing → 11.
+ *
+ * A third attempt has to start by giving those `browser.newPage()` call sites
+ * the same session — or by removing them — not by choosing a different place
+ * to keep the tokens. A gym per worker solves the shared-state problem too and
+ * is the more valuable change.
+ */
+
 export const E2E_BILLING_ENABLED = process.env.E2E_BILLING === '1'
 
 const md5Upper = (s: string): string =>
@@ -67,16 +100,31 @@ export async function loginAsGym(
   let body = ''
 
   await expect(async () => {
+    // An earlier attempt may have succeeded after its response window closed,
+    // in which case the app has already navigated and there is no form left to
+    // fill. That is a login, not a failure — without this check every
+    // remaining retry re-fills fields that no longer exist and the test dies
+    // on its own timeout with the helper still insisting it never logged in.
+    if (!(await emailField.count())) {
+      status = 200
+      return
+    }
+
     await emailField.fill(email)
     await passwordField.fill(password)
+    // Long enough to cover a cold `next dev` compiling the auth route on first
+    // touch. At 3s a perfectly good request was abandoned mid-flight and
+    // retried, which is how a working login presented as one that never
+    // answered. Retrying still recovers a click swallowed by hydration — the
+    // case this loop exists for — because that produces no response at all.
     const loginResponse = page.waitForResponse('**/api/auth/login', {
-      timeout: 3000,
+      timeout: 20_000,
     })
     await page.getByRole('button', { name: /log ?in|sign ?in/i }).click()
     const response = await loginResponse
     status = response.status()
     body = await response.text().catch(() => '')
-  }).toPass({ timeout: 30_000 })
+  }).toPass({ timeout: 60_000 })
 
   // Say what actually happened. Retrying a rejected credential cannot help, so
   // without this a wrong password, an unconfirmed email or a gym pointed at the

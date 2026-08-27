@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { createAccessControlRepository } from '@/features/access-control'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAccessControlGym } from '@/lib/auth/requireAccessControlGym'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { toErrorResponse } from '@/lib/middleware/apiErrors'
@@ -31,7 +32,13 @@ export async function POST(
       })
     }
 
-    await repo.setDeviceActive(id, true)
+    // Service-role for the write: access_devices carries a SELECT-only policy,
+    // so the owning gym's own session cannot update it. Safe because the lookup
+    // above already resolved this reader against the caller's gym (rule 2.20).
+    await createAccessControlRepository(createAdminClient()).setDeviceActive(
+      id,
+      true
+    )
 
     return NextResponse.json(ResponseBuilder.success({ isActive: true }))
   } catch (err) {

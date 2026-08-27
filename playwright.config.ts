@@ -35,7 +35,30 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+
+  /**
+   * One worker, everywhere — not only in CI.
+   *
+   * Every spec in this directory drives the *same* seeded gym: the billing
+   * specs share one gym manager, and all three access-control specs share one
+   * Enterprise gym. Parallel files therefore mutate each other's state rather
+   * than running in isolation — three specs each register a reader and every
+   * page-wide locator then resolves to one match per reader and dies on strict
+   * mode, which reads as a broken selector rather than as cross-talk. Real
+   * isolation would need a gym per worker, which is a seeding change, not a
+   * config one. Until then this is the setting that makes the suite mean
+   * anything.
+   */
+  workers: 1,
+
+  /**
+   * Well above Playwright's 30s default, because the server under test is
+   * `next dev`: the first touch of a route compiles it on demand, and a login
+   * that has to wait for that can eat the whole default budget before the
+   * helper it is inside gets to report anything useful.
+   */
+  timeout: 120_000,
+
   reporter: 'html',
   use: {
     baseURL: BASE_URL,
