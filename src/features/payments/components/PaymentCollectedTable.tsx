@@ -144,8 +144,14 @@ export default function PaymentCollectedTable() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div>
-          <label className="text-sm font-medium mb-2 block">Month</label>
+          <label
+            className="text-sm font-medium mb-2 block"
+            htmlFor="payment-collected-month"
+          >
+            Month
+          </label>
           <Input
+            id="payment-collected-month"
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
@@ -154,7 +160,12 @@ export default function PaymentCollectedTable() {
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-2 block">Plan Type</label>
+          <label
+            className="text-sm font-medium mb-2 block"
+            htmlFor="payment-collected-plan-filter-select"
+          >
+            Plan Type
+          </label>
           <div className="w-[200px]">
             <Select
               id="payment-collected-plan-filter-select"
@@ -173,8 +184,14 @@ export default function PaymentCollectedTable() {
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-2 block">Search</label>
+          <label
+            className="text-sm font-medium mb-2 block"
+            htmlFor="payment-collected-search"
+          >
+            Search
+          </label>
           <Input
+            id="payment-collected-search"
             type="text"
             placeholder="Name or phone number"
             value={search}

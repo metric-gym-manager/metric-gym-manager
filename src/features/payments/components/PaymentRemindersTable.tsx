@@ -292,7 +292,12 @@ export default function PaymentRemindersTable() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div>
-          <label className="text-sm font-medium mb-2 block">Filter</label>
+          <label
+            className="text-sm font-medium mb-2 block"
+            htmlFor="payment-reminders-filter-select"
+          >
+            Filter
+          </label>
           <div className="w-[180px]">
             <Select
               id="payment-reminders-filter-select"
@@ -308,7 +313,12 @@ export default function PaymentRemindersTable() {
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-2 block">Sort By</label>
+          <label
+            className="text-sm font-medium mb-2 block"
+            htmlFor="payment-reminders-sort-select"
+          >
+            Sort By
+          </label>
           <div className="w-[220px]">
             <Select
               id="payment-reminders-sort-select"

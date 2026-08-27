@@ -143,7 +143,12 @@ export default function RegularPaymentTable() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div>
-          <label className="text-sm font-medium mb-2 block">Filter</label>
+          <label
+            className="text-sm font-medium mb-2 block"
+            htmlFor="payment-regular-filter-select"
+          >
+            Filter
+          </label>
           <div className="w-[200px]">
             <Select
               id="payment-regular-filter-select"
@@ -159,7 +164,12 @@ export default function RegularPaymentTable() {
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-2 block">Sort By</label>
+          <label
+            className="text-sm font-medium mb-2 block"
+            htmlFor="payment-regular-sort-select"
+          >
+            Sort By
+          </label>
           <div className="w-[200px]">
             <Select
               id="payment-regular-sort-select"

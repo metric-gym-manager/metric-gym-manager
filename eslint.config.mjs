@@ -74,7 +74,7 @@ const eslintConfig = [
 
   {
     // ------------------------------------------------------------------
-    // Accessibility: every form label must name a control (auth pages only)
+    // Accessibility: every form label must name a control
     // ------------------------------------------------------------------
     // A <label> with no htmlFor and no nested control is announced by screen
     // readers as nothing at all, and is equally invisible to password managers
@@ -83,16 +83,15 @@ const eslintConfig = [
     // unnoticed because those specs were skipping for an unrelated reason.
     //
     // `eslint-plugin-jsx-a11y` ships with eslint-config-next but Next does not
-    // enable this rule. Scoped to the auth pages because they are now at zero
-    // violations, whereas the rest of the repo still has 21 across
-    // members/payments/landing. Widening this to src/**/*.tsx is the follow-up
-    // — do it in one pass, not by letting new violations trickle in here.
+    // enable this rule. It was landed scoped to the auth pages first, then
+    // widened here once the remaining 20 violations across members, payments
+    // and landing were fixed. The repo is at zero; keep it there.
     //
     // NOTE: the rule cannot see through a component boundary, so a <label>
     // wrapping a DS primitive reads as empty. `controlComponents` teaches it
     // which components are controls; without it, correct code like the
     // AccessReadersCard "In use" switch is a false positive.
-    files: ['src/app/(auth)/**/*.tsx'],
+    files: ['src/**/*.tsx'],
     rules: {
       'jsx-a11y/label-has-associated-control': [
         'error',

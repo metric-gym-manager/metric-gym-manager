@@ -299,8 +299,12 @@ export function DemoModal() {
                       gap: '6px',
                     }}
                   >
-                    <label style={labelStyle}>Contact person name</label>
+                    <label style={labelStyle} htmlFor="demo-name">
+                      Contact person name
+                    </label>
                     <input
+                      id="demo-name"
+                      autoComplete="name"
                       type="text"
                       placeholder="John Perera"
                       value={name}
@@ -318,8 +322,12 @@ export function DemoModal() {
                       gap: '6px',
                     }}
                   >
-                    <label style={labelStyle}>Email</label>
+                    <label style={labelStyle} htmlFor="demo-email">
+                      Email
+                    </label>
                     <input
+                      id="demo-email"
+                      autoComplete="email"
                       type="email"
                       placeholder="you@yourgym.lk"
                       value={email}
@@ -337,8 +345,12 @@ export function DemoModal() {
                       gap: '6px',
                     }}
                   >
-                    <label style={labelStyle}>Phone number</label>
+                    <label style={labelStyle} htmlFor="demo-phone">
+                      Phone number
+                    </label>
                     <input
+                      id="demo-phone"
+                      autoComplete="tel"
                       type="tel"
                       placeholder="+94 77 123 4567"
                       value={phone}
@@ -357,8 +369,26 @@ export function DemoModal() {
                       position: 'relative',
                     }}
                   >
-                    <label style={labelStyle}>Interested in</label>
+                    {/* A span, not a label: the control below is a div, so
+                        there is nothing for a label to name. It is wired with
+                        aria-labelledby instead, and given the button
+                        semantics and keyboard access its appearance already
+                        implies. */}
+                    <span style={labelStyle} id="demo-plan-label">
+                      Interested in
+                    </span>
                     <div
+                      role="button"
+                      tabIndex={0}
+                      aria-labelledby="demo-plan-label"
+                      aria-haspopup="listbox"
+                      aria-expanded={planDropdownOpen}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setPlanDropdownOpen((o) => !o)
+                        }
+                      }}
                       onClick={() => setPlanDropdownOpen((o) => !o)}
                       style={{
                         height: '40px',
