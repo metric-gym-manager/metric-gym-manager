@@ -37,6 +37,15 @@ export interface MemberAccessContext {
   nextDueDate: Date
   registrationSource: RegistrationSource
   verifiedAt: Date | null
+  /**
+   * When the member consented to fingerprint collection, or `null`.
+   *
+   * `null` is the gate, not a display detail: enrolment refuses to dispatch
+   * without a value here. Withdrawal clears it back to `null`, so "never
+   * asked" and "asked and said no longer" deliberately read the same to the
+   * enrolment path — both must ask again.
+   */
+  biometricConsentAt: Date | null
   /** `null` until the member is first provisioned to hardware. */
   subject: MemberAccessSubject | null
 }
@@ -248,6 +257,36 @@ export interface IAccessControlRepository {
     fingerId?: number | null
   ): Promise<void>
 
+  /**
+   * Record that the member consented to fingerprint collection.
+   *
+   * Written *before* the enrolment command is dispatched, never after. A
+   * consent record with no template is harmless; a template with no consent
+   * record is the thing this exists to prevent, and that is the order that
+   * survives a crash between the two.
+   *
+   * Implementations must not overwrite an existing timestamp — the audit
+   * trail is when consent was first given, and re-enrolling a member who
+   * already consented is not a new act of consent.
+   *
+   * **What this timestamp is and is not.** It records that the gym asserted,
+   * at the desk, that the member agreed — the same standing as
+   * `accepted_terms_at`. It is not proof a human was asked, and nothing in a
+   * client-server system could be. Do not describe it to anyone as more than
+   * the gym's own attestation.
+   */
+  recordBiometricConsent(memberId: string, at: Date): Promise<void>
+
+  /**
+   * Clear a member's consent — the withdrawal record.
+   *
+   * Paired with clearing the fingerprint, because that is what withdrawal
+   * means here: the template goes and the permission to collect another one
+   * goes with it. Leaving the timestamp behind would let a later enrolment
+   * proceed on a consent the member had already revoked.
+   */
+  clearBiometricConsent(memberId: string): Promise<void>
+
   // ---- Outbox --------------------------------------------------------------
 
   enqueue(
@@ -318,6 +357,21 @@ export interface IAccessControlRepository {
       kind?: DeviceEventKind
     }
   ): Promise<{ events: AccessEventWithMember[]; total: number }>
+
+  /**
+   * Delete scans older than a cutoff, up to `limit` rows.
+   *
+   * Bounded rather than "delete everything older than X" so the caller can
+   * page through a backlog: the first run after a year of collection would
+   * otherwise be one unbounded statement, which is how a cron hits a timeout
+   * and makes no progress at all.
+   *
+   * Platform-wide by design — retention is a promise we make to members, not
+   * a per-gym setting — so implementations need a service-role client.
+   *
+   * @returns How many rows were deleted.
+   */
+  deleteEventsOlderThan(cutoff: Date, limit: number): Promise<number>
 
   /** Resolve a device serial to its gym — how webhook events are routed. */
   findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null>

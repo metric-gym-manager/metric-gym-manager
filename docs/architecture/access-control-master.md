@@ -7,10 +7,12 @@
 > whole.** Everything a new session needs to avoid re-deriving, re-deciding, or
 > re-breaking is here.
 >
-> **Status as of 2026-08-23:** backend complete, UI complete, 293 tests green,
-> migrations applied to production. **Not yet exercised against real hardware or
-> the vendor simulator.** Blocked on one product decision before enrolment can
-> ship (§7.1).
+> **Status as of 2026-08-27:** backend complete, UI complete, 333 tests green,
+> all migrations applied to production. **All four product decisions are made
+> and built** (§7.1). A Playwright suite covers the three gym-facing screens
+> but **has never completed a green run** (§4.7) — that is the one thing on
+> this page not yet demonstrated. **Still not exercised against real hardware
+> or the vendor simulator**, which remains the critical path (§7.3).
 
 ---
 
@@ -24,6 +26,7 @@
 | Preparing for the simulator session      | §3.10, §7.3, then `vft-simulator-test-plan.md` |
 | Wondering why something is written oddly | §6 — it is probably a fix for a real defect    |
 | Adding a feature                         | §9 first. Those are the traps.                 |
+| Touching enrolment, retention or billing | §7.1 — those decisions are made; do not reopen |
 
 **Companion documents** (this one summarises them; they hold the detail):
 
@@ -273,16 +276,19 @@ K40/F18 firmware.
 
 ### 4.1 Database — 5 migrations, 6 tables, 5 functions
 
-| Migration                                               | Contents                                                                                                                                  |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `20260810000001_create_access_control.sql`              | 6 tables, subject-id sequence, enqueue trigger, RLS                                                                                       |
-| `20260810000002_access_control_functions.sql`           | `allocate_access_subject_id`, `claim_access_sync_jobs`, `recount_device_templates`                                                        |
-| `20260810000003_reclaim_stale_sync_jobs.sql`            | `reclaim_stale_access_sync_jobs`                                                                                                          |
-| `20260812000001_per_device_templates.sql`               | **D1 fix** — `synced_device_serials TEXT[]`, `on_device` becomes `GENERATED ALWAYS AS (CARDINALITY(...) > 0) STORED`, per-serial recount  |
-| `20260813000001_lock_down_access_control_functions.sql` | **Security fix** — `REVOKE ALL … FROM PUBLIC, anon, authenticated` on all 5 SECURITY DEFINER functions; `GRANT EXECUTE … TO service_role` |
+| Migration                                               | Contents                                                                                                                                                                                      |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `20260810000001_create_access_control.sql`              | 6 tables, subject-id sequence, enqueue trigger, RLS                                                                                                                                           |
+| `20260810000002_access_control_functions.sql`           | `allocate_access_subject_id`, `claim_access_sync_jobs`, `recount_device_templates`                                                                                                            |
+| `20260810000003_reclaim_stale_sync_jobs.sql`            | `reclaim_stale_access_sync_jobs`                                                                                                                                                              |
+| `20260812000001_per_device_templates.sql`               | **D1 fix** — `synced_device_serials TEXT[]`, `on_device` becomes `GENERATED ALWAYS AS (CARDINALITY(...) > 0) STORED`, per-serial recount                                                      |
+| `20260813000001_lock_down_access_control_functions.sql` | **Security fix** — `REVOKE ALL … FROM PUBLIC, anon, authenticated` on all 5 SECURITY DEFINER functions; `GRANT EXECUTE … TO service_role`                                                     |
+| `20260826000001_add_biometric_consent.sql`              | `members.biometric_consent_at` — the enrolment gate. `register_member_guarded` deliberately **not** touched                                                                                   |
+| `20260826000002_access_event_retention.sql`             | `idx_access_events_created_at` — global, oldest-first, and keyed on `created_at` rather than the device's clock (C1); both existing indexes lead with a tenant column the purge cannot supply |
 
-**All applied to production (`kcafbafxjjrksicwewmp`) and verified.** Supabase
-advisors are clean of everything this feature introduced.
+**All applied to production (`kcafbafxjjrksicwewmp`) and verified**, including
+the two dated 2026-08-26. Supabase advisors are clean of everything this
+feature introduced.
 
 | Table                     | Purpose                       | Notable                                                                                                |
 | ------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -315,12 +321,12 @@ advisors are clean of everything this feature introduced.
 - `AccessCommands.ts` — derives the command list from a decision + current state
 - `EvictionPolicy.ts` — `selectEvictionCandidates`, `slotsToReclaim`
 
-**Services (14):** `SyncMemberAccess`, `DrainAccessSyncQueue`,
+**Services (15):** `SyncMemberAccess`, `DrainAccessSyncQueue`,
 `ReconcileMemberAccess`, `RecordAccessEvents`, `EvictInactiveSubjects`,
 `OperateDevice`, `VerifyAccessAccount`, `ManageMemberBiometric`,
 `GetMemberAccessStatus`, `RefreshDeviceStatus`, `DetectBiometricEnrolment`,
-`PushRename`, `provisionMemberAccessBestEffort`, plus the Supabase repository.
-Composition through `services/factory.ts` (R7).
+`PushRename`, `PurgeExpiredAccessEvents`, `provisionMemberAccessBestEffort`,
+plus the Supabase repository. Composition through `services/factory.ts` (R7).
 
 **UI (6 components + 2 pages):**
 
@@ -351,7 +357,7 @@ PATCH    /api/access-control/devices/[id]              rename + capacity
 POST     /api/access-control/devices/[id]/enable|disable|unlink|open|reboot|free-space
 GET      /api/access-control/events                     paged, kind-filtered
 GET      /api/access-control/members/[id]               sanitized status
-POST     /api/access-control/members/[id]/sync|enrol
+POST     /api/access-control/members/[id]/sync|enrol   enrol carries `consent`
 GET      /api/access-control/members/[id]/enrolment
 DELETE   /api/access-control/members/[id]/biometric
 POST     /api/webhooks/access-control/[token]           always-200
@@ -364,10 +370,11 @@ effect of an edit nobody reviewed as a state change.
 
 ### 4.5 Crons
 
-| Schedule      | Path                          | Job                                                                 |
-| ------------- | ----------------------------- | ------------------------------------------------------------------- |
-| `*/5 * * * *` | `/api/cron/drain-access-sync` | Drain the outbox; refresh device presence; proactive capacity sweep |
-| `30 18 * * *` | `/api/cron/reconcile-access`  | Nightly diff at 00:00 SLT — the real lockout boundary               |
+| Schedule      | Path                            | Job                                                                                                                                                 |
+| ------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `*/5 * * * *` | `/api/cron/drain-access-sync`   | Drain the outbox; refresh device presence; proactive capacity sweep                                                                                 |
+| `30 18 * * *` | `/api/cron/reconcile-access`    | Nightly diff at 00:00 SLT — the real lockout boundary                                                                                               |
+| `0 2 * * *`   | `/api/cron/purge-access-events` | Delete scans past `ACCESS_EVENT_RETENTION_DAYS`. Daily, because a monthly sweep would let data reach 13 months and make the published figure untrue |
 
 Both log to the cron audit table (rule 2.6).
 
@@ -390,19 +397,48 @@ Both log to the cron audit table (rule 2.6).
 | `DEVICE_OFFLINE_AFTER_SECONDS`    | `DRAIN_INTERVAL_SECONDS * 3` | **N2 fix.** They were equal, so every healthy reader flickered offline. A test asserts the inequality — retuning either in isolation fails the build. |
 | `ENROLMENT_POLL_INTERVAL_MS`      | 3,000                        | A person is watching                                                                                                                                  |
 | `ENROLMENT_POLL_TIMEOUT_MS`       | 120,000                      | Walk from desk to reader, with room                                                                                                                   |
+| `ACCESS_EVENT_RETENTION_DAYS`     | 365                          | **The number published in the privacy policy.** Move one and the other has to move — a test asserts the constant is 365                               |
+| `ACCESS_EVENT_PURGE_BATCH_SIZE`   | 500                          | An unbounded first `DELETE` after a year of collection is how a cron times out and makes no progress at all                                           |
+| `ACCESS_EVENT_PURGE_MAX_BATCHES`  | 500                          | 250,000 rows a run; a larger backlog waits for tomorrow and the summary says so                                                                       |
+| `ACCESS_EVENT_DELETE_CHUNK_SIZE`  | 100                          | **A transport limit, not a database one** (C2). `.in()` is a query string: 100 ids ≈ 3.9 KB, 500 ≈ 19.5 KB, gateways reject past ~8 KB                |
 
-### 4.7 Tests — 293 across 20 suites
+### 4.7 Tests — 333 across 23 suites
 
 Notable ones, because they encode decisions rather than behaviour:
 
-| Suite                                    | Guards                                                                                                      |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `DoorAgreement.reverse.test.ts`          | Our idea of access still matches what a terminal would actually do. **Must stay green through any change.** |
-| `InvertedAssumptions.reverse.test.ts`    | The five D-defects (§6)                                                                                     |
-| `InvertedAssumptionsTwo.reverse.test.ts` | The four N-defects (§6)                                                                                     |
-| `vendorTables.test.ts`                   | Return/event code classification                                                                            |
-| `useEnrolmentPoll.test.tsx`              | Timeout ≠ failure, unmount stops polling                                                                    |
-| `RegistrationAndLog.test.ts`             | Inline provision never throws; kind sets disjoint                                                           |
+| Suite                                       | Guards                                                                                                      |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `DoorAgreement.reverse.test.ts`             | Our idea of access still matches what a terminal would actually do. **Must stay green through any change.** |
+| `InvertedAssumptions.reverse.test.ts`       | The five D-defects (§6)                                                                                     |
+| `InvertedAssumptionsTwo.reverse.test.ts`    | The four N-defects (§6)                                                                                     |
+| `vendorTables.test.ts`                      | Return/event code classification                                                                            |
+| `useEnrolmentPoll.test.tsx`                 | Timeout ≠ failure, unmount stops polling                                                                    |
+| `RegistrationAndLog.test.ts`                | Inline provision never throws; kind sets disjoint                                                           |
+| `BillingLapseNeverLocksOut.reverse.test.ts` | A gym's unpaid invoice never reaches its members' door access — the drain stays billing-blind               |
+| `BiometricConsent.test.ts`                  | **No enrolment command reaches a reader without a consent record** — and the write happens first            |
+| `AccessEventRetention.test.ts`              | The published 12-month figure is the one actually enforced; batching walks a backlog from the old end       |
+| `RemoteOpenPermission.test.tsx`             | The remote-open decision, so the permissive default is not read as an oversight and "tightened"             |
+| `BiometricConsentPersistence.test.ts`       | (members) Consent survives an ordinary member edit — `update()` writes the whole row, not a patch           |
+
+**E2E (Playwright), 14 tests across 3 specs.** Runnable with no hardware and no
+vendor, because `createAccessControlProvider()` returns the mock unless
+`ACCESS_CONTROL_ENABLED=true`. Requires `E2E_ACCESS_CONTROL=1` and a seeded
+Enterprise gym (`E2E_ENTERPRISE_GYM_EMAIL` / `_PASSWORD`); every spec skips
+without them. Highest-value assertions: credentials are never read back; a
+never-contacted reader reads "No contact yet" and not "Not responding"
+(trap 9); the enrol button is inert until consent is ticked; no vendor return
+code appears in the rendered text of either gym-facing screen.
+
+> ⚠️ **The provider factory returns a NEW mock per request**, so nothing it
+> holds in memory survives one HTTP call. `listSubjects` therefore always
+> answers empty and enrolment detection can never flip `finger_enrolled` — the
+> "Fingerprint registered" state cannot be reached from E2E at all. Do not try
+> to force it: the options are global mock state (shared across the whole unit
+> suite) or a test backdoor in the app, and both cost more than the coverage.
+> That leg is covered by `useEnrolmentPoll.test.tsx` and the
+> `DetectBiometricEnrolment` tests. The same lifetime is _why_ the trap-9
+> assertion works — a reader is never marked seen, so `unknown` is its real
+> and correct state.
 
 ### 4.8 Environment
 
@@ -431,10 +467,23 @@ drain sends `validperiod`. The reader admits them through the new date.
 the central copy, so eviction and return are reversible without re-enrolment.
 A blocked subject is **never** sent a validity period (A10 guard).
 
-**Enrolment.** Desk presses the button → `enrollfinger` puts the reader into
+**Enrolment.** Desk ticks the consent box → `members.biometric_consent_at` is
+written **before** anything is dispatched → `enrollfinger` puts the reader into
 enrolment mode → member presents a finger → `useEnrolmentPoll` polls
 `/enrolment` until it appears. Detection is **additive only** — it can set
-`finger_enrolled` true, never false (N3).
+`finger_enrolled` true, never false (N3). With no consent on file the gate
+refuses in `ManageMemberBiometric` (not the route), so no caller can route
+around it, and the refusal is `BIOMETRIC_CONSENT_REQUIRED`/400 rather than a
+502 — nothing failed at the reader.
+
+**Withdrawal.** Removing a fingerprint is the withdrawal: `fromdev` revoke,
+`finger_enrolled` false, subject off-device, **and `biometric_consent_at`
+cleared**. The next enrolment has to ask again. A vendor refusal leaves the
+consent standing — a template that may still be on the reader must not be held
+under a permission we have already erased.
+
+**Retention.** `purge-access-events` deletes scans older than
+`ACCESS_EVENT_RETENTION_DAYS` (365) nightly, in batches, oldest first.
 
 **A scan.** Device → webhook → Zod parse → group by `DeviceID` → resolve gym from
 `device_serial` → normalise `AttTime` by that device's offset → resolve member →
@@ -453,7 +502,7 @@ reader" conversation, not something to solve by locking out someone who paid.
 
 ---
 
-## 6. Defect history — nine defects, found by inverting assumptions
+## 6. Defect history — twelve defects, found by inverting assumptions
 
 **Do not reintroduce these.** Every one was invisible to forward tests and found
 by asking "what if the opposite were true?".
@@ -475,33 +524,118 @@ by asking "what if the opposite were true?".
 that mattered, since capacity learning reads that number. **A fake returning a
 convenient constant can hide the bug you are hunting.**
 
+### Third audit (2026-08-26) — the consent and retention work
+
+Run before the migrations were applied, on the same principle.
+
+| #      | Inverted assumption                                    | The defect                                                                                                                                                                                                                                                                                                   |
+| ------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **C1** | "The device's timestamp tells us how old a scan is"    | The purge keyed on `occurred_at`, which is the **reader's own clock**. A reset RTC or a mis-entered offset dates today's scans a year back, so the first run deletes them the same night — irreversibly, reported as an ordinary `deleted: N`. Now keyed on `created_at`, which is ours and cannot be wrong. |
+| **C2** | "A batch that fits in the database fits in a request"  | `.in()` puts every id in the **query string**. 500 UUIDs is a 19.5 KB request line; an nginx-family gateway rejects past ~8 KB with a 414, so the first run at any gym with a real backlog would fail entirely. Reads stay at 500, deletes now chunk at 100 (~3.9 KB).                                       |
+| **C3** | "Our enrolment path is the only way a template exists" | The gate covers what we dispatch. A fingerprint enrolled at the terminal's own admin menu still reaches `DetectBiometricEnrolment`, which is additive (N3) and sets `finger_enrolled` with nobody having been asked. Not suppressed — the template is real, so the panel now shows it as needing attention.  |
+
+**C1 and C2 were both invisible to the forward tests, and C2 was invisible to
+the doubles as well** — the fake has no transport, so no repository-level test
+could have caught a URL-length limit. It is asserted directly against the
+constant instead. The same lesson as the tenth finding above, one layer out:
+**a double cannot fail in a way it does not model.**
+
+**The consent timestamp is the gym's attestation, not proof.** It records that
+the gym said the member agreed, exactly as `accepted_terms_at` does. Nothing in
+a client-server system can prove a human was asked, and the field must not be
+described as though it does.
+
 ---
 
 ## 7. What is NOT built
 
-### 7.1 Blocking product decisions — these are yours, not engineering's
+### 7.1 Product decisions — all four made and built (2026-08-26/27)
 
-1. **Biometric consent. ⚠️ BLOCKS SHIPPING ENROLMENT.** Fingerprint templates are
-   sensitive personal data and we now trigger collection from our own UI. The
-   privacy policy needs a biometric-processing disclosure, and registration needs
-   a consent field alongside `accepted_terms_at` / `accepted_gym_rules_at`. The
-   enrolment dialog is the moment of collection, so this must land first.
-2. **May front-desk staff open a door remotely?** Currently every user with the
-   capability can. `DeviceStatusCard` already takes a `canRemoteOpen` prop
-   (defaulting `true`) — restricting it is a one-line change plus a role check.
-3. **Event retention.** Attendance data about identifiable people, currently kept
-   forever. 12 months is the obvious candidate; the decision is yours.
+1. **Biometric consent. ✅ DECIDED — enrolment is no longer blocked.** Consent is
+   captured at the **enrolment dialog**, which is the moment of collection, and
+   recorded on `members.biometric_consent_at` alongside the two registration
+   consents. The gate lives in `ManageMemberBiometric`, not the route, and fails
+   closed. Removing the fingerprint clears the timestamp — that is the
+   withdrawal record. The privacy policy now carries a Biometric Data section
+   (what is collected, that no template ever reaches us, how to withdraw, and
+   that a fingerprint is never a condition of membership), mirrored in
+   `docs/legal/privacy-policy.txt`.
+
+   > **Deliberately NOT captured at registration**, despite the earlier note
+   > here asking for a registration field. Three reasons, and reverse them
+   > before adding a tick to the sign-up forms: consent to a purpose that does
+   > not exist yet (almost no gym owns a reader) is not meaningful consent; it
+   > would be NULL for every member who registered before this shipped —
+   > exactly the members a gym enrols first, so the enrolment gate is needed
+   > regardless; and it would mean a v7 of `register_member_guarded`, which is
+   > the quota-critical insert path, for no gain. The column sits next to the
+   > other two consents; only the capture point differs.
+
+2. **May front-desk staff open a door remotely? ✅ DECIDED — yes.** Any user
+   with the capability may, which is the behaviour that already shipped. It is
+   the remedy when a paid-up member's finger will not read, and routing it
+   through an owner is how the button ends up unused and the door ends up
+   propped open. There is also nobody to distinguish: **a gym is one Supabase
+   user (`gyms.user_id`)**, so "owner" and "front desk" are the same login and
+   no role check exists that could express a narrower rule. `canRemoteOpen`
+   stays as an addressable prop in case per-user roles ever arrive; do not
+   "tighten" its default. `RemoteOpenPermission.test.tsx` pins this so the
+   permissive default is not mistaken for an oversight. The offsetting control
+   is audit, not permission — the actor on the `access_sync_jobs` row plus
+   event **8** back from the reader.
+
+3. **A gym stops paying _us_ — do its members lose the door? ✅ DECIDED — no,
+   never.** The service withheld from a non-paying gym is the dashboard, not
+   the building. Treating a lapsed gym like a cancelled member would refuse
+   every one of its members in person, over an invoice dispute they are not
+   party to and cannot resolve.
+
+   Two paths, and the difference between them is the decision:
+   - The **nightly reconcile skips** a lapsed gym (`gymsSkippedBilling`). It is
+     a diff, so skipping changes nothing on the hardware — every member keeps
+     the window their reader already holds and the reader keeps enforcing it
+     from its own clock. Skipping is a `continue`, never a "block everyone"
+     branch.
+   - The **outbox drain does not consult billing at all**, and must not start.
+     So a member who renews _during_ the lapse still gets their validity period
+     pushed and still gets in. Adding a standing check to the drain looks like
+     an obvious saving and would lock out exactly the people this protects.
+
+   `past_due` is not yet a lapse — the 7-day grace still counts as good
+   standing. Nothing in `features/subscriptions` can reach the outbox; it owns
+   the `accessControlHardware` entitlement flag and nothing else.
+   `BillingLapseNeverLocksOut.reverse.test.ts` pins all three.
+
+4. **Event retention. ✅ DECIDED — 12 months.** `ACCESS_EVENT_RETENTION_DAYS`
+   = 365, swept nightly by `purge-access-events` and stated in the privacy
+   policy. **The constant and the published figure are one decision in two
+   places** — a test asserts the constant is 365 precisely so moving it forces
+   someone past the policy text.
 
 ### 7.2 Engineering — known gaps, none blocking
 
-| Gap                                              | Note                                                                                                                                                                                                                                              |
-| ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No E2E (Playwright) coverage                     | Unit + integration only. Worth adding once the simulator confirms the flows.                                                                                                                                                                      |
-| `npm run build` unverified in CI-like conditions | Blocked in the sandbox by Google Fonts being unreachable — `layout.tsx` fetches Geist/Geist Mono/Inter at build time. **Those three are the only errors; no feature module failed to compile.** Run a real build before merge.                    |
-| Multi-finger enrolment                           | Deliberate scope reduction — one finger per member. The API supports `fingerId` 0–9; the schema records a single finger.                                                                                                                          |
-| Cross-device template migration                  | Deliberate — single gate per gym assumed. The port keeps `syncone`/`syncsometoone`; nothing in the product depends on them.                                                                                                                       |
-| Manual "mark as enrolled" fallback               | The A4 containment plan names it; not built. Only needed if templates never surface via the wrapper.                                                                                                                                              |
-| Occupancy / time-in-gym                          | **Deliberately never.** With one reader serving entry and exit, `CheckingStatus` reports the device's configured mode, not reality. Events are **visits**, not paired sessions. Building this would be inventing data the hardware does not have. |
+| Gap                                              | Note                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| E2E covers the three screens, not the hardware   | `tests/e2e/access-control-{setup,dashboard,member}.spec.ts` — 14 tests against `MockAccessControlProvider`, no hardware or vendor needed. Gated on `E2E_ACCESS_CONTROL=1` + a seeded **Enterprise** gym. The "Fingerprint registered" state is **unreachable from E2E** (see §4.7) and stays unit-covered. |
+| `npm run build` unverified in CI-like conditions | Blocked in the sandbox by Google Fonts being unreachable — `layout.tsx` fetches Geist/Geist Mono/Inter at build time. **Those three are the only errors; no feature module failed to compile.** Run a real build before merge.                                                                             |
+| Multi-finger enrolment                           | Deliberate scope reduction — one finger per member. The API supports `fingerId` 0–9; the schema records a single finger.                                                                                                                                                                                   |
+| Cross-device template migration                  | Deliberate — single gate per gym assumed. The port keeps `syncone`/`syncsometoone`; nothing in the product depends on them.                                                                                                                                                                                |
+| Manual "mark as enrolled" fallback               | The A4 containment plan names it; not built. Only needed if templates never surface via the wrapper.                                                                                                                                                                                                       |
+| Occupancy / time-in-gym                          | **Deliberately never.** With one reader serving entry and exit, `CheckingStatus` reports the device's configured mode, not reality. Events are **visits**, not paired sessions. Building this would be inventing data the hardware does not have.                                                          |
+
+**What the E2E attempt cost, and bought.** Writing the suite uncovered four
+defects that had nothing to do with door hardware and everything to do with
+whether this repo's tests can be trusted: silently skipping Playwright specs,
+unlabelled form fields across all five auth pages, a port collision that
+substituted a different application for the app under test, and permanent
+generated-file churn from `npm run dev`. Three are fixed; the fourth
+(`.prettierignore` for generated outputs) is queued with the wider formatting
+work. The accessibility fix went beyond auth — every filter and bulk-import
+form in the product was announcing its controls as unnamed — and is now
+enforced repo-wide by `jsx-a11y/label-has-associated-control`.
+
+None of that is access-control work. All of it was in the way of proving
+access-control work.
 
 ### 7.3 Cannot be resolved without hardware
 
@@ -533,24 +667,50 @@ rejects a bad token).
 npm run arch:check && npx tsc --noEmit && npm test && npm run lint
 ```
 
-| Check             | State                                                             |
-| ----------------- | ----------------------------------------------------------------- |
-| `arch:check`      | ✅ feature-first invariants hold                                  |
-| `tsc --noEmit`    | ✅ zero errors                                                    |
-| `npm test`        | ✅ 1,221 passing, 7 skipped (293 in access-control)               |
-| `npm run lint`    | ✅ zero errors (13 pre-existing warnings, none from this feature) |
-| `npm run build`   | ⚠️ blocked in sandbox by Google Fonts only                        |
-| Supabase advisors | ✅ clean of everything this feature introduced                    |
+| Check              | State                                                                    |
+| ------------------ | ------------------------------------------------------------------------ |
+| `arch:check`       | ✅ feature-first invariants hold                                         |
+| `tsc --noEmit`     | ✅ zero errors                                                           |
+| `npm test`         | ✅ 1,330 passing, 7 skipped (333 in access-control)                      |
+| `npm run lint`     | ✅ zero errors (13 pre-existing warnings, none from this feature)        |
+| `npm run build`    | ⚠️ never verified — Google Fonts is unreachable from the build sandboxes |
+| **Playwright E2E** | ⚠️ **written, collected, never green** — see below                       |
+| Supabase advisors  | ✅ nothing new; the pre-existing INFO/WARN set is unchanged              |
 
-**Branch:** `claude/access-control-integration-h3lg91`.
-Latest commits: `13f02c5` (simulator plan), `44a5b30` (UI), `cc45bd6` (backend
-write-back), `f57a0af` (full code tables).
+### The E2E suite has not passed
 
----
+This is the honest state and it should not be softened. `npx playwright test
+--list` collects all 14 access-control tests, they compile, and every selector
+was read off the real components — but **no run has ever reached an
+assertion**. Four separate environment defects were found and fixed on the way,
+each hiding the next:
+
+1. **Playwright never loaded `.env.local`**, so every env-gated spec skipped —
+   and a skip reports green. The billing specs had presumably been skipping
+   since they were written. Fixed with Next's own `loadEnvConfig`.
+2. **The login helper could not fill the form**, because the auth pages'
+   labels were not associated with their inputs (§9, trap 17). `getByLabel`
+   matched nothing.
+3. **A Remotion studio was listening on port 3000.** `reuseExistingServer`
+   adopted it as the app under test and asked it for `/login`; it answered
+   "Composition with ID login not found". The E2E server now runs on 3100.
+4. **Missing Chromium system libraries** on the dev machine
+   (`npx playwright install-deps chromium`).
+
+The suite still fails as of this writing and the cause is not yet known. When
+picking this up: run it, then read
+`test-results/<spec>/error-context.md` **first** — its ARIA snapshot is what
+identified the Remotion collision, and the stack trace pointed nowhere useful
+in every one of these cases.
+
+**Merged:** [#63] on 2026-08-26, then the follow-up branch
+`claude/access-control-architecture-b23v6f`.
+
+[#63]: https://github.com/metric-gym-manager/metric-gym-manager/pull/63
 
 ## 9. Traps for the next session
 
-Ten things that will bite someone who does not know them.
+Sixteen things that will bite someone who does not know them.
 
 1. **Do not import `@/features/access-control` from a client component.** The
    barrel is server-only. Deep-import from `utils/serializeAccessForAPI`,
@@ -576,6 +736,55 @@ Ten things that will bite someone who does not know them.
    puts a false alarm on the screen built to prevent false alarms.
 10. **Enrolment detection is additive only.** It may set `finger_enrolled` true,
     never false. Clearing has its own path, which knows it meant it.
+11. **Never dispatch an enrolment without a consent record**, and never write
+    the record after the command. The gate is in `ManageMemberBiometric` so no
+    caller can bypass it — do not "simplify" it up into the route. A consent
+    with no template is harmless; a template with no consent is the failure the
+    ordering exists to make impossible.
+12. **`members.update()` writes the whole row, not a patch.** `biometric_consent_at`
+    must stay in _both_ halves of `SupabaseMemberRepository`'s mapping. Drop it
+    from the read side and every rename silently erases a consent record — no
+    error, no symptom, and nobody finds out until someone asks for the proof.
+    `BiometricConsentPersistence.test.ts` is the tripwire.
+13. **`ACCESS_EVENT_RETENTION_DAYS` is a published promise, not a tuning knob.**
+    It is the figure in the privacy policy. Changing it means changing the
+    policy text in `src/app/privacy/page.tsx` _and_ `docs/legal/privacy-policy.txt`.
+14. **Never purge on `occurred_at`** (C1). It is the reader's clock. Retention
+    runs on `created_at`, which is when _we_ stored the row — the only clock in
+    this system that cannot be wrong. Deletion does not come back, so this must
+    fail toward keeping.
+15. **`.in()` is a query-string filter, so an id list is a transport limit.**
+    `ACCESS_EVENT_DELETE_CHUNK_SIZE` is sized for an ~8 KB request line (C2).
+    Raising the read batch is safe; raising the chunk is not.
+16. **Never give the drain a subscription repository.** A gym's billing lapse
+    stops the nightly diff and nothing else; the outbox stays billing-blind so
+    a member who renews mid-lapse still reaches the door (§7.1.3). "Stop doing
+    vendor work for a gym that is not paying" is the plausible-sounding change
+    that locks out paying members.
+17. **A test that skips reports green.** Every env-gated Playwright spec in
+    this repo was skipping silently — the access-control ones _and_ the
+    billing ones — because Playwright's process never loaded `.env.local`.
+    Months of "passing" runs had executed nothing. When a suite is suspiciously
+    quiet, check it is running at all before trusting it.
+18. **A lint rule that matches nothing is the same failure.** Both a11y rule
+    landings in this branch were verified by deliberately breaking the code and
+    watching the rule fire, then removing the break. Do that every time; a
+    misconfigured `files:` scope fails silently and looks identical to success.
+19. **`reuseExistingServer` does not check that the server is yours.** It
+    adopts anything answering on the port. A Remotion studio on 3000 was taken
+    as the app under test for two full debugging rounds. The E2E server runs on
+    3100 (`E2E_PORT`) for that reason.
+20. **`npm run dev` dirties `public/service-worker.js` every time.** The
+    committed copy has had Prettier run over it; its generator emits
+    semicolons. The two disagree permanently, so the file shows as modified
+    after any dev run. Do not commit that churn — and fix it by adding the
+    generated outputs to `.prettierignore`, not by reformatting the file again
+    (rule 2.19: edit the generator, never the output).
+21. **Never give the drain a subscription repository.** A gym's billing lapse
+    stops the nightly diff and nothing else; the outbox stays billing-blind so
+    a member who renews mid-lapse still reaches the door (§7.1.3). "Stop doing
+    vendor work for a gym that is not paying" is the plausible-sounding change
+    that locks out paying members.
 
 ---
 

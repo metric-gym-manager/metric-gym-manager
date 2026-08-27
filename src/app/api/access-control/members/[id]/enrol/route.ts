@@ -8,6 +8,11 @@
  * two-part. The template is created on the hardware and travels to the vendor
  * platform — it never passes through us, which is also why we hold no
  * biometric data of our own.
+ *
+ * A fingerprint is still sensitive personal data and this endpoint is what
+ * causes one to be taken, so it refuses to dispatch without a consent record.
+ * The check itself lives in the service rather than here, so no other caller
+ * of `enrol` can route around it.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -55,6 +60,7 @@ export async function POST(
         memberId: id,
         deviceId: parsed.data.deviceId,
         fingerId: parsed.data.fingerId,
+        consentGranted: parsed.data.consent,
       }
     )
 
@@ -62,6 +68,20 @@ export async function POST(
       return NextResponse.json(
         ResponseBuilder.badRequest(
           'Access control is not set up for this gym yet'
+        ),
+        { status: 400 }
+      )
+    }
+
+    // Consent is a precondition the caller can satisfy, not a fault: 400 with
+    // its own code so the panel renders a checkbox rather than the 502
+    // "reader did not respond" path, which would be a lie about what happened.
+    if (result.consentRequired) {
+      return NextResponse.json(
+        ResponseBuilder.error(
+          result.error ??
+            'The member must agree to their fingerprint being recorded before it can be registered',
+          'BIOMETRIC_CONSENT_REQUIRED'
         ),
         { status: 400 }
       )

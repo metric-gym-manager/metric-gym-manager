@@ -144,6 +144,15 @@ export interface MemberAccessStatus {
   /** Plain-language explanation; never a vendor error string. */
   explanation: string
   fingerEnrolled: boolean
+  /**
+   * When the member consented to fingerprint collection, or `null`.
+   *
+   * Drives whether the desk is asked to capture consent before enrolling. It
+   * is a date rather than a boolean because the panel shows it: staff being
+   * able to see *when* someone agreed is what makes the record worth keeping
+   * rather than a tick nobody can account for later.
+   */
+  biometricConsentAt: string | null
   validFrom: string | null
   validTo: string | null
   /** True while changes are queued for the hardware — pending, not failed. */

@@ -53,6 +53,7 @@ interface MemberRow {
   remarks: string | null
   accepted_terms_at: string | null
   accepted_gym_rules_at: string | null
+  biometric_consent_at: string | null
   discount?: {
     id: string
     discount_name: string
@@ -658,6 +659,9 @@ export class SupabaseMemberRepository implements IMemberRepository {
       acceptedGymRulesAt: row.accepted_gym_rules_at
         ? new Date(row.accepted_gym_rules_at)
         : null,
+      biometricConsentAt: row.biometric_consent_at
+        ? new Date(row.biometric_consent_at)
+        : null,
     })
   }
 
@@ -697,6 +701,7 @@ export class SupabaseMemberRepository implements IMemberRepository {
       remarks: props.remarks ?? null,
       accepted_terms_at: props.acceptedTermsAt?.toISOString() ?? null,
       accepted_gym_rules_at: props.acceptedGymRulesAt?.toISOString() ?? null,
+      biometric_consent_at: props.biometricConsentAt?.toISOString() ?? null,
     }
   }
 }

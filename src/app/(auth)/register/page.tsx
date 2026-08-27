@@ -4,7 +4,10 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { z } from 'zod'
 import AuthShell from '@/components/auth/AuthShell'
-import { registrationSchema, type RegistrationInput } from '@/features/auth/schemas/auth.schemas'
+import {
+  registrationSchema,
+  type RegistrationInput,
+} from '@/features/auth/schemas/auth.schemas'
 
 /**
  * Register — dark 2-step design ("Auth Pages.dc.html").
@@ -121,7 +124,9 @@ export default function RegisterPage() {
         setIsLoading(false)
         return
       }
-      router.push(`/verify-email?email=${encodeURIComponent(validatedData.email)}`)
+      router.push(
+        `/verify-email?email=${encodeURIComponent(validatedData.email)}`
+      )
     } catch (err) {
       setIsLoading(false)
       if (err instanceof z.ZodError) {
@@ -142,87 +147,286 @@ export default function RegisterPage() {
     <AuthShell tab="register">
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1">
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>Create your gym account</h1>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--ma-t2)' }}>30-day trial. No payment method required.</p>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 20,
+              fontWeight: 600,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Create your gym account
+          </h1>
+          <p style={{ margin: 0, fontSize: 13, color: 'var(--ma-t2)' }}>
+            30-day trial. No payment method required.
+          </p>
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-2.5 mauth-mono" style={{ fontSize: 11 }}>
-          <span style={{ color: step === 1 ? 'var(--ma-t1)' : 'var(--ma-t3)' }}>01 ACCOUNT</span>
-          <span style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }} />
-          <span style={{ color: step === 2 ? 'var(--ma-t1)' : 'var(--ma-t3)' }}>02 GYM PROFILE</span>
+        <div
+          className="flex items-center gap-2.5 mauth-mono"
+          style={{ fontSize: 11 }}
+        >
+          <span style={{ color: step === 1 ? 'var(--ma-t1)' : 'var(--ma-t3)' }}>
+            01 ACCOUNT
+          </span>
+          <span
+            style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }}
+          />
+          <span style={{ color: step === 2 ? 'var(--ma-t1)' : 'var(--ma-t3)' }}>
+            02 GYM PROFILE
+          </span>
         </div>
 
         {error && <div className="mauth-alert mauth-alert-err">{error}</div>}
 
         {step === 1 ? (
           <div className="flex flex-col gap-3">
-            <Field label="Username" error={fieldErrors.username}>
-              <input value={formData.username || ''} onChange={(e) => handleInputChange('username', e.target.value)} placeholder="e.g. titan_admin" className="mauth-input" />
+            <Field
+              label="Username"
+              htmlFor="register-username"
+              error={fieldErrors.username}
+            >
+              <input
+                id="register-username"
+                name="username"
+                autoComplete="username"
+                value={formData.username || ''}
+                onChange={(e) => handleInputChange('username', e.target.value)}
+                placeholder="e.g. titan_admin"
+                className="mauth-input"
+              />
             </Field>
-            <Field label="Email" error={fieldErrors.email}>
-              <input type="email" value={formData.email || ''} onChange={(e) => handleInputChange('email', e.target.value)} placeholder="you@yourgym.lk" className="mauth-input" />
+            <Field
+              label="Email"
+              htmlFor="register-email"
+              error={fieldErrors.email}
+            >
+              <input
+                id="register-email"
+                name="email"
+                autoComplete="email"
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                placeholder="you@yourgym.lk"
+                className="mauth-input"
+              />
             </Field>
-            <Field label="Password" error={fieldErrors.password}>
+            <Field
+              label="Password"
+              htmlFor="register-password"
+              error={fieldErrors.password}
+            >
               <div style={{ position: 'relative' }}>
                 <input
+                  id="register-password"
+                  name="new-password"
+                  autoComplete="new-password"
                   type={showPassword ? 'text' : 'password'}
                   value={formData.password || ''}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange('password', e.target.value)
+                  }
                   placeholder="Min. 8 characters"
                   className="mauth-input mauth-input-mono"
                   style={{ paddingRight: 52 }}
                 />
-                <button type="button" onClick={() => setShowPassword((v) => !v)} className="mauth-mono" style={{ position: 'absolute', right: 10, top: 9, background: 'none', border: 'none', color: 'var(--ma-t3)', fontSize: 11, cursor: 'pointer' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="mauth-mono"
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: 9,
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--ma-t3)',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                  }}
+                >
                   {showPassword ? 'HIDE' : 'SHOW'}
                 </button>
               </div>
               <div className="flex items-center gap-2" style={{ marginTop: 6 }}>
-                <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.09)', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: pw.pct, background: pw.color, transition: 'width 0.15s ease' }} />
+                <div
+                  style={{
+                    flex: 1,
+                    height: 3,
+                    borderRadius: 2,
+                    background: 'rgba(255,255,255,0.09)',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <div
+                    style={{
+                      height: '100%',
+                      width: pw.pct,
+                      background: pw.color,
+                      transition: 'width 0.15s ease',
+                    }}
+                  />
                 </div>
-                <span className="mauth-mono" style={{ fontSize: 11, color: pw.color, width: 54, textAlign: 'right' }}>{pw.label}</span>
+                <span
+                  className="mauth-mono"
+                  style={{
+                    fontSize: 11,
+                    color: pw.color,
+                    width: 54,
+                    textAlign: 'right',
+                  }}
+                >
+                  {pw.label}
+                </span>
               </div>
             </Field>
-            <Field label="Confirm password" error={fieldErrors.confirmPassword}>
-              <input type="password" value={formData.confirmPassword || ''} onChange={(e) => handleInputChange('confirmPassword', e.target.value)} placeholder="Re-enter password" className="mauth-input mauth-input-mono" />
+            <Field
+              label="Confirm password"
+              htmlFor="register-confirm-password"
+              error={fieldErrors.confirmPassword}
+            >
+              <input
+                id="register-confirm-password"
+                name="confirm-password"
+                autoComplete="new-password"
+                type="password"
+                value={formData.confirmPassword || ''}
+                onChange={(e) =>
+                  handleInputChange('confirmPassword', e.target.value)
+                }
+                placeholder="Re-enter password"
+                className="mauth-input mauth-input-mono"
+              />
             </Field>
-            <button type="button" onClick={handleNextStep} className="mauth-btn mauth-btn-primary" style={{ marginTop: 4 }}>Continue</button>
+            <button
+              type="button"
+              onClick={handleNextStep}
+              className="mauth-btn mauth-btn-primary"
+              style={{ marginTop: 4 }}
+            >
+              Continue
+            </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-            <Field label="Gym name" error={fieldErrors.gymName}>
-              <input value={formData.gymName || ''} onChange={(e) => handleInputChange('gymName', e.target.value)} placeholder="e.g. Titan Fitness" className="mauth-input" />
+            <Field
+              label="Gym name"
+              htmlFor="register-gym-name"
+              error={fieldErrors.gymName}
+            >
+              <input
+                id="register-gym-name"
+                name="organization"
+                autoComplete="organization"
+                value={formData.gymName || ''}
+                onChange={(e) => handleInputChange('gymName', e.target.value)}
+                placeholder="e.g. Titan Fitness"
+                className="mauth-input"
+              />
             </Field>
-            <Field label="Address" error={fieldErrors.gymAddress}>
-              <input value={formData.gymAddress || ''} onChange={(e) => handleInputChange('gymAddress', e.target.value)} placeholder="Street, city" className="mauth-input" />
+            <Field
+              label="Address"
+              htmlFor="register-gym-address"
+              error={fieldErrors.gymAddress}
+            >
+              <input
+                id="register-gym-address"
+                name="street-address"
+                autoComplete="street-address"
+                value={formData.gymAddress || ''}
+                onChange={(e) =>
+                  handleInputChange('gymAddress', e.target.value)
+                }
+                placeholder="Street, city"
+                className="mauth-input"
+              />
             </Field>
-            <Field label="Website (optional)" error={fieldErrors.gymWebsite}>
-              <input value={formData.gymWebsite || ''} onChange={(e) => handleInputChange('gymWebsite', e.target.value)} placeholder="https://yourgym.lk" className="mauth-input" />
+            <Field
+              label="Website (optional)"
+              htmlFor="register-gym-website"
+              error={fieldErrors.gymWebsite}
+            >
+              <input
+                id="register-gym-website"
+                name="url"
+                autoComplete="url"
+                value={formData.gymWebsite || ''}
+                onChange={(e) =>
+                  handleInputChange('gymWebsite', e.target.value)
+                }
+                placeholder="https://yourgym.lk"
+                className="mauth-input"
+              />
             </Field>
             <div className="flex gap-2" style={{ marginTop: 4 }}>
-              <button type="button" onClick={() => setStep(1)} className="mauth-btn">Back</button>
-              <button type="submit" disabled={isLoading} className="mauth-btn mauth-btn-accent" style={{ flex: 1 }}>
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="mauth-btn"
+              >
+                Back
+              </button>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="mauth-btn mauth-btn-accent"
+                style={{ flex: 1 }}
+              >
                 {isLoading ? 'Creating…' : 'Create account'}
               </button>
             </div>
           </form>
         )}
 
-        <p style={{ margin: 0, fontSize: 12, color: 'var(--ma-t3)', textWrap: 'pretty' }}>
-          By creating an account you agree to the <a href="/terms">Terms of Service</a> and <a href="/privacy">Privacy Policy</a>.
+        <p
+          style={{
+            margin: 0,
+            fontSize: 12,
+            color: 'var(--ma-t3)',
+            textWrap: 'pretty',
+          }}
+        >
+          By creating an account you agree to the{' '}
+          <a href="/terms">Terms of Service</a> and{' '}
+          <a href="/privacy">Privacy Policy</a>.
         </p>
       </div>
     </AuthShell>
   )
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+/**
+ * A labelled field.
+ *
+ * `htmlFor` is required rather than derived. The obvious alternatives both
+ * have costs this page does not need to pay: `useId()` is a documented
+ * hydration hazard in this codebase (architecture rule 2.12), and cloning the
+ * child to inject an id makes the association invisible at the call site. An
+ * explicit id is greppable, stable across renders, and impossible to get
+ * half-right.
+ */
+function Field({
+  label,
+  htmlFor,
+  error,
+  children,
+}: {
+  label: string
+  htmlFor: string
+  error?: string
+  children: React.ReactNode
+}) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="mauth-label">{label}</label>
+      <label className="mauth-label" htmlFor={htmlFor}>
+        {label}
+      </label>
       {children}
-      {error && <span style={{ fontSize: 11, color: 'var(--ma-err)' }}>{error}</span>}
+      {error && (
+        <span style={{ fontSize: 11, color: 'var(--ma-err)' }}>{error}</span>
+      )}
     </div>
   )
 }

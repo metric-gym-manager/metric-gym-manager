@@ -15,9 +15,15 @@ We collect and process the following categories of personal data in accordance w
 Information We Collect from Gym Members:
 • Identity Data: full name, gender, date of birth (age calculated automatically), selfie
 • Contact Data: phone number, emergency contact details
-• Biometric Data: fingerprint or face scan (where applicable), used to enable secure check-in/check-out
+• Biometric Data: fingerprint or face scan (where applicable), used to enable secure check-in/check-out and to open the gym's doors
 • Membership Data: membership plan details, start and expiry dates, membership status
 • Attendance Data: check-in/check-out logs, attendance history
+
+How biometric data is handled: Biometric data is special category personal data under the Personal Data Protection Act, No. 9 of 2022, and we treat it accordingly.
+• A fingerprint is only ever recorded with the member's explicit consent, given at the moment it is recorded rather than buried in a registration form, and we keep a record of when that consent was given
+• The fingerprint template is created on the reader itself and is held by the gym's access-control hardware provider. We never receive, process or store a fingerprint image or template - what we hold is a numeric reference to the member's record on that hardware and a note of whether a fingerprint has been registered
+• Members may withdraw consent at any time by asking their gym to remove their fingerprint. Doing so deletes the template from the reader and clears the consent record, and the member will be asked again before any new fingerprint is recorded
+• Providing a fingerprint is never a condition of membership. Members who decline continue to use the gym by whatever other means it offers
 
 Important notice: We do not require or recommend the collection of National Identity Card (NIC) numbers or home addresses for gym members. This data has no operational requirement on our platform, and collecting it may violate the data-minimization requirements of the Sri Lanka Personal Data Protection Act, No. 9 of 2022 - we discourage gym operators from collecting it and gym members from providing it.
 
@@ -45,6 +51,7 @@ Technical and Usage Data:
 We use your personal data only when the law allows us to, in compliance with the Personal Data Protection Act, No. 9 of 2022. The purposes of processing, and their legal basis, are:
 • Provide and operate the platform and its features, authenticate users, and manage role-based access for gym staff - necessary for the performance of our contract with you
 • Manage member registrations, memberships, and renewals - necessary for the performance of our contract with the gym operator
+• Tell a gym's door readers how long each member's membership entitles them to enter, and record the entries and refused attempts those readers report back - based on the member's explicit consent to biometric processing, which they may withdraw at any time
 • Send automated payment reminders and renewal notifications via SMS - based on the consent obtained from the member at registration
 • Generate attendance reports, revenue dashboards, and retention analytics for gym owners, and conduct demographic analysis using age and gender data where provided - our legitimate interest in helping gym operators run their business
 • Provide customer support and respond to inquiries - necessary for the performance of our contract with you
@@ -77,6 +84,8 @@ Retention periods:
 • Member data: retained for the duration of the membership and for a reasonable period afterward to maintain business records
 • Payment records: retained for a minimum of 7 years for accounting and tax purposes
 • Statistical data (payment patterns, attendance trends, demographic information, revenue data, member-count trends, and feature usage): retained indefinitely in aggregated, anonymized form that does not identify any individual data subject
+• Door access records: entries and refused attempts recorded by a gym's biometric readers are deleted automatically 12 months after they occur
+• Fingerprint templates: held on the gym's reader and by its access-control hardware provider for as long as the member is enrolled, and deleted from the reader when the member withdraws consent, is removed by the gym, or their membership ends
 
 Data deletion:
 • Member photos, fingerprints, and face scans are permanently removed upon account deletion or member removal
@@ -88,6 +97,7 @@ Gym operators may request deletion of their account and associated member data a
 We do not sell your personal data to any third party. We may share data with the following categories of service providers, each contractually required to protect your data and to use it only for the purposes we direct:
 • SMS gateway providers, to deliver notifications on behalf of gym operators
 • Cloud infrastructure and hosting providers, to host and process data on our behalf
+• Access-control hardware providers, where a gym operates biometric door readers - limited to the member's name, a numeric reference and the dates their membership permits entry. The fingerprint template itself is created on the reader and held by that provider; it does not pass through us
 • Payment processors, to process subscription and membership payments securely
 • Professional advisers, such as lawyers or auditors, where required by law
 

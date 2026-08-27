@@ -30,6 +30,7 @@ import {
   type AccessCredentials,
 } from '@/lib/access-control'
 import {
+  ACCESS_EVENT_DELETE_CHUNK_SIZE,
   AccessSyncStatus,
   SYNC_RETRY_BACKOFF_SECONDS,
 } from '@/features/access-control/config/AccessControlConfig'
@@ -69,6 +70,7 @@ interface MemberContextRow {
   next_due_date: string
   registration_source: RegistrationSource
   verified_at: string | null
+  biometric_consent_at: string | null
   member_access_subjects: MemberAccessSubject[] | MemberAccessSubject | null
 }
 
@@ -392,7 +394,7 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       .from('members')
       .select(
         `id, gym_id, name, status, membership_start_date, next_due_date,
-         registration_source, verified_at,
+         registration_source, verified_at, biometric_consent_at,
          member_access_subjects (*)`
       )
       .eq('id', memberId)
@@ -427,6 +429,9 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       nextDueDate: parseCalendarDate(row.next_due_date),
       registrationSource: row.registration_source,
       verifiedAt: row.verified_at ? new Date(row.verified_at) : null,
+      biometricConsentAt: row.biometric_consent_at
+        ? new Date(row.biometric_consent_at)
+        : null,
       subject,
     }
   }
@@ -448,8 +453,14 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     const rows = await this.pageAll<MemberContextRow>(
       'members',
       (query) => query.eq('gym_id', gymId).order('id', { ascending: true }),
+      // biometric_consent_at is selected even though the reconciler never
+      // reads it: both selects feed `toMemberContext`, so omitting it here
+      // would hand back a context whose `biometricConsentAt` is null for
+      // reasons of the query rather than of the member. A field that means
+      // "must ask again" cannot be allowed to lie in that direction.
       `id, gym_id, name, status, membership_start_date, next_due_date,
-       registration_source, verified_at, member_access_subjects!inner (*)`
+       registration_source, verified_at, biometric_consent_at,
+       member_access_subjects!inner (*)`
     )
 
     return rows.map((row) => this.toMemberContext(row))
@@ -637,6 +648,47 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     if (error) {
       throw new DatabaseError(
         `Failed to update enrolment state: ${error.message}`
+      )
+    }
+  }
+
+  /**
+   * Record consent to fingerprint collection, once.
+   *
+   * `.is('biometric_consent_at', null)` is the whole safeguard: re-enrolling a
+   * member who already consented must not restamp the date, because the audit
+   * question is when they first agreed, not when we last asked them to tick a
+   * box. Matching no rows is the expected outcome then, not an error.
+   */
+  async recordBiometricConsent(memberId: string, at: Date): Promise<void> {
+    const { error } = await this.supabase
+      .from('members')
+      .update({
+        biometric_consent_at: at.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', memberId)
+      .is('biometric_consent_at', null)
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to record biometric consent: ${error.message}`
+      )
+    }
+  }
+
+  async clearBiometricConsent(memberId: string): Promise<void> {
+    const { error } = await this.supabase
+      .from('members')
+      .update({
+        biometric_consent_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', memberId)
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to withdraw biometric consent: ${error.message}`
       )
     }
   }
@@ -874,6 +926,77 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       })),
       total: count ?? 0,
     }
+  }
+
+  /**
+   * Delete a bounded batch of scans received before the cutoff.
+   *
+   * ## Why `created_at` and not `occurred_at`
+   *
+   * `occurred_at` comes from the **device's own clock** — it is `AttTime`
+   * parsed against that reader's stored timezone offset. This whole feature
+   * already treats device clocks as untrustworthy: drift is *inferred* rather
+   * than read, and `DEVICE_CLOCK_SKEW_ALERT_SECONDS` exists precisely because
+   * they wander. A reader whose RTC has reset, lost its battery, or been given
+   * the wrong offset stamps today's entries with a date a year or more in the
+   * past, and purging on that figure would delete this morning's scans tonight
+   * — irreversibly, reported as a perfectly normal `deleted: N`.
+   *
+   * `created_at` is set by the database when *we* stored the row. It cannot be
+   * wrong, it is monotonic, and it is what a retention promise actually
+   * measures: how long we keep something after receiving it. A reader that was
+   * offline for months and then uploads its buffer keeps those scans for 12
+   * months from upload — longer than strictly needed, which is the safe
+   * direction. Deletion is not reversible, so this must fail toward keeping.
+   *
+   * ## Why the delete is chunked
+   *
+   * PostgREST has no `DELETE ... LIMIT`, so the ids are read first and deleted
+   * by primary key — and `.in()` puts every id in the **query string**. 500
+   * UUIDs is a 19.5 KB request line, comfortably past the ~8 KB an nginx-family
+   * gateway accepts, so the whole run would fail with a 414 the first time a
+   * gym had a real backlog. Chunking keeps each request near 4 KB.
+   *
+   * Reading oldest-first matters too — it means repeated calls walk forward
+   * through the backlog instead of re-reading the same arbitrary slice.
+   *
+   * Platform-wide, so this needs a service-role client; under a session client
+   * RLS would silently scope it to one gym and the purge would quietly stop
+   * being a platform guarantee.
+   */
+  async deleteEventsOlderThan(cutoff: Date, limit: number): Promise<number> {
+    const { data, error } = await this.supabase
+      .from('access_events')
+      .select('id')
+      .lt('created_at', cutoff.toISOString())
+      .order('created_at', { ascending: true })
+      .limit(limit)
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to list expired access events: ${error.message}`
+      )
+    }
+
+    const ids = ((data as { id: string }[] | null) ?? []).map((row) => row.id)
+    if (ids.length === 0) return 0
+
+    for (let i = 0; i < ids.length; i += ACCESS_EVENT_DELETE_CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + ACCESS_EVENT_DELETE_CHUNK_SIZE)
+
+      const { error: deleteError } = await this.supabase
+        .from('access_events')
+        .delete()
+        .in('id', chunk)
+
+      if (deleteError) {
+        throw new DatabaseError(
+          `Failed to delete expired access events: ${deleteError.message}`
+        )
+      }
+    }
+
+    return ids.length
   }
 
   async findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null> {

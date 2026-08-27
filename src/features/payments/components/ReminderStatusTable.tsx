@@ -179,7 +179,12 @@ export default function ReminderStatusTable() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div>
-          <label className="text-sm font-medium mb-2 block">Filter</label>
+          <label
+            className="text-sm font-medium mb-2 block"
+            htmlFor="reminder-status-filter-select"
+          >
+            Filter
+          </label>
           <div className="w-[180px]">
             <Select
               id="reminder-status-filter-select"
@@ -195,7 +200,12 @@ export default function ReminderStatusTable() {
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-2 block">Sort By</label>
+          <label
+            className="text-sm font-medium mb-2 block"
+            htmlFor="reminder-status-sort-select"
+          >
+            Sort By
+          </label>
           <div className="w-[220px]">
             <Select
               id="reminder-status-sort-select"

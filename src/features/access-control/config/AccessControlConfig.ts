@@ -227,3 +227,58 @@ export const ENROLMENT_POLL_INTERVAL_MS = 3_000
  * a finger stays correctly enrolled and simply shows it on the next read.
  */
 export const ENROLMENT_POLL_TIMEOUT_MS = 120_000
+
+/**
+ * How long a door scan is kept before it is deleted.
+ *
+ * `access_events` is attendance data about identifiable people — who was at
+ * the gym, at what minute, for as long as the row survives. Keeping it forever
+ * is a choice, and it was the wrong one: nothing in the product reads an event
+ * older than the activity log's own paging, and the privacy policy now states
+ * this figure to members.
+ *
+ * Twelve months rather than something shorter because a gym's own reason to
+ * look back — a dispute, a "when did we last see this member" — is seasonal,
+ * and rather than something longer because there is no purpose left to serve
+ * after that. The number is the promise; keep the two in step if it changes.
+ *
+ * Measured from when the row was **stored** (`created_at`), never from the
+ * device's `occurred_at`. See `deleteEventsOlderThan` — a reader with a reset
+ * clock would otherwise have this morning's scans deleted tonight.
+ */
+export const ACCESS_EVENT_RETENTION_DAYS = 365
+
+/**
+ * Rows deleted per statement by the retention purge.
+ *
+ * Deleted in batches, not one statement, because the first run on a gym that
+ * has been collecting for a year deletes everything at once and a single
+ * unbounded `DELETE` is how a cron hits a statement timeout and never makes
+ * progress at all. Small enough to stay well inside the route's `maxDuration`,
+ * large enough that a normal night's handful of rows finishes in one pass.
+ */
+export const ACCESS_EVENT_PURGE_BATCH_SIZE = 500
+
+/**
+ * Batches one purge run will do before stopping.
+ *
+ * A backlog larger than this is picked up by tomorrow's run rather than
+ * risking a timeout that rolls back nothing and reports nothing. The cap is
+ * generous enough (250,000 rows) that only a first run after a long backfill
+ * would ever reach it, and the summary says when it did.
+ */
+export const ACCESS_EVENT_PURGE_MAX_BATCHES = 500
+
+/**
+ * Ids per `DELETE` statement inside one purge batch.
+ *
+ * PostgREST has no `DELETE ... LIMIT`, so rows are deleted by primary key and
+ * `.in()` puts every id in the **query string**. That makes this a transport
+ * limit, not a database one: 100 UUIDs is a ~3.9 KB request line, 200 is
+ * ~7.8 KB, and 500 is ~19.5 KB — past the ~8 KB an nginx-family gateway
+ * accepts, which comes back as a 414 and fails the entire run.
+ *
+ * So a purge batch is read in one query and deleted in several. Raising
+ * `ACCESS_EVENT_PURGE_BATCH_SIZE` is safe; raising this is not.
+ */
+export const ACCESS_EVENT_DELETE_CHUNK_SIZE = 100

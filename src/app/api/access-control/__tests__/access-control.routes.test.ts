@@ -30,6 +30,7 @@ const mockRepo = {
   getMemberAccessContext: jest.fn(),
 }
 const mockOpenDoor = jest.fn()
+const mockEnrol = jest.fn()
 
 jest.mock('@/lib/auth/requireAccessControlGym', () => ({
   requireAccessControlGym: (...args: unknown[]) => mockGuard(...args),
@@ -45,6 +46,7 @@ jest.mock('@/features/access-control', () => {
     ...actual,
     createAccessControlRepository: jest.fn(() => mockRepo),
     createOperateDevice: jest.fn(() => ({ openDoor: mockOpenDoor })),
+    createManageMemberBiometric: jest.fn(() => ({ enrol: mockEnrol })),
   }
 })
 
@@ -55,6 +57,7 @@ import { PATCH as patchDevice } from '../devices/[id]/route'
 import { POST as enableDevice } from '../devices/[id]/enable/route'
 import { POST as openDoorRoute } from '../devices/[id]/open/route'
 import { GET as getEvents } from '../events/route'
+import { POST as enrolMember } from '../members/[id]/enrol/route'
 
 const CALLER = { gymId: 'gym-1', userId: 'user-1', supabase: {} }
 
@@ -306,6 +309,65 @@ describe('Access-control routes', () => {
 
       expect(response.status).toBe(400)
       expect(mockRepo.listEvents).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('POST /members/[id]/enrol', () => {
+    beforeEach(() => {
+      mockRepo.getMemberAccessContext.mockResolvedValue({
+        memberId: 'member-1',
+        gymId: 'gym-1',
+      })
+    })
+
+    it("passes the desk's consent through to the service", async () => {
+      mockEnrol.mockResolvedValue({ applicable: true, dispatched: true })
+
+      const response = await enrolMember(
+        jsonRequest({
+          deviceId: '11111111-1111-4111-8111-111111111111',
+          consent: true,
+        }),
+        params('member-1')
+      )
+
+      expect(response.status).toBe(200)
+      expect(mockEnrol).toHaveBeenCalledWith(
+        expect.objectContaining({ consentGranted: true })
+      )
+    })
+
+    it('answers a missing consent with 400 and its own code, not a vendor failure', async () => {
+      mockEnrol.mockResolvedValue({
+        applicable: true,
+        dispatched: false,
+        consentRequired: true,
+        error: 'The member must agree first',
+      })
+
+      const response = await enrolMember(
+        jsonRequest({ deviceId: '11111111-1111-4111-8111-111111111111' }),
+        params('member-1')
+      )
+      const body = await response.json()
+
+      // Not 502: nothing failed at the reader, and telling the desk it did
+      // would send them retrying a request that cannot succeed.
+      expect(response.status).toBe(400)
+      expect(body.error.code).toBe('BIOMETRIC_CONSENT_REQUIRED')
+    })
+
+    it('never defaults an absent consent flag to true', async () => {
+      mockEnrol.mockResolvedValue({ applicable: true, dispatched: true })
+
+      await enrolMember(
+        jsonRequest({ deviceId: '11111111-1111-4111-8111-111111111111' }),
+        params('member-1')
+      )
+
+      expect(mockEnrol).toHaveBeenCalledWith(
+        expect.objectContaining({ consentGranted: undefined })
+      )
     })
   })
 })

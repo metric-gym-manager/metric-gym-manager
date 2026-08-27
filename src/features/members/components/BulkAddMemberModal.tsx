@@ -502,10 +502,14 @@ export default function BulkAddMemberModal({
         {/* Plan section */}
         <div className="flex items-end gap-2">
           <div>
-            <label className="text-xs font-medium text-ink-secondary block mb-1">
+            <label
+              className="text-xs font-medium text-ink-secondary block mb-1"
+              htmlFor="bulk-global-plan-type"
+            >
               Plan Type
             </label>
             <select
+              id="bulk-global-plan-type"
               value={globalPlanType}
               onChange={(e) => {
                 setGlobalPlanType(e.target.value as BulkRow['planType'])
@@ -532,10 +536,14 @@ export default function BulkAddMemberModal({
             </select>
           </div>
           <div>
-            <label className="text-xs font-medium text-ink-secondary block mb-1">
+            <label
+              className="text-xs font-medium text-ink-secondary block mb-1"
+              htmlFor="bulk-global-amount"
+            >
               Amount (Rs.)
             </label>
             <Input
+              id="bulk-global-amount"
               type="number"
               value={globalPlanAmount}
               onChange={(e) =>
@@ -546,10 +554,14 @@ export default function BulkAddMemberModal({
             />
           </div>
           <div>
-            <label className="text-xs font-medium text-ink-secondary block mb-1">
+            <label
+              className="text-xs font-medium text-ink-secondary block mb-1"
+              htmlFor="bulk-global-start-date"
+            >
               Start Date
             </label>
             <Input
+              id="bulk-global-start-date"
               type="date"
               value={globalStartDate}
               onChange={(e) => setGlobalStartDate(e.target.value)}
@@ -574,10 +586,14 @@ export default function BulkAddMemberModal({
         {/* Discount section */}
         <div className="flex items-end gap-2">
           <div>
-            <label className="text-xs font-medium text-ink-secondary block mb-1">
+            <label
+              className="text-xs font-medium text-ink-secondary block mb-1"
+              htmlFor="bulk-global-discount"
+            >
               Discount
             </label>
             <select
+              id="bulk-global-discount"
               value={globalDiscountId}
               onChange={(e) => setGlobalDiscountId(e.target.value)}
               disabled={isPending}

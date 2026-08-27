@@ -364,7 +364,12 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
         <div className="space-y-4">
           {/* Status Filter */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Status</label>
+            <label
+              className="text-sm font-medium"
+              htmlFor="members-table-status-filter-mobile-select"
+            >
+              Status
+            </label>
             <Select
               id="members-table-status-filter-mobile-select"
               value={status}
@@ -383,7 +388,12 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
 
           {/* Plan Type Filter */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Plan Type</label>
+            <label
+              className="text-sm font-medium"
+              htmlFor="members-table-plan-filter-mobile-select"
+            >
+              Plan Type
+            </label>
             <Select
               id="members-table-plan-filter-mobile-select"
               value={planType}
@@ -403,7 +413,12 @@ export default function MembersTable({ onMemberClick }: MembersTableProps) {
 
           {/* Sort By */}
           <div className="space-y-2">
-            <label className="text-sm font-medium">Sort By</label>
+            <label
+              className="text-sm font-medium"
+              htmlFor="members-table-sort-mobile-select"
+            >
+              Sort By
+            </label>
             <Select
               id="members-table-sort-mobile-select"
               value={sortBy}

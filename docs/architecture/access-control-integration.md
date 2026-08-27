@@ -1204,22 +1204,32 @@ so **request it now**; it gates nothing but shortens Phase 2 considerably.
 1. ~~**Member stops paying — do they get locked out?**~~ **Settled: yes**, from
    00:00 the day after `next_due_date` (§3.4). Already what the design produces.
 
-   ⚠️ **Separate and still open — the _gym_ stops paying _us_.** That is a
-   different question from member expiry: it asks whether a whole gym's members
-   lose door access because the gym's own Metric subscription lapsed.
-   Recommendation remains **no** — stop syncing, leave devices in their last
-   known state, show the gym a banner. Mass-locking a gym's paying members over
-   the gym's billing dispute is a physical-safety and reputational risk, and the
-   members did nothing wrong. Needs a product call before Phase 3.
+   ✅ **Separate, and now also settled (2026-08-26) — the _gym_ stops paying
+   _us_: members never lose the door.** The service withheld from a non-paying
+   gym is the dashboard, not the building. The nightly reconcile skips a lapsed
+   gym (a `continue`, never a "block everyone" branch), and the outbox drain
+   stays billing-blind, so a member who renews during the lapse still gets
+   their validity period pushed. `past_due` inside the 7-day grace is still
+   good standing. Pinned by `BillingLapseNeverLocksOut.reverse.test.ts`; full
+   reasoning in `access-control-master.md` §7.1.3.
 
-2. **Biometric consent.** Fingerprint templates are sensitive personal data.
-   Even though they live on VFT's hardware, we trigger enrolment — so the
-   privacy policy needs a biometric disclosure and registration needs a consent
-   alongside `accepted_terms_at` / `accepted_gym_rules_at`. Settle before
-   Phase 3.
-3. **Remote door-open** stays Enterprise-only, gym-owner-only, rate-limited and
-   audited with actor and timestamp.
-4. **Per-gym VFT credentials — now a commercial ask, not just a preference.**
+2. ~~**Biometric consent.**~~ **Settled 2026-08-26: consent is captured at the
+   enrolment dialog**, not at registration — that is the moment of collection,
+   and consent to a purpose that does not exist yet is not consent. Recorded on
+   `members.biometric_consent_at`, enforced in `ManageMemberBiometric` (fails
+   closed), cleared when the fingerprint is removed. The privacy policy now
+   carries the disclosure. Full reasoning in
+   `access-control-master.md` §7.1 — do not reopen it there or here.
+3. ~~**Remote door-open** stays Enterprise-only, gym-owner-only…~~ **Settled
+   2026-08-26: Enterprise-only and audited, but NOT owner-only.** Any entitled
+   user may open a door — a gym is one Supabase user (`gyms.user_id`), so
+   "owner" and "front desk" are the same login and there is no role to restrict
+   to. Audit (job actor + the reader's own event 8) is the control, not
+   permission.
+4. ~~**Event retention.**~~ **Settled 2026-08-26: 12 months**, swept nightly by
+   `purge-access-events`. `ACCESS_EVENT_RETENTION_DAYS` is the figure published
+   in the privacy policy; the two move together.
+5. **Per-gym VFT credentials — now a commercial ask, not just a preference.**
    The working assumptions are that `AreaID` is a filter and not an authorization
    boundary (§6.1), that `EmpId` is unique account-wide and reusing one
    _overwrites another tenant's user record_, and that the deployed fleet may
@@ -1238,16 +1248,13 @@ if it is ever wanted — but nothing in this build depends on it.
 
 Internal product/legal decisions — ours, not the vendor's:
 
-1. **Gym stops paying — do members get locked out?** Suspending a _gym's_ SaaS
-   subscription and mass-blocking its members at the door is a physical-safety
-   and reputational risk. Recommendation: **stop syncing, leave devices in
-   their last known state**, and show the gym a banner. Needs an explicit
-   product call before Phase 3.
-2. **Biometric data is sensitive personal data.** Face and fingerprint
-   templates live on the vendor's devices, but _we_ trigger enrolment, so the
-   privacy policy needs a biometric-processing disclosure and registration
-   needs an access-control consent alongside the existing `accepted_terms_at` /
-   `accepted_gym_rules_at`. Settle before Phase 3 ships.
-3. **Remote door-open is physical security.** Enterprise-only, gym-owner-only,
-   rate-limited, and every invocation audited with actor and timestamp.
+1. ~~**Gym stops paying — do members get locked out?**~~ **Settled 2026-08-26:
+   no, never.** Reconcile skips the gym, the drain stays billing-blind, devices
+   keep their last-pushed windows. See above and
+   `access-control-master.md` §7.1.3.
+2. ~~**Biometric data is sensitive personal data.**~~ **Settled** — see the
+   list above and `access-control-master.md` §7.1.
+3. ~~**Remote door-open is physical security.**~~ **Settled** — Enterprise-only
+   and audited, but available to any entitled user rather than owner-only. See
+   above.
 4. **Identity strategy** (§6) — depends on VFT Q1, but the call is ours.

@@ -8,7 +8,9 @@ import AuthShell from '@/components/auth/AuthShell'
 function VerifyEmailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [status, setStatus] = useState<'pending' | 'success' | 'error'>('pending')
+  const [status, setStatus] = useState<'pending' | 'success' | 'error'>(
+    'pending'
+  )
   const [message, setMessage] = useState('Verifying your email...')
   const [email, setEmail] = useState('')
   const [isResending, setIsResending] = useState(false)
@@ -17,7 +19,10 @@ function VerifyEmailContent() {
 
   useEffect(() => {
     if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
+      const timer = setTimeout(
+        () => setResendCooldown(resendCooldown - 1),
+        1000
+      )
       return () => clearTimeout(timer)
     }
   }, [resendCooldown])
@@ -31,7 +36,9 @@ function VerifyEmailContent() {
 
       if (type === 'signup') {
         setStatus('success')
-        setMessage('Email verification successful! You can now log in to your account.')
+        setMessage(
+          'Email verification successful! You can now log in to your account.'
+        )
         return
       }
 
@@ -53,12 +60,17 @@ function VerifyEmailContent() {
           const data = await response.json()
           if (response.ok && data.success) {
             setStatus('success')
-            setMessage('Email verified successfully! Please log in with your new email address.')
+            setMessage(
+              'Email verified successfully! Please log in with your new email address.'
+            )
             await fetch('/api/auth/logout', { method: 'POST' })
             setTimeout(() => router.push('/login'), 5000)
           } else {
             setStatus('error')
-            setMessage(data.error || 'Failed to verify email. The link may be expired or invalid.')
+            setMessage(
+              data.error ||
+                'Failed to verify email. The link may be expired or invalid.'
+            )
           }
         } catch {
           setStatus('error')
@@ -95,7 +107,9 @@ function VerifyEmailContent() {
       })
       const result = await response.json()
       if (result.success) {
-        setResendMessage('Verification email sent! Check your inbox and spam folder.')
+        setResendMessage(
+          'Verification email sent! Check your inbox and spam folder.'
+        )
         setResendCooldown(15)
       } else {
         setResendMessage(result.error || 'Failed to resend email')
@@ -114,12 +128,44 @@ function VerifyEmailContent() {
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-1.5">
           <span className="mauth-hint">STEP 03 · CONFIRM IDENTITY</span>
-          <h1 style={{ margin: 0, fontSize: 20, fontWeight: 600, letterSpacing: '-0.02em' }}>
-            {status === 'success' ? 'Email verified' : status === 'error' ? 'Verification failed' : 'Verify your email to continue'}
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 20,
+              fontWeight: 600,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {status === 'success'
+              ? 'Email verified'
+              : status === 'error'
+                ? 'Verification failed'
+                : 'Verify your email to continue'}
           </h1>
-          <p style={{ margin: 0, fontSize: 13, color: 'var(--ma-t2)', textWrap: 'pretty' }}>
+          <p
+            style={{
+              margin: 0,
+              fontSize: 13,
+              color: 'var(--ma-t2)',
+              textWrap: 'pretty',
+            }}
+          >
             {status === 'pending' ? (
-              <>We sent a confirmation link{email ? <> to <span style={{ color: 'var(--ma-t1)', fontWeight: 500 }}>{email}</span></> : ''}. Open it to activate your workspace.</>
+              <>
+                We sent a confirmation link
+                {email ? (
+                  <>
+                    {' '}
+                    to{' '}
+                    <span style={{ color: 'var(--ma-t1)', fontWeight: 500 }}>
+                      {email}
+                    </span>
+                  </>
+                ) : (
+                  ''
+                )}
+                . Open it to activate your workspace.
+              </>
             ) : (
               message
             )}
@@ -128,44 +174,146 @@ function VerifyEmailContent() {
 
         {status === 'success' && (
           <div className="mauth-alert mauth-alert-ok">
-            You&apos;re all set. Redirecting to login… or <button type="button" onClick={() => router.push('/login')} className="mauth-btn-link" style={{ textDecoration: 'underline' }}>go now</button>.
+            You&apos;re all set. Redirecting to login… or{' '}
+            <button
+              type="button"
+              onClick={() => router.push('/login')}
+              className="mauth-btn-link"
+              style={{ textDecoration: 'underline' }}
+            >
+              go now
+            </button>
+            .
           </div>
         )}
-        {status === 'error' && <div className="mauth-alert mauth-alert-err">{message}</div>}
+        {status === 'error' && (
+          <div className="mauth-alert mauth-alert-err">{message}</div>
+        )}
 
         {status === 'pending' && (
           <>
             {/* Inbox status — log-widget aesthetic */}
             <div className="mauth-log">
-              <div className="flex items-center gap-2" style={{ padding: '9px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--ma-warn)', boxShadow: '0 0 0 3px rgba(210,153,34,0.15)', flexShrink: 0 }} />
-                <span className="mauth-mono" style={{ fontSize: 11, letterSpacing: '0.06em', color: 'var(--ma-warn)' }}>AWAITING CONFIRMATION</span>
+              <div
+                className="flex items-center gap-2"
+                style={{
+                  padding: '9px 12px',
+                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: 'var(--ma-warn)',
+                    boxShadow: '0 0 0 3px rgba(210,153,34,0.15)',
+                    flexShrink: 0,
+                  }}
+                />
+                <span
+                  className="mauth-mono"
+                  style={{
+                    fontSize: 11,
+                    letterSpacing: '0.06em',
+                    color: 'var(--ma-warn)',
+                  }}
+                >
+                  AWAITING CONFIRMATION
+                </span>
               </div>
-              <div className="mauth-mono" style={{ padding: '10px 12px', fontSize: 11, lineHeight: 1.7, color: 'var(--ma-t3)' }}>
-                <div><span style={{ color: 'var(--ma-ok)' }}>→</span> Delivered to inbox provider</div>
-                <div><span style={{ color: 'var(--ma-t3)' }}>·</span> Not in inbox yet? Check the spam / promotions folder</div>
-                <div><span style={{ color: 'var(--ma-t3)' }}>·</span> Link valid for 30 minutes from send</div>
+              <div
+                className="mauth-mono"
+                style={{
+                  padding: '10px 12px',
+                  fontSize: 11,
+                  lineHeight: 1.7,
+                  color: 'var(--ma-t3)',
+                }}
+              >
+                <div>
+                  <span style={{ color: 'var(--ma-ok)' }}>→</span> Delivered to
+                  inbox provider
+                </div>
+                <div>
+                  <span style={{ color: 'var(--ma-t3)' }}>·</span> Not in inbox
+                  yet? Check the spam / promotions folder
+                </div>
+                <div>
+                  <span style={{ color: 'var(--ma-t3)' }}>·</span> Link valid
+                  for 30 minutes from send
+                </div>
               </div>
             </div>
 
             {/* Resend */}
-            <div className="flex flex-col gap-2.5" style={{ borderTop: '1px solid var(--ma-b1)', paddingTop: 20 }}>
-              <label className="mauth-label">Didn&apos;t receive it?</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@yourgym.lk" className="mauth-input" />
-              <button type="button" onClick={handleResendEmail} disabled={isResending || !email || resendCooldown > 0} className="mauth-btn mauth-btn-accent">
-                {isResending ? 'Sending…' : resendCooldown > 0 ? `Resend verification email (${resendCooldown}s)` : 'Resend verification email'}
+            <div
+              className="flex flex-col gap-2.5"
+              style={{ borderTop: '1px solid var(--ma-b1)', paddingTop: 20 }}
+            >
+              {/* A prompt, not the field's name. Associating it would have a
+                  screen reader announce the input as "Didn't receive it?",
+                  which is worse than the silence it replaces — so the visible
+                  text stays a span and the field names itself. */}
+              <span className="mauth-label">Didn&apos;t receive it?</span>
+              <input
+                aria-label="Email address"
+                name="email"
+                autoComplete="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@yourgym.lk"
+                className="mauth-input"
+              />
+              <button
+                type="button"
+                onClick={handleResendEmail}
+                disabled={isResending || !email || resendCooldown > 0}
+                className="mauth-btn mauth-btn-accent"
+              >
+                {isResending
+                  ? 'Sending…'
+                  : resendCooldown > 0
+                    ? `Resend verification email (${resendCooldown}s)`
+                    : 'Resend verification email'}
               </button>
               {resendMessage && (
-                <span style={{ fontSize: 12, color: resendSent ? 'var(--ma-ok)' : 'var(--ma-err)' }}>{resendMessage}</span>
+                <span
+                  style={{
+                    fontSize: 12,
+                    color: resendSent ? 'var(--ma-ok)' : 'var(--ma-err)',
+                  }}
+                >
+                  {resendMessage}
+                </span>
               )}
             </div>
           </>
         )}
 
         <div className="flex items-center gap-2.5">
-          <button type="button" onClick={() => router.push('/login')} className="mauth-btn" style={{ flex: 1 }}>Back to login</button>
+          <button
+            type="button"
+            onClick={() => router.push('/login')}
+            className="mauth-btn"
+            style={{ flex: 1 }}
+          >
+            Back to login
+          </button>
           {status !== 'error' && (
-            <button type="button" onClick={() => router.push('/login')} className="mauth-btn" style={{ flex: 1, borderColor: 'transparent', color: 'var(--ma-link)' }}>I&apos;ve verified →</button>
+            <button
+              type="button"
+              onClick={() => router.push('/login')}
+              className="mauth-btn"
+              style={{
+                flex: 1,
+                borderColor: 'transparent',
+                color: 'var(--ma-link)',
+              }}
+            >
+              I&apos;ve verified →
+            </button>
           )}
         </div>
 
@@ -180,7 +328,15 @@ function VerifyEmailContent() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<div className="mauth-root"><div className="mauth-form-col"><p className="mauth-hint">Loading…</p></div></div>}>
+    <Suspense
+      fallback={
+        <div className="mauth-root">
+          <div className="mauth-form-col">
+            <p className="mauth-hint">Loading…</p>
+          </div>
+        </div>
+      }
+    >
       <VerifyEmailContent />
     </Suspense>
   )

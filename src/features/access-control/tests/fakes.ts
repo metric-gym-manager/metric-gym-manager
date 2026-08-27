@@ -100,6 +100,10 @@ export function makeContext(
     nextDueDate: day('2026-01-15'),
     registrationSource: RegistrationSource.Manual,
     verifiedAt: null,
+    // Consented by default so the existing suites keep exercising the paths
+    // they were written for. The consent gate has its own fixtures that set
+    // this to null deliberately.
+    biometricConsentAt: new Date('2026-01-01T00:00:00Z'),
     subject: makeSubject(),
     ...overrides,
   }
@@ -180,6 +184,10 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     deviceSerial: string
     capacity: number
   }> = []
+  readonly consentWrites: Array<{ memberId: string; at: Date }> = []
+  readonly consentClears: string[] = []
+  /** Cutoff/limit pairs the retention purge asked for, in call order. */
+  readonly purgeCalls: Array<{ cutoff: Date; limit: number }> = []
 
   /** Serials already stored, so a repeat delivery counts as a duplicate. */
   private readonly seenEventKeys = new Set<string>()
@@ -389,6 +397,31 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     this.settled.push({ jobId, outcome: 'failed', error, retryable })
   }
 
+  async recordBiometricConsent(memberId: string, at: Date): Promise<void> {
+    this.consentWrites.push({ memberId, at })
+
+    // Mirrors the real repository's `.is(..., null)` guard: a member who
+    // already consented keeps their original timestamp. A fake that restamped
+    // would hide exactly the regression the guard exists to prevent.
+    const context = (this.options.contexts ?? []).find(
+      (c) => c.memberId === memberId
+    )
+
+    if (context && context.biometricConsentAt === null) {
+      context.biometricConsentAt = at
+    }
+  }
+
+  async clearBiometricConsent(memberId: string): Promise<void> {
+    this.consentClears.push(memberId)
+
+    const context = (this.options.contexts ?? []).find(
+      (c) => c.memberId === memberId
+    )
+
+    if (context) context.biometricConsentAt = null
+  }
+
   async countDeadJobs(_memberId?: string): Promise<number> {
     return this.options.deadJobs ?? 0
   }
@@ -439,6 +472,39 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
         .map((event) => ({ ...event, memberName: null })),
       total: all.length,
     }
+  }
+
+  /**
+   * A real bounded delete against the fixture array, not a counter.
+   *
+   * The tenth finding in this feature's defect history was a fake that
+   * returned a convenient constant and hid the bug being hunted. Batching is
+   * the whole behaviour under test here, so the double has to actually remove
+   * rows, oldest first, and stop at the limit.
+   *
+   * Filters on **`created_at`**, matching the real repository. Filtering on
+   * `occurred_at` here would be the same class of lie: it would let a fixture
+   * with a device clock a year out pass a test that the production query
+   * fails, which is precisely the defect this column choice exists to avoid.
+   */
+  async deleteEventsOlderThan(cutoff: Date, limit: number): Promise<number> {
+    this.purgeCalls.push({ cutoff, limit })
+
+    const all = this.options.events ?? []
+
+    const doomed = all
+      .filter((event) => new Date(event.created_at) < cutoff)
+      .sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      )
+      .slice(0, limit)
+
+    for (const event of doomed) {
+      all.splice(all.indexOf(event), 1)
+    }
+
+    return doomed.length
   }
 
   async findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null> {

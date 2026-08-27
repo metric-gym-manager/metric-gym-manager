@@ -64,6 +64,15 @@ export type UpdateDeviceInput = z.infer<typeof updateDeviceSchema>
 export const enrolBiometricSchema = z.object({
   deviceId: z.string().uuid(),
   fingerId: z.number().int().min(0).max(9).optional(),
+  /**
+   * The member agreed, at the desk, to their fingerprint being recorded.
+   *
+   * Optional rather than required because a member who consented on a previous
+   * enrolment does not consent again — the service checks what is on file and
+   * only needs this when nothing is. Deliberately not defaulted to `true`: an
+   * absent field must mean "not given", never "assume yes".
+   */
+  consent: z.boolean().optional(),
 })
 
 export type EnrolBiometricInput = z.infer<typeof enrolBiometricSchema>

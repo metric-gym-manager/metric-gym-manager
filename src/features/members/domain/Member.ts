@@ -115,6 +115,19 @@ export interface MemberProps {
    * NULL for members created before consent capture existed.
    */
   acceptedGymRulesAt?: Date | null
+
+  /**
+   * When the member consented to their fingerprint being recorded for door
+   * access, or NULL if they have not.
+   *
+   * Unlike the two consents above this one is **not** captured at
+   * registration. It covers a specific collection that happens at the
+   * enrolment dialog — possibly months later, and only at gyms that own a
+   * reader — so it is recorded at that moment instead, and cleared when the
+   * fingerprint is removed. NULL therefore means "must be asked", whether the
+   * member has never been asked or has withdrawn.
+   */
+  biometricConsentAt?: Date | null
 }
 
 /**
@@ -179,6 +192,7 @@ export class Member {
       remarks: props.remarks ?? null,
       acceptedTermsAt: props.acceptedTermsAt ?? null,
       acceptedGymRulesAt: props.acceptedGymRulesAt ?? null,
+      biometricConsentAt: props.biometricConsentAt ?? null,
     }
   }
 
@@ -316,6 +330,10 @@ export class Member {
 
   get acceptedGymRulesAt(): Date | null {
     return this.props.acceptedGymRulesAt ?? null
+  }
+
+  get biometricConsentAt(): Date | null {
+    return this.props.biometricConsentAt ?? null
   }
 
   // ============================================================
@@ -885,6 +903,7 @@ export class Member {
       remarks: this.remarks,
       acceptedTermsAt: this.acceptedTermsAt?.toISOString() ?? null,
       acceptedGymRulesAt: this.acceptedGymRulesAt?.toISOString() ?? null,
+      biometricConsentAt: this.biometricConsentAt?.toISOString() ?? null,
     }
   }
 }

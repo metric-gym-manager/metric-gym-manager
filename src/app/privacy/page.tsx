@@ -62,7 +62,8 @@ const sections: LegalSection[] = [
               </LegalLI>
               <LegalLI>
                 Biometric Data: fingerprint or face scan (where applicable),
-                used to enable secure check-in/check-out
+                used to enable secure check-in/check-out and to open the
+                gym&apos;s doors
               </LegalLI>
               <LegalLI>
                 Membership Data: membership plan details, start and expiry
@@ -70,6 +71,45 @@ const sections: LegalSection[] = [
               </LegalLI>
               <LegalLI>
                 Attendance Data: check-in/check-out logs, attendance history
+              </LegalLI>
+            </LegalList>
+          </div>
+
+          <div>
+            <LegalSubHead>How Biometric Data Is Handled</LegalSubHead>
+            <LegalP>
+              Biometric data is special category personal data under the
+              Personal Data Protection Act, No. 9 of 2022, and we treat it
+              accordingly.
+            </LegalP>
+            <LegalList>
+              <LegalLI>
+                A fingerprint is only ever recorded with the member&apos;s
+                explicit consent, given at the moment it is recorded rather than
+                buried in a registration form, and we keep a record of when that
+                consent was given
+              </LegalLI>
+              <LegalLI>
+                The fingerprint template is created on the reader itself and is
+                held by the gym&apos;s access-control hardware provider.{' '}
+                <strong>
+                  We never receive, process or store a fingerprint image or
+                  template
+                </strong>{' '}
+                — what we hold is a numeric reference to the member&apos;s
+                record on that hardware and a note of whether a fingerprint has
+                been registered
+              </LegalLI>
+              <LegalLI>
+                Members may withdraw consent at any time by asking their gym to
+                remove their fingerprint. Doing so deletes the template from the
+                reader and clears the consent record, and the member will be
+                asked again before any new fingerprint is recorded
+              </LegalLI>
+              <LegalLI>
+                Providing a fingerprint is never a condition of membership.
+                Members who decline continue to use the gym by whatever other
+                means it offers
               </LegalLI>
             </LegalList>
           </div>
@@ -168,6 +208,13 @@ const sections: LegalSection[] = [
           <LegalLI>
             Manage member registrations, memberships, and renewals — necessary
             for the performance of our contract with the gym operator
+          </LegalLI>
+          <LegalLI>
+            Tell a gym&apos;s door readers how long each member&apos;s
+            membership entitles them to enter, and record the entries and
+            refused attempts those readers report back — based on the
+            member&apos;s explicit consent to biometric processing, which they
+            may withdraw at any time
           </LegalLI>
           <LegalLI>
             Send automated payment reminders and renewal notifications via SMS —
@@ -280,6 +327,17 @@ const sections: LegalSection[] = [
               usage): retained indefinitely in aggregated, anonymized form that
               does not identify any individual data subject
             </LegalLI>
+            <LegalLI>
+              Door access records: entries and refused attempts recorded by a
+              gym&apos;s biometric readers are deleted automatically 12 months
+              after they occur
+            </LegalLI>
+            <LegalLI>
+              Fingerprint templates: held on the gym&apos;s reader and by its
+              access-control hardware provider for as long as the member is
+              enrolled, and deleted from the reader when the member withdraws
+              consent, is removed by the gym, or their membership ends
+            </LegalLI>
           </LegalList>
         </div>
         <div>
@@ -323,6 +381,13 @@ const sections: LegalSection[] = [
           <LegalLI>
             Cloud infrastructure and hosting providers, to host and process data
             on our behalf
+          </LegalLI>
+          <LegalLI>
+            Access-control hardware providers, where a gym operates biometric
+            door readers — limited to the member&apos;s name, a numeric
+            reference and the dates their membership permits entry. The
+            fingerprint template itself is created on the reader and held by
+            that provider; it does not pass through us
           </LegalLI>
           <LegalLI>
             Payment processors, to process subscription and membership payments

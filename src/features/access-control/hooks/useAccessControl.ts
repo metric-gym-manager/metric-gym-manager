@@ -282,7 +282,15 @@ export interface EnrolmentPoll {
   state: EnrolmentPollState
   /** Server's own wording for a refusal; `null` unless `state` is 'failed'. */
   error: string | null
-  start: (input: { deviceId: string; fingerId?: number }) => Promise<void>
+  /**
+   * Begin enrolment. `consent` carries the desk's confirmation that the member
+   * agreed, and is only needed when none is on file — the server decides.
+   */
+  start: (input: {
+    deviceId: string
+    fingerId?: number
+    consent?: boolean
+  }) => Promise<void>
   reset: () => void
 }
 
@@ -329,7 +337,11 @@ export function useEnrolmentPoll(memberId: string | null): EnrolmentPoll {
   }, [])
 
   const start = useCallback(
-    async (input: { deviceId: string; fingerId?: number }) => {
+    async (input: {
+      deviceId: string
+      fingerId?: number
+      consent?: boolean
+    }) => {
       if (!memberId) return
 
       clearTimeout(timerRef.current)
@@ -351,6 +363,13 @@ export function useEnrolmentPoll(memberId: string | null): EnrolmentPoll {
 
       if (cancelledRef.current) return
       setState('awaiting')
+
+      // The request may have recorded the member's consent server-side, so the
+      // panel's copy of their status is already stale. Refreshed here rather
+      // than only when the finger lands, so the consent checkbox disappears as
+      // soon as it has been answered — including on the runs that then time
+      // out waiting for a finger that never came.
+      queryClient.invalidateQueries({ queryKey: memberAccessKey(memberId) })
 
       const startedAt = Date.now()
 
