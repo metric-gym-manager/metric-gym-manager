@@ -154,6 +154,9 @@ function LoginContent() {
           <div className="mauth-alert mauth-alert-warn flex flex-col gap-2">
             <span style={{ fontWeight: 500 }}>Email verification required</span>
             <input
+              aria-label="Email address for verification resend"
+              name="resend-email"
+              autoComplete="email"
               type="email"
               placeholder="you@yourgym.lk"
               value={resendEmail}
