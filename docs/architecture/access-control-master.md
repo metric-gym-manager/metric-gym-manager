@@ -402,7 +402,13 @@ Both log to the cron audit table (rule 2.6).
 | `ACCESS_EVENT_PURGE_MAX_BATCHES`  | 500                          | 250,000 rows a run; a larger backlog waits for tomorrow and the summary says so                                                                       |
 | `ACCESS_EVENT_DELETE_CHUNK_SIZE`  | 100                          | **A transport limit, not a database one** (C2). `.in()` is a query string: 100 ids ≈ 3.9 KB, 500 ≈ 19.5 KB, gateways reject past ~8 KB                |
 
-### 4.7 Tests — 333 across 23 suites
+### 4.7 Tests — 371 across 26 suites
+
+331 in 24 suites under `src/features/access-control/tests/` and
+`src/lib/access-control/__tests__/`, plus two that live with the code they
+guard: `access-control-crons.test.ts` (cron ordering) and
+`BiometricConsentPersistence.test.ts` (the `members` row round-trip). §8.1
+has the command that runs exactly this set.
 
 Notable ones, because they encode decisions rather than behaviour:
 
@@ -616,8 +622,10 @@ described as though it does.
 
 | Gap                                              | Note                                                                                                                                                                                                                                                                                                       |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E2E covers the three screens, not the hardware   | `tests/e2e/access-control-{setup,dashboard,member}.spec.ts` — 14 tests against `MockAccessControlProvider`, no hardware or vendor needed. Gated on `E2E_ACCESS_CONTROL=1` + a seeded **Enterprise** gym. The "Fingerprint registered" state is **unreachable from E2E** (see §4.7) and stays unit-covered. |
+| E2E covers the three screens, not the hardware   | `tests/e2e/access-control-{setup,dashboard,member}.spec.ts` — 15 tests against `MockAccessControlProvider`, no hardware or vendor needed. Gated on `E2E_ACCESS_CONTROL=1` + a seeded **Enterprise** gym. The "Fingerprint registered" state is **unreachable from E2E** (see §4.7) and stays unit-covered. |
 | `npm run build` unverified in CI-like conditions | Blocked in the sandbox by Google Fonts being unreachable — `layout.tsx` fetches Geist/Geist Mono/Inter at build time. **Those three are the only errors; no feature module failed to compile.** Run a real build before merge.                                                                             |
+| **The E2E suite has never run green**            | The one piece of unfinished work on this feature. Specs collect, four environment defects are fixed, the fifth failure is uncaptured. **Run it with §8.2 and read `error-context.md` before the stack trace.**                                                                                             |
+| **Repo-wide Prettier drift** (not this feature)  | `npm run format` rewrites ~284 files nobody touched, so anyone who runs it buries their own diff. See §7.4 — it has a required order, and doing it inside a feature branch is what makes it dangerous.                                                                                                     |
 | Multi-finger enrolment                           | Deliberate scope reduction — one finger per member. The API supports `fingerId` 0–9; the schema records a single finger.                                                                                                                                                                                   |
 | Cross-device template migration                  | Deliberate — single gate per gym assumed. The port keeps `syncone`/`syncsometoone`; nothing in the product depends on them.                                                                                                                                                                                |
 | Manual "mark as enrolled" fallback               | The A4 containment plan names it; not built. Only needed if templates never surface via the wrapper.                                                                                                                                                                                                       |
@@ -629,10 +637,11 @@ whether this repo's tests can be trusted: silently skipping Playwright specs,
 unlabelled form fields across all five auth pages, a port collision that
 substituted a different application for the app under test, and permanent
 generated-file churn from `npm run dev`. Three are fixed; the fourth
-(`.prettierignore` for generated outputs) is queued with the wider formatting
-work. The accessibility fix went beyond auth — every filter and bulk-import
-form in the product was announcing its controls as unnamed — and is now
-enforced repo-wide by `jsx-a11y/label-has-associated-control`.
+(`.prettierignore` for generated outputs) is the first step of §7.4.
+
+The accessibility fix went beyond auth — every filter and bulk-import form in
+the product was announcing its controls as unnamed — and is now enforced
+repo-wide by `jsx-a11y/label-has-associated-control`.
 
 None of that is access-control work. All of it was in the way of proving
 access-control work.
@@ -659,13 +668,105 @@ A-4 (who assigns the `EmpId` — decides whether our identity model holds), A-10
 (timezone — a wrong reading makes every timestamp 5½ h out), G-1 (webhook
 rejects a bad token).
 
+### 7.4 The repo-wide Prettier drift — queued, with a required order
+
+Not access-control work, recorded here because this is the document the next
+session reads and because the fourth E2E defect is its first step.
+
+**The state:** `npm run format` rewrites roughly **284 files nobody touched**.
+The tree has never been Prettier-clean at HEAD — `semi: false` was adopted
+after a large amount of code already existed — so the first person to run the
+command silently reformats the repo underneath their own change. That happened
+during this branch and cost a revert of 314 files.
+
+**Why it was not fixed here:** a formatting commit touching 284 files inside a
+54-file feature branch makes the feature unreviewable. It needs its own branch
+and its own PR, reviewed as "no behaviour changed" and nothing else.
+
+**The order matters, and step 1 is not optional:**
+
+1. **`.prettierignore` for generated outputs — first.** `public/service-worker.js`
+   is emitted by `scripts/generate-pwa-assets.js` with semicolons; the committed
+   copy has had Prettier run over it. They disagree permanently, so **every**
+   `npm run dev` leaves the file modified (trap 20). Formatting the repo before
+   ignoring it re-creates the churn immediately and makes step 2 look like it
+   failed. Rule 2.19 applies: edit the generator, never the output — and here,
+   do neither; ignore it.
+2. **One formatting-only commit.** `npm run format`, nothing else in the diff,
+   a commit message that says so.
+3. **`npm run format:check` in CI**, so the drift cannot come back. Without
+   this step the other three decay.
+4. **`.git-blame-ignore-revs`** carrying that commit's SHA, so `git blame` keeps
+   pointing at whoever wrote each line rather than at the reformat.
+
 ---
 
 ## 8. Verification — current state and how to re-run it
 
+### 8.1 The checks that pass
+
 ```bash
 npm run arch:check && npx tsc --noEmit && npm test && npm run lint
 ```
+
+Access-control's own share of that suite, if you want it alone:
+
+```bash
+npx jest src/features/access-control src/lib/access-control \
+  src/app/api/cron/__tests__/access-control-crons.test.ts \
+  src/features/members/tests/BiometricConsentPersistence.test.ts
+```
+
+### 8.2 The E2E suite — how to actually run it
+
+**This is the one piece of unfinished work on the feature.** It has never
+reached a green run; §8.3 is the full history of why. What follows is what a
+session picking it up needs.
+
+```bash
+# 1. Browser + system libraries. The second command is the one people miss —
+#    a missing libasound.so.2 fails before any spec is loaded.
+npx playwright install chromium
+npx playwright install-deps chromium
+
+# 2. Nothing else may be listening on 3100 (see trap 19 — this is not
+#    paranoia, it cost two debugging rounds).
+lsof -i :3100 || echo "3100 free"
+
+# 3. Run just the access-control specs.
+npx playwright test access-control
+
+# 4. Or all 26, including the billing suite that had also been skipping.
+npm run test:e2e
+```
+
+**Prerequisites, all in `.env.local`** — Playwright loads that file itself now
+(`loadEnvConfig`), so there is no second place to set them:
+
+| Variable                                 | Why                                                                                                                     |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `E2E_ACCESS_CONTROL=1`                   | Without it all 15 specs skip — **and a skip reports green** (trap 17)                                                   |
+| `E2E_ENTERPRISE_GYM_EMAIL` / `_PASSWORD` | A seeded gym on the **Enterprise** tier. `requireAccessControlGym` fails closed, so any other tier gets 403 everywhere. |
+| `E2E_LITE_GYM_EMAIL` / `_PASSWORD`       | Optional. Only the "not entitled" spec uses it; it skips cleanly without.                                               |
+| `ACCESS_CONTROL_ENABLED` **unset**       | Leave it unset. The specs assume `MockAccessControlProvider` — no hardware, no vendor.                                  |
+| `E2E_PORT`                               | Optional override if 3100 is taken.                                                                                     |
+
+**Verify the run is real before trusting it.** The output must say tests
+_passed_, not _skipped_:
+
+```bash
+npx playwright test access-control --list   # should print 15 tests
+```
+
+**When it fails, read this first — before the stack trace:**
+
+```
+test-results/<spec-name>/error-context.md
+```
+
+Its ARIA snapshot is what identified the Remotion collision. In every one of
+the four defects below the stack trace pointed nowhere useful and the snapshot
+pointed straight at the cause.
 
 | Check              | State                                                                    |
 | ------------------ | ------------------------------------------------------------------------ |
@@ -677,10 +778,10 @@ npm run arch:check && npx tsc --noEmit && npm test && npm run lint
 | **Playwright E2E** | ⚠️ **written, collected, never green** — see below                       |
 | Supabase advisors  | ✅ nothing new; the pre-existing INFO/WARN set is unchanged              |
 
-### The E2E suite has not passed
+### 8.3 Why it has not passed yet
 
 This is the honest state and it should not be softened. `npx playwright test
---list` collects all 14 access-control tests, they compile, and every selector
+--list` collects all 15 access-control tests, they compile, and every selector
 was read off the real components — but **no run has ever reached an
 assertion**. Four separate environment defects were found and fixed on the way,
 each hiding the next:
@@ -697,20 +798,21 @@ each hiding the next:
 4. **Missing Chromium system libraries** on the dev machine
    (`npx playwright install-deps chromium`).
 
-The suite still fails as of this writing and the cause is not yet known. When
-picking this up: run it, then read
-`test-results/<spec>/error-context.md` **first** — its ARIA snapshot is what
-identified the Remotion collision, and the stack trace pointed nowhere useful
-in every one of these cases.
+All four are fixed. **The suite still fails as of this writing and the fifth
+cause is not yet known** — no output has been captured since the port fix
+landed, so the next failure is unread rather than unexplained. Run §8.2, read
+the `error-context.md` it names, and expect the answer to be environmental
+again rather than a bug in the specs: every one of the four so far was.
 
-**Merged:** [#63] on 2026-08-26, then the follow-up branch
-`claude/access-control-architecture-b23v6f`.
+**Merged:** [#63] on 2026-08-26 (the feature), then [#65] on 2026-08-27 (the
+four product decisions, the E2E suite, and the accessibility work).
 
 [#63]: https://github.com/metric-gym-manager/metric-gym-manager/pull/63
+[#65]: https://github.com/metric-gym-manager/metric-gym-manager/pull/65
 
 ## 9. Traps for the next session
 
-Sixteen things that will bite someone who does not know them.
+Twenty things that will bite someone who does not know them.
 
 1. **Do not import `@/features/access-control` from a client component.** The
    barrel is server-only. Deep-import from `utils/serializeAccessForAPI`,
@@ -780,11 +882,6 @@ Sixteen things that will bite someone who does not know them.
     after any dev run. Do not commit that churn — and fix it by adding the
     generated outputs to `.prettierignore`, not by reformatting the file again
     (rule 2.19: edit the generator, never the output).
-21. **Never give the drain a subscription repository.** A gym's billing lapse
-    stops the nightly diff and nothing else; the outbox stays billing-blind so
-    a member who renews mid-lapse still reaches the door (§7.1.3). "Stop doing
-    vendor work for a gym that is not paying" is the plausible-sounding change
-    that locks out paying members.
 
 ---
 
