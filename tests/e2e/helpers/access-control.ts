@@ -86,8 +86,11 @@ export function uniqueSerial(prefix: string): string {
 export async function ensureVendorAccount(page: Page): Promise<void> {
   await page.goto('/settings/access-control')
 
+  // Long enough for `next dev` to compile this route on first touch. At the
+  // 5s default the settings page is still building and the heading reads as
+  // missing, which looks like a renamed selector rather than a slow server.
   const heading = page.getByRole('heading', { name: 'Access Control Account' })
-  await expect(heading).toBeVisible()
+  await expect(heading).toBeVisible({ timeout: 30_000 })
 
   await page.getByLabel('Server address').fill('https://vft.example.com')
   await page.getByLabel('Email', { exact: true }).fill('installer@example.com')
@@ -104,11 +107,26 @@ export async function connectReader(
   page: Page,
   reader: { serial: string; name: string }
 ): Promise<void> {
+  // Serials are unique per run (`uniqueSerial`) but names are fixed per spec,
+  // so a run that died before its cleanup leaves a reader behind that the next
+  // run cannot tell apart from the one it is about to create: two rows with
+  // identical text, and every name-based locator dies on strict mode. Setup
+  // has to be idempotent, because the run that litters is by definition the
+  // run that failed.
+  await forgetReader(page, reader.name)
+
   await page.goto('/settings/access-control')
 
   await page.getByRole('button', { name: 'Connect a reader' }).click()
-  await page.getByLabel('Serial number').fill(reader.serial)
-  await page.getByLabel('Name', { exact: true }).fill(reader.name)
+
+  // Scoped by placeholder, not by label. The add form is an inline panel
+  // rather than a dialog, and every reader already in the list renders its own
+  // "Name" field — so `getByLabel('Name')` matches the form plus one per row,
+  // and dies on strict mode as soon as the gym has a single reader. The
+  // placeholders exist only in the add form. "Serial number" happens to be
+  // unambiguous today, but it is scoped the same way so the pair cannot drift.
+  await page.getByPlaceholder('QEM1253800017').fill(reader.serial)
+  await page.getByPlaceholder('Front entrance').fill(reader.name)
   await page.getByRole('button', { name: 'Connect', exact: true }).click()
 
   await expect(page.getByText(reader.name)).toBeVisible()
@@ -125,13 +143,54 @@ export async function connectReader(
 export async function forgetReader(page: Page, name: string): Promise<void> {
   await page.goto('/settings/access-control')
 
-  const forget = page.getByRole('button', { name: `Forget ${name}` })
-  if ((await forget.count()) === 0) return
+  // Wait for the reader list to settle before counting anything. It renders a
+  // skeleton first, and while it does every count is 0 — which makes "nothing
+  // to forget" and "not loaded yet" the same answer. The drain below would
+  // then do nothing, the assertion at the end would pass against a list that
+  // had not rendered, and the reader would still be there for the next run.
+  await expect(
+    page
+      .getByRole('button', { name: /^Forget / })
+      .or(page.getByText('No readers connected'))
+      .first()
+  ).toBeVisible({ timeout: 30_000 })
 
-  await forget.click()
-  await page
-    .getByRole('button', { name: /forget|remove|confirm/i })
-    .last()
-    .click()
+  const forget = page.getByRole('button', { name: `Forget ${name}` })
+
+  // Drain rather than remove one. Earlier failed runs can leave several rows
+  // sharing a name, and `forget.click()` on a locator matching more than one
+  // is itself a strict-mode failure — so the cleanup helper would break on
+  // exactly the mess it exists to clear. Bounded so a row that refuses to go
+  // fails as a timeout on the assertion below rather than spinning forever.
+  const dialog = page.getByRole('dialog')
+
+  for (let remaining = await forget.count(); remaining > 0; remaining--) {
+    // Re-click until the dialog is actually open, rather than clicking once and
+    // trusting it. The settle gate above waits for the trigger to be *visible*,
+    // which in dev is not the same as hydrated — an early click is swallowed
+    // with no handler attached and nothing to retry it.
+    await expect(async () => {
+      await forget.first().click()
+      await expect(dialog).toBeVisible({ timeout: 2_000 })
+    }).toPass({ timeout: 30_000 })
+
+    // Scoped to the dialog, and matched on its exact label.
+    //
+    // The page-wide `/forget|remove|confirm/i` this replaces also matched every
+    // row's `aria-label="Forget <name>"` trigger — three decoys on the shared
+    // gym — so `.last()` only found the confirm button once the Radix portal
+    // had mounted. Resolve it a tick earlier and `.last()` was the *last row's*
+    // trigger: the helper opened a second reader's dialog, the one it meant to
+    // remove survived, and the count assertion failed with the reader still
+    // listed. That was the intermittent cleanup failure, and it got likelier
+    // with every extra reader on the page.
+    await dialog.getByRole('button', { name: 'Forget reader' }).click()
+
+    // Gone from the DOM before the next iteration clicks another trigger — a
+    // modal overlay would otherwise intercept it.
+    await expect(dialog).toBeHidden()
+    await expect(forget).toHaveCount(remaining - 1)
+  }
+
   await expect(page.getByText(name)).toHaveCount(0)
 }

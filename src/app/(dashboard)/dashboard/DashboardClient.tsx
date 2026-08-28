@@ -19,6 +19,8 @@ import {
 } from '@/components/ui'
 import { PageHeader, StatCard, ChartCard } from '@/components/common/composites'
 import { MemberAvatar } from '@/features/members'
+import { useNow } from '@/hooks/useNow'
+import { useIsHydrated } from '@/hooks/useIsHydrated'
 import type { MonthlyRevenueResponse } from '@/features/revenue/types'
 import { isNewMember } from '@/features/members'
 
@@ -103,6 +105,7 @@ export default function DashboardClient() {
     },
   })
 
+  const nowMs = useNow()
   const now = new Date()
   const year = now.getFullYear()
   const month = now.getMonth() + 1
@@ -145,17 +148,36 @@ export default function DashboardClient() {
     staleTime: 60_000,
   })
 
-  const stamp = now
-    .toLocaleString('en-US', {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-    .toUpperCase()
-    .replace(',', '')
+  /**
+   * The header clock, resolved on the client only.
+   *
+   * Rendering it during SSR is a guaranteed hydration mismatch: the stamp is
+   * accurate to the minute, so any request crossing a minute boundary between
+   * the server render and hydration hands React two different strings
+   * ("AUG 27 2026, 20:44" against "AUG 27 2026, 20:45") and it throws the tree
+   * away. It was also wrong on its own terms — an SSR-ed stamp is the
+   * *server's* clock, printed under a label that says IST.
+   *
+   * `useIsHydrated` holds the server render and the hydrating client render to
+   * the same output, and the real time appears on the render after. `useNow`
+   * supplies the value itself — it is the repo's render-safe clock and ticks
+   * on the minute, so the stamp stays true instead of freezing at mount.
+   */
+  const hydrated = useIsHydrated()
+
+  const stamp = hydrated
+    ? new Date(nowMs)
+        .toLocaleString('en-US', {
+          month: 'short',
+          day: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        })
+        .toUpperCase()
+        .replace(',', '')
+    : null
 
   if (error) {
     return (
@@ -231,7 +253,15 @@ export default function DashboardClient() {
         title="Overview"
         actions={
           <span className="font-mono text-mono-sm text-ink-muted">
-            {stamp} IST
+            {stamp === null ? (
+              // Same glyph count in the same mono face, so the real stamp
+              // lands without moving the header.
+              <span aria-hidden="true" className="invisible">
+                AAA 00 0000 00:00 IST
+              </span>
+            ) : (
+              `${stamp} IST`
+            )}
           </span>
         }
       />

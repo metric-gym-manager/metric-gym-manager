@@ -18,15 +18,17 @@
 
 ## 0. How to use this document
 
-| If you are…                              | Read                                           |
-| ---------------------------------------- | ---------------------------------------------- |
-| Starting fresh on this feature           | §1 → §2 → §4 → §7                              |
-| About to change how access is decided    | §2, §5, §6 — then `domain/AccessDecision.ts`   |
-| About to touch the vendor client         | §3 in full                                     |
-| Preparing for the simulator session      | §3.10, §7.3, then `vft-simulator-test-plan.md` |
-| Wondering why something is written oddly | §6 — it is probably a fix for a real defect    |
-| Adding a feature                         | §9 first. Those are the traps.                 |
-| Touching enrolment, retention or billing | §7.1 — those decisions are made; do not reopen |
+| If you are…                              | Read                                                            |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| **Asking "what is left to do?"**         | **§8.5 — workload, blockers, and who owns each**                |
+| **Talking to VFT**                       | **§8.6 — what to ask for, what to give them**                   |
+| Starting fresh on this feature           | §1 → §2 → §4 → §7                                               |
+| About to change how access is decided    | §2, §5, §6 — then `domain/AccessDecision.ts`                    |
+| About to touch the vendor client         | §3 in full                                                      |
+| Preparing for the simulator session      | §8.4 (the gate), §3.10, §7.3, then `vft-simulator-test-plan.md` |
+| Wondering why something is written oddly | §6 — it is probably a fix for a real defect                     |
+| Adding a feature                         | §9 first. Those are the traps.                                  |
+| Touching enrolment, retention or billing | §7.1 — those decisions are made; do not reopen                  |
 
 **Companion documents** (this one summarises them; they hold the detail):
 
@@ -426,7 +428,8 @@ Notable ones, because they encode decisions rather than behaviour:
 | `RemoteOpenPermission.test.tsx`             | The remote-open decision, so the permissive default is not read as an oversight and "tightened"             |
 | `BiometricConsentPersistence.test.ts`       | (members) Consent survives an ordinary member edit — `update()` writes the whole row, not a patch           |
 
-**E2E (Playwright), 14 tests across 3 specs.** Runnable with no hardware and no
+**E2E (Playwright), 15 tests across 3 specs** — 14 passing, 1 skipped by
+design (2026-08-27). Runnable with no hardware and no
 vendor, because `createAccessControlProvider()` returns the mock unless
 `ACCESS_CONTROL_ENABLED=true`. Requires `E2E_ACCESS_CONTROL=1` and a seeded
 Enterprise gym (`E2E_ENTERPRISE_GYM_EMAIL` / `_PASSWORD`); every spec skips
@@ -551,6 +554,25 @@ the gym said the member agreed, exactly as `accepted_terms_at` does. Nothing in
 a client-server system can prove a human was asked, and the field must not be
 described as though it does.
 
+### Fourth audit (2026-08-27) — found by the E2E suite's first green run
+
+Not by inverting an assumption this time. By running the thing.
+
+| #      | Inverted assumption                            | The defect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **E1** | "A route that reads as this gym can write too" | `access_devices` is SELECT-only for gym owners, and five routes wrote through the caller's session client — `POST /devices`, `enable`, `disable`, `unlink`, `PATCH`. **Registering, renaming, pausing and forgetting a reader were all broken in production.** Unit tests mock the repository, so RLS never ran there and every one of them passed. See trap 21.                                                                                                                                                                                                     |
+| **E2** | "Rendering the time is harmless"               | The dashboard header stamped the clock to the minute during SSR, so any load crossing a minute boundary mismatched on hydration and React discarded the tree — for every user, on the busiest page. It was the server's clock besides, printed under an IST label. See trap 22.                                                                                                                                                                                                                                                                                      |
+| **E3** | "Only _values_ can mismatch on hydration"      | `FeatureGate` chose the tree's **shape** — nothing, the children, or the upsell — from query state that is not guaranteed identical on the server and in the hydrating client render. React found children where it had rendered a placeholder and threw the subtree away, on **every gated page**. A structural mismatch is E2 wearing different clothes, and `isLoading` is not a hydration-safe discriminator. Both now go through `useIsHydrated`.                                                                                                               |
+| **E4** | "An intermittent test failure is flakiness"    | `forgetReader`'s confirm step matched `/forget\|remove\|confirm/i` **page-wide**, which also matches every row's `aria-label="Forget <name>"` trigger. `.last()` is the dialog's button only after the portal mounts; a tick earlier it is the last row's trigger, so cleanup clicked the wrong reader and the intended one survived. It presented as ~1-in-4 flakiness and got likelier with every extra reader on the page. **A locator that can resolve to the control that opened the dialog is not a race, it is a bug** — scope to the dialog and wait for it. |
+
+**Both were live, user-facing, and sitting under passing tests.** E1 was
+invisible because the doubles do not enforce RLS; E2 because no unit test
+renders the page twice and compares. That is the same lesson as the tenth
+finding and C2, arriving a third time from a third direction: **a test can only
+fail in a way its substitutes model.** The E2E suite is the only thing in this
+repo that runs the real policies against the real renderer, which is the entire
+argument for having paid to get it green.
+
 ---
 
 ## 7. What is NOT built
@@ -620,24 +642,33 @@ described as though it does.
 
 ### 7.2 Engineering — known gaps, none blocking
 
-| Gap                                              | Note                                                                                                                                                                                                                                                                                                       |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| E2E covers the three screens, not the hardware   | `tests/e2e/access-control-{setup,dashboard,member}.spec.ts` — 15 tests against `MockAccessControlProvider`, no hardware or vendor needed. Gated on `E2E_ACCESS_CONTROL=1` + a seeded **Enterprise** gym. The "Fingerprint registered" state is **unreachable from E2E** (see §4.7) and stays unit-covered. |
-| `npm run build` unverified in CI-like conditions | Blocked in the sandbox by Google Fonts being unreachable — `layout.tsx` fetches Geist/Geist Mono/Inter at build time. **Those three are the only errors; no feature module failed to compile.** Run a real build before merge.                                                                             |
-| **The E2E suite has never run green**            | The one piece of unfinished work on this feature. Specs collect, four environment defects are fixed, the fifth failure is uncaptured. **Run it with §8.2 and read `error-context.md` before the stack trace.**                                                                                             |
-| **Repo-wide Prettier drift** (not this feature)  | `npm run format` rewrites ~284 files nobody touched, so anyone who runs it buries their own diff. See §7.4 — it has a required order, and doing it inside a feature branch is what makes it dangerous.                                                                                                     |
-| Multi-finger enrolment                           | Deliberate scope reduction — one finger per member. The API supports `fingerId` 0–9; the schema records a single finger.                                                                                                                                                                                   |
-| Cross-device template migration                  | Deliberate — single gate per gym assumed. The port keeps `syncone`/`syncsometoone`; nothing in the product depends on them.                                                                                                                                                                                |
-| Manual "mark as enrolled" fallback               | The A4 containment plan names it; not built. Only needed if templates never surface via the wrapper.                                                                                                                                                                                                       |
-| Occupancy / time-in-gym                          | **Deliberately never.** With one reader serving entry and exit, `CheckingStatus` reports the device's configured mode, not reality. Events are **visits**, not paired sessions. Building this would be inventing data the hardware does not have.                                                          |
+| Gap                                                            | Note                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| E2E covers the three screens, not the hardware                 | `tests/e2e/access-control-{setup,dashboard,member}.spec.ts` — 15 tests against `MockAccessControlProvider`, no hardware or vendor needed. Gated on `E2E_ACCESS_CONTROL=1` + a seeded **Enterprise** gym. The "Fingerprint registered" state is **unreachable from E2E** (see §4.7) and stays unit-covered.                                                                                                                                                                                                                                                                                                                                                                     |
+| ~~`npm run build` unverified~~ **Resolved**                    | Verified 2026-08-27: exits 0, 93 static pages, all routes compiled, TypeScript clean. The earlier Google Fonts failure was the sandbox's network, not `layout.tsx`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ~~Hydration mismatch on `/settings/access-control`~~ **Fixed** | Was structural, not textual: `FeatureGate` decides the _shape_ of the tree from query state, and query state is not guaranteed identical on the server and in the hydrating client render, so React found children where it had rendered a placeholder and discarded the subtree. Pinned with `useIsHydrated` (defect E3, §6). It affected **every gated page**, not only this one.                                                                                                                                                                                                                                                                                            |
+| ~~E2E cleanup is intermittently flaky~~ **Fixed**              | It was never flakiness. `forgetReader` confirmed with a page-wide `getByRole('button', { name: /forget\|remove\|confirm/i }).last()`, and that pattern **also matches every row's `aria-label="Forget <name>"` trigger** — three decoys on the shared gym. `.last()` is the dialog's button only once the Radix portal has mounted; resolve it a tick earlier and it is the _last row's trigger_, so the helper opened a second reader's dialog and the one it meant to remove survived. Now scoped to `getByRole('dialog')` and matched on the exact label, with the opening click retried until the dialog is actually up. Three consecutive clean runs. See defect E4 (§6). |
+| ~~The E2E suite has never run green~~ **Resolved**             | Green on 2026-08-27: **14 passed, 1 honest skip**, after eleven causes (§8.3). Needs `workers: 1` — every spec shares one seeded gym. **Still read `error-context.md` before the stack trace; it found all eleven.**                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| **Repo-wide Prettier drift** (not this feature)                | `npm run format` rewrites ~284 files nobody touched, so anyone who runs it buries their own diff. See §7.4 — it has a required order, and doing it inside a feature branch is what makes it dangerous.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| Multi-finger enrolment                                         | Deliberate scope reduction — one finger per member. The API supports `fingerId` 0–9; the schema records a single finger.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| Cross-device template migration                                | Deliberate — single gate per gym assumed. The port keeps `syncone`/`syncsometoone`; nothing in the product depends on them.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| Manual "mark as enrolled" fallback                             | The A4 containment plan names it; not built. Only needed if templates never surface via the wrapper.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| Occupancy / time-in-gym                                        | **Deliberately never.** With one reader serving entry and exit, `CheckingStatus` reports the device's configured mode, not reality. Events are **visits**, not paired sessions. Building this would be inventing data the hardware does not have.                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
-**What the E2E attempt cost, and bought.** Writing the suite uncovered four
-defects that had nothing to do with door hardware and everything to do with
-whether this repo's tests can be trusted: silently skipping Playwright specs,
-unlabelled form fields across all five auth pages, a port collision that
-substituted a different application for the app under test, and permanent
-generated-file churn from `npm run dev`. Three are fixed; the fourth
-(`.prettierignore` for generated outputs) is the first step of §7.4.
+**What the E2E suite cost, and bought.** Getting it green took eleven causes
+(§8.3), and almost none of them were about door hardware. It found: silently
+skipping Playwright specs, unlabelled form fields across all five auth pages, a
+port collision that substituted a different application for the app under test,
+permanent generated-file churn from `npm run dev`, seeded auth rows that no
+Supabase API could read, a 17-byte AES key, **five device routes whose writes
+RLS had been refusing in production**, and a dashboard clock that broke
+hydration on every minute boundary for every user.
+
+That last pair is the argument for the suite. Both were live user-facing
+defects, both sat in code with passing unit tests, and neither was reachable by
+any test that mocks its repository or never renders the page. The cost was a
+day of environment archaeology; the return was the only instrument in this repo
+that can see them.
 
 The accessibility fix went beyond auth — every filter and bulk-import form in
 the product was announcing its controls as unnamed — and is now enforced
@@ -650,6 +681,9 @@ access-control work.
 
 The simulator session plan is `vft-simulator-test-plan.md` — Parts A–H, ~90
 items, with a "if you only get an hour, do these eight" list at the end.
+**Check §8.4 before booking the session**: its pre-flight gate is only partly
+met, and the two items still open (a real `VFT_API_BASE_URL`, and a publicly
+reachable webhook URL) are procurement and deployment, not code.
 
 **The single highest-priority unknown:**
 
@@ -719,9 +753,10 @@ npx jest src/features/access-control src/lib/access-control \
 
 ### 8.2 The E2E suite — how to actually run it
 
-**This is the one piece of unfinished work on the feature.** It has never
-reached a green run; §8.3 is the full history of why. What follows is what a
-session picking it up needs.
+**Green as of 2026-08-27: 14 passed, 1 skipped, 0 failed.** It took eleven
+distinct causes to get there; §8.3 is the full history, and it is worth reading
+before assuming a future red run is a bug in the specs. The skip is the
+fingerprint-withdrawal test, and it is honest — see §8.3.
 
 ```bash
 # 1. Browser + system libraries. The second command is the one people miss —
@@ -730,8 +765,11 @@ npx playwright install chromium
 npx playwright install-deps chromium
 
 # 2. Nothing else may be listening on 3100 (see trap 19 — this is not
-#    paranoia, it cost two debugging rounds).
+#    paranoia, it cost two debugging rounds), AND no dev server may be
+#    orphaned from an earlier run (trap 24 — Next 16 allows one per
+#    directory, and the failure names 3001, not 3100).
 lsof -i :3100 || echo "3100 free"
+pkill -f '^next-server' 2>/dev/null || echo "no orphaned dev server"
 
 # 3. Run just the access-control specs.
 npx playwright test access-control
@@ -748,8 +786,22 @@ npm run test:e2e
 | `E2E_ACCESS_CONTROL=1`                   | Without it all 15 specs skip — **and a skip reports green** (trap 17)                                                   |
 | `E2E_ENTERPRISE_GYM_EMAIL` / `_PASSWORD` | A seeded gym on the **Enterprise** tier. `requireAccessControlGym` fails closed, so any other tier gets 403 everywhere. |
 | `E2E_LITE_GYM_EMAIL` / `_PASSWORD`       | Optional. Only the "not entitled" spec uses it; it skips cleanly without.                                               |
-| `ACCESS_CONTROL_ENABLED` **unset**       | Leave it unset. The specs assume `MockAccessControlProvider` — no hardware, no vendor.                                  |
+| `ACCESS_CONTROL_ENABLED` **unset**       | Or `false` — the code tests `=== 'true'`, so the two are identical. The specs assume `MockAccessControlProvider`.       |
+| `ACCESS_CONTROL_ENCRYPTION_KEY`          | Must **base64-decode to exactly 32 bytes** (44 chars). A short key throws in `getKey()` and every credential save 500s. |
 | `E2E_PORT`                               | Optional override if 3100 is taken.                                                                                     |
+
+The seeded gyms need more than a row in `gyms`. Both of these bit a full
+session, and neither is visible from the app:
+
+- **`gyms.email_verified` must be `true`.** It is an app column, not Supabase
+  auth state — `auth.service.ts` computes `requiresEmailVerification` from it
+  and the login route answers 403. Confirming the address in Supabase, or
+  turning email confirmation off in the dashboard, does nothing to it.
+- **Never `INSERT` the auth user by hand.** A direct insert leaves
+  `confirmation_token`, `recovery_token`, `email_change` and
+  `email_change_token_new` NULL, GoTrue cannot scan those rows into its
+  non-nullable Go strings, and _every_ lookup of that user fails. Use the Admin
+  API, or set the four columns to `''`.
 
 **Verify the run is real before trusting it.** The output must say tests
 _passed_, not _skipped_:
@@ -764,9 +816,12 @@ npx playwright test access-control --list   # should print 15 tests
 test-results/<spec-name>/error-context.md
 ```
 
-Its ARIA snapshot is what identified the Remotion collision. In every one of
-the four defects below the stack trace pointed nowhere useful and the snapshot
-pointed straight at the cause.
+Its ARIA snapshot is what identified the Remotion collision, and it stayed the
+only useful instrument through all eleven causes: it was the snapshot that
+showed the login page already logged in, the presence badge plainly rendered
+while the locator called it missing, and the consent checkbox present in a
+panel the spec had decided was empty. The stack trace pointed at the helper
+every time. **Read the snapshot first, every time.**
 
 | Check              | State                                                                    |
 | ------------------ | ------------------------------------------------------------------------ |
@@ -775,16 +830,18 @@ pointed straight at the cause.
 | `npm test`         | ✅ 1,330 passing, 7 skipped (333 in access-control)                      |
 | `npm run lint`     | ✅ zero errors (13 pre-existing warnings, none from this feature)        |
 | `npm run build`    | ⚠️ never verified — Google Fonts is unreachable from the build sandboxes |
-| **Playwright E2E** | ⚠️ **written, collected, never green** — see below                       |
+| **Playwright E2E** | ✅ **14 passed, 1 honest skip** (2026-08-27) — ~2.6 min, one worker      |
 | Supabase advisors  | ✅ nothing new; the pre-existing INFO/WARN set is unchanged              |
 
-### 8.3 Why it has not passed yet
+### 8.3 What it took to get green — eleven causes
 
-This is the honest state and it should not be softened. `npx playwright test
---list` collects all 15 access-control tests, they compile, and every selector
-was read off the real components — but **no run has ever reached an
-assertion**. Four separate environment defects were found and fixed on the way,
-each hiding the next:
+Kept in full, because the shape of this list is the lesson: **each cause hid
+the next, and the failure they presented was almost never the failure they
+were.** Nothing here was found by reasoning about the specs; every one came
+from reading `error-context.md`.
+
+Causes 1–4 were found on 2026-08-27 before the suite had ever reached an
+assertion:
 
 1. **Playwright never loaded `.env.local`**, so every env-gated spec skipped —
    and a skip reports green. The billing specs had presumably been skipping
@@ -798,11 +855,218 @@ each hiding the next:
 4. **Missing Chromium system libraries** on the dev machine
    (`npx playwright install-deps chromium`).
 
-All four are fixed. **The suite still fails as of this writing and the fifth
-cause is not yet known** — no output has been captured since the port fix
-landed, so the next failure is unread rather than unexplained. Run §8.2, read
-the `error-context.md` it names, and expect the answer to be environmental
-again rather than a bug in the specs: every one of the four so far was.
+Causes 5–11 were found the same day, in the session that finished the job:
+
+5. **The seeded auth users had NULL token columns.** They had been created by a
+   direct `INSERT` into `auth.users`, which leaves `confirmation_token`,
+   `recovery_token`, `email_change` and `email_change_token_new` NULL. GoTrue
+   scans those into non-nullable Go strings, so every lookup of those rows
+   errored — and `auth.service.ts` maps _any_ auth error to "Invalid username
+   or password". It looked exactly like a wrong password for hours. The tell
+   was the Admin API failing too, with `Database error finding users`.
+6. **`gyms.email_verified` was `false`.** An app-level column, unrelated to
+   Supabase auth state; the login route answers 403 `email_verification_required`
+   regardless of what the dashboard's email-confirmation setting says.
+7. **`ACCESS_CONTROL_ENCRYPTION_KEY` decoded to 17 bytes, not 32**, so every
+   vendor-credential save 500'd in `getKey()` — which is the first thing every
+   spec does.
+8. **Device writes were denied by RLS.** `access_devices` carries a SELECT-only
+   policy, and five routes wrote through the caller's session client:
+   `POST /devices`, `enable`, `disable`, `unlink`, and the `PATCH`. **This was
+   a live product bug, not a test problem** — registering, renaming, pausing or
+   forgetting a reader was broken in production too, and the unit tests could
+   not see it because they mock the repository, so RLS never runs. Fixed by
+   using `createAdminClient()` for the write while keeping the session-client
+   `findDeviceById(gymId, id)` ownership check, which is the pattern
+   `account/route.ts` already documented.
+9. **Four locators were ambiguous or mis-scoped.** A bare-string `getByText`
+   matches case-insensitively on a substring, so `'Connected'` also matched the
+   heading "No readers connected"; and `filter({ hasText })...last()` resolves
+   to the _innermost_ div holding the text, which excluded the very badge and
+   controls being asserted. Compounded by the shared gym (below), which puts
+   several readers on the page at once.
+10. **Branches read `count()` before `dynamic()` chunks had rendered.** The
+    member modal and its access panel are lazy imports, so a zero meant "not
+    loaded yet" and was indistinguishable from "no consent gate offered". One
+    such branch resolved to `test.skip` — trap 17 again, from the inside.
+11. **Roughly twenty sign-ins per run hit Supabase's per-IP token rate limit.**
+    Past the limit it answers 429, which surfaces — once more — as "Invalid
+    username or password" for a credential that is perfectly valid, drifting
+    between tests as the quota is reached at different points. **Still
+    unfixed, and deliberately so.** Caching the session cookies and replaying
+    them is the obvious remedy and it is a trap: Supabase rotates refresh
+    tokens, so a replayed pair retires the one the next test needs, reuse
+    detection revokes the session family, and the page then renders from a
+    cookie middleware accepts while every API call beneath it answers
+    Unauthorized. Measured, it took the suite from 14 passing to 6 and
+    Unauthorized responses from 2 to 12; re-capturing the cookies after each
+    replay did not help. The note in `helpers/billing.ts` records this so it is
+    not retried. The real fix is `storageState` seeded once per project, or a
+    gym per worker. Until then, space the runs out.
+
+**Two settings the suite now depends on**, both in `playwright.config.ts`:
+`workers: 1`, because every spec in `tests/e2e` drives the _same_ seeded gym
+and parallel files corrupt each other's state rather than running in isolation;
+and `timeout: 120_000`, because the server under test is `next dev` and first
+touch of a route compiles it on demand. Real isolation would need a gym per
+worker — a seeding change, not a config one.
+
+**The one skip is honest.** `says removing a fingerprint also withdraws the
+consent` skips because there is no fingerprint to remove: the mock's
+`listSubjects` always answers empty, so enrolment detection can never flip
+`finger_enrolled`, and the "Remove fingerprint" control never renders. This is
+the limitation the helpers already document, and it is covered by
+`useEnrolmentPoll.test.tsx` and the `DetectBiometricEnrolment` unit tests. It
+was verified against the database rather than assumed — the seeded member shows
+`finger_enrolled = false` with `biometric_consent_at` set, which is also
+positive evidence the consent path really ran.
+
+### 8.4 Readiness for the simulator session (2026-08-27)
+
+The plan is `docs/integrations/vft/vft-simulator-test-plan.md`. Its pre-flight
+table is the gate, and this is where each item actually stands. **Two of the six
+were broken until today**, and both would have ended the session inside the
+first ten minutes with a symptom that looks like the vendor's fault:
+
+| #      | Pre-flight item                                   | State                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **P1** | `ACCESS_CONTROL_ENABLED=true`, `VFT_API_BASE_URL` | ❌ **Blocked.** The flag is `false` and the URL is still the placeholder `https://vft.example.com`. Needs the real simulator endpoint — nothing else can be tested until it exists.                                                                                                                                                                             |
+| **P2** | `ACCESS_CONTROL_ENCRYPTION_KEY`, 32 bytes         | ✅ **Fixed today.** It decoded to **17 bytes**, so `getKey()` threw and _no gym could save vendor credentials at all_ (cause 7, §8.3). Every command would have failed before reaching the vendor.                                                                                                                                                              |
+| **P3** | Webhook token + callback URL registered           | ⚠️ **A public URL now exists and answers; the token is unverified in the cloud.** See §8.6 for the URL. `ACCESS_CONTROL_WEBHOOK_TOKEN` must be set in the environment that serves it — unset makes `getWebhookPathToken()` return `null` and the endpoint refuses _everything_, which is byte-identical to a wrong token (both 401). Check it, do not infer it. |
+| **P4** | Enterprise test gym                               | ✅ Seeded and proven: `e2e-enterprise@metricgym.test`, tier `enterprise`, status `active`, one member.                                                                                                                                                                                                                                                          |
+| **P5** | Two readers registered                            | ✅ **Fixed today.** Reader registration was refused by RLS on every attempt (defect E1, §6) — `POST /devices` wrote through the caller's session client against a SELECT-only table. P5 was unreachable.                                                                                                                                                        |
+| **P6** | SQL console on the outbox and events              | ✅ Available.                                                                                                                                                                                                                                                                                                                                                   |
+
+**So: the software is ready; the integration is not.** Everything on our side
+of the boundary now works against the mock — all three screens, the outbox, the
+consent gate, credential storage, reader registration — and is proven by 15 E2E
+tests and 1,330 unit tests. What is missing is entirely on the vendor/infra side
+of the line: **a real simulator URL (P1) and a publicly reachable webhook
+endpoint (P3).** Neither is code. Until P1 exists there is nothing to point at,
+and until P3 exists the single most valuable question in the plan — A-1, whether
+refused scans reach the webhook at all — cannot be asked.
+
+**The lesson worth carrying into the session.** P2 and P5 were both invisible
+from the outside: the code was written, reviewed, merged and unit-tested, and
+both defects sat underneath passing tests until something actually exercised
+them end to end. Assume the same is true of the assumptions in §3.10 that are
+still graded B or C. Work Part A top to bottom before anything else, exactly as
+the plan says, and treat a green result as evidence rather than confirmation.
+
+### 8.5 Remaining workload and blockers (2026-08-27)
+
+The honest shape of it: **the build is done, the proving is not.** Every line of
+this feature is written, merged and covered; almost nothing about how it behaves
+against a real terminal has been observed. What follows is everything left,
+split by who can actually move it.
+
+#### Blockers — none of them code, none of them ours
+
+| #          | Blocker                                                                                                                                                                | Owner                | Blocks                                                                                                     |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **B1**     | A real `VFT_API_BASE_URL` — simulator or hardware. Currently a placeholder.                                                                                            | **VFT / commercial** | _Everything._ With `ACCESS_CONTROL_ENABLED=false` the mock answers and the session tests nothing.          |
+| ~~**B2**~~ | ~~A publicly reachable deployment~~ **Done** — the production alias serves the webhook and answers 401 on a bad token (§8.6). Registering the callback still needs B1. | Us — infra           | —                                                                                                          |
+| ~~**B3**~~ | ~~`npm run build` unverified~~ **Done 2026-08-27** — exits 0, 93 static pages, TypeScript clean.                                                                       | Us                   | —                                                                                                          |
+| **B4**     | Access-control env vars proven present in the **deployed** environment, not just `.env.local` (§8.6, last table).                                                      | **Us**               | Every inbound scan, and every credential save. A missing webhook token is a silent, indistinguishable 401. |
+| **B5**     | Merge this branch, then **promote** master. Production currently serves a build predating the whole feature, so the domains 404 on every access-control route.         | **Us**               | Shipping to real gyms. Not needed for the simulator session, which can use the production alias.           |
+
+**B1 is the critical path and it is a vendor conversation.** B4 is minutes of
+checking and is the one most likely to be skipped, because nothing about it
+fails loudly. B5 is a release decision, deliberately deferred — the simulator
+session does not need it.
+
+#### Ours — worked through on 2026-08-27
+
+| Task                                        | Outcome                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Verify a real production build (B3)         | ✅ **Done.** `npm run build` exits 0 — 93 static pages, every route compiled, TypeScript clean. The Google Fonts failure recorded in §7.2 was the sandbox, not the code. B3 is no longer a blocker for B2.                                                                                                                                                                                                                                                                                            |
+| Repeatable **seed script** for the E2E gyms | ✅ **Done** — `scripts/seed-e2e-gyms.js`, also `npm run seed:e2e`. Idempotent, refuses any address outside `@metricgym.test`, and ends by actually signing in rather than assuming. It goes through `auth.admin.createUser`, so it cannot reproduce cause 5; verified against a throwaway account whose four token columns came back non-NULL. **Never seed these gyms by hand again.**                                                                                                               |
+| `.prettierignore` for generated outputs     | ✅ **Done.** There was no `.prettierignore` at all. Now covers all three generator outputs — `public/manifest.json`, `public/service-worker.js` and **`src/lib/pwa-version.ts`**, the third of which trap 20 never mentioned — plus build artefacts and the lockfile.                                                                                                                                                                                                                                 |
+| E2E auth via `storageState`                 | ❌ **Tried and reverted.** See the note in `helpers/billing.ts`. It only reaches fixture-created pages; these specs build their own contexts with `browser.newPage()` in `beforeAll`/`afterAll`, which do not inherit a project's `storageState`, so the run splits into seeded and anonymous halves and the cleanup helpers land on the anonymous side. 14 passing → 11. **A gym per worker is the better target** — it fixes the shared-state problem as well, which `storageState` does not touch. |
+
+#### Gated on the session itself
+
+Work Part A (10 items) **before** Parts B–H (~80). Part A results can change the
+design rather than merely confirm it — A-1 in particular decides whether refusals
+are cut from the log or polled from the transaction table, which is a different
+design, not a smaller one.
+
+Afterwards: upgrade the §3.10 evidence grades from the results; build the manual
+"mark as enrolled" fallback **only if** A-5 shows device-local enrolments never
+surface; and settle the two remaining genuine unknowns — token expiry duration,
+and the real `Pin` width on K40/F18 firmware.
+
+#### Not on the list, deliberately
+
+Multi-finger enrolment, cross-device template migration, and occupancy /
+time-in-gym are **decided against** (§7.2), not pending. Occupancy in particular
+would mean inventing data the hardware does not have. The four §7.1 product
+decisions are settled and closed — do not reopen them for the simulator session.
+
+### 8.6 Vendor handover — what to ask VFT for, and what to give them
+
+One conversation, in both directions. Everything below is derived from the code
+that will consume it, not from the vendor's documentation.
+
+#### Ask VFT for
+
+| #   | Item                                      | Where it lands                                                                                                                             | Why it is not optional                                                                                            |
+| --- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | **API base URL** (simulator or live)      | The `baseUrl` field of the account form (`accessControlAccountSchema`); `VFT_API_BASE_URL` is only a fallback for single-deployment setups | Nothing can be tested without it. The current value is the placeholder `https://vft.example.com`                  |
+| 2   | **Account login** — email + password      | `email` / `password` on the same form, AES-256-GCM at rest in `access_control_secrets`                                                     | This is the whole vendor identity; the client authenticates per gym and caches the bearer token                   |
+| 3   | **`AreaID`**, if their account uses areas | Optional `areaId` on the same form                                                                                                         | Organisational only — **never** a security boundary (A9, trap 6). Tenant scoping is ours regardless               |
+| 4   | **Device serial(s)** — two if possible    | The "Connect a reader" form                                                                                                                | P5. Half the interesting failures only appear with two readers, and serials are how webhook events find their gym |
+| 5   | **Confirmation the callback is live**     | Their account-level callback configuration                                                                                                 | Configured **per account, not per gym** — there is no per-gym URL to hand out                                     |
+| 6   | **Token expiry duration**                 | Answer upgrades §3.10                                                                                                                      | Genuinely unknown. `TOKEN_CACHE_TTL_SECONDS` is a conservative 30 min guess; a 401 refresh covers being wrong     |
+| 7   | **Real `Pin` width on K40/F18 firmware**  | Answer upgrades §3.10                                                                                                                      | The other genuine unknown. Affects the personnel-id ceiling (A1)                                                  |
+
+#### Give VFT
+
+**The callback URL** — the only thing they need from us:
+
+```
+https://<host>/api/webhooks/access-control/<ACCESS_CONTROL_WEBHOOK_TOKEN>
+```
+
+Use the project's **production alias**, which follows master and survives every
+deployment, rather than a branch or per-deployment URL:
+
+```
+https://gym-management-saas-shyans-projects-7b2901b0.vercel.app/api/webhooks/...
+```
+
+Switch it to `https://metricgymos.com/...` once that domain is promoted onto
+the current production deployment — it is presently pinned to an older build
+that has no access-control routes at all and answers **404** on this path.
+
+Tell them, because the protocol gives them no way to discover it:
+
+- **`POST` only**, JSON body. Any other verb is not handled.
+- **The path token is the entire credential.** The push protocol defines no
+  header signature, so the URL must be treated as a secret and delivered
+  accordingly — not pasted into a ticket. It is rotatable; rotating means
+  re-registering with them.
+- **We always answer `200`**, including for events we discard. A non-200 makes
+  senders retry or disable the callback and neither helps; only genuine
+  transient faults return `500` so the delivery repeats.
+- **Events are matched on `device_serial`.** A serial we do not know is counted
+  and dropped, never guessed at. On a shared account we will receive traffic
+  for gyms that are not ours and will store none of it.
+- If they _can_ send a fixed header, `ACCESS_CONTROL_WEBHOOK_SECRET` exists as
+  an optional second factor. An IP allowlist is not practical — the host's
+  egress addresses are not stable.
+
+#### Still ours before the session — do not hand these to VFT
+
+Setting the vendor's answers in `.env.local` is not enough; the environment
+that actually serves the webhook needs them too:
+
+| Variable                        | Consequence if missing in the deployed environment                                                                             |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `ACCESS_CONTROL_WEBHOOK_TOKEN`  | The endpoint refuses **every** event and logs "rejecting device events". Indistinguishable from a wrong token — both are 401   |
+| `ACCESS_CONTROL_ENCRYPTION_KEY` | Must base64-decode to **exactly 32 bytes**, or no gym can save vendor credentials at all (cause 7)                             |
+| `ACCESS_CONTROL_ENABLED=true`   | Left unset or `false`, every call goes to `MockAccessControlProvider` and the session tests nothing                            |
+| `NEXT_PUBLIC_APP_URL`           | Not access-control, but adjacent: it builds Supabase confirmation links, PayHere return URLs and printed QR registration links |
 
 **Merged:** [#63] on 2026-08-26 (the feature), then [#65] on 2026-08-27 (the
 four product decisions, the E2E suite, and the accessibility work).
@@ -812,7 +1076,7 @@ four product decisions, the E2E suite, and the accessibility work).
 
 ## 9. Traps for the next session
 
-Twenty things that will bite someone who does not know them.
+Twenty-four things that will bite someone who does not know them.
 
 1. **Do not import `@/features/access-control` from a client component.** The
    barrel is server-only. Deep-import from `utils/serializeAccessForAPI`,
@@ -882,6 +1146,55 @@ Twenty things that will bite someone who does not know them.
     after any dev run. Do not commit that churn — and fix it by adding the
     generated outputs to `.prettierignore`, not by reformatting the file again
     (rule 2.19: edit the generator, never the output).
+21. **Every access-control table is SELECT-only for gym owners; writes go
+    through `createAdminClient()`.** There are no INSERT/UPDATE/DELETE policies
+    on `access_devices`, `access_control_accounts` or `member_access_subjects`,
+    and `access_control_secrets` has no policies at all. Hand a route the
+    caller's session client for a write and Postgres refuses the row. Five
+    device routes shipped with exactly that bug and it reached production —
+    registering, renaming, pausing and forgetting a reader were all broken —
+    because **unit tests mock the repository, so RLS never executes there.**
+    Only the E2E suite can catch this class. The pattern is: session client for
+    the `findDeviceById(gymId, id)` ownership check, service-role for the write.
+    Note also that an RLS-denied `DELETE` is not an error — it removes zero
+    rows and reports success, so a "cleanup" that silently does nothing looks
+    identical to one that worked.
+22. **Nothing whose output depends on client-only state may decide what SSR
+    renders — values _or_ structure.** Use `useIsHydrated()`
+    (`src/hooks/useIsHydrated.ts`): it is `false` on the server and during the
+    hydrating client render, `true` immediately after, so the two agree by
+    construction and the real decision lands on the next render.
+    - **Values.** A minute-precision clock mismatches whenever the render and
+      the hydration fall either side of a minute boundary — and it is the
+      _server's_ clock, not the viewer's. Take the value from `useNow`, and
+      reserve the width so the late arrival does not shift the layout (E2).
+    - **Structure.** A gate that renders different _trees_ depending on whether
+      its data has loaded is the same bug: `isLoading` is not a hydration-safe
+      discriminator, because the query need not be in the same state on both
+      sides. That was `FeatureGate`, and it affected every gated page (E3).
+
+    Do not reach for `setState` in an effect — `react-hooks/set-state-in-effect`
+    rejects it — and do not reach for `suppressHydrationWarning`, which only
+    silences the warning for text and leaves the server's value on screen.
+
+23. **Never let a locator that confirms an action also match the control that
+    started it.** `forgetReader` confirmed on `/forget|remove|confirm/i`
+    page-wide, which matched every row's `aria-label="Forget <name>"` trigger
+    as well as the dialog's button. Whether `.last()` found the right one
+    depended on the portal having mounted, so cleanup silently clicked a
+    different reader and presented as 1-in-4 flakiness for a day (E4). Scope to
+    `getByRole('dialog')`, match the exact confirm label, and retry the opening
+    click until the dialog is actually visible — a _visible_ trigger is not a
+    _hydrated_ one.
+
+24. **A leaked `next dev` blocks every later E2E run, and says so in terms of
+    the wrong port.** Next 16 permits one dev server per directory; a server
+    orphaned by a killed Playwright run makes the next `webServer` start fail
+    with `Another next dev server is already running` naming **3001**, so
+    §8.2's "check 3100 is free" does not catch it. Clear it with
+    `pkill -f '^next-server'` before a run — and anchor the pattern, because a
+    bare `pkill -f next-server` also matches the shell you typed it in and kills
+    that instead.
 
 ---
 

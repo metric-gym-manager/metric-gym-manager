@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Lock, ArrowUpCircle } from 'lucide-react'
 import { Card, Button } from '@/components/ui'
 import { useSubscription } from '../hooks/useSubscription'
+import { useIsHydrated } from '@/hooks/useIsHydrated'
 import type { RestrictedFeature } from '@/features/subscriptions/domain/PlanRestrictions'
 import {
   SaasTier,
@@ -43,9 +44,21 @@ export default function FeatureGate({
   children,
 }: FeatureGateProps) {
   const { data, isLoading } = useSubscription()
+  const hydrated = useIsHydrated()
 
   // No flash of a restricted feature while the subscription loads.
-  if (isLoading || !data?.subscription) return null
+  //
+  // `hydrated` is load-bearing, not belt-and-braces. This gate decides the
+  // *shape* of the tree — nothing, the children, or the upsell — from query
+  // state, and query state is not guaranteed to be identical on the server and
+  // in the hydrating client render. When it differs, React finds one subtree
+  // where it rendered another, discards it and remounts: on
+  // /settings/access-control that surfaced as a mismatch between the children
+  // and a Suspense placeholder. Holding the first client render to what the
+  // server produced makes the two agree by construction, and the real decision
+  // lands on the very next render. A gate that renders a different structure
+  // before its data arrives has to be pinned this way.
+  if (!hydrated || isLoading || !data?.subscription) return null
 
   if (data.subscription.capabilities[feature]) {
     return <>{children}</>

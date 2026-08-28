@@ -24,6 +24,7 @@
     "test:integration": "jest --config jest.integration.config.js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "seed:e2e": "node scripts/seed-e2e-gyms.js",
     "dev:clear-limits": "node scripts/clear-rate-limits.js",
     "dev:delete-users": "node scripts/delete-test-users.js",
     "analyze": "ANALYZE=true next build",

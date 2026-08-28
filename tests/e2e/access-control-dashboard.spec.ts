@@ -22,6 +22,7 @@
  */
 
 import { test, expect } from '@playwright/test'
+import type { Page } from '@playwright/test'
 import {
   E2E_ACCESS_CONTROL_ENABLED,
   connectReader,
@@ -60,10 +61,30 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/access-control')
 })
 
+/**
+ * This spec's own reader card.
+ *
+ * Two things force the scoping. The presence badge is a *sibling* of the name
+ * inside the card header, so `filter({ hasText })...last()` alone resolves to
+ * the innermost div holding the name and excludes the badge — reporting it
+ * absent from a page where it is plainly rendered. And the seeded gym is
+ * shared by all three access-control specs, so the dashboard genuinely lists
+ * several readers: anything asserted page-wide resolves to one match per card
+ * and dies on strict mode. Anchoring on a second element that only the card
+ * root contains pins the scope to this reader.
+ */
+function readerCard(page: Page) {
+  return page
+    .locator('div')
+    .filter({ hasText: READER.name })
+    .filter({ has: page.getByText('Fingerprints') })
+    .last()
+}
+
 test('shows a never-contacted reader as unknown, not offline', async ({
   page,
 }) => {
-  const card = page.locator('div').filter({ hasText: READER.name }).last()
+  const card = readerCard(page)
 
   // "No contact yet" is neutral. "Not responding" is a warning. A reader
   // registered a minute ago has told us nothing, which is an absence of
@@ -79,7 +100,9 @@ test('offers remote unlock to any entitled user', async ({ page }) => {
   // control is audit — the actor on the job plus the reader's own event 8 —
   // never permission. Asserted through the real page rather than a mocked
   // component, so a wrapper that quietly stops passing it is caught here.
-  await expect(page.getByRole('button', { name: /open door/i })).toBeVisible()
+  await expect(
+    readerCard(page).getByRole('button', { name: /open door/i })
+  ).toBeVisible()
 })
 
 test('hides the capacity bar until a capacity is known', async ({ page }) => {

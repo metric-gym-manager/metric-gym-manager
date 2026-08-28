@@ -1,0 +1,22 @@
+# Generated outputs — never format these.
+#
+# Rule 2.19 is "edit the generator, never the output". Prettier breaks that rule
+# by definition: it rewrites the file on disk, the generator then re-emits its
+# own formatting on the next run, and the two disagree permanently. The result
+# is `public/service-worker.js` showing as modified after every `npm run dev`
+# (trap 20) — churn nobody authored and nobody should commit.
+#
+# All three are written by scripts/generate-pwa-assets.js.
+public/manifest.json
+public/service-worker.js
+src/lib/pwa-version.ts
+
+# Build artefacts and test reports. Not source, not reviewed, frequently huge.
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+
+# Lockfiles are owned by the package manager's own formatting.
+package-lock.json
