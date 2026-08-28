@@ -962,18 +962,19 @@ split by who can actually move it.
 
 #### Blockers — none of them code, none of them ours
 
-| #          | Blocker                                                                                                                                                                | Owner                | Blocks                                                                                                     |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
-| **B1**     | A real `VFT_API_BASE_URL` — simulator or hardware. Currently a placeholder.                                                                                            | **VFT / commercial** | _Everything._ With `ACCESS_CONTROL_ENABLED=false` the mock answers and the session tests nothing.          |
-| ~~**B2**~~ | ~~A publicly reachable deployment~~ **Done** — the production alias serves the webhook and answers 401 on a bad token (§8.6). Registering the callback still needs B1. | Us — infra           | —                                                                                                          |
-| ~~**B3**~~ | ~~`npm run build` unverified~~ **Done 2026-08-27** — exits 0, 93 static pages, TypeScript clean.                                                                       | Us                   | —                                                                                                          |
-| **B4**     | Access-control env vars proven present in the **deployed** environment, not just `.env.local` (§8.6, last table).                                                      | **Us**               | Every inbound scan, and every credential save. A missing webhook token is a silent, indistinguishable 401. |
-| **B5**     | Merge this branch, then **promote** master. Production currently serves a build predating the whole feature, so the domains 404 on every access-control route.         | **Us**               | Shipping to real gyms. Not needed for the simulator session, which can use the production alias.           |
+| #          | Blocker                                                                                                                                                                                                                  | Owner                | Blocks                                                                                                                        |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **B1**     | A real `VFT_API_BASE_URL` — simulator or hardware. Currently a placeholder.                                                                                                                                              | **VFT / commercial** | _Everything._ With `ACCESS_CONTROL_ENABLED=false` the mock answers and the session tests nothing.                             |
+| ~~**B2**~~ | ~~A publicly reachable deployment~~ **Done** — the production alias serves the webhook and answers 401 on a bad token (§8.6). Registering the callback still needs B1.                                                   | Us — infra           | —                                                                                                                             |
+| ~~**B3**~~ | ~~`npm run build` unverified~~ **Done 2026-08-27** — exits 0, 93 static pages, TypeScript clean.                                                                                                                         | Us                   | —                                                                                                                             |
+| **B4**     | Access-control env vars proven present in the **deployed** environment, not just `.env.local` (§8.6, last table).                                                                                                        | **Us**               | Every inbound scan, and every credential save. A missing webhook token is a silent, indistinguishable 401.                    |
+| **B5**     | ~~Merge this branch~~ **Done** — [#67] merged 2026-08-28. Still to do: **promote master onto the custom domains**, which remain pinned to a build ~20 days older than the feature and 404 on every access-control route. | **Us**               | A _permanent_ handover URL, and shipping to real gyms. Not needed for the simulator session, which can use the project alias. |
 
 **B1 is the critical path and it is a vendor conversation.** B4 is minutes of
 checking and is the one most likely to be skipped, because nothing about it
-fails loudly. B5 is a release decision, deliberately deferred — the simulator
-session does not need it.
+fails loudly. B5 is a release decision: the simulator session genuinely does
+not need it, but the callback URL VFT registers is only permanent on the far
+side of it — see the host table in §8.6.
 
 #### Ours — worked through on 2026-08-27
 
@@ -1028,16 +1029,52 @@ that will consume it, not from the vendor's documentation.
 https://<host>/api/webhooks/access-control/<ACCESS_CONTROL_WEBHOOK_TOKEN>
 ```
 
-Use the project's **production alias**, which follows master and survives every
-deployment, rather than a branch or per-deployment URL:
+**Which host — the part that is easy to get wrong.** Vercel hands out four
+kinds of URL and they are not interchangeable. A callback is registered on the
+vendor's account and then left alone for years, so the only acceptable choice
+is one that no deployment can invalidate:
+
+| Kind              | Example                                                   | Survives a push?                                                  |
+| ----------------- | --------------------------------------------------------- | ----------------------------------------------------------------- |
+| Per-deployment    | `gym-management-saas-iid3wbwxz-…vercel.app`               | **No.** Immutable, a new one per push. **Never hand this out.**   |
+| Branch alias      | `gym-management-saas-git-master-…vercel.app`              | Yes — but it is named after a branch, and dies if the branch does |
+| Project alias     | `gym-management-saas-shyans-projects-7b2901b0.vercel.app` | Yes — re-points itself to the current production deployment       |
+| **Custom domain** | `www.metricgymos.com`                                     | Yes, and survives leaving Vercel entirely                         |
+
+Give them the **custom domain**. It is the only one of the four that is ours
+rather than the host's, so re-registration is never forced by a deployment, a
+branch rename, or a change of platform:
 
 ```
-https://gym-management-saas-shyans-projects-7b2901b0.vercel.app/api/webhooks/...
+https://www.metricgymos.com/api/webhooks/access-control/<ACCESS_CONTROL_WEBHOOK_TOKEN>
 ```
 
-Switch it to `https://metricgymos.com/...` once that domain is promoted onto
-the current production deployment — it is presently pinned to an older build
-that has no access-control routes at all and answers **404** on this path.
+Two properties of that host, both measured on 2026-08-28:
+
+- **`www`, not the apex.** `metricgymos.com`, `metricgymmanager.com` and
+  `www.metricgymmanager.com` all answer **308** to `https://www.metricgymos.com/…`.
+  A 308 preserves the method and the body, so a compliant client is fine — but
+  embedded reader firmware frequently does not follow redirects at all, and a
+  POST dropped on a redirect is the worst failure this endpoint has: nothing
+  arrives and nothing is logged. Hand over the host that answers directly.
+- **It is not serving this feature yet.** The custom domains are pinned to a
+  build roughly twenty days old (`age: 1730334` on the CDN response), predating
+  the entire integration, and they answer **404** on this path. Every
+  production-target deployment on master — including the merge of [#67] —
+  answers **401** on a bad token. The code is right; only the alias assignment
+  is stale. **Promoting master onto the custom domains is the single action
+  that makes the handover URL permanent.**
+
+Until that promotion the **project alias** is a genuine stable interim, not a
+per-deployment URL: it already answers 401, and it re-points itself on every
+master deployment, so pushing changes during testing does not invalidate it.
+
+```
+https://gym-management-saas-shyans-projects-7b2901b0.vercel.app/api/webhooks/access-control/<token>
+```
+
+Registering twice — the interim now, the custom domain after promotion — is one
+extra email. Registering a per-deployment URL is an email per push.
 
 Tell them, because the protocol gives them no way to discover it:
 
@@ -1068,11 +1105,14 @@ that actually serves the webhook needs them too:
 | `ACCESS_CONTROL_ENABLED=true`   | Left unset or `false`, every call goes to `MockAccessControlProvider` and the session tests nothing                            |
 | `NEXT_PUBLIC_APP_URL`           | Not access-control, but adjacent: it builds Supabase confirmation links, PayHere return URLs and printed QR registration links |
 
-**Merged:** [#63] on 2026-08-26 (the feature), then [#65] on 2026-08-27 (the
-four product decisions, the E2E suite, and the accessibility work).
+**Merged:** [#63] on 2026-08-26 (the feature), [#65] on 2026-08-27 (the four
+product decisions, the E2E suite, and the accessibility work), and [#67] on
+2026-08-28 (the RLS write fix, the two hydration defects, and the first green
+E2E run).
 
 [#63]: https://github.com/metric-gym-manager/metric-gym-manager/pull/63
 [#65]: https://github.com/metric-gym-manager/metric-gym-manager/pull/65
+[#67]: https://github.com/metric-gym-manager/metric-gym-manager/pull/67
 
 ## 9. Traps for the next session
 
