@@ -143,3 +143,44 @@ describe('isUrgentEvent', () => {
     expect(isUrgentEvent(21)).toBe(false)
   })
 })
+
+/**
+ * The classifications that were wrong, kept as named cases.
+ *
+ * Whole-table coverage lives in `lib/access-control/__tests__/vendorTables.test.ts`
+ * and is not repeated here. These four are the ones a person would notice.
+ */
+describe('the gaps found against the vendor table', () => {
+  it('counts verification while the exit button is open as an entry', () => {
+    // 219 is a real entry. Unclassified, it appeared under the check-in log's
+    // All view and under none of its filters.
+    expect(classifyDeviceEvent(219)).toBe(DeviceEventKind.Granted)
+    expect(describeDeviceEvent(219)).toBe('Entry allowed')
+  })
+
+  it('counts an unfinished combined verification as a refusal', () => {
+    expect(classifyDeviceEvent(75)).toBe(DeviceEventKind.Denied)
+    expect(describeDeviceEvent(75)).toMatch(/refused/i)
+  })
+
+  it('alarms on a fire-alarm wiring fault, but not on ordinary wiring detection', () => {
+    for (const code of [114, 115, 243, 244]) {
+      expect(classifyDeviceEvent(code)).toBe(DeviceEventKind.Alarm)
+      expect(isUrgentEvent(code)).toBe(true)
+    }
+
+    // Exit button, auxiliary input and door sensor faults are real and worth
+    // seeing, but none of them stops a paid member getting in.
+    for (const code of [116, 117, 118, 119, 120, 121]) {
+      expect(classifyDeviceEvent(code)).toBe(DeviceEventKind.System)
+      expect(isUrgentEvent(code)).toBe(false)
+    }
+  })
+
+  it('never tells staff an elevator button was an entry refusal', () => {
+    // 80 is a refusal in the vendor table — of a floor-selection button, on
+    // hardware a gym does not have. Showing "Entry refused" would be a lie.
+    expect(classifyDeviceEvent(80)).toBe(DeviceEventKind.System)
+    expect(describeDeviceEvent(80)).not.toMatch(/refused/i)
+  })
+})

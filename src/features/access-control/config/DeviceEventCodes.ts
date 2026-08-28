@@ -1,8 +1,14 @@
 /**
  * ZKTeco access-control event codes.
  *
- * Source: VFT's "Event Codes" reference. These arrive in the `Event` field of
- * the attendance webhook.
+ * Source: VFT's "Event Codes" reference (VFT_GYM_API_V2.0, received
+ * 2026-08-28 — verbatim copy in `docs/integrations/vft/`). These arrive in the
+ * `Event` field of the attendance webhook.
+ *
+ * The vendor table defines **165** codes. Every one of them is classified
+ * below; nothing is left to fall through to `Other`, and
+ * `DeviceEventCodes.test.ts` asserts that, because an unclassified code is not
+ * a harmless gap — see the note on `codesForKind`.
  *
  * ## This overturns an earlier design decision
  *
@@ -53,7 +59,7 @@ export enum DeviceEventKind {
  */
 const GRANTED = new Set([
   0, 1, 2, 3, 4, 5, 8, 14, 15, 16, 17, 18, 19, 202, 203, 207, 208, 209, 215,
-  216, 218, 222, 232, 234,
+  216, 218, 219, 222, 232, 234,
 ])
 
 /**
@@ -65,7 +71,7 @@ const GRANTED = new Set([
 const DENIED = new Set([
   20, 21, 22, 23, 24, 25, 26, 27, 29, 30, 31, 32, 33, 34, 35, 38, 39, 40, 41,
   42, 43, 44, 45, 48, 49, 50, 51, 52, 53, 56, 59, 61, 62, 63, 67, 68, 69, 73,
-  74,
+  74, 75,
 ])
 
 /**
@@ -74,7 +80,15 @@ const DENIED = new Set([
  * `101/103` is a **duress** code — the member opened the door under coercion
  * using a duress credential. It must never be buried in a routine event list.
  */
-const ALARM = new Set([100, 101, 102, 103, 104, 58, 109, 110])
+const ALARM = new Set([
+  58, 100, 101, 102, 103, 104, 109, 110,
+  // Fire-alarm input line faults. 114/115 are the reader's own line detection
+  // reporting the circuit open or shorted; 243/244 are the input actually
+  // going that way. A gym's fire-alarm interlock being unwired is not a
+  // "reader status update" — it is the one class of fault here with a life
+  // safety consequence, so it alarms rather than sitting in a log.
+  114, 115, 243, 244,
+])
 
 /**
  * Device, door and connectivity state — feeds health monitoring.
@@ -86,8 +100,25 @@ const ALARM = new Set([100, 101, 102, 103, 104, 58, 109, 110])
 const SYSTEM = new Set([
   6, 7, 9, 10, 11, 12, 13, 28, 36, 37, 47, 54, 55, 57, 60, 64, 65, 66, 70, 71,
   72, 105, 106, 107, 108, 200, 201, 204, 205, 206, 210, 211, 212, 213, 214, 217,
-  220, 221, 223, 225, 226, 227, 228, 229, 230, 231, 233, 235, 236, 237, 239,
-  240, 241, 242, 254, 255,
+  220, 221, 223, 224, 225, 226, 227, 228, 229, 230, 231, 233, 235, 236, 237,
+  239, 240, 241, 242, 254, 255,
+
+  // Connectivity and power, the same family as 105/106/107 above.
+  76, 77, 78, 79, 111, 112, 245, 246, 247, 248,
+
+  // Wiring line detection for the auxiliary input, exit button and door
+  // sensor. Real faults worth seeing on the health view, but none of them
+  // stops a paid member getting in, so they are status rather than alarm —
+  // unlike the fire-alarm pair above.
+  113, 116, 117, 118, 119, 120, 121,
+
+  // Elevator control. A gym door install has no elevator controller, so none
+  // of these can occur — they are classified only so that a firmware which
+  // emits one does not drop it into "Other", where it would appear in the
+  // check-in log's All view and in none of its filters. 80 is semantically a
+  // refusal, but it refers to a floor-selection button rather than a door, and
+  // showing staff "Entry refused" for it would be a lie.
+  80, 132, 133, 134, 150, 151, 152, 153, 154, 155, 249, 250, 251, 252,
 ])
 
 /**
@@ -219,12 +250,22 @@ const STAFF_DESCRIPTIONS: Record<number, string> = {
   68: 'Refused — temperature check failed',
   69: 'Refused — face covering required',
 
+  75: 'Refused — verification not completed in time',
+  219: 'Entry allowed',
+
   100: 'Tamper alarm on the reader',
   101: 'Duress alarm — door opened under coercion',
   103: 'Duress alarm — door opened under coercion',
   105: 'Reader lost its connection',
   107: 'Reader lost mains power',
   110: 'Reader is offline',
+  111: 'Reader lost power over Ethernet',
+  114: 'Fire alarm wiring fault — call the installer',
+  115: 'Fire alarm wiring fault — call the installer',
+  243: 'Fire alarm wiring fault — call the installer',
+  244: 'Fire alarm wiring fault — call the installer',
+  77: 'Reader network cable unplugged',
+  248: 'Reader network cable reconnected',
   206: 'Reader restarted',
   214: 'Reader reconnected',
 }
