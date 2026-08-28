@@ -7,12 +7,14 @@
 > whole.** Everything a new session needs to avoid re-deriving, re-deciding, or
 > re-breaking is here.
 >
-> **Status as of 2026-08-27:** backend complete, UI complete, 333 tests green,
-> all migrations applied to production. **All four product decisions are made
-> and built** (§7.1). A Playwright suite covers the three gym-facing screens
-> but **has never completed a green run** (§4.7) — that is the one thing on
-> this page not yet demonstrated. **Still not exercised against real hardware
-> or the vendor simulator**, which remains the critical path (§7.3).
+> **Status as of 2026-08-28:** backend complete, UI complete, tests green, all
+> migrations applied, and **shipped to production** — `www.metricgymos.com`
+> serves the feature and the webhook answers on it. **All four product
+> decisions are made and built** (§7.1). The Playwright suite reaches a green
+> run (§4.7). **VFT has supplied the API collection and both code tables**
+> (§3.11); every endpoint we call is verified against it. **Still not exercised
+> against real hardware or the vendor simulator**, which remains the critical
+> path (§7.3) — and now needs only credentials (§8.5, B1).
 
 ---
 
@@ -22,6 +24,8 @@
 | ---------------------------------------- | --------------------------------------------------------------- |
 | **Asking "what is left to do?"**         | **§8.5 — workload, blockers, and who owns each**                |
 | **Talking to VFT**                       | **§8.6 — what to ask for, what to give them**                   |
+| **Calling a vendor endpoint**            | **`docs/integrations/vft/vft-api-reference.md` — vendor fact**  |
+| **Handling an event or return code**     | **`docs/integrations/vft/vft-code-tables.md` — all 248 codes**  |
 | Starting fresh on this feature           | §1 → §2 → §4 → §7                                               |
 | About to change how access is decided    | §2, §5, §6 — then `domain/AccessDecision.ts`                    |
 | About to touch the vendor client         | §3 in full                                                      |
@@ -256,21 +260,59 @@ independent hardware confirmation that our remote-unlock actually happened.
 Grades: **A** observed · **B** documented · **C** inferred · **D** guess.
 **No grade-D assumption is allowed to gate door access.**
 
-| #   | Assumption                                                | Grade             | If wrong                                                                                                                                          |
-| --- | --------------------------------------------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1  | Personnel ID numeric, 1–79,999,999                        | **B**             | Exhaustion (loud, slow), not truncation (silent). Cap is one constant.                                                                            |
-| A2  | Devices acknowledge with a return code                    | **B**             | Degrade to disappearance-as-completion — the earlier design, still works                                                                          |
-| A3  | Device poll interval ~30 s                                | **B**             | The UI copy is wrong, not the security                                                                                                            |
-| A4  | Device-local enrolments reach the platform                | **B/C**           | Cannot confirm enrolment programmatically; **the door still works**, because access is governed by the validity window, not our flag              |
-| A5  | `EndDate` inclusive, evaluated on-device                  | **A — CONFIRMED** | _Was_ the highest-blast-radius assumption. Now fact.                                                                                              |
-| A6  | Enrolment API-triggered, completed at terminal            | **A — CONFIRMED** | Both paths exist; VFT confirmed the API one is intended                                                                                           |
-| A7  | Reverse reconciliation                                    | design decision   | —                                                                                                                                                 |
-| A8  | Attendance code tables                                    | **B → now A**     | Superseded by the full 128-code table (§3.6)                                                                                                      |
-| A9  | `AreaID` is a filter, **not** an authorization boundary   | **C**             | We were merely stricter than necessary — costs nothing to be wrong                                                                                |
-| A10 | `accessblock` can be disturbed by later user-table writes | **C/D**           | The guard costs nothing; the failure it prevents (silently un-suspending barred members nightly) is one we would never detect from inside the app |
+| #   | Assumption                                                | Grade                              | If wrong                                                                                                                                          |
+| --- | --------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1  | Personnel ID numeric, 1–79,999,999                        | **B → A** (VFT: numeric, 15 chars) | Exhaustion (loud, slow), not truncation (silent). Cap is one constant.                                                                            |
+| A2  | Devices acknowledge with a return code                    | **A — CONFIRMED**                  | Degrade to disappearance-as-completion — the earlier design, still works                                                                          |
+| A3  | Device poll interval ~30 s                                | **B**                              | The UI copy is wrong, not the security                                                                                                            |
+| A4  | Device-local enrolments reach the platform                | **B/C**                            | Cannot confirm enrolment programmatically; **the door still works**, because access is governed by the validity window, not our flag              |
+| A5  | `EndDate` inclusive, evaluated on-device                  | **A — CONFIRMED**                  | _Was_ the highest-blast-radius assumption. Now fact.                                                                                              |
+| A6  | Enrolment API-triggered, completed at terminal            | **A — CONFIRMED**                  | Both paths exist; VFT confirmed the API one is intended                                                                                           |
+| A7  | Reverse reconciliation                                    | design decision                    | —                                                                                                                                                 |
+| A8  | Attendance code tables                                    | **B → now A**                      | Superseded by the full 128-code table (§3.6)                                                                                                      |
+| A9  | `AreaID` is a filter, **not** an authorization boundary   | **A — CONFIRMED** (default 1)      | We were merely stricter than necessary — costs nothing to be wrong                                                                                |
+| A10 | `accessblock` can be disturbed by later user-table writes | **C/D**                            | The guard costs nothing; the failure it prevents (silently un-suspending barred members nightly) is one we would never detect from inside the app |
 
 **Still genuinely unknown:** token expiry duration, and the real `Pin` width on
-K40/F18 firmware.
+K40/F18 firmware. (VFT's 15-character answer is the _platform_ limit; the
+firmware limit may be stricter, which is why the allocator stays at 79,999,999.)
+
+---
+
+### 3.11 The vendor documentation, and what it settled
+
+VFT supplied the `VFT_GYM_API_V2.0` Postman collection, the 165-code event
+table and the 83-code return-value table on **2026-08-28**. All three are in
+`docs/integrations/vft/`:
+
+| File                             | What it is                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `vft-gym-api-v2-collection.json` | The collection, importable, verbatim                                                             |
+| `vft-api-reference.md`           | Endpoint contract, webhook payload, field limits, casing traps — **vendor fact, outranks §3.10** |
+| `vft-code-tables.md`             | Both code tables in full, with our classification beside each                                    |
+
+**All 17 endpoints we call match the collection exactly**, casing included —
+verified 2026-08-28. The two-step VFT described on the call (`AddEmployee`
+writes to their servers, a second call pushes to a reader) is already how
+`Provision` → `SyncToDevice` works.
+
+**It settled the "device timeout, 2 minutes" question.** That is return code
+`-725`, _"it times out when the device waits for the result"_ — a value the
+vendor reports, not a silent expiry. Already classified `Retryable`.
+
+**It also found a live defect.** 38 of the 165 event codes were unclassified
+and fell through to `Other`, among them **219** (a genuine entry) and **75** (a
+genuine refusal). Because `codesForKind` is pushed to the database as an
+`IN (...)`, those appeared in the check-in log's All view and in **none** of its
+Entries / Refusals / Alerts filters. Worse, `vendorTables.test.ts` claimed to
+assert full coverage — its own transcription of the table had been trimmed to
+fit the implementation. Both are fixed; the test now asserts the table's size
+before asserting anything about it (§6, D5; trap 25).
+
+**Three capabilities we did not know existed** are recorded in §4 of the
+reference: `GetEventsbyDevSN` (a pull path for attendance — the only recovery
+route for scans lost while our webhook was down), `EnrollFace`, and
+command-queue deletion.
 
 ---
 
@@ -1009,17 +1051,24 @@ decisions are settled and closed — do not reopen them for the simulator sessio
 One conversation, in both directions. Everything below is derived from the code
 that will consume it, not from the vendor's documentation.
 
+> **Updated 2026-08-28 — the call happened.** VFT supplied the Postman
+> collection and both code tables (§3.11) and answered items **3, 6 and 7**
+> below. **Items 1, 2, 4 and 5 remain, and they are the whole critical path:
+> without credentials and a serial, `ACCESS_CONTROL_ENABLED=true` has nothing
+> to talk to.** The "give" half is now settled and live — see the host table
+> further down.
+
 #### Ask VFT for
 
-| #   | Item                                      | Where it lands                                                                                                                             | Why it is not optional                                                                                            |
-| --- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| 1   | **API base URL** (simulator or live)      | The `baseUrl` field of the account form (`accessControlAccountSchema`); `VFT_API_BASE_URL` is only a fallback for single-deployment setups | Nothing can be tested without it. The current value is the placeholder `https://vft.example.com`                  |
-| 2   | **Account login** — email + password      | `email` / `password` on the same form, AES-256-GCM at rest in `access_control_secrets`                                                     | This is the whole vendor identity; the client authenticates per gym and caches the bearer token                   |
-| 3   | **`AreaID`**, if their account uses areas | Optional `areaId` on the same form                                                                                                         | Organisational only — **never** a security boundary (A9, trap 6). Tenant scoping is ours regardless               |
-| 4   | **Device serial(s)** — two if possible    | The "Connect a reader" form                                                                                                                | P5. Half the interesting failures only appear with two readers, and serials are how webhook events find their gym |
-| 5   | **Confirmation the callback is live**     | Their account-level callback configuration                                                                                                 | Configured **per account, not per gym** — there is no per-gym URL to hand out                                     |
-| 6   | **Token expiry duration**                 | Answer upgrades §3.10                                                                                                                      | Genuinely unknown. `TOKEN_CACHE_TTL_SECONDS` is a conservative 30 min guess; a 401 refresh covers being wrong     |
-| 7   | **Real `Pin` width on K40/F18 firmware**  | Answer upgrades §3.10                                                                                                                      | The other genuine unknown. Affects the personnel-id ceiling (A1)                                                  |
+| #   | Item                                                                                                          | Where it lands                                                                                                                             | Why it is not optional                                                                                            |
+| --- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| 1   | **API base URL** (simulator or live)                                                                          | The `baseUrl` field of the account form (`accessControlAccountSchema`); `VFT_API_BASE_URL` is only a fallback for single-deployment setups | Nothing can be tested without it. The current value is the placeholder `https://vft.example.com`                  |
+| 2   | **Account login** — email + password                                                                          | `email` / `password` on the same form, AES-256-GCM at rest in `access_control_secrets`                                                     | This is the whole vendor identity; the client authenticates per gym and caches the bearer token                   |
+| 3   | ~~**`AreaID`**~~ **Answered:** default **1**, "not currently relevant, added for future development"          | Optional `areaId` on the same form                                                                                                         | Organisational only — **never** a security boundary (A9, trap 6). Tenant scoping is ours regardless               |
+| 4   | **Device serial(s)** — two if possible                                                                        | The "Connect a reader" form                                                                                                                | P5. Half the interesting failures only appear with two readers, and serials are how webhook events find their gym |
+| 5   | **Confirmation the callback is live**                                                                         | Their account-level callback configuration                                                                                                 | Configured **per account, not per gym** — there is no per-gym URL to hand out                                     |
+| 6   | **Token expiry duration** — _still open_                                                                      | Answer upgrades §3.10                                                                                                                      | Genuinely unknown. `TOKEN_CACHE_TTL_SECONDS` is a conservative 30 min guess; a 401 refresh covers being wrong     |
+| 7   | **Real `Pin` width on K40/F18 firmware** — _platform limit answered (15, numeric); firmware limit still open_ | Answer upgrades §3.10                                                                                                                      | The other genuine unknown. Affects the personnel-id ceiling (A1)                                                  |
 
 #### Give VFT
 
@@ -1116,7 +1165,7 @@ E2E run).
 
 ## 9. Traps for the next session
 
-Twenty-four things that will bite someone who does not know them.
+Twenty-five things that will bite someone who does not know them.
 
 1. **Do not import `@/features/access-control` from a client component.** The
    barrel is server-only. Deep-import from `utils/serializeAccessForAPI`,
@@ -1235,6 +1284,21 @@ Twenty-four things that will bite someone who does not know them.
     `pkill -f '^next-server'` before a run — and anchor the pattern, because a
     bare `pkill -f next-server` also matches the shell you typed it in and kills
     that instead.
+
+25. **Never narrow a vendor-table transcription to make its coverage test
+    pass.** `vendorTables.test.ts` asserts that every code VFT documents is
+    classified. Its copy of the event table had been trimmed — 0–74 instead of
+    0–80, 100–110 instead of 100–121, no 132/150 blocks, and 219 and 224
+    explicitly filtered out of the 200 block as though the vendor had not
+    defined them. So it asserted full coverage against 127 of 165 codes and
+    passed with 38 unclassified, including a real entry and a real refusal that
+    were consequently missing from the check-in log's filters. A coverage test
+    whose expectation is edited to fit the code under test is worse than no
+    coverage test: it reports the gap as closed. The suite now asserts the
+    table's **size and its documented numbering gaps** (46, 238, 253) before it
+    asserts anything about the codes — so trimming it fails loudly. The
+    transcription's source of truth is
+    `docs/integrations/vft/vft-code-tables.md`.
 
 ---
 

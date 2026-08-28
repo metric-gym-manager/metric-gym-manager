@@ -21,6 +21,7 @@ import {
 } from '../returnCodes'
 import {
   classifyDeviceEvent,
+  codesForKind,
   describeDeviceEvent,
   DeviceEventKind,
 } from '@/features/access-control/config/DeviceEventCodes'
@@ -96,23 +97,40 @@ const RESERVED = new Set([
   -601, -701, -702, -703, -704, -705, -706, -707, -723, -724, -727, -729, -732,
 ])
 
-/** Every event code in the vendor's table. */
+/**
+ * Every event code in the vendor's table — all 165 of them.
+ *
+ * ## This list was wrong, and wrong in the direction that hides bugs
+ *
+ * The previous transcription stopped at 74, carried only 100–110, omitted the
+ * 132/150 blocks entirely, and explicitly filtered 219 and 224 out of the 200
+ * block *as though the vendor did not define them*. So the suite asserted
+ * "classifies every documented event code" against a table trimmed to fit the
+ * implementation, and passed with **38 codes unclassified** — including 219,
+ * a genuine entry, and 75, a genuine refusal.
+ *
+ * A coverage test whose expectation is edited to match the code under test is
+ * worse than no coverage test: it reports the gap as closed. Transcribed again
+ * from VFT_GYM_API_V2.0's "Event Codes" table, received 2026-08-28, verbatim
+ * copy in `docs/integrations/vft/`.
+ *
+ * Gaps in the vendor's own numbering, all deliberate: **46**, **238**, **253**.
+ */
 const DOCUMENTED_EVENT_CODES: number[] = [
-  ...Array.from({ length: 75 }, (_, i) => i).filter((c) => c !== 46),
-  100,
-  101,
-  102,
-  103,
-  104,
-  105,
-  106,
-  107,
-  108,
-  109,
-  110,
-  ...Array.from({ length: 43 }, (_, i) => 200 + i).filter(
-    (c) => ![219, 224, 238, 243].includes(c)
-  ),
+  // 0–45, then 47–80. No 46.
+  ...Array.from({ length: 46 }, (_, i) => i),
+  ...Array.from({ length: 34 }, (_, i) => i + 47),
+  // 100–121: alarms, power, and line-detection wiring faults.
+  ...Array.from({ length: 22 }, (_, i) => i + 100),
+  // Elevator control, which a gym door install never has.
+  132,
+  133,
+  134,
+  ...Array.from({ length: 6 }, (_, i) => i + 150),
+  // 200–237 then 239–252: door, reader and connectivity state. No 238, no 253.
+  ...Array.from({ length: 38 }, (_, i) => i + 200),
+  ...Array.from({ length: 14 }, (_, i) => i + 239),
+  // 254 is the vendor's extended-event escape hatch; 255 is door status.
   254,
   255,
 ]
@@ -190,6 +208,41 @@ describe('return-code table coverage', () => {
 })
 
 describe('event-code table coverage', () => {
+  it('transcribes the vendor table at its documented size', () => {
+    // Pins the transcription itself. The previous version of this file was
+    // silently 38 codes short, so the count is asserted before anything is
+    // asserted *about* the codes.
+    expect(DOCUMENTED_EVENT_CODES).toHaveLength(165)
+    expect(new Set(DOCUMENTED_EVENT_CODES).size).toBe(165)
+    for (const absent of [46, 238, 253]) {
+      expect(DOCUMENTED_EVENT_CODES).not.toContain(absent)
+    }
+  })
+
+  it('files each code under exactly one kind, so the log filters partition it', () => {
+    // `codesForKind` is pushed to the database as an `IN (...)` so the check-in
+    // log can paginate. A code in two kinds double-counts; a code in none is
+    // invisible to every filter while still appearing under All.
+    const seen = new Map<number, DeviceEventKind[]>()
+
+    for (const kind of [
+      DeviceEventKind.Granted,
+      DeviceEventKind.Denied,
+      DeviceEventKind.Alarm,
+      DeviceEventKind.System,
+    ]) {
+      for (const code of codesForKind(kind)) {
+        seen.set(code, [...(seen.get(code) ?? []), kind])
+      }
+    }
+
+    expect([...seen].filter(([, kinds]) => kinds.length > 1)).toEqual([])
+
+    // And nothing invented: every classified code exists in the vendor table.
+    const documented = new Set(DOCUMENTED_EVENT_CODES)
+    expect([...seen.keys()].filter((c) => !documented.has(c))).toEqual([])
+  })
+
   it('classifies every documented event code', () => {
     const unclassified = DOCUMENTED_EVENT_CODES.filter(
       (code) => classifyDeviceEvent(code) === DeviceEventKind.Other

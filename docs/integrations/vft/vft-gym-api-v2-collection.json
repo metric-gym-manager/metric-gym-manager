@@ -1,0 +1,625 @@
+{
+  "info": {
+    "name": "VFT_GYM_API_V2.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Received from VFT on 2026-08-28. Authoritative source for endpoint paths, parameter names and casing. Import and set the `baseurl` and credentials VFT supply. Signin stores the bearer in the `APIToken` collection variable; every other request sends it as the `ApiToken` header."
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Signin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "let responseData = pm.response.json();",
+                  "if (responseData.token) {",
+                  "    pm.collectionVariables.set('APIToken', responseData.token);",
+                  "} else {",
+                  "    console.log(\"Operator data not found in the response\");",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\":\"example@gmail.com\",\n    \"password\":\"Example@1234\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/user/",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "user", ""]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "ApiToken", "value": "{{APIToken}}" }],
+            "url": {
+              "raw": "{{baseurl}}/api/user/logout",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "user", "logout"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Area",
+      "item": [
+        {
+          "name": "AddArea",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"AreaName\": \"Area14245\",\n    \"Description\": \"\"\n  }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/area",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "area"]
+            }
+          }
+        },
+        {
+          "name": "GetAllArea",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/area",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "area"]
+            }
+          }
+        },
+        {
+          "name": "UpdateArea",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"AreaName\": \"Area11111\",\n    \"Description\": \"\"\n  }",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/area/1",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "area", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Device",
+      "item": [
+        {
+          "name": "GetAllDevice",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/device",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "device"]
+            }
+          }
+        },
+        {
+          "name": "UpdateDevice",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"DevName\": \"Device2-test2\"\n    // \"AreaID\": 3\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/device/QEM1253800017",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "device", "QEM1253800017"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "DeviceCommand",
+      "item": [
+        {
+          "name": "GetAllCmds",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd"]
+            }
+          }
+        },
+        {
+          "name": "GetCmdsDevice",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/BAY5251900046",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "BAY5251900046"]
+            }
+          }
+        },
+        {
+          "name": "GetAllCmdsLimit",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/limit?limit=10&page=1",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "limit"],
+              "query": [
+                { "key": "limit", "value": "10" },
+                { "key": "page", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "RebootByDevSN",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/reboot?DevSN=BAY5251900046",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "reboot"],
+              "query": [{ "key": "DevSN", "value": "BAY5251900046" }]
+            }
+          }
+        },
+        {
+          "name": "DoorOpenbyDevSN",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/dooropen?DevSN=QEM1253800017",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "dooropen"],
+              "query": [{ "key": "DevSN", "value": "QEM1253800017" }]
+            }
+          }
+        },
+        {
+          "name": "GetEventsbyDevSN",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/events?DevSN=BAY5251900046",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "events"],
+              "query": [{ "key": "DevSN", "value": "BAY5251900046" }]
+            }
+          }
+        },
+        {
+          "name": "DeleteCmdbyID",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/302",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "302"]
+            }
+          }
+        },
+        {
+          "name": "DeleteCmdbyDeviceSN",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/sn/3634223840001",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "sn", "3634223840001"]
+            }
+          }
+        },
+        {
+          "name": "DeleteAllCmds",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Employee",
+      "item": [
+        {
+          "name": "AddEmployee",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"EmpId\": \"168\",\n    \"EmpName\": \"Saman Kumara\",\n    \"AreaID\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/template/add",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "template", "add"]
+            }
+          }
+        },
+        {
+          "name": "GetAllEmployee",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/template",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "template"]
+            }
+          }
+        },
+        {
+          "name": "UpdateEmployee",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"EmpName\": \"Amal_Perera\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/template/edit/166",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "template", "edit", "166"]
+            }
+          }
+        },
+        {
+          "name": "DeleteEmployee",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/template/166",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "template", "166"]
+            }
+          }
+        },
+        {
+          "name": "DeleteFromAllDevice",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/template/fromdev/166",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "template", "fromdev", "166"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "UserTemplates",
+      "item": [
+        {
+          "name": "SyncTemplateToAllDev",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/template/syncall",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "template", "syncall"]
+            }
+          }
+        },
+        {
+          "name": "SyncTemplateToOneDev",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/template/syncone?DevSN=BAY5251900046",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "template", "syncone"],
+              "query": [{ "key": "DevSN", "value": "BAY5251900046" }]
+            }
+          }
+        },
+        {
+          "name": "SyncSomeEmpTemplateToAllDev",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/template/syncsometoall?empidlist=1,3",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "template", "syncsometoall"],
+              "query": [{ "key": "empidlist", "value": "1,3" }]
+            }
+          }
+        },
+        {
+          "name": "SyncSomeEmpTemplateToOneDev",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/template/syncsometoone?DevSN=BAY5251900046&empidlist=166,167",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "template", "syncsometoone"],
+              "query": [
+                { "key": "DevSN", "value": "BAY5251900046" },
+                { "key": "empidlist", "value": "166,167" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "EnrollFace",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/enrollface?DevSN=QEM1253800017&employeeId=1",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "enrollface"],
+              "query": [
+                { "key": "DevSN", "value": "QEM1253800017" },
+                { "key": "employeeId", "value": "1" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "EnrollFinger",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/enrollfinger?DevSN=QEM1253800017&employeeId=168&fingerId=1",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "enrollfinger"],
+              "query": [
+                { "key": "DevSN", "value": "QEM1253800017" },
+                { "key": "employeeId", "value": "168" },
+                { "key": "fingerId", "value": "1" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "AccessCommand",
+      "item": [
+        {
+          "name": "TransferUserToDevice",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "url": {
+              "raw": "{{baseurl}}/api/template/syncsometoone?DevSN=QEM1253800017&empidlist=168",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "template", "syncsometoone"],
+              "query": [
+                { "key": "DevSN", "value": "QEM1253800017" },
+                { "key": "empidlist", "value": "168" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "SetValidTimePeriod",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/validperiod?DevSN=QEM1253800017&EmployeeId=168&StartDate=20251214&EndDate=20260107",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "validperiod"],
+              "query": [
+                { "key": "DevSN", "value": "QEM1253800017" },
+                { "key": "EmployeeId", "value": "168" },
+                { "key": "StartDate", "value": "20251214" },
+                { "key": "EndDate", "value": "20260107" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "AccessGrant",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/accessgrant?DevSN=QEM1253800017&EmployeeId=168",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "accessgrant"],
+              "query": [
+                { "key": "DevSN", "value": "QEM1253800017" },
+                { "key": "EmployeeId", "value": "168" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "AccessBlock",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "ApiToken", "value": "{{APIToken}}", "type": "text" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseurl}}/api/devicecmd/accessblock?DevSN=QEM1253800017&EmployeeId=166",
+              "host": ["{{baseurl}}"],
+              "path": ["api", "devicecmd", "accessblock"],
+              "query": [
+                { "key": "DevSN", "value": "QEM1253800017" },
+                { "key": "EmployeeId", "value": "166" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "WebhookCheck",
+      "item": [
+        {
+          "name": "webhook",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"EmpId\": \"168\",\n    \"AttTime\": \"2024-01-15 08:30:15\",\n    \"CheckingStatus\": \"0\",\n    \"VerifyType\": \"1\",\n    \"Event\": \"3\",\n    \"DeviceID\": \"QEM1253800017\"\n  },\n  {\n    \"EmpId\": \"168\",\n    \"AttTime\": \"2024-01-15 08:30:15\",\n    \"CheckingStatus\": \"0\",\n    \"VerifyType\": \"1\",\n    \"Event\": \"3\",\n    \"DeviceID\": \"QEM1253800017\"\n  }\n]",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{your_webhook_url}",
+              "host": ["{your_webhook_url}"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "APIToken", "value": "" },
+    { "key": "baseurl", "value": "" }
+  ]
+}

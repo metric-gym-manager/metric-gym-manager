@@ -1,5 +1,23 @@
 # VFT — integration questions (first contact)
 
+> **✅ Sent, and largely answered on 2026-08-28.** VFT supplied the
+> `VFT_GYM_API_V2.0` Postman collection, the 165-code event table and the
+> 83-code return-value table, and answered §1, §2, §5, §6 and most of §7 on a
+> call. **The answers are in [`vft-api-reference.md`](./vft-api-reference.md)
+> and [`vft-code-tables.md`](./vft-code-tables.md) — read those, not this.**
+>
+> This file is kept as the record of what was asked. Still outstanding:
+>
+> | Section               | Still open                                                                                                                                                     |
+> | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | §3 Command delivery   | Whether "callback URL per gym" is a free-text field per account or a selection from a list VFT maintains — decides whether a per-gym webhook token is possible |
+> | §7 Operational limits | **Token expiry duration.** The one genuinely unknown item; `TOKEN_CACHE_TTL_SECONDS` is a 30-minute guess covered by a 401-refresh                             |
+> | §8 Hardware           | The real `Pin` width on **K40/F18 firmware**. VFT's 15-character answer is the _platform_ limit; our allocator stays at 79,999,999 regardless                  |
+>
+> Neither open item blocks the simulator session.
+
+---
+
 > Ready to send. Replace the bracketed placeholders.
 >
 > Written as a first approach: it states what we are building, what we intend to
@@ -53,9 +71,9 @@ numeric `EmpId` that we allocate.
   send a value that's too long, does the API reject it or does the terminal
   truncate it silently?
 
-*Our member identifiers are UUIDs, so we have to generate `EmpId` values
+_Our member identifiers are UUIDs, so we have to generate `EmpId` values
 ourselves. Whether we need them unique globally or only per gym changes how we
-allocate them, and the length limit sets how many we can issue.*
+allocate them, and the length limit sets how many we can issue._
 
 ## 2. Validity windows and expiry
 
@@ -71,9 +89,9 @@ set from the member's paid-through date.
   server, or set manually at installation? Can we **read or set it through the
   API**?
 
-*Because the cutover lands at local midnight, a terminal with a drifting clock
+_Because the cutover lands at local midnight, a terminal with a drifting clock
 would admit expired members or turn away paid ones. We'd like to detect that
-rather than hear about it from a gym.*
+rather than hear about it from a gym._
 
 ## 3. Command delivery and confirmation
 
@@ -83,14 +101,14 @@ collects on its next poll, rather than applying it immediately.
 - Is that right — does **HTTP 200 mean queued rather than executed**?
 - **How do we confirm a command was actually applied?** Is a command
   disappearing from `GET /api/devicecmd/{DevSN}` the signal, and does it
-  disappear when the terminal *collects* it or when it *succeeds*? Is there a
+  disappear when the terminal _collects_ it or when it _succeeds_? Is there a
   status or result field we've missed?
 - If the terminal is **offline** when we send a command, is it held and
   delivered on reconnect? **For how long** before it's discarded?
 
-*We need to know when a member's access has genuinely changed on the hardware,
+_We need to know when a member's access has genuinely changed on the hardware,
 not just that we asked for it. If there's no positive confirmation available,
-we'll design around that — but we'd rather know now.*
+we'll design around that — but we'd rather know now._
 
 ## 4. Suspensions
 
@@ -101,10 +119,10 @@ For an immediate suspension — a member barred mid-membership — we plan to us
 - If we later send a `validperiod` update for that same `EmpId`, does it
   **clear the block**?
 
-*If a validity update can undo a block, our nightly refresh would silently
+_If a validity update can undo a block, our nightly refresh would silently
 un-suspend people. In that case we'd revoke the fingerprint instead — but that
 means the member re-enrols when the suspension is lifted, so we'd like to know
-which approach you'd recommend.*
+which approach you'd recommend._
 
 ---
 
@@ -135,10 +153,10 @@ member identifiers.
   `/api/template/syncsometoone`) before a `validperiod` command will bind to
   them?
 
-*Enrolment happens at the wall, where our software can't see it. So we need to
+_Enrolment happens at the wall, where our software can't see it. So we need to
 detect it from the platform instead — the staff screen should flip from "not
 enrolled" to "enrolled" on its own. Knowing what to poll, and how soon it shows
-up, tells us whether that's achievable.*
+up, tells us whether that's achievable._
 
 ## 6. Attendance webhook
 

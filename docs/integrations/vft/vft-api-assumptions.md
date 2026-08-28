@@ -1,9 +1,20 @@
 # VFT / ZKTeco — evidence-graded assumptions
 
-> **VFT never replied** (5 days). We are proceeding on researched assumptions
-> rather than waiting. This document exists so that decision is auditable: every
-> assumption below carries its **evidence grade**, the **decision** it drove,
-> what **breaks if it is wrong**, and how the design **contains** that.
+> **⚠️ Substantially superseded on 2026-08-28.** VFT supplied the
+> `VFT_GYM_API_V2.0` Postman collection, the full event-code table and the full
+> return-value table, and answered the field-limit and `AreaID` questions on a
+> call. Endpoint paths, parameter casing, field limits and the webhook payload
+> are now **fact**, recorded in
+> [`vft-api-reference.md`](./vft-api-reference.md) and
+> [`vft-code-tables.md`](./vft-code-tables.md). **Where this document disagrees
+> with those, they win.** A1, A2, A8 and A9 below are resolved; A3, A4, A7 and
+> A10 stand; token expiry remains the one genuinely open question.
+>
+> The rest is kept because it is the audit trail: it records what we believed
+> before the vendor answered, which is what makes the design's containment
+> choices legible. Every assumption below carries its **evidence grade**, the
+> **decision** it drove, what **breaks if it is wrong**, and how the design
+> **contains** that.
 >
 > Questions we would still like answered: `vft-integration-questions.md`.
 > Design: `docs/architecture/access-control-integration.md`.
@@ -43,10 +54,19 @@ ordinary integration risk, and the design below is built to absorb it.
 
 ## The assumptions
 
-### A1 — Personnel ID is numeric, ≤ 9 chars, valid range 1–79,999,999 · **grade B**
+### A1 — Personnel ID is numeric, ≤ 9 chars, valid range 1–79,999,999 · **grade B → A (platform)**
+
+**Resolved 2026-08-28.** VFT: `EmpId` is **numbers only (recommended), 15
+characters maximum**. `EMP_ID_MAX_LENGTH = 15` records the platform limit.
 
 ZKBioSecurity documents Personnel ID as max 9 characters with a valid range of
 **1 to 79,999,999**. `EmpId` maps to this field.
+
+Our allocator still caps at **79,999,999**, well inside VFT's 15 characters, and
+that stays. 15 is the _platform's_ limit; the K40/F18 firmware limit is still
+unconfirmed, and the two need not agree. Exhaustion is loud and slow;
+truncation would be silent — so the conservative number is the right one to be
+wrong with.
 
 **Decision.** `subject_id` comes from a Postgres sequence starting at `100000`
 and is **hard-capped at 79,999,999** in code, with the cap asserted in tests.
@@ -62,7 +82,14 @@ a one-line change plus a re-provision.
 slow, not _truncation_, which is silent. We additionally verify the round-trip
 (§ Verification) so truncation cannot pass unnoticed.
 
-### A2 — Devices acknowledge command execution with a return code · **grade B**
+### A2 — Devices acknowledge command execution with a return code · **grade B → A — CONFIRMED**
+
+**Resolved 2026-08-28.** VFT supplied the complete return-value table — 83
+codes, transcribed in [`vft-code-tables.md`](./vft-code-tables.md). `>= 0` is
+success exactly as assumed. Of particular note, `-725` _"it times out when the
+device waits for the result"_ is the two-minute device timeout VFT described
+verbally: it is **observable as a return code**, which is what lets the outbox
+tell a missed command from a refused one.
 
 This corrects an earlier assumption. The PUSH protocol has an explicit
 acknowledgement path: after executing a command the device POSTs to
@@ -167,7 +194,12 @@ gets no semantics). Raw payload always retained in `access_events.raw`.
 serving entry and exit, `CheckingStatus` reflects the device's configured mode,
 not reality. Events are modelled as **visits**, not paired sessions.
 
-### A9 — `AreaID` is a filter, not an authorization boundary · **grade C**
+### A9 — `AreaID` is a filter, not an authorization boundary · **grade C → A — CONFIRMED**
+
+**Resolved 2026-08-28.** VFT: the default `AreaID` is **1**, and it is _"not
+currently relevant — added for future development"_. Organisational, exactly as
+assumed, and not a boundary of any kind. We were right to treat it as zero
+isolation, and there is now no reason to revisit that.
 
 The PUSH protocol has no tenant concept — a device belongs to a server, and an
 ADMS account addresses all its devices. Areas are an organisational field.
@@ -242,6 +274,15 @@ tells you exactly what to change.
 ---
 
 ## Sources
+
+**Primary — vendor-supplied, 2026-08-28.** These outrank everything below.
+
+- `VFT_GYM_API_V2.0` Postman collection → [`vft-gym-api-v2-collection.json`](./vft-gym-api-v2-collection.json)
+- Event Codes table (165 codes) → [`vft-code-tables.md`](./vft-code-tables.md)
+- Command Return Values table (83 codes) → same file
+- Verbal answers on the integration call → [`vft-api-reference.md`](./vft-api-reference.md)
+
+**Secondary — research, used before the vendor answered.**
 
 - [ZKTeco PUSH SDK communication protocol](https://www.scribd.com/document/695654988/PUSH-SDK-Communication-Protocol-V2-0-1)
 - [HTTP PUSH SDK 2.0.1 (PDF)](http://f02.s.alicdn.com/kf/HTB1PANmFVXXXXaCXVXX.PRXFXXXk.pdf)
