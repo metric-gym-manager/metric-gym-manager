@@ -31,7 +31,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRecordAccessEvents } from '@/features/access-control'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { safeCompare } from '@/lib/access-control/crypto'
-import { getWebhookPathToken } from '@/lib/access-control/config'
+import {
+  describeWebhookTokenProblem,
+  getWebhookPathToken,
+} from '@/lib/access-control/config'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 
 // Node crypto for the constant-time compare, service-role for the writes.
@@ -54,9 +57,12 @@ export async function POST(
 
   if (!expected) {
     // Refuse rather than accept anonymous writes. Logged loudly because it
-    // means readers are pushing into a void.
+    // means readers are pushing into a void — and logged with the *specific*
+    // reason, because "not configured" and "configured with the placeholder
+    // from .env.example" need very different fixes and produce an identical
+    // 401 from outside.
     console.error(
-      'ACCESS_CONTROL_WEBHOOK_TOKEN is not configured — rejecting device events'
+      describeWebhookTokenProblem(process.env.ACCESS_CONTROL_WEBHOOK_TOKEN)
     )
     return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 })
   }

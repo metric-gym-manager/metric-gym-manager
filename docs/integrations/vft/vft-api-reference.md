@@ -180,6 +180,22 @@ Four properties that are easy to get wrong:
    handled like a password and why `ACCESS_CONTROL_WEBHOOK_SECRET` exists as an
    optional second factor if VFT ever gains the ability to send a fixed header.
 
+### The token is guarded at runtime
+
+Because the path token is the whole credential and a wrong one is
+indistinguishable from an unset one — both `401`, no symptom either way —
+`getWebhookPathToken()` refuses a value that was obviously never generated:
+anything containing placeholder text (`your-`, `changeme`, `example`,
+`placeholder`, `replace`, `xxxx`, `todo`) or shorter than 32 characters. It
+fails closed, exactly as if unset, and the route logs the specific reason
+rather than a generic "not configured".
+
+This exists because it happened: a `.env.local` copied from `.env.example`
+carried `your-hex-64-webhook-token` — a value committed to this repository —
+and nothing anywhere reported a problem. Refusing costs a gym nothing: the
+terminal enforces access from its own clock, so a refused webhook loses
+attendance records and never locks anyone out of a building.
+
 `AttTime` carries no timezone. It is the reader's local wall clock, interpreted
 against the device's stored `timezone_offset_minutes`. Retention is measured
 from `created_at` — when _we_ stored the row — never from `AttTime`, because a
