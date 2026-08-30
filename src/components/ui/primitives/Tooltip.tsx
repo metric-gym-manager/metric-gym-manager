@@ -44,7 +44,7 @@ export function Tooltip({
         align={align}
         sideOffset={sideOffset}
         className={cn(
-          'z-toast max-w-xs rounded-md border border-line-2 bg-surface-card px-2 py-1 font-geist text-mono-sm text-ink shadow-overlay',
+          'z-toast max-w-xs rounded-sm border border-line-2 bg-surface-card px-2 py-1 font-geist text-mono-sm text-ink shadow-overlay',
           'animate-fade-in'
         )}
       >

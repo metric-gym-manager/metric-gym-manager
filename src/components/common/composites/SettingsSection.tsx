@@ -1,44 +1,53 @@
 import * as React from 'react'
 import { cn } from '@/lib/utils'
+import { SectionHeader } from './SectionHeader'
 
 /**
- * SettingsSection + SettingsRow — a settings group with hairline-separated
- * label/control rows (Layer 3 composite; spec §11 Key-Value / settings rows).
- * Business-free: pass the control (Switch, Select, Button…) per row.
+ * SettingsSection — a configuration group (Layer 3 composite).
  *
- * ```tsx
- * <SettingsSection title="Notifications" description="How members are reminded">
- *   <SettingsRow label="SMS reminders" description="Send before due date" control={<Switch/>} />
- * </SettingsSection>
- * ```
+ * Renders as a **labelled section over hairline-separated rows**, not a card
+ * (directive §5.18: "section headers, dividers, aligned labels and controls —
+ * professional configuration software, not nested form cards"). The previous
+ * version wrapped everything in a bordered surface, which made every settings
+ * page an instance of the `Page → SettingsCard → SettingsRow` composition §5.3
+ * names as banned.
+ *
+ * `boxed` restores the container for the exceptional standalone block (§5.4).
  */
 export interface SettingsSectionProps {
   title: React.ReactNode
   description?: React.ReactNode
+  actions?: React.ReactNode
   children: React.ReactNode
+  boxed?: boolean
   className?: string
 }
 
 export function SettingsSection({
   title,
   description,
+  actions,
   children,
+  boxed = false,
   className,
 }: SettingsSectionProps) {
   return (
     <section
       className={cn(
-        'rounded-lg border border-line-1 bg-surface-card font-geist',
+        'font-geist',
+        boxed && 'rounded-sm border border-line-1 bg-surface-card',
         className
       )}
     >
-      <div className="border-b border-line-1 px-4 py-3">
-        <h3 className="text-h3 text-ink">{title}</h3>
-        {description && (
-          <p className="mt-1 text-caption text-ink-muted">{description}</p>
-        )}
-      </div>
-      <div>{children}</div>
+      <SectionHeader
+        variant="metadata"
+        divider
+        title={title}
+        description={description}
+        actions={actions}
+        className={cn(boxed && 'px-4 pt-3')}
+      />
+      <div className={cn(boxed && 'px-4')}>{children}</div>
     </section>
   )
 }
@@ -47,6 +56,8 @@ export interface SettingsRowProps {
   label: React.ReactNode
   description?: React.ReactNode
   control?: React.ReactNode
+  /** Stack the control under the label — for controls that need the full width. */
+  stacked?: boolean
   className?: string
 }
 
@@ -54,12 +65,16 @@ export function SettingsRow({
   label,
   description,
   control,
+  stacked = false,
   className,
 }: SettingsRowProps) {
   return (
     <div
       className={cn(
-        'flex items-center justify-between gap-4 border-b border-line-subtle px-4 py-3 last:border-0',
+        'gap-4 border-b border-line-subtle py-3 last:border-0',
+        stacked
+          ? 'flex flex-col'
+          : 'flex flex-col tablet:flex-row tablet:items-center tablet:justify-between',
         className
       )}
     >
@@ -70,7 +85,14 @@ export function SettingsRow({
         )}
       </div>
       {control && (
-        <div className="flex shrink-0 items-center gap-2">{control}</div>
+        <div
+          className={cn(
+            'flex items-center gap-2',
+            stacked ? 'w-full' : 'shrink-0 tablet:w-72 tablet:justify-end'
+          )}
+        >
+          {control}
+        </div>
       )}
     </div>
   )

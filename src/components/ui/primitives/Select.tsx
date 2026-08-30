@@ -13,8 +13,8 @@ export const selectVariants = cva(
   {
     variants: {
       size: {
-        md: 'h-8 rounded-md pl-2',
-        lg: 'h-9 rounded-md pl-2.5',
+        md: 'h-8 rounded-sm pl-2',
+        lg: 'h-9 rounded-sm pl-2.5',
       },
     },
     defaultVariants: { size: 'md' },

@@ -3,24 +3,61 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 /**
- * Badge — status chip (spec §11 Badges / Status Chips). Follows the status tint
- * recipe (text / 10% bg / 25% border) via semantic tokens. Mono, 11px, 4px
- * radius. Colour communicates status; a `dot` and screen-reader label keep it
- * from being colour-only (spec §8: status is never colour alone).
+ * Badge — status signal (directive §5.7 "Status — signal, not decoration").
+ *
+ * Renders as `● ACTIVE`: a small status dot plus an uppercase mono label, with
+ * **no fill and no border**. Colour communicates state and stays sparse; the
+ * chip treatment it replaced put a tinted rectangle around every status in
+ * every table row, which is decoration competing with the data (§6 bans
+ * excessive pill controls, §9.3 flags excessive badges).
+ *
+ * The dot is automatic for the coloured variants, so status is never conveyed
+ * by colour alone — the label always carries it (§5.7, WCAG 1.4.1).
+ *
+ * `chip` restores a bordered container for the exceptional case where a badge
+ * must read as a discrete object rather than an inline status — a variant, not
+ * a second component (§10 "variants over separate components").
  */
 export const badgeVariants = cva(
-  'inline-flex items-center gap-1 whitespace-nowrap rounded-sm border px-1.5 py-px font-mono text-mono-sm leading-4',
+  'inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-mono-sm uppercase tracking-wide leading-4',
   {
     variants: {
       variant: {
-        neutral: 'border-line-2 bg-transparent text-ink-secondary',
-        success: 'border-success-border bg-success-bg text-success',
-        warning: 'border-warning-border bg-warning-bg text-warning',
-        error: 'border-error-border bg-error-bg text-error',
-        accent: 'border-accentui-border bg-accentui-bg text-brand-link',
+        neutral: 'text-ink-secondary',
+        success: 'text-success',
+        warning: 'text-warning',
+        error: 'text-error',
+        accent: 'text-brand-link',
+      },
+      chip: {
+        true: 'rounded-sm border px-1.5 py-px',
+        false: '',
       },
     },
-    defaultVariants: { variant: 'neutral' },
+    compoundVariants: [
+      { chip: true, variant: 'neutral', class: 'border-line-2' },
+      {
+        chip: true,
+        variant: 'success',
+        class: 'border-success-border bg-success-bg',
+      },
+      {
+        chip: true,
+        variant: 'warning',
+        class: 'border-warning-border bg-warning-bg',
+      },
+      {
+        chip: true,
+        variant: 'error',
+        class: 'border-error-border bg-error-bg',
+      },
+      {
+        chip: true,
+        variant: 'accent',
+        class: 'border-accentui-border bg-accentui-bg',
+      },
+    ],
+    defaultVariants: { variant: 'neutral', chip: false },
   }
 )
 
@@ -36,28 +73,34 @@ export interface BadgeProps
   extends
     React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {
-  /** Show a leading status dot. */
+  /**
+   * Show the leading status dot. Defaults to `true` for the coloured variants
+   * and `false` for `neutral`, which is used for non-status labels.
+   */
   dot?: boolean
 }
 
 export const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
-  ({ className, variant, dot, children, ...props }, ref) => (
-    <span
-      ref={ref}
-      className={cn(badgeVariants({ variant }), className)}
-      {...props}
-    >
-      {dot && (
-        <span
-          aria-hidden="true"
-          className={cn(
-            'inline-block size-1.5 rounded-full',
-            dotColor[variant ?? 'neutral']
-          )}
-        />
-      )}
-      {children}
-    </span>
-  )
+  ({ className, variant, chip, dot, children, ...props }, ref) => {
+    const showDot = dot ?? (variant != null && variant !== 'neutral')
+    return (
+      <span
+        ref={ref}
+        className={cn(badgeVariants({ variant, chip }), className)}
+        {...props}
+      >
+        {showDot && (
+          <span
+            aria-hidden="true"
+            className={cn(
+              'inline-block size-1.5 shrink-0 rounded-full',
+              dotColor[variant ?? 'neutral']
+            )}
+          />
+        )}
+        {children}
+      </span>
+    )
+  }
 )
 Badge.displayName = 'Badge'

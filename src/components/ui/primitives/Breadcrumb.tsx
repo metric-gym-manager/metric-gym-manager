@@ -46,6 +46,25 @@ export const BreadcrumbLink = React.forwardRef<
 ))
 BreadcrumbLink.displayName = 'BreadcrumbLink'
 
+/**
+ * A non-interactive trail segment — context that is not itself a destination
+ * (e.g. the workspace name ahead of the current section). Distinct from
+ * `BreadcrumbPage`, which marks the current page with `aria-current`.
+ */
+export const BreadcrumbItem = React.forwardRef<
+  HTMLSpanElement,
+  React.HTMLAttributes<HTMLSpanElement>
+>(({ className, ...props }, ref) => (
+  <li className="inline-flex min-w-0 items-center">
+    <span
+      ref={ref}
+      className={cn('truncate text-ink-muted', className)}
+      {...props}
+    />
+  </li>
+))
+BreadcrumbItem.displayName = 'BreadcrumbItem'
+
 export function BreadcrumbSeparator({ className }: { className?: string }) {
   return (
     <li aria-hidden="true" className={cn('text-ink-placeholder', className)}>

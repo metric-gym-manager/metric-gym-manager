@@ -64,13 +64,13 @@ export function CommandPalette({
       <Dialog.Portal>
         <Dialog.Overlay
           data-theme={theme}
-          className="fixed inset-0 z-palette-backdrop bg-surface-overlay backdrop-blur-modal"
+          className="fixed inset-0 z-palette-backdrop bg-surface-overlay"
         />
         <Dialog.Content
           data-theme={theme}
           aria-describedby={undefined}
           className={cn(
-            'fixed left-1/2 top-24 z-palette w-[520px] max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-xl border border-line-2 bg-surface-card font-geist text-ink shadow-overlay animate-pal-in focus:outline-none',
+            'fixed left-1/2 top-24 z-palette w-[520px] max-w-[calc(100vw-2rem)] -translate-x-1/2 overflow-hidden rounded-sm border border-line-2 bg-surface-card font-geist text-ink shadow-overlay animate-pal-in focus:outline-none',
             className
           )}
         >
@@ -130,7 +130,7 @@ export const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      'flex cursor-pointer select-none items-center gap-2 rounded-md px-3 py-2 text-body text-ink outline-none transition-colors duration-fast data-[selected=true]:bg-surface-hover data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-ink-muted',
+      'flex cursor-pointer select-none items-center gap-2 rounded-sm px-3 py-2 text-body text-ink outline-none transition-colors duration-fast data-[selected=true]:bg-surface-hover data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:size-3.5 [&_svg]:shrink-0 [&_svg]:text-ink-muted',
       className
     )}
     {...props}

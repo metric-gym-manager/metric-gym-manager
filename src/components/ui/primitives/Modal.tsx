@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils'
  * render at <body>, outside the surface's theme scope).
  */
 export const modalContentVariants = cva(
-  'fixed left-1/2 top-24 z-modal flex max-h-[calc(100vh-96px)] w-[480px] max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col overflow-hidden rounded-xl border border-line-2 bg-surface-card font-geist text-ink shadow-overlay animate-pal-in focus:outline-none',
+  'fixed left-1/2 top-24 z-modal flex max-h-[calc(100vh-96px)] w-[480px] max-w-[calc(100vw-2rem)] -translate-x-1/2 flex-col overflow-hidden rounded-sm border border-line-2 bg-surface-card font-geist text-ink shadow-overlay animate-pal-in focus:outline-none',
   {
     variants: {
       size: {
@@ -64,7 +64,7 @@ export function Modal({
       <Dialog.Portal>
         <Dialog.Overlay
           data-theme={theme}
-          className="fixed inset-0 z-modal-backdrop bg-surface-overlay backdrop-blur-modal"
+          className="fixed inset-0 z-modal-backdrop bg-surface-overlay"
         />
         <Dialog.Content
           data-theme={theme}

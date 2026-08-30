@@ -31,14 +31,14 @@ export const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
         aria-valuemin={0}
         aria-valuemax={max}
         className={cn(
-          'h-1.5 w-full overflow-hidden rounded-full bg-surface-input',
+          'h-1.5 w-full overflow-hidden rounded-xs bg-surface-input',
           className
         )}
         {...props}
       >
         <div
           className={cn(
-            'h-full rounded-full transition-[width,background-color] duration-fast',
+            'h-full rounded-xs transition-[width,background-color] duration-fast',
             toneClass[tone]
           )}
           style={{ width: `${pct}%` }}

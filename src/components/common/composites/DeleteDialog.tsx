@@ -36,9 +36,15 @@ export function DeleteDialog({
   const [submitting, setSubmitting] = React.useState(false)
   const matches = text.trim() === confirmWord
 
-  React.useEffect(() => {
+  // Reset the confirmation field when the dialog opens. Adjusting state during
+  // render (guarded by a previous-value compare) is React's documented
+  // alternative to a reset effect: it applies before paint, so the stale word is
+  // never briefly visible.
+  const [prevOpen, setPrevOpen] = React.useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (open) setText('')
-  }, [open])
+  }
 
   const handleConfirm = async () => {
     if (!matches) return

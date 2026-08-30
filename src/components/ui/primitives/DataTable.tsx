@@ -290,9 +290,15 @@ export function DataTable<T>({
     return sorted.slice(startIdx, startIdx + pageSize)
   }, [sorted, pageSize, clampedPage])
 
-  React.useEffect(() => {
+  // Filtering or resizing the page invalidates the current page number. Done as
+  // a render-time adjustment rather than an effect so the table never paints one
+  // frame of an out-of-range page.
+  const pageResetKey = `${query}\u0000${pageSize ?? ''}`
+  const [prevPageResetKey, setPrevPageResetKey] = React.useState(pageResetKey)
+  if (pageResetKey !== prevPageResetKey) {
+    setPrevPageResetKey(pageResetKey)
     setPage(1)
-  }, [query, pageSize])
+  }
 
   // Virtualization over the current page's rows
   const canVirtualize = !!virtualize && !!maxBodyHeight && !renderExpanded

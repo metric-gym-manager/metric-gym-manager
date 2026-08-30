@@ -45,7 +45,7 @@ export function UserMenu({
         <button
           type="button"
           className={cn(
-            'flex items-center gap-2 rounded-md p-1 font-geist text-body text-ink transition-colors duration-fast hover:bg-surface-active focus-visible:shadow-focus focus-visible:outline-none',
+            'flex items-center gap-2 rounded-sm p-1 font-geist text-body text-ink transition-colors duration-fast hover:bg-surface-active focus-visible:shadow-focus focus-visible:outline-none',
             className
           )}
         >

@@ -37,14 +37,14 @@ export function Drawer({
       <Dialog.Portal>
         <Dialog.Overlay
           data-theme={theme}
-          className="fixed inset-0 z-drawer-backdrop bg-surface-overlay backdrop-blur-modal"
+          className="fixed inset-0 z-drawer-backdrop bg-surface-overlay"
         />
         <Dialog.Content
           data-theme={theme}
           aria-describedby={undefined}
           className={cn(
             'fixed inset-y-0 right-0 z-drawer flex w-[420px] max-w-full flex-col border-l border-line-2 bg-surface-card font-geist text-ink shadow-overlay animate-drawer-in focus:outline-none',
-            'max-tablet:inset-x-0 max-tablet:bottom-0 max-tablet:top-auto max-tablet:h-[85vh] max-tablet:w-full max-tablet:rounded-t-xl max-tablet:border-l-0 max-tablet:border-t',
+            'max-tablet:inset-x-0 max-tablet:bottom-0 max-tablet:top-auto max-tablet:h-[85vh] max-tablet:w-full max-tablet:rounded-t-sm max-tablet:border-l-0 max-tablet:border-t',
             className
           )}
         >
