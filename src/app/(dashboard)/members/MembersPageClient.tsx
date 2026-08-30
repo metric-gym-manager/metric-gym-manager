@@ -187,7 +187,7 @@ export default function MembersPageClient() {
         title="Members"
         actions={
           <span className="font-mono text-mono-sm text-ink-muted">
-            {totalCount} records
+            {totalCount} {totalCount === 1 ? 'record' : 'records'}
           </span>
         }
       />
@@ -203,21 +203,26 @@ export default function MembersPageClient() {
           aria-label="Search members"
           className="w-56"
         />
-        <Select
-          value={status}
-          aria-label="Filter by status"
-          onChange={(e) => {
-            setStatus(e.target.value)
-            setPage(1)
-          }}
-          className="w-44"
-        >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
+        {/* Select renders itself inside a hardcoded `w-full` wrapper, so a
+            width passed via className lands on the inner <select> while the
+            wrapper still claims the whole flex line — which pushed the filter
+            and the actions onto separate rows. Size the container instead. */}
+        <div className="w-44">
+          <Select
+            value={status}
+            aria-label="Filter by status"
+            onChange={(e) => {
+              setStatus(e.target.value)
+              setPage(1)
+            }}
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        </div>
         <div className="ml-auto flex flex-wrap gap-2">
           <Button variant="secondary" onClick={() => setDayPassModalOpen(true)}>
             Create day pass
