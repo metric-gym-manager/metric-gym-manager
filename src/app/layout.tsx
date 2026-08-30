@@ -3,7 +3,7 @@ import Script from 'next/script'
 import { Inter, Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
-import { Toaster } from 'sonner'
+import { Toaster } from '@/components/ui'
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration'
 import { AuthRecovery } from '@/features/auth/components/AuthRecovery'
 import { PWA_VERSION } from '@/lib/pwa-version'
@@ -84,7 +84,7 @@ export default function RootLayout({
       <body className="font-sans">
         <QueryProvider>
           {children}
-          <Toaster position="top-right" richColors />
+          <Toaster />
         </QueryProvider>
         <ServiceWorkerRegistration />
         <AuthRecovery />

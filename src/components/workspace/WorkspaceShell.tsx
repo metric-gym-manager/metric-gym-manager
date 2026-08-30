@@ -6,14 +6,16 @@ import { usePathname } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { LogOut, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Avatar, Button } from '@/components/ui'
 import { MemberLimitBar } from '@/features/subscriptions'
 import type { GymProfile } from '@/features/auth/types'
 import WorkspaceSidebar from './WorkspaceSidebar'
 import WorkspaceHeader from './WorkspaceHeader'
 import { WORKSPACE_NAV_ITEMS, activeNavItem } from './nav'
-import { initials } from './primitives'
 
-const COLLAPSE_KEY = 'mws-sidebar-collapsed'
+// Renamed from `mws-sidebar-collapsed` when the legacy layer was retired.
+// One-time cost: a sidebar collapsed before the rename reopens expanded once.
+const COLLAPSE_KEY = 'metric:sidebar-collapsed'
 
 // Sidebar collapse state is persisted to localStorage and shared across the
 // shell via useSyncExternalStore — SSR-safe (server snapshot = expanded) and
@@ -43,10 +45,12 @@ function setCollapsed(value: boolean): void {
 }
 
 /**
- * The App Workspace chrome: collapsible sidebar + breadcrumb header on desktop,
- * a compact top/bottom nav on mobile. Wraps every (dashboard) page in
- * `.mws-root` so the enterprise design tokens apply. Collapse state persists to
- * localStorage.
+ * The App Workspace chrome: a fixed sidebar + breadcrumb header on desktop, and
+ * a compact bar opening the same navigation in a drawer on mobile.
+ *
+ * The workspace sets its own type baseline (Geist at the 13px body size) here.
+ * That used to come from `.mws-root`, together with a set of `--mws-*` aliases
+ * for the legacy CSS layer — both removed once the last screen migrated.
  */
 export default function WorkspaceShell({
   children,
@@ -62,28 +66,30 @@ export default function WorkspaceShell({
 
   return (
     <div
-      data-theme="light"
-      className="mws-root min-h-screen"
-      style={{
-        background: 'var(--mws-bg)',
-        ['--mws-sb-w' as string]: collapsed ? '56px' : '240px',
-      }}
+      data-theme="dark"
+      className="min-h-screen bg-surface-base font-geist text-body text-ink antialiased"
     >
       <WorkspaceSidebar
         collapsed={collapsed}
         onToggleCollapse={toggleCollapse}
       />
 
-      <div className="mws-main flex min-h-screen flex-col">
+      {/* Offset for the fixed rail. Was a `.mws-main` CSS rule driven by a
+          `--mws-sb-w` custom property set from JS; the widths are the sidebar
+          token values, so a conditional class expresses it directly. */}
+      <div
+        className={cn(
+          'flex min-h-screen flex-col',
+          collapsed ? 'lg:pl-14' : 'lg:pl-60'
+        )}
+      >
         <WorkspaceHeader />
         <MobileTopBar />
 
         {/* Lite-tier remaining-slots bar + universal upgrade CTA (unchanged). */}
         <MemberLimitBar />
 
-        <main className="flex-1" style={{ padding: '24px', paddingBottom: 96 }}>
-          {children}
-        </main>
+        <main className="flex-1 p-6 pb-24 lg:pb-6">{children}</main>
 
         <MobileBottomNav />
       </div>
@@ -91,7 +97,14 @@ export default function WorkspaceShell({
   )
 }
 
-/** Mobile-only header: gym avatar + name + logout. */
+/**
+ * Mobile-only header: gym identity and sign-out.
+ *
+ * Kept deliberately close to its original shape. Mobile is being rebuilt from
+ * scratch in a separate effort (ruling R6), so this pass only tokenises it —
+ * the hardcoded `#fff` surfaces that would have survived the dark flip are gone,
+ * and the avatar and button are DS primitives. No layout or behaviour change.
+ */
 function MobileTopBar() {
   const queryClient = useQueryClient()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
@@ -111,78 +124,53 @@ function MobileTopBar() {
     setIsLoggingOut(true)
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-      queryClient.clear()
-      window.location.replace('/login')
-    } catch {
+    } finally {
       queryClient.clear()
       window.location.replace('/login')
     }
   }
 
   return (
-    <div
-      className="lg:hidden sticky top-0 z-40 flex items-center justify-between"
-      style={{
-        height: 52,
-        padding: '0 16px',
-        background: '#fff',
-        borderBottom: '1px solid var(--mws-b1)',
-      }}
-    >
-      <div className="flex items-center gap-2.5 min-w-0">
-        <div
-          className="flex items-center justify-center shrink-0 overflow-hidden"
-          style={{
-            width: 28,
-            height: 28,
-            borderRadius: '50%',
-            background: 'var(--mws-accent)',
-            fontSize: 11,
-            fontWeight: 600,
-            color: '#fff',
-          }}
-        >
-          {gymProfile?.profile_image_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={gymProfile.profile_image_url}
-              alt={gymProfile.gym_name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            initials(gymProfile?.gym_name ?? 'M')
-          )}
-        </div>
-        <span className="truncate" style={{ fontSize: 13, fontWeight: 600 }}>
+    <div className="sticky top-0 z-sticky flex h-bar items-center justify-between gap-3 border-b border-line-1 bg-surface-panel px-4 lg:hidden">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <Avatar
+          size="sm"
+          name={gymProfile?.gym_name ?? 'Metric'}
+          src={gymProfile?.profile_image_url ?? undefined}
+        />
+        <span className="truncate text-body font-semibold text-ink">
           {gymProfile?.gym_name ?? 'Metric'}
         </span>
       </div>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={handleLogout}
         disabled={isLoggingOut}
         aria-label="Log out"
-        className="mws-btn mws-btn-sm"
-        style={{ width: 32, padding: 0 }}
       >
-        {isLoggingOut ? (
-          <Loader2 width={14} height={14} className="animate-spin" />
-        ) : (
-          <LogOut width={14} height={14} />
-        )}
-      </button>
+        {isLoggingOut ? <Loader2 className="animate-spin" /> : <LogOut />}
+      </Button>
     </div>
   )
 }
 
-/** Mobile-only bottom navigation (horizontally scrollable). */
+/**
+ * Mobile-only bottom navigation (horizontally scrollable).
+ *
+ * Retained as-is per R6. Known limitation, deliberately not fixed here: nine
+ * destinations at a 76px minimum overflow a phone viewport, so the later items
+ * sit behind a horizontal scroll with no affordance. That is a mobile
+ * information-architecture problem, and mobile is being rebuilt separately.
+ * `aria-current` is set, which the original omitted.
+ */
 function MobileBottomNav() {
   const pathname = usePathname()
   const active = activeNavItem(pathname)
   return (
     <nav
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 flex overflow-x-auto scrollbar-hide"
-      style={{ background: '#fff', borderTop: '1px solid var(--mws-b1)' }}
+      aria-label="Workspace"
+      className="scrollbar-hide fixed bottom-0 left-0 right-0 z-sticky flex overflow-x-auto border-t border-line-1 bg-surface-panel lg:hidden"
     >
       {WORKSPACE_NAV_ITEMS.map((item) => {
         const isActive = active?.href === item.href
@@ -191,18 +179,20 @@ function MobileBottomNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={cn('flex flex-col items-center shrink-0')}
-            style={{
-              minWidth: 76,
-              padding: '8px 6px',
-              color: isActive ? 'var(--mws-accent-tint)' : 'var(--mws-t2)',
-            }}
+            aria-current={isActive ? 'page' : undefined}
+            className={cn(
+              'flex min-w-[76px] shrink-0 flex-col items-center px-1.5 py-2 transition-colors duration-fast',
+              isActive ? 'text-brand-link' : 'text-ink-secondary'
+            )}
           >
-            <Icon width={20} height={20} strokeWidth={1.8} className="mb-1" />
-            <span
-              className="text-center leading-tight"
-              style={{ fontSize: 10, fontWeight: 500 }}
-            >
+            <Icon
+              width={20}
+              height={20}
+              strokeWidth={1.8}
+              className="mb-1"
+              aria-hidden="true"
+            />
+            <span className="text-center text-mono-xs font-medium leading-tight">
               {item.name}
             </span>
           </Link>
