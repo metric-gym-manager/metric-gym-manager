@@ -6,7 +6,7 @@
  *
  * Example:
  * ```typescript
- * import { MembersTable, AddMemberModal } from '@/features/members';
+ * import { AddMemberModal, MemberDetailModalResponsive } from '@/features/members';
  * ```
  */
 
@@ -19,9 +19,6 @@ export { default as BulkAddMemberModal } from './components/BulkAddMemberModal'
 export { default as EditMemberModal } from './components/EditMemberModal'
 // Desktop/mobile variants are internals of the responsive wrapper — not public API
 export { default as MemberDetailModalResponsive } from './components/MemberDetailModalResponsive'
-export { default as MembersTable } from './components/MembersTable'
-export { default as PaymentCollectionModal } from './components/PaymentCollectionModal'
-export { PaymentDetailsModal } from './components/PaymentDetailsModal'
 export { default as MemberAvatar } from './components/MemberAvatar'
 export { default as MemberPhotoSection } from './components/MemberPhotoSection'
 export { default as DayPassModal } from './components/DayPassModal'

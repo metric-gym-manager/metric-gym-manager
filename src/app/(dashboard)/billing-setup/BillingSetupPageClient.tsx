@@ -60,11 +60,11 @@ export default function BillingSetupPageClient() {
       {/* Header — full page header when on menu; back button when inside a section */}
       {mobileSection ? (
         <button
-          className="mws-back-btn"
-          style={{ display: 'flex' }}
+          type="button"
           onClick={() => setMobileSection(null)}
+          className="mb-4 flex items-center gap-1 text-body text-brand-link transition-colors duration-fast hover:text-brand-link-hover focus-visible:rounded-sm focus-visible:shadow-focus focus-visible:outline-none"
         >
-          <ChevronLeft style={{ width: 14, height: 14 }} />
+          <ChevronLeft className="size-3.5" aria-hidden="true" />
           Membership Setup
         </button>
       ) : (
@@ -79,7 +79,7 @@ export default function BillingSetupPageClient() {
         {mobileSection ? (
           sectionContent[mobileSection]
         ) : (
-          <div className="rounded-lg border border-line-1 bg-surface-card divide-y divide-line-1">
+          <div className="rounded-sm border border-line-1 bg-surface-card divide-y divide-line-1">
             {SECTIONS.map((section) => (
               <button
                 key={section.id}

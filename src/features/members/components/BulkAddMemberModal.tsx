@@ -389,9 +389,9 @@ export default function BulkAddMemberModal({
 
   // Tokenized native <select> styling (matches the DS Select primitive treatment).
   const selectClass =
-    'h-8 w-full rounded-md border border-line-2 bg-surface-input px-2 text-body text-ink focus-visible:border-focusring focus-visible:shadow-focus focus-visible:outline-none disabled:opacity-50'
+    'h-8 w-full rounded-sm border border-line-2 bg-surface-input px-2 text-body text-ink focus-visible:border-focusring focus-visible:shadow-focus focus-visible:outline-none disabled:opacity-50'
   const toolbarSelectClass =
-    'h-8 rounded-md border border-line-2 bg-surface-card px-2 text-body text-ink focus-visible:border-focusring focus-visible:shadow-focus focus-visible:outline-none disabled:opacity-50'
+    'h-8 rounded-sm border border-line-2 bg-surface-card px-2 text-body text-ink focus-visible:border-focusring focus-visible:shadow-focus focus-visible:outline-none disabled:opacity-50'
 
   return (
     <Modal
@@ -465,7 +465,7 @@ export default function BulkAddMemberModal({
     >
       {planTypesData &&
         planTypesData.filter((pt) => pt.is_active).length === 0 && (
-          <div className="rounded-md bg-warning-bg border border-warning-border p-4 mb-4">
+          <div className="rounded-sm bg-warning-bg border border-warning-border p-4 mb-4">
             <p className="text-sm text-warning">
               <strong>No plan types configured.</strong> Please go to Settings →
               Plans to configure your membership plan types before adding
@@ -476,7 +476,7 @@ export default function BulkAddMemberModal({
 
       {/* Summary bar */}
       {submitted && (
-        <div className="flex items-center gap-4 rounded-lg border border-line-1 bg-surface-input px-4 py-3 text-sm mb-4">
+        <div className="flex items-center gap-4 rounded-sm border border-line-1 bg-surface-input px-4 py-3 text-sm mb-4">
           <span className="font-medium">Results:</span>
           {successCount > 0 && (
             <span className="inline-flex items-center gap-1 text-success">
@@ -498,7 +498,7 @@ export default function BulkAddMemberModal({
       )}
 
       {/* Apply-to-all toolbar */}
-      <div className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-lg border border-line-1 bg-surface-input px-4 py-3 mb-4">
+      <div className="flex flex-wrap items-end gap-x-5 gap-y-3 rounded-sm border border-line-1 bg-surface-input px-4 py-3 mb-4">
         {/* Plan section */}
         <div className="flex items-end gap-2">
           <div>
@@ -632,7 +632,7 @@ export default function BulkAddMemberModal({
       </div>
 
       {/* Scrollable table */}
-      <div className="overflow-x-auto border border-line-1 rounded-lg">
+      <div className="overflow-x-auto border border-line-1 rounded-sm">
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-sticky bg-surface-input border-b border-line-1">
             <tr>
@@ -820,9 +820,7 @@ export default function BulkAddMemberModal({
                   {/* Status */}
                   <td className="px-3 py-2">
                     {row.status === 'success' && (
-                      <Badge variant="success">
-                        <CheckCircle className="h-3 w-3 mr-1" /> Done
-                      </Badge>
+                      <Badge variant="success">Done</Badge>
                     )}
                     {row.status === 'error' && (
                       <div>
@@ -831,7 +829,7 @@ export default function BulkAddMemberModal({
                           className="cursor-help"
                           title={row.errorMessage}
                         >
-                          <XCircle className="h-3 w-3 mr-1" /> Error
+                          Error
                         </Badge>
                         {row.errorMessage && (
                           <p
@@ -862,16 +860,12 @@ export default function BulkAddMemberModal({
                               className="cursor-help"
                               title={validationError}
                             >
-                              <XCircle className="h-3 w-3 mr-1" /> Invalid
+                              Invalid
                             </Badge>
                           )
                         }
 
-                        return (
-                          <Badge variant="success">
-                            <CheckCircle className="h-3 w-3 mr-1" /> Valid
-                          </Badge>
-                        )
+                        return <Badge variant="success">Valid</Badge>
                       })()}
                   </td>
 

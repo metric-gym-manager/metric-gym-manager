@@ -34,12 +34,12 @@ export default function QuotaReachedUpsell() {
 
   return (
     <div
-      className="bg-accentui-bg border border-accentui-border rounded-lg p-4"
+      className="bg-accentui-bg border border-accentui-border rounded-sm p-4"
       role="alert"
       data-testid="quota-reached-upsell"
     >
       <div className="flex items-start gap-3">
-        <div className="p-2 bg-surface-card rounded-lg shrink-0">
+        <div className="p-2 bg-surface-card rounded-sm shrink-0">
           <Users className="h-5 w-5 text-brand-link" />
         </div>
         <div className="space-y-2">

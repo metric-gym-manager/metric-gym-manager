@@ -238,7 +238,7 @@ export default function ReactivationDialog({
 
         {/* Future Date Warning */}
         {isFutureDate && (
-          <div className="flex items-start gap-2 rounded-md bg-warning-bg border border-warning-border p-3">
+          <div className="flex items-start gap-2 rounded-sm bg-warning-bg border border-warning-border p-3">
             <AlertCircle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
             <div>
               <p className="text-sm font-medium text-warning">
@@ -253,7 +253,7 @@ export default function ReactivationDialog({
         )}
 
         {/* Next Due Date Preview */}
-        <div className="flex items-start gap-2 rounded-md bg-accentui-bg border border-accentui-border p-3">
+        <div className="flex items-start gap-2 rounded-sm bg-accentui-bg border border-accentui-border p-3">
           <Info className="h-4 w-4 text-brand-link mt-0.5 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-brand-link">Next Due Date</p>

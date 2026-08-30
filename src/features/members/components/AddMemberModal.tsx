@@ -315,7 +315,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
               currentStep === 1
                 ? 'bg-accentui text-accentui-text'
-                : 'bg-success text-white'
+                : 'bg-success text-accentui-text'
             }`}
           >
             {currentStep === 1 ? '1' : '✓'}
@@ -356,7 +356,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
 
       {planTypesData &&
         planTypesData.filter((pt) => pt.is_active).length === 0 && (
-          <div className="rounded-md bg-warning-bg border border-warning-border p-4 mb-4">
+          <div className="rounded-sm bg-warning-bg border border-warning-border p-4 mb-4">
             <p className="text-sm text-warning">
               <strong>No plan types configured.</strong> Please go to Settings →
               Plans to configure your membership plan types before adding
@@ -572,7 +572,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             <div className="space-y-4">
               <h3 className="text-sm font-semibold">Payment Summary</h3>
 
-              <div className="rounded-lg border border-line-1 bg-surface-input p-4 space-y-2">
+              <div className="rounded-sm border border-line-1 bg-surface-input p-4 space-y-2">
                 <p className="text-xs font-medium text-ink-muted uppercase tracking-wide">
                   Initial Payment
                 </p>

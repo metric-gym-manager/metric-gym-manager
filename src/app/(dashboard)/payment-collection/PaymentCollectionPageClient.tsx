@@ -3,13 +3,17 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
 import {
-  Panel,
-  StatusBadge,
-  formatLKR,
-  type StatusTone,
-} from '@/components/workspace/primitives'
+  Badge,
+  Button,
+  DataTable,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  type DataTableColumn,
+} from '@/components/ui'
+import { PageHeader } from '@/components/common/composites'
 import { useMemberModal } from '@/contexts/member-modal.context'
 import { MemberAvatar } from '@/features/members'
 
@@ -51,19 +55,30 @@ function reminderType(daysUntilDue: number): string {
   return 'reminder_7day'
 }
 
+const money = (n: number) => n.toLocaleString('en-US')
+
 /**
- * Renewals — App Workspace design. Three tabs (Expired / Expires this
- * week / Collected) over live data: dues come from /api/regular-payments,
- * collected from /api/payment-collection/collected. "Remind" sends a
- * per-member SMS (POST /api/sms/send); "Record payment" / "Receipt" open the
- * member drawer.
+ * Renewals — three views (Expired / Expires this week / Collected) over live
+ * data. Dues come from /api/regular-payments, collected from
+ * /api/payment-collection/collected. "Remind" sends a per-member SMS
+ * (POST /api/sms/send); "Record payment" / "Receipt" open the member drawer.
+ *
+ * Rebuilt onto `Tabs` + `DataTable` from a hand-written `mws-tab` bar over an
+ * `mws-table`. The tab bar was three plain buttons, so it had none of the
+ * roving focus, arrow-key navigation or `aria-selected` wiring that Radix Tabs
+ * provides. Unlike members, all three data sets are fetched whole and filtered
+ * in the client, so `DataTable`'s own sorting applies directly.
  */
 export default function PaymentCollectionPageClient() {
   const [tab, setTab] = useState<Tab>('expired')
   const { openMember } = useMemberModal()
   const queryClient = useQueryClient()
 
-  const { data: dues } = useQuery<RegularPaymentsResponse>({
+  const {
+    data: dues,
+    isLoading: duesLoading,
+    error: duesError,
+  } = useQuery<RegularPaymentsResponse>({
     queryKey: ['regular-payments', 'all'],
     queryFn: async () => {
       const response = await fetch(
@@ -75,7 +90,11 @@ export default function PaymentCollectionPageClient() {
   })
 
   const month = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
-  const { data: collected } = useQuery<CollectedResponse>({
+  const {
+    data: collected,
+    isLoading: collectedLoading,
+    error: collectedError,
+  } = useQuery<CollectedResponse>({
     queryKey: ['payment-collection', 'collected', month],
     queryFn: async () => {
       const response = await fetch(
@@ -124,202 +143,197 @@ export default function PaymentCollectionPageClient() {
   )
   const collectedRows = collected?.payments ?? []
 
-  const tabs: Array<{
-    id: Tab
-    label: string
-    count: number
-    tone: StatusTone
-  }> = [
-    { id: 'expired', label: 'Expired', count: expired.length, tone: 'err' },
+  const memberCell = (
+    name: string,
+    photoPath?: string | null,
+    photoUpdatedAt?: string | null
+  ) => (
+    <div className="flex items-center gap-2">
+      <MemberAvatar
+        name={name}
+        photoPath={photoPath}
+        photoUpdatedAt={photoUpdatedAt}
+      />
+      <span className="font-medium">{name}</span>
+    </div>
+  )
+
+  const dueColumns = (
+    variant: 'expired' | 'due'
+  ): DataTableColumn<DueRow>[] => [
     {
-      id: 'due',
-      label: 'Expires this week',
-      count: dueSoon.length,
-      tone: 'warn',
+      id: 'member',
+      header: 'Member',
+      sortValue: (r) => r.name,
+      cell: (r) => memberCell(r.name, r.photoPath, r.photoUpdatedAt),
     },
     {
-      id: 'collected',
-      label: 'Collected',
-      count: collected?.summary.paymentCount ?? 0,
-      tone: 'ok',
+      id: 'when',
+      header: variant === 'expired' ? 'Expired' : 'Exp date',
+      sortValue: (r) => r.daysUntilDue,
+      cell: (r) =>
+        variant === 'expired' ? (
+          <Badge variant="error">{Math.abs(r.daysUntilDue)} days ago</Badge>
+        ) : (
+          <span className="font-mono text-mono-md text-warning">
+            {r.nextDueDate}
+          </span>
+        ),
+    },
+    {
+      id: 'amount',
+      header: 'Amount (LKR)',
+      numeric: true,
+      sortValue: (r) => r.effectiveAmount,
+      cell: (r) => money(r.effectiveAmount),
+    },
+    {
+      id: 'action',
+      header: 'Action',
+      className: 'text-right',
+      headerClassName: 'text-right',
+      cell: (r) => (
+        <div className="inline-flex gap-1.5">
+          <Button
+            size="xs"
+            variant="secondary"
+            disabled={pendingId === r.id}
+            onClick={() =>
+              remindMutation.mutate({
+                memberId: r.id,
+                smsType: reminderType(r.daysUntilDue),
+              })
+            }
+          >
+            {pendingId === r.id ? 'Sending…' : 'Remind'}
+          </Button>
+          <Button
+            size="xs"
+            variant="success-ghost"
+            onClick={() => openMember(r.id)}
+          >
+            Record payment
+          </Button>
+        </div>
+      ),
     },
   ]
 
-  const col3Label =
-    tab === 'expired' ? 'Expired' : tab === 'due' ? 'Exp date' : 'Paid on'
+  const collectedColumns: DataTableColumn<CollectedRow>[] = [
+    {
+      id: 'member',
+      header: 'Member',
+      sortValue: (r) => r.memberName,
+      cell: (r) => memberCell(r.memberName, r.photoPath, r.photoUpdatedAt),
+    },
+    {
+      id: 'paidOn',
+      header: 'Paid on',
+      sortValue: (r) => r.paymentDate,
+      cell: (r) => (
+        <span className="font-mono text-mono-md text-ink-muted">
+          {r.paymentDate}
+        </span>
+      ),
+    },
+    {
+      id: 'amount',
+      header: 'Amount (LKR)',
+      numeric: true,
+      sortValue: (r) => r.amountPaid,
+      cell: (r) => money(r.amountPaid),
+    },
+    {
+      id: 'action',
+      header: 'Action',
+      className: 'text-right',
+      headerClassName: 'text-right',
+      cell: (r) => (
+        <Button
+          size="xs"
+          variant="secondary"
+          onClick={() => openMember(r.memberId)}
+        >
+          Receipt
+        </Button>
+      ),
+    },
+  ]
 
-  return (
-    <div className="flex flex-col gap-4" style={{ maxWidth: 1200 }}>
-      <h1 className="mws-h1">Renewals</h1>
+  const counts: Record<
+    Tab,
+    { count: number; variant: 'error' | 'warning' | 'success' }
+  > = {
+    expired: { count: expired.length, variant: 'error' },
+    due: { count: dueSoon.length, variant: 'warning' },
+    collected: {
+      count: collected?.summary.paymentCount ?? 0,
+      variant: 'success',
+    },
+  }
 
-      {/* Tabs */}
-      <div
-        className="flex"
-        style={{ gap: 2, borderBottom: '1px solid var(--mws-b1)' }}
-      >
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={cn('mws-tab', tab === t.id && 'mws-tab-active')}
-          >
-            {t.label}&nbsp;
-            <span
-              className="mws-mono"
-              style={{
-                fontSize: 11,
-                color: `var(--mws-${t.tone === 'err' ? 'err' : t.tone === 'warn' ? 'warn' : 'ok'})`,
-              }}
-            >
-              {t.count}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      <Panel style={{ overflow: 'hidden' }}>
-        <div className="mws-table-scroll">
-          <table className="mws-table">
-            <thead>
-              <tr>
-                <th>Member</th>
-                <th>{col3Label}</th>
-                <th style={{ textAlign: 'right' }}>Amount (LKR)</th>
-                <th style={{ textAlign: 'right' }}>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tab === 'collected' ? (
-                collectedRows.length === 0 ? (
-                  <EmptyRow label="No payments collected this month yet." />
-                ) : (
-                  collectedRows.map((r) => (
-                    <tr key={r.paymentId}>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <MemberAvatar
-                            name={r.memberName}
-                            photoPath={r.photoPath}
-                            photoUpdatedAt={r.photoUpdatedAt}
-                          />
-                          <span style={{ fontWeight: 500 }}>
-                            {r.memberName}
-                          </span>
-                        </div>
-                      </td>
-                      <td
-                        className="mws-mono"
-                        style={{ fontSize: 12, color: 'var(--mws-t3)' }}
-                      >
-                        {r.paymentDate}
-                      </td>
-                      <td className="mws-num">
-                        {formatLKR(r.amountPaid, { prefix: false })}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <button
-                          type="button"
-                          className="mws-btn mws-btn-sm"
-                          onClick={() => openMember(r.memberId)}
-                        >
-                          Receipt
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )
-              ) : (
-                (() => {
-                  const rows = tab === 'expired' ? expired : dueSoon
-                  if (rows.length === 0)
-                    return (
-                      <EmptyRow
-                        label={
-                          tab === 'expired'
-                            ? 'No expired members. 🎉'
-                            : 'Nobody expires in the next 7 days.'
-                        }
-                      />
-                    )
-                  return rows.map((r) => (
-                    <tr key={r.id}>
-                      <td>
-                        <div className="flex items-center gap-2">
-                          <MemberAvatar
-                            name={r.name}
-                            photoPath={r.photoPath}
-                            photoUpdatedAt={r.photoUpdatedAt}
-                          />
-                          <span style={{ fontWeight: 500 }}>{r.name}</span>
-                        </div>
-                      </td>
-                      <td>
-                        {tab === 'expired' ? (
-                          <StatusBadge tone="err">
-                            {Math.abs(r.daysUntilDue)} DAYS AGO
-                          </StatusBadge>
-                        ) : (
-                          <span
-                            className="mws-mono"
-                            style={{ fontSize: 12, color: 'var(--mws-warn)' }}
-                          >
-                            {r.nextDueDate}
-                          </span>
-                        )}
-                      </td>
-                      <td className="mws-num">
-                        {formatLKR(r.effectiveAmount, { prefix: false })}
-                      </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div className="inline-flex" style={{ gap: 6 }}>
-                          <button
-                            type="button"
-                            className="mws-btn mws-btn-sm"
-                            disabled={pendingId === r.id}
-                            onClick={() =>
-                              remindMutation.mutate({
-                                memberId: r.id,
-                                smsType: reminderType(r.daysUntilDue),
-                              })
-                            }
-                          >
-                            {pendingId === r.id ? 'Sending…' : 'Remind'}
-                          </button>
-                          <button
-                            type="button"
-                            className="mws-btn mws-btn-sm"
-                            style={{
-                              color: 'var(--mws-ok)',
-                              borderColor: 'var(--mws-ok-br)',
-                            }}
-                            onClick={() => openMember(r.id)}
-                          >
-                            Record payment
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                })()
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Panel>
-    </div>
+  const tabLabel = (id: Tab, label: string) => (
+    <span className="flex items-center gap-1.5">
+      {label}
+      <Badge variant={counts[id].variant} dot={false}>
+        {counts[id].count}
+      </Badge>
+    </span>
   )
-}
 
-function EmptyRow({ label }: { label: string }) {
   return (
-    <tr>
-      <td
-        colSpan={4}
-        style={{ padding: 24, textAlign: 'center', color: 'var(--mws-t3)' }}
-      >
-        {label}
-      </td>
-    </tr>
+    <div className="flex max-w-app flex-col gap-4">
+      <PageHeader title="Renewals" />
+
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
+        <TabsList>
+          <TabsTrigger value="expired">
+            {tabLabel('expired', 'Expired')}
+          </TabsTrigger>
+          <TabsTrigger value="due">
+            {tabLabel('due', 'Expires this week')}
+          </TabsTrigger>
+          <TabsTrigger value="collected">
+            {tabLabel('collected', 'Collected')}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="expired">
+          <DataTable
+            columns={dueColumns('expired')}
+            data={expired}
+            getRowId={(r) => r.id}
+            caption="Expired memberships"
+            loading={duesLoading}
+            error={duesError ? 'Failed to load renewals.' : undefined}
+            empty="No expired members."
+          />
+        </TabsContent>
+
+        <TabsContent value="due">
+          <DataTable
+            columns={dueColumns('due')}
+            data={dueSoon}
+            getRowId={(r) => r.id}
+            caption="Memberships expiring within seven days"
+            loading={duesLoading}
+            error={duesError ? 'Failed to load renewals.' : undefined}
+            empty="Nobody expires in the next 7 days."
+          />
+        </TabsContent>
+
+        <TabsContent value="collected">
+          <DataTable
+            columns={collectedColumns}
+            data={collectedRows}
+            getRowId={(r) => r.paymentId}
+            caption="Payments collected this month"
+            loading={collectedLoading}
+            error={collectedError ? 'Failed to load payments.' : undefined}
+            empty="No payments collected this month yet."
+          />
+        </TabsContent>
+      </Tabs>
+    </div>
   )
 }

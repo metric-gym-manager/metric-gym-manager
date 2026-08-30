@@ -7,8 +7,6 @@ import {
   BarChart,
   Card,
   CardBody,
-  CardHeader,
-  CardLabel,
   EmptyState,
   Table,
   TableBody,
@@ -17,7 +15,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
-import { PageHeader, StatCard, ChartCard } from '@/components/common/composites'
+import {
+  PageHeader,
+  StatCard,
+  ChartCard,
+  SectionHeader,
+} from '@/components/common/composites'
 import { MemberAvatar } from '@/features/members'
 import { useNow } from '@/hooks/useNow'
 import { useIsHydrated } from '@/hooks/useIsHydrated'
@@ -267,7 +270,7 @@ export default function DashboardClient() {
       />
 
       {/* Stat tiles */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 divide-x divide-y divide-line-1 border-y border-line-1 lg:grid-cols-4 lg:divide-y-0">
         {tiles.map((t) => (
           <StatCard
             key={t.label}
@@ -299,13 +302,17 @@ export default function DashboardClient() {
           />
         </ChartCard>
 
-        <Card className="flex flex-col lg:col-span-1">
-          <CardHeader>
-            <CardLabel>Reminder queue</CardLabel>
-            <Badge variant={queueTotal > 0 ? 'warning' : 'success'}>
-              {queueTotal} QUEUED
-            </Badge>
-          </CardHeader>
+        <section className="flex flex-col lg:col-span-1">
+          <SectionHeader
+            variant="metadata"
+            divider
+            title="Reminder queue"
+            actions={
+              <Badge variant={queueTotal > 0 ? 'warning' : 'success'}>
+                {queueTotal} queued
+              </Badge>
+            }
+          />
           {queue.length === 0 ? (
             <EmptyState
               className="py-10"
@@ -316,7 +323,7 @@ export default function DashboardClient() {
             queue.map((row) => (
               <div
                 key={row.memberId}
-                className="flex items-center justify-between gap-3 border-b border-line-subtle px-4 py-2.5 last:border-0"
+                className="flex items-center justify-between gap-3 border-b border-line-subtle py-2 last:border-0"
               >
                 <div className="flex min-w-0 flex-col">
                   <span className="truncate text-body text-ink">
@@ -333,14 +340,12 @@ export default function DashboardClient() {
               </div>
             ))
           )}
-        </Card>
+        </section>
       </div>
 
       {/* Recent payments */}
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardLabel>Recent payments</CardLabel>
-        </CardHeader>
+      <section>
+        <SectionHeader variant="metadata" divider title="Recent payments" />
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -389,7 +394,7 @@ export default function DashboardClient() {
             </TableBody>
           </Table>
         </div>
-      </Card>
+      </section>
     </div>
   )
 }

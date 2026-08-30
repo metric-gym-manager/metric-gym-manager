@@ -104,14 +104,18 @@ const sections: LegalSection[] = [
         </LegalP>
         <LegalList>
           <LegalLI>
-            <strong style={{ color: '#ededf0', fontWeight: 600 }}>
+            <strong
+              style={{ color: 'var(--ds-text-primary)', fontWeight: 600 }}
+            >
               Duplicate charges:
             </strong>{' '}
             if you are billed more than once for the same billing period, we
             will refund the duplicate charge in full
           </LegalLI>
           <LegalLI>
-            <strong style={{ color: '#ededf0', fontWeight: 600 }}>
+            <strong
+              style={{ color: 'var(--ds-text-primary)', fontWeight: 600 }}
+            >
               Erroneous charges:
             </strong>{' '}
             if you are charged after cancelling, or charged an incorrect amount,

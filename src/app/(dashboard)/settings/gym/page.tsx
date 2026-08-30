@@ -9,7 +9,8 @@ import {
   updateGymInfoSchema,
   type UpdateGymInfoInput,
 } from '@/features/settings/schemas/settings.schemas'
-import { Panel, PanelHead } from '@/components/workspace/primitives'
+import { Button, Input } from '@/components/ui'
+import { SettingsSection, SettingsRow } from '@/components/common/composites'
 import ProfileImageUpload from '@/features/settings/components/ProfileImageUpload'
 import type { GymProfile } from '@/features/auth/types'
 
@@ -82,148 +83,119 @@ export default function GymInformationPage() {
       onSubmit={handleSubmit((d) => updateMutation.mutate(d))}
       className="flex flex-col gap-3"
     >
-      <Panel style={{ overflow: 'hidden' }}>
-        <PanelHead
-          label="Gym profile"
-          right={
-            <button
-              type="button"
-              onClick={handleRegisterNewGym}
-              className="mws-btn mws-btn-sm"
-            >
-              Register new gym
-            </button>
+      <SettingsSection
+        title="Gym profile"
+        actions={
+          <Button variant="secondary" size="xs" onClick={handleRegisterNewGym}>
+            Register new gym
+          </Button>
+        }
+      >
+        <SettingsRow
+          label="Profile image"
+          description="Appears in the workspace header and on member-facing pages"
+          control={
+            gymProfile ? (
+              <ProfileImageUpload
+                currentImageUrl={gymProfile.profile_image_url}
+                gymName={gymProfile.gym_name}
+              />
+            ) : (
+              <div className="size-24 animate-pulse rounded-full bg-surface-active" />
+            )
           }
         />
 
-        <div className="p-4 border-b border-line-1">
-          {gymProfile ? (
-            <ProfileImageUpload
-              currentImageUrl={gymProfile.profile_image_url}
-              gymName={gymProfile.gym_name}
-            />
-          ) : (
-            <div
-              style={{
-                height: 96,
-                width: 96,
-                borderRadius: '50%',
-                background: 'rgba(0,0,0,0.06)',
-              }}
-              className="animate-pulse"
-            />
-          )}
-        </div>
-
-        <div className="mws-row">
-          <div>
-            <div className="mws-row-title">Gym name</div>
-            <div className="mws-row-sub">
-              Shown on receipts and the SMS sender ID
+        <SettingsRow
+          label="Gym name"
+          description="Shown on receipts and the SMS sender ID"
+          control={
+            <div className="w-full">
+              <Input
+                {...register('gym_name')}
+                placeholder="Enter gym name"
+                error={!!errors.gym_name}
+                aria-label="Gym name"
+              />
+              {errors.gym_name && (
+                <p className="mt-1 text-caption text-error">
+                  {errors.gym_name.message}
+                </p>
+              )}
             </div>
-          </div>
-          <div className="mws-row-input">
-            <input
-              {...register('gym_name')}
-              placeholder="Enter gym name"
-              className="mws-input"
-              style={{ width: '100%' }}
-            />
-            {errors.gym_name && (
-              <p
-                style={{ fontSize: 11, color: 'var(--mws-err)', marginTop: 4 }}
-              >
-                {errors.gym_name.message}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="mws-row">
-          <div>
-            <div className="mws-row-title">Address</div>
-            <div className="mws-row-sub">Primary location</div>
-          </div>
-          <div className="mws-row-input">
-            <input
-              {...register('gym_address')}
-              placeholder="Enter gym address"
-              className="mws-input"
-              style={{ width: '100%' }}
-            />
-            {errors.gym_address && (
-              <p
-                style={{ fontSize: 11, color: 'var(--mws-err)', marginTop: 4 }}
-              >
-                {errors.gym_address.message}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="mws-row">
-          <div>
-            <div className="mws-row-title">Website</div>
-            <div className="mws-row-sub">
-              Optional — shown on member-facing pages
+          }
+        />
+        <SettingsRow
+          label="Address"
+          description="Primary location"
+          control={
+            <div className="w-full">
+              <Input
+                {...register('gym_address')}
+                placeholder="Enter gym address"
+                error={!!errors.gym_address}
+                aria-label="Address"
+              />
+              {errors.gym_address && (
+                <p className="mt-1 text-caption text-error">
+                  {errors.gym_address.message}
+                </p>
+              )}
             </div>
-          </div>
-          <div className="mws-row-input">
-            <input
-              {...register('gym_website')}
-              type="url"
-              placeholder="https://www.example.com"
-              className="mws-input"
-              style={{ width: '100%' }}
-            />
-            {errors.gym_website && (
-              <p
-                style={{ fontSize: 11, color: 'var(--mws-err)', marginTop: 4 }}
-              >
-                {errors.gym_website.message}
-              </p>
-            )}
-          </div>
-        </div>
+          }
+        />
+        <SettingsRow
+          label="Website"
+          description="Optional — shown on member-facing pages"
+          control={
+            <div className="w-full">
+              <Input
+                {...register('gym_website')}
+                type="url"
+                placeholder="https://www.example.com"
+                error={!!errors.gym_website}
+                aria-label="Website"
+              />
+              {errors.gym_website && (
+                <p className="mt-1 text-caption text-error">
+                  {errors.gym_website.message}
+                </p>
+              )}
+            </div>
+          }
+        />
 
-        <div className="flex flex-col gap-2 p-3 tablet:flex-row tablet:items-center tablet:justify-end">
+        <div className="flex flex-col gap-2 pt-3 tablet:flex-row tablet:items-center tablet:justify-end">
           {successMessage && (
-            <span
-              className="text-xs tablet:mr-auto"
-              style={{ color: 'var(--mws-ok)' }}
-            >
+            <span className="text-caption text-success tablet:mr-auto">
               {successMessage}
             </span>
           )}
           {updateMutation.isError && (
-            <span
-              className="text-xs tablet:mr-auto"
-              style={{ color: 'var(--mws-err)' }}
-            >
+            <span className="text-caption text-error tablet:mr-auto">
               {updateMutation.error instanceof Error
                 ? updateMutation.error.message
                 : 'Failed to save'}
             </span>
           )}
-          <div className="flex gap-2 justify-end">
-            <button
+          <div className="flex justify-end gap-2">
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => reset()}
               disabled={!isDirty || updateMutation.isPending}
-              className="mws-btn mws-btn-sm"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={!isDirty || updateMutation.isPending}
-              className="mws-btn mws-btn-sm mws-btn-primary"
             >
               {updateMutation.isPending ? 'Saving…' : 'Save changes'}
-            </button>
+            </Button>
           </div>
         </div>
-      </Panel>
+      </SettingsSection>
     </form>
   )
 }

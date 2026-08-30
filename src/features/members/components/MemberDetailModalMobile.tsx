@@ -19,7 +19,6 @@ import ReactivationLimitDialog from '@/features/subscriptions/components/Reactiv
 import MemberPhotoSection from './MemberPhotoSection'
 import type { MemberWithDiscount, Payment } from '@/features/members/types'
 import { parseApiError } from '@/utils/api-error'
-import { getPlanBadgeColor } from '@/utils/badge-colors'
 import { formatMemberNumber } from '@/features/members/utils/formatMemberNumber'
 
 interface MemberDetailModalMobileProps {
@@ -281,7 +280,7 @@ export default function MemberDetailModalMobile({
   if (!member) {
     return (
       <div className="fixed inset-0 z-modal bg-surface-overlay flex items-end md:items-center justify-center">
-        <div className="bg-surface-card w-full h-[90vh] md:max-w-lg md:h-auto md:rounded-t-2xl rounded-t-2xl p-6 animate-pulse">
+        <div className="bg-surface-card w-full h-[90vh] md:max-w-lg md:h-auto md:rounded-t-sm rounded-t-sm p-6 animate-pulse">
           <div className="h-6 w-40 rounded bg-surface-selected mb-6" />
           <div className="space-y-4">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -325,7 +324,7 @@ export default function MemberDetailModalMobile({
     <>
       {/* Mobile Full-Screen Modal */}
       <div className="fixed inset-0 z-modal bg-surface-overlay flex items-end md:items-center justify-center">
-        <div className="bg-surface-card w-full h-[90vh] md:max-w-lg md:h-auto md:max-h-[90vh] md:rounded-t-2xl rounded-t-2xl flex flex-col overflow-hidden">
+        <div className="bg-surface-card w-full h-[90vh] md:max-w-lg md:h-auto md:max-h-[90vh] md:rounded-t-sm rounded-t-sm flex flex-col overflow-hidden">
           {/* Sticky Header */}
           <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b border-line-1 bg-surface-card sticky top-0 z-sticky">
             <div className="flex items-start justify-between mb-3">
@@ -349,9 +348,7 @@ export default function MemberDetailModalMobile({
               <Badge variant={getStatusVariant(member.status)}>
                 {member.status}
               </Badge>
-              <Badge className={getPlanBadgeColor(member.plan_type)}>
-                {member.plan_type}
-              </Badge>
+              <Badge variant="neutral">{member.plan_type}</Badge>
             </div>
           </div>
 
@@ -417,7 +414,7 @@ export default function MemberDetailModalMobile({
             </div>
 
             {/* Status Actions */}
-            <div className="rounded-lg border border-accentui-border bg-accentui-bg p-4 space-y-3">
+            <div className="rounded-sm border border-accentui-border bg-accentui-bg p-4 space-y-3">
               <div>
                 <h3 className="text-sm font-semibold text-ink">
                   Status Actions
@@ -490,7 +487,7 @@ export default function MemberDetailModalMobile({
             {accessSlot}
 
             {/* Payment History */}
-            <div className="rounded-lg border border-line-1 bg-surface-input p-4 space-y-3">
+            <div className="rounded-sm border border-line-1 bg-surface-input p-4 space-y-3">
               <button
                 onClick={() => setShowPaymentHistory(!showPaymentHistory)}
                 className="w-full flex items-center justify-between"
@@ -514,7 +511,7 @@ export default function MemberDetailModalMobile({
                     payments.map((payment) => (
                       <div
                         key={payment.id}
-                        className="bg-surface-card rounded-lg p-3 border border-line-1"
+                        className="bg-surface-card rounded-sm p-3 border border-line-1"
                       >
                         <div className="flex justify-between items-start mb-2">
                           <span className="text-xs text-ink-muted">

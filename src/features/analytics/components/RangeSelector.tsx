@@ -30,7 +30,7 @@ export function RangeSelector({
       <div
         role="group"
         aria-label="Time range"
-        className="flex flex-wrap items-center gap-0.5 rounded-md border border-line-1 p-0.5"
+        className="flex flex-wrap items-center gap-0.5 rounded-sm border border-line-1 p-0.5"
       >
         {ANALYTICS_RANGES.map((r) => (
           <Button

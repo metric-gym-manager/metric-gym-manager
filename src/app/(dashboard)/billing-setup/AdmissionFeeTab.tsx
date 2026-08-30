@@ -84,7 +84,7 @@ export default function AdmissionFeeTab() {
         </p>
       </div>
 
-      <div className="rounded-lg border border-line-1 bg-surface-card p-6 space-y-5 max-w-md">
+      <div className="rounded-sm border border-line-1 bg-surface-card p-6 space-y-5 max-w-md">
         {isLoading ? (
           <p className="text-sm text-ink-muted">Loading...</p>
         ) : (

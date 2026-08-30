@@ -21,7 +21,7 @@
  */
 
 import { useState } from 'react'
-import { DoorOpen, ShieldX, TriangleAlert, Wrench } from 'lucide-react'
+import { DoorOpen } from 'lucide-react'
 import {
   Badge,
   EmptyState,
@@ -165,36 +165,16 @@ export default function AccessActivityLog({
 
 function KindBadge({ kind }: { kind: SerializedAccessEvent['kind'] }) {
   if (kind === DeviceEventKind.Granted) {
-    return (
-      <Badge variant="success">
-        <DoorOpen className="h-3 w-3" aria-hidden="true" />
-        In
-      </Badge>
-    )
+    return <Badge variant="success">In</Badge>
   }
 
   if (kind === DeviceEventKind.Denied) {
-    return (
-      <Badge variant="neutral">
-        <ShieldX className="h-3 w-3" aria-hidden="true" />
-        Refused
-      </Badge>
-    )
+    return <Badge variant="neutral">Refused</Badge>
   }
 
   if (kind === DeviceEventKind.Alarm) {
-    return (
-      <Badge variant="error">
-        <TriangleAlert className="h-3 w-3" aria-hidden="true" />
-        Alert
-      </Badge>
-    )
+    return <Badge variant="error">Alert</Badge>
   }
 
-  return (
-    <Badge variant="neutral">
-      <Wrench className="h-3 w-3" aria-hidden="true" />
-      Device
-    </Badge>
-  )
+  return <Badge variant="neutral">Device</Badge>
 }

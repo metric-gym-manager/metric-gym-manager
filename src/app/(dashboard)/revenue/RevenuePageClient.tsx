@@ -4,9 +4,6 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart,
-  Card,
-  CardHeader,
-  CardLabel,
   EmptyState,
   Select,
   Table,
@@ -16,7 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
-import { PageHeader, StatCard, ChartCard } from '@/components/common/composites'
+import {
+  PageHeader,
+  StatCard,
+  ChartCard,
+  SectionHeader,
+} from '@/components/common/composites'
 import type { MonthlyRevenueResponse } from '@/features/revenue/types'
 
 interface CollectedPayment {
@@ -219,7 +221,7 @@ export default function RevenuePageClient() {
       />
 
       {/* Tiles */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 divide-x divide-y divide-line-1 border-y border-line-1 lg:grid-cols-4 lg:divide-y-0">
         {tiles.map((t) => (
           <StatCard
             key={t.label}
@@ -249,10 +251,12 @@ export default function RevenuePageClient() {
       </ChartCard>
 
       {/* Breakdown by plan type */}
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardLabel>Breakdown by plan type</CardLabel>
-        </CardHeader>
+      <section>
+        <SectionHeader
+          variant="metadata"
+          divider
+          title="Breakdown by plan type"
+        />
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -305,7 +309,7 @@ export default function RevenuePageClient() {
             </TableBody>
           </Table>
         </div>
-      </Card>
+      </section>
     </div>
   )
 }

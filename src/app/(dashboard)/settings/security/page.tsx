@@ -182,14 +182,14 @@ function PasswordChangeModal({
 
         {/* Success Message */}
         {successMessage && (
-          <div className="rounded-md bg-success-bg p-3">
+          <div className="rounded-sm bg-success-bg p-3">
             <p className="text-sm text-success">{successMessage}</p>
           </div>
         )}
 
         {/* Error Message */}
         {updateMutation.isError && (
-          <div className="rounded-md bg-error-bg p-3">
+          <div className="rounded-sm bg-error-bg p-3">
             <p className="text-sm text-error">
               {updateMutation.error instanceof Error
                 ? updateMutation.error.message
@@ -326,14 +326,14 @@ function UsernameUpdateModal({
 
         {/* Success Message */}
         {successMessage && (
-          <div className="rounded-md bg-success-bg p-3">
+          <div className="rounded-sm bg-success-bg p-3">
             <p className="text-sm text-success">{successMessage}</p>
           </div>
         )}
 
         {/* Error Message */}
         {updateMutation.isError && (
-          <div className="rounded-md bg-error-bg p-3">
+          <div className="rounded-sm bg-error-bg p-3">
             <p className="text-sm text-error">
               {updateMutation.error instanceof Error
                 ? updateMutation.error.message
@@ -465,14 +465,14 @@ function EmailUpdateModal({
 
         {/* Success Message */}
         {successMessage && (
-          <div className="rounded-md bg-success-bg p-3">
+          <div className="rounded-sm bg-success-bg p-3">
             <p className="text-sm text-success">{successMessage}</p>
           </div>
         )}
 
         {/* Error Message */}
         {updateMutation.isError && (
-          <div className="rounded-md bg-error-bg p-3">
+          <div className="rounded-sm bg-error-bg p-3">
             <p className="text-sm text-error">
               {updateMutation.error instanceof Error
                 ? updateMutation.error.message
@@ -730,7 +730,7 @@ function PhoneUpdateModal({
 
             {/* Success Message */}
             {successMessage && (
-              <div className="rounded-md bg-success-bg p-3">
+              <div className="rounded-sm bg-success-bg p-3">
                 <p className="text-sm text-success">{successMessage}</p>
               </div>
             )}
@@ -812,7 +812,7 @@ export default function AccountSecurityPage() {
 
         {/* Password Change Reminder Banner */}
         {showPasswordReminder && (
-          <div className="rounded-lg border border-accentui-border bg-accentui-bg p-4">
+          <div className="rounded-sm border border-accentui-border bg-accentui-bg p-4">
             <div className="flex items-start justify-between">
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0">
@@ -844,7 +844,7 @@ export default function AccountSecurityPage() {
         {/* Security Settings */}
         <div className="space-y-4">
           {/* Username Section */}
-          <div className="rounded-lg border border-line-1 bg-surface-card p-6">
+          <div className="rounded-sm border border-line-1 bg-surface-card p-6">
             <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div>
                 <h3 className="text-base font-semibold">Username</h3>
@@ -867,13 +867,13 @@ export default function AccountSecurityPage() {
           </div>
 
           {/* Email Section */}
-          <div className="rounded-lg border border-line-1 bg-surface-card p-6">
+          <div className="rounded-sm border border-line-1 bg-surface-card p-6">
             <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <h3 className="text-base font-semibold">Email Address</h3>
                   {gymProfile && !gymProfile.email_verified && (
-                    <span className="inline-flex items-center gap-1 rounded-md bg-warning-bg px-2 py-1 text-xs font-medium text-warning">
+                    <span className="inline-flex items-center gap-1 rounded-sm bg-warning-bg px-2 py-1 text-xs font-medium text-warning">
                       <AlertTriangle
                         className="h-4 w-4 text-warning"
                         strokeWidth={2}
@@ -886,7 +886,7 @@ export default function AccountSecurityPage() {
                   {gymProfile?.email || 'Loading...'}
                 </p>
                 {gymProfile && !gymProfile.email_verified ? (
-                  <div className="mt-2 rounded-md bg-warning-bg p-3 border border-warning-border">
+                  <div className="mt-2 rounded-sm bg-warning-bg p-3 border border-warning-border">
                     <p className="text-xs text-warning">
                       <strong>Action Required:</strong> Check your inbox at{' '}
                       <strong>{gymProfile.email}</strong> and click the
@@ -919,7 +919,7 @@ export default function AccountSecurityPage() {
           </div>
 
           {/* Phone Number Section */}
-          <div className="rounded-lg border border-line-1 bg-surface-card p-6">
+          <div className="rounded-sm border border-line-1 bg-surface-card p-6">
             <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div>
                 <h3 className="text-base font-semibold">Phone Number</h3>
@@ -941,7 +941,7 @@ export default function AccountSecurityPage() {
           </div>
 
           {/* Password Section */}
-          <div className="rounded-lg border border-line-1 bg-surface-card p-6">
+          <div className="rounded-sm border border-line-1 bg-surface-card p-6">
             <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div>
                 <h3 className="text-base font-semibold">Password</h3>

@@ -182,7 +182,7 @@ export default function MemberAccessPanel({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-line-1 bg-surface-input p-4">
+    <div className="space-y-3 rounded-sm border border-line-1 bg-surface-input p-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-sm font-semibold text-ink">Door Access</h3>
 

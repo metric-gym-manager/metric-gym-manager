@@ -168,7 +168,7 @@ export default function DiscountsTab() {
       </div>
 
       {/* Discounts Table */}
-      <div className="rounded-lg border border-line-1 bg-surface-card overflow-x-auto">
+      <div className="rounded-sm border border-line-1 bg-surface-card overflow-x-auto">
         {isLoading ? (
           <div className="flex h-48 items-center justify-center">
             <p className="text-sm text-ink-muted">Loading discounts...</p>
@@ -242,7 +242,7 @@ export default function DiscountsTab() {
 
       {/* Error Messages */}
       {(toggleMutation.isError || deleteMutation.isError) && (
-        <div className="rounded-md bg-error-bg p-4">
+        <div className="rounded-sm bg-error-bg p-4">
           <p className="text-sm text-error">
             {toggleMutation.error instanceof Error
               ? toggleMutation.error.message
@@ -336,7 +336,7 @@ export default function DiscountsTab() {
 
           {/* Error Message */}
           {createMutation.isError && (
-            <div className="rounded-md bg-error-bg p-4">
+            <div className="rounded-sm bg-error-bg p-4">
               <p className="text-sm text-error">
                 {createMutation.error instanceof Error
                   ? createMutation.error.message

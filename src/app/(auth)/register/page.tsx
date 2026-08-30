@@ -171,7 +171,7 @@ export default function RegisterPage() {
             01 ACCOUNT
           </span>
           <span
-            style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.1)' }}
+            style={{ flex: 1, height: 1, background: 'var(--ds-border-1)' }}
           />
           <span style={{ color: step === 2 ? 'var(--ma-t1)' : 'var(--ma-t3)' }}>
             02 GYM PROFILE
@@ -256,7 +256,7 @@ export default function RegisterPage() {
                     flex: 1,
                     height: 3,
                     borderRadius: 2,
-                    background: 'rgba(255,255,255,0.09)',
+                    background: 'var(--ds-surface-active)',
                     overflow: 'hidden',
                   }}
                 >

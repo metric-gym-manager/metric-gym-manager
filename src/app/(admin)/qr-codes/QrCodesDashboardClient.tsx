@@ -123,7 +123,7 @@ export default function QrCodesDashboardClient() {
 
   if (error) {
     return (
-      <div className="rounded-md bg-error-bg p-4">
+      <div className="rounded-sm bg-error-bg p-4">
         <p className="text-sm text-error">
           Failed to load QR codes. Please try again.
         </p>
@@ -158,12 +158,12 @@ export default function QrCodesDashboardClient() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-64 animate-pulse rounded-lg bg-surface-hover"
+              className="h-64 animate-pulse rounded-sm bg-surface-hover"
             />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex h-48 items-center justify-center rounded-lg border border-line-1 bg-surface-card">
+        <div className="flex h-48 items-center justify-center rounded-sm border border-line-1 bg-surface-card">
           <p className="text-sm text-ink-muted">No gyms found</p>
         </div>
       ) : (
@@ -174,7 +174,7 @@ export default function QrCodesDashboardClient() {
             return (
               <div
                 key={gym.gymId}
-                className="rounded-lg border border-line-1 bg-surface-card p-4 flex flex-col items-center text-center"
+                className="rounded-sm border border-line-1 bg-surface-card p-4 flex flex-col items-center text-center"
               >
                 <h3
                   className="font-semibold text-ink truncate w-full"
@@ -186,7 +186,7 @@ export default function QrCodesDashboardClient() {
                   {gym.email}
                 </p>
 
-                <div className="my-4 rounded-lg border border-line-1 bg-white p-3">
+                <div className="my-4 rounded-sm border border-line-1 bg-surface-card p-3">
                   <QRCodeCanvas
                     value={gym.joinUrl!}
                     size={144}

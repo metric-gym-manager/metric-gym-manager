@@ -1,3 +1,4 @@
+import { PageHeader } from '@/components/common/composites'
 import QrCodesDashboardClient from './QrCodesDashboardClient'
 
 /**
@@ -10,17 +11,11 @@ import QrCodesDashboardClient from './QrCodesDashboardClient'
  */
 export default function QrCodesPage() {
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">
-          Gym Registration QR Codes
-        </h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Every gym&apos;s self-registration QR code. Print individually or all
-          at once (one poster per page), or generate a new code to replace a
-          gym&apos;s link.
-        </p>
-      </div>
+    <div className="flex max-w-app flex-col gap-6">
+      <PageHeader
+        title="Gym registration QR codes"
+        description="Every gym's self-registration QR code. Print individually or all at once (one poster per page), or generate a new code to replace a gym's link."
+      />
       <QrCodesDashboardClient />
     </div>
   )

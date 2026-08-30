@@ -327,7 +327,7 @@ export default function EditMemberModal({
 
         {/* Error Message */}
         {updateMemberMutation.isError && (
-          <div className="rounded-md bg-error-bg p-4">
+          <div className="rounded-sm bg-error-bg p-4">
             <p className="text-sm text-error">
               {updateMemberMutation.error instanceof Error
                 ? updateMemberMutation.error.message

@@ -9,13 +9,8 @@ import {
   CardTitle,
   Badge,
 } from '@/components/ui'
-import {
-  RefreshCw,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  AlertTriangle,
-} from 'lucide-react'
+import { SectionHeader } from '@/components/common/composites'
+import { RefreshCw, AlertTriangle } from 'lucide-react'
 
 interface CronExecution {
   id: string
@@ -77,26 +72,11 @@ export default function CronStatusGrid() {
   const getStatusBadge = (status: 'running' | 'success' | 'failure') => {
     switch (status) {
       case 'success':
-        return (
-          <Badge variant="success">
-            <CheckCircle2 className="h-3 w-3" />
-            Success
-          </Badge>
-        )
+        return <Badge variant="success">Success</Badge>
       case 'failure':
-        return (
-          <Badge variant="error">
-            <XCircle className="h-3 w-3" />
-            Failed
-          </Badge>
-        )
+        return <Badge variant="error">Failed</Badge>
       case 'running':
-        return (
-          <Badge variant="accent">
-            <Clock className="h-3 w-3" />
-            Running
-          </Badge>
-        )
+        return <Badge variant="accent">Running</Badge>
     }
   }
 
@@ -139,20 +119,22 @@ export default function CronStatusGrid() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Cron Job Status</h2>
-        <Button
-          onClick={() => refetch()}
-          variant="secondary"
-          size="sm"
-          disabled={isFetching}
-        >
-          <RefreshCw
-            className={`h-4 w-4 mr-2 ${isFetching ? 'animate-spin' : ''}`}
-          />
-          Refresh
-        </Button>
-      </div>
+      <SectionHeader
+        variant="metadata"
+        divider
+        title="Cron job status"
+        actions={
+          <Button
+            onClick={() => refetch()}
+            variant="secondary"
+            size="xs"
+            disabled={isFetching}
+          >
+            <RefreshCw className={isFetching ? 'animate-spin' : undefined} />
+            Refresh
+          </Button>
+        }
+      />
 
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -227,7 +209,7 @@ export default function CronStatusGrid() {
                         <div className="mt-3 text-xs text-ink-muted">
                           <details className="cursor-pointer">
                             <summary className="font-semibold">Summary</summary>
-                            <pre className="mt-1 p-2 bg-surface-panel rounded text-xs overflow-x-auto">
+                            <pre className="mt-1 p-2 bg-surface-panel text-xs overflow-x-auto">
                               {JSON.stringify(latestRun.summary, null, 2)}
                             </pre>
                           </details>

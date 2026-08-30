@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { z } from 'zod'
@@ -33,13 +33,21 @@ function LoginContent() {
   const [isResending, setIsResending] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
-  useEffect(() => {
+  // Surface the redirect reason carried in the query string. These are seeded
+  // into state rather than derived outright because the sign-in handler also
+  // writes to them, so a failed login must be able to replace the message.
+  // Adjusted during render, keyed on the query string, so the banner is present
+  // on first paint instead of flashing in a frame later.
+  const bannerKey = searchParams.toString()
+  const [prevBannerKey, setPrevBannerKey] = useState<string | null>(null)
+  if (bannerKey !== prevBannerKey) {
+    setPrevBannerKey(bannerKey)
     const errorCode = searchParams.get('error')
     if (errorCode && ERROR_MESSAGES[errorCode])
       setError(ERROR_MESSAGES[errorCode])
     if (searchParams.get('reset') === 'success')
       setSuccess('Password reset. Sign in with your new password.')
-  }, [searchParams])
+  }
 
   const [loginForm, setLoginForm] = useState({
     email: '',

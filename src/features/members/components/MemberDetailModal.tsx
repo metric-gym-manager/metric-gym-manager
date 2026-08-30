@@ -26,7 +26,6 @@ import ReactivationLimitDialog from '@/features/subscriptions/components/Reactiv
 import MemberPhotoSection from './MemberPhotoSection'
 import type { MemberWithDiscount, Payment } from '@/features/members/types'
 import { parseApiError } from '@/utils/api-error'
-import { getPlanBadgeColor } from '@/utils/badge-colors'
 import { formatMemberNumber } from '@/features/members/utils/formatMemberNumber'
 
 interface MemberDetailModalProps {
@@ -347,8 +346,8 @@ export default function MemberDetailModal({
             </div>
           </div>
           {/* Status + actions skeleton */}
-          <div className="h-24 rounded-lg bg-surface-input" />
-          <div className="h-16 rounded-lg bg-surface-input" />
+          <div className="h-24 rounded-sm bg-surface-input" />
+          <div className="h-16 rounded-sm bg-surface-input" />
         </div>
       </Modal>
     )
@@ -457,9 +456,7 @@ export default function MemberDetailModal({
                 <Badge variant={getStatusVariant(member.status)}>
                   {member.status}
                 </Badge>
-                <Badge className={getPlanBadgeColor(member.plan_type)}>
-                  {member.plan_type}
-                </Badge>
+                <Badge variant="neutral">{member.plan_type}</Badge>
               </div>
             </div>
 
@@ -539,7 +536,7 @@ export default function MemberDetailModal({
           </div>
 
           {/* Status Actions — context-aware action buttons based on current status */}
-          <div className="rounded-lg border border-accentui-border bg-accentui-bg p-4 space-y-3">
+          <div className="rounded-sm border border-accentui-border bg-accentui-bg p-4 space-y-3">
             <div>
               <h3 className="text-sm font-semibold text-ink">Status Actions</h3>
               <p className="text-xs text-ink-secondary mt-0.5">
@@ -609,7 +606,7 @@ export default function MemberDetailModal({
           {accessSlot}
 
           {/* Payment History — distinct container */}
-          <div className="rounded-lg border border-line-1 bg-surface-input p-4 space-y-3">
+          <div className="rounded-sm border border-line-1 bg-surface-input p-4 space-y-3">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-ink">
@@ -630,7 +627,7 @@ export default function MemberDetailModal({
             </div>
 
             {showPaymentHistory && (
-              <div className="rounded-lg border border-line-1 bg-surface-card">
+              <div className="rounded-sm border border-line-1 bg-surface-card">
                 {payments.length > 0 ? (
                   <Table>
                     <TableHeader>

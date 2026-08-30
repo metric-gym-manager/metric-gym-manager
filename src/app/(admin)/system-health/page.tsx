@@ -2,7 +2,9 @@ import { Metadata } from 'next'
 import CronStatusGrid from './CronStatusGrid'
 import RawSMSFailureTable from './RawSMSFailureTable'
 import BillingFailuresTable from './BillingFailuresTable'
-import { Shield, Activity } from 'lucide-react'
+import { Activity } from 'lucide-react'
+import { Alert } from '@/components/ui'
+import { PageHeader } from '@/components/common/composites'
 
 export const metadata: Metadata = {
   title: 'System Health | Admin Dashboard',
@@ -28,71 +30,26 @@ export const metadata: Metadata = {
  */
 export default function SystemHealthPage() {
   return (
-    <div className="min-h-screen bg-surface-base">
-      {/* Header */}
-      <div className="bg-surface-card border-b border-line-1">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-accentui-bg rounded-lg">
-              <Shield className="h-6 w-6 text-brand-link" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-ink">
-                System Health Dashboard
-              </h1>
-              <p className="text-sm text-ink-muted mt-1">
-                Technical monitoring and error tracking for SaaS infrastructure
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div className="flex max-w-app flex-col gap-6">
+      <PageHeader
+        title="System health"
+        description="Technical monitoring and error tracking for SaaS infrastructure"
+      />
 
-      {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        <div className="space-y-8">
-          {/* Warning Banner */}
-          <div className="bg-warning-bg border-l-4 border-warning-border p-4 rounded">
-            <div className="flex items-start gap-3">
-              <Activity className="h-5 w-5 text-warning mt-0.5" />
-              <div>
-                <p className="text-sm font-semibold text-warning">
-                  Admin Dashboard - Restricted Access
-                </p>
-                <p className="text-sm text-warning mt-1">
-                  This dashboard exposes technical infrastructure details
-                  including error messages, stack traces, and system internals.
-                  This information is strictly for SaaS administrators and must
-                  never be exposed to gym managers or end users.
-                </p>
-              </div>
-            </div>
-          </div>
+      <Alert variant="warning" icon={<Activity />} title="Restricted access">
+        This dashboard exposes technical infrastructure details including error
+        messages, stack traces and system internals. It is for SaaS
+        administrators only and must never be shown to gym managers or end
+        users.
+      </Alert>
 
-          {/* Cron Status Grid */}
-          <section>
-            <CronStatusGrid />
-          </section>
+      <CronStatusGrid />
+      <RawSMSFailureTable />
+      <BillingFailuresTable />
 
-          {/* SMS Failures Table */}
-          <section>
-            <RawSMSFailureTable />
-          </section>
-
-          {/* PayHere Billing Failures Table */}
-          <section>
-            <BillingFailuresTable />
-          </section>
-
-          {/* Footer Info */}
-          <div className="text-center text-sm text-ink-muted pt-4 pb-8">
-            <p>
-              Auto-refresh enabled (60s interval) • Last updated:{' '}
-              {new Date().toLocaleTimeString()}
-            </p>
-          </div>
-        </div>
-      </div>
+      <p className="pt-2 font-mono text-mono-sm text-ink-muted">
+        Auto-refresh 60s · last updated {new Date().toLocaleTimeString()}
+      </p>
     </div>
   )
 }

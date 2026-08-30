@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Panel, PanelHead } from '@/components/workspace/primitives'
+import { Button, Input, Select, Textarea } from '@/components/ui'
+import { SectionHeader, SettingsRow } from '@/components/common/composites'
 
 type Category = 'bug' | 'feature' | 'general'
 
@@ -67,94 +68,84 @@ export default function SupportPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4" style={{ maxWidth: 720 }}>
-      <h1 className="mws-h1">Support</h1>
+    <div className="flex max-w-[720px] flex-col gap-6">
+      <h1 className="text-h1 text-ink">Support</h1>
 
       {/* Contact */}
-      <Panel style={{ overflow: 'hidden' }}>
-        <div className="mws-row">
-          <div>
-            <div className="mws-row-title">Call or WhatsApp</div>
-            <div className="mws-row-sub">
-              Mon–Sun, 08:00–22:00 IST · usually within a few hours
-            </div>
-          </div>
-          <a
-            href="https://wa.me/94704379967"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mws-mono"
-            style={{ fontSize: 12, color: 'var(--mws-accent-tint)' }}
-          >
-            +94 70 437 9967
-          </a>
-        </div>
-        <div className="mws-row">
-          <div>
-            <div className="mws-row-title">Call now</div>
-            <div className="mws-row-sub">
-              Direct line to the Metric support desk
-            </div>
-          </div>
-          <a
-            href="tel:0704379967"
-            className="mws-mono"
-            style={{ fontSize: 12, color: 'var(--mws-accent-tint)' }}
-          >
-            070 437 9967
-          </a>
-        </div>
-      </Panel>
+      <section>
+        <SectionHeader variant="metadata" divider title="Contact" />
+        <SettingsRow
+          label="Call or WhatsApp"
+          description="Mon–Sun, 08:00–22:00 IST · usually within a few hours"
+          control={
+            <a
+              href="https://wa.me/94704379967"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-mono text-mono-md text-brand-link hover:text-brand-link-hover"
+            >
+              +94 70 437 9967
+            </a>
+          }
+        />
+        <SettingsRow
+          label="Call now"
+          description="Direct line to the Metric support desk"
+          control={
+            <a
+              href="tel:0704379967"
+              className="font-mono text-mono-md text-brand-link hover:text-brand-link-hover"
+            >
+              070 437 9967
+            </a>
+          }
+        />
+      </section>
 
       {/* Ticket */}
-      <Panel>
-        <PanelHead label="Open a ticket" />
-        <form
-          onSubmit={handleSubmit}
-          style={{ padding: 16 }}
-          className="flex flex-col gap-3"
-        >
-          <input
+      <section>
+        <SectionHeader variant="metadata" divider title="Open a ticket" />
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 pt-3">
+          <Input
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="Subject"
-            className="mws-input"
+            aria-label="Subject"
           />
-          <select
+          <Select
             value={category}
             onChange={(e) => setCategory(e.target.value as Category)}
-            className="mws-select"
+            aria-label="Category"
           >
             <option value="general">General feedback</option>
             <option value="bug">Bug report</option>
             <option value="feature">Feature request</option>
-          </select>
-          <input
+          </Select>
+          <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="Email (optional — for follow-up)"
-            className="mws-input"
+            aria-label="Email"
           />
-          <textarea
+          <Textarea
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Describe the issue…"
             rows={4}
             maxLength={1000}
-            className="mws-textarea"
+            aria-label="Message"
           />
           <div className="flex justify-end">
-            <button
+            <Button
               type="submit"
               disabled={feedbackMutation.isPending || !message.trim()}
-              className="mws-btn mws-btn-primary"
             >
               {feedbackMutation.isPending ? 'Submitting…' : 'Submit ticket'}
-            </button>
+            </Button>
           </div>
         </form>
-      </Panel>
+      </section>
     </div>
   )
 }

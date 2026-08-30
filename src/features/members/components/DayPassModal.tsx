@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { Modal, Button, Input, Label, Badge } from '@/components/ui'
 import MemberAvatar from './MemberAvatar'
 import { formatDate } from '@/utils/date/date'
-import { getPlanBadgeColor } from '@/utils/badge-colors'
 import type { MemberWithDiscount } from '@/features/members/types'
 import type { PlanType } from '@/features/settings/types'
 
@@ -49,15 +48,19 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
     return () => clearTimeout(timer)
   }, [search])
 
-  // Reset state when the modal closes
-  useEffect(() => {
+  // Reset state when the modal closes. Adjusted during render (guarded by a
+  // previous-value compare) rather than in an effect, so a reopened modal never
+  // paints the previous member's search and fee.
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (!open) {
       setSearch('')
       setDebouncedSearch('')
       setSelected(null)
       setAmount('')
     }
-  }, [open])
+  }
 
   // Gym plan defaults — prefill the fee from the daily plan
   const { data: planTypes } = useQuery<PlanType[]>({
@@ -78,13 +81,18 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
     [planTypes]
   )
 
-  // Prefill amount from the gym's daily plan when a member is selected
-  useEffect(() => {
+  // Prefill the fee from the gym's daily plan. Keyed on both the member and the
+  // plan because the plan query resolves asynchronously — a member can be
+  // selected before it arrives. The `!amount` guard is preserved so a fee the
+  // user has already typed is never overwritten.
+  const prefillKey = `${selected?.id ?? ''}\u0000${dailyPlan?.default_amount ?? ''}`
+  const [prevPrefillKey, setPrevPrefillKey] = useState(prefillKey)
+  if (prefillKey !== prevPrefillKey) {
+    setPrevPrefillKey(prefillKey)
     if (selected && dailyPlan && !amount) {
       setAmount(String(dailyPlan.default_amount))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- prefill only on selection
-  }, [selected, dailyPlan])
+  }
 
   const { data: searchResults, isFetching: searching } = useQuery<
     MemberWithDiscount[]
@@ -207,7 +215,7 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
             )}
 
             {searchResults && searchResults.length > 0 && (
-              <ul className="rounded-lg border border-line-1 divide-y divide-line-1 max-h-64 overflow-auto">
+              <ul className="rounded-sm border border-line-1 divide-y divide-line-1 max-h-64 overflow-auto">
                 {searchResults.map((member) => (
                   <li key={member.id}>
                     <button
@@ -229,9 +237,7 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
                           {formatDate(member.next_due_date)}
                         </span>
                       </span>
-                      <Badge className={getPlanBadgeColor(member.plan_type)}>
-                        {member.plan_type}
-                      </Badge>
+                      <Badge variant="neutral">{member.plan_type}</Badge>
                     </button>
                   </li>
                 ))}
@@ -248,7 +254,7 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
         ) : (
           <>
             {/* Selected member card */}
-            <div className="rounded-lg border border-line-1 p-4 flex items-center gap-4">
+            <div className="rounded-sm border border-line-1 p-4 flex items-center gap-4">
               <MemberAvatar
                 name={selected.name}
                 photoPath={selected.photo_path}
@@ -281,7 +287,7 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
             </div>
 
             {ineligibleReason ? (
-              <div className="rounded-lg bg-warning-bg px-4 py-3 text-sm text-warning">
+              <div className="rounded-sm bg-warning-bg px-4 py-3 text-sm text-warning">
                 {ineligibleReason}
               </div>
             ) : (
