@@ -14,19 +14,20 @@
 ```typescript
 // ❌ NEVER lump together pending and failed messages
 interface ReminderStatus {
-  reminder_7day_sent: string | null;
-  reminder_3day_sent: string | null;
+  reminder_7day_sent: string | null
+  reminder_3day_sent: string | null
   // No error tracking - cannot distinguish between:
   // 1. "Not sent yet (pending)"
   // 2. "Attempted but failed (system error)"
 }
 
 function getStatus(sent: string | null): string {
-  return sent ? 'Sent' : 'Not Sent';  // WRONG - too ambiguous
+  return sent ? 'Sent' : 'Not Sent' // WRONG - too ambiguous
 }
 ```
 
 **Problems**:
+
 - Users cannot distinguish between scheduled vs failed messages
 - No actionable guidance on what to do about errors
 - Failed SMS deliveries appear identical to pending reminders
@@ -42,14 +43,14 @@ export interface MemberReminderStatus {
   // ... existing fields
 
   // Timestamp tracking for each reminder type
-  reminder_7day_sent: string | null;
-  reminder_3day_sent: string | null;
-  due_today_sent: string | null;
+  reminder_7day_sent: string | null
+  reminder_3day_sent: string | null
+  due_today_sent: string | null
 
   // Error tracking for each reminder type
-  reminder_7day_error: boolean;  // True if 7-day reminder delivery failed
-  reminder_3day_error: boolean;  // True if 3-day reminder delivery failed
-  due_today_error: boolean;      // True if due-today reminder delivery failed
+  reminder_7day_error: boolean // True if 7-day reminder delivery failed
+  reminder_3day_error: boolean // True if 3-day reminder delivery failed
+  due_today_error: boolean // True if due-today reminder delivery failed
 }
 ```
 
@@ -67,18 +68,18 @@ export async function getReminderStatus(
     // Query each reminder type's most recent log
     const reminder7Day = reminderLogs.find(
       (log) => log.sms_type === 'reminder_7day'
-    );
+    )
     const reminder3Day = reminderLogs.find(
       (log) => log.sms_type === 'reminder_3day'
-    );
-    const dueToday = reminderLogs.find(
-      (log) => log.sms_type === 'due_today'
-    );
+    )
+    const dueToday = reminderLogs.find((log) => log.sms_type === 'due_today')
 
     // Check for delivery failures (system errors) for each reminder type
-    const reminder7DayError = reminder7Day?.delivery_status === 'failed' || false;
-    const reminder3DayError = reminder3Day?.delivery_status === 'failed' || false;
-    const dueTodayError = dueToday?.delivery_status === 'failed' || false;
+    const reminder7DayError =
+      reminder7Day?.delivery_status === 'failed' || false
+    const reminder3DayError =
+      reminder3Day?.delivery_status === 'failed' || false
+    const dueTodayError = dueToday?.delivery_status === 'failed' || false
 
     return {
       // ... other fields
@@ -90,10 +91,10 @@ export async function getReminderStatus(
       reminder_7day_error: reminder7DayError,
       reminder_3day_error: reminder3DayError,
       due_today_error: dueTodayError,
-    };
-  });
+    }
+  })
 
-  return reminderStatuses;
+  return reminderStatuses
 }
 ```
 
@@ -113,38 +114,38 @@ const getSMSTypeStatus = (
     reminder_7day_sent,
     reminder_3day_sent,
     due_today_sent,
-  } = reminder;
+  } = reminder
 
   // Check for delivery failures (system errors) FIRST
-  let hasError = false;
+  let hasError = false
   if (expectedType === 'reminder_7day') {
-    hasError = reminder_7day_error;
+    hasError = reminder_7day_error
   } else if (expectedType === 'reminder_3day') {
-    hasError = reminder_3day_error;
+    hasError = reminder_3day_error
   } else if (expectedType === 'due_today') {
-    hasError = due_today_error;
+    hasError = due_today_error
   }
 
   if (hasError) {
-    return 'error';  // Prioritize error state
+    return 'error' // Prioritize error state
   }
 
   // Check if reminder was sent successfully
-  let wasSent = false;
+  let wasSent = false
   if (expectedType === 'reminder_7day') {
-    wasSent = !!reminder_7day_sent;
+    wasSent = !!reminder_7day_sent
   } else if (expectedType === 'reminder_3day') {
-    wasSent = !!reminder_3day_sent;
+    wasSent = !!reminder_3day_sent
   } else if (expectedType === 'due_today') {
-    wasSent = !!due_today_sent;
+    wasSent = !!due_today_sent
   }
 
   if (wasSent) {
-    return 'sent';
+    return 'sent'
   }
 
-  return 'not_sent';  // Pending or missed window
-};
+  return 'not_sent' // Pending or missed window
+}
 ```
 
 **Step 4: Render Error State with Actionable Guidance**
@@ -178,6 +179,7 @@ const renderSMSStatusBadge = (
 **Step 5: Sanitize Error Messages (Defense-in-Depth)**
 
 **API Layer Protection**:
+
 ```typescript
 // src/app/api/members/[id]/sms-history/route.ts
 export async function GET(
@@ -187,32 +189,36 @@ export async function GET(
   // Explicitly exclude 'error_message' to prevent exposing technical infrastructure details
   const { data: smsLogs, error: logsError } = await supabase
     .from('sms_logs')
-    .select('id, sms_type, phone_number, message_body, sent_at, delivery_status, text_lk_message_id, created_at')
+    .select(
+      'id, sms_type, phone_number, message_body, sent_at, delivery_status, text_lk_message_id, created_at'
+    )
     // NOTE: 'error_message' field intentionally omitted
     .eq('member_id', memberId)
     .eq('gym_id', gymProfile.id)
-    .order('sent_at', { ascending: false });
+    .order('sent_at', { ascending: false })
 
-  return NextResponse.json({ data: { smsLogs } });
+  return NextResponse.json({ data: { smsLogs } })
 }
 ```
 
 **Type Layer Protection**:
+
 ```typescript
 // Frontend type definition
 interface SMSLog {
-  id: string;
-  sms_type: string;
-  phone_number: string;
-  message_body: string;        // ✅ User-facing message only
-  sent_at: string;
-  delivery_status: 'sent' | 'delivered' | 'failed';
-  text_lk_message_id: string | null;
+  id: string
+  sms_type: string
+  phone_number: string
+  message_body: string // ✅ User-facing message only
+  sent_at: string
+  delivery_status: 'sent' | 'delivered' | 'failed'
+  text_lk_message_id: string | null
   // NO error_message field - prevents accidental exposure
 }
 ```
 
 **UI Layer Protection**:
+
 ```typescript
 // SMSHistoryModal.tsx
 <div className="mt-2 p-3 rounded-md bg-gray-50 text-sm text-gray-700">
@@ -222,13 +228,13 @@ interface SMSLog {
 
 #### UI State Matrix
 
-| State | Badge Color | Icon | Text | Tooltip | Action |
-|-------|------------|------|------|---------|--------|
-| **Sent** | Green (`text-green-700`) | `CheckCircle2` | "Sent" | - | None |
-| **Pending** | Gray (`text-gray-500`) | `Clock` | "Pending" | - | Wait |
-| **Not Sent** | Amber (`text-amber-600`) | `AlertCircle` | "Not Sent" | - | Manual review |
-| **Disabled** | Gray (`text-gray-400`) | `XCircle` | "Disabled" | - | None |
-| **Error** | **Red (`text-red-600`)** | **`AlertOctagon`** | **"Error"** | **"System error occurred. Click 'Send Now' to retry."** | **Retry** |
+| State        | Badge Color              | Icon               | Text        | Tooltip                                                 | Action        |
+| ------------ | ------------------------ | ------------------ | ----------- | ------------------------------------------------------- | ------------- |
+| **Sent**     | Green (`text-green-700`) | `CheckCircle2`     | "Sent"      | -                                                       | None          |
+| **Pending**  | Gray (`text-gray-500`)   | `Clock`            | "Pending"   | -                                                       | Wait          |
+| **Not Sent** | Amber (`text-amber-600`) | `AlertCircle`      | "Not Sent"  | -                                                       | Manual review |
+| **Disabled** | Gray (`text-gray-400`)   | `XCircle`          | "Disabled"  | -                                                       | None          |
+| **Error**    | **Red (`text-red-600`)** | **`AlertOctagon`** | **"Error"** | **"System error occurred. Click 'Send Now' to retry."** | **Retry**     |
 
 #### Benefits of This Pattern
 

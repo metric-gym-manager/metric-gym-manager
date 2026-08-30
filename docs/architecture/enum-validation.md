@@ -27,14 +27,20 @@ export enum MemberStatus {
 
 // ❌ WRONG - Validation layer creates duplicate definition
 // src/features/members/schemas/member.schemas.ts
-export const MemberStatus = z.enum(['active', 'expired', 'suspended', 'cancelled']);
-export type MemberStatus = z.infer<typeof MemberStatus>;  // Type collision!
+export const MemberStatus = z.enum([
+  'active',
+  'expired',
+  'suspended',
+  'cancelled',
+])
+export type MemberStatus = z.infer<typeof MemberStatus> // Type collision!
 
 // ❌ This causes TypeScript error:
 // Type '"active" | "expired" | ...' is not assignable to type 'MemberStatus'
 ```
 
 **Problems**:
+
 - Two conflicting type definitions (enum vs string literal union)
 - Type mismatch when passing validated data to domain layer
 - Violates single source of truth principle
@@ -53,29 +59,32 @@ export enum MemberStatus {
 
 // ✅ CORRECT - Validation layer uses domain enum
 // src/features/members/schemas/member.schemas.ts
-import { MemberStatus } from '@/core/utils/constants/StatusConfig';
+import { MemberStatus } from '@/core/utils/constants/StatusConfig'
 
 export const memberFiltersSchema = z.object({
-  status: z.nativeEnum(MemberStatus).optional(),  // ✅ Validates enum type
+  status: z.nativeEnum(MemberStatus).optional(), // ✅ Validates enum type
   // ... other fields
-});
+})
 
-export type MemberFiltersInput = z.infer<typeof memberFiltersSchema>;
+export type MemberFiltersInput = z.infer<typeof memberFiltersSchema>
 // Result: { status?: MemberStatus }  ✅ Correct enum type
 ```
 
 **Benefits**:
+
 - Domain layer remains single source of truth
 - Type compatibility between validation and domain layers
 - Runtime validation ensures only valid enum values accepted
 - TypeScript compiler enforces correct usage
 
 **When to Use**:
+
 - ✅ Any TypeScript enum defined in domain layer (MemberStatus, PlanType, etc.)
 - ✅ Validation schemas that accept enum values
 - ✅ API route input validation requiring enum types
 
 **When NOT to Use**:
+
 - ❌ String literal unions that aren't domain enums (e.g., sort directions: `z.enum(['asc', 'desc'])`)
 - ❌ Arrays of specific string values without domain meaning
 

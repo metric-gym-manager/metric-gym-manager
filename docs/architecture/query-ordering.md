@@ -16,7 +16,8 @@
 export async function getReminderStatus(gymId: string) {
   const { data: members } = await supabase
     .from('members')
-    .select(`
+    .select(
+      `
       id,
       name,
       sms_logs (
@@ -24,30 +25,32 @@ export async function getReminderStatus(gymId: string) {
         sent_at,
         delivery_status
       )
-    `)
-    .eq('gym_id', gymId);
+    `
+    )
+    .eq('gym_id', gymId)
 
   const reminderStatuses = members.map((member) => {
     // WRONG: No ordering - .find() returns arbitrary result
     const reminderLogs = (member.sms_logs || []).filter(
       (log) => log.sms_type === 'overdue'
-    );
+    )
 
     // WRONG: May return old March log instead of new April log
-    const overdue = reminderLogs.find((log) => log.sms_type === 'overdue');
+    const overdue = reminderLogs.find((log) => log.sms_type === 'overdue')
 
     return {
       id: member.id,
       name: member.name,
-      overdue_sent: overdue?.sent_at || null,  // ❌ Stale data
-    };
-  });
+      overdue_sent: overdue?.sent_at || null, // ❌ Stale data
+    }
+  })
 
-  return reminderStatuses;
+  return reminderStatuses
 }
 ```
 
 **Problems**:
+
 - Members with multiple billing cycles have multiple logs per type
 - Database returns results in arbitrary order (no ORDER BY clause)
 - JavaScript `.find()` returns first match in array order (not chronological)
@@ -55,12 +58,13 @@ export async function getReminderStatus(gymId: string) {
 - Users see "Not Sent" status even when recent reminder was delivered
 
 **Example Bug Scenario**:
+
 ```typescript
 // Member has 2 overdue reminder logs:
 const smsLogs = [
-  { sms_type: 'overdue', sent_at: '2026-03-15', delivery_status: 'sent' },  // March
-  { sms_type: 'overdue', sent_at: '2026-04-10', delivery_status: 'sent' },  // April
-];
+  { sms_type: 'overdue', sent_at: '2026-03-15', delivery_status: 'sent' }, // March
+  { sms_type: 'overdue', sent_at: '2026-04-10', delivery_status: 'sent' }, // April
+]
 
 // Without ordering, database may return in any order:
 // Result 1: March log first → .find() returns March → UI shows old data ❌
@@ -78,7 +82,8 @@ const smsLogs = [
 export async function getReminderStatus(gymId: string) {
   const { data: members } = await supabase
     .from('members')
-    .select(`
+    .select(
+      `
       id,
       name,
       sms_logs (
@@ -86,34 +91,46 @@ export async function getReminderStatus(gymId: string) {
         sent_at,
         delivery_status
       )
-    `)
-    .eq('gym_id', gymId);
+    `
+    )
+    .eq('gym_id', gymId)
 
   const reminderStatuses = members.map((member) => {
-    const REMINDER_TYPES = ['reminder_7day', 'reminder_3day', 'due_today', 'overdue'];
+    const REMINDER_TYPES = [
+      'reminder_7day',
+      'reminder_3day',
+      'due_today',
+      'overdue',
+    ]
 
     // ✅ CORRECT: Sort by sent_at DESC before using .find()
     const reminderLogs = (member.sms_logs || [])
       .filter((log) => REMINDER_TYPES.includes(log.sms_type))
-      .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+      .sort(
+        (a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()
+      )
 
     // Now .find() returns most recent log for each type
-    const reminder7Day = reminderLogs.find((log) => log.sms_type === 'reminder_7day');
-    const reminder3Day = reminderLogs.find((log) => log.sms_type === 'reminder_3day');
-    const dueToday = reminderLogs.find((log) => log.sms_type === 'due_today');
-    const overdue = reminderLogs.find((log) => log.sms_type === 'overdue');
+    const reminder7Day = reminderLogs.find(
+      (log) => log.sms_type === 'reminder_7day'
+    )
+    const reminder3Day = reminderLogs.find(
+      (log) => log.sms_type === 'reminder_3day'
+    )
+    const dueToday = reminderLogs.find((log) => log.sms_type === 'due_today')
+    const overdue = reminderLogs.find((log) => log.sms_type === 'overdue')
 
     return {
       id: member.id,
       name: member.name,
-      reminder_7day_sent: reminder7Day?.sent_at || null,  // ✅ Current data
-      reminder_3day_sent: reminder3Day?.sent_at || null,  // ✅ Current data
-      due_today_sent: dueToday?.sent_at || null,          // ✅ Current data
-      overdue_sent: overdue?.sent_at || null,              // ✅ Current data
-    };
-  });
+      reminder_7day_sent: reminder7Day?.sent_at || null, // ✅ Current data
+      reminder_3day_sent: reminder3Day?.sent_at || null, // ✅ Current data
+      due_today_sent: dueToday?.sent_at || null, // ✅ Current data
+      overdue_sent: overdue?.sent_at || null, // ✅ Current data
+    }
+  })
 
-  return reminderStatuses;
+  return reminderStatuses
 }
 ```
 
@@ -126,15 +143,15 @@ const { data: latestOverdueLogs } = await supabase
   .select('member_id, sent_at, delivery_status')
   .eq('gym_id', gymId)
   .eq('sms_type', 'overdue')
-  .order('sent_at', { ascending: false });
+  .order('sent_at', { ascending: false })
 
 // Group by member_id to get latest per member
 const latestByMember = latestOverdueLogs.reduce((acc, log) => {
   if (!acc[log.member_id]) {
-    acc[log.member_id] = log;  // First log is most recent due to ORDER BY
+    acc[log.member_id] = log // First log is most recent due to ORDER BY
   }
-  return acc;
-}, {});
+  return acc
+}, {})
 ```
 
 **Step 3: Index for Performance**
@@ -174,29 +191,34 @@ CREATE INDEX IF NOT EXISTS idx_sms_logs_member_type_sent
 #### Common Mistakes
 
 **Mistake 1: Using last array element without sorting**
+
 ```typescript
 // ❌ WRONG - Assumes last element is most recent
-const overdue = reminderLogs[reminderLogs.length - 1];
+const overdue = reminderLogs[reminderLogs.length - 1]
 
 // ✅ CORRECT - Sort first, then access
-const sortedLogs = reminderLogs.sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
-const overdue = sortedLogs[0];
+const sortedLogs = reminderLogs.sort(
+  (a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime()
+)
+const overdue = sortedLogs[0]
 ```
 
 **Mistake 2: Filtering then finding without sorting**
+
 ```typescript
 // ❌ WRONG - Filter doesn't guarantee order
-const overdueLogs = reminderLogs.filter((log) => log.sms_type === 'overdue');
-const latest = overdueLogs[0];  // May not be latest!
+const overdueLogs = reminderLogs.filter((log) => log.sms_type === 'overdue')
+const latest = overdueLogs[0] // May not be latest!
 
 // ✅ CORRECT - Sort before filtering
 const overdueLogs = reminderLogs
   .sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime())
-  .filter((log) => log.sms_type === 'overdue');
-const latest = overdueLogs[0];  // Guaranteed to be latest
+  .filter((log) => log.sms_type === 'overdue')
+const latest = overdueLogs[0] // Guaranteed to be latest
 ```
 
 **Mistake 3: Database ordering only one table in join**
+
 ```sql
 -- ❌ WRONG - Ordering parent table doesn't order child table
 SELECT
@@ -226,51 +248,52 @@ LEFT JOIN LATERAL (
 describe('getReminderStatus', () => {
   it('returns most recent log when member has multiple billing cycles', async () => {
     // Setup: Member with March and April logs
-    const member = await createMember({ name: 'Test User' });
+    const member = await createMember({ name: 'Test User' })
     await createSMSLog({
       member_id: member.id,
       sms_type: 'overdue',
-      sent_at: '2026-03-15',  // Old billing cycle
-    });
+      sent_at: '2026-03-15', // Old billing cycle
+    })
     await createSMSLog({
       member_id: member.id,
       sms_type: 'overdue',
-      sent_at: '2026-04-10',  // Current billing cycle
-    });
+      sent_at: '2026-04-10', // Current billing cycle
+    })
 
     // Execute
-    const statuses = await getReminderStatus(member.gym_id);
+    const statuses = await getReminderStatus(member.gym_id)
 
     // Assert: Should return April log, not March
-    expect(statuses[0].overdue_sent).toBe('2026-04-10');  // ✅ Not '2026-03-15'
-  });
+    expect(statuses[0].overdue_sent).toBe('2026-04-10') // ✅ Not '2026-03-15'
+  })
 
   it('handles single log correctly', async () => {
-    const member = await createMember({ name: 'New User' });
+    const member = await createMember({ name: 'New User' })
     await createSMSLog({
       member_id: member.id,
       sms_type: 'overdue',
       sent_at: '2026-04-10',
-    });
+    })
 
-    const statuses = await getReminderStatus(member.gym_id);
+    const statuses = await getReminderStatus(member.gym_id)
 
-    expect(statuses[0].overdue_sent).toBe('2026-04-10');  // ✅ Works correctly
-  });
+    expect(statuses[0].overdue_sent).toBe('2026-04-10') // ✅ Works correctly
+  })
 
   it('handles no logs correctly', async () => {
-    const member = await createMember({ name: 'Fresh User' });
+    const member = await createMember({ name: 'Fresh User' })
 
-    const statuses = await getReminderStatus(member.gym_id);
+    const statuses = await getReminderStatus(member.gym_id)
 
-    expect(statuses[0].overdue_sent).toBeNull();  // ✅ No crash
-  });
-});
+    expect(statuses[0].overdue_sent).toBeNull() // ✅ No crash
+  })
+})
 ```
 
 #### Real-World Impact
 
 **Bug Example**: Gym Management SaaS (2026-04-10)
+
 - **Issue**: Reminders tab always showed "Not Sent" despite successful SMS delivery
 - **Root Cause**: Unordered query + `.find()` returned March log instead of April log
 - **Users Affected**: All gyms with members having 2+ billing cycles

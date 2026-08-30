@@ -20,9 +20,11 @@ implementations selected at runtime by `createStorageProvider()`:
 // src/lib/storage/factory.ts
 export function createStorageProvider(): IStorageProvider {
   const r2Configured =
-    !!process.env.R2_ACCOUNT_ID && !!process.env.R2_ACCESS_KEY_ID &&
-    !!process.env.R2_SECRET_ACCESS_KEY && !!process.env.R2_BUCKET_NAME;
-  return r2Configured ? new R2StorageProvider() : new MockStorageProvider();
+    !!process.env.R2_ACCOUNT_ID &&
+    !!process.env.R2_ACCESS_KEY_ID &&
+    !!process.env.R2_SECRET_ACCESS_KEY &&
+    !!process.env.R2_BUCKET_NAME
+  return r2Configured ? new R2StorageProvider() : new MockStorageProvider()
 }
 ```
 
@@ -41,10 +43,10 @@ uploads straight to R2.
 
 Two entry points share the same `IStorageProvider` client:
 
-| Flow | Route | Auth |
-|---|---|---|
-| Dashboard add/replace photo | `POST /api/members/generate-upload-url` → `POST /api/members/[id]/photo` | gym **session** (tenant-checked) |
-| Public QR self-registration | `POST /api/public/registrations` (returns `uploadUrl`) | **token** (see pattern 2.14 / auth taxonomy) |
+| Flow                        | Route                                                                    | Auth                                         |
+| --------------------------- | ------------------------------------------------------------------------ | -------------------------------------------- |
+| Dashboard add/replace photo | `POST /api/members/generate-upload-url` → `POST /api/members/[id]/photo` | gym **session** (tenant-checked)             |
+| Public QR self-registration | `POST /api/public/registrations` (returns `uploadUrl`)                   | **token** (see pattern 2.14 / auth taxonomy) |
 
 - **Deterministic keys**: `profiles/{memberId}.{webp|jpg}` via
   `memberPhotoPath()`. The confirm route validates the path with
@@ -73,9 +75,9 @@ new S3Client({
   region: 'auto',
   endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
   credentials: { accessKeyId, secretAccessKey },
-  requestChecksumCalculation: 'WHEN_REQUIRED',  // don't inject CRC32 into presigns
+  requestChecksumCalculation: 'WHEN_REQUIRED', // don't inject CRC32 into presigns
   responseChecksumValidation: 'WHEN_REQUIRED',
-});
+})
 ```
 
 **Diagnose:** inspect the presigned URL's query params. Clean =

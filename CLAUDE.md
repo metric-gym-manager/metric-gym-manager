@@ -62,7 +62,7 @@ Realized structure (2026-07 feature-first refactor — the former hexagonal
 ```
 src/
   app/              # Next.js App Router (routes = auth + Zod validation + one service/factory call)
-  components/       # SHARED UI only (ui, common, layout, landing, providers, pwa, dashboard)
+  components/       # SHARED UI only (ui, common, workspace, landing, auth, legal, providers, pwa)
   features/         # ALL business logic, one folder per domain:
     members/        #   components/ domain/ config/ services/ schemas/ types/ utils/ tests/ index.ts
     payments/       #   gym-member payments & day passes
@@ -149,3 +149,13 @@ Copy `.env.example` to `.env.local` and configure:
 - Row Level Security (RLS): All tables must have RLS enabled with appropriate policies
 - Authentication: Use Supabase Auth for user management
 - Server/Client Components: Respect Next.js 16 App Router patterns
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

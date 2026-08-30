@@ -15,24 +15,25 @@
 // ❌ NEVER implement cron jobs without logging
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
+    const authHeader = request.headers.get('authorization')
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     // Execute job
-    const result = await executeJob();
+    const result = await executeJob()
 
     // Only return result - errors lost if not monitored
-    return NextResponse.json({ success: true, result });
+    return NextResponse.json({ success: true, result })
   } catch (error) {
-    console.error('Job failed:', error); // Only console logging!
-    return NextResponse.json({ error: 'Failed' }, { status: 500 });
+    console.error('Job failed:', error) // Only console logging!
+    return NextResponse.json({ error: 'Failed' }, { status: 500 })
   }
 }
 ```
 
 **Problems**:
+
 - Errors only visible in platform logs (Vercel, etc.)
 - No historical error tracking
 - Cannot query failure rates or patterns
@@ -76,9 +77,9 @@ CREATE POLICY "Service role can read all cron logs"
 
 ```typescript
 // src/core/utils/cron/CronLogger.ts
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-export type CronJobStatus = 'running' | 'success' | 'failure';
+export type CronJobStatus = 'running' | 'success' | 'failure'
 
 export class CronLogger {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -98,24 +99,31 @@ export class CronLogger {
         status: 'running' as CronJobStatus,
       })
       .select('id')
-      .single();
+      .single()
 
-    if (error) throw new Error(`Failed to log cron start: ${error.message}`);
-    return data.id;
+    if (error) throw new Error(`Failed to log cron start: ${error.message}`)
+    return data.id
   }
 
   /**
    * Log successful completion
    */
-  async logSuccess(logId: string, summary: Record<string, unknown>): Promise<void> {
-    await this.logComplete(logId, 'success', summary);
+  async logSuccess(
+    logId: string,
+    summary: Record<string, unknown>
+  ): Promise<void> {
+    await this.logComplete(logId, 'success', summary)
   }
 
   /**
    * Log failure with errors
    */
-  async logFailure(logId: string, errors: string[], summary?: Record<string, unknown>): Promise<void> {
-    await this.logComplete(logId, 'failure', summary || {}, errors);
+  async logFailure(
+    logId: string,
+    errors: string[],
+    summary?: Record<string, unknown>
+  ): Promise<void> {
+    await this.logComplete(logId, 'failure', summary || {}, errors)
   }
 
   /**
@@ -135,9 +143,10 @@ export class CronLogger {
         summary,
         errors: errors || null,
       })
-      .eq('id', logId);
+      .eq('id', logId)
 
-    if (error) throw new Error(`Failed to log cron completion: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to log cron completion: ${error.message}`)
   }
 }
 ```
@@ -146,50 +155,51 @@ export class CronLogger {
 
 ```typescript
 // src/core/utils/cron/index.ts
-export { CronLogger, type CronJobStatus, type CronLogRecord } from './CronLogger';
+export {
+  CronLogger,
+  type CronJobStatus,
+  type CronLogRecord,
+} from './CronLogger'
 ```
 
 **Step 4: Implement in Cron Routes**
 
 ```typescript
 // src/app/api/cron/send-reminders/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { getAdminContainer } from '@/infrastructure/di';
-import { ResponseBuilder } from '@/core/utils/api/ApiResponse';
-import { CronLogger } from '@/core/utils/cron';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { NextRequest, NextResponse } from 'next/server'
+import { getAdminContainer } from '@/infrastructure/di'
+import { ResponseBuilder } from '@/core/utils/api/ApiResponse'
+import { CronLogger } from '@/core/utils/cron'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 export async function POST(request: NextRequest) {
-  const supabase = createAdminClient();
-  const logger = new CronLogger(supabase);
-  let logId: string | null = null;
+  const supabase = createAdminClient()
+  const logger = new CronLogger(supabase)
+  let logId: string | null = null
 
   try {
     // 1. Verify cron secret
-    const authHeader = request.headers.get('authorization');
-    const cronSecret = process.env.CRON_SECRET || 'dev-secret-key';
+    const authHeader = request.headers.get('authorization')
+    const cronSecret = process.env.CRON_SECRET || 'dev-secret-key'
 
     if (authHeader !== `Bearer ${cronSecret}`) {
-      console.error('Unauthorized cron request');
-      return NextResponse.json(
-        ResponseBuilder.unauthorized(),
-        { status: 401 }
-      );
+      console.error('Unauthorized cron request')
+      return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 })
     }
 
-    console.log('🚀 Starting send reminders cron job...');
-    const startTime = Date.now();
+    console.log('🚀 Starting send reminders cron job...')
+    const startTime = Date.now()
 
     // 2. Log cron job start
-    logId = await logger.logStart('send-reminders');
+    logId = await logger.logStart('send-reminders')
 
     // 3. Execute use case
-    const container = await getAdminContainer();
-    const sendReminders = container.getSendAutomatedRemindersUseCase();
-    const summary = await sendReminders.execute();
+    const container = await getAdminContainer()
+    const sendReminders = container.getSendAutomatedRemindersUseCase()
+    const summary = await sendReminders.execute()
 
-    const duration = Date.now() - startTime;
-    console.log(`⏱️  Cron job completed in ${duration}ms`);
+    const duration = Date.now() - startTime
+    console.log(`⏱️  Cron job completed in ${duration}ms`)
 
     // 4. Log successful completion
     await logger.logSuccess(logId, {
@@ -197,7 +207,7 @@ export async function POST(request: NextRequest) {
       byType: summary.byType,
       errors: summary.errors,
       duration: `${duration}ms`,
-    });
+    })
 
     // 5. Return response
     return NextResponse.json(
@@ -208,15 +218,15 @@ export async function POST(request: NextRequest) {
         duration: `${duration}ms`,
       }),
       { status: 200 }
-    );
+    )
   } catch (error) {
-    console.error('Send reminders cron error:', error);
+    console.error('Send reminders cron error:', error)
 
     // 6. Log failure if we have a log ID
     if (logId) {
       await logger.logFailure(logId, [
         error instanceof Error ? error.message : 'Unknown error',
-      ]);
+      ])
     }
 
     // 7. Return error response
@@ -226,7 +236,7 @@ export async function POST(request: NextRequest) {
         error instanceof Error ? error.stack : undefined
       ),
       { status: 500 }
-    );
+    )
   }
 }
 
@@ -234,17 +244,20 @@ export async function POST(request: NextRequest) {
 export async function GET(_request: NextRequest) {
   if (process.env.NODE_ENV === 'production') {
     return NextResponse.json(
-      ResponseBuilder.error('Method not allowed in production', 'METHOD_NOT_ALLOWED'),
+      ResponseBuilder.error(
+        'Method not allowed in production',
+        'METHOD_NOT_ALLOWED'
+      ),
       { status: 405 }
-    );
+    )
   }
 
-  console.log('🧪 Manual test: Starting send reminders cron job...');
-  const container = await getAdminContainer();
-  const sendReminders = container.getSendAutomatedRemindersUseCase();
-  const summary = await sendReminders.execute();
+  console.log('🧪 Manual test: Starting send reminders cron job...')
+  const container = await getAdminContainer()
+  const sendReminders = container.getSendAutomatedRemindersUseCase()
+  const summary = await sendReminders.execute()
 
-  return NextResponse.json(ResponseBuilder.success(summary));
+  return NextResponse.json(ResponseBuilder.success(summary))
 }
 ```
 
@@ -310,6 +323,5 @@ ORDER BY avg_duration_seconds DESC;
 - ❌ Jobs that run on every API request (too much overhead)
 
 ---
-
 
 ---

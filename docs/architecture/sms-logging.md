@@ -33,6 +33,7 @@ private async sendReceiptSMS(member: Member, amount: number): Promise<void> {
 ```
 
 **Problems**:
+
 - SMS failures only visible in platform logs (Vercel, etc.)
 - No database tracking of delivery status
 - Cannot query failed SMS for retry or analysis
@@ -60,7 +61,7 @@ export class CollectPayment {
     private readonly memberRepo: IMemberRepository,
     private readonly paymentRepo: IPaymentRepository,
     private readonly smsProvider: ISMSProvider,
-    private readonly smsRepo: ISMSRepository  // Add this dependency
+    private readonly smsRepo: ISMSRepository // Add this dependency
   ) {}
 }
 ```
@@ -146,8 +147,8 @@ export class Container {
       this.getMemberRepository(),
       this.getPaymentRepository(),
       this.getSMSProvider(),
-      this.getSMSRepository()  // Wire up SMS repository
-    );
+      this.getSMSRepository() // Wire up SMS repository
+    )
   }
 
   getRegisterMemberUseCase(): RegisterMember {
@@ -155,8 +156,8 @@ export class Container {
       this.getMemberRepository(),
       this.getPaymentRepository(),
       this.getSMSProvider(),
-      this.getSMSRepository()  // Wire up SMS repository
-    );
+      this.getSMSRepository() // Wire up SMS repository
+    )
   }
 }
 ```
@@ -226,6 +227,5 @@ ORDER BY s.sent_at DESC;
 - ❌ Operations that already have comprehensive error handling
 
 ---
-
 
 ---
