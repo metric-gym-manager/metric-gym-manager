@@ -646,6 +646,14 @@ seventeen of them defects this overhaul introduced or left standing.
 `/contact`, `/terms`, `/privacy` and `/refund-policy` are behind authentication
 (pass 3, P3), and the SMS-history endpoint is live with no UI (pass 2, G1).
 
+- **Pass 4 — visual QA.** Playwright against the running app, eight screens
+  captured and inspected. The operational grammar holds. Three defects no check
+  in this repo could see: the members toolbar rendering on three rows, a string
+  `empty` on `DataTable` rendering worse than omitting the prop, and "1 records".
+  One open judgement call for the §9.1 sign-off: two stacked indigo selected
+  fills on `/settings`, a consequence of raising `surface-selected` to fix the
+  ladder.
+
 **The standing conclusion:** the structure holds; the _evidence_ attached to it
 was repeatedly weaker than claimed. Six measurement errors occurred while
 producing this work, and two foundational beliefs — "tokens are dark, therefore

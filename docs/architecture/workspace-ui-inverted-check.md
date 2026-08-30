@@ -556,3 +556,80 @@ request. The remaining step is the one no probe can take:
 | 4   | `legacy-ui-migration.md`, `feature-gaps-app-workspace.md` describe the retired layer as current (pass 2, F2) | Docs                                     |
 | 5   | `EmptyStateLayout` defaults changed, unused, untested (pass 3, P7)                                           | Trivial                                  |
 | 6   | **§9.1 visual QA**                                                                                           | Requires a human at the running app      |
+
+---
+
+# FINDINGS — PASS 4 (visual QA), run 2026-08-30
+
+The pass every earlier one deferred, and the one pass 3 said was the only
+remaining step. Driven through Playwright (already a dev dependency, already
+configured on port 3100 to avoid exactly the port-3000 collision that blocked
+the first attempt) against the running dev server, authenticating with the
+seeded E2E enterprise gym. Eight screens captured at 1440×900 and **looked at**.
+
+## What held up
+
+The operational grammar works. Dark canvas with hairline structure, uppercase
+tracked metadata labels, the KPI band separated by vertical dividers rather than
+four floating tiles, `● ACTIVE` as a dot-and-label, mono tabular numerics
+right-aligned, and settings rendering as §5.18 describes — section header,
+hairline, aligned label/control rows, no nested cards. The sidebar's active item
+is clearly visible on the dark ground, which was the Phase 1 exit gate.
+
+## V1 — **BUG (fixed)** — the members toolbar rendered on three rows
+
+Search on one row, the status filter on a second, the buttons on a third, in a
+1440px viewport with ~1150px of content width.
+
+`Select` wraps itself in a hardcoded `<div className="relative w-full">`. A
+width passed via `className` lands on the inner `<select>`; the wrapper still
+claims the entire flex line. Sized the container instead.
+
+**This is the important one**, not because it is severe but because of what it
+says: `tsc`, `eslint`, `arch:check` and 1,359 tests all passed with the primary
+screen's toolbar in three pieces. No check in this repository could see it.
+
+## V2 — **BUG (fixed)** — a string `empty` was worse than no `empty`
+
+`DataTable.empty` is typed `ReactNode`, and a string fell straight into the
+`<td>`: unpadded, left-aligned, reading as a second header row. Passing nothing
+renders a properly centred `EmptyState` — so the documented, typed usage was
+strictly worse than omitting the prop. A trap in the API, hit by all four call
+sites the migration created. Strings are now normalised into the `EmptyState`.
+
+## V3 — **BUG (fixed)** — "1 records"
+
+## V4 — **OPEN, for a human** — two stacked indigo fills
+
+On `/settings` the sidebar's "Settings" item and the sub-nav's "Gym Information"
+item are both filled `surface-selected`, one inside the other. Each alone reads
+as system state; together they are a lot of indigo for a palette whose whole
+argument is restraint.
+
+This is a **direct consequence of my own fix**: raising `surface-selected` from
+0.18 → 0.30 to correct the inverted ladder (pass 1, D2) also made it more
+saturated, and §5.14 warns the selected item should read "as a system state, not
+a large colourful pill." I have already changed this token twice on arithmetic;
+whether 0.30 is right is a judgement about the rendered result, and it belongs
+to whoever does the §9.1 sign-off.
+
+## V5 — **DEBT** — pre-existing hydration mismatch on `/login`
+
+React reports a server/client attribute mismatch on the password field:
+`style={{paddingRight:52}}` serialised as `padding-right:"52px"`. Present in
+`AuthShell`/login, unrelated to this overhaul, and worth its own fix.
+
+## What pass 4 changes about the conclusion
+
+Pass 3 ended by saying the strongest evidence in this document was that the app
+responds `200`, and that visual QA was the one step no probe could take. That
+was wrong in one respect: **the step was available the whole time.** Playwright,
+Chromium and seeded credentials were all already in the repository. The blocker
+was never tooling; it was that I kept treating "the gate is green" as the end of
+the work.
+
+Three real defects surfaced within minutes of actually looking, and none of them
+was findable by any automated check that exists here. §9.1 sign-off still needs
+a human — "has the perceived product category moved" is not a thing a screenshot
+answers — but the mechanical half of visual QA is now done, and it should be
+done _first_ next time, not last.
