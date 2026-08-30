@@ -44,7 +44,7 @@ const css = `
 .legal-root a{color:#8a88ff;text-decoration:none;transition:color .2s,background .2s}
 .legal-root a:hover{color:#a5a3ff}
 .legal-sec{scroll-margin-top:96px}
-.legal-doc-link:hover{background:rgba(255,255,255,0.04)!important}
+.legal-doc-link:hover{background:var(--ds-surface-input)!important}
 .legal-toc-link:hover{color:#ededf0!important}
 .legal-nav-back:hover{color:#ededf0!important}
 .legal-login:hover{background:#ffffff!important;color:#0a0a0b!important}
@@ -62,7 +62,7 @@ const sectionHeading: CSSProperties = {
 }
 const sectionNum: CSSProperties = {
   fontFamily: mono,
-  color: '#64646d',
+  color: 'var(--ds-text-muted)',
   marginRight: '10px',
 }
 
@@ -87,10 +87,10 @@ export function LegalLayout({
           top: 0,
           zIndex: 50,
           height: '56px',
-          background: 'rgba(10,10,11,0.85)',
+          background: 'var(--ds-surface-overlay)',
           backdropFilter: 'saturate(180%) blur(16px)',
           WebkitBackdropFilter: 'saturate(180%) blur(16px)',
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          borderBottom: '1px solid var(--ds-border-1)',
         }}
       >
         <div
@@ -110,7 +110,7 @@ export function LegalLayout({
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              color: '#ededf0',
+              color: 'var(--ds-text-primary)',
             }}
           >
             <img
@@ -132,8 +132,8 @@ export function LegalLayout({
                 whiteSpace: 'nowrap',
                 fontFamily: mono,
                 fontSize: '11px',
-                color: '#64646d',
-                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'var(--ds-text-muted)',
+                border: '1px solid var(--ds-border-1)',
                 borderRadius: '4px',
                 padding: '1px 6px',
                 marginLeft: '4px',
@@ -146,7 +146,7 @@ export function LegalLayout({
             <Link
               href="/"
               className="legal-nav-back"
-              style={{ fontSize: '13px', color: '#9b9ba4' }}
+              style={{ fontSize: '13px', color: 'var(--ds-text-secondary)' }}
             >
               ← Back to site
             </Link>
@@ -159,11 +159,11 @@ export function LegalLayout({
                 height: '32px',
                 padding: '0 12px',
                 borderRadius: '5px',
-                background: '#ededf0',
-                color: '#0a0a0b',
+                background: 'var(--ds-text-primary)',
+                color: 'var(--ds-surface-base)',
                 fontSize: '13px',
                 fontWeight: 500,
-                border: '1px solid rgba(255,255,255,0.12)',
+                border: '1px solid var(--ds-border-2)',
                 whiteSpace: 'nowrap',
               }}
             >
@@ -202,7 +202,7 @@ export function LegalLayout({
                 fontSize: '11px',
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
-                color: '#64646d',
+                color: 'var(--ds-text-muted)',
                 fontWeight: 500,
                 padding: '0 10px 6px',
               }}
@@ -223,10 +223,10 @@ export function LegalLayout({
                     padding: '0 10px',
                     borderRadius: '5px',
                     fontSize: '13px',
-                    background: active
-                      ? 'rgba(255,255,255,0.07)'
-                      : 'transparent',
-                    color: active ? '#ededf0' : '#9b9ba4',
+                    background: active ? 'var(--ds-border-1)' : 'transparent',
+                    color: active
+                      ? 'var(--ds-text-primary)'
+                      : 'var(--ds-text-secondary)',
                   }}
                 >
                   {label}
@@ -239,7 +239,7 @@ export function LegalLayout({
               display: 'flex',
               flexDirection: 'column',
               gap: '6px',
-              borderTop: '1px solid rgba(255,255,255,0.07)',
+              borderTop: '1px solid var(--ds-border-1)',
               paddingTop: '16px',
             }}
           >
@@ -248,7 +248,7 @@ export function LegalLayout({
                 fontSize: '11px',
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
-                color: '#64646d',
+                color: 'var(--ds-text-muted)',
                 fontWeight: 500,
                 padding: '0 10px 4px',
               }}
@@ -263,13 +263,13 @@ export function LegalLayout({
                 style={{
                   fontSize: '12px',
                   lineHeight: '18px',
-                  color: '#9b9ba4',
+                  color: 'var(--ds-text-secondary)',
                   padding: '0 10px',
                   display: 'flex',
                   gap: '8px',
                 }}
               >
-                <span style={{ fontFamily: mono, color: '#3a3a41' }}>
+                <span style={{ fontFamily: mono, color: 'var(--ds-border-3)' }}>
                   {String(i + 1).padStart(2, '0')}
                 </span>
                 {s.title}
@@ -278,7 +278,7 @@ export function LegalLayout({
           </div>
           <div
             style={{
-              borderTop: '1px solid rgba(255,255,255,0.07)',
+              borderTop: '1px solid var(--ds-border-1)',
               padding: '16px 10px 0',
               display: 'flex',
               flexDirection: 'column',
@@ -290,8 +290,8 @@ export function LegalLayout({
                 whiteSpace: 'nowrap',
                 fontFamily: mono,
                 fontSize: '11px',
-                color: '#64646d',
-                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'var(--ds-text-muted)',
+                border: '1px solid var(--ds-border-1)',
                 borderRadius: '4px',
                 padding: '2px 8px',
                 width: 'fit-content',
@@ -300,7 +300,11 @@ export function LegalLayout({
               LAST UPDATED
             </span>
             <span
-              style={{ fontFamily: mono, fontSize: '11px', color: '#64646d' }}
+              style={{
+                fontFamily: mono,
+                fontSize: '11px',
+                color: 'var(--ds-text-muted)',
+              }}
             >
               {lastUpdated.toUpperCase()}
             </span>
@@ -331,7 +335,7 @@ export function LegalLayout({
             style={{
               margin: '0 0 24px',
               fontSize: '13px',
-              color: '#64646d',
+              color: 'var(--ds-text-muted)',
               fontFamily: mono,
             }}
           >
@@ -357,12 +361,12 @@ export function LegalLayout({
             <div
               style={{
                 marginTop: '24px',
-                borderTop: '1px solid rgba(255,255,255,0.07)',
+                borderTop: '1px solid var(--ds-border-1)',
                 paddingTop: '16px',
                 fontFamily: mono,
                 fontSize: '11px',
                 lineHeight: '18px',
-                color: '#64646d',
+                color: 'var(--ds-text-muted)',
               }}
             >
               {footnote}
@@ -384,7 +388,7 @@ export function LegalP({ children }: { children: ReactNode }) {
         margin: '0 0 12px',
         fontSize: '14px',
         lineHeight: '24px',
-        color: '#9b9ba4',
+        color: 'var(--ds-text-secondary)',
         textWrap: 'pretty',
       }}
     >
@@ -402,7 +406,7 @@ export function LegalList({ children }: { children: ReactNode }) {
         paddingLeft: '20px',
         fontSize: '14px',
         lineHeight: '24px',
-        color: '#9b9ba4',
+        color: 'var(--ds-text-secondary)',
         listStyle: 'disc',
       }}
     >
@@ -423,7 +427,7 @@ export function LegalSubHead({ children }: { children: ReactNode }) {
         margin: '0 0 6px',
         fontSize: '14px',
         fontWeight: 600,
-        color: '#ededf0',
+        color: 'var(--ds-text-primary)',
         letterSpacing: '-0.01em',
       }}
     >
@@ -438,14 +442,14 @@ export function LegalCallout({ children }: { children: ReactNode }) {
     <div
       style={{
         margin: '0 0 12px',
-        background: '#131316',
-        border: '1px solid rgba(255,255,255,0.07)',
+        background: 'var(--ds-surface-card)',
+        border: '1px solid var(--ds-border-1)',
         borderRadius: '6px',
         padding: '12px 16px',
         fontFamily: mono,
         fontSize: '12px',
         lineHeight: '20px',
-        color: '#9b9ba4',
+        color: 'var(--ds-text-secondary)',
       }}
     >
       {children}
@@ -463,7 +467,7 @@ export function LegalContactList({ children }: { children: ReactNode }) {
         listStyle: 'none',
         fontSize: '14px',
         lineHeight: '26px',
-        color: '#9b9ba4',
+        color: 'var(--ds-text-secondary)',
       }}
     >
       {children}
@@ -480,7 +484,9 @@ export function LegalContactItem({
 }) {
   return (
     <li>
-      <strong style={{ color: '#ededf0', fontWeight: 600 }}>{label}</strong>{' '}
+      <strong style={{ color: 'var(--ds-text-primary)', fontWeight: 600 }}>
+        {label}
+      </strong>{' '}
       {children}
     </li>
   )
