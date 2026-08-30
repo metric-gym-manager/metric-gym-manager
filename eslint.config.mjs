@@ -2,6 +2,46 @@ import nextPlugin from 'eslint-config-next'
 import tsPlugin from '@typescript-eslint/eslint-plugin'
 import tsParser from '@typescript-eslint/parser'
 
+/** Shared by the two design-token ratchet blocks at the end of this config. */
+const DESIGN_TOKEN_RESTRICTIONS = [
+  {
+    selector:
+      'JSXAttribute[name.name="className"] Literal[value=/(^|\\s)(bg|text|border|ring|divide|from|via|to)-(white|black|gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-[0-9]{2,3})?($|\\s)/]',
+    message:
+      'Raw Tailwind palette colour. Use a semantic design token (bg-surface-*, text-ink*, border-line-*, text-success/warning/error) so it follows the theme. See METRIC_UI_DIRECTIVE.md §4.5.',
+  },
+  {
+    selector:
+      'JSXAttribute[name.name="className"] TemplateElement[value.raw=/(^|\\s)(bg|text|border|ring|divide)-(white|black|gray|slate|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-[0-9]{2,3})?($|\\s)/]',
+    message:
+      'Raw Tailwind palette colour in a template literal. Use a semantic design token. See METRIC_UI_DIRECTIVE.md §4.5.',
+  },
+  {
+    // Anywhere in the value, not just at the start: `var(--x, #fff)` smuggles a
+    // literal through a fallback and the anchored form missed it.
+    selector:
+      'JSXAttribute[name.name="style"] Literal[value=/#[0-9a-fA-F]{3,8}\\b|rgba?\\(/]',
+    message:
+      'Hardcoded colour in an inline style. Use a token class or var(--ds-*) — a literal does not follow the theme. See METRIC_UI_DIRECTIVE.md §4.5.',
+  },
+  {
+    // Tailwind arbitrary values — `bg-[#fff]`, `text-[rgb(0,0,0)]`. These
+    // bypassed every other rule here: they are not named palette utilities and
+    // not inline styles, so the token system could be sidestepped entirely with
+    // the gate still green. Found by the inverted check (probe C1).
+    selector:
+      'JSXAttribute[name.name="className"] Literal[value=/\\b(bg|text|border|ring|divide|from|via|to|fill|stroke|outline|decoration|accent|caret|shadow)-\\[(#|rgba?\\(|hsla?\\()/]',
+    message:
+      'Arbitrary colour value. Use a semantic design token; an arbitrary value does not follow the theme. See METRIC_UI_DIRECTIVE.md §4.5.',
+  },
+  {
+    selector:
+      'JSXAttribute[name.name="className"] TemplateElement[value.raw=/\\b(bg|text|border|ring|divide|from|via|to|fill|stroke|outline|decoration|accent|caret|shadow)-\\[(#|rgba?\\(|hsla?\\()/]',
+    message:
+      'Arbitrary colour value in a template literal. Use a semantic design token. See METRIC_UI_DIRECTIVE.md §4.5.',
+  },
+]
+
 const eslintConfig = [
   {
     ignores: [
@@ -11,6 +51,10 @@ const eslintConfig = [
       'playwright-report/**',
       'test-results/**',
       'coverage/**',
+      // Nested standalone Remotion project: its own package.json, node_modules
+      // and eslint.config.mjs. Untracked, not part of this application, and
+      // linting it produced 92 of the 97 errors that appeared to block §8.9.
+      'my-video/**',
       '*.config.js',
       'next-env.d.ts',
     ],
@@ -108,6 +152,38 @@ const eslintConfig = [
         },
       ],
     },
+  },
+
+  // ------------------------------------------------------------------
+  // Design tokens: no raw colour outside the Layer-1 sources
+  // ------------------------------------------------------------------
+  // The workspace is being converted to a dark-first operational system
+  // (docs/architecture/METRIC_UI_DIRECTIVE.md §4.5, §7). A raw Tailwind palette
+  // utility or a hex literal does not participate in the token system, so it
+  // silently survives the dark flip and renders wrong — this is exactly how the
+  // shell ended up with a hardcoded white sidebar on a near-black canvas.
+  //
+  // Missing value → add a semantic token → sync tokens.ts + globals.css +
+  // tailwind.config.ts → consume it. Never bypass the token system.
+  //
+  // The repo is at ZERO. Keep it there — this is now a hard error everywhere in
+  // scope, with no per-directory tiers left to graduate. Scope is every surface
+  // except the landing page.
+  {
+    files: [
+      'src/app/**/*.tsx',
+      'src/components/**/*.tsx',
+      'src/features/**/*.tsx',
+    ],
+    ignores: [
+      '**/__tests__/**',
+      '**/tests/**',
+      'src/components/landing/**',
+      'src/app/page.tsx',
+      // Rendered by Satori into a PNG, never by the browser: no token layer applies.
+      'src/features/registration/services/qr-poster.tsx',
+    ],
+    rules: { 'no-restricted-syntax': ['error', ...DESIGN_TOKEN_RESTRICTIONS] },
   },
 ]
 
