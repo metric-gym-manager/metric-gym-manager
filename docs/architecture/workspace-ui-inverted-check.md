@@ -633,3 +633,72 @@ was findable by any automated check that exists here. §9.1 sign-off still needs
 a human — "has the perceived product category moved" is not a thing a screenshot
 answers — but the mechanical half of visual QA is now done, and it should be
 done _first_ next time, not last.
+
+---
+
+# FINDINGS — PASS 5 (close-out), run 2026-08-30
+
+Ran the visual pass **first**, which is what pass 4 concluded should happen.
+Then closed the consolidated open items.
+
+## The consolidated table, resolved
+
+| #   | Item                                        | Outcome                                                                                                                                    |
+| --- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | Zero tests render any rewritten screen (B1) | **CLOSED.** 0 of 12 → **12 of 12**; 1,357 → 1,457 tests.                                                                                   |
+| 2   | Legal + contact behind auth (P3)            | **RAISED**, not fixed — log OPEN-5. Needs a routing decision.                                                                              |
+| 3   | SMS history: live endpoint, no UI (G1)      | **RAISED**, not fixed — log OPEN-6. Needs a product call.                                                                                  |
+| 4   | Docs describing the retired layer (F2)      | Still open; historical by nature.                                                                                                          |
+| 5   | `EmptyStateLayout` defaults (P7)            | Still open; trivial.                                                                                                                       |
+| 6   | §9.1 visual QA                              | **Mechanical half done twice over.** The judgement half still needs a human.                                                               |
+| —   | V4 — two stacked indigo fills               | **RULED** (log R7). Sub-nav marks position with a rule; fill is reserved for persistent selection. Token unchanged at 0.30, ladder intact. |
+| —   | V5 — `/login` hydration mismatch            | **NOT A DEFECT.** See below.                                                                                                               |
+
+## V5 — the finding was a `next dev` artifact
+
+Pass 4 recorded a server/client attribute mismatch on `/login`. Four instruments,
+each stronger than the last, say there is nothing there:
+
+1. `/login`, `/register`, `/verify-email`, `/` → **zero** console errors,
+   warnings or page errors, in a cold browser context and again after reload.
+2. The SSR stream emits `style="padding-right:52px"` — byte-identical to what
+   React computes on the client. There is nothing to mismatch.
+3. The error **is** reproducible, but only by forcing a recompile: warm load of
+   `/settings/security` → 0 errors; `touch` the page file, reload → 1 hydration
+   error. `next dev` streamed HTML from the pre-recompile module graph.
+4. **A production build serves 12 workspace routes with zero hydration errors.**
+
+Recorded at length because "I could not reproduce it" is a much weaker claim
+than a deliberate reproduction plus a production build that refutes it.
+
+## Two more failures of the instrument, both mine, both this session
+
+The tally in §0 is now **eight** measurement errors across this work.
+
+**7. A screenshot suggested a difference that did not exist.** I read the
+`/payment-collection` empty table as sitting in a bordered box while `/members`
+did not, and was about to file it. Computed styles: both wrappers are
+`rounded-sm border border-line-1 bg-surface-card`, radius 4px, identical. The
+eye is an instrument too, and it also needs checking against a stronger one.
+
+**8. A test of mine passed against the defect it existed to catch.** The logout
+re-entrancy test clicked "Sign out" three times and asserted one POST. It passed
+with the `useRef` guard **deleted** — Radix closes the menu on select, so clicks
+two and three hit a detached node. This is precisely the failure this whole
+document is about, reproduced inside the fix for it.
+
+The countermeasure that caught it generalises: **every assertion guarding a
+known defect was falsified before being trusted** — mutate the source to
+reintroduce the defect, and require the test to fail. Nine mutations run; the
+discipline paid three times (the vacuous logout test above, a mutation that was
+a no-op because `twMerge` strips the losing background, and two tests rendering
+nothing at all behind an incomplete mock).
+
+## What pass 5 changes about the conclusion
+
+Pass 4 said the mechanical half of visual QA should be done _first_ next time.
+It was, and it took about two minutes to find a real defect ("Trailing 1 months")
+plus the V4 evidence.
+
+The remaining gap is no longer evidence. It is the one question none of these
+instruments can answer: whether the perceived product category has moved.

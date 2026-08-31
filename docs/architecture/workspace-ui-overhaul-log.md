@@ -22,14 +22,15 @@
 
 ## 1. Decisions taken
 
-| #      | Date       | Decision                                                                                                                                     | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------ | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **R1** | 2026-08-29 | **Delete `layout/Sidebar.tsx`; do NOT add the `/access-control` nav entry.**                                                                 | The file held the only `/access-control` link in the repo, but it was dead — the route was already unreachable. Directive §4.10 forbids changing navigation architecture. The gap pre-dates the overhaul; fixing it inside a visual-correction directive is the scope drift §4 exists to prevent. **Tracked as a separate functional fix — see §4 OPEN-1.**                                                                                                                  |
-| **R2** | 2026-08-29 | **Dark only.** Delete the light `--ds-*` block and the `.mws-root` token scope outright.                                                     | The Appendix says light "may remain technically available" but is not the canonical identity. Retaining it doubles Phase 3 verification for a variant that is not the product. There is currently no theme mechanism at all (no toggle, no persistence, no `prefers-color-scheme` handling, exactly one `dark:` utility in the workspace), so nothing is lost. Light can be reintroduced later against a clean dark baseline more cheaply than carried through the overhaul. |
-| **R3** | 2026-08-29 | **Keep the 11-component DECIDE set; do not retheme; re-evaluate after Phase 3.**                                                             | `CommandPalette`, `Accordion`, `Radio`, `Spinner`, `Popover`, `NotificationMenu`, `DeleteDialog`, `SectionHeader`, `FilterBar`, `Toolbar`, `SearchBar`. They consume tokens so they cost nothing dark. Four are likely consumed by §5.9 compact toolbars and §5.18 section structure. Deleting now risks rebuilding under new names, which §4.4 bans.                                                                                                                        |
-| **R6** | 2026-08-30 | **Keep the mobile bottom bar.** Mobile is being rebuilt from scratch in a separate effort.                                                   | Reverted the `Drawer`-based mobile navigation from Phase 3.1. This pass tokenises the existing bars only — hardcoded `#fff` gone, DS `Avatar`/`Button`, `aria-current` added — with no layout or behaviour change. The nine-items-in-a-76px-scroller overflow is a mobile IA problem and is deliberately left for that effort.                                                                                                                                               |
-| **R5** | 2026-08-29 | **Scope is every surface except the landing page.** `/contact`, `/join/[token]`, `/demo-sms`, the auth pages and the legal pages are all IN. | User instruction. My initial lint scoping excluded marketing/auth/legal as "out of scope" — too narrow a reading. Widening surfaced 47 previously-hidden violations: `LegalLayout` (24 hex-in-style), `/contact` (24), `pwa/ServiceWorkerRegistration` (2), `(auth)/register` (2). Only `src/components/landing/**` + `src/app/page.tsx` remain excluded, plus `qr-poster.tsx` (rendered by Satori to a PNG — no browser, no token layer).                                   |
-| **R4** | 2026-08-29 | **Type-scale fix moves from Phase 0 to Phase 1.**                                                                                            | Aliasing `text-sm` 14px→13px changes 244 sites. That is a deliberate _visual_ change, and Phase 0 is defined as non-visual. It is also a token concern, so it belongs in §8.1 ("audit current token values; identify every token contributing to the soft/generic appearance"). Ordering constraint is preserved — Phase 1 still precedes Phase 3 recomposition.                                                                                                             |
+| #      | Date       | Decision                                                                                                                                                                                                                                                                                              | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------ | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **R1** | 2026-08-29 | **Delete `layout/Sidebar.tsx`; do NOT add the `/access-control` nav entry.**                                                                                                                                                                                                                          | The file held the only `/access-control` link in the repo, but it was dead — the route was already unreachable. Directive §4.10 forbids changing navigation architecture. The gap pre-dates the overhaul; fixing it inside a visual-correction directive is the scope drift §4 exists to prevent. **Tracked as a separate functional fix — see §4 OPEN-1.**                                                                                                                                                                                                                    |
+| **R2** | 2026-08-29 | **Dark only.** Delete the light `--ds-*` block and the `.mws-root` token scope outright.                                                                                                                                                                                                              | The Appendix says light "may remain technically available" but is not the canonical identity. Retaining it doubles Phase 3 verification for a variant that is not the product. There is currently no theme mechanism at all (no toggle, no persistence, no `prefers-color-scheme` handling, exactly one `dark:` utility in the workspace), so nothing is lost. Light can be reintroduced later against a clean dark baseline more cheaply than carried through the overhaul.                                                                                                   |
+| **R3** | 2026-08-29 | **Keep the 11-component DECIDE set; do not retheme; re-evaluate after Phase 3.**                                                                                                                                                                                                                      | `CommandPalette`, `Accordion`, `Radio`, `Spinner`, `Popover`, `NotificationMenu`, `DeleteDialog`, `SectionHeader`, `FilterBar`, `Toolbar`, `SearchBar`. They consume tokens so they cost nothing dark. Four are likely consumed by §5.9 compact toolbars and §5.18 section structure. Deleting now risks rebuilding under new names, which §4.4 bans.                                                                                                                                                                                                                          |
+| **R6** | 2026-08-30 | **Keep the mobile bottom bar.** Mobile is being rebuilt from scratch in a separate effort.                                                                                                                                                                                                            | Reverted the `Drawer`-based mobile navigation from Phase 3.1. This pass tokenises the existing bars only — hardcoded `#fff` gone, DS `Avatar`/`Button`, `aria-current` added — with no layout or behaviour change. The nine-items-in-a-76px-scroller overflow is a mobile IA problem and is deliberately left for that effort.                                                                                                                                                                                                                                                 |
+| **R7** | 2026-08-30 | **Selection has two treatments, split by meaning, not by component.** A _fill_ (`surface-selected`) marks persistent selection state — sidebar, table rows, segmented controls. A _2px ink rule_ marks local position within a page — settings sub-nav, `Tabs`. `surface-selected` stays at **0.30**. | Resolves V4 without moving the token a third time. Two indigo fills stacked on `/settings` (sidebar "Settings" containing sub-nav "Gym Information") read as §5.14's "large colourful pill". The contrast arithmetic wants the token high — at 0.26 the selected state sits 0.0004 above `surface-active` and at 0.24 it inverts, reproducing the pass-1 defect. Separating the two _levels_ of navigation satisfies both constraints. Also demoted the analytics segmented controls off `variant="primary"`, which had made a range filter the brightest element on its page. |
+| **R5** | 2026-08-29 | **Scope is every surface except the landing page.** `/contact`, `/join/[token]`, `/demo-sms`, the auth pages and the legal pages are all IN.                                                                                                                                                          | User instruction. My initial lint scoping excluded marketing/auth/legal as "out of scope" — too narrow a reading. Widening surfaced 47 previously-hidden violations: `LegalLayout` (24 hex-in-style), `/contact` (24), `pwa/ServiceWorkerRegistration` (2), `(auth)/register` (2). Only `src/components/landing/**` + `src/app/page.tsx` remain excluded, plus `qr-poster.tsx` (rendered by Satori to a PNG — no browser, no token layer).                                                                                                                                     |
+| **R4** | 2026-08-29 | **Type-scale fix moves from Phase 0 to Phase 1.**                                                                                                                                                                                                                                                     | Aliasing `text-sm` 14px→13px changes 244 sites. That is a deliberate _visual_ change, and Phase 0 is defined as non-visual. It is also a token concern, so it belongs in §8.1 ("audit current token values; identify every token contributing to the soft/generic appearance"). Ordering constraint is preserved — Phase 1 still precedes Phase 3 recomposition.                                                                                                                                                                                                               |
 
 ---
 
@@ -48,12 +49,13 @@ the end of each phase.
 | Nested surfaces inside a `Card`             |              6 |        **1** (justified) |     ≤1 |
 | Status-indicator languages                  |              5 |                    **2** |      1 |
 | Type utilities on the Metric scale          |             50 |                 **~515** |    all |
-| Type utilities off-scale (`text-2xl`+)      |            469 |                   **16** |      0 |
-| Ad-hoc hand-copied card divs (files)        |             25 |                   **16** |      0 |
+| Type utilities off-scale (`text-2xl`+)      |            469 |                    **0** |      0 |
+| Ad-hoc hand-copied card divs (files)        |             25 |           **1** (mobile) |      0 |
 | Dead / unreachable UI (lines)               |          6,026 |                   ~1,400 |      0 |
 | Components allowlisted in UI1 (must shrink) |              — |                       24 |      2 |
 | L1 token parity (CSS ↔ JS)                  |       44 vs 34 | **equal, test-enforced** |  equal |
-| Tests                                       |          1,347 |                **1,357** |      — |
+| Tests                                       |          1,347 |                **1,457** |      — |
+| Rewritten screens rendered by a test        |        0 of 12 |             **12 of 12** |     12 |
 
 ### 2.1 Live adoption after Phase 4
 
@@ -502,6 +504,140 @@ Jest **1,357 passed** · `next build` — all clean.
 
 ---
 
+### Phase 5 — Visual sign-off, screen tests, structural tail · **DONE** 2026-08-30
+
+Ran the visual pass **first** this time, which is what pass 4 concluded should
+happen. Seven screens at 1440×900, zero console errors, and the operational
+grammar holds: the members toolbar is one row, "1 record" is singular, the KPI
+band reads as a band.
+
+**One measurement my eye got wrong, corrected by the DOM.** I recorded that the
+empty table on `/payment-collection` sat in a bordered box while the populated
+one on `/members` did not. Computed styles say both wrappers are
+`rounded-sm border border-line-1 bg-surface-card`, identical, radius 4px. There
+was no defect. Logged because the instrument lesson runs the other way here too:
+the screenshot suggested a difference that did not exist, and only reading the
+computed style settled it.
+
+**V4 — resolved by ruling.** The settings sub-nav no longer fills its current
+item. Fill is now reserved for _persistent selection state_ (sidebar, table
+rows); _local position within a page_ is marked with the 2px ink rule `Tabs`
+already uses. `surface-selected` is **unchanged at 0.30**, so the interaction
+ladder measured in pass 1 (hover 0.00808 < active 0.01169 < selected 0.01472)
+is untouched and its guarding test still passes. The arithmetic wanted the token
+high; §5.14 wanted the fill quiet; separating the two _levels_ of navigation
+satisfies both without moving the token a third time. Guarded by
+`SettingsLayout.test.tsx`.
+
+**New finding — the segmented controls were a third selection language.**
+`/member-analytics` marked its selected range and metric segments with
+`Button variant="primary"` — `rgb(242,242,245)` solid, the near-white this app
+reserves for one call to action per screen. `YTD` and `Sign-ups` were therefore
+the brightest elements on the page, above the KPI values they qualify (§5.11
+"strong contrast only for levels 1–2"; §5.19 "not every action is prominent").
+Moved to `surface-selected`, the app's existing selection fill. Verified in the
+render: the KPI row is now the brightest thing on the screen.
+
+**New defect — "Revenue · Trailing 1 months".** Same class as the "1 records"
+count pass 4 found, on a new gym's dashboard. Fixed and pinned. A sweep for the
+sibling pattern across `src/` found the other user-facing counters already
+handle it (`whenLabel` special-cases 0 and 1); the remaining unpluralised
+strings are logs, or aria-labels on `UrgencyBadge`, which is allowlisted dead
+code.
+
+**V5 — NOT REPRODUCIBLE; it is a `next dev` artifact, not a defect.**
+Pass 4 recorded a hydration mismatch on `/login`
+(`style={{paddingRight:52}}` vs `padding-right:"52px"`). Four instruments say
+otherwise:
+
+1. `/login`, `/register`, `/verify-email` and `/` produce **zero** console
+   errors, warnings or page errors — cold browser context and after a reload.
+2. The SSR stream for `/login` emits `style="padding-right:52px"`, which is
+   exactly what React computes on the client. There is nothing to mismatch.
+3. The error **is** reproducible on demand, but only by forcing a recompile:
+   warm load of `/settings/security` → 0 errors; `touch` the page file, reload
+   → 1 hydration error. `next dev` streamed HTML from the pre-recompile module
+   graph and hydrated it against the new client bundle.
+4. **A production build serves 12 workspace routes with zero hydration errors
+   and zero console errors.**
+
+So the finding is closed as a dev-server artifact. Recorded in full because the
+next session would otherwise re-hunt it, and because "I could not reproduce it"
+is a weaker claim than the four probes above.
+
+**Structural tail (§9.2).**
+
+- Off-scale type utilities **14 → 0**. (The log said 16; the real count was 14 —
+  another approximate headline number.) OPEN-4 unblocked this: `2xl`+ were
+  deliberately left un-repointed pending the readout decision, and `readout`
+  now exists. Values and counts → `text-readout`; document headings →
+  `text-display-sm` / `text-h1`. `JoinForm`'s three sites went onto
+  `display-sm`/`display`, sizes chosen to preserve its consumer tone —
+  OPEN-3 defers _tone_, but off-scale Tailwind defaults are a token-compliance
+  question and §4.5 does not defer.
+- Ad-hoc card divs **17 files → 1**. `Card`'s root is byte-for-byte what they
+  hand-copied (`rounded-sm border border-line-1 bg-surface-card`), so the swap
+  is visually neutral and removes a second implementation of the primitive
+  (§2.17). Verified by re-rendering `/settings/security` and `/billing-setup`.
+- One §5.3 depth-two violation removed: `MemberDetailModal` wrapped its payment
+  table in a bordered surface _inside the modal_ — `Modal → Card → Table`, the
+  banned shape. `Table` draws its own header rule and row boundaries, so the
+  wrapper added a boundary and nothing else. The QR poster frame inside the
+  per-gym card on `/qr-codes` was the same thing; it kept its padding (the code
+  needs a quiet zone) and lost its border.
+- `MemberDetailModalMobile`'s payment tiles are the one remaining hand-copy.
+  **Deliberately left**: R6 records that mobile is being rebuilt separately, and
+  recomposing a mobile list here would collide with that effort.
+
+**B1 closed — the highest-value item in the whole check.** See below.
+
+### B1 — screen tests · **CLOSED** 2026-08-30
+
+The inverted check's standing conclusion was that the highest-value remaining
+work was not more visual change but tests that render what was rewritten.
+**Zero of the twelve rewritten screens were rendered by any test; all twelve now
+are.** 1,357 → 1,457 tests, 100 added across 12 files, plus one harness at
+`src/test-utils/renderScreen.tsx` (a `QueryClientProvider` wrapper, a
+URL-routing `fetch` mock that **throws** on an unmatched request, and the
+`ResponseBuilder` envelope helper).
+
+| Screen                         | Tests | Notable pin                                       |
+| ------------------------------ | ----: | ------------------------------------------------- |
+| `MembersPageClient`            |     8 | singular "1 record"; **no column sort** (A2)      |
+| `PaymentCollectionPageClient`  |    10 | all four SMS-type boundaries; tab partition       |
+| `DashboardClient`              |    14 | "Trailing 1 month"; `whenLabel` 0/1/n             |
+| `MemberAnalyticsClient`        |    12 | metric→series lookup; segmented-control fill      |
+| `RevenuePageClient`            |     7 | no divide-by-zero; plan union                     |
+| `QrCodesDashboardClient`       |    10 | rotation is confirmed before it fires             |
+| `WorkspaceSidebar`             |     7 | exactly one `aria-current`; named collapse toggle |
+| `SettingsLayout`               |     7 | **V4: rule, not fill**                            |
+| `GymInformationPage`           |     6 | logout precedes register-new-gym                  |
+| `WorkspaceHeader`              |     6 | **logout re-entrancy (A1-1)**                     |
+| `SupportPage`                  |     5 | draft survives a failed send                      |
+| `SystemHealthPage` + cron grid |     6 | raw vendor error reaches the operator (§2.9)      |
+
+**Every assertion that guards a known defect was falsified before being
+trusted** — the source was mutated to reintroduce the defect and the test had to
+fail. Nine mutations, and the discipline earned its keep three times:
+
+1. **A test that passed for the wrong reason.** The logout re-entrancy test
+   clicked "Sign out" three times and asserted one POST. It passed _with the
+   `useRef` guard deleted_ — because the Radix menu closes on select, so clicks
+   two and three landed on a detached node. Rewritten to hold the request open
+   and reopen the menu, which is the only path a user can actually re-enter.
+   It now fails correctly (expected 1, received 2).
+2. **A mutation that was a no-op.** Restoring `variant="primary"` on the
+   segmented control did not fail the test — `twMerge` strips the losing
+   background, so the render was unchanged. The real revert (variant _and_
+   className) fails it.
+3. **Two of my own tests were vacuous** until a stub was fixed: an incomplete
+   `@/features/members` mock made `DashboardClient` throw, and the empty-queue
+   assertion passed against a screen that had rendered nothing at all.
+
+**What this layer cannot see, stated so nobody over-reads a green run:** jsdom
+computes no geometry. The three-row members toolbar — the defect that motivated
+the visual pass — is invisible here and always will be. Layout needs a browser.
+
 ## 4. Corrections discovered during execution
 
 Recorded because each one falsified something the plan or the audit asserted.
@@ -733,18 +869,87 @@ adding (§4.5 permits this; §7 requires syncing all three L1 files).
 
 ---
 
+### OPEN-5 — Legal and contact pages are behind authentication _(product/routing, outside this directive)_
+
+`PUBLIC_ROUTES` in `src/lib/auth-config.ts` contains `/`, `/login`, `/register`
+and the auth callbacks. It does **not** contain `/terms`, `/privacy`,
+`/refund-policy` or `/contact`, so all four `307 → /login?redirect=…` for a
+logged-out visitor.
+
+Terms of service, privacy policy and refund policy are the documents payment
+providers and app stores generally require at **public** URLs, and the privacy
+policy is where `ACCESS_EVENT_RETENTION_DAYS` is published (rule 2.21). A
+prospective customer cannot read any of them, and neither can a compliance
+reviewer.
+
+Pre-existing, entirely outside a visual-correction directive, and a routing
+change with real security surface — so it is raised, not fixed. **Needs a
+decision on which four routes go public and whether any carry gym-specific
+data.**
+
+### OPEN-6 — SMS history: a live endpoint with no UI _(product gap)_
+
+`GET /api/members/[id]/sms-history` and `sms-history.service.ts` are live and
+have **no consumer**. `SMSHistoryModal` was the only caller and was reachable
+solely from the already-dead `PaymentRemindersTable`, so the capability was lost
+_before_ this overhaul — Phase 0.1 deleted the vestige, not the feature.
+
+A gym therefore cannot see a member's SMS history anywhere in the product, while
+the endpoint, the service and the Text.lk delivery-status webhook that feeds it
+all still run and still cost money. The endpoint also has no test.
+
+Either build the UI or retire the endpoint and its service; leaving it is the
+worst of the three. **Not a UI-directive problem — needs a product call.**
+
+### OPEN-7 — `/revenue` can read "Fully collected" over a zero _(pre-existing, cosmetic-but-misleading)_
+
+Observed in the Phase 5 visual pass on a new gym: `COLLECTED · AUG` shows `0`
+with "0% of billed", while `PROJECTED · AUG` shows `5,000` with **"Fully
+collected"** in green beside it. The label is driven by
+`currentMonth.hasOverduePayments`, which is false when nobody is _past due_ —
+true here, since the member's due date is in the future. The two tiles
+contradict each other at a glance, and the green reads as an all-clear on a
+month where nothing has been collected.
+
+Predates the overhaul (identical in `b5ab06a~1`), so it was not changed under a
+visual directive. The fix is a wording/derivation decision — "Fully collected"
+should probably require `collectedRevenue >= projectedRevenue`, not merely the
+absence of overdue payments.
+
 ## 6. Revised phase status
 
-| Phase   | Scope                                                                      | Status              |
-| ------- | -------------------------------------------------------------------------- | ------------------- |
-| **0.1** | Delete dead code                                                           | **DONE** 2026-08-29 |
-| **0.2** | Enforcement tooling (lint + `arch:check` ratchets)                         | In progress         |
-| **1.1** | Type-scale alias _(moved from 0.2 per R4)_                                 | Not started         |
-| **1.2** | Dark-first token retune; delete light block + `.mws-root` scope (R2)       | Not started         |
-| **1.3** | Replace the 6 hardcoded shell values; flip `data-theme` to dark            | Not started         |
-| **2**   | Primitive + composite audit; de-containment; radius; `Badge` per §5.7      | Not started         |
-| **3**   | Screen-by-screen recomposition; retire `mws-*`; delete `badge-colors` (C1) | Not started         |
-| **4**   | Gate + §9.1 / §9.2 / §9.3 audits                                           | Not started         |
+| Phase   | Scope                                                                 | Status              |
+| ------- | --------------------------------------------------------------------- | ------------------- |
+| **0.1** | Delete dead code                                                      | **DONE** 2026-08-29 |
+| **0.2** | Enforcement tooling (lint + `arch:check` ratchets)                    | **DONE** 2026-08-29 |
+| **1.1** | Type-scale alias _(moved from 0.2 per R4)_                            | **DONE** 2026-08-29 |
+| **1.2** | Dark-first token retune; delete light block + `.mws-root` scope (R2)  | **DONE** 2026-08-29 |
+| **1.3** | Replace the hardcoded shell values; flip `data-theme` to dark         | **DONE** 2026-08-29 |
+| **2**   | Primitive + composite audit; de-containment; radius; `Badge` per §5.7 | **DONE** 2026-08-29 |
+| **3**   | Screen recomposition; retire `mws-*`; delete `badge-colors` (C1)      | **DONE** 2026-08-30 |
+| **4**   | Gate + §9.1 / §9.2 / §9.3 audits; four-pass inverted check            | **DONE** 2026-08-30 |
+| **5**   | Visual sign-off, screen tests (B1), structural tail                   | **DONE** 2026-08-30 |
+
+> This table read "Not started" for phases 0.2–4 until 2026-08-30, long after
+> they shipped. A status table nobody updates is worse than no table: it is the
+> same failure mode as a green gate that proves nothing — an artifact that
+> describes intent rather than the product.
+
+**Remaining, and none of it closes without a decision that is not mine:**
+
+1. **§9.1 human sign-off.** "Has the perceived product category moved" is not a
+   question a screenshot answers. Everything mechanical around it is done.
+2. Two product issues raised rather than fixed — legal pages behind auth, SMS
+   history with a live endpoint and no UI. See OPEN-5 and OPEN-6.
+3. **`/settings/security` renders as four stacked cards** while `/settings/gym`
+   beside it uses `SettingsSection`. Phase 5 deduped the _implementation_
+   (hand-copied divs → the `Card` primitive) but did **not** resolve the
+   _composition_, and §5.18 is explicit that settings wants "section headers,
+   dividers, aligned labels and controls — not nested form cards". A real
+   remaining inconsistency on the settings surface, left deliberately rather
+   than half-rewritten inside a 1,000-line page.
+4. `MemberDetailModalMobile`'s payment tiles — the last hand-copied card
+   (R6: mobile is a separate effort).
 
 **Phase 1 exit gate (non-negotiable, from plan §2):** the canvas, sidebar and
 header render dark AND every interaction state is still visible. The legacy
