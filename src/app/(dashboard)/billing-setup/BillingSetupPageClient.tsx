@@ -4,6 +4,7 @@ import { useState } from 'react'
 import dynamic from 'next/dynamic'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
 import {
+  Card,
   Skeleton,
   Tabs,
   TabsList,
@@ -79,7 +80,7 @@ export default function BillingSetupPageClient() {
         {mobileSection ? (
           sectionContent[mobileSection]
         ) : (
-          <div className="rounded-sm border border-line-1 bg-surface-card divide-y divide-line-1">
+          <Card className="divide-y divide-line-1">
             {SECTIONS.map((section) => (
               <button
                 key={section.id}
@@ -100,7 +101,7 @@ export default function BillingSetupPageClient() {
                 />
               </button>
             ))}
-          </div>
+          </Card>
         )}
       </div>
 

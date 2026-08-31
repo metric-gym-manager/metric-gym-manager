@@ -175,7 +175,7 @@ export default function ProfileImageUpload({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="text-accentui-text text-2xl font-bold">
+              <span className="text-accentui-text text-readout">
                 {getInitials()}
               </span>
             )}

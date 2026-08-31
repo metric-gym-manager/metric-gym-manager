@@ -57,7 +57,7 @@ export default function DemoSmsPage() {
     <div className="min-h-screen  from-surface-panel to-surface-card py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md mx-auto">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-ink mb-2">SMS Demo</h1>
+          <h1 className="text-display-sm text-ink mb-2">SMS Demo</h1>
           <p className="text-sm text-ink-secondary">
             Test SMS functionality (Localhost only)
           </p>

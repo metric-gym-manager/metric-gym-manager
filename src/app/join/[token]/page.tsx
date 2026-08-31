@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { getPublicGymInfo } from '@/features/registration/services/registration-link.service'
 import JoinForm from '@/features/registration/components/JoinForm'
+import { Card } from '@/components/ui'
 
 // Token lookups must never be cached — links can be rotated at any time
 export const dynamic = 'force-dynamic'
@@ -28,7 +29,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
   if (!gymInfo) {
     return (
       <main className="min-h-screen bg-surface-panel flex items-center justify-center p-6">
-        <div className="max-w-sm w-full rounded-sm bg-surface-card p-8 text-center  border">
+        <Card className="max-w-sm w-full p-8 text-center">
           <h1 className="text-xl font-bold text-ink">
             This link is no longer active
           </h1>
@@ -36,7 +37,7 @@ export default async function JoinPage({ params }: JoinPageProps) {
             The registration QR code may have been replaced. Please ask the
             front desk for the current one.
           </p>
-        </div>
+        </Card>
       </main>
     )
   }

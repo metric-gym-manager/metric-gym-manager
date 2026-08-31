@@ -10,7 +10,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Lightbulb, Info, X, AlertTriangle } from 'lucide-react'
-import { Modal, Button, Input, Label } from '@/components/ui'
+import { Card, Modal, Button, Input, Label } from '@/components/ui'
 import {
   updatePasswordSchema,
   updateEmailSchema,
@@ -844,7 +844,7 @@ export default function AccountSecurityPage() {
         {/* Security Settings */}
         <div className="space-y-4">
           {/* Username Section */}
-          <div className="rounded-sm border border-line-1 bg-surface-card p-6">
+          <Card className="p-6">
             <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div>
                 <h3 className="text-base font-semibold">Username</h3>
@@ -864,10 +864,10 @@ export default function AccountSecurityPage() {
                 Update Username
               </Button>
             </div>
-          </div>
+          </Card>
 
           {/* Email Section */}
-          <div className="rounded-sm border border-line-1 bg-surface-card p-6">
+          <Card className="p-6">
             <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -916,10 +916,10 @@ export default function AccountSecurityPage() {
                 Update Email
               </Button>
             </div>
-          </div>
+          </Card>
 
           {/* Phone Number Section */}
-          <div className="rounded-sm border border-line-1 bg-surface-card p-6">
+          <Card className="p-6">
             <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div>
                 <h3 className="text-base font-semibold">Phone Number</h3>
@@ -938,10 +938,10 @@ export default function AccountSecurityPage() {
                 Update Phone
               </Button>
             </div>
-          </div>
+          </Card>
 
           {/* Password Section */}
-          <div className="rounded-sm border border-line-1 bg-surface-card p-6">
+          <Card className="p-6">
             <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
               <div>
                 <h3 className="text-base font-semibold">Password</h3>
@@ -958,7 +958,7 @@ export default function AccountSecurityPage() {
                 Change Password
               </Button>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
 

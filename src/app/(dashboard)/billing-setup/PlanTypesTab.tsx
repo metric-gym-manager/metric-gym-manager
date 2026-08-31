@@ -2,7 +2,15 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Button, Input, Label, Badge, Select, Checkbox } from '@/components/ui'
+import {
+  Card,
+  Button,
+  Input,
+  Label,
+  Badge,
+  Select,
+  Checkbox,
+} from '@/components/ui'
 import { Plus, Trash2 } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/use-confirm-dialog'
 import type { PlanType } from '@/features/settings/types'
@@ -311,7 +319,7 @@ export default function PlanTypesTab() {
       )}
 
       {/* Plan Types List */}
-      <div className="rounded-sm border border-line-1 bg-surface-card">
+      <Card>
         {isLoading ? (
           <div className="flex h-48 items-center justify-center">
             <p className="text-sm text-ink-muted">Loading plan types...</p>
@@ -477,7 +485,7 @@ export default function PlanTypesTab() {
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Error Messages */}
       {updateMutation.isError && (

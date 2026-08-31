@@ -299,7 +299,7 @@ export default function AnnouncementProgress({
                   Sent
                 </span>
               </div>
-              <p className="text-lg md:text-2xl font-bold text-success mt-0.5 md:mt-1">
+              <p className="text-h2 md:text-readout text-success mt-0.5 md:mt-1">
                 {announcement.sentCount}
               </p>
             </div>
@@ -310,7 +310,7 @@ export default function AnnouncementProgress({
                   Failed
                 </span>
               </div>
-              <p className="text-lg md:text-2xl font-bold text-error mt-0.5 md:mt-1">
+              <p className="text-h2 md:text-readout text-error mt-0.5 md:mt-1">
                 {announcement.failedCount}
               </p>
             </div>
@@ -322,7 +322,7 @@ export default function AnnouncementProgress({
                   <span className="sm:hidden">Left</span>
                 </span>
               </div>
-              <p className="text-lg md:text-2xl font-bold text-ink-secondary mt-0.5 md:mt-1">
+              <p className="text-h2 md:text-readout text-ink-secondary mt-0.5 md:mt-1">
                 {announcement.recipientCount -
                   announcement.sentCount -
                   announcement.failedCount}

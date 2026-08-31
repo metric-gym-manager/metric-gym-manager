@@ -153,12 +153,12 @@ export default function JoinForm({
     return (
       <div className="mx-auto max-w-md px-6 py-12 text-center">
         <CheckCircle2 className="mx-auto h-16 w-16 text-success" />
-        <h1 className="mt-4 text-2xl font-bold text-ink">
+        <h1 className="mt-4 text-display-sm text-ink">
           Welcome, {success.name}!
         </h1>
         <div className="mt-6 rounded-sm border bg-surface-card p-6 ">
           <p className="text-sm text-ink-muted">{success.planLabel}</p>
-          <p className="mt-2 text-4xl font-bold text-ink">
+          <p className="mt-2 text-display text-ink">
             {formatAmount(success.amountDue)}
           </p>
           <p className="mt-4 text-base font-medium text-brand-link">
@@ -179,7 +179,7 @@ export default function JoinForm({
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-md px-6 py-8">
       <header className="text-center">
-        <h1 className="text-2xl font-bold text-ink">{gymName}</h1>
+        <h1 className="text-display-sm text-ink">{gymName}</h1>
         <p className="mt-1 text-sm text-ink-muted">Member Registration</p>
       </header>
 

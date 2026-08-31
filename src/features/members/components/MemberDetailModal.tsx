@@ -627,7 +627,7 @@ export default function MemberDetailModal({
             </div>
 
             {showPaymentHistory && (
-              <div className="rounded-sm border border-line-1 bg-surface-card">
+              <div>
                 {payments.length > 0 ? (
                   <Table>
                     <TableHeader>

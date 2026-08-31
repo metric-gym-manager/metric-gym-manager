@@ -20,16 +20,14 @@ export default function ContactPage() {
       {/* Content */}
       <main className="max-w-4xl mx-auto px-6 py-12">
         <div className="prose prose-gray max-w-none">
-          <h1 className="text-4xl font-bold text-ink mb-2">Contact Us</h1>
+          <h1 className="text-display-sm text-ink mb-2">Contact Us</h1>
           <p className="text-ink-muted mb-8">
             We&apos;re here to help - reach us through any of the channels
             below.
           </p>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-bold text-ink mt-8 mb-4">
-              Phone &amp; WhatsApp
-            </h2>
+            <h2 className="text-h1 text-ink mt-8 mb-4">Phone &amp; WhatsApp</h2>
             <ul className="list-none text-ink-secondary space-y-2">
               <li>
                 <strong>Phone:</strong>{' '}
@@ -55,7 +53,7 @@ export default function ContactPage() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-bold text-ink mt-8 mb-4">Email</h2>
+            <h2 className="text-h1 text-ink mt-8 mb-4">Email</h2>
             <ul className="list-none text-ink-secondary space-y-2">
               <li>
                 <strong>General inquiries &amp; support:</strong>{' '}
@@ -79,9 +77,7 @@ export default function ContactPage() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-bold text-ink mt-8 mb-4">
-              Postal Address
-            </h2>
+            <h2 className="text-h1 text-ink mt-8 mb-4">Postal Address</h2>
             <p className="text-ink-secondary leading-relaxed">
               Capitalist One (Pvt) Ltd
               <br />
@@ -94,9 +90,7 @@ export default function ContactPage() {
           </section>
 
           <section className="mb-8">
-            <h2 className="text-2xl font-bold text-ink mt-8 mb-4">
-              About the Business
-            </h2>
+            <h2 className="text-h1 text-ink mt-8 mb-4">About the Business</h2>
             <p className="text-ink-secondary leading-relaxed">
               Metric Gym OS is owned and operated by Capitalist One (Pvt) Ltd, a
               company registered in Sri Lanka. Learn more in our{' '}
