@@ -26,6 +26,14 @@ const settingsNavigation = [
  * classes (`mws-settings-shell`, `-nav-root`, `-nav-sub`, `-content-root`,
  * `-content-sub`) full of `!important`; it is the same behaviour expressed in
  * layout classes, so the rules could be deleted.
+ *
+ * The current item is marked by a 2px ink rule, **not** `surface-selected`.
+ * The sidebar's "Settings" entry is filled, and this menu renders inside it —
+ * two stacked indigo fills, which §5.14 warns reads as "a large colourful pill"
+ * rather than a system state. Fill is reserved for persistent selection state
+ * (sidebar, table rows); local position within a page gets the rule, which is
+ * already the active marker `Tabs` uses. Every item carries the border so
+ * activating one shifts no text.
  */
 export default function SettingsLayout({
   children,
@@ -55,10 +63,10 @@ export default function SettingsLayout({
                 href={item.href}
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
-                  'flex h-[30px] items-center rounded-sm px-2.5 text-body transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none',
+                  'flex h-[30px] items-center rounded-sm border-l-2 px-2.5 text-body transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none',
                   isActive
-                    ? 'bg-surface-selected text-ink'
-                    : 'text-ink-secondary hover:bg-surface-active hover:text-ink',
+                    ? 'border-ink font-medium text-ink'
+                    : 'border-transparent text-ink-secondary hover:bg-surface-active hover:text-ink',
                   // Larger touch targets when the menu is the whole screen.
                   isRoot &&
                     'max-tablet:h-12 max-tablet:justify-between max-tablet:px-3 max-tablet:text-base'

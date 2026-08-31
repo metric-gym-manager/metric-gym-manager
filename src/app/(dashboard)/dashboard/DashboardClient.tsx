@@ -246,6 +246,9 @@ export default function DashboardClient() {
     month: h.monthLabel.split(' ')[0],
     revenue: h.collectedRevenue,
   }))
+  // A new gym has one month of history, and the title read "Trailing 1 months".
+  // Same defect class as the "1 records" count fixed in the DataTable footer.
+  const monthCount = history.length || 8
 
   const queue = reminderQueue?.entries ?? []
   const queueTotal = reminderQueue?.total ?? 0
@@ -286,7 +289,7 @@ export default function DashboardClient() {
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         <ChartCard
           className="lg:col-span-2"
-          title={`Revenue · Trailing ${history.length || 8} months`}
+          title={`Revenue · Trailing ${monthCount} ${monthCount === 1 ? 'month' : 'months'}`}
           scale="LKR"
           bodyClassName="pt-2"
         >

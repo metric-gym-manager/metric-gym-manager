@@ -27,6 +27,7 @@ import type {
   MemberAnalyticsResponse,
   TimeSeriesPoint,
 } from '@/features/analytics/types'
+import { cn } from '@/lib/utils'
 import { RangeSelector } from './RangeSelector'
 
 interface MetricMeta {
@@ -213,8 +214,12 @@ export default function MemberAnalyticsClient() {
             <Button
               key={m.key}
               size="xs"
-              variant={m.key === metric ? 'primary' : 'ghost'}
+              variant="ghost"
               aria-pressed={m.key === metric}
+              className={cn(
+                m.key === metric &&
+                  'bg-surface-selected text-ink hover:bg-surface-selected'
+              )}
               onClick={() => setMetric(m.key)}
             >
               {m.label}
