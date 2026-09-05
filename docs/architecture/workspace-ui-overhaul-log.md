@@ -54,7 +54,7 @@ the end of each phase.
 | Dead / unreachable UI (lines)               |          6,026 |                   ~1,400 |      0 |
 | Components allowlisted in UI1 (must shrink) |              — |                       24 |      2 |
 | L1 token parity (CSS ↔ JS)                  |       44 vs 34 | **equal, test-enforced** |  equal |
-| Tests                                       |          1,347 |                **1,457** |      — |
+| Tests                                       |          1,347 |                **1,464** |      — |
 | Rewritten screens rendered by a test        |        0 of 12 |             **12 of 12** |     12 |
 
 ### 2.1 Live adoption after Phase 4
@@ -589,6 +589,18 @@ is a weaker claim than the four probes above.
   **Deliberately left**: R6 records that mobile is being rebuilt separately, and
   recomposing a mobile list here would collide with that effort.
 
+**§5.18 settings composition — closed after the first pass left it open.**
+`/settings/security` rendered as four stacked cards while `/settings/gym`, one
+click away in the same menu, used `SettingsSection`. The first sweep deduped
+the _implementation_ (hand-copied divs → the `Card` primitive) and recorded the
+_composition_ as still open; it is now one labelled section over four
+hairline-separated rows, each the same shape — identity, current value, action.
+The conversion also exposed a duplicated heading (page-level `h2` "Account
+security" directly above a section header reading ACCOUNT SECURITY), removed
+per §9.3. Guarded by a test that asserts the rendered surface rather than the
+imports, since the defect was compositional: a page can import the right
+primitive and still stack four bordered boxes.
+
 **B1 closed — the highest-value item in the whole check.** See below.
 
 ### B1 — screen tests · **CLOSED** 2026-08-30
@@ -941,14 +953,7 @@ absence of overdue payments.
    question a screenshot answers. Everything mechanical around it is done.
 2. Two product issues raised rather than fixed — legal pages behind auth, SMS
    history with a live endpoint and no UI. See OPEN-5 and OPEN-6.
-3. **`/settings/security` renders as four stacked cards** while `/settings/gym`
-   beside it uses `SettingsSection`. Phase 5 deduped the _implementation_
-   (hand-copied divs → the `Card` primitive) but did **not** resolve the
-   _composition_, and §5.18 is explicit that settings wants "section headers,
-   dividers, aligned labels and controls — not nested form cards". A real
-   remaining inconsistency on the settings surface, left deliberately rather
-   than half-rewritten inside a 1,000-line page.
-4. `MemberDetailModalMobile`'s payment tiles — the last hand-copied card
+3. `MemberDetailModalMobile`'s payment tiles — the last hand-copied card
    (R6: mobile is a separate effort).
 
 **Phase 1 exit gate (non-negotiable, from plan §2):** the canvas, sidebar and
