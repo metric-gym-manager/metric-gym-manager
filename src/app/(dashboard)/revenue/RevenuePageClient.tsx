@@ -116,29 +116,61 @@ export default function RevenuePageClient() {
 
   const cur = data?.currentMonth
   const metrics = data?.metrics
+
+  // Now a real ratio: the denominator is what billable members were actually
+  // billed this month, from their due dates. It used to be a run-rate valuation
+  // of the whole membership base, which is why one gym rendered "127.7% of
+  // billed" — a figure a billing model cannot produce.
   const collectedRate =
-    cur && cur.projectedRevenue > 0
-      ? Math.round((cur.collectedRevenue / cur.projectedRevenue) * 100)
+    cur && cur.billedRevenue > 0
+      ? Math.round((cur.collectedRevenue / cur.billedRevenue) * 100)
       : null
+
+  // Deliberately not defaulted to 0: before the query resolves we do not know
+  // whether anyone is overdue, and "No overdue members" is a claim, not a
+  // placeholder. The tile stays silent until it has the answer.
+  const overdue = cur?.overdueMemberCount ?? null
 
   const tiles: Array<{ label: string; value: string; sub: React.ReactNode }> = [
     {
       label: `Collected · ${MONTHS[month - 1].slice(0, 3)}`,
       value: cur ? fmt(cur.collectedRevenue) : '—',
-      sub: collectedRate !== null ? `${collectedRate}% of billed` : ' ',
+      sub:
+        collectedRate !== null ? (
+          <>
+            {collectedRate}% of billed
+            {/* One-off revenue no schedule predicts — shown only when there is
+                some, so the ratio above is never quietly inflated by it. */}
+            {cur && cur.oneOffRevenue > 0 && (
+              <span className="text-ink-muted">
+                {' '}
+                · +{fmt(cur.oneOffRevenue)} day passes
+              </span>
+            )}
+          </>
+        ) : (
+          'Nothing billed this month'
+        ),
     },
     {
-      label: `Projected · ${MONTHS[month - 1].slice(0, 3)}`,
-      value: cur ? fmt(cur.projectedRevenue) : '—',
-      sub: (
-        <span
-          className={cur?.hasOverduePayments ? 'text-warning' : 'text-success'}
-        >
-          {cur?.hasOverduePayments
-            ? 'Outstanding dues remain'
-            : 'Fully collected'}
-        </span>
-      ),
+      // "Billed", not "Projected". This is what members owe for this month
+      // from their actual due dates — so an annual member counts in their
+      // renewal month and in no other, instead of one twelfth every month.
+      label: `Billed · ${MONTHS[month - 1].slice(0, 3)}`,
+      value: cur ? fmt(cur.billedRevenue) : '—',
+      sub:
+        overdue === null ? (
+          ' '
+        ) : (
+          // States what its predicate actually tests. The old label read "Fully
+          // collected" in green whenever no member happened to be past due —
+          // including, as on a new gym, when nothing at all had been collected.
+          <span className={overdue > 0 ? 'text-warning' : 'text-success'}>
+            {overdue > 0
+              ? `${overdue} member${overdue === 1 ? '' : 's'} overdue`
+              : 'No overdue members'}
+          </span>
+        ),
     },
     {
       label: 'Active members',
@@ -194,17 +226,24 @@ export default function RevenuePageClient() {
         title="Revenue"
         actions={
           <div className="flex gap-2">
-            <Select
-              value={month}
-              onChange={(e) => setMonth(Number(e.target.value))}
-              aria-label="Month"
-            >
-              {MONTHS.map((label, i) => (
-                <option key={label} value={i + 1}>
-                  {label}
-                </option>
-              ))}
-            </Select>
+            {/* Sized to the longest month name. `Select` wraps itself in a
+                `w-full` div, so the width has to go on the container — a
+                className on the Select lands on the inner <select> and leaves
+                the wrapper claiming the whole line. "September" was truncating
+                to "Septeml". */}
+            <div className="w-44 shrink-0">
+              <Select
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                aria-label="Month"
+              >
+                {MONTHS.map((label, i) => (
+                  <option key={label} value={i + 1}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <Select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
