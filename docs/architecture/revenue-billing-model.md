@@ -124,19 +124,75 @@ bitten. `clock_timestamp()` advances within a transaction.
 
 ## 5. Known gaps
 
-- **Admission fees cannot be separated.** The gym-level fee is folded into the
-  first payment's `amount_paid` with no column of its own, so 8 first payments
-  exceed the plan amount and inflate `collectedRevenue` against a schedule that
-  never predicted them. Splitting it needs a schema change.
-- **`/api/revenue/yearly` has no UI consumer.** It was updated to the new model
-  for consistency, but it is dead. Build on it or retire it.
-- **The DB `member_status` enum has `frozen`; TypeScript's `MemberStatus` does
-  not.** No member is in it today. `isBillable` treats unknown statuses as
-  non-billable, which is the safe direction, but the drift should be closed.
-- **Pre-existing, outside this work:** the access-control functions still carry
-  `SET search_path = public`, which rule 2.18 calls exploitable — it must be
-  `pg_catalog, public, pg_temp` with `pg_temp` last. `record_member_status_change`
-  is pinned correctly; the older ones are not.
+All four gaps recorded when this model shipped were closed on the same day.
+
+- ~~**Admission fees cannot be separated.**~~ **Fixed** —
+  `payments.admission_fee` (`20260905000007`) records it as a component of
+  `amount_paid`, so plan revenue is `amount_paid - admission_fee` and the fee is
+  reported as `oneOffRevenue`. **Not backfilled**: the fee at the time of a past
+  payment is unrecoverable, because deriving `amount_paid - plan_amount` assumes
+  the plan price never changed. Pre-2026-09-05 fees therefore remain inside
+  plan revenue — a bounded inaccuracy in historical figures only.
+  The manual desk path was also tightened: it used to compute
+  `paymentAmount = discounted + fee` in the browser and send the total, so the
+  fee was whatever the client said. It now sends `applyAdmissionFee` and the
+  server resolves the amount from the gym row, as the public QR flow always did.
+- ~~**`/api/revenue/yearly` has no UI consumer.**~~ **Retired.** It also
+  duplicated the monthly read model against a different window, so removing it
+  deletes a second place the billing rules would have had to be kept correct.
+- ~~**The DB `member_status` enum has `frozen`.**~~ **Removed**
+  (`20260905000006`), completing the intent of `20260326000001`, which was
+  written in March and never took effect. See §7.
+- ~~**Access-control functions carry `SET search_path = public`.**~~ **Fixed**
+  (`20260905000005`). All 25 project-owned functions in `public` are now pinned
+  `pg_catalog, public, pg_temp`, and no SECURITY DEFINER function is executable
+  by `anon` or `authenticated`.
+
+Remaining, and genuinely open:
+
+- **No historical billed series** until `member_status_history` has depth. See §4.
+- **Payment data quality**: 31 duplicate rows across 22 members (3.6% of 871)
+  and 7 future-dated payments. Not caused by anything here, and not cleaned up —
+  deleting a customer's payment records is not a decision to take silently.
+
+---
+
+## 7. `frozen`, and what it revealed about the migration chain
+
+The DB enum carried a fifth value TypeScript did not have.
+`20260326000001_remove_frozen_status.sql` was written to remove it and **never
+ran**. Chasing that turned up something larger, and it is the part worth
+remembering:
+
+**The Supabase migration history table is not a record of what has been
+applied.** Comparing the repo chain against `supabase_migrations`:
+
+- 23 repo migrations have no history entry
+- 10 history entries have no repo file
+- Of 15 unrecorded migrations probed **by their schema effect**, **14 had
+  actually been applied** — `payments.gym_id`, `payment_type`,
+  `sms_logs.error_message`, `members.photo_path`, `plan_types`, `cron_logs`,
+  `gym_registration_links` and more all exist
+
+So the two disagree in both directions, and `remove_frozen_status` was the one
+genuine miss. **Never conclude a migration did or did not run from the history
+table — probe the effect.**
+
+Re-running that migration would also have been actively harmful, which is why
+`20260905000006` is a new one. It recreates `get_overdue_members` /
+`get_upcoming_due_members` with `plan_type member_plan_type` and a seven-day
+grace window, both deliberately changed since; those recreations carry no
+`search_path` and no REVOKE, so they would have undone the pin applied minutes
+earlier; and it predates `member_status_history`, which adds two more columns of
+the type.
+
+The first attempt failed regardless, with `cannot alter type of a column used in
+a trigger definition`: **three triggers declare `UPDATE OF status`** and hold a
+column dependency that is visible only in `pg_trigger.tgattr`. Two are
+load-bearing — the active-member quota gate and the trigger-maintained
+`gyms.member_count`. All three are dropped and recreated verbatim from
+`pg_get_triggerdef`, and the restored function bodies come from
+`pg_get_functiondef` on the live database rather than from any migration file.
 
 ---
 
@@ -152,3 +208,10 @@ bitten. `clock_timestamp()` advances within a transaction.
 4. **Unit tests cannot see this class of defect.** The old model passed every
    test it had. What caught it was reading the derivation and comparing old
    against new on real gyms.
+5. **Enumerate enum dependants from the catalog, not from memory.** A type swap
+   is blocked by columns, function signatures, index predicates **and** triggers
+   with an `OF column` clause. The last of those does not appear in
+   `information_schema`; it is in `pg_trigger.tgattr`.
+6. **`ALTER FUNCTION … SET search_path` over `CREATE OR REPLACE`** when only the
+   pin needs changing. The former writes `proconfig` alone; the latter discards
+   `proconfig` _and_ `proacl`, silently undoing any lockdown.
