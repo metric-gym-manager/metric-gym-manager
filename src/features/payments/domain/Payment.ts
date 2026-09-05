@@ -20,27 +20,39 @@ export enum PaymentType {
  * Payment properties interface
  */
 export interface PaymentProps {
-  id: string;
-  memberId: string;
-  gymId: string;
-  paymentDate: Date;
-  amountPaid: number;
-  discountApplied: string | null;
-  discountPercentage: number | null;
-  nextDueDateCalculated: Date;
-  createdAt: Date;
+  id: string
+  memberId: string
+  gymId: string
+  paymentDate: Date
+  amountPaid: number
+  discountApplied: string | null
+  discountPercentage: number | null
+  nextDueDateCalculated: Date
+  createdAt: Date
 
   /**
    * Kind of payment. Optional for backward compatibility; normalized to
    * PlanPayment in the constructor.
    */
-  paymentType?: PaymentType;
+  paymentType?: PaymentType
+
+  /**
+   * One-off gym admission fee **included in** `amountPaid` (0 when not charged).
+   *
+   * A component, not an addition: `amountPaid` remains the total the member
+   * handed over, and plan revenue is `amountPaid - admissionFee`. Separating it
+   * lets the revenue model keep one-off cash out of a collection rate whose
+   * denominator is a billing schedule that could never predict it.
+   *
+   * Optional for backward compatibility; normalized to 0 in the constructor.
+   */
+  admissionFee?: number
 }
 
 /**
  * Properties for creating a new payment
  */
-export type CreatePaymentProps = Omit<PaymentProps, 'id' | 'createdAt'>;
+export type CreatePaymentProps = Omit<PaymentProps, 'id' | 'createdAt'>
 
 /**
  * Payment domain entity
@@ -60,18 +72,28 @@ export type CreatePaymentProps = Omit<PaymentProps, 'id' | 'createdAt'>;
  * });
  */
 export class Payment {
-  private readonly props: PaymentProps;
+  private readonly props: PaymentProps
 
   private constructor(props: PaymentProps) {
     // Validate required fields
-    if (!props.memberId) throw new Error('memberId is required');
-    if (!props.gymId) throw new Error('gymId is required');
-    if (props.amountPaid <= 0) throw new Error('amountPaid must be positive');
+    if (!props.memberId) throw new Error('memberId is required')
+    if (!props.gymId) throw new Error('gymId is required')
+    if (props.amountPaid <= 0) throw new Error('amountPaid must be positive')
+
+    const admissionFee = props.admissionFee ?? 0
+    if (admissionFee < 0) throw new Error('admissionFee cannot be negative')
+    // The fee is part of the total, so it can never exceed it. Catching this
+    // here rather than at the database CHECK keeps plan revenue
+    // (`amountPaid - admissionFee`) from ever going negative.
+    if (admissionFee > props.amountPaid) {
+      throw new Error('admissionFee cannot exceed amountPaid')
+    }
 
     this.props = {
       ...props,
       paymentType: props.paymentType ?? PaymentType.PlanPayment,
-    };
+      admissionFee,
+    }
   }
 
   // ============================================================
@@ -89,7 +111,7 @@ export class Payment {
       ...props,
       id: '', // Will be assigned by repository
       createdAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -99,7 +121,7 @@ export class Payment {
    * @returns Payment instance
    */
   static fromDatabase(props: PaymentProps): Payment {
-    return new Payment(props);
+    return new Payment(props)
   }
 
   // ============================================================
@@ -107,43 +129,57 @@ export class Payment {
   // ============================================================
 
   get id(): string {
-    return this.props.id;
+    return this.props.id
   }
 
   get memberId(): string {
-    return this.props.memberId;
+    return this.props.memberId
   }
 
   get gymId(): string {
-    return this.props.gymId;
+    return this.props.gymId
   }
 
   get paymentDate(): Date {
-    return this.props.paymentDate;
+    return this.props.paymentDate
   }
 
   get amountPaid(): number {
-    return this.props.amountPaid;
+    return this.props.amountPaid
   }
 
   get discountApplied(): string | null {
-    return this.props.discountApplied;
+    return this.props.discountApplied
   }
 
   get discountPercentage(): number | null {
-    return this.props.discountPercentage;
+    return this.props.discountPercentage
   }
 
   get nextDueDateCalculated(): Date {
-    return this.props.nextDueDateCalculated;
+    return this.props.nextDueDateCalculated
   }
 
   get createdAt(): Date {
-    return this.props.createdAt;
+    return this.props.createdAt
   }
 
   get paymentType(): PaymentType {
-    return this.props.paymentType ?? PaymentType.PlanPayment;
+    return this.props.paymentType ?? PaymentType.PlanPayment
+  }
+
+  /** One-off admission fee included in {@link amountPaid} (0 when not charged). */
+  get admissionFee(): number {
+    return this.props.admissionFee ?? 0
+  }
+
+  /**
+   * The part of this payment a membership schedule predicts — i.e. everything
+   * except the one-off admission fee. This is the figure the revenue collection
+   * rate is built from.
+   */
+  get planAmountPaid(): number {
+    return this.amountPaid - this.admissionFee
   }
 
   /**
@@ -152,7 +188,7 @@ export class Payment {
    * @returns True if payment type is DayPass
    */
   isDayPass(): boolean {
-    return this.paymentType === PaymentType.DayPass;
+    return this.paymentType === PaymentType.DayPass
   }
 
   // ============================================================
@@ -165,7 +201,10 @@ export class Payment {
    * @returns True if discount was applied
    */
   hasDiscount(): boolean {
-    return this.props.discountApplied !== null && this.props.discountPercentage !== null;
+    return (
+      this.props.discountApplied !== null &&
+      this.props.discountPercentage !== null
+    )
   }
 
   /**
@@ -175,13 +214,13 @@ export class Payment {
    */
   getDiscountAmount(): number {
     if (!this.hasDiscount() || !this.props.discountPercentage) {
-      return 0;
+      return 0
     }
 
     // Calculate original amount before discount
-    const discountMultiplier = 1 - this.props.discountPercentage / 100;
-    const originalAmount = this.props.amountPaid / discountMultiplier;
-    return originalAmount - this.props.amountPaid;
+    const discountMultiplier = 1 - this.props.discountPercentage / 100
+    const originalAmount = this.props.amountPaid / discountMultiplier
+    return originalAmount - this.props.amountPaid
   }
 
   /**
@@ -191,11 +230,11 @@ export class Payment {
    */
   getOriginalAmount(): number {
     if (!this.hasDiscount() || !this.props.discountPercentage) {
-      return this.props.amountPaid;
+      return this.props.amountPaid
     }
 
-    const discountMultiplier = 1 - this.props.discountPercentage / 100;
-    return this.props.amountPaid / discountMultiplier;
+    const discountMultiplier = 1 - this.props.discountPercentage / 100
+    return this.props.amountPaid / discountMultiplier
   }
 
   // ============================================================
@@ -208,7 +247,7 @@ export class Payment {
    * @returns Payment properties for database storage
    */
   toDatabase(): PaymentProps {
-    return { ...this.props };
+    return { ...this.props }
   }
 
   // ============================================================
@@ -222,7 +261,7 @@ export class Payment {
    * @returns True if same payment (by ID)
    */
   equals(other: Payment): boolean {
-    return this.props.id === other.props.id;
+    return this.props.id === other.props.id
   }
 
   /**
@@ -241,6 +280,6 @@ export class Payment {
       discountPercentage: this.props.discountPercentage,
       nextDueDateCalculated: this.props.nextDueDateCalculated.toISOString(),
       createdAt: this.props.createdAt.toISOString(),
-    };
+    }
   }
 }

@@ -207,7 +207,14 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     'MEMBER_LIMIT_REACHED'
 
   const onSubmit = (data: AddMemberInput) => {
-    createMemberMutation.mutate(data)
+    // Send whether the fee applies, not how much it is. The amount is resolved
+    // server-side from the gym row; `paymentAmount` still carries the total so
+    // a desk can adjust it, but the recorded fee component is the gym's own
+    // configured figure rather than whatever this form computed.
+    createMemberMutation.mutate({
+      ...data,
+      applyAdmissionFee: admissionFeeAvailable && applyAdmissionFee,
+    })
   }
 
   const handleClose = () => {

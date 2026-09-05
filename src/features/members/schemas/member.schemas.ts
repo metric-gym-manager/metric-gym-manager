@@ -78,6 +78,19 @@ export const addMemberSchema = z.object({
     .positive('Payment amount must be greater than 0')
     .max(1000000, 'Payment amount is too large'),
 
+  /**
+   * Whether this registration is charged the gym's admission fee.
+   *
+   * A boolean, not an amount: the fee itself is resolved server-side from the
+   * gym row, the same way the public QR flow does it. The client used to
+   * compute `paymentAmount = discounted + fee` and send only the total, so the
+   * fee was whatever the browser said it was.
+   */
+  // `.optional()` without `.default()`: a zod default makes the schema's input
+  // and output types diverge, which react-hook-form's resolver rejects. The
+  // route treats `undefined` as false.
+  applyAdmissionFee: z.boolean().optional(),
+
   // Free-text note (manual desk registration only)
   remarks: z
     .string()

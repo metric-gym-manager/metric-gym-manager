@@ -10,11 +10,9 @@ import {
 } from '../domain/BillingSchedule'
 import type {
   MonthlyRevenue,
-  YearlyRevenue,
   RevenueMetrics,
   RevenuePosition,
   MonthlyRevenueResponse,
-  YearlyRevenueResponse,
 } from '../types'
 
 /**
@@ -96,7 +94,7 @@ async function loadPayments(
 
   const { data, error } = await supabase
     .from('payments')
-    .select('amount_paid, payment_type')
+    .select('amount_paid, payment_type, admission_fee')
     .eq('gym_id', gymId)
     .gte('payment_date', startDate)
     .lte('payment_date', endDate)
@@ -108,11 +106,23 @@ async function loadPayments(
   return (data ?? []).reduce(
     (totals, payment) => {
       const amount = Number(payment.amount_paid)
+
+      // A day pass is one-off in its entirety.
       if (payment.payment_type === 'day_pass') {
         totals.oneOff += amount
-      } else {
-        totals.plan += amount
+        return totals
       }
+
+      // A plan payment may carry a one-off admission fee inside its total. The
+      // fee is cash no billing schedule predicts, so it is split out: counting
+      // it as plan revenue is what let the collection rate exceed 100%.
+      //
+      // Rows written before 20260905000007 have `admission_fee = 0` because the
+      // split was not recorded then, not because no fee was charged — so
+      // historical figures still fold those fees into plan revenue.
+      const fee = Number(payment.admission_fee ?? 0)
+      totals.oneOff += fee
+      totals.plan += amount - fee
       return totals
     },
     { plan: 0, oneOff: 0 }
@@ -229,78 +239,6 @@ export async function getMonthlyRevenue(
 
   return {
     currentMonth,
-    historicalData,
-    metrics: await getRevenueMetrics(gymId),
-  }
-}
-
-// ============================================================
-// GET YEARLY REVENUE
-// ============================================================
-
-export async function getYearlyRevenue(
-  gymId: string,
-  year: number
-): Promise<YearlyRevenueResponse> {
-  const supabase = await createClient()
-
-  const { data: gymProfile } = await supabase
-    .from('gyms')
-    .select('created_at')
-    .eq('id', gymId)
-    .single()
-
-  if (!gymProfile) {
-    throw new Error('Gym not found')
-  }
-
-  const startDate = `${year}-01-01`
-  const endDate = `${year}-12-31`
-
-  const [memberRows, collected] = await Promise.all([
-    loadBillableMembers(gymId),
-    loadPayments(gymId, startDate, endDate),
-  ])
-
-  const members = memberRows.map(toBillableMember)
-
-  // A year's billings are the sum of its months', not an annualised run-rate:
-  // a member on a 6-month plan is billed twice, and in which months depends on
-  // when they joined.
-  const billedRevenue =
-    Math.round(
-      Array.from({ length: 12 }, (_, i) =>
-        billedInMonth(members, year, i + 1)
-      ).reduce((sum, monthly) => sum + monthly, 0) * 100
-    ) / 100
-
-  const currentYear: RevenuePosition = {
-    billedRevenue,
-    collectedRevenue: collected.plan,
-    oneOffRevenue: collected.oneOff,
-    overdueMemberCount: countOverdue(memberRows, new Date()),
-  }
-
-  const gymCreatedDate = new Date(gymProfile.created_at)
-  const startYear = gymCreatedDate.getFullYear()
-
-  const byMonth = await loadMonthlyCollected(
-    gymId,
-    `${startYear}-01-01`,
-    endDate
-  )
-
-  const historicalData: YearlyRevenue[] = []
-  for (let y = startYear; y <= year; y++) {
-    let total = 0
-    for (let m = 1; m <= 12; m++) {
-      total += byMonth.get(`${y}-${pad(m)}`) ?? 0
-    }
-    historicalData.push({ year: y, collectedRevenue: total })
-  }
-
-  return {
-    currentYear,
     historicalData,
     metrics: await getRevenueMetrics(gymId),
   }

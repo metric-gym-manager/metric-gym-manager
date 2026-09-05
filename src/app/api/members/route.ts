@@ -6,6 +6,7 @@ import {
 } from '@/features/members/schemas/member.schemas'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getGymAdmissionFee } from '@/features/registration'
 import {
   createMemberRepository,
   createRegisterMember,
@@ -121,6 +122,17 @@ export async function POST(request: NextRequest) {
       discount = await getDiscountInfoById(validatedData.discountId)
     }
 
+    // The admission fee is resolved from the gym row, never taken from the
+    // request: the client chooses *whether* to charge it, the server decides
+    // what it costs. Capped at the payment so the recorded component can never
+    // exceed the total (the Payment entity rejects that too).
+    const admissionFee = validatedData.applyAdmissionFee
+      ? Math.min(
+          await getGymAdmissionFee(gymProfile.id),
+          validatedData.paymentAmount
+        )
+      : 0
+
     // Register member via use case. Admin container on purpose: the guarded
     // quota RPC is EXECUTE-granted to service_role only, and the caller's
     // gym id was already pinned by getCurrentGymProfile() above (plan C-15).
@@ -136,6 +148,7 @@ export async function POST(request: NextRequest) {
       recurringDiscount: validatedData.recurringDiscount ?? false,
       membershipStartDate: new Date(validatedData.membershipStartDate),
       paymentAmount: validatedData.paymentAmount,
+      admissionFee,
       discount,
       remarks: validatedData.remarks ?? null,
       // Schema enforces both consents are `true`, so record the consent time.
