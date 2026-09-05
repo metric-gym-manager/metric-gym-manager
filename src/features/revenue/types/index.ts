@@ -24,11 +24,6 @@ export interface MonthlyRevenue {
   collectedRevenue: number
 }
 
-export interface YearlyRevenue {
-  year: number
-  collectedRevenue: number
-}
-
 export interface RevenueMetrics {
   totalActiveMembers: number
   totalRevenueSinceInception: number
@@ -82,11 +77,5 @@ export interface RevenuePosition {
 export interface MonthlyRevenueResponse {
   currentMonth: RevenuePosition
   historicalData: MonthlyRevenue[]
-  metrics: RevenueMetrics
-}
-
-export interface YearlyRevenueResponse {
-  currentYear: RevenuePosition
-  historicalData: YearlyRevenue[]
   metrics: RevenueMetrics
 }
