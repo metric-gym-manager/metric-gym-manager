@@ -3,11 +3,36 @@ import {
   EXPIRES_SOON_DAYS,
 } from '../utils/memberStatusIndicator'
 
+/**
+ * A **local** `YYYY-MM-DD`, n days from today.
+ *
+ * `toISOString()` was used here and is wrong for this: it serialises in UTC
+ * while `getDaysUntilDue` normalises to local midnight, so in any timezone
+ * offset from UTC the two disagree by a day for part of every day. In UTC+5:30
+ * this test passed from 05:30 to midnight and failed from midnight to 05:30 —
+ * it went red at 00:31 local having been green all day, with no code change.
+ *
+ * Same defect family as the `isNewMember` boundary test: mixing a local-time
+ * calculation with a UTC serialisation.
+ */
 const inDays = (n: number) => {
   const d = new Date()
   d.setDate(d.getDate() + n)
-  return d.toISOString().slice(0, 10)
+  const pad = (v: number) => String(v).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
+
+/**
+ * The clock is frozen at local midday so the boundary cases cannot be moved by
+ * the time of day the suite happens to run, and so a run that straddles
+ * midnight cannot compare two different "todays".
+ */
+beforeAll(() => {
+  jest.useFakeTimers().setSystemTime(new Date(2026, 8, 6, 12, 0, 0))
+})
+afterAll(() => {
+  jest.useRealTimers()
+})
 
 describe('memberStatusIndicator', () => {
   it('reads an active member with a distant due date as active', () => {
