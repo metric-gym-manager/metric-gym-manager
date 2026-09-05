@@ -3,6 +3,30 @@
 > On-demand reference. Not auto-injected.
 > **Rule:** Every SMS send logs success and failure to the DB. No silent fire-and-forget.
 
+> **Updated 2026-09-05.** Two corrections after an audit of this exact path.
+>
+> **1. The code samples below predate the feature-first refactor.** They named
+> `src/core/use-cases/…` and `src/infrastructure/di/Container.ts`, layers R1 now
+> forbids and that no longer exist. Paths are corrected in place; the pattern
+> they teach — inject `ISMSRepository`, await the write, record `error_message`
+> — is unchanged and correct.
+>
+> **2. `sms_logs` has exactly one writer: `SupabaseSMSRepository`.** Do not add a
+> second. Until 2026-09-05 there were four, and the drift between them was the
+> defect: `announcements` inserted with `void supabase.from('sms_logs').insert()`
+> — literally the fire-and-forget this rule forbids, comment and all — and
+> neither it nor `sms.service` recorded `error_message`, so 5 of 14 production
+> failures had no reason attached. Log through the repository, from a use case,
+> awaited.
+>
+> **3. Writes need a service-role client.** The table has SELECT and INSERT
+> policies and **no UPDATE policy**, so a session client's update is refused by
+> RLS — and PostgREST reports _no error_ for an update that matched no rows. The
+> delivery webhook therefore logged success and returned 200 while changing
+> nothing, for every receipt the vendor sent over seven months. `ISMSRepository.
+updateDeliveryStatus` returns rows-affected precisely so that a no-op cannot
+> be mistaken for a write. See `docs/architecture/sms-delivery-tracking.md`.
+
 ---
 
 ### 2.7 SMS Error Logging Pattern
@@ -55,7 +79,7 @@ COMMENT ON COLUMN sms_logs.error_message IS 'Error message from SMS provider if 
 **Step 2: Add ISMSRepository Dependency to Use Case**
 
 ```typescript
-// src/core/use-cases/payment/CollectPayment.ts
+// src/features/payments/services/CollectPayment.ts
 export class CollectPayment {
   constructor(
     private readonly memberRepo: IMemberRepository,
@@ -69,7 +93,7 @@ export class CollectPayment {
 **Step 3: Implement Comprehensive Error Logging**
 
 ```typescript
-// src/core/use-cases/payment/CollectPayment.ts
+// src/features/payments/services/CollectPayment.ts
 private async sendReceiptSMS(
   member: Member,
   amountPaid: number,
@@ -137,10 +161,12 @@ private async sendReceiptSMS(
 }
 ```
 
-**Step 4: Update Dependency Injection Container**
+**Step 4: Wire it in the feature's factory**
 
 ```typescript
-// src/infrastructure/di/Container.ts
+// src/features/payments/services/factory.ts — the DI container was dissolved in
+// the 2026-07 feature-first refactor (R1/R7). Composition lives in each
+// feature's factory.ts and takes the Supabase client the caller chose.
 export class Container {
   getCollectPaymentUseCase(): CollectPayment {
     return new CollectPayment(
@@ -192,7 +218,10 @@ SELECT
   COUNT(*) as total_sent,
   COUNT(*) FILTER (WHERE delivery_status = 'sent') as successes,
   COUNT(*) FILTER (WHERE delivery_status = 'failed') as failures,
-  ROUND(100.0 * COUNT(*) FILTER (WHERE delivery_status = 'sent') / COUNT(*), 2) as success_rate
+  -- 'delivered' is the carrier-confirmed state; 'sent' only means the provider
+  -- accepted it, and 'pending' that it has not yet reached the carrier.
+  ROUND(100.0 * COUNT(*) FILTER (WHERE delivery_status = 'delivered') / COUNT(*), 2) as delivered_rate,
+  ROUND(100.0 * COUNT(*) FILTER (WHERE delivery_status = 'failed') / COUNT(*), 2) as failure_rate
 FROM sms_logs
 WHERE sent_at > NOW() - INTERVAL '30 days'
 GROUP BY sms_type

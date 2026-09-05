@@ -919,7 +919,7 @@ deleted automatically 12 months after they occur" agrees with
 together). The figure is now actually reachable by the data subjects it is
 written for.
 
-### OPEN-6 — SMS history: a live endpoint with no UI _(product gap)_
+### OPEN-6 — ~~SMS history: a live endpoint with no UI~~ **RESOLVED 2026-09-05**
 
 `GET /api/members/[id]/sms-history` and `sms-history.service.ts` are live and
 have **no consumer**. `SMSHistoryModal` was the only caller and was reachable
@@ -932,6 +932,18 @@ all still run and still cost money. The endpoint also has no test.
 
 Either build the UI or retire the endpoint and its service; leaving it is the
 worst of the three. **Not a UI-directive problem — needs a product call.**
+
+**Resolution.** Ruled: build it. The audit that preceded the work found the
+endpoint was not merely unconsumed but **broken** — it selected a `created_at`
+column `sms_logs` does not have and answered 500 on every call — and that
+delivery tracking had never functioned at all: 1,137 dispatched messages over
+seven months, every one frozen on the `sent` default, zero ever `delivered`.
+Building the UI first would have rendered a "Delivered" column over a 500.
+
+Fixed across the read path, the delivery webhook, the four competing writers and
+the three disagreeing enum declarations, then verified end-to-end against the
+running app and the real database. Full account in
+`docs/architecture/sms-delivery-tracking.md`.
 
 ### OPEN-7 — `/revenue` can read "Fully collected" over a zero _(pre-existing, cosmetic-but-misleading)_
 
