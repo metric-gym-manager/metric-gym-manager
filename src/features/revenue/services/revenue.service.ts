@@ -170,6 +170,7 @@ function countOverdue(rows: MemberBillingRow[], today: Date): number {
   }).length
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100
 const pad = (n: number) => String(n).padStart(2, '0')
 const firstOfMonth = (year: number, month: number) => `${year}-${pad(month)}-01`
 const lastOfMonth = (year: number, month: number) =>
@@ -208,8 +209,11 @@ export async function getMonthlyRevenue(
 
   const currentMonth: RevenuePosition = {
     billedRevenue: billedInMonth(members, year, month),
-    collectedRevenue: collected.plan,
-    oneOffRevenue: collected.oneOff,
+    // The total is what a gym reports as revenue, so it is stated explicitly
+    // rather than left for a caller to add up.
+    collectedRevenue: round2(collected.plan + collected.oneOff),
+    planCollectedRevenue: round2(collected.plan),
+    oneOffRevenue: round2(collected.oneOff),
     overdueMemberCount: countOverdue(memberRows, new Date()),
   }
 

@@ -47,22 +47,36 @@ export interface RevenuePosition {
   billedRevenue: number
 
   /**
-   * Cash received in this period from **plan payments only**.
+   * **All cash received in this period.** Plan payments, the admission fees
+   * inside them, and day passes.
    *
-   * Day passes are excluded so the collection rate compares like with like: a
-   * day pass is one-off revenue that no membership schedule predicts, and
-   * including it can push the ratio past 100%.
+   * This is the figure a gym reports as revenue, so it must never be a subset.
+   * It is deliberately the total and not the plan-only figure: an earlier
+   * revision made this exclude admission fees and day passes for the sake of a
+   * clean collection rate, which would have caused the revenue page to
+   * under-report against the dashboard as soon as a gym charged a joining fee.
+   *
+   * Equals `planCollectedRevenue + oneOffRevenue`, and equals the dashboard's
+   * `revenueThisMonth` (`SUM(amount_paid)`) for the same month.
    */
   collectedRevenue: number
 
   /**
-   * Cash received in this period that no schedule predicts — currently day
-   * passes.
+   * The part of `collectedRevenue` a membership schedule predicts — plan
+   * payments excluding any admission fee inside them.
    *
-   * **Known gap:** the gym-level admission fee is folded into the first
-   * payment's `amount_paid` and is not recorded separately, so it cannot be
-   * split out here. 8 first payments exceed the plan amount for this reason.
-   * Separating it needs a schema change, tracked rather than guessed at.
+   * Exists purely so the collection rate has a numerator comparable with
+   * `billedRevenue`. Do not present it as revenue.
+   */
+  planCollectedRevenue: number
+
+  /**
+   * The part of `collectedRevenue` no schedule predicts: admission fees and day
+   * passes. Reported separately so the collection rate is not inflated past
+   * 100% by one-off cash — which is exactly what used to happen.
+   *
+   * **Known gap:** admission fees on payments written before 2026-09-05 were
+   * not recorded separately and are still counted as plan revenue.
    */
   oneOffRevenue: number
 

@@ -117,13 +117,14 @@ export default function RevenuePageClient() {
   const cur = data?.currentMonth
   const metrics = data?.metrics
 
-  // Now a real ratio: the denominator is what billable members were actually
-  // billed this month, from their due dates. It used to be a run-rate valuation
-  // of the whole membership base, which is why one gym rendered "127.7% of
-  // billed" — a figure a billing model cannot produce.
+  // A real ratio at last: the denominator is what billable members were
+  // actually billed this month, from their due dates, and the numerator is the
+  // part of the cash a schedule predicts. Comparing TOTAL cash to billings is
+  // what produced "127.7% of billed" — one-off money against a subscription
+  // denominator.
   const collectedRate =
     cur && cur.billedRevenue > 0
-      ? Math.round((cur.collectedRevenue / cur.billedRevenue) * 100)
+      ? Math.round((cur.planCollectedRevenue / cur.billedRevenue) * 100)
       : null
 
   // Deliberately not defaulted to 0: before the query resolves we do not know
@@ -133,23 +134,17 @@ export default function RevenuePageClient() {
 
   const tiles: Array<{ label: string; value: string; sub: React.ReactNode }> = [
     {
+      // ALL cash taken this month — plan payments, the joining fees inside them,
+      // and day passes. This is the figure a gym reports as revenue, so it is
+      // deliberately the total and never a subset. It matches the dashboard's
+      // "Revenue" tile for the same month.
       label: `Collected · ${MONTHS[month - 1].slice(0, 3)}`,
       value: cur ? fmt(cur.collectedRevenue) : '—',
       sub:
-        collectedRate !== null ? (
-          <>
-            {collectedRate}% of billed
-            {/* One-off revenue no schedule predicts — shown only when there is
-                some, so the ratio above is never quietly inflated by it. */}
-            {cur && cur.oneOffRevenue > 0 && (
-              <span className="text-ink-muted">
-                {' '}
-                · +{fmt(cur.oneOffRevenue)} day passes
-              </span>
-            )}
-          </>
+        cur && cur.oneOffRevenue > 0 ? (
+          <>incl. {fmt(cur.oneOffRevenue)} joining fees &amp; day passes</>
         ) : (
-          'Nothing billed this month'
+          'All cash received this month'
         ),
     },
     {
@@ -161,6 +156,14 @@ export default function RevenuePageClient() {
       sub:
         overdue === null ? (
           ' '
+        ) : collectedRate !== null ? (
+          // The collection rate belongs on the tile whose value is its
+          // denominator, and it compares like with like: plan cash against plan
+          // billings, with one-off money excluded from both.
+          <span className={overdue > 0 ? 'text-warning' : 'text-success'}>
+            {collectedRate}% collected
+            {overdue > 0 ? ` · ${overdue} overdue` : ''}
+          </span>
         ) : (
           // States what its predicate actually tests. The old label read "Fully
           // collected" in green whenever no member happened to be past due —

@@ -8,6 +8,7 @@ import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberF
 import { fromDatabasePlanType } from '@/features/members/config/PlanConfig'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import {
+  ConflictError,
   NotFoundError,
   ValidationError,
   InvalidStatusTransitionError,
@@ -78,6 +79,16 @@ export async function POST(
     if (error instanceof NotFoundError) {
       return NextResponse.json(ResponseBuilder.notFound(error.message), {
         status: 404,
+      })
+    }
+
+    // A concurrent submission already advanced this member. 409, not 500:
+    // the caller must NOT blindly retry, because the payment it was about to
+    // record may already exist. This is the guard that stops the duplicate
+    // payment rows found in production.
+    if (error instanceof ConflictError) {
+      return NextResponse.json(ResponseBuilder.conflict(error.message), {
+        status: 409,
       })
     }
 

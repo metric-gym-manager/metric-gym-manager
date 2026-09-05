@@ -24,6 +24,9 @@ import {
 // the build with "Ecmascript file had an error". Same trap rule 2.15 records
 // for the auth barrel, in a different feature.
 import { MemberSmsHistory } from '@/features/sms/components/MemberSmsHistory'
+// Deep import for the same reason as above: a feature barrel may re-export
+// server-only services. PaymentCalculator is a pure static class.
+import { PaymentCalculator } from '@/features/payments/domain/PaymentCalculator'
 import MarkPaidDialog from '@/features/payments/components/MarkPaidDialog'
 import ReactivationDialog, {
   type ReactivationConfirm,
@@ -172,13 +175,25 @@ export default function MemberDetailModal({
     mutationFn: async (paymentDate: string) => {
       if (!member) throw new Error('No member selected')
 
-      // Calculate effective amount after discount
-      let effectiveAmount = member.plan_amount
-      if (member.discount && member.recurring_discount) {
-        const discountAmount =
-          (member.plan_amount * member.discount.discount_percentage) / 100
-        effectiveAmount = member.plan_amount - discountAmount
-      }
+      // The one implementation of "what does this member owe" (R5). This block
+      // used to do the arithmetic inline and — unlike the other three copies —
+      // did not round, so a 33% discount on 3,333 produced
+      // 2233.1099999999997 as the amount charged. `numeric(10,2)` absorbed it
+      // on insert, but the figure shown in the confirm dialog and passed to the
+      // receipt was the unrounded one.
+      //
+      // Only a *recurring* discount applies to a renewal: a one-off discount
+      // was consumed by the payment it was granted for.
+      const effectiveAmount = PaymentCalculator.calculateAmount(
+        member.plan_amount,
+        member.discount && member.recurring_discount
+          ? {
+              discountId: member.discount.id,
+              discountName: member.discount.discount_name,
+              discountPercentage: member.discount.discount_percentage,
+            }
+          : null
+      )
 
       const res = await fetch(`/api/members/${member.id}/payment`, {
         method: 'POST',

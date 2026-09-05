@@ -15,7 +15,10 @@ const monthly = (over: Record<string, unknown> = {}) => ({
     // `billedRevenue` replaced `projectedRevenue`: what billable members owe
     // this month from their due dates, not a run-rate valuation of the base.
     billedRevenue: 516000,
+    // collectedRevenue is ALL cash; planCollectedRevenue is the part a
+    // schedule predicts. Here there is no one-off money, so they match.
     collectedRevenue: 486500,
+    planCollectedRevenue: 486500,
     oneOffRevenue: 0,
     overdueMemberCount: 3,
   },
@@ -60,11 +63,66 @@ describe('RevenuePageClient', () => {
     expect(screen.getByText('1,560')).toBeInTheDocument()
   })
 
-  it('states collection as a percentage of what was billed', async () => {
-    mockFetchRoutes(routes())
+  /**
+   * The rate compares like with like: plan cash against plan billings. Using
+   * TOTAL cash as the numerator is what produced "127.7% of billed" on a real
+   * gym — one-off money measured against a subscription denominator.
+   */
+  it('rates collection on plan cash, not total cash', async () => {
+    mockFetchRoutes(
+      routes({
+        '/api/revenue/monthly': apiOk(
+          monthly({
+            currentMonth: {
+              billedRevenue: 100000,
+              collectedRevenue: 120000, // includes 40,000 of joining fees
+              planCollectedRevenue: 80000,
+              oneOffRevenue: 40000,
+              overdueMemberCount: 0,
+            },
+          })
+        ),
+      })
+    )
     renderScreen(<RevenuePageClient />)
-    // 486500 / 516000 = 94.28% → 94
-    expect(await screen.findByText('94% of billed')).toBeInTheDocument()
+    // 80,000 / 100,000 = 80%. Using the 120,000 total would read 120%.
+    expect(await screen.findByText(/80% collected/)).toBeInTheDocument()
+    expect(screen.queryByText(/120% collected/)).not.toBeInTheDocument()
+  })
+
+  /**
+   * THE TAX FIGURE. A gym reports this month's revenue to the inland revenue
+   * service from it, so the headline number must be ALL cash received — plan
+   * payments, the admission fees inside them, and day passes — never a subset.
+   *
+   * An earlier revision of this page showed plan-only cash here for the sake of
+   * a clean collection rate. That would have under-reported revenue the moment
+   * a gym charged a joining fee, and disagreed with the dashboard for the same
+   * month.
+   */
+  it('shows ALL cash received as the headline collected figure', async () => {
+    mockFetchRoutes(
+      routes({
+        '/api/revenue/monthly': apiOk(
+          monthly({
+            currentMonth: {
+              billedRevenue: 100000,
+              collectedRevenue: 120000,
+              planCollectedRevenue: 80000,
+              oneOffRevenue: 40000,
+              overdueMemberCount: 0,
+            },
+          })
+        ),
+      })
+    )
+    renderScreen(<RevenuePageClient />)
+
+    expect(await screen.findByText('120,000')).toBeInTheDocument()
+    // The plan-only subset must never be the headline.
+    expect(screen.queryByText('80,000')).not.toBeInTheDocument()
+    // And the one-off part is disclosed, so the total can be reconciled.
+    expect(screen.getByText(/incl\. 40,000 joining fees/)).toBeInTheDocument()
   })
 
   it('does not divide by zero when nothing has been billed', async () => {
@@ -75,6 +133,7 @@ describe('RevenuePageClient', () => {
             currentMonth: {
               billedRevenue: 0,
               collectedRevenue: 0,
+              planCollectedRevenue: 0,
               oneOffRevenue: 0,
               overdueMemberCount: 0,
             },
@@ -85,9 +144,9 @@ describe('RevenuePageClient', () => {
     renderScreen(<RevenuePageClient />)
     await screen.findByText('312')
     expect(screen.queryByText(/NaN|Infinity/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/% of billed/)).not.toBeInTheDocument()
-    // A month where nobody is due says so, rather than showing a blank sub-line.
-    expect(screen.getByText('Nothing billed this month')).toBeInTheDocument()
+    expect(screen.queryByText(/% collected/)).not.toBeInTheDocument()
+    // A month where nobody is due still states what the cash figure means.
+    expect(screen.getByText('All cash received this month')).toBeInTheDocument()
   })
 
   /**
@@ -101,7 +160,7 @@ describe('RevenuePageClient', () => {
   it('reports overdue members, not a collection claim', async () => {
     mockFetchRoutes(routes())
     const { unmount } = renderScreen(<RevenuePageClient />)
-    expect(await screen.findByText('3 members overdue')).toBeInTheDocument()
+    expect(await screen.findByText(/3 overdue/)).toBeInTheDocument()
     expect(screen.queryByText('Fully collected')).not.toBeInTheDocument()
     unmount()
 
@@ -112,6 +171,7 @@ describe('RevenuePageClient', () => {
             currentMonth: {
               billedRevenue: 100,
               collectedRevenue: 0,
+              planCollectedRevenue: 0,
               oneOffRevenue: 0,
               overdueMemberCount: 0,
             },
@@ -123,14 +183,10 @@ describe('RevenuePageClient', () => {
     // Wait for DATA, not for the label: "No overdue members" would otherwise be
     // matched in the loading state, where the answer is not yet known.
     await screen.findByText('100')
-    expect(screen.getByText('No overdue members')).toBeInTheDocument()
+    expect(screen.getByText(/0% collected/)).toBeInTheDocument()
+    expect(screen.queryByText(/overdue/)).not.toBeInTheDocument()
     // The sub-line is a fragment (`{rate}% of billed` plus an optional
     // one-off clause), so the text spans nodes and needs a normalising matcher.
-    // getAllBy: a textContent matcher also matches every ancestor whose
-    // combined text is the same string.
-    expect(
-      screen.getAllByText((_, el) => el?.textContent === '0% of billed').length
-    ).toBeGreaterThan(0)
   })
 
   it('counts a single overdue member in the singular', async () => {
@@ -141,6 +197,7 @@ describe('RevenuePageClient', () => {
             currentMonth: {
               billedRevenue: 100,
               collectedRevenue: 0,
+              planCollectedRevenue: 0,
               oneOffRevenue: 0,
               overdueMemberCount: 1,
             },
@@ -149,7 +206,7 @@ describe('RevenuePageClient', () => {
       })
     )
     renderScreen(<RevenuePageClient />)
-    expect(await screen.findByText('1 member overdue')).toBeInTheDocument()
+    expect(await screen.findByText(/1 overdue/)).toBeInTheDocument()
   })
 
   /**
@@ -161,7 +218,8 @@ describe('RevenuePageClient', () => {
     mockFetchRoutes(routes())
     const { unmount } = renderScreen(<RevenuePageClient />)
     await screen.findByText('486,500')
-    expect(screen.queryByText(/day passes/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/joining fees/)).not.toBeInTheDocument()
+    expect(screen.getByText('All cash received this month')).toBeInTheDocument()
     unmount()
 
     mockFetchRoutes(
@@ -170,7 +228,8 @@ describe('RevenuePageClient', () => {
           monthly({
             currentMonth: {
               billedRevenue: 516000,
-              collectedRevenue: 486500,
+              collectedRevenue: 498500,
+              planCollectedRevenue: 486500,
               oneOffRevenue: 12000,
               overdueMemberCount: 0,
             },
@@ -179,7 +238,9 @@ describe('RevenuePageClient', () => {
       })
     )
     renderScreen(<RevenuePageClient />)
-    expect(await screen.findByText(/\+12,000 day passes/)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/incl\. 12,000 joining fees/)
+    ).toBeInTheDocument()
   })
 
   /**

@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
+// Deep import: a feature barrel may re-export server-only services.
+import { PaymentCalculator } from '@/features/payments/domain/PaymentCalculator'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { Trash2, Edit, X, ChevronDown, ChevronUp } from 'lucide-react'
@@ -149,12 +151,19 @@ export default function MemberDetailModalMobile({
     mutationFn: async () => {
       if (!member) throw new Error('No member selected')
 
-      let effectiveAmount = member.plan_amount
-      if (member.discount && member.recurring_discount) {
-        const discountAmount =
-          (member.plan_amount * member.discount.discount_percentage) / 100
-        effectiveAmount = member.plan_amount - discountAmount
-      }
+      // Same single implementation as the desktop modal (R5). This copy had the
+      // same missing rounding, so the two surfaces could charge amounts that
+      // differed in the last decimal for the same member.
+      const effectiveAmount = PaymentCalculator.calculateAmount(
+        member.plan_amount,
+        member.discount && member.recurring_discount
+          ? {
+              discountId: member.discount.id,
+              discountName: member.discount.discount_name,
+              discountPercentage: member.discount.discount_percentage,
+            }
+          : null
+      )
 
       const today = new Date().toISOString().split('T')[0]
       const res = await fetch(`/api/members/${member.id}/payment`, {

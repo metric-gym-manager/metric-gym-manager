@@ -9,9 +9,9 @@
  * (no Supabase, no SQL, no database-specific logic).
  */
 
-import { Member } from '@/features/members/domain/Member';
-import { PlanType } from '@/features/members/config/PlanConfig';
-import { MemberStatus } from '@/features/members/config/StatusConfig';
+import { Member } from '@/features/members/domain/Member'
+import { PlanType } from '@/features/members/config/PlanConfig'
+import { MemberStatus } from '@/features/members/config/StatusConfig'
 
 /**
  * Member query filters
@@ -20,47 +20,53 @@ export interface MemberFilters {
   /**
    * Gym ID (required for multi-tenancy)
    */
-  gymId: string;
+  gymId: string
 
   /**
    * Search by name or phone number
    */
-  search?: string;
+  search?: string
 
   /**
    * Filter by status
    */
-  status?: MemberStatus;
+  status?: MemberStatus
 
   /**
    * Filter by plan type
    */
-  planType?: PlanType;
+  planType?: PlanType
 
   /**
    * Pagination: page number (1-indexed)
    */
-  page?: number;
+  page?: number
 
   /**
    * Pagination: items per page
    */
-  limit?: number;
+  limit?: number
 
   /**
    * Sorting option
    */
-  sortBy?: 'newest' | 'oldest' | 'upcoming_due' | 'recently_expired' | 'name_asc' | 'name_desc';
+  sortBy?:
+    | 'newest'
+    | 'oldest'
+    | 'upcoming_due'
+    | 'recently_expired'
+    | 'name_asc'
+    | 'name_desc'
 }
 
 /**
  * Paginated result
  */
 export interface PaginatedResult<T> {
-  items: T[];
-  totalCount: number;
-  page: number;
-  totalPages: number;
+  items: T[]
+  totalCount: number
+  page: number
+  totalPages: number
 }
 
 /**
@@ -88,7 +94,7 @@ export interface IMemberRepository {
    * @param gymId - Gym ID (for RLS enforcement)
    * @returns Member if found, null otherwise
    */
-  findById(id: string, gymId: string): Promise<Member | null>;
+  findById(id: string, gymId: string): Promise<Member | null>
 
   /**
    * Find all members with filters and pagination
@@ -96,7 +102,7 @@ export interface IMemberRepository {
    * @param filters - Query filters
    * @returns Paginated list of members
    */
-  findAll(filters: MemberFilters): Promise<PaginatedResult<Member>>;
+  findAll(filters: MemberFilters): Promise<PaginatedResult<Member>>
 
   /**
    * Find all active members for a gym
@@ -106,7 +112,7 @@ export interface IMemberRepository {
    * @param gymId - Gym ID
    * @returns Array of active members
    */
-  findActiveMembers(gymId: string): Promise<Member[]>;
+  findActiveMembers(gymId: string): Promise<Member[]>
 
   /**
    * Find all active members across all gyms
@@ -115,7 +121,7 @@ export interface IMemberRepository {
    *
    * @returns Array of active members from all gyms
    */
-  findAllActiveMembers(): Promise<Member[]>;
+  findAllActiveMembers(): Promise<Member[]>
 
   /**
    * Find all expired members for a gym
@@ -125,7 +131,7 @@ export interface IMemberRepository {
    * @param gymId - Gym ID
    * @returns Array of expired members
    */
-  findExpiredMembers(gymId: string): Promise<Member[]>;
+  findExpiredMembers(gymId: string): Promise<Member[]>
 
   /**
    * Find all expired members across all gyms
@@ -134,7 +140,7 @@ export interface IMemberRepository {
    *
    * @returns Array of expired members from all gyms
    */
-  findAllExpiredMembers(): Promise<Member[]>;
+  findAllExpiredMembers(): Promise<Member[]>
 
   /**
    * Find all suspended members across all gyms
@@ -143,7 +149,7 @@ export interface IMemberRepository {
    *
    * @returns Array of suspended members from all gyms
    */
-  findAllSuspendedMembers(): Promise<Member[]>;
+  findAllSuspendedMembers(): Promise<Member[]>
 
   /**
    * Find overdue members (active but past due date)
@@ -153,7 +159,7 @@ export interface IMemberRepository {
    * @param gymId - Gym ID
    * @returns Array of overdue members
    */
-  findOverdueMembers(gymId: string): Promise<Member[]>;
+  findOverdueMembers(gymId: string): Promise<Member[]>
 
   /**
    * Find members due within N days
@@ -164,7 +170,7 @@ export interface IMemberRepository {
    * @param days - Number of days
    * @returns Array of members due within specified days
    */
-  findMembersDueWithinDays(gymId: string, days: number): Promise<Member[]>;
+  findMembersDueWithinDays(gymId: string, days: number): Promise<Member[]>
 
   /**
    * Create a new member
@@ -172,7 +178,7 @@ export interface IMemberRepository {
    * @param member - Member entity to create
    * @returns Created member with assigned ID
    */
-  create(member: Member): Promise<Member>;
+  create(member: Member): Promise<Member>
 
   /**
    * Create a new member through the FOR UPDATE-locked quota gate
@@ -187,7 +193,7 @@ export interface IMemberRepository {
    * @throws MemberLimitError when the subscription tier blocks the insert
    * @throws NotFoundError when the gym does not exist
    */
-  createGuarded(gymId: string, member: Member): Promise<Member>;
+  createGuarded(gymId: string, member: Member): Promise<Member>
 
   /**
    * Update an existing member
@@ -195,7 +201,20 @@ export interface IMemberRepository {
    * @param member - Member entity with updates
    * @returns Updated member
    */
-  update(member: Member): Promise<Member>;
+  /**
+   * Persist a member.
+   *
+   * @param member - The member to write.
+   * @param options.expectedNextDueDate - Optimistic-concurrency guard. When
+   *   given, the write only applies if the member's stored `next_due_date`
+   *   still equals this, and throws `ConflictError` otherwise. Payment
+   *   collection passes it so two concurrent submissions cannot both advance
+   *   the same member and both record a payment.
+   */
+  update(
+    member: Member,
+    options?: { expectedNextDueDate?: Date }
+  ): Promise<Member>
 
   /**
    * Delete a member
@@ -203,7 +222,7 @@ export interface IMemberRepository {
    * @param id - Member ID
    * @param gymId - Gym ID (for RLS enforcement)
    */
-  delete(id: string, gymId: string): Promise<void>;
+  delete(id: string, gymId: string): Promise<void>
 
   /**
    * Update status for multiple members (batch operation)
@@ -218,7 +237,7 @@ export interface IMemberRepository {
     memberIds: string[],
     status: MemberStatus,
     gymId: string
-  ): Promise<void>;
+  ): Promise<void>
 
   /**
    * Count members by status
@@ -228,7 +247,7 @@ export interface IMemberRepository {
    * @param gymId - Gym ID
    * @returns Count by status
    */
-  countByStatus(gymId: string): Promise<Record<MemberStatus, number>>;
+  countByStatus(gymId: string): Promise<Record<MemberStatus, number>>
 
   /**
    * Count members by plan type
@@ -238,7 +257,7 @@ export interface IMemberRepository {
    * @param gymId - Gym ID
    * @returns Count by plan type
    */
-  countByPlanType(gymId: string): Promise<Record<PlanType, number>>;
+  countByPlanType(gymId: string): Promise<Record<PlanType, number>>
 
   /**
    * Find member by phone number
@@ -249,5 +268,5 @@ export interface IMemberRepository {
    * @param gymId - Gym ID
    * @returns Member if found, null otherwise
    */
-  findByPhoneNumber(phoneNumber: string, gymId: string): Promise<Member | null>;
+  findByPhoneNumber(phoneNumber: string, gymId: string): Promise<Member | null>
 }

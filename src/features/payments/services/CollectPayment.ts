@@ -233,7 +233,17 @@ export class CollectPayment {
         ? planChangedMember.renew(nextDueDate) // Early renewal for active members
         : planChangedMember.activate(nextDueDate) // Reactivation for expired/suspended/cancelled
 
-    const updatedMember = await this.memberRepo.update(processedMember)
+    // Optimistic concurrency: only apply if the member's due date is still the
+    // one this payment was computed against. Two concurrent "Mark Paid"
+    // submissions previously both succeeded — both read the same due date, both
+    // computed the same next one, both wrote a payment row. The second now gets
+    // a ConflictError (409) and records nothing.
+    //
+    // Ordered before the payment insert for the same reason the quota check is:
+    // a rejected flip must leave no payment behind.
+    const updatedMember = await this.memberRepo.update(processedMember, {
+      expectedNextDueDate: member.nextDueDate,
+    })
 
     // 6. Create payment record
     const payment = Payment.create({

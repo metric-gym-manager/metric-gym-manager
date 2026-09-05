@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+// Deep import: a feature barrel may re-export server-only services.
+import { PaymentCalculator } from '@/features/payments/domain/PaymentCalculator'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -149,20 +151,34 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     }
   }, [watchPlanType, planTypesData, setValue])
 
-  useEffect(() => {
-    if (watchPlanAmount) {
-      const discounted =
-        watchPlanAmount - (watchPlanAmount * discountPercentage) / 100
-      setValue('paymentAmount', discounted + admissionFee)
-    }
-  }, [watchPlanAmount, discountPercentage, admissionFee, setValue])
-
   // Derived values — single source of truth
   const planAmount = watchPlanAmount || 0
-  const discountedAmount =
-    Math.round(planAmount * (1 - discountPercentage / 100) * 100) / 100
+
+  // The discount applies to the membership price only. A joining fee is not a
+  // membership charge, so it is added AFTER the discount rather than discounted
+  // alongside it.
+  const discountedAmount = PaymentCalculator.calculateAmount(
+    planAmount,
+    discountPercentage > 0
+      ? {
+          discountId: watchDiscountId ?? 'preview',
+          discountName: 'preview',
+          discountPercentage,
+        }
+      : null
+  )
   const totalDueAmount =
     Math.round((discountedAmount + admissionFee) * 100) / 100
+
+  useEffect(() => {
+    if (watchPlanAmount) {
+      // Submits exactly the figure the form displays. These were two separate
+      // computations — the displayed `totalDueAmount` rounded and the submitted
+      // `paymentAmount` did not — so the member could be charged a fraction of
+      // a cent more or less than the total they were shown.
+      setValue('paymentAmount', totalDueAmount)
+    }
+  }, [watchPlanAmount, totalDueAmount, setValue])
 
   const createMemberMutation = useMutation({
     mutationFn: async (data: AddMemberInput) => {
