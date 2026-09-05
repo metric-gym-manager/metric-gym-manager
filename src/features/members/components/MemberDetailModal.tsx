@@ -18,6 +18,12 @@ import {
   TableRow,
   Label,
 } from '@/components/ui'
+// Deep import, NOT the `@/features/sms` barrel. The barrel re-exports
+// `sms.service`, which imports `@/lib/supabase/server` and therefore
+// `next/headers` — pulling server-only code into the client bundle and failing
+// the build with "Ecmascript file had an error". Same trap rule 2.15 records
+// for the auth barrel, in a different feature.
+import { MemberSmsHistory } from '@/features/sms/components/MemberSmsHistory'
 import MarkPaidDialog from '@/features/payments/components/MarkPaidDialog'
 import ReactivationDialog, {
   type ReactivationConfirm,
@@ -604,6 +610,11 @@ export default function MemberDetailModal({
               history because "why can't they get in" is asked far more often
               than "what have they paid". */}
           {accessSlot}
+
+          {/* SMS History — sibling of Payment History. Imported through the
+              SMS feature's barrel (R4); members does not reach into its
+              internals. */}
+          <MemberSmsHistory memberId={member.id} />
 
           {/* Payment History — distinct container */}
           <div className="rounded-sm border border-line-1 bg-surface-input p-4 space-y-3">
