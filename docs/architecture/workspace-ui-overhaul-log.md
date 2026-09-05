@@ -881,7 +881,7 @@ adding (§4.5 permits this; §7 requires syncing all three L1 files).
 
 ---
 
-### OPEN-5 — Legal and contact pages are behind authentication _(product/routing, outside this directive)_
+### OPEN-5 — ~~Legal and contact pages are behind authentication~~ **RESOLVED 2026-08-31**
 
 `PUBLIC_ROUTES` in `src/lib/auth-config.ts` contains `/`, `/login`, `/register`
 and the auth callbacks. It does **not** contain `/terms`, `/privacy`,
@@ -894,10 +894,30 @@ policy is where `ACCESS_EVENT_RETENTION_DAYS` is published (rule 2.21). A
 prospective customer cannot read any of them, and neither can a compliance
 reviewer.
 
-Pre-existing, entirely outside a visual-correction directive, and a routing
-change with real security surface — so it is raised, not fixed. **Needs a
-decision on which four routes go public and whether any carry gym-specific
-data.**
+Pre-existing and entirely outside a visual-correction directive, so it was
+raised rather than fixed, then ruled on and fixed separately.
+
+**Resolution.** All four added to `PUBLIC_ROUTES` as **exact** matches — a
+`/terms/` prefix would make every future nested route public by accident.
+
+The safety question was asked first, because a public route that reads
+per-request state is how multi-tenant isolation leaks: all four pages are
+statically prerendered and contain no Supabase client, no session read, no
+`cookies()`/`headers()` call and no `fetch`, and the `@/components/legal`
+components they use are equally inert.
+
+Verified against the running app signed out: the four serve 200, and sixteen
+protected routes — including `/terms/internal`, `/privacy/admin` and
+`/contact/leads` — still redirect to `/login`. Tests name each document rather
+than looping over `PUBLIC_ROUTES`, so they state what must stay reachable
+instead of asserting a list matches itself, and were falsified by reverting the
+four entries.
+
+Incidental check while there: the privacy policy's "door access records …
+deleted automatically 12 months after they occur" agrees with
+`ACCESS_EVENT_RETENTION_DAYS = 365` (rule 2.21 requires the two to move
+together). The figure is now actually reachable by the data subjects it is
+written for.
 
 ### OPEN-6 — SMS history: a live endpoint with no UI _(product gap)_
 
@@ -951,8 +971,10 @@ absence of overdue payments.
 
 1. **§9.1 human sign-off.** "Has the perceived product category moved" is not a
    question a screenshot answers. Everything mechanical around it is done.
-2. Two product issues raised rather than fixed — legal pages behind auth, SMS
-   history with a live endpoint and no UI. See OPEN-5 and OPEN-6.
+2. Two product issues still raised rather than fixed — OPEN-6 (SMS history: a
+   live endpoint and service with no UI consumer and no test) and OPEN-7
+   (`/revenue` reading "Fully collected" in green over a zero). OPEN-5 was
+   ruled on and fixed.
 3. `MemberDetailModalMobile`'s payment tiles — the last hand-copied card
    (R6: mobile is a separate effort).
 
