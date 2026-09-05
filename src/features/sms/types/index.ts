@@ -2,17 +2,25 @@
 // SMS TYPES
 // ============================================================
 
-export type SMSType =
-  | 'welcome'
-  | 'reminder_7day'
-  | 'reminder_3day'
-  | 'due_today'
-  | 'overdue'
-  | 'receipt'
-  | 'reactivation'
+import type { SmsType } from '../config/SmsConfig'
+import { SmsDeliveryStatus } from '../config/SmsConfig'
 
-export type DeliveryStatus = 'sent' | 'delivered' | 'failed'
+/** Re-exported from the domain authority (R5). Do not redeclare these. */
+export type SMSType = SmsType
+export type DeliveryStatus = `${SmsDeliveryStatus}`
 
+/**
+ * A row of `sms_logs`, exactly as the table defines it.
+ *
+ * `created_at` used to be declared here and **does not exist on the table**. The
+ * member-history read selected it, so `GET /api/members/[id]/sms-history`
+ * answered `42703: column "created_at" does not exist` and returned 500 on every
+ * call. `sent_at` is the only timestamp this table has.
+ *
+ * `error_message` is on the row but is technical detail: it must never reach a
+ * gym manager (rule 2.8), which is why the member-history read projects a
+ * narrower shape rather than returning this type.
+ */
 export interface SMSLog {
   id: string
   member_id: string
@@ -23,7 +31,7 @@ export interface SMSLog {
   sent_at: string
   delivery_status: DeliveryStatus
   text_lk_message_id: string | null
-  created_at: string
+  error_message: string | null
 }
 
 export interface MemberReminderStatus {

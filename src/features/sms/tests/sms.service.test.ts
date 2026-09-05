@@ -352,7 +352,9 @@ describe('SMS Service - Welcome SMS', () => {
     }
 
     await expect(sendSMS('gym_123', 'member_123', 'welcome')).rejects.toThrow(
-      'Failed to log SMS'
+      // Message moved with the write: sms.service no longer inserts directly,
+      // it delegates to SupabaseSMSRepository (R5, one writer for sms_logs).
+      'Failed to create SMS log'
     )
   })
 })
@@ -395,7 +397,21 @@ describe('SMS Service - Real SMS Integration', () => {
             insert: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
             single: jest.fn().mockResolvedValue({
-              data: { id: 'sms_log_123', text_lk_message_id: 'mock_msg_123' },
+              // Complete row: sendSMS now logs through SupabaseSMSRepository,
+              // which maps the selected row back into the domain shape — an
+              // under-specified fixture yields `new Date(undefined)`.
+              data: {
+                id: 'sms_log_123',
+                member_id: 'member_123',
+                gym_id: 'gym_123',
+                sms_type: 'welcome',
+                phone_number: '+94771234567',
+                message_body: 'Welcome to FitLife Gym',
+                sent_at: '2026-09-05T00:00:00.000Z',
+                delivery_status: 'sent',
+                text_lk_message_id: 'mock_msg_123',
+                error_message: null,
+              },
               error: null,
             }),
           }
@@ -550,7 +566,18 @@ describe('SMS Service - Real SMS Integration', () => {
             insert: jest.fn().mockReturnThis(),
             select: jest.fn().mockReturnThis(),
             single: jest.fn().mockResolvedValue({
-              data: { id: 'sms_log_123' },
+              data: {
+                id: 'sms_log_123',
+                member_id: 'member_123',
+                gym_id: 'gym_123',
+                sms_type: 'welcome',
+                phone_number: '+94771234567',
+                message_body: 'Welcome',
+                sent_at: '2026-09-05T00:00:00.000Z',
+                delivery_status: 'sent',
+                text_lk_message_id: null,
+                error_message: null,
+              },
               error: null,
             }),
           }

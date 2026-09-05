@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import type { SMSType, SMSLog, MemberReminderStatus } from '../types'
 import type { ReminderFiltersInput } from '../schemas/sms.schemas'
 import { sendSmsViaTextLk } from './textlk.service'
+import { createSMSRepository } from './factory'
+import { SMSDeliveryStatus } from './ISMSRepository'
 
 // ============================================================
 // SEND SMS (WITH REAL SMS INTEGRATION VIA text.lk)
@@ -39,6 +41,7 @@ export async function sendSMS(
 
   let deliveryStatus: 'sent' | 'delivered' | 'failed' = 'sent'
   let textLkMessageId: string | null = null
+  let errorMessage: string | null = null
 
   if (useRealSms) {
     // Send SMS via text.lk API
@@ -63,6 +66,10 @@ export async function sendSMS(
       }
     } else {
       deliveryStatus = 'failed'
+      // Kept, not just printed: `error_message` is what /system-health shows an
+      // operator, and rule 2.7 requires the failure reason to reach the database.
+      // Previously this line was the only record that a send had failed and why.
+      errorMessage = result.error ?? 'Unknown provider error'
       console.error(`   ✗ SMS failed: ${result.error}`)
     }
   } else {
@@ -73,29 +80,38 @@ export async function sendSMS(
     console.log(`   Message: ${messageBody}`)
   }
 
-  // Log to database
-  const { data: smsLog, error } = await supabase
-    .from('sms_logs')
-    .insert({
-      member_id: memberId,
-      gym_id: gymId,
-      sms_type: smsType,
-      phone_number: member.phone_number,
-      message_body: messageBody,
-      sent_at: new Date().toISOString(),
-      delivery_status: deliveryStatus,
-      text_lk_message_id: textLkMessageId,
-    })
-    .select()
-    .single()
+  // Logged through the SMS repository rather than by a second inline insert, so
+  // `sms_logs` has one writer that knows its own columns (R5). The session
+  // client is correct here — a gym manager triggers this, and the table's INSERT
+  // policy checks `auth.uid()`.
+  const created = await createSMSRepository(supabase).create({
+    memberId,
+    gymId,
+    smsType,
+    phoneNumber: member.phone_number,
+    messageBody,
+    sentAt: new Date(),
+    deliveryStatus: deliveryStatus as SMSDeliveryStatus,
+    textLkMessageId,
+    errorMessage,
+  })
 
-  if (error || !smsLog) {
-    throw new Error(`Failed to log SMS: ${error?.message}`)
-  }
+  console.log(`   ✓ SMS logged to database (ID: ${created.id})`)
 
-  console.log(`   ✓ SMS logged to database (ID: ${smsLog.id})`)
-
-  return smsLog as SMSLog
+  // Mapped back to the row shape this function has always returned, so
+  // `POST /api/sms/send` keeps its response contract.
+  return {
+    id: created.id,
+    member_id: created.memberId,
+    gym_id: created.gymId,
+    sms_type: created.smsType,
+    phone_number: created.phoneNumber,
+    message_body: created.messageBody,
+    sent_at: created.sentAt.toISOString(),
+    delivery_status: created.deliveryStatus,
+    text_lk_message_id: created.textLkMessageId,
+    error_message: created.errorMessage,
+  } satisfies SMSLog
 }
 
 // ============================================================
