@@ -1,0 +1,45 @@
+{
+  "_comment": [
+    "The contract between the Postgres enums and their TypeScript mirrors.",
+    "",
+    "It exists because the two have drifted four times, twice causing production",
+    "insert failures that were only fixed after the fact by a migration:",
+    "  - sms_type: TS had 'welcome' before the DB (20260309000001)",
+    "  - sms_type: TS had 'reactivation' before the DB (20260802000001)",
+    "  - delivery_status: TS had 'pending' before the DB (20260905000001)",
+    "  - member_status: the DB had 'frozen' and TS did not (20260905000006)",
+    "",
+    "Nothing type-checks one against the other — the Supabase clients carry no",
+    "generated Database generic, so every .select() and .update() is an",
+    "unchecked string. This file closes the loop from both sides:",
+    "",
+    "  * `npm run db:audit` compares these to the LIVE database.",
+    "  * `enum-parity.test.ts` compares these to the TypeScript owners.",
+    "",
+    "Changing an enum means changing all three: the migration, the TS owner, and",
+    "this file. If that feels like friction, it is the friction that was missing",
+    "the four times above."
+  ],
+  "enums": {
+    "member_status": {
+      "owner": "src/features/members/config/StatusConfig.ts (MemberStatus)",
+      "values": ["active", "expired", "suspended", "cancelled"]
+    },
+    "sms_type": {
+      "owner": "src/features/sms/config/SmsConfig.ts (SMS_TYPES)",
+      "values": [
+        "reminder_7day",
+        "reminder_3day",
+        "due_today",
+        "overdue",
+        "receipt",
+        "welcome",
+        "reactivation"
+      ]
+    },
+    "delivery_status": {
+      "owner": "src/features/sms/config/SmsConfig.ts (SmsDeliveryStatus)",
+      "values": ["sent", "delivered", "failed", "pending"]
+    }
+  }
+}
