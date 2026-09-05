@@ -9,8 +9,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Lightbulb, Info, X, AlertTriangle } from 'lucide-react'
-import { Card, Modal, Button, Input, Label } from '@/components/ui'
+import { Info, X } from 'lucide-react'
+import { Badge, Modal, Button, Input, Label } from '@/components/ui'
+import { SettingsSection, SettingsRow } from '@/components/common/composites'
 import {
   updatePasswordSchema,
   updateEmailSchema,
@@ -801,15 +802,6 @@ export default function AccountSecurityPage() {
   return (
     <div className="max-w-3xl">
       <div className="space-y-6">
-        {/* Description */}
-        <div>
-          <h2 className="text-lg font-semibold">Account Security</h2>
-          <p className="text-sm text-ink-secondary mt-1">
-            Manage your account security settings including password, email, and
-            phone number
-          </p>
-        </div>
-
         {/* Password Change Reminder Banner */}
         {showPasswordReminder && (
           <div className="rounded-sm border border-accentui-border bg-accentui-bg p-4">
@@ -841,125 +833,110 @@ export default function AccountSecurityPage() {
           </div>
         )}
 
-        {/* Security Settings */}
-        <div className="space-y-4">
-          {/* Username Section */}
-          <Card className="p-6">
-            <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
-              <div>
-                <h3 className="text-base font-semibold">Username</h3>
-                <p className="text-sm text-ink-secondary mt-1">
+        {/* Security Settings — §5.18: one labelled section over hairline
+            separated rows, not four stacked cards. Each row is the same shape
+            (identity, current value, action), which is what makes it a table
+            of settings rather than four independent objects. */}
+        <SettingsSection
+          title="Account security"
+          description="Identity, contact details and sign-in credentials"
+        >
+          <SettingsRow
+            label="Username"
+            description="Your unique identifier displayed in the system"
+            control={
+              <div className="flex items-center gap-4">
+                <span className="font-mono text-mono-md text-ink-secondary">
                   {gymProfile?.username || 'Loading...'}
-                </p>
-                <p className="text-xs text-ink-muted mt-2">
-                  Your unique identifier displayed in the system
-                </p>
+                </span>
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => setUsernameModalOpen(true)}
+                  disabled={!gymProfile?.username}
+                >
+                  Update
+                </Button>
               </div>
-              <Button
-                variant="secondary"
-                className="self-start tablet:self-auto"
-                onClick={() => setUsernameModalOpen(true)}
-                disabled={!gymProfile?.username}
-              >
-                Update Username
-              </Button>
-            </div>
-          </Card>
+            }
+          />
 
-          {/* Email Section */}
-          <Card className="p-6">
-            <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-base font-semibold">Email Address</h3>
-                  {gymProfile && !gymProfile.email_verified && (
-                    <span className="inline-flex items-center gap-1 rounded-sm bg-warning-bg px-2 py-1 text-xs font-medium text-warning">
-                      <AlertTriangle
-                        className="h-4 w-4 text-warning"
-                        strokeWidth={2}
-                      />
-                      Unverified
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-ink-secondary mt-1">
-                  {gymProfile?.email || 'Loading...'}
-                </p>
-                {gymProfile && !gymProfile.email_verified ? (
-                  <div className="mt-2 rounded-sm bg-warning-bg p-3 border border-warning-border">
-                    <p className="text-xs text-warning">
-                      <strong>Action Required:</strong> Check your inbox at{' '}
-                      <strong>{gymProfile.email}</strong> and click the
-                      verification link to activate your new email.
-                    </p>
-                    <p className="text-xs text-warning mt-1 flex items-center gap-1">
-                      <Lightbulb
-                        className="h-3.5 w-3.5 text-warning"
-                        strokeWidth={2}
-                      />
-                      <strong>Important:</strong> Use this new email for future
-                      logins.
-                    </p>
-                  </div>
-                ) : (
-                  <p className="text-xs text-ink-muted mt-2">
-                    Used for login and account recovery
-                  </p>
+          <SettingsRow
+            label={
+              <span className="flex items-center gap-2">
+                Email address
+                {gymProfile && !gymProfile.email_verified && (
+                  <Badge variant="warning">Unverified</Badge>
                 )}
+              </span>
+            }
+            description={
+              gymProfile && !gymProfile.email_verified ? (
+                <>
+                  <strong className="text-warning">Action required:</strong>{' '}
+                  check your inbox at <strong>{gymProfile.email}</strong> and
+                  click the verification link. Use this new email for future
+                  logins.
+                </>
+              ) : (
+                'Used for login and account recovery'
+              )
+            }
+            control={
+              <div className="flex items-center gap-4">
+                <span className="font-mono text-mono-md text-ink-secondary">
+                  {gymProfile?.email || 'Loading...'}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => setEmailModalOpen(true)}
+                  disabled={!gymProfile?.email}
+                >
+                  Update
+                </Button>
               </div>
-              <Button
-                variant="secondary"
-                className="self-start tablet:self-auto"
-                onClick={() => setEmailModalOpen(true)}
-                disabled={!gymProfile?.email}
-              >
-                Update Email
-              </Button>
-            </div>
-          </Card>
+            }
+          />
 
-          {/* Phone Number Section */}
-          <Card className="p-6">
-            <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
-              <div>
-                <h3 className="text-base font-semibold">Phone Number</h3>
-                <p className="text-sm text-ink-secondary mt-1">
+          <SettingsRow
+            label="Phone number"
+            description="Used for OTP login and SMS notifications"
+            control={
+              <div className="flex items-center gap-4">
+                <span className="font-mono text-mono-md text-ink-secondary">
                   {maskPhone(gymProfile?.phone_number)}
-                </p>
-                <p className="text-xs text-ink-muted mt-2">
-                  Used for OTP login and SMS notifications
-                </p>
+                </span>
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => setPhoneModalOpen(true)}
+                >
+                  Update
+                </Button>
               </div>
-              <Button
-                variant="secondary"
-                className="self-start tablet:self-auto"
-                onClick={() => setPhoneModalOpen(true)}
-              >
-                Update Phone
-              </Button>
-            </div>
-          </Card>
+            }
+          />
 
-          {/* Password Section */}
-          <Card className="p-6">
-            <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
-              <div>
-                <h3 className="text-base font-semibold">Password</h3>
-                <p className="text-sm text-ink-secondary mt-1">••••••••</p>
-                <p className="text-xs text-ink-muted mt-2">
-                  Keep your account secure with a strong password
-                </p>
+          <SettingsRow
+            label="Password"
+            description="Keep your account secure with a strong password"
+            control={
+              <div className="flex items-center gap-4">
+                <span className="font-mono text-mono-md text-ink-secondary">
+                  ••••••••
+                </span>
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  onClick={() => setPasswordModalOpen(true)}
+                >
+                  Change
+                </Button>
               </div>
-              <Button
-                variant="secondary"
-                className="self-start tablet:self-auto"
-                onClick={() => setPasswordModalOpen(true)}
-              >
-                Change Password
-              </Button>
-            </div>
-          </Card>
-        </div>
+            }
+          />
+        </SettingsSection>
       </div>
 
       {/* Modals */}
