@@ -945,7 +945,7 @@ the three disagreeing enum declarations, then verified end-to-end against the
 running app and the real database. Full account in
 `docs/architecture/sms-delivery-tracking.md`.
 
-### OPEN-7 — `/revenue` can read "Fully collected" over a zero _(pre-existing, cosmetic-but-misleading)_
+### OPEN-7 — ~~`/revenue` can read "Fully collected" over a zero~~ **RESOLVED 2026-09-05**
 
 Observed in the Phase 5 visual pass on a new gym: `COLLECTED · AUG` shows `0`
 with "0% of billed", while `PROJECTED · AUG` shows `5,000` with **"Fully
@@ -956,9 +956,13 @@ contradict each other at a glance, and the green reads as an all-clear on a
 month where nothing has been collected.
 
 Predates the overhaul (identical in `b5ab06a~1`), so it was not changed under a
-visual directive. The fix is a wording/derivation decision — "Fully collected"
-should probably require `collectedRevenue >= projectedRevenue`, not merely the
-absence of overdue payments.
+visual directive.
+
+**Resolution.** Ruled: fix the model, not the wording. "Projected" was a
+run-rate valuation, so the ratio it fed was meaningless; it is now _billed_ —
+what members owe from their real due dates — and the green label states what its
+predicate actually tests (overdue members), not a claim about collection. Full
+account in `docs/architecture/revenue-billing-model.md`.
 
 ## 6. Revised phase status
 
@@ -979,16 +983,46 @@ absence of overdue payments.
 > same failure mode as a green gate that proves nothing — an artifact that
 > describes intent rather than the product.
 
-**Remaining, and none of it closes without a decision that is not mine:**
+**Remaining as of 2026-09-06.** OPEN-2 through OPEN-7 are all closed; what is
+left is one judgement call and three deliberate deferrals.
 
-1. **§9.1 human sign-off.** "Has the perceived product category moved" is not a
-   question a screenshot answers. Everything mechanical around it is done.
-2. Two product issues still raised rather than fixed — OPEN-6 (SMS history: a
-   live endpoint and service with no UI consumer and no test) and OPEN-7
-   (`/revenue` reading "Fully collected" in green over a zero). OPEN-5 was
-   ruled on and fixed.
-3. `MemberDetailModalMobile`'s payment tiles — the last hand-copied card
-   (R6: mobile is a separate effort).
+1. **§9.1 human sign-off — the only thing blocking "done".** "Has the perceived
+   product category moved" is not a question a screenshot answers, and I am the
+   worst-placed judge of work I did myself. Everything mechanical around it
+   (§9.2 composition audit, §9.3 smell test) is finished.
+
+   **Do it against a gym with realistic volume.** Every screenshot taken during
+   this work was of the seeded E2E gym: one member, zero revenue, empty charts.
+   The directive's ninth question — "would this make sense for a multi-branch
+   gym with thousands of members and substantial revenue?" — has therefore never
+   been tested at all. Seed volume first, or the sign-off judges an operational
+   control system with no operations in it.
+
+2. **OPEN-1 — `/access-control` still has no sidebar entry** _(functional)_.
+   Reachable only by URL or via Settings → Access Control. Deferred by R1
+   because §4.10 forbids navigation changes under a visual directive; it needs a
+   one-line addition to `WORKSPACE_NAV` as its own change.
+
+3. **Mobile is a separate effort (R6)**, and it is the largest remaining gap:
+   nine nav items in a 76px scroller, and `MemberDetailModalMobile` still holds
+   the last hand-copied card. Nothing in this branch rebuilds it.
+
+4. **No historical _billed_ series** until `member_status_history` has depth —
+   the information was never recorded. See `revenue-billing-model.md` §4.
+
+**Not blocking merge, but recorded so nobody has to rediscover them:**
+
+- **31 duplicate payment rows across 22 members** (3.6% of 871), plus 7
+  future-dated payments. The cause is fixed — payment collection is now
+  serialised — but the existing rows are untouched, deliberately: deleting a
+  customer's payment records is not a silent decision. **Historical monthly
+  revenue is overstated by those rows**, which matters if any of those months
+  were filed with the inland revenue service.
+- `npm run db:audit` is not wired into CI. It needs `SUPABASE_DB_URL` and cannot
+  run from a host without IPv6 (use the session pooler).
+- `legacy-ui-migration.md` and `feature-gaps-app-workspace.md` still describe the
+  retired `mws-*` layer as current.
+- `EmptyStateLayout`'s defaults were changed, and it has no consumers.
 
 **Phase 1 exit gate (non-negotiable, from plan §2):** the canvas, sidebar and
 header render dark AND every interaction state is still visible. The legacy
