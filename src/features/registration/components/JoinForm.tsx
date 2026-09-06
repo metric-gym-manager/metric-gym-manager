@@ -152,22 +152,22 @@ export default function JoinForm({
   if (success) {
     return (
       <div className="mx-auto max-w-md px-6 py-12 text-center">
-        <CheckCircle2 className="mx-auto h-16 w-16 text-green-500" />
-        <h1 className="mt-4 text-2xl font-bold text-gray-900">
+        <CheckCircle2 className="mx-auto h-16 w-16 text-success" />
+        <h1 className="mt-4 text-display-sm text-ink">
           Welcome, {success.name}!
         </h1>
-        <div className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
-          <p className="text-sm text-gray-500">{success.planLabel}</p>
-          <p className="mt-2 text-4xl font-bold text-gray-900">
+        <div className="mt-6 rounded-sm border bg-surface-card p-6 ">
+          <p className="text-sm text-ink-muted">{success.planLabel}</p>
+          <p className="mt-2 text-display text-ink">
             {formatAmount(success.amountDue)}
           </p>
-          <p className="mt-4 text-base font-medium text-blue-700">
+          <p className="mt-4 text-base font-medium text-brand-link">
             Show this screen at the front desk and pay to complete your
             registration.
           </p>
         </div>
         {photoUploadFailed && (
-          <p className="mt-4 text-xs text-amber-600">
+          <p className="mt-4 text-xs text-warning">
             Your photo could not be uploaded — the front desk can add it for
             you.
           </p>
@@ -179,8 +179,8 @@ export default function JoinForm({
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-md px-6 py-8">
       <header className="text-center">
-        <h1 className="text-2xl font-bold text-gray-900">{gymName}</h1>
-        <p className="mt-1 text-sm text-gray-500">Member Registration</p>
+        <h1 className="text-display-sm text-ink">{gymName}</h1>
+        <p className="mt-1 text-sm text-ink-muted">Member Registration</p>
       </header>
 
       <div className="mt-8 space-y-5">
@@ -188,7 +188,7 @@ export default function JoinForm({
         <div>
           <label
             htmlFor="join-name"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm font-medium text-ink-secondary"
           >
             Full Name
           </label>
@@ -201,7 +201,7 @@ export default function JoinForm({
             autoComplete="name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1.5 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="mt-1.5 block w-full rounded-sm border border-line-2 bg-surface-card px-4 py-3 text-base  focus:border-focusring focus:outline-none focus:ring-2 focus:ring-focusring"
             placeholder="Your name"
           />
         </div>
@@ -210,7 +210,7 @@ export default function JoinForm({
         <div>
           <label
             htmlFor="join-phone"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm font-medium text-ink-secondary"
           >
             Phone Number
           </label>
@@ -222,7 +222,7 @@ export default function JoinForm({
             autoComplete="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            className="mt-1.5 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="mt-1.5 block w-full rounded-sm border border-line-2 bg-surface-card px-4 py-3 text-base  focus:border-focusring focus:outline-none focus:ring-2 focus:ring-focusring"
             placeholder="0771234567"
           />
         </div>
@@ -231,7 +231,7 @@ export default function JoinForm({
         <div>
           <label
             htmlFor="join-plan"
-            className="block text-sm font-medium text-gray-700"
+            className="block text-sm font-medium text-ink-secondary"
           >
             Membership Plan
           </label>
@@ -240,7 +240,7 @@ export default function JoinForm({
             required
             value={planType}
             onChange={(e) => setPlanType(e.target.value)}
-            className="mt-1.5 block w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-base shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            className="mt-1.5 block w-full rounded-sm border border-line-2 bg-surface-card px-4 py-3 text-base  focus:border-focusring focus:outline-none focus:ring-2 focus:ring-focusring"
           >
             {plans.map((plan) => (
               <option key={plan.planType} value={plan.planType}>
@@ -252,7 +252,7 @@ export default function JoinForm({
 
         {/* Selfie */}
         <div>
-          <span className="block text-sm font-medium text-gray-700">
+          <span className="block text-sm font-medium text-ink-secondary">
             Your Photo
           </span>
           <input
@@ -269,12 +269,12 @@ export default function JoinForm({
               <img
                 src={photoPreviewUrl}
                 alt="Your selfie"
-                className="h-20 w-20 rounded-full object-cover border-2 border-blue-200"
+                className="h-20 w-20 rounded-full object-cover border-2 border-accentui-border"
               />
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="inline-flex items-center gap-1.5 rounded-sm border border-line-2 px-3 py-2 text-sm font-medium text-ink-secondary hover:bg-surface-panel"
               >
                 <RefreshCw className="h-4 w-4" />
                 Retake
@@ -285,7 +285,7 @@ export default function JoinForm({
               type="button"
               disabled={processingPhoto}
               onClick={() => fileInputRef.current?.click()}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 bg-white px-4 py-6 text-sm font-medium text-gray-600 hover:border-blue-400 hover:text-blue-600"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-sm border-2 border-dashed border-line-2 bg-surface-card px-4 py-6 text-sm font-medium text-ink-secondary hover:border-accentui-border hover:text-brand-link"
             >
               {processingPhoto ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -310,12 +310,12 @@ export default function JoinForm({
 
         {/* Consents — both required */}
         <div className="space-y-3">
-          <label className="flex items-start gap-2.5 text-sm text-gray-700">
+          <label className="flex items-start gap-2.5 text-sm text-ink-secondary">
             <input
               type="checkbox"
               checked={acceptedTerms}
               onChange={(e) => setAcceptedTerms(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="mt-0.5 h-4 w-4 rounded border-line-2 text-brand-link focus:ring-focusring"
             />
             <span>
               I accept Metric Gym OS&apos;s{' '}
@@ -323,7 +323,7 @@ export default function JoinForm({
                 href="/privacy"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 underline"
+                className="text-brand-link underline"
               >
                 privacy policy
               </a>{' '}
@@ -332,47 +332,49 @@ export default function JoinForm({
                 href="/terms"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 underline"
+                className="text-brand-link underline"
               >
                 terms of service
               </a>
               .
             </span>
           </label>
-          <label className="flex items-start gap-2.5 text-sm text-gray-700">
+          <label className="flex items-start gap-2.5 text-sm text-ink-secondary">
             <input
               type="checkbox"
               checked={acceptedGymRules}
               onChange={(e) => setAcceptedGymRules(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="mt-0.5 h-4 w-4 rounded border-line-2 text-brand-link focus:ring-focusring"
             />
             <span>I agree to the gym&apos;s guidelines and rules.</span>
           </label>
         </div>
 
         {errorMessage && (
-          <div className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-sm bg-error-bg px-4 py-3 text-sm text-error">
             {errorMessage}
           </div>
         )}
 
         {/* Amount + submit */}
-        <div className="rounded-2xl bg-white border p-4 shadow-sm">
+        <div className="rounded-sm bg-surface-card border p-4 ">
           {admissionFee > 0 && selectedPlan && (
             <div className="mb-3 space-y-1 border-b pb-3">
-              <div className="flex items-center justify-between text-sm text-gray-500">
+              <div className="flex items-center justify-between text-sm text-ink-muted">
                 <span>Plan</span>
                 <span>{formatAmount(selectedPlan.amount)}</span>
               </div>
-              <div className="flex items-center justify-between text-sm text-gray-500">
+              <div className="flex items-center justify-between text-sm text-ink-muted">
                 <span>Admission fee</span>
                 <span>{formatAmount(admissionFee)}</span>
               </div>
             </div>
           )}
           <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">Amount to pay at desk</span>
-            <span className="text-xl font-bold text-gray-900">
+            <span className="text-sm text-ink-muted">
+              Amount to pay at desk
+            </span>
+            <span className="text-xl font-bold text-ink">
               {amountDue !== null ? formatAmount(amountDue) : '—'}
             </span>
           </div>
@@ -384,13 +386,13 @@ export default function JoinForm({
               !acceptedTerms ||
               !acceptedGymRules
             }
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-3.5 text-base font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-60"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-sm bg-accentui px-4 py-3.5 text-base font-semibold text-accentui-text  hover:bg-accentui-hover disabled:opacity-60"
           >
             {submitting && <Loader2 className="h-5 w-5 animate-spin" />}
             {submitting ? 'Registering...' : 'Register'}
           </button>
           {plans.length === 0 && (
-            <p className="mt-2 text-center text-xs text-amber-600">
+            <p className="mt-2 text-center text-xs text-warning">
               No plans are available right now — please ask the front desk.
             </p>
           )}

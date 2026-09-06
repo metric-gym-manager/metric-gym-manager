@@ -264,7 +264,7 @@ export default function AnnouncementProgress({
           </div>
 
           {/* Message Preview */}
-          <div className="rounded-md bg-surface-input p-2.5 md:p-3">
+          <div className="rounded-sm p-2.5 md:p-3">
             <p className="text-xs md:text-sm text-ink whitespace-pre-wrap leading-relaxed">
               {announcement.message}
             </p>
@@ -292,29 +292,29 @@ export default function AnnouncementProgress({
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-2 md:gap-4">
-            <div className="rounded-md bg-success-bg p-2 md:p-3">
+            <div className="rounded-sm bg-success-bg p-2 md:p-3">
               <div className="flex items-center gap-1 md:gap-2">
                 <Send className="h-3 w-3 md:h-4 md:w-4 text-success shrink-0" />
                 <span className="text-[10px] md:text-xs font-medium text-success">
                   Sent
                 </span>
               </div>
-              <p className="text-lg md:text-2xl font-bold text-success mt-0.5 md:mt-1">
+              <p className="text-h2 md:text-readout text-success mt-0.5 md:mt-1">
                 {announcement.sentCount}
               </p>
             </div>
-            <div className="rounded-md bg-error-bg p-2 md:p-3">
+            <div className="rounded-sm bg-error-bg p-2 md:p-3">
               <div className="flex items-center gap-1 md:gap-2">
                 <AlertCircle className="h-3 w-3 md:h-4 md:w-4 text-error shrink-0" />
                 <span className="text-[10px] md:text-xs font-medium text-error">
                   Failed
                 </span>
               </div>
-              <p className="text-lg md:text-2xl font-bold text-error mt-0.5 md:mt-1">
+              <p className="text-h2 md:text-readout text-error mt-0.5 md:mt-1">
                 {announcement.failedCount}
               </p>
             </div>
-            <div className="rounded-md bg-surface-input p-2 md:p-3">
+            <div className="rounded-sm p-2 md:p-3">
               <div className="flex items-center gap-1 md:gap-2">
                 <Clock className="h-3 w-3 md:h-4 md:w-4 text-ink-secondary shrink-0" />
                 <span className="text-[10px] md:text-xs font-medium text-ink truncate">
@@ -322,7 +322,7 @@ export default function AnnouncementProgress({
                   <span className="sm:hidden">Left</span>
                 </span>
               </div>
-              <p className="text-lg md:text-2xl font-bold text-ink-secondary mt-0.5 md:mt-1">
+              <p className="text-h2 md:text-readout text-ink-secondary mt-0.5 md:mt-1">
                 {announcement.recipientCount -
                   announcement.sentCount -
                   announcement.failedCount}
@@ -375,7 +375,7 @@ export default function AnnouncementProgress({
               {failures.retryable.map((failure) => (
                 <div
                   key={failure.id}
-                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 rounded-md bg-warning-bg border border-warning-border p-2.5 md:p-3"
+                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 rounded-sm bg-warning-bg border border-warning-border p-2.5 md:p-3"
                 >
                   <div className="flex-1 space-y-1 min-w-0">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
@@ -428,7 +428,7 @@ export default function AnnouncementProgress({
               </h4>
             </div>
 
-            <div className="rounded-md bg-error-bg border border-error-border p-3 md:p-4">
+            <div className="rounded-sm bg-error-bg border border-error-border p-3 md:p-4">
               <p className="text-xs md:text-sm text-error font-medium leading-relaxed">
                 <span className="hidden sm:inline">
                   The following messages failed after 3 retry attempts. Please
@@ -444,7 +444,7 @@ export default function AnnouncementProgress({
               {failures.maxAttempts.map((failure) => (
                 <div
                   key={failure.id}
-                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 rounded-md bg-surface-card border border-error-border p-2.5 md:p-3"
+                  className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-4 border-b border-line-subtle py-2.5 last:border-0"
                 >
                   <div className="flex-1 space-y-1 min-w-0">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">

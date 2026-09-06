@@ -86,9 +86,11 @@ export const primitiveColors = {
 export interface SemanticColorScale {
   surfaceBase: string
   surfaceCard: string
+  surfacePanel: string
   surfaceInput: string
   surfaceHover: string
   surfaceActive: string
+  surfaceSelected: string
   surfaceOverlay: string
   border1: string
   border2: string
@@ -103,11 +105,14 @@ export interface SemanticColorScale {
   textPlaceholder: string
   primaryDefault: string
   primaryText: string
+  primaryHover: string
   accentDefault: string
   accentHover: string
   accentText: string
   accentLink: string
   accentLinkHover: string
+  accentBg: string
+  accentBorder: string
   focusBorder: string
   successText: string
   successBg: string
@@ -122,85 +127,63 @@ export interface SemanticColorScale {
   destructiveText: string
 }
 
-/** Light theme — the App Workspace surface. */
-export const lightColors: SemanticColorScale = {
-  surfaceBase: '#f4f4f5',
-  surfaceCard: '#ffffff',
-  surfaceInput: '#f4f4f5',
-  surfaceHover: 'rgba(0,0,0,0.04)',
-  surfaceActive: 'rgba(0,0,0,0.045)',
-  surfaceOverlay: 'rgba(0,0,0,0.45)',
-  border1: 'rgba(0,0,0,0.09)',
-  border2: 'rgba(0,0,0,0.13)',
-  border3: 'rgba(0,0,0,0.16)',
-  borderHover: 'rgba(0,0,0,0.28)',
-  borderStrong: 'rgba(0,0,0,0.35)',
-  borderSubtle: 'rgba(0,0,0,0.05)',
-  borderDashed: 'rgba(0,0,0,0.16)',
-  textPrimary: '#18181b',
-  textSecondary: '#52525b',
-  textMuted: '#8a8a92',
-  textPlaceholder: '#c4c4c8',
-  primaryDefault: '#18181b',
-  primaryText: '#f4f4f5',
-  accentDefault: '#1b17ff',
-  accentHover: '#3230ff',
+/** Dark theme — the Marketing, Auth, and Legal surfaces. */
+export const darkColors: SemanticColorScale = {
+  surfaceBase: '#08080a',
+  surfaceCard: '#131317',
+  surfacePanel: '#0d0d10',
+  surfaceInput: 'rgba(255,255,255,0.05)',
+  surfaceHover: 'rgba(255,255,255,0.055)',
+  surfaceActive: 'rgba(255,255,255,0.08)',
+  surfaceSelected: 'rgba(74,71,209,0.3)',
+  surfaceOverlay: 'rgba(0,0,0,0.72)',
+  border1: 'rgba(255,255,255,0.1)',
+  border2: 'rgba(255,255,255,0.145)',
+  border3: 'rgba(255,255,255,0.19)',
+  borderHover: 'rgba(255,255,255,0.3)',
+  borderStrong: 'rgba(255,255,255,0.38)',
+  borderSubtle: 'rgba(255,255,255,0.06)',
+  borderDashed: 'rgba(255,255,255,0.16)',
+  textPrimary: '#f2f2f5',
+  textSecondary: '#a6a6b0',
+  textMuted: '#85858f',
+  textPlaceholder: '#5c5c66',
+  primaryDefault: '#f2f2f5',
+  primaryText: '#08080a',
+  primaryHover: '#dcdce2',
+  accentDefault: '#4a47d1',
+  accentHover: '#5c59dd',
   accentText: '#ffffff',
-  accentLink: '#4340ff',
-  accentLinkHover: '#1b17ff',
-  focusBorder: '#1b17ff',
-  successText: '#1a7f37',
-  successBg: 'rgba(63,185,80,0.1)',
-  successBorder: 'rgba(63,185,80,0.25)',
-  warningText: '#9a6700',
-  warningBg: 'rgba(210,153,34,0.1)',
-  warningBorder: 'rgba(210,153,34,0.25)',
-  errorText: '#cf222e',
-  errorBg: 'rgba(248,81,73,0.1)',
-  errorBorder: 'rgba(248,81,73,0.25)',
-  destructiveDefault: '#cf222e',
+  accentLink: '#9694f5',
+  accentLinkHover: '#b0aef8',
+  accentBg: 'rgba(74,71,209,0.16)',
+  accentBorder: 'rgba(110,107,225,0.35)',
+  focusBorder: '#6461e2',
+  successText: '#3fb950',
+  successBg: 'rgba(63,185,80,0.12)',
+  successBorder: 'rgba(63,185,80,0.28)',
+  warningText: '#d29922',
+  warningBg: 'rgba(210,153,34,0.12)',
+  warningBorder: 'rgba(210,153,34,0.28)',
+  errorText: '#f85149',
+  errorBg: 'rgba(248,81,73,0.12)',
+  errorBorder: 'rgba(248,81,73,0.28)',
+  destructiveDefault: '#da3633',
   destructiveText: '#ffffff',
 }
 
-/** Dark theme — the Marketing, Auth, and Legal surfaces. */
-export const darkColors: SemanticColorScale = {
-  surfaceBase: '#0a0a0b',
-  surfaceCard: '#131316',
-  surfaceInput: 'rgba(255,255,255,0.04)',
-  surfaceHover: 'rgba(255,255,255,0.06)',
-  surfaceActive: 'rgba(255,255,255,0.07)',
-  surfaceOverlay: 'rgba(0,0,0,0.7)',
-  border1: 'rgba(255,255,255,0.07)',
-  border2: 'rgba(255,255,255,0.12)',
-  border3: 'rgba(255,255,255,0.15)',
-  borderHover: 'rgba(255,255,255,0.25)',
-  borderStrong: 'rgba(255,255,255,0.3)',
-  borderSubtle: 'rgba(255,255,255,0.05)',
-  borderDashed: 'rgba(255,255,255,0.12)',
-  textPrimary: '#ededf0',
-  textSecondary: '#9b9ba4',
-  textMuted: '#64646d',
-  textPlaceholder: '#5c5c64',
-  primaryDefault: '#ededf0',
-  primaryText: '#0a0a0b',
-  accentDefault: '#1b17ff',
-  accentHover: '#3230ff',
-  accentText: '#ffffff',
-  accentLink: '#8a88ff',
-  accentLinkHover: '#a5a3ff',
-  focusBorder: '#1b17ff',
-  successText: '#3fb950',
-  successBg: 'rgba(63,185,80,0.1)',
-  successBorder: 'rgba(63,185,80,0.25)',
-  warningText: '#d29922',
-  warningBg: 'rgba(210,153,34,0.1)',
-  warningBorder: 'rgba(210,153,34,0.25)',
-  errorText: '#f85149',
-  errorBg: 'rgba(248,81,73,0.1)',
-  errorBorder: 'rgba(248,81,73,0.25)',
-  destructiveDefault: '#cf222e',
-  destructiveText: '#ffffff',
-}
+/**
+ * Light theme — RETIRED (ruling R2, 2026-08-29).
+ *
+ * The App Workspace is dark-first and dark-only; `globals.css` no longer
+ * declares a light `--ds-*` block, and nothing read this object at runtime.
+ * Kept as an alias so the exported `colors` shape stays stable for the
+ * `theme?: 'light' | 'dark'` props still present on the portalled overlays —
+ * those props are removed in Phase 2, and this alias goes with them.
+ *
+ * See docs/architecture/workspace-ui-overhaul-log.md.
+ */
+export const lightColors: SemanticColorScale = darkColors
 
 export const colors = { light: lightColors, dark: darkColors } as const
 export type ThemeName = keyof typeof colors
@@ -256,9 +239,10 @@ export const radius = {
 
 export const shadow = {
   none: 'none',
-  focus: '0 0 0 3px rgba(27,23,255,0.25)',
-  focusError: '0 0 0 3px rgba(248,81,73,0.25)',
-  overlay: '0 16px 48px rgba(0,0,0,0.5)',
+  focus: '0 0 0 2px rgba(100,97,226,0.45)',
+  focusError: '0 0 0 2px rgba(248,81,73,0.4)',
+  // Elevation is a 1px boundary, never a floating effect (directive §5.12/§6).
+  overlay: '0 0 0 1px rgba(255,255,255,0.14)',
   marketingOverlay: '0 8px 30px rgba(0,0,0,0.5)',
 } as const
 
@@ -377,6 +361,13 @@ export const typeScale = {
     letterSpacing: '-0.01em',
   },
   h3: { fontSize: '14px', lineHeight: '20px', fontWeight: 600 },
+  /**
+   * Readout — the value in an operational KPI band (directive §5.5). Mono and
+   * tabular at the call site so figures align in a column; 24px is large enough
+   * to scan across a band without becoming display type (§5.11: hierarchy from
+   * precision and alignment, not size).
+   */
+  readout: { fontSize: '24px', lineHeight: '28px', fontWeight: 600 },
   bodyLg: { fontSize: '15px', lineHeight: '24px', fontWeight: 400 },
   body: { fontSize: '13px', lineHeight: '20px', fontWeight: 400 },
   bodyEmphasis: { fontSize: '13px', lineHeight: '20px', fontWeight: 500 },
@@ -449,25 +440,24 @@ export const layout = {
 // highlights the current series, status colors for status-driven data.
 // ─────────────────────────────────────────────────────────────────────────────
 
+const darkChartPalette = {
+  bar: 'rgba(255,255,255,0.14)',
+  highlight: '#4a47d1',
+  success: '#3fb950',
+  warning: '#d29922',
+  error: '#f85149',
+  grid: 'rgba(255,255,255,0.06)',
+  axis: '#85858f',
+} as const
+
+/**
+ * Chart palette. `light` is an alias of `dark` — the light theme is retired
+ * (ruling R2). Charts read the `--ds-*` CSS vars directly (see Charts.tsx);
+ * this object is the JS mirror of that contract.
+ */
 export const chartPalette = {
-  light: {
-    bar: 'rgba(0,0,0,0.16)',
-    highlight: '#1b17ff',
-    success: '#3fb950',
-    warning: '#d29922',
-    error: '#f85149',
-    grid: 'rgba(0,0,0,0.05)',
-    axis: '#8a8a92',
-  },
-  dark: {
-    bar: 'rgba(255,255,255,0.12)',
-    highlight: '#1b17ff',
-    success: '#3fb950',
-    warning: '#d29922',
-    error: '#f85149',
-    grid: 'rgba(255,255,255,0.05)',
-    axis: '#64646d',
-  },
+  light: darkChartPalette,
+  dark: darkChartPalette,
 } as const
 
 /** The complete token set, for convenience imports. */

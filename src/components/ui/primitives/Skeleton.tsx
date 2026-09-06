@@ -18,7 +18,7 @@ export const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
       aria-hidden="true"
       className={cn(
         'animate-pulse bg-surface-input',
-        circle ? 'rounded-full' : 'rounded-md',
+        circle ? 'rounded-full' : 'rounded-sm',
         className
       )}
       {...props}

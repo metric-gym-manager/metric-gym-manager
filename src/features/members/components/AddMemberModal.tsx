@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+// Deep import: a feature barrel may re-export server-only services.
+import { PaymentCalculator } from '@/features/payments/domain/PaymentCalculator'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -149,20 +151,34 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     }
   }, [watchPlanType, planTypesData, setValue])
 
-  useEffect(() => {
-    if (watchPlanAmount) {
-      const discounted =
-        watchPlanAmount - (watchPlanAmount * discountPercentage) / 100
-      setValue('paymentAmount', discounted + admissionFee)
-    }
-  }, [watchPlanAmount, discountPercentage, admissionFee, setValue])
-
   // Derived values — single source of truth
   const planAmount = watchPlanAmount || 0
-  const discountedAmount =
-    Math.round(planAmount * (1 - discountPercentage / 100) * 100) / 100
+
+  // The discount applies to the membership price only. A joining fee is not a
+  // membership charge, so it is added AFTER the discount rather than discounted
+  // alongside it.
+  const discountedAmount = PaymentCalculator.calculateAmount(
+    planAmount,
+    discountPercentage > 0
+      ? {
+          discountId: watchDiscountId ?? 'preview',
+          discountName: 'preview',
+          discountPercentage,
+        }
+      : null
+  )
   const totalDueAmount =
     Math.round((discountedAmount + admissionFee) * 100) / 100
+
+  useEffect(() => {
+    if (watchPlanAmount) {
+      // Submits exactly the figure the form displays. These were two separate
+      // computations — the displayed `totalDueAmount` rounded and the submitted
+      // `paymentAmount` did not — so the member could be charged a fraction of
+      // a cent more or less than the total they were shown.
+      setValue('paymentAmount', totalDueAmount)
+    }
+  }, [watchPlanAmount, totalDueAmount, setValue])
 
   const createMemberMutation = useMutation({
     mutationFn: async (data: AddMemberInput) => {
@@ -207,7 +223,14 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
     'MEMBER_LIMIT_REACHED'
 
   const onSubmit = (data: AddMemberInput) => {
-    createMemberMutation.mutate(data)
+    // Send whether the fee applies, not how much it is. The amount is resolved
+    // server-side from the gym row; `paymentAmount` still carries the total so
+    // a desk can adjust it, but the recorded fee component is the gym's own
+    // configured figure rather than whatever this form computed.
+    createMemberMutation.mutate({
+      ...data,
+      applyAdmissionFee: admissionFeeAvailable && applyAdmissionFee,
+    })
   }
 
   const handleClose = () => {
@@ -315,7 +338,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             className={`flex items-center justify-center w-8 h-8 rounded-full text-sm font-semibold ${
               currentStep === 1
                 ? 'bg-accentui text-accentui-text'
-                : 'bg-success text-white'
+                : 'bg-success text-accentui-text'
             }`}
           >
             {currentStep === 1 ? '1' : '✓'}
@@ -356,7 +379,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
 
       {planTypesData &&
         planTypesData.filter((pt) => pt.is_active).length === 0 && (
-          <div className="rounded-md bg-warning-bg border border-warning-border p-4 mb-4">
+          <div className="rounded-sm bg-warning-bg border border-warning-border p-4 mb-4">
             <p className="text-sm text-warning">
               <strong>No plan types configured.</strong> Please go to Settings →
               Plans to configure your membership plan types before adding
@@ -572,7 +595,7 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
             <div className="space-y-4">
               <h3 className="text-sm font-semibold">Payment Summary</h3>
 
-              <div className="rounded-lg border border-line-1 bg-surface-input p-4 space-y-2">
+              <div className="rounded-sm border border-line-1 bg-surface-input p-4 space-y-2">
                 <p className="text-xs font-medium text-ink-muted uppercase tracking-wide">
                   Initial Payment
                 </p>

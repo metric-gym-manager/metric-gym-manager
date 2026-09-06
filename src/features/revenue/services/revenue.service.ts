@@ -1,11 +1,180 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server'
+import { PlanType } from '@/features/members/config/PlanConfig'
+import { MemberStatus } from '@/features/members/config/StatusConfig'
+import {
+  BILLABLE_STATUSES,
+  billedInMonth,
+  effectiveAmountFor,
+  isBillable,
+  type BillableMember,
+} from '../domain/BillingSchedule'
 import type {
   MonthlyRevenue,
-  YearlyRevenue,
   RevenueMetrics,
+  RevenuePosition,
   MonthlyRevenueResponse,
-  YearlyRevenueResponse,
-} from '../types';
+} from '../types'
+
+/**
+ * Revenue read model.
+ *
+ * "Billed" means what billable members actually owe for the period, derived
+ * from their due dates by `domain/BillingSchedule`. It replaces a normalised
+ * **run-rate** — annual ÷ 12, daily × 30 — that was presented as "projected"
+ * and then divided into cash collected under the label "% of billed". The
+ * denominator had never been billed, so the ratio was meaningless and could
+ * exceed 100%.
+ *
+ * All database access is in this file; the arithmetic is in the pure domain
+ * module, where it can be tested exhaustively.
+ */
+
+/** Row shape shared by every member read in this file. */
+const MEMBER_BILLING_COLUMNS =
+  'plan_type, plan_amount, membership_start_date, status, recurring_discount, next_due_date, discounts(discount_percentage)'
+
+interface MemberBillingRow {
+  plan_type: string
+  plan_amount: number
+  membership_start_date: string
+  status: string
+  recurring_discount: boolean
+  next_due_date: string
+  discounts: { discount_percentage: number } | null
+}
+
+function toBillableMember(row: MemberBillingRow): BillableMember {
+  return {
+    planType: row.plan_type as PlanType,
+    planAmount: Number(row.plan_amount),
+    membershipStartDate: row.membership_start_date,
+    status: row.status as MemberStatus,
+    recurringDiscount: row.recurring_discount,
+    discountPercentage: row.discounts?.discount_percentage ?? null,
+  }
+}
+
+/**
+ * Every member who can owe money, with what they owe.
+ *
+ * Fetched once per request. The previous implementation issued two queries per
+ * month since the gym was created — around 42 for a gym created in early 2025 —
+ * to compute a historical projection that was never rendered.
+ */
+async function loadBillableMembers(gymId: string): Promise<MemberBillingRow[]> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('members')
+    .select(MEMBER_BILLING_COLUMNS)
+    .eq('gym_id', gymId)
+    .in('status', BILLABLE_STATUSES)
+
+  if (error) {
+    throw new Error(`Failed to load members for revenue: ${error.message}`)
+  }
+
+  return (data ?? []) as unknown as MemberBillingRow[]
+}
+
+/**
+ * Payments in a date range, split by whether a membership schedule predicts them.
+ *
+ * Reads `payments.gym_id` directly. The previous queries joined
+ * `members!inner(gym_id)`, which is both an unnecessary join and subtly wrong:
+ * it scoped by the member's *current* gym rather than the gym the payment was
+ * taken in.
+ */
+async function loadPayments(
+  gymId: string,
+  startDate: string,
+  endDate: string
+): Promise<{ plan: number; oneOff: number }> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('payments')
+    .select('amount_paid, payment_type, admission_fee')
+    .eq('gym_id', gymId)
+    .gte('payment_date', startDate)
+    .lte('payment_date', endDate)
+
+  if (error) {
+    throw new Error(`Failed to load payments for revenue: ${error.message}`)
+  }
+
+  return (data ?? []).reduce(
+    (totals, payment) => {
+      const amount = Number(payment.amount_paid)
+
+      // A day pass is one-off in its entirety.
+      if (payment.payment_type === 'day_pass') {
+        totals.oneOff += amount
+        return totals
+      }
+
+      // A plan payment may carry a one-off admission fee inside its total. The
+      // fee is cash no billing schedule predicts, so it is split out: counting
+      // it as plan revenue is what let the collection rate exceed 100%.
+      //
+      // Rows written before 20260905000007 have `admission_fee = 0` because the
+      // split was not recorded then, not because no fee was charged — so
+      // historical figures still fold those fees into plan revenue.
+      const fee = Number(payment.admission_fee ?? 0)
+      totals.oneOff += fee
+      totals.plan += amount - fee
+      return totals
+    },
+    { plan: 0, oneOff: 0 }
+  )
+}
+
+/** Collected totals per calendar month, from one query rather than one per month. */
+async function loadMonthlyCollected(
+  gymId: string,
+  fromDate: string,
+  toDate: string
+): Promise<Map<string, number>> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('payments')
+    .select('amount_paid, payment_date')
+    .eq('gym_id', gymId)
+    .gte('payment_date', fromDate)
+    .lte('payment_date', toDate)
+
+  if (error) {
+    throw new Error(`Failed to load revenue history: ${error.message}`)
+  }
+
+  const byMonth = new Map<string, number>()
+  for (const payment of data ?? []) {
+    // `payment_date` is a DATE column: the first seven characters are its
+    // calendar year-month, with no timezone to shift them.
+    const key = String(payment.payment_date).slice(0, 7)
+    byMonth.set(key, (byMonth.get(key) ?? 0) + Number(payment.amount_paid))
+  }
+  return byMonth
+}
+
+function countOverdue(rows: MemberBillingRow[], today: Date): number {
+  const cutoff = new Date(today)
+  cutoff.setHours(0, 0, 0, 0)
+
+  return rows.filter((row) => {
+    if (!isBillable(row.status as MemberStatus)) return false
+    const due = new Date(row.next_due_date)
+    due.setHours(0, 0, 0, 0)
+    return due < cutoff
+  }).length
+}
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+const pad = (n: number) => String(n).padStart(2, '0')
+const firstOfMonth = (year: number, month: number) => `${year}-${pad(month)}-01`
+const lastOfMonth = (year: number, month: number) =>
+  `${year}-${pad(month)}-${pad(new Date(year, month, 0).getDate())}`
 
 // ============================================================
 // GET MONTHLY REVENUE
@@ -16,341 +185,102 @@ export async function getMonthlyRevenue(
   year: number,
   month: number
 ): Promise<MonthlyRevenueResponse> {
-  const supabase = await createClient();
+  const supabase = await createClient()
 
-  // Get gym registration date to determine data range
   const { data: gymProfile } = await supabase
     .from('gyms')
     .select('created_at')
     .eq('id', gymId)
-    .single();
+    .single()
 
   if (!gymProfile) {
-    throw new Error('Gym not found');
+    throw new Error('Gym not found')
   }
 
-  const gymCreatedDate = new Date(gymProfile.created_at);
+  const startDate = firstOfMonth(year, month)
+  const endDate = lastOfMonth(year, month)
 
-  // Calculate collected revenue for current month
-  const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
-  const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
+  const [memberRows, collected] = await Promise.all([
+    loadBillableMembers(gymId),
+    loadPayments(gymId, startDate, endDate),
+  ])
 
-  const { data: currentMonthPayments } = await supabase
-    .from('payments')
-    .select('amount_paid, members!inner(gym_id)')
-    .eq('members.gym_id', gymId)
-    .gte('payment_date', startOfMonth)
-    .lte('payment_date', endOfMonth);
+  const members = memberRows.map(toBillableMember)
 
-  const currentCollected = (currentMonthPayments || []).reduce(
-    (sum, p) => sum + p.amount_paid,
-    0
-  );
+  const currentMonth: RevenuePosition = {
+    billedRevenue: billedInMonth(members, year, month),
+    // The total is what a gym reports as revenue, so it is stated explicitly
+    // rather than left for a caller to add up.
+    collectedRevenue: round2(collected.plan + collected.oneOff),
+    planCollectedRevenue: round2(collected.plan),
+    oneOffRevenue: round2(collected.oneOff),
+    overdueMemberCount: countOverdue(memberRows, new Date()),
+  }
 
-  // Calculate projected revenue for current month
-  const projectedRevenue = await calculateMonthlyProjectedRevenue(gymId);
+  const gymCreatedDate = new Date(gymProfile.created_at)
+  const startYear = gymCreatedDate.getFullYear()
+  const startMonth = gymCreatedDate.getMonth() + 1
 
-  // Check if there are any overdue payments
-  const hasOverduePayments = await checkHasOverduePayments(gymId);
+  const byMonth = await loadMonthlyCollected(
+    gymId,
+    firstOfMonth(startYear, startMonth),
+    endDate
+  )
 
-  // Get historical data (all months from gym creation to current)
-  const historicalData: MonthlyRevenue[] = [];
-  const startYear = gymCreatedDate.getFullYear();
-  const startMonth = gymCreatedDate.getMonth() + 1;
-
+  const historicalData: MonthlyRevenue[] = []
   for (let y = startYear; y <= year; y++) {
-    const monthStart = y === startYear ? startMonth : 1;
-    const monthEnd = y === year ? month : 12;
-
-    for (let m = monthStart; m <= monthEnd; m++) {
-      const monthStartDate = new Date(y, m - 1, 1).toISOString().split('T')[0];
-      const monthEndDate = new Date(y, m, 0).toISOString().split('T')[0];
-
-      // Get collected revenue for this month
-      const { data: payments } = await supabase
-        .from('payments')
-        .select('amount_paid, members!inner(gym_id)')
-        .eq('members.gym_id', gymId)
-        .gte('payment_date', monthStartDate)
-        .lte('payment_date', monthEndDate);
-
-      const collected = (payments || []).reduce((sum, p) => sum + p.amount_paid, 0);
-
-      // Get active members count at the end of this month
-      const { data: activeMembers } = await supabase
-        .from('members')
-        .select('plan_type, plan_amount')
-        .eq('gym_id', gymId)
-        .eq('status', 'active')
-        .lte('membership_start_date', monthEndDate);
-
-      const projected = calculateProjectedMonthlyFromMembers(activeMembers || []);
-
+    const from = y === startYear ? startMonth : 1
+    const to = y === year ? month : 12
+    for (let m = from; m <= to; m++) {
       historicalData.push({
         year: y,
         month: m,
         monthLabel: `${getMonthName(m)} ${y}`,
-        collectedRevenue: collected,
-        projectedRevenue: projected,
-      });
+        collectedRevenue: byMonth.get(`${y}-${pad(m)}`) ?? 0,
+      })
     }
   }
 
-  // Get metrics
-  const metrics = await getRevenueMetrics(gymId);
-
   return {
-    currentMonth: {
-      collectedRevenue: currentCollected,
-      projectedRevenue: projectedRevenue,
-      hasOverduePayments: hasOverduePayments,
-    },
+    currentMonth,
     historicalData,
-    metrics,
-  };
-}
-
-// ============================================================
-// GET YEARLY REVENUE
-// ============================================================
-
-export async function getYearlyRevenue(
-  gymId: string,
-  year: number
-): Promise<YearlyRevenueResponse> {
-  const supabase = await createClient();
-
-  // Get gym registration date to determine data range
-  const { data: gymProfile } = await supabase
-    .from('gyms')
-    .select('created_at')
-    .eq('id', gymId)
-    .single();
-
-  if (!gymProfile) {
-    throw new Error('Gym not found');
+    metrics: await getRevenueMetrics(gymId),
   }
-
-  const gymCreatedDate = new Date(gymProfile.created_at);
-  const startYear = gymCreatedDate.getFullYear();
-
-  // Calculate collected revenue for current year
-  const startOfYear = new Date(year, 0, 1).toISOString().split('T')[0];
-  const endOfYear = new Date(year, 11, 31).toISOString().split('T')[0];
-
-  const { data: currentYearPayments } = await supabase
-    .from('payments')
-    .select('amount_paid, members!inner(gym_id)')
-    .eq('members.gym_id', gymId)
-    .gte('payment_date', startOfYear)
-    .lte('payment_date', endOfYear);
-
-  const currentCollected = (currentYearPayments || []).reduce(
-    (sum, p) => sum + p.amount_paid,
-    0
-  );
-
-  // Calculate projected revenue for current year
-  const projectedRevenue = await calculateYearlyProjectedRevenue(gymId);
-
-  // Check if there are any overdue payments
-  const hasOverduePayments = await checkHasOverduePayments(gymId);
-
-  // Get historical data (all years from gym creation to current)
-  const historicalData: YearlyRevenue[] = [];
-
-  for (let y = startYear; y <= year; y++) {
-    const yearStartDate = new Date(y, 0, 1).toISOString().split('T')[0];
-    const yearEndDate = new Date(y, 11, 31).toISOString().split('T')[0];
-
-    // Get collected revenue for this year
-    const { data: payments } = await supabase
-      .from('payments')
-      .select('amount_paid, members!inner(gym_id)')
-      .eq('members.gym_id', gymId)
-      .gte('payment_date', yearStartDate)
-      .lte('payment_date', yearEndDate);
-
-    const collected = (payments || []).reduce((sum, p) => sum + p.amount_paid, 0);
-
-    // Get active members count at the end of this year
-    const { data: activeMembers } = await supabase
-      .from('members')
-      .select('plan_type, plan_amount')
-      .eq('gym_id', gymId)
-      .eq('status', 'active')
-      .lte('membership_start_date', yearEndDate);
-
-    const projected = calculateProjectedYearlyFromMembers(activeMembers || []);
-
-    historicalData.push({
-      year: y,
-      collectedRevenue: collected,
-      projectedRevenue: projected,
-    });
-  }
-
-  // Get metrics
-  const metrics = await getRevenueMetrics(gymId);
-
-  return {
-    currentYear: {
-      collectedRevenue: currentCollected,
-      projectedRevenue: projectedRevenue,
-      hasOverduePayments: hasOverduePayments,
-    },
-    historicalData,
-    metrics,
-  };
 }
 
 // ============================================================
 // HELPER FUNCTIONS
 // ============================================================
 
-async function checkHasOverduePayments(gymId: string): Promise<boolean> {
-  const supabase = await createClient();
-
-  // Get active/expired members
-  const { data: members } = await supabase
-    .from('members')
-    .select('id, next_due_date')
-    .eq('gym_id', gymId)
-    .in('status', ['active', 'expired']);
-
-  if (!members || members.length === 0) {
-    return false;
-  }
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Check if any member has overdue payment
-  for (const member of members) {
-    // Check if payment is overdue
-    const dueDate = new Date(member.next_due_date);
-    dueDate.setHours(0, 0, 0, 0);
-    if (dueDate < today) {
-      return true; // Found at least one overdue payment
-    }
-  }
-
-  return false;
-}
-
-async function calculateMonthlyProjectedRevenue(gymId: string): Promise<number> {
-  const supabase = await createClient();
-
-  const { data: activeMembers } = await supabase
-    .from('members')
-    .select('plan_type, plan_amount')
-    .eq('gym_id', gymId)
-    .eq('status', 'active');
-
-  return calculateProjectedMonthlyFromMembers(activeMembers || []);
-}
-
-async function calculateYearlyProjectedRevenue(gymId: string): Promise<number> {
-  const supabase = await createClient();
-
-  const { data: activeMembers } = await supabase
-    .from('members')
-    .select('plan_type, plan_amount')
-    .eq('gym_id', gymId)
-    .eq('status', 'active');
-
-  return calculateProjectedYearlyFromMembers(activeMembers || []);
-}
-
-function calculateProjectedMonthlyFromMembers(
-  members: Array<{ plan_type: string; plan_amount: number }>
-): number {
-  let projectedRevenue = 0;
-
-  for (const member of members) {
-    switch (member.plan_type) {
-      case 'daily':
-        projectedRevenue += member.plan_amount * 30;
-        break;
-      case 'weekly':
-        projectedRevenue += member.plan_amount * 4.33; // ~4.33 weeks per month
-        break;
-      case 'monthly':
-        projectedRevenue += member.plan_amount;
-        break;
-      case '3-months':
-        projectedRevenue += member.plan_amount / 3;
-        break;
-      case '6-months':
-        projectedRevenue += member.plan_amount / 6;
-        break;
-      case 'annual':
-        projectedRevenue += member.plan_amount / 12;
-        break;
-    }
-  }
-
-  return projectedRevenue;
-}
-
-function calculateProjectedYearlyFromMembers(
-  members: Array<{ plan_type: string; plan_amount: number }>
-): number {
-  let projectedRevenue = 0;
-
-  for (const member of members) {
-    switch (member.plan_type) {
-      case 'daily':
-        projectedRevenue += member.plan_amount * 365;
-        break;
-      case 'weekly':
-        projectedRevenue += member.plan_amount * 52; // 52 weeks per year
-        break;
-      case 'monthly':
-        projectedRevenue += member.plan_amount * 12;
-        break;
-      case '3-months':
-        projectedRevenue += member.plan_amount * 4; // 4 quarters per year
-        break;
-      case '6-months':
-        projectedRevenue += member.plan_amount * 2; // 2 half-years per year
-        break;
-      case 'annual':
-        projectedRevenue += member.plan_amount;
-        break;
-    }
-  }
-
-  return projectedRevenue;
-}
-
 async function getRevenueMetrics(gymId: string): Promise<RevenueMetrics> {
-  const supabase = await createClient();
+  const supabase = await createClient()
 
-  // Get total active members
   const { count: activeCount } = await supabase
     .from('members')
     .select('*', { count: 'exact', head: true })
     .eq('gym_id', gymId)
-    .eq('status', 'active');
+    .eq('status', MemberStatus.Active)
 
-  // Get total revenue since inception
   const { data: allPayments } = await supabase
     .from('payments')
-    .select('amount_paid, members!inner(gym_id)')
-    .eq('members.gym_id', gymId);
+    .select('amount_paid')
+    .eq('gym_id', gymId)
 
-  const totalRevenue = (allPayments || []).reduce((sum, p) => sum + p.amount_paid, 0);
-
-  // Calculate average revenue per member
-  const averageRevenue = activeCount && activeCount > 0 ? totalRevenue / activeCount : 0;
+  const totalRevenue = (allPayments ?? []).reduce(
+    (sum, p) => sum + Number(p.amount_paid),
+    0
+  )
 
   return {
     totalActiveMembers: activeCount || 0,
     totalRevenueSinceInception: totalRevenue,
-    averageRevenuePerMember: averageRevenue,
-  };
+    averageRevenuePerMember:
+      activeCount && activeCount > 0 ? totalRevenue / activeCount : 0,
+  }
 }
+
+/** Exported for the plan-breakdown read model, which bills the same way. */
+export { effectiveAmountFor }
 
 function getMonthName(month: number): string {
   const months = [
@@ -366,6 +296,6 @@ function getMonthName(month: number): string {
     'Oct',
     'Nov',
     'Dec',
-  ];
-  return months[month - 1];
+  ]
+  return months[month - 1]
 }

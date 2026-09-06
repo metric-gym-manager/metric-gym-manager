@@ -4,9 +4,6 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   BarChart,
-  Card,
-  CardHeader,
-  CardLabel,
   EmptyState,
   Select,
   Table,
@@ -16,7 +13,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
-import { PageHeader, StatCard, ChartCard } from '@/components/common/composites'
+import {
+  PageHeader,
+  StatCard,
+  ChartCard,
+  SectionHeader,
+} from '@/components/common/composites'
 import type { MonthlyRevenueResponse } from '@/features/revenue/types'
 
 interface CollectedPayment {
@@ -114,29 +116,64 @@ export default function RevenuePageClient() {
 
   const cur = data?.currentMonth
   const metrics = data?.metrics
+
+  // A real ratio at last: the denominator is what billable members were
+  // actually billed this month, from their due dates, and the numerator is the
+  // part of the cash a schedule predicts. Comparing TOTAL cash to billings is
+  // what produced "127.7% of billed" — one-off money against a subscription
+  // denominator.
   const collectedRate =
-    cur && cur.projectedRevenue > 0
-      ? Math.round((cur.collectedRevenue / cur.projectedRevenue) * 100)
+    cur && cur.billedRevenue > 0
+      ? Math.round((cur.planCollectedRevenue / cur.billedRevenue) * 100)
       : null
+
+  // Deliberately not defaulted to 0: before the query resolves we do not know
+  // whether anyone is overdue, and "No overdue members" is a claim, not a
+  // placeholder. The tile stays silent until it has the answer.
+  const overdue = cur?.overdueMemberCount ?? null
 
   const tiles: Array<{ label: string; value: string; sub: React.ReactNode }> = [
     {
+      // ALL cash taken this month — plan payments, the joining fees inside them,
+      // and day passes. This is the figure a gym reports as revenue, so it is
+      // deliberately the total and never a subset. It matches the dashboard's
+      // "Revenue" tile for the same month.
       label: `Collected · ${MONTHS[month - 1].slice(0, 3)}`,
       value: cur ? fmt(cur.collectedRevenue) : '—',
-      sub: collectedRate !== null ? `${collectedRate}% of billed` : ' ',
+      sub:
+        cur && cur.oneOffRevenue > 0 ? (
+          <>incl. {fmt(cur.oneOffRevenue)} joining fees &amp; day passes</>
+        ) : (
+          'All cash received this month'
+        ),
     },
     {
-      label: `Projected · ${MONTHS[month - 1].slice(0, 3)}`,
-      value: cur ? fmt(cur.projectedRevenue) : '—',
-      sub: (
-        <span
-          className={cur?.hasOverduePayments ? 'text-warning' : 'text-success'}
-        >
-          {cur?.hasOverduePayments
-            ? 'Outstanding dues remain'
-            : 'Fully collected'}
-        </span>
-      ),
+      // "Billed", not "Projected". This is what members owe for this month
+      // from their actual due dates — so an annual member counts in their
+      // renewal month and in no other, instead of one twelfth every month.
+      label: `Billed · ${MONTHS[month - 1].slice(0, 3)}`,
+      value: cur ? fmt(cur.billedRevenue) : '—',
+      sub:
+        overdue === null ? (
+          ' '
+        ) : collectedRate !== null ? (
+          // The collection rate belongs on the tile whose value is its
+          // denominator, and it compares like with like: plan cash against plan
+          // billings, with one-off money excluded from both.
+          <span className={overdue > 0 ? 'text-warning' : 'text-success'}>
+            {collectedRate}% collected
+            {overdue > 0 ? ` · ${overdue} overdue` : ''}
+          </span>
+        ) : (
+          // States what its predicate actually tests. The old label read "Fully
+          // collected" in green whenever no member happened to be past due —
+          // including, as on a new gym, when nothing at all had been collected.
+          <span className={overdue > 0 ? 'text-warning' : 'text-success'}>
+            {overdue > 0
+              ? `${overdue} member${overdue === 1 ? '' : 's'} overdue`
+              : 'No overdue members'}
+          </span>
+        ),
     },
     {
       label: 'Active members',
@@ -192,17 +229,24 @@ export default function RevenuePageClient() {
         title="Revenue"
         actions={
           <div className="flex gap-2">
-            <Select
-              value={month}
-              onChange={(e) => setMonth(Number(e.target.value))}
-              aria-label="Month"
-            >
-              {MONTHS.map((label, i) => (
-                <option key={label} value={i + 1}>
-                  {label}
-                </option>
-              ))}
-            </Select>
+            {/* Sized to the longest month name. `Select` wraps itself in a
+                `w-full` div, so the width has to go on the container — a
+                className on the Select lands on the inner <select> and leaves
+                the wrapper claiming the whole line. "September" was truncating
+                to "Septeml". */}
+            <div className="w-44 shrink-0">
+              <Select
+                value={month}
+                onChange={(e) => setMonth(Number(e.target.value))}
+                aria-label="Month"
+              >
+                {MONTHS.map((label, i) => (
+                  <option key={label} value={i + 1}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <Select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
@@ -219,7 +263,7 @@ export default function RevenuePageClient() {
       />
 
       {/* Tiles */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 divide-x divide-y divide-line-1 border-y border-line-1 lg:grid-cols-4 lg:divide-y-0">
         {tiles.map((t) => (
           <StatCard
             key={t.label}
@@ -249,10 +293,12 @@ export default function RevenuePageClient() {
       </ChartCard>
 
       {/* Breakdown by plan type */}
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardLabel>Breakdown by plan type</CardLabel>
-        </CardHeader>
+      <section>
+        <SectionHeader
+          variant="metadata"
+          divider
+          title="Breakdown by plan type"
+        />
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -305,7 +351,7 @@ export default function RevenuePageClient() {
             </TableBody>
           </Table>
         </div>
-      </Card>
+      </section>
     </div>
   )
 }

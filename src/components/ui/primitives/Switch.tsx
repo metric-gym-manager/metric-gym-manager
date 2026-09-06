@@ -56,7 +56,7 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         onClick={handleClick}
         className={cn(
           // Track — 34×19 with 10px radius (radius.2xl), per spec §11 Toggle.
-          'relative inline-flex h-[19px] w-[34px] shrink-0 cursor-pointer items-center rounded-2xl border border-line-2 transition-colors duration-fast ease-out focus-visible:shadow-focus focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+          'relative inline-flex h-[19px] w-[34px] shrink-0 cursor-pointer items-center rounded-sm border border-line-2 transition-colors duration-fast ease-out focus-visible:shadow-focus focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
           on
             ? tone === 'success'
               ? 'bg-success'
@@ -71,7 +71,7 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           className={cn(
             // Knob — 13×13 circle; travels 2px → 17px (spec §10 Toggle States).
             'pointer-events-none absolute h-[13px] w-[13px] rounded-full transition-[left] duration-fast ease-out',
-            on ? 'left-[17px] bg-white' : 'left-0.5 bg-solid'
+            on ? 'left-[17px] bg-accentui-text' : 'left-0.5 bg-solid'
           )}
         />
       </button>

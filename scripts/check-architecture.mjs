@@ -11,77 +11,81 @@
  * This script has ZERO dependencies on purpose — it must run before `npm install`.
  */
 
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import fs from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SRC = path.join(ROOT, 'src');
-const FEATURES = path.join(SRC, 'features');
-const MIGRATIONS = path.join(ROOT, 'supabase', 'migrations');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const SRC = path.join(ROOT, 'src')
+const FEATURES = path.join(SRC, 'features')
+const MIGRATIONS = path.join(ROOT, 'supabase', 'migrations')
 
-const violations = [];
-const fail = (rule, msg) => violations.push({ rule, msg });
+const violations = []
+const fail = (rule, msg) => violations.push({ rule, msg })
 
-const exists = (p) => fs.existsSync(p);
-const isDir = (p) => exists(p) && fs.statSync(p).isDirectory();
+const exists = (p) => fs.existsSync(p)
+const isDir = (p) => exists(p) && fs.statSync(p).isDirectory()
 
 /** Recursively collect files under `dir` matching one of `exts`. */
 function walk(dir, exts, acc = []) {
-  if (!isDir(dir)) return acc;
+  if (!isDir(dir)) return acc
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
+    const full = path.join(dir, entry.name)
     if (entry.isDirectory()) {
-      if (entry.name === 'node_modules' || entry.name === '.next') continue;
-      walk(full, exts, acc);
+      if (entry.name === 'node_modules' || entry.name === '.next') continue
+      walk(full, exts, acc)
     } else if (exts.some((e) => entry.name.endsWith(e))) {
-      acc.push(full);
+      acc.push(full)
     }
   }
-  return acc;
+  return acc
 }
 
 // ── R1: No competing / dissolved architecture layers ────────────────────────
 // Business logic has exactly one home per domain: src/features/<domain>/.
-const BANNED_DIRS = ['core', 'infrastructure', 'presentation', 'services'];
+const BANNED_DIRS = ['core', 'infrastructure', 'presentation', 'services']
 for (const name of BANNED_DIRS) {
   if (isDir(path.join(SRC, name))) {
     fail(
       'R1',
       `src/${name}/ exists. This competing layer was dissolved into features/. ` +
         `Move its code into src/features/<domain>/ (or src/lib/ for third-party glue).`
-    );
+    )
   }
 }
 
 // ── R1: No source imports the dissolved-layer aliases ───────────────────────
-const BANNED_IMPORT = /from\s+['"]@\/(core|infrastructure|presentation|services)(\/|['"])/;
+const BANNED_IMPORT =
+  /from\s+['"]@\/(core|infrastructure|presentation|services)(\/|['"])/
 for (const file of walk(SRC, ['.ts', '.tsx'])) {
-  const text = fs.readFileSync(file, 'utf8');
-  const line = text.split('\n').findIndex((l) => BANNED_IMPORT.test(l));
+  const text = fs.readFileSync(file, 'utf8')
+  const line = text.split('\n').findIndex((l) => BANNED_IMPORT.test(l))
   if (line !== -1) {
     fail(
       'R1',
       `${path.relative(ROOT, file)}:${line + 1} imports a dissolved layer (@/core|@/infrastructure|@/presentation|@/services). ` +
         `Import from a feature's public surface (@/features/<domain>) or from @/lib / @/utils instead.`
-    );
+    )
   }
 }
 
 // ── R4: Every feature exposes a public index.ts ─────────────────────────────
 if (isDir(FEATURES)) {
   for (const entry of fs.readdirSync(FEATURES, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
+    if (!entry.isDirectory()) continue
     if (!exists(path.join(FEATURES, entry.name, 'index.ts'))) {
       fail(
         'R4',
         `src/features/${entry.name}/ has no index.ts. Every feature MUST publish a public API ` +
           `barrel so consumers import from @/features/${entry.name}, not its internals.`
-      );
+      )
     }
   }
 } else {
-  fail('R1', 'src/features/ does not exist — feature-first structure is required.');
+  fail(
+    'R1',
+    'src/features/ does not exist — feature-first structure is required.'
+  )
 }
 
 // ── R10: No stray junk / one-off files at the repo root ─────────────────────
@@ -89,17 +93,26 @@ if (isDir(FEATURES)) {
 // that accumulated at the root. Living docs belong under docs/<taxonomy>/.
 const ROOT_JUNK = [
   { re: /\.log$/i, why: 'log files must be gitignored, never committed' },
-  { re: /_ANALYSIS\.(md|txt)$/i, why: 'one-off analyses belong in git history, not the tree' },
-  { re: /^type-check-output|^tsc-output/i, why: 'compiler output dumps must not be committed' },
+  {
+    re: /_ANALYSIS\.(md|txt)$/i,
+    why: 'one-off analyses belong in git history, not the tree',
+  },
+  {
+    re: /^type-check-output|^tsc-output/i,
+    why: 'compiler output dumps must not be committed',
+  },
   { re: /\.tmp$/i, why: 'temp files must not be committed' },
-  { re: /\.sql$/i, why: 'SQL belongs in supabase/migrations/, not the repo root' },
-];
+  {
+    re: /\.sql$/i,
+    why: 'SQL belongs in supabase/migrations/, not the repo root',
+  },
+]
 for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
-  if (!entry.isFile()) continue;
+  if (!entry.isFile()) continue
   for (const { re, why } of ROOT_JUNK) {
     if (re.test(entry.name)) {
-      fail('R10', `Stray root file "${entry.name}": ${why}.`);
-      break;
+      fail('R10', `Stray root file "${entry.name}": ${why}.`)
+      break
     }
   }
 }
@@ -107,34 +120,291 @@ for (const entry of fs.readdirSync(ROOT, { withFileTypes: true })) {
 // ── R11: No duplicate migration timestamps ──────────────────────────────────
 // A duplicate numeric prefix makes apply-order non-deterministic across machines.
 if (isDir(MIGRATIONS)) {
-  const seen = new Map();
+  const seen = new Map()
   for (const name of fs.readdirSync(MIGRATIONS)) {
-    if (!name.endsWith('.sql')) continue;
-    const stamp = name.split('_')[0];
-    if (!/^\d{14}$/.test(stamp)) continue;
+    if (!name.endsWith('.sql')) continue
+    const stamp = name.split('_')[0]
+    if (!/^\d{14}$/.test(stamp)) continue
     if (seen.has(stamp)) {
       fail(
         'R11',
         `Duplicate migration timestamp ${stamp}: "${name}" collides with "${seen.get(stamp)}". ` +
           `Rename one to a unique timestamp so replay order is deterministic.`
-      );
+      )
     } else {
-      seen.set(stamp, name);
+      seen.set(stamp, name)
     }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// UI OVERHAUL RATCHETS (UI1–UI2)
+// Added 2026-08-29 for the workspace UI overhaul. See
+// docs/architecture/workspace-ui-overhaul-log.md and architecture.md rule 2.21.
+//
+// These are RATCHETS, not absolutes: the codebase is mid-migration, so each
+// rule carries a baseline of known exceptions that must SHRINK, never grow.
+// When you clear one, delete it from the list here in the same commit.
+// ════════════════════════════════════════════════════════════════════════════
+
+const UI_SRC_TSX = walk(SRC, ['.tsx', '.ts']).filter(
+  (f) => !f.includes('__tests__') && !f.includes(`${path.sep}tests${path.sep}`)
+)
+const rel = (f) => path.relative(ROOT, f).split(path.sep).join('/')
+
+/** Source with comments stripped — a doc comment that mentions a banned
+ * pattern is discussing it, not using it. */
+function codeOf(file) {
+  return fs
+    .readFileSync(file, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/.*$/gm, '$1')
+}
+
+// ── UI1: No component is reachable only through a barrel ────────────────────
+// Every rebuild in this repo has been additive: the new implementation ships,
+// the old one stays, and the barrel keeps exporting it so nothing flags it.
+// That produced 6,026 dead lines. A component referenced ONLY by an index.ts
+// (or only by the dev showcase) is orphaned.
+const UI1_ALLOW = new Set([
+  // Ruling R3 (2026-08-29) — kept deliberately; re-evaluate after Phase 3.
+  'CommandPalette',
+  'Accordion',
+  'Radio',
+  'NotificationMenu',
+  'DeleteDialog',
+  'FilterBar',
+  'Toolbar',
+  'Popover',
+  // Directive targets — unused today, mounted during Phase 2/3. Deleting them
+  // would mean rebuilding under new names, which directive §4.4 bans.
+  'Drawer',
+  'Divider',
+  // DESIGN_SYSTEM.md §12 — staged for future placement, do not sweep.
+  'RevenueMetricCard',
+  'InstallButton',
+  // Orphaned when Phase 0.1 removed its last two consumers, but it carries the
+  // best a11y pattern in the product (role="status" + a full aria-label) and is
+  // the reference for the consolidated status indicator in Phase 3 (plan §5).
+  'UrgencyBadge',
+  // Unused in the product; `Charts.tsx` imports **recharts'** Tooltip, not this
+  // one — a distinction that fooled an earlier manual audit.
+  'Tooltip',
+])
+
+const componentFiles = UI_SRC_TSX.filter((f) => {
+  const r = rel(f)
+  if (!r.endsWith('.tsx')) return false
+  if (r.endsWith('/index.tsx')) return false
+  if (r.includes('/design-system/')) return false
+  return (
+    r.startsWith('src/components/') ||
+    /^src\/features\/[^/]+\/components\//.test(r)
+  )
+})
+
+// Reachability from the application's real entry points, NOT a reference count.
+// A reference count only ever finds the *head* of a dead chain: a component
+// imported solely by another dead component looks alive. Phase 0.1b had to be
+// run three times by hand for exactly this reason, and a probe confirmed the
+// rule still behaved that way. Walking the graph from src/app finds the whole
+// chain in one pass.
+const MODULE_EXTS = ['.tsx', '.ts']
+function resolveSpecifier(spec, fromFile) {
+  let base
+  if (spec.startsWith('@/')) base = path.join(SRC, spec.slice(2))
+  else if (spec.startsWith('.'))
+    base = path.resolve(path.dirname(fromFile), spec)
+  else return null
+  for (const ext of MODULE_EXTS) {
+    if (exists(base + ext)) return base + ext
+    const idx = path.join(base, 'index' + ext)
+    if (exists(idx)) return idx
+  }
+  return exists(base) && !isDir(base) ? base : null
+}
+
+// Barrels are TRANSPARENT. Importing `@/components/ui` must not mark all 32
+// primitives live — that trades under-reporting for over-reporting, which a
+// probe caught immediately. For a barrel target we resolve the *named* imports
+// to the modules that actually export them.
+function exportedNames(file) {
+  let src
+  try {
+    src = fs.readFileSync(file, 'utf8')
+  } catch {
+    return []
+  }
+  const names = new Set([path.basename(file).replace(/\.tsx?$/, '')])
+  for (const m of src.matchAll(
+    /export\s+(?:const|function|class|type|interface)\s+([A-Za-z_$][\w$]*)/g
+  ))
+    names.add(m[1])
+  for (const m of src.matchAll(/export\s*\{([^}]*)\}/g))
+    for (const part of m[1].split(','))
+      names.add(
+        part
+          .split(/\s+as\s+/)
+          .pop()
+          .trim()
+      )
+  return [...names].filter(Boolean)
+}
+
+/** For a barrel, map each re-exported name to the file providing it. */
+function barrelMap(indexFile) {
+  const src = fs.readFileSync(indexFile, 'utf8')
+  const map = new Map()
+  for (const m of src.matchAll(
+    /export\s+(?:\*|\{([^}]*)\})\s+from\s*['"]([^'"]+)['"]/g
+  )) {
+    const target = resolveSpecifier(m[2], indexFile)
+    if (!target) continue
+    const names = m[1]
+      ? m[1].split(',').map((x) =>
+          x
+            .split(/\s+as\s+/)
+            .pop()
+            .trim()
+        )
+      : exportedNames(target)
+    for (const n of names) if (n) map.set(n, target)
+  }
+  return map
+}
+
+// `import type { X }` is erased at build time and keeps nothing alive, so it
+// must not mark a module reachable. It also must not be mistaken for a default
+// import — that misread pulled the whole `@/components/ui` barrel in through a
+// single type import and made every primitive look live.
+const IMPORT_RE =
+  /import\s+(?!type\s)(?:([\w$]+)\s*,?\s*)?(?:\{([^}]*)\})?[^'"]*['"]([^'"]+)['"]|(?:from\s*|import\s*\(\s*)['"]([^'"]+)['"]/g
+const TYPE_IMPORT_RE = /import\s+type\s+[^'"]*['"]([^'"]+)['"]/g
+const reachable = new Set()
+const barrelCache = new Map()
+const entries = UI_SRC_TSX.filter((f) => {
+  const r = rel(f)
+  // The dev showcase imports every primitive by design; treating it as an entry
+  // point would make the whole library look live.
+  if (r.includes('/design-system/')) return false
+  return r.startsWith('src/app/') || r.endsWith('middleware.ts')
+})
+const queue = [...entries]
+for (const e of entries) reachable.add(e)
+const visit = (t) => {
+  if (t && !reachable.has(t)) {
+    reachable.add(t)
+    queue.push(t)
+  }
+}
+while (queue.length) {
+  const file = queue.pop()
+  let src
+  try {
+    src = fs.readFileSync(file, 'utf8')
+  } catch {
+    continue
+  }
+  const typeOnly = new Set([...src.matchAll(TYPE_IMPORT_RE)].map((m) => m[1]))
+  for (const m of src.matchAll(IMPORT_RE)) {
+    const spec = m[3] ?? m[4]
+    if (!spec || typeOnly.has(spec)) continue
+    const target = resolveSpecifier(spec, file)
+    if (!target) continue
+    if (path.basename(target) === 'index.ts' && !m[1]) {
+      // Named imports through a barrel: follow only what was actually asked for.
+      if (!barrelCache.has(target)) barrelCache.set(target, barrelMap(target))
+      const map = barrelCache.get(target)
+      const named = (m[2] ?? '')
+        .split(',')
+        .map((x) =>
+          x
+            .split(/\s+as\s+/)[0]
+            .replace(/^type\s+/, '')
+            .trim()
+        )
+        .filter(Boolean)
+      if (named.length) {
+        for (const n of named) visit(map.get(n))
+        continue
+      }
+    }
+    visit(target)
+  }
+}
+
+// Ratchet: an allow-entry that is now reachable is a finished migration hiding
+// behind a stale exemption. Same discipline as UI2.
+for (const file of componentFiles) {
+  const base = path.basename(file, '.tsx')
+  if (UI1_ALLOW.has(base) && reachable.has(file)) {
+    fail(
+      'UI1',
+      `"${base}" is in UI1_ALLOW but is now reachable from src/app. Remove it ` +
+        `from the allow-list so the ratchet keeps tightening.`
+    )
+  }
+}
+
+for (const file of componentFiles) {
+  const base = path.basename(file, '.tsx')
+  if (UI1_ALLOW.has(base)) continue
+  if (reachable.has(file)) continue
+  fail(
+    'UI1',
+    `Unreachable component "${rel(file)}" — no import path leads to it from ` +
+      `src/app. Delete it, or wire it up. If it is deliberately staged, add it ` +
+      `to UI1_ALLOW with the reason.`
+  )
+}
+
+// ── UI2: The legacy `mws-*` design system may not spread ────────────────────
+// The workspace runs two design systems. The `mws-*` one is being RETIRED, not
+// rethemed — its interaction states are all rgba(0,0,0,α) ("darken the
+// surface"), which is invisible on the dark ground the workspace is moving to.
+// No new file may adopt it. This list only shrinks.
+const UI2_ALLOW = new Set([
+  // EMPTY — the legacy layer is fully retired (Phase 3, 2026-08-30). Every
+  // `.mws-*` rule is deleted from globals.css and no source references one.
+  // Nothing may be added here: a new entry means the retired system came back.
+])
+for (const file of UI_SRC_TSX) {
+  const r = rel(file)
+  if (UI2_ALLOW.has(r)) continue
+  if (/\bmws-/.test(codeOf(file))) {
+    fail(
+      'UI2',
+      `"${r}" introduces a legacy \`mws-*\` class. That system is being retired, ` +
+        `not extended — use the design-system primitives in @/components/ui.`
+    )
+  }
+}
+
+// Ratchets must shrink: a stale allow-entry hides a finished migration.
+for (const r of UI2_ALLOW) {
+  const abs = path.join(ROOT, r)
+  if (!exists(abs) || !/\bmws-/.test(codeOf(abs))) {
+    fail(
+      'UI2',
+      `"${r}" is in UI2_ALLOW but no longer uses \`mws-*\`. Remove it from the ` +
+        `allow-list so the ratchet keeps tightening.`
+    )
   }
 }
 
 // ── Report ──────────────────────────────────────────────────────────────────
 if (violations.length === 0) {
-  console.log('✅ arch:check — feature-first structure invariants hold.');
-  process.exit(0);
+  console.log('✅ arch:check — feature-first structure invariants hold.')
+  process.exit(0)
 }
 
-console.error(`\n❌ arch:check found ${violations.length} architecture violation(s):\n`);
+console.error(
+  `\n❌ arch:check found ${violations.length} architecture violation(s):\n`
+)
 for (const { rule, msg } of violations) {
-  console.error(`  [${rule}] ${msg}`);
+  console.error(`  [${rule}] ${msg}`)
 }
 console.error(
   '\nThese rules are hard requirements. See docs/architecture/feature-first-growth-rules.md.\n'
-);
-process.exit(1);
+)
+process.exit(1)

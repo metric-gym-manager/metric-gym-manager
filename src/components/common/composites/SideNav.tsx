@@ -26,6 +26,12 @@ export interface SideNavGroup {
 
 export interface SideNavProps {
   groups: SideNavGroup[]
+  /**
+   * Element used for items that have an `href`. Defaults to a plain `<a>`,
+   * which triggers a full document load — apps on a client router must pass
+   * their own link (e.g. `next/link`) or every navigation reloads the page.
+   */
+  linkComponent?: React.ElementType
   collapsed?: boolean
   header?: React.ReactNode
   footer?: React.ReactNode
@@ -35,6 +41,7 @@ export interface SideNavProps {
 
 export function SideNav({
   groups,
+  linkComponent,
   collapsed = false,
   header,
   footer,
@@ -65,7 +72,11 @@ export function SideNav({
             <ul className="flex flex-col gap-0.5">
               {group.items.map((item, ii) => (
                 <li key={ii}>
-                  <SideNavLink item={item} collapsed={collapsed} />
+                  <SideNavLink
+                    item={item}
+                    collapsed={collapsed}
+                    linkComponent={linkComponent}
+                  />
                 </li>
               ))}
             </ul>
@@ -83,12 +94,14 @@ export function SideNav({
 function SideNavLink({
   item,
   collapsed,
+  linkComponent,
 }: {
   item: SideNavItem
   collapsed: boolean
+  linkComponent?: React.ElementType
 }) {
   const cls = cn(
-    'flex h-8 items-center gap-2.5 rounded-md px-2 text-body transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none [&_svg]:size-4 [&_svg]:shrink-0',
+    'flex h-8 items-center gap-2.5 rounded-sm px-2 text-body transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none [&_svg]:size-4 [&_svg]:shrink-0',
     collapsed && 'justify-center',
     item.active
       ? 'bg-surface-selected font-medium text-ink'
@@ -107,15 +120,16 @@ function SideNavLink({
   )
 
   if (item.href) {
+    const Link = linkComponent ?? 'a'
     return (
-      <a
+      <Link
         href={item.href}
         aria-current={item.active ? 'page' : undefined}
         className={cls}
         title={collapsed ? item.label : undefined}
       >
         {inner}
-      </a>
+      </Link>
     )
   }
   return (

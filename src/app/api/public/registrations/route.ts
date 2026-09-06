@@ -122,6 +122,9 @@ export async function POST(request: NextRequest) {
       recurringDiscount: false,
       membershipStartDate: now,
       paymentAmount: amountDue,
+      // Recorded separately as well as included in the total, so revenue can
+      // tell one-off cash from plan revenue.
+      admissionFee,
       discount: null,
       registrationSource: RegistrationSource.Qr,
       // Schema enforces both consents are `true` on this request.

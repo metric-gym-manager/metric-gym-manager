@@ -3,10 +3,27 @@ import { ArrowDown, ArrowUp, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
- * StatCard — labeled metric tile (Layer 3 composite; spec §11 Stat Cards). Value
- * renders in mono tabular numerics. Optional `delta` (with direction arrow),
- * `trend` slot (e.g. a Sparkline), and `icon`. Becomes a button when `onClick`
- * is provided. `MetricCard` is an alias for the richer usage — one implementation.
+ * StatCard — an operational KPI readout (Layer 3 composite).
+ *
+ * Renders **borderless and unfilled by default** (directive §5.5). The old
+ * treatment — four floating bordered tiles across the top of every dashboard —
+ * is the single most recognisable generic-SaaS pattern, and §9.3 names it first
+ * in the adversarial smell test.
+ *
+ * Compose these into a band and let the *layout* separate them, using alignment
+ * and a hairline divider rather than four boxes:
+ *
+ * ```tsx
+ * <div className="grid grid-cols-2 divide-x divide-line-1 border-y border-line-1 lg:grid-cols-4">
+ *   <StatCard label="Active members" value={312} sub="+9 today" />
+ *   …
+ * </div>
+ * ```
+ *
+ * `boxed` restores the bordered container for the exceptional case where a
+ * single stat is genuinely a standalone object (§5.4) — a variant, not a second
+ * component (§10). Value renders in mono tabular numerics so figures align in a
+ * column. `MetricCard` is an alias — one implementation.
  */
 export interface StatDelta {
   value: React.ReactNode
@@ -23,6 +40,11 @@ export interface StatCardProps {
   delta?: StatDelta
   trend?: React.ReactNode
   onClick?: () => void
+  /**
+   * Draw a bordered container around this stat. Exceptional (§5.4) — the
+   * default is no container, with the band's dividers doing the separating.
+   */
+  boxed?: boolean
   className?: string
 }
 
@@ -61,10 +83,13 @@ export function StatCard({
   delta,
   trend,
   onClick,
+  boxed = false,
   className,
 }: StatCardProps) {
-  const base =
-    'flex flex-col gap-2 rounded-lg border border-line-1 bg-surface-card p-4 text-left font-geist'
+  const base = cn(
+    'flex flex-col gap-1.5 px-4 py-3 text-left font-geist',
+    boxed && 'rounded-sm border border-line-1 bg-surface-card'
+  )
   const content = (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -73,7 +98,7 @@ export function StatCard({
           <span className="text-ink-muted [&_svg]:size-3.5">{icon}</span>
         )}
       </div>
-      <span className="font-mono text-2xl font-semibold tabular-nums text-ink">
+      <span className="font-mono text-readout tabular-nums text-ink">
         {value}
       </span>
       {(sub || delta) && (
@@ -95,7 +120,7 @@ export function StatCard({
         onClick={onClick}
         className={cn(
           base,
-          'transition-colors duration-fast hover:border-line-hover focus-visible:shadow-focus focus-visible:outline-none',
+          'transition-colors duration-fast hover:bg-surface-hover focus-visible:shadow-focus focus-visible:outline-none',
           className
         )}
       >

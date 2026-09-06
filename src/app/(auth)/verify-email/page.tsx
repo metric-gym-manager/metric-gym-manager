@@ -198,7 +198,7 @@ function VerifyEmailContent() {
                 className="flex items-center gap-2"
                 style={{
                   padding: '9px 12px',
-                  borderBottom: '1px solid rgba(255,255,255,0.05)',
+                  borderBottom: '1px solid var(--ds-border-subtle)',
                 }}
               >
                 <span
@@ -207,7 +207,7 @@ function VerifyEmailContent() {
                     height: 6,
                     borderRadius: '50%',
                     background: 'var(--ma-warn)',
-                    boxShadow: '0 0 0 3px rgba(210,153,34,0.15)',
+                    boxShadow: '0 0 0 3px var(--ds-warning-border)',
                     flexShrink: 0,
                   }}
                 />

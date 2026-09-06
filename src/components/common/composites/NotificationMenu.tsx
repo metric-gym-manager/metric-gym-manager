@@ -38,7 +38,7 @@ export function NotificationMenu({
           type="button"
           aria-label={count > 0 ? `${label}, ${count} unread` : label}
           className={cn(
-            'relative inline-flex size-8 items-center justify-center rounded-md text-ink-secondary transition-colors duration-fast hover:bg-surface-active hover:text-ink focus-visible:shadow-focus focus-visible:outline-none',
+            'relative inline-flex size-8 items-center justify-center rounded-sm text-ink-secondary transition-colors duration-fast hover:bg-surface-active hover:text-ink focus-visible:shadow-focus focus-visible:outline-none',
             className
           )}
         >

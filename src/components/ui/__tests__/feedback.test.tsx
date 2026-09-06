@@ -23,6 +23,47 @@ describe('Badge', () => {
     const badge = screen.getByText('Active')
     expect(badge).toHaveClass('text-success')
   })
+
+  // Directive §5.7 — status is a signal, not a decorated chip.
+  it('shows the dot automatically for a coloured variant', () => {
+    render(<Badge variant="error">Expired</Badge>)
+    expect(
+      screen.getByText('Expired').querySelector('[aria-hidden="true"]')
+    ).toBeInTheDocument()
+  })
+
+  it('carries no fill or border by default', () => {
+    render(<Badge variant="warning">Due</Badge>)
+    const badge = screen.getByText('Due')
+    expect(badge.className).not.toMatch(/\bbg-/)
+    expect(badge.className).not.toMatch(/\bborder\b/)
+  })
+
+  it('never conveys status by colour alone — the dot is decorative only', () => {
+    render(<Badge variant="success">Paid</Badge>)
+    // The label carries the meaning; the dot is aria-hidden so a screen reader
+    // reads "Paid", not a colour.
+    expect(screen.getByText('Paid')).toHaveTextContent('Paid')
+    expect(
+      screen.getByText('Paid').querySelector('[aria-hidden="true"]')
+    ).toHaveAttribute('aria-hidden', 'true')
+  })
+
+  it('restores a bordered container only when explicitly asked', () => {
+    render(
+      <Badge variant="neutral" chip>
+        Draft
+      </Badge>
+    )
+    expect(screen.getByText('Draft').className).toMatch(/\bborder\b/)
+  })
+
+  it('omits the dot for the neutral variant, which labels non-status metadata', () => {
+    render(<Badge variant="neutral">Monthly</Badge>)
+    expect(
+      screen.getByText('Monthly').querySelector('[aria-hidden="true"]')
+    ).toBeNull()
+  })
 })
 
 describe('Avatar', () => {

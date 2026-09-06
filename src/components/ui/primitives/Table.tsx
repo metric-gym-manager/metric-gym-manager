@@ -16,7 +16,7 @@ export const TableContainer = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      'w-full overflow-x-auto rounded-lg border border-line-1 bg-surface-card',
+      'w-full overflow-x-auto rounded-sm border border-line-1 bg-surface-card',
       className
     )}
     {...props}
@@ -61,19 +61,44 @@ export interface TableRowProps extends React.HTMLAttributes<HTMLTableRowElement>
 }
 
 export const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>(
-  ({ className, selected, clickable, ...props }, ref) => (
-    <tr
-      ref={ref}
-      data-selected={selected || undefined}
-      className={cn(
-        'border-b border-line-subtle transition-colors duration-fast last:border-0',
-        'hover:bg-surface-hover data-[selected=true]:bg-accentui-bg',
-        clickable && 'cursor-pointer',
-        className
-      )}
-      {...props}
-    />
-  )
+  ({ className, selected, clickable, onClick, onKeyDown, ...props }, ref) => {
+    // A clickable row must be operable from the keyboard. `clickable` used to
+    // add nothing but `cursor-pointer`, so every row-activated screen — opening
+    // a member, opening a payment — was mouse-only. The row stays a `<tr>` (an
+    // overridden role would break table semantics); it gains a tab stop and
+    // Enter/Space, which is the accessible pattern for an activatable row.
+    const interactive = clickable && !!onClick
+    return (
+      <tr
+        ref={ref}
+        data-selected={selected || undefined}
+        tabIndex={interactive ? 0 : undefined}
+        onClick={onClick}
+        onKeyDown={(event) => {
+          onKeyDown?.(event)
+          if (!interactive || event.defaultPrevented) return
+          if (event.key !== 'Enter' && event.key !== ' ') return
+          // Ignore keystrokes aimed at a control inside the row.
+          if (event.target !== event.currentTarget) return
+          event.preventDefault()
+          onClick?.(event as unknown as React.MouseEvent<HTMLTableRowElement>)
+        }}
+        className={cn(
+          'border-b border-line-subtle transition-colors duration-fast last:border-0',
+          // Persistent row selection uses the same token as the sidebar and sub-nav.
+          // It previously used `accentui-bg` (0.16) while navigation used
+          // `surface-selected` (0.30), so "selected" rendered as two different
+          // colours depending on the component — and raising surface-selected in
+          // the contrast fix widened the gap.
+          'hover:bg-surface-hover data-[selected=true]:bg-surface-selected',
+          interactive &&
+            'cursor-pointer focus-visible:bg-surface-active focus-visible:outline-none focus-visible:shadow-focus',
+          className
+        )}
+        {...props}
+      />
+    )
+  }
 )
 TableRow.displayName = 'TableRow'
 

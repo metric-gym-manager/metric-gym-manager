@@ -17,6 +17,24 @@ const settingsNavigation = [
   { name: 'Subscription', href: '/settings/billing' },
 ]
 
+/**
+ * Settings shell — a 160px sub-navigation beside the active section.
+ *
+ * The responsive behaviour is a master/detail: on a phone, `/settings` shows the
+ * menu full-width and hides the content, a sub-page shows the content and a back
+ * link instead of the menu. That was previously driven by five bespoke CSS
+ * classes (`mws-settings-shell`, `-nav-root`, `-nav-sub`, `-content-root`,
+ * `-content-sub`) full of `!important`; it is the same behaviour expressed in
+ * layout classes, so the rules could be deleted.
+ *
+ * The current item is marked by a 2px ink rule, **not** `surface-selected`.
+ * The sidebar's "Settings" entry is filled, and this menu renders inside it —
+ * two stacked indigo fills, which §5.14 warns reads as "a large colourful pill"
+ * rather than a system state. Fill is reserved for persistent selection state
+ * (sidebar, table rows); local position within a page gets the rule, which is
+ * already the active marker `Tabs` uses. Every item carries the border so
+ * activating one shifts no text.
+ */
 export default function SettingsLayout({
   children,
 }: {
@@ -26,23 +44,15 @@ export default function SettingsLayout({
   const isRoot = pathname === '/settings'
 
   return (
-    <div
-      className="mws-settings-shell"
-      style={{ display: 'flex', gap: 32, maxWidth: 1000 }}
-    >
-      {/* Sub-navigation column
-          Desktop: always 160px wide
-          Mobile/root (/settings): full-width menu with large touch targets
-          Mobile/sub-page: hidden */}
+    <div className="flex max-w-[1000px] gap-8 max-tablet:max-w-full max-tablet:flex-col max-tablet:gap-0">
+      {/* Sub-navigation */}
       <div
         className={cn(
-          isRoot ? 'mws-settings-nav-root' : 'mws-settings-nav-sub'
+          'w-40 shrink-0',
+          isRoot ? 'max-tablet:w-full' : 'max-tablet:hidden'
         )}
-        style={{ width: 160, flexShrink: 0 }}
       >
-        <h1 className="mws-h1" style={{ marginBottom: 12 }}>
-          Settings
-        </h1>
+        <h1 className="mb-3 text-h1 text-ink">Settings</h1>
         <div className="flex flex-col gap-0.5">
           {settingsNavigation.map((item) => {
             const isActive =
@@ -51,36 +61,46 @@ export default function SettingsLayout({
               <Link
                 key={item.href}
                 href={item.href}
-                className={cn('mws-subnav', isActive && 'mws-subnav-active')}
-                style={{ display: 'flex', alignItems: 'center' }}
+                aria-current={isActive ? 'page' : undefined}
+                className={cn(
+                  'flex h-[30px] items-center rounded-sm border-l-2 px-2.5 text-body transition-colors duration-fast focus-visible:shadow-focus focus-visible:outline-none',
+                  isActive
+                    ? 'border-ink font-medium text-ink'
+                    : 'border-transparent text-ink-secondary hover:bg-surface-active hover:text-ink',
+                  // Larger touch targets when the menu is the whole screen.
+                  isRoot &&
+                    'max-tablet:h-12 max-tablet:justify-between max-tablet:px-3 max-tablet:text-base'
+                )}
               >
-                <span className="flex-1">{item.name}</span>
-                {/* Chevron only visible on mobile (overridden by mws-settings-nav-root) */}
-                <ChevronRight
-                  className="mws-settings-chevron"
-                  style={{ width: 14, height: 14, flexShrink: 0 }}
-                />
+                <span className="flex-1 truncate">{item.name}</span>
+                {isRoot && (
+                  <ChevronRight
+                    className="hidden size-3.5 shrink-0 text-ink-muted max-tablet:block"
+                    aria-hidden="true"
+                  />
+                )}
               </Link>
             )
           })}
         </div>
       </div>
 
-      {/* Content column
-          Desktop: always visible with top padding
-          Mobile/root: hidden (nav takes full width)
-          Mobile/sub-page: full width, no top padding, back button shown */}
+      {/* Section content */}
       <div
         className={cn(
-          isRoot ? 'mws-settings-content-root' : 'mws-settings-content-sub'
+          'min-w-0 flex-1 pt-10',
+          isRoot ? 'max-tablet:hidden' : 'max-tablet:pt-0'
         )}
-        style={{ flex: 1, minWidth: 0, paddingTop: 40 }}
       >
-        {/* Back link — only visible on mobile (CSS toggles display) */}
-        <Link href="/settings" className="mws-back-btn">
-          <ChevronLeft style={{ width: 14, height: 14 }} />
-          Settings
-        </Link>
+        {!isRoot && (
+          <Link
+            href="/settings"
+            className="mb-4 hidden items-center gap-1 text-body text-brand-link hover:text-brand-link-hover max-tablet:flex"
+          >
+            <ChevronLeft className="size-3.5" aria-hidden="true" />
+            Settings
+          </Link>
+        )}
         {children}
       </div>
     </div>

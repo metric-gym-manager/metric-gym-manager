@@ -41,7 +41,7 @@ export default function AuthShell({
             style={{
               fontSize: 11,
               color: 'var(--ma-t3)',
-              border: '1px solid rgba(255,255,255,0.1)',
+              border: '1px solid var(--ds-border-1)',
               borderRadius: 4,
               padding: '1px 6px',
               whiteSpace: 'nowrap',
@@ -135,7 +135,7 @@ function RailStat({
       className="flex justify-between"
       style={{
         padding: '10px 0',
-        borderBottom: last ? 'none' : '1px solid rgba(255,255,255,0.05)',
+        borderBottom: last ? 'none' : '1px solid var(--ds-border-subtle)',
       }}
     >
       <span style={{ color: 'var(--ma-t2)' }}>{label}</span>

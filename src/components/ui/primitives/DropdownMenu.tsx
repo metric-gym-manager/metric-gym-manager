@@ -31,7 +31,7 @@ export const DropdownMenuContent = React.forwardRef<
       data-theme={theme}
       sideOffset={sideOffset}
       className={cn(
-        'z-modal-nested min-w-[10rem] overflow-hidden rounded-xl border border-line-2 bg-surface-card p-1 font-geist text-body text-ink shadow-overlay animate-pal-in focus:outline-none',
+        'z-modal-nested min-w-[10rem] overflow-hidden rounded-sm border border-line-2 bg-surface-card p-1 font-geist text-body text-ink shadow-overlay animate-pal-in focus:outline-none',
         className
       )}
       {...props}
@@ -41,7 +41,7 @@ export const DropdownMenuContent = React.forwardRef<
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
 
 const itemBase =
-  'relative flex cursor-pointer select-none items-center gap-2 rounded-md px-3 py-2 text-body text-ink outline-none transition-colors duration-fast focus:bg-surface-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-3.5 [&_svg]:shrink-0'
+  'relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-3 py-2 text-body text-ink outline-none transition-colors duration-fast focus:bg-surface-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-3.5 [&_svg]:shrink-0'
 
 export interface DropdownMenuItemProps extends React.ComponentPropsWithoutRef<
   typeof DropdownMenuPrimitive.Item

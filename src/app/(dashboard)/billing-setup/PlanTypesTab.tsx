@@ -2,7 +2,15 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Button, Input, Label, Badge, Select, Checkbox } from '@/components/ui'
+import {
+  Card,
+  Button,
+  Input,
+  Label,
+  Badge,
+  Select,
+  Checkbox,
+} from '@/components/ui'
 import { Plus, Trash2 } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/use-confirm-dialog'
 import type { PlanType } from '@/features/settings/types'
@@ -242,7 +250,7 @@ export default function PlanTypesTab() {
 
       {/* Add New Plan Form */}
       {isAddingPlan && (
-        <div className="rounded-lg border bg-accentui-bg border-accentui-border p-6">
+        <div className="rounded-sm border bg-accentui-bg border-accentui-border p-6">
           <h3 className="text-base font-semibold mb-4">Add New Plan Type</h3>
           <div className="space-y-4">
             <div>
@@ -311,7 +319,7 @@ export default function PlanTypesTab() {
       )}
 
       {/* Plan Types List */}
-      <div className="rounded-lg border border-line-1 bg-surface-card">
+      <Card>
         {isLoading ? (
           <div className="flex h-48 items-center justify-center">
             <p className="text-sm text-ink-muted">Loading plan types...</p>
@@ -477,11 +485,11 @@ export default function PlanTypesTab() {
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Error Messages */}
       {updateMutation.isError && (
-        <div className="rounded-md bg-error-bg p-4">
+        <div className="rounded-sm bg-error-bg p-4">
           <p className="text-sm text-error">
             {updateMutation.error instanceof Error
               ? updateMutation.error.message
@@ -491,7 +499,7 @@ export default function PlanTypesTab() {
       )}
 
       {deleteMutation.isError && (
-        <div className="rounded-md bg-error-bg p-4">
+        <div className="rounded-sm bg-error-bg p-4">
           <p className="text-sm text-error">
             {deleteMutation.error instanceof Error
               ? deleteMutation.error.message

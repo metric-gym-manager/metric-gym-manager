@@ -1,9 +1,9 @@
-import { ReactNode } from 'react';
-import { redirect } from 'next/navigation';
-import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin';
+import { ReactNode } from 'react'
+import { redirect } from 'next/navigation'
+import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin'
 
 interface AdminLayoutProps {
-  children: ReactNode;
+  children: ReactNode
 }
 
 /**
@@ -19,11 +19,21 @@ interface AdminLayoutProps {
  * and shipped that secret to every browser via the client bundle.
  */
 export default async function AdminLayout({ children }: AdminLayoutProps) {
-  const admin = await getSaasAdmin();
+  const admin = await getSaasAdmin()
 
   if (!admin) {
-    redirect('/dashboard');
+    redirect('/dashboard')
   }
 
-  return <div className="admin-layout">{children}</div>;
+  // The same dark operational ground as the workspace. Deliberately no
+  // navigation: adding one would be a navigation-architecture change, which the
+  // UI directive (§4.10) puts out of scope for a visual correction.
+  return (
+    <div
+      data-theme="dark"
+      className="min-h-screen bg-surface-base p-6 font-geist text-body text-ink antialiased"
+    >
+      {children}
+    </div>
+  )
 }

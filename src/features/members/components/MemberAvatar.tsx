@@ -1,15 +1,15 @@
-'use client';
+'use client'
 
-import { useState } from 'react';
-import { cn } from '@/lib/utils';
-import { getMemberPhotoUrl } from '@/utils/member-photo';
+import { useState } from 'react'
+import { cn } from '@/lib/utils'
+import { getMemberPhotoUrl } from '@/utils/member-photo'
 
 interface MemberAvatarProps {
-  name: string;
-  photoPath?: string | null;
-  photoUpdatedAt?: string | null;
+  name: string
+  photoPath?: string | null
+  photoUpdatedAt?: string | null
   /** Tailwind size classes; defaults to a 32px table avatar */
-  className?: string;
+  className?: string
 }
 
 /**
@@ -27,29 +27,29 @@ export default function MemberAvatar({
 }: MemberAvatarProps) {
   // Track failure per URL so a replaced photo (new ?v=) gets a fresh load
   // attempt without needing an effect
-  const [failedUrl, setFailedUrl] = useState<string | null>(null);
-  const url = getMemberPhotoUrl(photoPath, photoUpdatedAt);
-  const failed = failedUrl !== null && failedUrl === url;
+  const [failedUrl, setFailedUrl] = useState<string | null>(null)
+  const url = getMemberPhotoUrl(photoPath, photoUpdatedAt)
+  const failed = failedUrl !== null && failedUrl === url
 
   const initials = name
     .trim()
     .split(/\s+/)
     .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
-    .join('');
+    .join('')
 
   if (!url || failed) {
     return (
       <span
         aria-hidden="true"
         className={cn(
-          'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-semibold text-blue-700',
+          'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accentui-bg text-xs font-semibold text-brand-link',
           className
         )}
       >
         {initials || '?'}
       </span>
-    );
+    )
   }
 
   // Plain <img>: avatars are tiny, already CDN-cached on R2, and next/image
@@ -62,9 +62,9 @@ export default function MemberAvatar({
       loading="lazy"
       onError={() => setFailedUrl(url)}
       className={cn(
-        'h-8 w-8 shrink-0 rounded-full object-cover bg-gray-100',
+        'h-8 w-8 shrink-0 rounded-full object-cover bg-surface-active',
         className
       )}
     />
-  );
+  )
 }

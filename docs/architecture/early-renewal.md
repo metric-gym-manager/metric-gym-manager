@@ -15,12 +15,12 @@
 // ❌ NEVER use activate() for already active members
 export class CollectPayment {
   async execute(input: CollectPaymentInput): Promise<CollectPaymentOutput> {
-    const member = await this.memberRepo.findById(input.memberId, input.gymId);
+    const member = await this.memberRepo.findById(input.memberId, input.gymId)
 
     // This throws InvalidStatusTransitionError if member is already Active
-    const activatedMember = member.activate(nextDueDate); // ❌ WRONG
+    const activatedMember = member.activate(nextDueDate) // ❌ WRONG
 
-    return await this.memberRepo.update(activatedMember);
+    return await this.memberRepo.update(activatedMember)
   }
 }
 ```
@@ -39,14 +39,17 @@ export class Member {
    */
   activate(newDueDate: Date): Member {
     if (!canTransition(this.props.status, MemberStatus.Active)) {
-      throw new InvalidStatusTransitionError(this.props.status, MemberStatus.Active);
+      throw new InvalidStatusTransitionError(
+        this.props.status,
+        MemberStatus.Active
+      )
     }
     return new Member({
       ...this.props,
       status: MemberStatus.Active,
       nextDueDate: newDueDate,
       updatedAt: new Date(),
-    });
+    })
   }
 
   /**
@@ -62,37 +65,37 @@ export class Member {
       throw new InvalidStatusTransitionError(
         this.props.status,
         MemberStatus.Active
-      );
+      )
     }
 
     // Date Validation Layer 1: Validate date is a valid Date object
     if (!(newDueDate instanceof Date) || isNaN(newDueDate.getTime())) {
-      throw new ValidationError('newDueDate must be a valid Date object');
+      throw new ValidationError('newDueDate must be a valid Date object')
     }
 
     // Date Validation Layer 2: Validate date is not in the past (compared to today at 00:00:00)
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const newDueDateNormalized = new Date(newDueDate);
-    newDueDateNormalized.setHours(0, 0, 0, 0);
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const newDueDateNormalized = new Date(newDueDate)
+    newDueDateNormalized.setHours(0, 0, 0, 0)
 
     if (newDueDateNormalized < today) {
-      throw new ValidationError('newDueDate must be in the future');
+      throw new ValidationError('newDueDate must be in the future')
     }
 
     // Date Validation Layer 3: Validate date is not before current due date (prevent backwards renewal)
-    const currentDueDateNormalized = new Date(this.props.nextDueDate);
-    currentDueDateNormalized.setHours(0, 0, 0, 0);
+    const currentDueDateNormalized = new Date(this.props.nextDueDate)
+    currentDueDateNormalized.setHours(0, 0, 0, 0)
 
     if (newDueDateNormalized < currentDueDateNormalized) {
-      throw new ValidationError('newDueDate must be after current due date');
+      throw new ValidationError('newDueDate must be after current due date')
     }
 
     return new Member({
       ...this.props,
-      nextDueDate: newDueDate,  // Only update date, status unchanged
+      nextDueDate: newDueDate, // Only update date, status unchanged
       updatedAt: new Date(),
-    });
+    })
   }
 }
 ```
@@ -114,10 +117,11 @@ All `renew()` implementations MUST enforce these validations:
 import {
   InvalidStatusTransitionError,
   ValidationError,
-} from '@/core/utils/errors';
+} from '@/core/utils/errors'
 ```
 
 **Implementation Status**: ✅ Completed 2026-03-30
+
 - Date validation fully implemented in `Member.ts:320-358`
 - 13 comprehensive tests added with 100% coverage
 - All validation layers tested including edge cases
@@ -128,15 +132,15 @@ import {
 // src/core/use-cases/payment/CollectPayment.ts
 export class CollectPayment {
   async execute(input: CollectPaymentInput): Promise<CollectPaymentOutput> {
-    const member = await this.memberRepo.findById(input.memberId, input.gymId);
+    const member = await this.memberRepo.findById(input.memberId, input.gymId)
 
     // Conditional logic based on current status
     const processedMember =
       member.status === 'active'
-        ? member.renew(nextDueDate)        // Early renewal (no state change)
-        : member.activate(nextDueDate);     // Reactivation (state transition)
+        ? member.renew(nextDueDate) // Early renewal (no state change)
+        : member.activate(nextDueDate) // Reactivation (state transition)
 
-    return await this.memberRepo.update(processedMember);
+    return await this.memberRepo.update(processedMember)
   }
 }
 ```
@@ -145,7 +149,10 @@ export class CollectPayment {
 
 ```typescript
 // src/app/api/members/[id]/payment/route.ts
-import { InvalidStatusTransitionError, ValidationError } from '@/core/utils/errors';
+import {
+  InvalidStatusTransitionError,
+  ValidationError,
+} from '@/core/utils/errors'
 
 export async function POST(request: NextRequest) {
   try {
@@ -155,14 +162,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         ResponseBuilder.error(error.message, 'INVALID_STATUS_TRANSITION'),
         { status: 400 }
-      );
+      )
     }
 
     if (error instanceof ValidationError) {
       return NextResponse.json(
         ResponseBuilder.error(error.message, 'VALIDATION_ERROR'),
         { status: 400 }
-      );
+      )
     }
     // ... other error handlers
   }
@@ -179,11 +186,11 @@ export async function POST(request: NextRequest) {
 
 #### Use Cases
 
-| Scenario | Current Status | Operation | Method | New Status |
-|----------|---------------|-----------|--------|------------|
-| Early Payment | Active | Extend subscription | `renew()` | Active (date extended) |
-| Overdue Payment | Expired | Reactivate membership | `activate()` | Active |
-| Reactivation | Suspended | Lift suspension | `activate()` | Active |
+| Scenario        | Current Status | Operation             | Method       | New Status             |
+| --------------- | -------------- | --------------------- | ------------ | ---------------------- |
+| Early Payment   | Active         | Extend subscription   | `renew()`    | Active (date extended) |
+| Overdue Payment | Expired        | Reactivate membership | `activate()` | Active                 |
+| Reactivation    | Suspended      | Lift suspension       | `activate()` | Active                 |
 
 #### When to Use This Pattern
 
@@ -199,6 +206,5 @@ export async function POST(request: NextRequest) {
 - ❌ Operations where state transitions are always required
 
 ---
-
 
 ---

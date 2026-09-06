@@ -175,7 +175,7 @@ export default function ProfileImageUpload({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="text-accentui-text text-2xl font-bold">
+              <span className="text-accentui-text text-readout">
                 {getInitials()}
               </span>
             )}
@@ -183,7 +183,7 @@ export default function ProfileImageUpload({
 
           {uploading && (
             <div className="absolute inset-0 rounded-full bg-surface-overlay flex items-center justify-center">
-              <Loader2 className="h-8 w-8 text-white animate-spin" />
+              <Loader2 className="h-8 w-8 text-accentui-text animate-spin" />
             </div>
           )}
         </div>

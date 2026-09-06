@@ -16,12 +16,12 @@
 export const updateMemberSchema = z.object({
   name: z.string().optional(),
   status: z.enum(['active', 'expired', 'suspended']), // WRONG
-});
+})
 
 // ❌ NEVER bypass state machine validation
 async function PATCH(request) {
-  const { status } = await request.json();
-  await db.update({ status }); // WRONG - bypasses business rules
+  const { status } = await request.json()
+  await db.update({ status }) // WRONG - bypasses business rules
 }
 ```
 
@@ -34,20 +34,23 @@ async function PATCH(request) {
 export class Member {
   suspend(): Member {
     if (!canTransition(this.status, MemberStatus.Suspended)) {
-      throw new InvalidStatusTransitionError(this.status, MemberStatus.Suspended);
+      throw new InvalidStatusTransitionError(
+        this.status,
+        MemberStatus.Suspended
+      )
     }
-    return new Member({ ...this.props, status: MemberStatus.Suspended });
+    return new Member({ ...this.props, status: MemberStatus.Suspended })
   }
 
   activate(newDueDate: Date): Member {
     if (!canTransition(this.status, MemberStatus.Active)) {
-      throw new InvalidStatusTransitionError(this.status, MemberStatus.Active);
+      throw new InvalidStatusTransitionError(this.status, MemberStatus.Active)
     }
     return new Member({
       ...this.props,
       status: MemberStatus.Active,
       nextDueDate: newDueDate,
-    });
+    })
   }
 }
 ```
@@ -60,11 +63,11 @@ export class SuspendMember {
   constructor(private memberRepo: IMemberRepository) {}
 
   async execute(input: { memberId: string; gymId: string }): Promise<Member> {
-    const member = await this.memberRepo.findById(input.memberId, input.gymId);
-    if (!member) throw new NotFoundError('Member not found');
+    const member = await this.memberRepo.findById(input.memberId, input.gymId)
+    if (!member) throw new NotFoundError('Member not found')
 
-    const suspended = member.suspend(); // State machine enforced here
-    return await this.memberRepo.update(suspended);
+    const suspended = member.suspend() // State machine enforced here
+    return await this.memberRepo.update(suspended)
   }
 }
 ```
@@ -73,17 +76,20 @@ export class SuspendMember {
 
 ```typescript
 // src/app/api/members/[id]/suspend/route.ts
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const gymProfile = await getCurrentGymProfile();
-  const container = await getContainer();
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const gymProfile = await getCurrentGymProfile()
+  const container = await getContainer()
 
-  const suspendMember = container.getSuspendMemberUseCase();
+  const suspendMember = container.getSuspendMemberUseCase()
   const suspended = await suspendMember.execute({
     memberId: params.id,
     gymId: gymProfile.id,
-  });
+  })
 
-  return NextResponse.json(ResponseBuilder.success(suspended.toDatabase()));
+  return NextResponse.json(ResponseBuilder.success(suspended.toDatabase()))
 }
 ```
 
@@ -93,11 +99,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 // src/infrastructure/di/Container.ts
 export class Container {
   getSuspendMemberUseCase(): SuspendMember {
-    return new SuspendMember(this.getMemberRepository());
+    return new SuspendMember(this.getMemberRepository())
   }
 
   getReactivateMemberUseCase(): ReactivateMember {
-    return new ReactivateMember(this.getMemberRepository());
+    return new ReactivateMember(this.getMemberRepository())
   }
 }
 ```
@@ -110,7 +116,7 @@ export const updateMemberSchema = z.object({
   name: z.string().optional(),
   phoneNumber: z.string().optional(),
   // NO status field - must use dedicated endpoints
-});
+})
 ```
 
 **Step 6: Update UI with Context-Aware Actions**
@@ -152,6 +158,5 @@ export const updateMemberSchema = z.object({
 - ❌ Read-only operations
 
 ---
-
 
 ---

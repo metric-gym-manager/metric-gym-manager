@@ -24,7 +24,6 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { Plus, Trash2 } from 'lucide-react'
 import {
-  Badge,
   Button,
   Card,
   EmptyState,
@@ -89,7 +88,7 @@ export default function AccessReadersCard() {
       </div>
 
       {adding && (
-        <div className="space-y-4 rounded-lg border border-line-1 bg-surface-base p-4">
+        <div className="space-y-4 border-t border-line-1 pt-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField
               label="Serial number"
@@ -232,7 +231,9 @@ function ReaderRow({ device }: { device: SerializedAccessDevice }) {
           <span className="text-sm font-medium text-ink">
             {device.deviceName}
           </span>
-          <Badge variant="neutral">{device.deviceSerial}</Badge>
+          <span className="font-mono text-mono-md text-ink-muted">
+            {device.deviceSerial}
+          </span>
         </div>
 
         <div className="flex items-center gap-3">

@@ -290,9 +290,15 @@ export function DataTable<T>({
     return sorted.slice(startIdx, startIdx + pageSize)
   }, [sorted, pageSize, clampedPage])
 
-  React.useEffect(() => {
+  // Filtering or resizing the page invalidates the current page number. Done as
+  // a render-time adjustment rather than an effect so the table never paints one
+  // frame of an out-of-range page.
+  const pageResetKey = `${query}\u0000${pageSize ?? ''}`
+  const [prevPageResetKey, setPrevPageResetKey] = React.useState(pageResetKey)
+  if (pageResetKey !== prevPageResetKey) {
+    setPrevPageResetKey(pageResetKey)
     setPage(1)
-  }, [query, pageSize])
+  }
 
   // Virtualization over the current page's rows
   const canVirtualize = !!virtualize && !!maxBodyHeight && !renderExpanded
@@ -527,13 +533,22 @@ export function DataTable<T>({
             {!loading && !error && sorted.length === 0 && (
               <tr>
                 <td colSpan={colCount}>
-                  {empty ?? (
-                    <EmptyState
-                      title={query ? 'No results' : 'No data yet'}
-                      description={
-                        query ? `Nothing matches "${query}".` : undefined
-                      }
-                    />
+                  {/* A plain string is normalised into the EmptyState rather
+                      than dropped raw into the cell. Passing one used to render
+                      unpadded, left-aligned text that read as a second header
+                      row — strictly worse than passing nothing, which is a trap
+                      for an API whose prop is typed ReactNode. */}
+                  {typeof empty === 'string' ? (
+                    <EmptyState title={empty} />
+                  ) : (
+                    (empty ?? (
+                      <EmptyState
+                        title={query ? 'No results' : 'No data yet'}
+                        description={
+                          query ? `Nothing matches "${query}".` : undefined
+                        }
+                      />
+                    ))
                   )}
                 </td>
               </tr>

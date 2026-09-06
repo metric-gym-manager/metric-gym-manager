@@ -13,8 +13,8 @@ export const inputVariants = cva(
   {
     variants: {
       size: {
-        md: 'h-8 rounded-md px-2.5', // 32px — app
-        lg: 'h-9 rounded-md px-3', // 36px — auth / modals
+        md: 'h-8 rounded-sm px-2.5', // 32px — app
+        lg: 'h-9 rounded-sm px-3', // 36px — auth / modals
       },
     },
     defaultVariants: { size: 'md' },

@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
  * Pass a leading `icon` and an optional `onDismiss`.
  */
 export const alertVariants = cva(
-  'flex items-start gap-2 rounded-md border px-3 py-2.5 font-geist text-body',
+  'flex items-start gap-2 rounded-sm border px-3 py-2.5 font-geist text-body',
   {
     variants: {
       variant: {

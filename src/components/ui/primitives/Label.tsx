@@ -22,7 +22,7 @@ export const Label = React.forwardRef<HTMLLabelElement, LabelProps>(
     >
       {children}
       {optional && (
-        <span className="font-normal normal-case tracking-normal text-ink-placeholder">
+        <span className="font-normal normal-case tracking-normal text-ink-muted">
           (optional)
         </span>
       )}

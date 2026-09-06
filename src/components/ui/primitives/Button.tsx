@@ -33,12 +33,12 @@ export const buttonVariants = cva(
         link: 'bg-transparent text-brand-link border-transparent underline-offset-4 hover:text-brand-link-hover hover:underline',
       },
       size: {
-        xs: 'h-6.5 gap-1.5 rounded-md px-2.5 text-button-sm',
-        sm: 'h-7.5 rounded-md px-3 text-button-sm',
-        md: 'h-8 rounded-md px-3 text-button',
-        lg: 'h-9 rounded-md px-4 text-button',
-        xl: 'h-10 rounded-lg px-4 text-button-lg',
-        icon: 'h-8 w-8 rounded-md p-0',
+        xs: 'h-6.5 gap-1.5 rounded-sm px-2.5 text-button-sm',
+        sm: 'h-7.5 rounded-sm px-3 text-button-sm',
+        md: 'h-8 rounded-sm px-3 text-button',
+        lg: 'h-9 rounded-sm px-4 text-button',
+        xl: 'h-10 rounded-sm px-4 text-button-lg',
+        icon: 'h-8 w-8 rounded-sm p-0',
       },
     },
     compoundVariants: [

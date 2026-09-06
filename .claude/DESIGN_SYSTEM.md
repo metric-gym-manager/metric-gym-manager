@@ -149,14 +149,23 @@ h1, h2, h3, bodyLg, body(13px default), bodyEmphasis, bodySm, caption, metadata
 
 ## 5. Theming Model (Light + Dark)
 
+> **SUPERSEDED (2026-08-30).** The workspace is now **dark-first and dark-only**,
+> per `docs/architecture/METRIC_UI_DIRECTIVE.md` (Appendix) and ruling R2 in
+> `docs/architecture/workspace-ui-overhaul-log.md`. The light `--ds-*` block and
+> the `.mws-root` scope have been **deleted**; bare `:root` now resolves to the
+> dark palette so no surface can render light by accident. The paragraphs below
+> describe the pre-overhaul contract and are retained only as history.
+
 - **Mechanism.** Semantic tokens are CSS custom properties (`--ds-*`) declared
   under theme scopes in `globals.css`:
-  - `[data-theme='light']` (+ legacy `.mws-root`) → the **App Workspace** surface.
-  - `[data-theme='dark']` (+ legacy `.mauth-root`) → **Marketing / Auth / Legal**.
+  - ~~`[data-theme='light']` (+ legacy `.mws-root`) → the **App Workspace**~~ —
+    removed; `:root`, `[data-theme='dark']`, `[data-theme='light']` and
+    `.mauth-root` all resolve to the single dark palette.
+  - `[data-theme='dark']` (+ legacy `.mauth-root`) → every surface.
 - **Tailwind.** `darkMode: ['selector', '[data-theme="dark"]']` — dark utilities
   key off the same attribute; the legacy `.mws-*`/`.mauth-*` variables are
   re-pointed at `var(--ds-*)` so old markup inherits the tokens for free.
-- **Surface wrappers.** `WorkspaceShell` stamps `data-theme="light"`, `AuthShell`
+- **Surface wrappers.** `WorkspaceShell` stamps `data-theme="dark"` (was `"light"`), `AuthShell`
   stamps `data-theme="dark"`. **Portalled overlays re-apply the theme scope**
   (`Modal`, `Drawer`, `Popover`, `DropdownMenu`, `CommandPalette`) because they
   render outside the wrapper in a portal — without this they'd lose the tokens.

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Button, Input, Label, Checkbox } from '@/components/ui'
+import { Card, Button, Input, Label, Checkbox } from '@/components/ui'
 import type { AdmissionFeeSettings } from '@/features/settings/types'
 
 /**
@@ -84,7 +84,7 @@ export default function AdmissionFeeTab() {
         </p>
       </div>
 
-      <div className="rounded-lg border border-line-1 bg-surface-card p-6 space-y-5 max-w-md">
+      <Card className="p-6 space-y-5 max-w-md">
         {isLoading ? (
           <p className="text-sm text-ink-muted">Loading...</p>
         ) : (
@@ -138,7 +138,7 @@ export default function AdmissionFeeTab() {
             </Button>
           </>
         )}
-      </div>
+      </Card>
     </div>
   )
 }

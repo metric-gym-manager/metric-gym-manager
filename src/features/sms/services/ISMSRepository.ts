@@ -5,29 +5,27 @@
  * This stores records of all SMS messages sent by the system.
  */
 
-import { ReminderType } from '@/features/sms/config/ReminderConfig'
+import {
+  SmsDeliveryStatus,
+  type SmsType,
+} from '@/features/sms/config/SmsConfig'
 
 /**
- * SMS types
+ * SMS type and delivery status are owned by `config/SmsConfig.ts` (R5) and
+ * re-exported here so the port keeps its existing surface — nine files across
+ * payments, members and sms import `SMSDeliveryStatus` from this module.
+ *
+ * The previous local declaration listed `'cancellation' | 'manual' | 'other'`,
+ * none of which exist in the `sms_type` Postgres enum and none of which had a
+ * single usage in the repository. Writing one would have failed at runtime the
+ * way `welcome` and `reactivation` did before their migrations.
  */
-export type SMSType =
-  | ReminderType
-  | 'receipt'
-  | 'welcome'
-  | 'reactivation'
-  | 'cancellation'
-  | 'manual'
-  | 'other'
+export type SMSType = SmsType
 
-/**
- * SMS delivery status
- */
-export enum SMSDeliveryStatus {
-  Pending = 'pending',
-  Sent = 'sent',
-  Delivered = 'delivered',
-  Failed = 'failed',
-}
+// An enum is both a value and a type, so both halves are aliased — call sites use
+// `SMSDeliveryStatus.Sent` (value) and `: SMSDeliveryStatus` (type).
+export const SMSDeliveryStatus = SmsDeliveryStatus
+export type SMSDeliveryStatus = SmsDeliveryStatus
 
 /**
  * SMS log entry
@@ -43,6 +41,34 @@ export interface SMSLog {
   deliveryStatus: SMSDeliveryStatus
   textLkMessageId: string | null
   errorMessage: string | null
+}
+
+/**
+ * One row of a member's SMS history, as a gym manager may see it.
+ *
+ * A deliberately narrower shape than {@link SMSLog}: `errorMessage` is absent
+ * because raw provider text is `/system-health` material, not gym-manager
+ * material (rule 2.8). The omission is enforced in the SQL projection, so the
+ * value never reaches this process.
+ */
+export interface MemberSmsHistoryEntry {
+  id: string
+  smsType: SMSType
+  phoneNumber: string
+  messageBody: string
+  sentAt: Date
+  deliveryStatus: SMSDeliveryStatus
+  textLkMessageId: string | null
+}
+
+/** A page of {@link MemberSmsHistoryEntry}, with the true total behind it. */
+export interface MemberSmsHistoryPage {
+  entries: MemberSmsHistoryEntry[]
+  /** Total matching rows in the database, not the length of this page. */
+  totalCount: number
+  page: number
+  pageSize: number
+  pageCount: number
 }
 
 /**
@@ -142,6 +168,27 @@ export interface ISMSRepository {
   findByMemberId(memberId: string): Promise<SMSLog[]>
 
   /**
+   * A page of one member's SMS history, scoped to a gym.
+   *
+   * Distinct from {@link findByMemberId}, which selects every column of every row
+   * for one member and scopes only by `member_id`. This one:
+   *
+   * - filters on `gym_id` **as well**, so tenant isolation is stated in the query
+   *   rather than left entirely to RLS;
+   * - projects the sanitised column set (no `error_message`, rule 2.8);
+   * - is paginated, and returns the true total rather than the page length.
+   *
+   * @param gymId - Owning gym; rows outside it are never returned.
+   * @param memberId - The member whose history is wanted.
+   * @param options - 1-based page and page size.
+   */
+  findHistoryForMember(
+    gymId: string,
+    memberId: string,
+    options?: { page?: number; pageSize?: number }
+  ): Promise<MemberSmsHistoryPage>
+
+  /**
    * Find all SMS logs with filters
    *
    * @param filters - Query filters
@@ -197,17 +244,27 @@ export interface ISMSRepository {
   getFailedMessages(gymId: string, limit?: number): Promise<SMSLog[]>
 
   /**
-   * Update delivery status
+   * Apply a delivery report to the row bearing a vendor message id.
    *
-   * Used for updating status based on webhook callbacks from SMS provider.
+   * **Returns the number of rows it actually changed**, and that return value is
+   * the point of the method. The previous signature was `Promise<void>`, so a
+   * caller could not distinguish "updated" from "matched nothing" — and a
+   * Supabase `.update()` without `.select()` reports no error when zero rows
+   * match. With RLS denying the write (there is no UPDATE policy on `sms_logs`)
+   * the webhook therefore logged success and returned 200 having changed
+   * nothing, for every delivery report the vendor ever sent.
    *
-   * @param messageId - Text.lk message ID
-   * @param status - New delivery status
+   * Callers must pass a **service-role** client: writes to `sms_logs` are not
+   * covered by any policy and a session client is silently refused (R7).
+   *
+   * @param messageId - Vendor message id, matched against `text_lk_message_id`.
+   * @param status - The state the report puts the message in.
+   * @returns How many rows were updated: 0 when the id is unknown, 1 normally.
    */
   updateDeliveryStatus(
     messageId: string,
     status: SMSDeliveryStatus
-  ): Promise<void>
+  ): Promise<number>
 
   /**
    * Get SMS stats for dashboard

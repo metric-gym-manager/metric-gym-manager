@@ -23,14 +23,7 @@
  */
 
 import { toast } from 'sonner'
-import {
-  AlarmClock,
-  DoorOpen,
-  HardDriveDownload,
-  Power,
-  Wifi,
-  WifiOff,
-} from 'lucide-react'
+import { AlarmClock, DoorOpen, HardDriveDownload, Power } from 'lucide-react'
 import { Badge, Button, Card, Progress } from '@/components/ui'
 import { useConfirmDialog } from '@/hooks/use-confirm-dialog'
 import {
@@ -272,21 +265,11 @@ function PresenceBadge({
   presence: SerializedAccessDevice['presence']
 }) {
   if (presence === 'online') {
-    return (
-      <Badge variant="success">
-        <Wifi className="h-3 w-3" aria-hidden="true" />
-        Online
-      </Badge>
-    )
+    return <Badge variant="success">Online</Badge>
   }
 
   if (presence === 'offline') {
-    return (
-      <Badge variant="warning">
-        <WifiOff className="h-3 w-3" aria-hidden="true" />
-        Not responding
-      </Badge>
-    )
+    return <Badge variant="warning">Not responding</Badge>
   }
 
   // Deliberately neutral, not a warning. Never having heard from a reader is

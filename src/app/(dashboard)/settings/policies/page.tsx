@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Panel, PanelHead } from '@/components/workspace/primitives'
+import { SectionHeader } from '@/components/common/composites'
 import { Button, Textarea } from '@/components/ui'
 import type { GymPolicies } from '@/features/settings/types'
 import {
@@ -68,70 +68,64 @@ export default function GymPoliciesPage() {
   return (
     <div className="flex flex-col gap-3">
       <div>
-        <h1 className="mws-h1">Rules &amp; Terms</h1>
-        <p className="mws-row-sub" style={{ marginTop: 4 }}>
+        <h1 className="text-h1 text-ink">Rules &amp; Terms</h1>
+        <p className="mt-1 text-caption text-ink-muted">
           Your gym&apos;s rules and terms of service. Members agree to these
           when they register.
         </p>
       </div>
 
-      <Panel>
-        <PanelHead
-          label="Gym Rules & Guidelines"
-          right={
-            <button
-              type="button"
-              className="mws-mono"
-              style={{
-                fontSize: 11,
-                color: 'var(--mws-t3)',
-                cursor: 'pointer',
-              }}
+      <section>
+        <SectionHeader
+          variant="metadata"
+          divider
+          title="Gym Rules & Guidelines"
+          actions={
+            <Button
+              variant="link"
+              size="xs"
               onClick={() => setRules(DEFAULT_GYM_RULES)}
             >
-              RESET TO DEFAULT
-            </button>
+              Reset to default
+            </Button>
           }
         />
-        <div style={{ padding: 16 }}>
+        <div className="pt-3">
           <Textarea
             value={rules}
             onChange={(e) => setRules(e.target.value)}
             rows={16}
-            className="font-mono text-sm"
+            className="font-mono"
             placeholder="Enter your gym rules and guidelines"
           />
         </div>
-      </Panel>
+      </section>
 
-      <Panel>
-        <PanelHead
-          label="Terms of Service"
-          right={
-            <button
-              type="button"
-              className="mws-mono"
-              style={{
-                fontSize: 11,
-                color: 'var(--mws-t3)',
-                cursor: 'pointer',
-              }}
+      <section>
+        <SectionHeader
+          variant="metadata"
+          divider
+          title="Terms of Service"
+          actions={
+            <Button
+              variant="link"
+              size="xs"
               onClick={() => setTerms(DEFAULT_GYM_TERMS)}
             >
-              RESET TO DEFAULT
-            </button>
+              Reset to default
+            </Button>
           }
         />
-        <div style={{ padding: 16 }}>
+        <div className="pt-3">
           <Textarea
             value={terms}
             onChange={(e) => setTerms(e.target.value)}
             rows={16}
-            className="font-mono text-sm"
+            className="font-mono"
             placeholder="Enter your terms of service"
           />
         </div>
-      </Panel>
+      </section>
 
       <div>
         <Button

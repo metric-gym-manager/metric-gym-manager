@@ -75,7 +75,7 @@ export default function BillingHistoryTable() {
           </div>
         ) : (
           <>
-            <div className="rounded-md border border-line-1 overflow-x-auto">
+            <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>

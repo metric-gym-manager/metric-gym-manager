@@ -64,11 +64,7 @@ export {
   formatReceiptSMS,
 } from './services/sms.service'
 
-export {
-  sendSmsViaTextLk,
-  getSmsDeliveryStatus,
-  getTextLkBalance,
-} from './services/textlk.service'
+export { sendSmsViaTextLk, getTextLkBalance } from './services/textlk.service'
 
 // Types
 export type {
@@ -85,3 +81,13 @@ export type {
 export { sendSMSSchema, reminderFiltersSchema } from './schemas/sms.schemas'
 
 export type { SendSMSInput, ReminderFiltersInput } from './schemas/sms.schemas'
+
+/**
+ * NOTE: this barrel is **server-tainted** — it re-exports `sms.service`, which
+ * imports `@/lib/supabase/server` (and so `next/headers`). A client component
+ * must deep-import `./components/MemberSmsHistory` instead; importing it from
+ * here drags server-only modules into the browser bundle. Rule 2.15 records the
+ * same hazard on the auth barrel.
+ */
+export { MemberSmsHistory } from './components/MemberSmsHistory'
+export type { MemberSmsHistoryProps } from './components/MemberSmsHistory'

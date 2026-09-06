@@ -1,11 +1,11 @@
-import { Metadata } from 'next';
-import { Suspense } from 'react';
-import BillingPageClient from './BillingPageClient';
+import { Metadata } from 'next'
+import { Suspense } from 'react'
+import BillingPageClient from './BillingPageClient'
 
 export const metadata: Metadata = {
   title: 'Subscription | Settings',
   description: 'Manage your gym management plan, billing and invoices',
-};
+}
 
 /**
  * Subscription & billing page (Settings sub-page).
@@ -16,11 +16,11 @@ export default function BillingPage() {
     <Suspense
       fallback={
         <div className="flex h-64 items-center justify-center">
-          <p className="text-sm text-gray-500">Loading subscription…</p>
+          <p className="text-caption text-ink-muted">Loading subscription…</p>
         </div>
       }
     >
       <BillingPageClient />
     </Suspense>
-  );
+  )
 }

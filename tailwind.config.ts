@@ -114,6 +114,7 @@ const config: Config = {
         solid: {
           DEFAULT: 'var(--ds-primary)',
           text: 'var(--ds-primary-text)',
+          hover: 'var(--ds-primary-hover)',
         },
         // Accent (single interactive color)
         accentui: {
@@ -175,6 +176,31 @@ const config: Config = {
         mono: ['var(--font-geist-mono)', 'ui-monospace', 'monospace'],
       },
       fontSize: {
+        // ─────────────────────────────────────────────────────────────────
+        // Tailwind's DEFAULT scale, re-pointed onto Metric sizes.
+        //
+        // The Metric scale below was ADDED to Tailwind's defaults rather than
+        // replacing them, so `text-sm` (14px) and `text-base` (16px) stayed
+        // valid and won 10:1 over the design tokens — 412 uses against 50.
+        // Both are off-scale, and both render LARGER than the 13px body the
+        // workspace sets, so secondary text outweighed primary text.
+        // Directive §4.5 forbids hardcoded typography; §5.8 requires hierarchy
+        // from precision rather than size. Re-pointing fixes every existing
+        // call site without touching a component.
+        //
+        // Size + line-height only: no weight, no tracking. This is a SIZE
+        // correction. Anything wanting full heading treatment should use the
+        // semantic token (`text-h1`/`text-h2`/`text-h3`) declared below.
+        //
+        // `2xl` and larger are deliberately NOT re-pointed — they carry both
+        // page titles and KPI values, which need the readout decision in
+        // Phase 2 (see OPEN-4 in workspace-ui-overhaul-log.md).
+        xs: ['12px', { lineHeight: '16px' }], // was 12/16 — already on-scale
+        sm: ['13px', { lineHeight: '20px' }], // was 14/20 → body
+        base: ['14px', { lineHeight: '20px' }], // was 16/24 → h3 size
+        lg: ['16px', { lineHeight: '24px' }], // was 18/28 → h2 size
+        xl: ['20px', { lineHeight: '28px' }], // was 20/28 — already on-scale
+
         // Spec §5 Typography Scale — [size, { lineHeight, letterSpacing, fontWeight }]
         'display-xl': [
           'clamp(48px,7.5vw,92px)',
@@ -197,6 +223,8 @@ const config: Config = {
           { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' },
         ],
         h3: ['14px', { lineHeight: '20px', fontWeight: '600' }],
+        // Operational KPI value (directive §5.5). See tokens.ts `readout`.
+        readout: ['24px', { lineHeight: '28px', fontWeight: '600' }],
         'body-lg': ['15px', { lineHeight: '24px' }],
         body: ['13px', { lineHeight: '20px' }],
         'body-sm': ['12px', { lineHeight: '16px' }],
@@ -249,6 +277,13 @@ const config: Config = {
         modal: '6px',
         nav: '16px',
         'marketing-modal': '8px',
+      },
+      height: {
+        // Chrome bar height — the sidebar's workspace selector and the
+        // breadcrumb header share one rhythm. Mirrors `layout.breadcrumbHeight`
+        // / `layout.workspaceSelectorHeight` in tokens.ts, which nothing could
+        // previously consume from a class.
+        bar: '52px',
       },
       maxWidth: {
         app: '1200px',

@@ -30,13 +30,13 @@ export function Toaster(props: ToasterProps) {
       toastOptions={{
         classNames: {
           toast:
-            'rounded-lg border border-line-2 bg-surface-card font-geist text-body text-ink shadow-overlay',
+            'rounded-sm border border-line-2 bg-surface-card font-geist text-body text-ink shadow-overlay',
           title: 'font-geist text-body font-medium text-ink',
           description: 'font-geist text-caption text-ink-muted',
           actionButton:
-            'rounded-md bg-solid px-2 py-1 text-button-sm text-solid-text',
+            'rounded-sm bg-solid px-2 py-1 text-button-sm text-solid-text',
           cancelButton:
-            'rounded-md border border-line-2 px-2 py-1 text-button-sm text-ink',
+            'rounded-sm border border-line-2 px-2 py-1 text-button-sm text-ink',
           success: 'text-success',
           warning: 'text-warning',
           error: 'text-error',

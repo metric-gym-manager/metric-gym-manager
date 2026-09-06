@@ -161,7 +161,7 @@ export default function PricingTable({
                   </Badge>
                 )}
               </div>
-              <p className="text-2xl font-bold text-ink">
+              <p className="text-readout text-ink">
                 {col.priceLabel({
                   litePriceLkr,
                   proPriceLkr,

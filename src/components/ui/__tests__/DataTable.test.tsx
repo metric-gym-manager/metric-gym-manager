@@ -174,3 +174,49 @@ describe('DataTable column resizing', () => {
     expect(screen.queryByRole('separator')).not.toBeInTheDocument()
   })
 })
+
+describe('DataTable — clickable rows are keyboard operable', () => {
+  // Regression guard for a defect that existed in BOTH the hand-written
+  // `mws-table` and this primitive: `clickable` styled the cursor and nothing
+  // else, so activating a row — the primary action on the members and renewals
+  // screens — was impossible without a mouse.
+  const rows = [{ id: 'a', name: 'Nimal' }]
+  const columns = [{ id: 'name', header: 'Name' }]
+
+  function setup() {
+    const onRowClick = jest.fn()
+    render(
+      <DataTable
+        columns={columns}
+        data={rows}
+        getRowId={(r) => r.id}
+        onRowClick={onRowClick}
+      />
+    )
+    return { onRowClick, row: screen.getByText('Nimal').closest('tr')! }
+  }
+
+  it('puts a clickable row in the tab order', () => {
+    expect(setup().row).toHaveAttribute('tabindex', '0')
+  })
+
+  it('activates on Enter and on Space', () => {
+    const { onRowClick, row } = setup()
+    fireEvent.keyDown(row, { key: 'Enter' })
+    fireEvent.keyDown(row, { key: ' ' })
+    expect(onRowClick).toHaveBeenCalledTimes(2)
+  })
+
+  it('ignores other keys', () => {
+    const { onRowClick, row } = setup()
+    fireEvent.keyDown(row, { key: 'a' })
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('leaves a non-clickable row out of the tab order', () => {
+    render(<DataTable columns={columns} data={rows} getRowId={(r) => r.id} />)
+    expect(screen.getByText('Nimal').closest('tr')).not.toHaveAttribute(
+      'tabindex'
+    )
+  })
+})

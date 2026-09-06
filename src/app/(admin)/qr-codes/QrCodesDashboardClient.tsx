@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { QRCodeCanvas } from 'qrcode.react'
 import { toast } from 'sonner'
 import { Download, Printer, RefreshCw, Search } from 'lucide-react'
-import { Button, Input, Modal } from '@/components/ui'
+import { Button, Card, Input, Modal } from '@/components/ui'
 import {
   downloadPosterImage,
   posterFilename,
@@ -123,7 +123,7 @@ export default function QrCodesDashboardClient() {
 
   if (error) {
     return (
-      <div className="rounded-md bg-error-bg p-4">
+      <div className="rounded-sm bg-error-bg p-4">
         <p className="text-sm text-error">
           Failed to load QR codes. Please try again.
         </p>
@@ -158,23 +158,23 @@ export default function QrCodesDashboardClient() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-64 animate-pulse rounded-lg bg-surface-hover"
+              className="h-64 animate-pulse rounded-sm bg-surface-hover"
             />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex h-48 items-center justify-center rounded-lg border border-line-1 bg-surface-card">
+        <Card className="flex h-48 items-center justify-center">
           <p className="text-sm text-ink-muted">No gyms found</p>
-        </div>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((gym) => {
             const isRegenerating =
               regenerate.isPending && regenerate.variables === gym.gymId
             return (
-              <div
+              <Card
                 key={gym.gymId}
-                className="rounded-lg border border-line-1 bg-surface-card p-4 flex flex-col items-center text-center"
+                className="p-4 flex flex-col items-center text-center"
               >
                 <h3
                   className="font-semibold text-ink truncate w-full"
@@ -186,7 +186,7 @@ export default function QrCodesDashboardClient() {
                   {gym.email}
                 </p>
 
-                <div className="my-4 rounded-lg border border-line-1 bg-white p-3">
+                <div className="my-4 p-3">
                   <QRCodeCanvas
                     value={gym.joinUrl!}
                     size={144}
@@ -224,7 +224,7 @@ export default function QrCodesDashboardClient() {
                     {isRegenerating ? 'Generating…' : 'New QR'}
                   </Button>
                 </div>
-              </div>
+              </Card>
             )
           })}
         </div>

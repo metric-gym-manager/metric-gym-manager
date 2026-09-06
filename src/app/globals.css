@@ -80,118 +80,101 @@
    Single source of truth mirroring src/components/ui/tokens.ts and the
    Metric Design System Specification §2. Components reference these via
    Tailwind utilities bound to the vars (see tailwind.config.ts); the active
-   theme is the nearest [data-theme] scope (or the legacy .mws-root /
-   .mauth-root scopes). Never reference primitive values from a component.
+   theme is the nearest [data-theme] scope (or the legacy .mauth-root scope).
+   Never reference primitive values from a component.
    ============================================================ */
 @layer base {
-  :root,
-  [data-theme='light'],
-  .mws-root {
-    /* Surfaces */
-    --ds-surface-base: #f4f4f5;
-    --ds-surface-card: #ffffff;
-    --ds-surface-panel: #ffffff;
-    --ds-surface-input: #f4f4f5;
-    --ds-surface-hover: rgba(0, 0, 0, 0.04);
-    --ds-surface-active: rgba(0, 0, 0, 0.045);
-    --ds-surface-selected: rgba(0, 0, 0, 0.06);
-    --ds-surface-overlay: rgba(0, 0, 0, 0.45);
-    /* Borders */
-    --ds-border-1: rgba(0, 0, 0, 0.09);
-    --ds-border-2: rgba(0, 0, 0, 0.13);
-    --ds-border-3: rgba(0, 0, 0, 0.16);
-    --ds-border-hover: rgba(0, 0, 0, 0.28);
-    --ds-border-strong: rgba(0, 0, 0, 0.35);
-    --ds-border-subtle: rgba(0, 0, 0, 0.05);
-    --ds-border-dashed: rgba(0, 0, 0, 0.16);
-    /* Text */
-    --ds-text-primary: #18181b;
-    --ds-text-secondary: #52525b;
-    --ds-text-muted: #8a8a92;
-    --ds-text-placeholder: #c4c4c8;
-    /* Primary (solid neutral) */
-    --ds-primary: #18181b;
-    --ds-primary-text: #f4f4f5;
-    /* Accent */
-    --ds-accent: #1b17ff;
-    --ds-accent-hover: #3230ff;
-    --ds-accent-text: #ffffff;
-    --ds-accent-link: #4340ff;
-    --ds-accent-link-hover: #1b17ff;
-    --ds-accent-bg: rgba(27, 23, 255, 0.12);
-    --ds-accent-border: rgba(138, 136, 255, 0.3);
-    --ds-focus-border: #1b17ff;
-    /* Status — tint recipe: text / 10% bg / 25% border */
-    --ds-success-text: #1a7f37;
-    --ds-success-bg: rgba(63, 185, 80, 0.1);
-    --ds-success-border: rgba(63, 185, 80, 0.25);
-    --ds-warning-text: #9a6700;
-    --ds-warning-bg: rgba(210, 153, 34, 0.1);
-    --ds-warning-border: rgba(210, 153, 34, 0.25);
-    --ds-error-text: #cf222e;
-    --ds-error-bg: rgba(248, 81, 73, 0.1);
-    --ds-error-border: rgba(248, 81, 73, 0.25);
-    --ds-destructive: #cf222e;
-    --ds-destructive-text: #ffffff;
-    /* Effects (theme-varying) */
-    --ds-focus-ring: 0 0 0 3px rgba(27, 23, 255, 0.25);
-    --ds-focus-ring-error: 0 0 0 3px rgba(248, 81, 73, 0.25);
-    --ds-shadow-overlay: 0 16px 48px rgba(0, 0, 0, 0.5);
-    color-scheme: light;
-  }
+  /* ─────────────────────────────────────────────────────────────────────
+     DARK-FIRST OPERATIONAL PALETTE  (METRIC_UI_DIRECTIVE.md §5.1, Appendix)
 
+     Dark is the canonical Metric identity across Workspace, Marketing, Auth
+     and Legal — one brand language, not "dark mode added to a light app".
+     The light block was DELETED here (ruling R2, 2026-08-29); nothing consumed
+     it at runtime.
+
+     `[data-theme='light']` is mapped to these same values on purpose: a stale
+     stamp must inherit the real palette rather than resolve to nothing. Those
+     stamp sites are removed in Phase 1.3 / Phase 2.
+
+     Retuned for an operational surface, NOT inverted from the old light theme:
+     - Three-step surface ladder (base → panel → card). Cards are exceptional
+       objects (§5.4), so the ladder is shallow and the steps are small.
+     - Borders carry ALL structure, because shadows are banned (§5.12), so
+       border-1 is materially more visible than a typical dark hairline.
+     - Every interaction state LIGHTENS. The legacy layer darkened
+       (rgba(0,0,0,α)), which is invisible on this ground — that failure is the
+       Phase 1 exit gate.
+     - `surface-selected` is accent-tinted: selection is a *system state*, not
+       a neutral highlight (§5.7 BLUE = interactive/selected/system).
+     - Accent is a restrained indigo at the brand hue. Full-chroma #1b17ff
+       glows on near-black, and §6 bans glow while §9.3 flags excessive blue.
+     - `shadow-overlay` is a HAIRLINE RING, not a drop shadow (§5.12): elevation
+       comes from a 1px boundary, never from a floating effect.
+     ───────────────────────────────────────────────────────────────────── */
+  :root,
   [data-theme='dark'],
+  [data-theme='light'],
   .mauth-root {
-    /* Surfaces */
-    --ds-surface-base: #0a0a0b;
-    --ds-surface-card: #131316;
-    --ds-surface-panel: #101012;
-    --ds-surface-input: rgba(255, 255, 255, 0.04);
-    --ds-surface-hover: rgba(255, 255, 255, 0.06);
-    --ds-surface-active: rgba(255, 255, 255, 0.07);
-    --ds-surface-selected: rgba(255, 255, 255, 0.08);
-    --ds-surface-overlay: rgba(0, 0, 0, 0.7);
-    /* Borders */
-    --ds-border-1: rgba(255, 255, 255, 0.07);
-    --ds-border-2: rgba(255, 255, 255, 0.12);
-    --ds-border-3: rgba(255, 255, 255, 0.15);
-    --ds-border-hover: rgba(255, 255, 255, 0.25);
-    --ds-border-strong: rgba(255, 255, 255, 0.3);
-    --ds-border-subtle: rgba(255, 255, 255, 0.05);
-    --ds-border-dashed: rgba(255, 255, 255, 0.12);
-    /* Text */
-    --ds-text-primary: #ededf0;
-    --ds-text-secondary: #9b9ba4;
-    --ds-text-muted: #64646d;
-    --ds-text-placeholder: #5c5c64;
-    /* Primary (solid neutral) */
-    --ds-primary: #ededf0;
-    --ds-primary-text: #0a0a0b;
-    /* Accent */
-    --ds-accent: #1b17ff;
-    --ds-accent-hover: #3230ff;
+    /* Surfaces — shallow ladder, near-black canvas */
+    --ds-surface-base: #08080a;
+    --ds-surface-panel: #0d0d10;
+    --ds-surface-card: #131317;
+    --ds-surface-input: rgba(255, 255, 255, 0.05);
+    /* States LIGHTEN — never darken. See the Phase 1 exit gate.
+       The ladder must also stay monotonic: hover < active < selected. At the
+       original 0.18 the selected tint was *dimmer* than active, so a selected
+       row read as weaker than one merely being pressed (§5.14 wants strong
+       active-state contrast). Found by measuring composited luminance, not by
+       looking. */
+    --ds-surface-hover: rgba(255, 255, 255, 0.055);
+    --ds-surface-active: rgba(255, 255, 255, 0.08);
+    --ds-surface-selected: rgba(74, 71, 209, 0.3);
+    --ds-surface-overlay: rgba(0, 0, 0, 0.72);
+    /* Borders — these carry the structure (no shadows exist) */
+    --ds-border-1: rgba(255, 255, 255, 0.1);
+    --ds-border-2: rgba(255, 255, 255, 0.145);
+    --ds-border-3: rgba(255, 255, 255, 0.19);
+    --ds-border-hover: rgba(255, 255, 255, 0.3);
+    --ds-border-strong: rgba(255, 255, 255, 0.38);
+    --ds-border-subtle: rgba(255, 255, 255, 0.06);
+    --ds-border-dashed: rgba(255, 255, 255, 0.16);
+    /* Text. `ink-muted` is also the placeholder colour inside inputs, and
+       `surface-input` lightens its ground, so the binding constraint is muted
+       on an input on a card — the worst case. #7d7d88 gave 4.05 there; #85858f
+       gives 4.51 and 5.07 on plain surfaces. */
+    --ds-text-primary: #f2f2f5;
+    --ds-text-secondary: #a6a6b0;
+    --ds-text-muted: #85858f;
+    --ds-text-placeholder: #5c5c66;
+    /* Primary (solid neutral) — §5.19 high-contrast solid */
+    --ds-primary: #f2f2f5;
+    --ds-primary-text: #08080a;
+    --ds-primary-hover: #dcdce2;
+    /* Accent — restrained indigo, brand hue, reduced chroma */
+    --ds-accent: #4a47d1;
+    --ds-accent-hover: #5c59dd;
     --ds-accent-text: #ffffff;
-    --ds-accent-link: #8a88ff;
-    --ds-accent-link-hover: #a5a3ff;
-    --ds-accent-bg: rgba(27, 23, 255, 0.12);
-    --ds-accent-border: rgba(138, 136, 255, 0.3);
-    --ds-focus-border: #1b17ff;
-    /* Status */
+    --ds-accent-link: #9694f5;
+    --ds-accent-link-hover: #b0aef8;
+    --ds-accent-bg: rgba(74, 71, 209, 0.16);
+    --ds-accent-border: rgba(110, 107, 225, 0.35);
+    --ds-focus-border: #6461e2;
+    /* Status — signal, not decoration (§5.7) */
     --ds-success-text: #3fb950;
-    --ds-success-bg: rgba(63, 185, 80, 0.1);
-    --ds-success-border: rgba(63, 185, 80, 0.25);
+    --ds-success-bg: rgba(63, 185, 80, 0.12);
+    --ds-success-border: rgba(63, 185, 80, 0.28);
     --ds-warning-text: #d29922;
-    --ds-warning-bg: rgba(210, 153, 34, 0.1);
-    --ds-warning-border: rgba(210, 153, 34, 0.25);
+    --ds-warning-bg: rgba(210, 153, 34, 0.12);
+    --ds-warning-border: rgba(210, 153, 34, 0.28);
     --ds-error-text: #f85149;
-    --ds-error-bg: rgba(248, 81, 73, 0.1);
-    --ds-error-border: rgba(248, 81, 73, 0.25);
-    --ds-destructive: #cf222e;
+    --ds-error-bg: rgba(248, 81, 73, 0.12);
+    --ds-error-border: rgba(248, 81, 73, 0.28);
+    --ds-destructive: #da3633;
     --ds-destructive-text: #ffffff;
-    /* Effects */
-    --ds-focus-ring: 0 0 0 3px rgba(27, 23, 255, 0.25);
-    --ds-focus-ring-error: 0 0 0 3px rgba(248, 81, 73, 0.25);
-    --ds-shadow-overlay: 0 16px 48px rgba(0, 0, 0, 0.5);
+    /* Effects — 2px focus ring for density; overlay is a hairline, not a shadow */
+    --ds-focus-ring: 0 0 0 2px rgba(100, 97, 226, 0.45);
+    --ds-focus-ring-error: 0 0 0 2px rgba(248, 81, 73, 0.4);
+    --ds-shadow-overlay: 0 0 0 1px rgba(255, 255, 255, 0.14);
     color-scheme: dark;
   }
 }
@@ -213,9 +196,15 @@
   }
 
   body {
-    @apply bg-background text-foreground;
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
+    /* The document ground. This used to read the pre-design-system Apple-era
+       vars (`--bg-primary: #ffffff`) plus shadcn's light `--background`, so the
+       body stayed WHITE through the entire dark conversion — every shell simply
+       painted over it. Overscroll showed white, and anything inheriting the
+       body colour rendered #1d1d1f text on a near-black surface. Found by the
+       third inverted pass: retuning `--ds-*` was never sufficient, because the
+       body was never on the token system. */
+    background-color: var(--ds-surface-base);
+    color: var(--ds-text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -390,600 +379,10 @@
 }
 
 /* ============================================================
-   METRIC WORKSPACE (mws) — Enterprise UI/UX Overhaul
-   Design system for the authenticated app shell + screens.
-   Implements "App Workspace.dc.html" (light theme). All rules are
-   scoped under `.mws-root` so the marketing/auth surfaces are untouched.
-   Tokens: Geist type, monochrome greys, status-only colour.
-   ============================================================ */
-.mws-root {
-  /* Legacy workspace vars now ALIAS the design-system tokens (single source of
-     truth). Values are identical to the originals — purely a re-point, so
-     existing workspace screens render unchanged. */
-  --mws-bg: var(--ds-surface-base);
-  --mws-panel: var(--ds-surface-card);
-  --mws-t1: var(--ds-text-primary); /* primary text */
-  --mws-t2: var(--ds-text-secondary); /* secondary text */
-  --mws-t3: var(--ds-text-muted); /* metadata */
-  --mws-t4: var(--ds-text-placeholder); /* faint */
-  --mws-b1: var(--ds-border-1); /* the 1px rule */
-  --mws-b2: var(--ds-border-2); /* interactive border */
-  --mws-hover: var(--ds-surface-active);
-  --mws-row-hover: var(--ds-surface-hover);
-  --mws-accent: var(--ds-accent);
-  --mws-accent-tint: var(--ds-accent-link);
-  --mws-accent-hover: var(--ds-accent-hover);
-  --mws-ok: var(--ds-success-text);
-  --mws-ok-bg: var(--ds-success-bg);
-  --mws-ok-br: var(--ds-success-border);
-  --mws-warn: var(--ds-warning-text);
-  --mws-warn-bg: var(--ds-warning-bg);
-  --mws-warn-br: var(--ds-warning-border);
-  --mws-err: var(--ds-error-text);
-  --mws-err-bg: var(--ds-error-bg);
-  --mws-err-br: var(--ds-error-border);
-
-  font-family: var(--font-geist), system-ui, sans-serif;
-  font-size: 13px;
-  line-height: 20px;
-  color: var(--mws-t1);
-  -webkit-font-smoothing: antialiased;
-}
-
-.mws-root ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-.mws-root ::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.12);
-  border-radius: 5px;
-  border: 2px solid var(--mws-bg);
-}
-.mws-root ::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-/* Monospace numerics / metadata */
-.mws-mono {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Typography */
-.mws-h1 {
-  margin: 0;
-  font-size: 20px;
-  line-height: 28px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
-.mws-h2 {
-  margin: 0;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-.mws-label {
-  font-size: 11px;
-  line-height: 16px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--mws-t3);
-  font-weight: 500;
-}
-
-/* Surfaces */
-.mws-panel {
-  background: var(--mws-panel);
-  border: 1px solid var(--mws-b1);
-  border-radius: 6px;
-}
-.mws-panel-head {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--mws-b1);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-/* Badges — status tint recipe */
-.mws-badge {
-  display: inline-block;
-  white-space: nowrap;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 11px;
-  line-height: 16px;
-  border-radius: 4px;
-  padding: 1px 6px;
-  border: 1px solid var(--mws-b2);
-  color: var(--mws-t2);
-  background: transparent;
-}
-.mws-badge-ok {
-  color: var(--mws-ok);
-  background: var(--mws-ok-bg);
-  border-color: var(--mws-ok-br);
-}
-.mws-badge-warn {
-  color: var(--mws-warn);
-  background: var(--mws-warn-bg);
-  border-color: var(--mws-warn-br);
-}
-.mws-badge-err {
-  color: var(--mws-err);
-  background: var(--mws-err-bg);
-  border-color: var(--mws-err-br);
-}
-.mws-badge-accent {
-  color: var(--mws-accent-tint);
-  background: rgba(27, 23, 255, 0.12);
-  border-color: rgba(138, 136, 255, 0.3);
-}
-
-/* Tables */
-.mws-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.mws-table thead th {
-  text-align: left;
-  padding: 8px 16px;
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--mws-t3);
-  font-weight: 500;
-  border-bottom: 1px solid var(--mws-b1);
-  white-space: nowrap;
-}
-.mws-table tbody td {
-  padding: 8px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-.mws-table tbody tr:last-child td {
-  border-bottom: none;
-}
-.mws-table tbody tr.mws-row-click {
-  cursor: pointer;
-}
-.mws-table tbody tr:hover {
-  background: var(--mws-row-hover);
-}
-.mws-num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-}
-
-/* Buttons */
-.mws-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 5px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-  border: 1px solid var(--mws-b2);
-  background: transparent;
-  color: var(--mws-t1);
-  transition:
-    background 0.12s ease,
-    border-color 0.12s ease,
-    color 0.12s ease;
-}
-.mws-btn:hover {
-  border-color: rgba(0, 0, 0, 0.28);
-}
-.mws-btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-.mws-btn-sm {
-  height: 26px;
-  padding: 0 10px;
-  font-size: 12px;
-}
-.mws-btn-primary {
-  background: var(--mws-t1);
-  color: var(--mws-bg);
-}
-.mws-btn-primary:hover {
-  background: #000;
-  border-color: rgba(0, 0, 0, 0.28);
-}
-.mws-btn-accent {
-  background: var(--mws-accent);
-  color: #fff;
-  border-color: rgba(0, 0, 0, 0.16);
-}
-.mws-btn-accent:hover {
-  background: var(--mws-accent-hover);
-}
-.mws-btn-danger {
-  color: var(--mws-err);
-  border-color: var(--mws-err-br);
-}
-.mws-btn-danger:hover {
-  background: var(--mws-err-bg);
-  border-color: var(--mws-err-br);
-}
-
-/* Form controls */
-.mws-input,
-.mws-select,
-.mws-textarea {
-  background: var(--mws-bg);
-  border: 1px solid var(--mws-b2);
-  border-radius: 5px;
-  color: var(--mws-t1);
-  font-size: 13px;
-  font-family: var(--font-geist), system-ui, sans-serif;
-}
-.mws-input,
-.mws-select {
-  height: 32px;
-  padding: 0 10px;
-}
-.mws-textarea {
-  padding: 8px 10px;
-  line-height: 20px;
-  resize: vertical;
-}
-.mws-input:focus,
-.mws-select:focus,
-.mws-textarea:focus {
-  outline: none;
-  border-color: var(--mws-accent);
-  box-shadow: 0 0 0 3px rgba(27, 23, 255, 0.25);
-}
-
-/* Stat tile */
-.mws-stat {
-  background: var(--mws-panel);
-  border: 1px solid var(--mws-b1);
-  border-radius: 6px;
-  padding: 16px;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-button.mws-stat {
-  cursor: pointer;
-  transition: border-color 0.12s ease;
-}
-button.mws-stat:hover {
-  border-color: var(--mws-b2);
-}
-.mws-stat-value {
-  font-size: 24px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Responsive grids for workspace screens */
-@media (max-width: 1024px) {
-  .mws-stat-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-  .mws-dash-split {
-    grid-template-columns: 1fr !important;
-  }
-  .mws-two-col {
-    grid-template-columns: 1fr !important;
-  }
-}
-@media (max-width: 640px) {
-  .mws-stat-grid {
-    grid-template-columns: 1fr !important;
-  }
-}
-/* Mobile back-navigation button — hidden on desktop, toggled visible on mobile */
-.mws-back-btn {
-  display: none;
-  align-items: center;
-  gap: 4px;
-  border: none;
-  background: none;
-  padding: 0;
-  color: var(--ds-accent-link);
-  font-size: 13px;
-  line-height: 20px;
-  cursor: pointer;
-  text-decoration: none;
-  margin-bottom: 16px;
-}
-.mws-back-btn:hover {
-  color: var(--ds-accent-link-hover);
-}
-
-@media (max-width: 767px) {
-  .mws-settings-shell {
-    flex-direction: column !important;
-    gap: 0 !important;
-    max-width: 100% !important;
-  }
-  /* Nav column — full-width menu on /settings root */
-  .mws-settings-nav-root {
-    width: 100% !important;
-  }
-  /* Nav column — hidden on sub-pages */
-  .mws-settings-nav-sub {
-    display: none !important;
-  }
-  /* Nav items — larger touch targets + chevron row on mobile */
-  .mws-settings-nav-root .mws-subnav {
-    height: 48px;
-    padding: 0 12px;
-    border-radius: 8px;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  /* Content column — hidden on /settings root (show nav only) */
-  .mws-settings-content-root {
-    display: none !important;
-  }
-  /* Content column — reset padding on sub-pages */
-  .mws-settings-content-sub {
-    padding-top: 0 !important;
-  }
-  /* Back button — show on mobile */
-  .mws-back-btn {
-    display: flex !important;
-  }
-  /* Chevron — show in mobile nav menu */
-  .mws-settings-nav-root .mws-settings-chevron {
-    display: block;
-  }
-}
-
-/* Horizontal scroll wrapper for wide tables on small screens */
-.mws-table-scroll {
-  overflow-x: auto;
-}
-.mws-table-scroll > table {
-  min-width: 640px;
-}
-
-/* Main column offset — matches the (collapsible) fixed sidebar on desktop */
-.mws-main {
-  padding-left: 0;
-}
-@media (min-width: 1024px) {
-  .mws-main {
-    padding-left: var(--mws-sb-w, 240px);
-    transition: padding-left 0.15s ease;
-  }
-}
-
-/* Sidebar nav items */
-.mws-nav-item {
-  text-decoration: none;
-  transition:
-    background 0.12s ease,
-    color 0.12s ease;
-}
-.mws-nav-item:hover {
-  background: var(--mws-hover);
-  color: var(--mws-t2);
-}
-.mws-nav-item-active,
-.mws-nav-item-active:hover {
-  background: rgba(0, 0, 0, 0.09);
-  color: var(--mws-t1);
-}
-
-/* Fee/settings tab underline bar */
-.mws-tab {
-  height: 36px;
-  padding: 0 14px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  color: var(--mws-t3);
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  white-space: nowrap;
-}
-.mws-tab:hover {
-  color: var(--mws-t2);
-}
-.mws-tab-active {
-  color: var(--mws-t1);
-  border-bottom-color: var(--mws-t1);
-}
-
-/* Settings sub-nav chevron — hidden on desktop, visible in mobile menu */
-.mws-settings-chevron {
-  display: none;
-  color: var(--ds-text-muted);
-}
-
-/* Settings sub-nav pill */
-.mws-subnav {
-  height: 30px;
-  padding: 0 10px;
-  text-align: left;
-  border: none;
-  border-radius: 5px;
-  font-size: 13px;
-  cursor: pointer;
-  background: transparent;
-  color: var(--mws-t2);
-}
-.mws-subnav:hover {
-  background: var(--mws-hover);
-}
-.mws-subnav-active {
-  background: rgba(0, 0, 0, 0.09);
-  color: var(--mws-t1);
-}
-
-/* Settings inline control row: label left, control right, hairline separated */
-.mws-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-}
-.mws-row:last-child {
-  border-bottom: none;
-}
-.mws-row-title {
-  font-size: 13px;
-  font-weight: 500;
-}
-.mws-row-sub {
-  font-size: 12px;
-  color: var(--mws-t3);
-}
-/* Fixed-width input container in a .mws-row — collapses to full width on mobile */
-.mws-row-input {
-  width: 260px;
-  flex-shrink: 0;
-}
-
-/* Mobile: stack rows vertically and stretch children full-width.
-   MUST appear after the base .mws-row rule above — same specificity,
-   later position wins, so this block correctly overrides on small screens. */
-@media (max-width: 767px) {
-  .mws-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  .mws-row-input {
-    width: 100%;
-  }
-}
-
-/* Toggle switch */
-.mws-toggle {
-  width: 34px;
-  height: 19px;
-  border-radius: 10px;
-  border: 1px solid var(--mws-b2);
-  cursor: pointer;
-  position: relative;
-  padding: 0;
-  background: rgba(0, 0, 0, 0.09);
-  transition: background 0.15s ease;
-  flex-shrink: 0;
-}
-.mws-toggle-on {
-  background: var(--mws-accent);
-}
-.mws-toggle-knob {
-  position: absolute;
-  top: 2px;
-  left: 3px;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: #18181b;
-  transition: left 0.15s ease;
-}
-.mws-toggle-on .mws-toggle-knob {
-  left: 17px;
-  background: #fff;
-}
-
-/* Modal / drawer scaffolding */
-.mws-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(6px);
-  z-index: 70;
-}
-.mws-modal {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--mws-panel);
-  border: 1px solid var(--mws-b2);
-  border-radius: 8px;
-  z-index: 71;
-  animation: mws-pal-in 0.14s ease;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-}
-.mws-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 420px;
-  max-width: 100vw;
-  background: var(--mws-panel);
-  border-left: 1px solid var(--mws-b2);
-  z-index: 61;
-  display: flex;
-  flex-direction: column;
-  animation: mws-drawer-in 0.18s ease;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-}
-
-/* Drawer / modal animations (mirrors the prototype) */
-@keyframes mws-drawer-in {
-  from {
-    transform: translateX(24px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-@keyframes mws-pal-in {
-  from {
-    transform: translateY(-8px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* Pause animation on hover */
-.animate-scroll-left:hover {
-  animation-play-state: paused;
-}
-
-/* Respect user's motion preferences */
-@media (prefers-reduced-motion: reduce) {
-  * {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-
-  .scroll-reveal {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* ============================================================
    METRIC AUTH (mauth) — Enterprise UI/UX Overhaul
    Dark two-column auth surface implementing "Auth Pages.dc.html".
    Scoped under `.mauth-root`; monochrome dark, status-only colour,
-   Geist type. Separate from the light `.mws-*` workspace tokens.
+   Geist type.
    ============================================================ */
 .mauth-root {
   /* Legacy auth vars ALIAS the dark design-system tokens (single source). The

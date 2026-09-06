@@ -206,7 +206,7 @@ export default function RawSMSFailureTable() {
           </div>
 
           {activeGymId && (
-            <div className="p-2 bg-accentui-bg border border-accentui-border rounded-md">
+            <div className="p-2 bg-accentui-bg border border-accentui-border rounded-sm">
               <p className="text-sm text-brand-link">
                 <span className="font-semibold">Filtered by Gym ID:</span>{' '}
                 <span className="font-mono text-xs">{activeGymId}</span>

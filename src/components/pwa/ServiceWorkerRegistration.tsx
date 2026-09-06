@@ -148,7 +148,7 @@ function UpdateBanner({
 }) {
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-50 bg-blue-600 text-white px-4 py-3 shadow-lg"
+      className="fixed top-0 left-0 right-0 z-50 bg-accentui text-accentui-text px-4 py-3 "
       role="alert"
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
@@ -171,13 +171,13 @@ function UpdateBanner({
         <div className="flex items-center gap-3">
           <button
             onClick={onRefresh}
-            className="px-4 py-1.5 bg-white text-blue-600 rounded-md font-medium hover:bg-blue-50 transition-colors"
+            className="px-4 py-1.5 bg-surface-card text-brand-link rounded-sm font-medium hover:bg-accentui-bg transition-colors"
           >
             Refresh Now
           </button>
           <button
             onClick={onDismiss}
-            className="px-4 py-1.5 border border-white/30 rounded-md font-medium hover:bg-white/10 transition-colors"
+            className="px-4 py-1.5 border border-white/30 rounded-sm font-medium hover:bg-surface-card/10 transition-colors"
           >
             Later
           </button>

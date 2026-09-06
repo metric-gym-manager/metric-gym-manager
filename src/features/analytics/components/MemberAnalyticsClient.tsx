@@ -6,9 +6,6 @@ import {
   AreaChart,
   BarChart,
   Button,
-  Card,
-  CardHeader,
-  CardLabel,
   EmptyState,
   LineChart,
   Table,
@@ -18,13 +15,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
-import { PageHeader, StatCard, ChartCard } from '@/components/common/composites'
+import {
+  PageHeader,
+  StatCard,
+  ChartCard,
+  SectionHeader,
+} from '@/components/common/composites'
 import type {
   AnalyticsMetric,
   AnalyticsRange,
   MemberAnalyticsResponse,
   TimeSeriesPoint,
 } from '@/features/analytics/types'
+import { cn } from '@/lib/utils'
 import { RangeSelector } from './RangeSelector'
 
 interface MetricMeta {
@@ -134,8 +137,7 @@ export default function MemberAnalyticsClient() {
       value: summary ? num(summary.activeMembers) : '—',
       sub: `${summary ? num(summary.totalMembers) : '—'} total`,
       delta: undefined as
-        | { value: string; direction: 'up' | 'down' | 'flat' }
-        | undefined,
+        { value: string; direction: 'up' | 'down' | 'flat' } | undefined,
     },
     {
       label: 'New sign-ups · this month',
@@ -183,7 +185,7 @@ export default function MemberAnalyticsClient() {
       />
 
       {/* Headline KPI tiles */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 divide-x divide-y divide-line-1 border-y border-line-1 lg:grid-cols-4 lg:divide-y-0">
         {tiles.map((t) => (
           <StatCard
             key={t.label}
@@ -206,14 +208,18 @@ export default function MemberAnalyticsClient() {
         <div
           role="group"
           aria-label="Metric"
-          className="mb-3 flex w-fit max-w-full flex-wrap gap-0.5 rounded-md border border-line-1 p-0.5"
+          className="mb-3 flex w-fit max-w-full flex-wrap gap-0.5 rounded-sm border border-line-1 p-0.5"
         >
           {METRICS.map((m) => (
             <Button
               key={m.key}
               size="xs"
-              variant={m.key === metric ? 'primary' : 'ghost'}
+              variant="ghost"
               aria-pressed={m.key === metric}
+              className={cn(
+                m.key === metric &&
+                  'bg-surface-selected text-ink hover:bg-surface-selected'
+              )}
               onClick={() => setMetric(m.key)}
             >
               {m.label}
@@ -284,10 +290,12 @@ export default function MemberAnalyticsClient() {
       </ChartCard>
 
       {/* Cohort retention */}
-      <Card className="overflow-hidden">
-        <CardHeader>
-          <CardLabel>Cohort retention · by sign-up month</CardLabel>
-        </CardHeader>
+      <section>
+        <SectionHeader
+          variant="metadata"
+          divider
+          title="Cohort retention · by sign-up month"
+        />
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
@@ -347,7 +355,7 @@ export default function MemberAnalyticsClient() {
             </TableBody>
           </Table>
         </div>
-      </Card>
+      </section>
 
       <p className="text-caption text-ink-muted">
         Renewal, churn, retention and cohort figures are estimated from payment

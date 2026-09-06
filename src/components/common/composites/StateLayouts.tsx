@@ -7,8 +7,12 @@ import {
 } from '@/components/ui'
 
 /**
- * EmptyStateLayout — a full-region empty state centered in a min-height area,
- * optionally bordered as a card (Layer 3 composite; spec §14 Empty States).
+ * EmptyStateLayout — a full-region empty state (Layer 3 composite).
+ *
+ * Borderless and compact by default: directive §5.17 asks that an empty
+ * operational system still look like an operational system, not a marketing
+ * page — no giant centred card, no excessive vertical whitespace. `bordered`
+ * restores the container for the exceptional case (§5.4).
  */
 export interface EmptyStateLayoutProps extends EmptyStateProps {
   minHeight?: number
@@ -16,8 +20,8 @@ export interface EmptyStateLayoutProps extends EmptyStateProps {
 }
 
 export function EmptyStateLayout({
-  minHeight = 320,
-  bordered = true,
+  minHeight = 240,
+  bordered = false,
   className,
   ...emptyProps
 }: EmptyStateLayoutProps) {
@@ -25,7 +29,7 @@ export function EmptyStateLayout({
     <div
       className={cn(
         'flex items-center justify-center',
-        bordered && 'rounded-lg border border-line-1 bg-surface-card',
+        bordered && 'rounded-sm border border-line-1 bg-surface-card',
         className
       )}
       style={{ minHeight }}
@@ -64,12 +68,9 @@ export function LoadingLayout({
       <span className="sr-only">{label}</span>
 
       {variant === 'cards' && (
-        <div className="grid grid-cols-1 gap-3 tablet:grid-cols-4">
+        <div className="grid grid-cols-2 divide-x divide-y divide-line-1 border-y border-line-1 tablet:grid-cols-4 tablet:divide-y-0">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div
-              key={i}
-              className="flex flex-col gap-2 rounded-lg border border-line-1 bg-surface-card p-4"
-            >
+            <div key={i} className="flex flex-col gap-2 px-4 py-3">
               <Skeleton className="h-3 w-20" />
               <Skeleton className="h-6 w-24" />
             </div>
@@ -78,14 +79,14 @@ export function LoadingLayout({
       )}
 
       {variant === 'list' && (
-        <div className="overflow-hidden rounded-lg border border-line-1 bg-surface-card">
-          <div className="border-b border-line-1 px-4 py-3">
+        <div className="overflow-hidden">
+          <div className="border-b border-line-1 px-4 py-2">
             <Skeleton className="h-3 w-28" />
           </div>
           {Array.from({ length: rows }).map((_, i) => (
             <div
               key={i}
-              className="flex items-center gap-3 border-b border-line-subtle px-4 py-3 last:border-0"
+              className="flex items-center gap-3 border-b border-line-subtle px-4 py-2.5 last:border-0"
             >
               <Skeleton circle className="size-6.5" />
               <Skeleton className="h-3 flex-1 max-w-[220px]" />
@@ -96,7 +97,7 @@ export function LoadingLayout({
       )}
 
       {variant === 'detail' && (
-        <div className="flex flex-col gap-4 rounded-lg border border-line-1 bg-surface-card p-4">
+        <div className="flex flex-col gap-4 py-3">
           <div className="flex items-center gap-3">
             <Skeleton circle className="size-10" />
             <div className="flex flex-1 flex-col gap-2">

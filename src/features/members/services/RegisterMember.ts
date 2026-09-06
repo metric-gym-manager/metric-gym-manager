@@ -82,6 +82,15 @@ export interface RegisterMemberInput {
   paymentAmount: number
 
   /**
+   * One-off gym admission fee **included in** `paymentAmount` (0 when not
+   * charged). Recorded as its own component so the revenue model can keep
+   * one-off cash out of a collection rate whose denominator is a membership
+   * billing schedule. Both registration paths resolve it server-side from the
+   * gym row; it is never taken from client input.
+   */
+  admissionFee?: number
+
+  /**
    * Discount information (for payment record)
    */
   discount?: DiscountInfo | null
@@ -224,6 +233,7 @@ export class RegisterMember {
       discountApplied: input.discount?.discountId || null,
       discountPercentage: input.discount?.discountPercentage || null,
       nextDueDateCalculated: nextDueDate,
+      admissionFee: input.admissionFee ?? 0,
     })
 
     const savedPayment = await this.paymentRepo.create(payment)
