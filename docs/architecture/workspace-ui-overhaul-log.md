@@ -17,6 +17,7 @@
 | `workspace-ui-design-analysis.md`              | The as-built audit. Facts about the codebase as of 2026-08-29.                                | Snapshot          |
 | `workspace-ui-overhaul-plan.md`                | Execution plan reconciling the two. Dispositions, phases, preconditions.                      | Revised per phase |
 | **`workspace-ui-overhaul-log.md`** (this file) | Decisions, baselines, progress, open questions.                                               | Living            |
+| `workspace-ui-overhaul-closeout.md`            | Merge-readiness record for the branch: scope, state, what merging does not finish.            | Final             |
 
 ---
 
