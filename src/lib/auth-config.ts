@@ -78,13 +78,27 @@ export const PUBLIC_ROUTE_PREFIXES = ['/join/'] as const
 /**
  * Auth routes that authenticated users shouldn't access (prefix match).
  * Note: /register is excluded to allow authenticated users to view it.
+ *
+ * **`/reset-password` is deliberately NOT here, and must not be re-added.**
+ * Password recovery *requires* a session: `/auth/callback?type=recovery` calls
+ * `verifyOtp`, which writes the auth cookies, and only then redirects to
+ * `/reset-password`; `resetPassword()` in turn calls `supabase.auth.getUser()`
+ * and refuses without one. Listing the route here therefore made the guard and
+ * the flow contradict each other — the browser arrived carrying the session the
+ * flow had just created, `isAuthenticated && isAuthRoute` matched, and every
+ * recovery link 307'd to `/dashboard`. The user was silently signed in and the
+ * reset form never rendered.
+ *
+ * `/verify-email` is the precedent: public, session-bearing, and deliberately
+ * absent from this list for the same reason.
+ *
+ * `/forgot-password` stays: it needs no session, and an authenticated user has
+ * no reason to request a recovery mail.
  */
 export const AUTH_ROUTES = [
   '/login',
   '/forgot-password',
-  '/reset-password',
   '/auth/forgot-password',
-  '/auth/reset-password',
 ] as const
 
 /** True when the pathname is public and never requires a session. */

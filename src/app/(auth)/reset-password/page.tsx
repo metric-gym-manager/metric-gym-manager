@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { z } from 'zod'
 import AuthShell from '@/components/auth/AuthShell'
@@ -15,7 +14,6 @@ import {
  * POST /api/auth/reset-password wiring; redirects to /login?reset=success.
  */
 export default function ResetPasswordPage() {
-  const router = useRouter()
   const [formData, setFormData] = useState<Partial<ResetPasswordInput>>({
     password: '',
     confirmPassword: '',
@@ -41,7 +39,20 @@ export default function ResetPasswordPage() {
         setError(result.error || 'Failed to reset password')
         return
       }
-      router.push('/login?reset=success')
+      // The recovery link signed this user in — `/auth/callback?type=recovery`
+      // runs `verifyOtp` before handing over — so the session is still live
+      // here, and the password it authenticated with no longer exists. Drop it
+      // and make them sign in again with the new one, which is what the banner
+      // on the other side already says. Mirrors the logout `verify-email`
+      // performs after an email change.
+      await fetch('/api/auth/logout', { method: 'POST' })
+
+      // Auth-boundary navigation: the session was just mutated server-side, so
+      // this must be a full-document load (§2.15). A `router.push` here would
+      // serve the cached login route without re-running middleware — and now
+      // that the user is signed OUT, middleware is what makes `/login`
+      // reachable at all.
+      window.location.assign('/login?reset=success')
     } catch (err) {
       if (err instanceof z.ZodError) {
         const errors: Record<string, string> = {}

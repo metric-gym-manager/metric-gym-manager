@@ -166,6 +166,14 @@ function VerifyEmailContent() {
                 )}
                 . Open it to activate your workspace.
               </>
+            ) : status === 'error' ? (
+              // Fixed copy on error. `message` carries the server's specific
+              // reason and is rendered by the alert below — putting it here too
+              // printed the same sentence on two consecutive lines.
+              <>
+                We couldn&apos;t confirm this link. The reason is below; you can
+                request a new one from the login page.
+              </>
             ) : (
               message
             )}
