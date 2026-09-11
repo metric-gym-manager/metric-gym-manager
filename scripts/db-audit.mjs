@@ -81,7 +81,13 @@ async function auditEnums(client) {
 
   const { rows } = await client.query(
     `SELECT t.typname AS name,
-            array_agg(e.enumlabel ORDER BY e.enumlabel) AS values
+            -- ::text is load-bearing. Bare \`enumlabel\` is type \`name\`, so
+            -- array_agg returns name[] (OID 1003) — an OID node-postgres has no
+            -- array parser for, so it hands back the raw literal
+            -- \`{active,cancelled,...}\` as a STRING. Spreading that below then
+            -- yields one element per character and every enum reports as
+            -- drifted. text[] (1009) is parsed into a real array.
+            array_agg(e.enumlabel::text ORDER BY e.enumlabel) AS values
        FROM pg_type t
        JOIN pg_enum e ON e.enumtypid = t.oid
       WHERE t.typname = ANY($1::text[])
