@@ -280,8 +280,63 @@ function barrelMap(indexFile) {
 const IMPORT_RE =
   /import\s+(?!type\s)(?:([\w$]+)\s*,?\s*)?(?:\{([^}]*)\})?[^'"]*['"]([^'"]+)['"]|(?:from\s*|import\s*\(\s*)['"]([^'"]+)['"]/g
 const TYPE_IMPORT_RE = /import\s+type\s+[^'"]*['"]([^'"]+)['"]/g
-const reachable = new Set()
 const barrelCache = new Map()
+
+/**
+ * Every module reachable from `entries` by following real (non-type) imports.
+ *
+ * Extracted so UI1 (reachable from `src/app` — is it alive?) and UI3 (reachable
+ * from the test suite — is it rendered?) ask the SAME question of the SAME
+ * graph. Two hand-written walks would drift, and the barrel-transparency rule
+ * below is subtle enough that only one copy of it should exist.
+ */
+function reachableFrom(entries) {
+  const seen = new Set(entries)
+  const queue = [...entries]
+  const visit = (t) => {
+    if (t && !seen.has(t)) {
+      seen.add(t)
+      queue.push(t)
+    }
+  }
+  while (queue.length) {
+    const file = queue.pop()
+    let src
+    try {
+      src = fs.readFileSync(file, 'utf8')
+    } catch {
+      continue
+    }
+    const typeOnly = new Set([...src.matchAll(TYPE_IMPORT_RE)].map((m) => m[1]))
+    for (const m of src.matchAll(IMPORT_RE)) {
+      const spec = m[3] ?? m[4]
+      if (!spec || typeOnly.has(spec)) continue
+      const target = resolveSpecifier(spec, file)
+      if (!target) continue
+      if (path.basename(target) === 'index.ts' && !m[1]) {
+        // Named imports through a barrel: follow only what was actually asked for.
+        if (!barrelCache.has(target)) barrelCache.set(target, barrelMap(target))
+        const map = barrelCache.get(target)
+        const named = (m[2] ?? '')
+          .split(',')
+          .map((x) =>
+            x
+              .split(/\s+as\s+/)[0]
+              .replace(/^type\s+/, '')
+              .trim()
+          )
+          .filter(Boolean)
+        if (named.length) {
+          for (const n of named) visit(map.get(n))
+          continue
+        }
+      }
+      visit(target)
+    }
+  }
+  return seen
+}
+
 const entries = UI_SRC_TSX.filter((f) => {
   const r = rel(f)
   // The dev showcase imports every primitive by design; treating it as an entry
@@ -289,49 +344,7 @@ const entries = UI_SRC_TSX.filter((f) => {
   if (r.includes('/design-system/')) return false
   return r.startsWith('src/app/') || r.endsWith('middleware.ts')
 })
-const queue = [...entries]
-for (const e of entries) reachable.add(e)
-const visit = (t) => {
-  if (t && !reachable.has(t)) {
-    reachable.add(t)
-    queue.push(t)
-  }
-}
-while (queue.length) {
-  const file = queue.pop()
-  let src
-  try {
-    src = fs.readFileSync(file, 'utf8')
-  } catch {
-    continue
-  }
-  const typeOnly = new Set([...src.matchAll(TYPE_IMPORT_RE)].map((m) => m[1]))
-  for (const m of src.matchAll(IMPORT_RE)) {
-    const spec = m[3] ?? m[4]
-    if (!spec || typeOnly.has(spec)) continue
-    const target = resolveSpecifier(spec, file)
-    if (!target) continue
-    if (path.basename(target) === 'index.ts' && !m[1]) {
-      // Named imports through a barrel: follow only what was actually asked for.
-      if (!barrelCache.has(target)) barrelCache.set(target, barrelMap(target))
-      const map = barrelCache.get(target)
-      const named = (m[2] ?? '')
-        .split(',')
-        .map((x) =>
-          x
-            .split(/\s+as\s+/)[0]
-            .replace(/^type\s+/, '')
-            .trim()
-        )
-        .filter(Boolean)
-      if (named.length) {
-        for (const n of named) visit(map.get(n))
-        continue
-      }
-    }
-    visit(target)
-  }
-}
+const reachable = reachableFrom(entries)
 
 // Ratchet: an allow-entry that is now reachable is a finished migration hiding
 // behind a stale exemption. Same discipline as UI2.
@@ -388,6 +401,194 @@ for (const r of UI2_ALLOW) {
       'UI2',
       `"${r}" is in UI2_ALLOW but no longer uses \`mws-*\`. Remove it from the ` +
         `allow-list so the ratchet keeps tightening.`
+    )
+  }
+}
+
+// ── UI3: Every workspace screen is rendered by a test (ruling B1) ───────────
+// The suite covered pure logic and isolated primitives, so a screen could
+// compose a correct primitive incorrectly — or fail to mount at all — with the
+// whole gate green. Twelve screens were brought under test by hand; nothing
+// stopped the thirteenth shipping untested, which is the gap this closes.
+//
+// "Rendered by a test" = the screen's own module is reachable from a *.test.*
+// file through the same import graph UI1 walks. A test that merely imports the
+// feature's service does not count.
+//
+// jsdom computes no geometry, so this proves the screen MOUNTS and behaves —
+// never that it LOOKS right. Layout still needs a browser (see the directive's
+// Constraint D and the "render it" directive in CLAUDE.md).
+const testFiles = walk(SRC, ['.tsx', '.ts']).filter((f) =>
+  /\.test\.tsx?$/.test(f)
+)
+const testReachable = reachableFrom(testFiles)
+
+const UI3_ALLOW = new Set([
+  // EMPTY — every `(dashboard)`/`(admin)` screen is rendered by a test. The six
+  // screens ruling B1 never reached were covered on 2026-09-09; the seed list
+  // lasted one commit. An entry here means a screen shipped that can break with
+  // the whole gate green, and needs a written reason.
+])
+
+// `(.*\/)?` — the optional segment is load-bearing. Written as `.*\/` this
+// silently skipped every route-group ROOT page: `src/app/(dashboard)/page.tsx`
+// matched nothing and was exempt from the rule with the gate green. Found by
+// re-asking UI3's question over every page.tsx instead of trusting its filter.
+// `(auth)` joined the workspace groups on 2026-09-09. It sits outside the
+// visual directive's scope, but login and register are where a mount failure
+// locks every user out of the product — "outside the directive" was an
+// explanation for leaving them ungated, not a justification.
+const screenPages = walk(SRC, ['.tsx']).filter((f) =>
+  /^src\/app\/\((dashboard|admin|auth)\)\/(.*\/)?page\.tsx$/.test(rel(f))
+)
+
+/**
+ * The module that IS the screen. Two shapes exist in this repo: a thin server
+ * `page.tsx` delegating to a sibling `./XClient`, and a `page.tsx` that holds
+ * the whole screen inline. Testing the wrapper proves nothing in the first
+ * shape, so resolve to the sibling components when there are any.
+ */
+function screenModulesOf(page) {
+  const src = fs.readFileSync(page, 'utf8')
+  const dir = path.dirname(page)
+  const own = []
+  for (const m of src.matchAll(IMPORT_RE)) {
+    const spec = m[3] ?? m[4]
+    if (!spec) continue
+    const target = resolveSpecifier(spec, page)
+    if (!target || target === page) continue
+    // A sibling `./XClient`, or the feature component the page delegates to.
+    // Both shapes exist here; testing the thin server wrapper proves nothing.
+    if (
+      path.dirname(target) === dir ||
+      /^src\/features\/[^/]+\/components\//.test(rel(target))
+    )
+      own.push(target)
+  }
+  return own.length ? own : [page]
+}
+
+for (const page of screenPages) {
+  const r = rel(page)
+  const modules = screenModulesOf(page)
+  const covered = modules.some((m) => testReachable.has(m))
+  if (UI3_ALLOW.has(r)) {
+    if (covered)
+      fail(
+        'UI3',
+        `"${r}" is in UI3_ALLOW but is now rendered by a test. Remove it from ` +
+          `the allow-list so the ratchet keeps tightening.`
+      )
+    continue
+  }
+  if (!covered) {
+    fail(
+      'UI3',
+      `Screen "${r}" is not rendered by any test — no *.test.* file imports ` +
+        `${modules.map(rel).join(' or ')}. Add a screen test (see ` +
+        `src/test-utils/renderScreen.tsx), or add the page to UI3_ALLOW with a reason.`
+    )
+  }
+}
+
+// ── UI4: One implementation per pattern (directive §4.4, §7) ────────────────
+// "Do not create another Card or DataTable." Every rebuild in this repo has
+// been additive, and a feature-local fork is how a second design system starts:
+// it looks like feature code, it passes every other rule here, and it quietly
+// becomes the pattern the next feature copies.
+// PascalCase only. `exportedNames()` seeds each module's own basename, which
+// drags lowercase entries like `layout` into the barrel map — and every
+// Next.js `layout.tsx` in the tree then reads as a fork of it.
+const dsNames = new Set(
+  [
+    ...barrelMap(path.join(SRC, 'components/ui/index.ts')).keys(),
+    ...barrelMap(
+      path.join(SRC, 'components/common/composites/index.ts')
+    ).keys(),
+  ].filter((n) => /^[A-Z][A-Za-z0-9]*$/.test(n))
+)
+
+const UI4_ALLOW = new Set([
+  // EMPTY — the repo has zero forks. An entry here means a second
+  // implementation of a shared pattern was accepted; it needs a written reason.
+])
+
+for (const file of walk(SRC, ['.tsx'])) {
+  const r = rel(file)
+  if (!/^src\/(features\/[^/]+\/components|app)\//.test(r)) continue
+  if (r.includes('__tests__') || r.includes('/tests/')) continue
+  if (UI4_ALLOW.has(r)) continue
+
+  // Filename AND exports. Matching the filename alone caught only the honest
+  // fork (`Card.tsx`) and missed the disguised one — `export function Card()`
+  // inside `MemberPanel.tsx` produced zero violations, which is the shape a
+  // fork actually takes when someone knows a rule exists.
+  const forked = [
+    path.basename(file, '.tsx'),
+    ...exportedNames(file).filter((n) => /^[A-Z][A-Za-z0-9]*$/.test(n)),
+  ].filter((n) => dsNames.has(n))
+
+  for (const name of new Set(forked)) {
+    fail(
+      'UI4',
+      `"${r}" declares "${name}", which the design system already provides. ` +
+        `Extend the primitive's variants/props or add a token — do not create ` +
+        `a second implementation (METRIC_UI_DIRECTIVE.md §4.4, §7).`
+    )
+  }
+}
+
+// ── UI5: No off-scale exemption in eslint.config.mjs may outlive its need ──
+// The exemption block re-declares no-restricted-syntax WITHOUT the off-scale
+// list for a named set of files. An exemption whose reason has expired is worse
+// than no rule: it reads as sanctioned. Same reverse-check discipline as
+// UI1/UI2/UI3 — read the config's own file list rather than a second copy of
+// it here, so the two cannot drift.
+const OFF_SCALE_PATTERNS = [
+  /\b(?:text|leading|tracking)-\[[0-9.]/, // className typography
+  /\brounded-\[/, // className radius
+  /(?:fontSize|lineHeight|letterSpacing|fontWeight|borderRadius)\s*:/, // inline
+]
+const eslintConfigSrc = fs.readFileSync(
+  path.join(ROOT, 'eslint.config.mjs'),
+  'utf8'
+)
+const exemptBlock = eslintConfigSrc.slice(
+  eslintConfigSrc.indexOf('Documented off-scale exemptions')
+)
+const exempted = [
+  ...exemptBlock
+    .slice(0, exemptBlock.indexOf('rules: {'))
+    .matchAll(/'([^']+\.tsx?)'/g),
+].map((m) => m[1])
+
+if (exempted.length === 0) {
+  fail(
+    'UI5',
+    'Could not read the off-scale exemption list out of eslint.config.mjs. ' +
+      'If the block was removed, delete this check with it; if it was renamed, ' +
+      'this rule is now silently passing and must be repointed.'
+  )
+}
+for (const r of exempted) {
+  const abs = path.join(ROOT, r)
+  if (!exists(abs)) {
+    fail(
+      'UI5',
+      `eslint.config.mjs exempts "${r}" from the off-scale rules, but that file ` +
+        `no longer exists. Remove it from the exemption list.`
+    )
+    continue
+  }
+  // Coarse on purpose: a recharts `contentStyle` would read as an inline style
+  // here. The failure mode that leaves is "an exemption stays a little too
+  // long", which is strictly safer than one that disappears silently.
+  if (!OFF_SCALE_PATTERNS.some((re) => re.test(codeOf(abs)))) {
+    fail(
+      'UI5',
+      `eslint.config.mjs still exempts "${r}" from the off-scale rules, but the ` +
+        `file no longer uses an off-scale value. Delete it from the exemption ` +
+        `list so the restriction applies there.`
     )
   }
 }

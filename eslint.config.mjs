@@ -42,6 +42,64 @@ const DESIGN_TOKEN_RESTRICTIONS = [
   },
 ]
 
+/**
+ * Off-scale VALUES — directive §4.5 and §7 forbid hardcoded typography and
+ * radius, not merely colour. Kept separate from the colour list above so the
+ * one documented exception below can drop these without also dropping colour
+ * enforcement.
+ *
+ * Deliberately narrow: `[0-9.` only, so `text-[10px]` is caught while
+ * `text-[#fff]` stays the colour rule's business and nothing double-reports.
+ * Arbitrary spacing is NOT restricted — the repo is at zero for it, but w-/h-
+ * arbitrary values are legitimate layout sizing and would flood this rule.
+ */
+const OFF_SCALE_RESTRICTIONS = [
+  {
+    selector:
+      'JSXAttribute[name.name="className"] Literal[value=/\\b(text|leading|tracking)-\\[[0-9.]/]',
+    message:
+      'Off-scale typography. Use the type scale (text-xs/sm/base or the semantic text-h1/h2/h3) — an arbitrary size sits outside the scale and breaks the density hierarchy. See METRIC_UI_DIRECTIVE.md §4.5, §5.8.',
+  },
+  {
+    selector:
+      'JSXAttribute[name.name="className"] TemplateElement[value.raw=/\\b(text|leading|tracking)-\\[[0-9.]/]',
+    message:
+      'Off-scale typography in a template literal. Use the type scale. See METRIC_UI_DIRECTIVE.md §4.5, §5.8.',
+  },
+  {
+    selector:
+      'JSXAttribute[name.name="className"] Literal[value=/\\brounded-\\[/]',
+    message:
+      'Off-scale radius. Use the radius scale (rounded-sm/md/lg/xl) defined in tokens.ts. See METRIC_UI_DIRECTIVE.md §4.5.',
+  },
+  {
+    selector:
+      'JSXAttribute[name.name="className"] TemplateElement[value.raw=/\\brounded-\\[/]',
+    message:
+      'Off-scale radius in a template literal. Use the radius scale. See METRIC_UI_DIRECTIVE.md §4.5.',
+  },
+  {
+    // The className rules above are blind to `style={{ fontSize: 13 }}`, which
+    // is how 103 off-scale values survived a repo reported as being "at zero".
+    // Scoped to `style`: recharts' contentStyle/labelStyle/wrapperStyle and the
+    // axis-tick object are SVG props that cannot take a class, and are not this
+    // rule's business.
+    selector:
+      'JSXAttribute[name.name="style"] Property[key.name=/^(fontSize|lineHeight|letterSpacing|fontWeight|borderRadius)$/]',
+    message:
+      'Off-scale typography or radius in an inline style. Use the type/radius scale via a class — an inline literal sits outside the token system entirely. See METRIC_UI_DIRECTIVE.md §4.5, §7.',
+  },
+  {
+    // The colour rule above only fires on `#hex` and `rgb(`, so a bare CSS
+    // colour keyword walked straight through it. `transparent`/`inherit`/
+    // `currentColor`/`none`/`unset`/`initial` are structural, not palette.
+    selector:
+      'JSXAttribute[name.name="style"] Property[key.name=/^(color|background|backgroundColor|borderColor|fill|stroke|outlineColor)$/] > Literal[value=/^(?!transparent$|inherit$|currentColor$|none$|unset$|initial$|auto$)[a-z]+$/]',
+    message:
+      'Named CSS colour in an inline style. Use a semantic token — a colour keyword does not follow the theme. See METRIC_UI_DIRECTIVE.md §4.5.',
+  },
+]
+
 const eslintConfig = [
   {
     ignores: [
@@ -171,9 +229,9 @@ const eslintConfig = [
   // except the landing page.
   {
     files: [
-      'src/app/**/*.tsx',
-      'src/components/**/*.tsx',
-      'src/features/**/*.tsx',
+      'src/app/**/*.{ts,tsx}',
+      'src/components/**/*.{ts,tsx}',
+      'src/features/**/*.{ts,tsx}',
     ],
     ignores: [
       '**/__tests__/**',
@@ -183,7 +241,54 @@ const eslintConfig = [
       // Rendered by Satori into a PNG, never by the browser: no token layer applies.
       'src/features/registration/services/qr-poster.tsx',
     ],
-    rules: { 'no-restricted-syntax': ['error', ...DESIGN_TOKEN_RESTRICTIONS] },
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        ...DESIGN_TOKEN_RESTRICTIONS,
+        ...OFF_SCALE_RESTRICTIONS,
+      ],
+    },
+  },
+
+  // ------------------------------------------------------------------
+  // Documented off-scale exemptions — colour rules still apply
+  // ------------------------------------------------------------------
+  // These files keep every COLOUR restriction and drop only the off-scale
+  // typography/radius ones. A flat-config `ignores` cannot express that: a
+  // later block setting the same rule replaces the earlier one wholesale, so
+  // the exemption is written as a re-declaration without OFF_SCALE_RESTRICTIONS.
+  //
+  // Two reasons, both recorded:
+  //
+  // 1. `AnnouncementProgress` — six `text-[10px] md:text-xs` pairs. Only the
+  //    MOBILE half is off-scale (the scale floor is 12px); ruling R6 hands the
+  //    mobile surface to a separate rebuild, so collapsing them here would be
+  //    an unrendered visual change to a surface this work does not own.
+  //
+  // 2. The auth + legal surface — a SEPARATE design system. `globals.css`
+  //    declares 14 `--ma-*` variables alongside the 44 `--ds-*` ones, and these
+  //    screens style themselves with inline numeric type against them: 95
+  //    violations across 8 files, and NONE anywhere else in the product. The
+  //    workspace directive does not cover this surface, so this is debt made
+  //    visible rather than debt fixed. Retheming it onto `--ds-*` is a project,
+  //    not a lint fix, and it cannot be done without rendering the screens.
+  //
+  // `arch:check` UI5 fails if any file here stops needing its exemption.
+  {
+    files: [
+      'src/features/announcements/components/AnnouncementProgress.tsx',
+      'src/components/auth/AuthShell.tsx',
+      'src/components/legal/LegalLayout.tsx',
+      'src/app/refund-policy/page.tsx',
+      'src/app/(auth)/login/page.tsx',
+      'src/app/(auth)/register/page.tsx',
+      'src/app/(auth)/forgot-password/page.tsx',
+      'src/app/(auth)/reset-password/page.tsx',
+      'src/app/(auth)/verify-email/page.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': ['error', ...DESIGN_TOKEN_RESTRICTIONS],
+    },
   },
 ]
 
