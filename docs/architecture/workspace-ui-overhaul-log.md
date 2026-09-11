@@ -984,20 +984,18 @@ account in `docs/architecture/revenue-billing-model.md`.
 > same failure mode as a green gate that proves nothing — an artifact that
 > describes intent rather than the product.
 
-**Remaining as of 2026-09-06.** OPEN-2 through OPEN-7 are all closed; what is
-left is one judgement call and three deliberate deferrals.
+**Remaining as of 2026-09-09.** OPEN-2 through OPEN-7 are closed, and **§9.1 is
+now signed off**. What is left is three deliberate deferrals.
 
-1. **§9.1 human sign-off — the only thing blocking "done".** "Has the perceived
-   product category moved" is not a question a screenshot answers, and I am the
-   worst-placed judge of work I did myself. Everything mechanical around it
-   (§9.2 composition audit, §9.3 smell test) is finished.
+1. **§9.1 human sign-off — CLOSED 2026-09-09.** The directive's §10 definition
+   of done ("the perceived product category has moved") was accepted by the
+   project owner. §9.2's composition audit and §9.3's smell test were already
+   finished; this was the judgement half, and it was never a question the person
+   who did the work could answer for themselves.
 
-   **Do it against a gym with realistic volume.** Every screenshot taken during
-   this work was of the seeded E2E gym: one member, zero revenue, empty charts.
-   The directive's ninth question — "would this make sense for a multi-branch
-   gym with thousands of members and substantial revenue?" — has therefore never
-   been tested at all. Seed volume first, or the sign-off judges an operational
-   control system with no operations in it.
+   **The overhaul is therefore complete.** Its rules stop being migration state
+   and become standing invariants — see rule 2.21, rewritten on the same date
+   from a phase narrative into the invariants plus the check that enforces each.
 
 2. **OPEN-1 — `/access-control` still has no sidebar entry** _(functional)_.
    Reachable only by URL or via Settings → Access Control. Deferred by R1
@@ -1019,8 +1017,16 @@ left is one judgement call and three deliberate deferrals.
   customer's payment records is not a silent decision. **Historical monthly
   revenue is overstated by those rows**, which matters if any of those months
   were filed with the inland revenue service.
-- `npm run db:audit` is not wired into CI. It needs `SUPABASE_DB_URL` and cannot
-  run from a host without IPv6 (use the session pooler).
+- `npm run db:audit` is not wired into CI. It now RUNS locally: the direct
+  Supabase endpoint is IPv6-only and unreachable from WSL, so `SUPABASE_DB_URL`
+  is the **session pooler** URL (`aws-1-ap-southeast-1.pooler.supabase.com` —
+  the `aws-N` prefix is per project, not per region; `aws-0` answers "Tenant or
+  user not found"). Its first successful run exposed that the enum-parity check
+  had never worked: `array_agg(enumlabel)` returns `name[]`, an OID
+  node-postgres cannot parse, so the raw literal `{active,...}` came back as a
+  STRING and spreading it compared one element per character — all three enums
+  reported as drifted. Fixed with `::text`. The check had shipped green-by-luck
+  because nothing could connect to run it.
 - `legacy-ui-migration.md` and `feature-gaps-app-workspace.md` still describe the
   retired `mws-*` layer as current.
 - `EmptyStateLayout`'s defaults were changed, and it has no consumers.

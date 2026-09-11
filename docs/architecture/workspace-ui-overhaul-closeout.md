@@ -96,21 +96,20 @@ or `authenticated`.
 
 ## 4. Outstanding — what merging does not finish
 
-### 4.1 §9.1 human visual sign-off — the only thing blocking "done"
+### 4.1 §9.1 human visual sign-off — **CLOSED 2026-09-09**
 
 The directive's §10 defines completion as _"the perceived product category has
-moved"_. That is not a question a screenshot answers, and the person who did the
-work is the worst-placed judge of it. §9.2's composition audit and §9.3's smell
-test are both finished; this is the judgement half.
+moved"_. That was the judgement half — not a question a screenshot answers, and
+not one the person who did the work can answer about themselves. It was signed
+off by the project owner on 2026-09-09. §9.2's composition audit and §9.3's
+smell test were already finished.
 
-**Do it against a gym with realistic volume.** Every screenshot taken across this
-entire overhaul was of the seeded E2E gym — **one member, zero revenue, empty
-charts**. The directive's ninth test question is _"would this make sense for a
-multi-branch gym with thousands of members and substantial monthly revenue?"_
-That question has never been tested at all. Judging it against the current seed
-would be judging an operational control system with no operations in it. Seeding
-a gym with a few hundred members and a year of payments is the missing
-instrument.
+**With this closed, the overhaul is complete**, and its rules change status:
+they are no longer migration state but standing invariants. Rule 2.21 was
+rewritten on the same date from a phase narrative ("IN PROGRESS", "Phases 0–5
+are complete") into the invariants themselves, each naming the check that
+enforces it — because a rule injected into every future session as a progress
+report teaches the next agent that it is provisional.
 
 ### 4.2 Deferred by ruling — not defects
 
@@ -137,8 +136,13 @@ instrument.
 - **Admission fees are not backfilled.** The fee on a pre-2026-09-05 payment is
   unrecoverable: deriving `amount_paid − plan_amount` assumes the plan price
   never changed, and it often has. Those fees remain inside plan revenue.
-- **`npm run db:audit` is not wired into CI.** It needs `SUPABASE_DB_URL` and
-  cannot connect from a host without IPv6 — use the session pooler.
+- **`npm run db:audit` is not wired into CI**, though it now runs locally:
+  `SUPABASE_DB_URL` is the session pooler (the direct endpoint is IPv6-only and
+  unreachable from WSL). Its first real run showed the enum check had never
+  worked — `array_agg(enumlabel)` returns `name[]`, which node-postgres cannot
+  parse, so the array arrived as a string and was compared character by
+  character. Fixed with `::text`. It had been green-by-luck: nothing could
+  connect to run it.
 - **Two docs still describe the retired `mws-*` layer as current**:
   `legacy-ui-migration.md`, `feature-gaps-app-workspace.md`.
 - **`EmptyStateLayout`** had its defaults changed and has no consumers.
@@ -176,6 +180,42 @@ status-history trigger that timestamped with `now()` so two changes in one
 transaction were unorderable.
 
 ---
+
+### 5.1 What now carries these lessons forward without a human
+
+Prose in `docs/` only works on an agent who opens the file. Three tiers exist,
+and a principle survives in whichever it lands:
+
+| Tier                        | Reaches a future session              | Cost                         |
+| --------------------------- | ------------------------------------- | ---------------------------- |
+| A check that fails          | Always, whether or not anyone read it | Must be written and pinned   |
+| `.claude/rules` + CLAUDE.md | Always injected — but only advisory   | ~9.6k tokens **per session** |
+| A doc under `docs/`         | Only if the agent opens it            | Free                         |
+
+Added on 2026-09-09, all falsified by mutating the source until each failed:
+
+- **UI3** — every `(dashboard)`/`(admin)` screen must be rendered by a test.
+  Ruling B1 fixed twelve screens by hand and left nothing to stop the thirteenth.
+  Seeded with the six screens B1 never reached — and those six were written the
+  same day, so the allow-list is **empty**. An entry now means a screen shipped
+  that can break with the whole gate green.
+- **UI4** — one implementation per pattern. A feature-local `Card.tsx` is how a
+  second design system starts: it looks like feature code and passes every other
+  rule. Zero forks today, so the allow-list is empty.
+- **UI5** — the one ESLint exemption (R6 mobile type) fails the build if the file
+  stops needing it. An exemption whose reason has expired reads as sanctioned.
+- **Off-scale type and radius** are now ESLint errors, not just colour. This
+  found six live `text-[10px]` in `AnnouncementProgress` — so the log's claim
+  that off-scale type was "at zero" was wrong.
+- **`tailwind.config.ts` joined the token-parity test.** Two of the three
+  synchronised files were checked; a Tailwind utility pointing at an undeclared
+  `--ds-*` variable renders nothing, silently.
+- **`CLAUDE.md` gained Verification Directives** — render it, query the database,
+  make the test fail — which is §5 above compressed into the auto-loaded path.
+- **`arch:check` joined the `PostToolUse` hook** (and the hook stopped firing on
+  every `Bash` call), so the UI ratchets reach an agent before commit time.
+
+What none of this can do is judge the result. §9.1 stayed a human gate.
 
 ## 6. Reviewing this
 

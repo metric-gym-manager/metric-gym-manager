@@ -116,8 +116,29 @@ Detailed rules are in `.claude/rules/`:
 
 1. **Before Coding**: Enter Plan Mode to understand impact and explore existing patterns
 2. **Implementation**: Follow TDD cycle, reference patterns in `src/features/`
-3. **Verification**: Run `npm run type-check && npm test` after changes
+3. **Verification**: Run `npm run type-check && npm test && npm run arch:check`
 4. **Commit**: Use Conventional Commits format (feat/fix/docs/test)
+
+### Verification Directives
+
+A green gate is evidence, not proof. Each rule below exists because this repo
+shipped a defect straight through a fully passing gate.
+
+1. **Before claiming a UI change works, render it.** `tsc`, ESLint, `arch:check`
+   and 1,359 passing tests coexisted with a white `<body>`, a members toolbar
+   wrapped onto three rows, and a table reading "1 records". jsdom computes no
+   geometry: a screen test proves the screen mounts, never that it looks right.
+   Run `npm run dev`, open the page, look at it — or say plainly that you did not.
+2. **Before claiming a data change works, query the database.** Unit tests mock
+   Supabase, so a column that does not exist and an RLS-refused write are both
+   indistinguishable from success. SMS delivery tracking passed its tests for
+   seven months while all 1,137 dispatched messages sat frozen on a column default.
+3. **Before trusting a test you just wrote, make it fail.** Mutate the source to
+   reintroduce the defect the test guards; if it still passes, the test is
+   decorative. Three tests here passed for the wrong reason and were caught only
+   this way.
+4. **Report what you verified, not what you ran.** Name the check and its result.
+   "Tests pass" is not a claim that the feature works.
 
 ### Git Hooks
 

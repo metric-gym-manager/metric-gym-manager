@@ -702,3 +702,234 @@ plus the V4 evidence.
 
 The remaining gap is no longer evidence. It is the one question none of these
 instruments can answer: whether the perceived product category has moved.
+
+---
+
+# Pass 6 — the enforcement layer itself · 2026-09-09
+
+Passes 1–5 checked the product against the rules. This one checks **the rules
+against themselves**: the ratchets added on 2026-09-09 (UI3/UI4/UI5, off-scale
+type + radius, third-file token parity) and the six screen tests written the
+same day. A gate nobody has attacked is a claim, not a check.
+
+Method: for every rule, ask its question a second way and see whether the two
+answers agree. For every test, mutate the source until it fails.
+
+## Findings
+
+### 6.1 — UI3's own filter silently exempted a class of screen · **BUG (fixed)**
+
+The rule matched `^src/app/\((dashboard|admin)\)/.*\/page\.tsx$`. The `.*\/`
+requires at least one path segment between the route group and the file, so
+every route-group **root** page was invisible to it. `src/app/(dashboard)/page.tsx`
+— where an authenticated user lands on `/` — was exempt with the gate green.
+
+Found by re-implementing UI3's question over _every_ `page.tsx` and diffing the
+two answers, rather than reading its filter. The probe said one screen was
+uncovered; `arch:check` said all were. Both could not be right.
+
+Fixed to `(.*\/)?page\.tsx$`, and the page it was hiding now has a test — the
+redirect target is a bare string, and pointing it at a dead route breaks the
+first screen after login with nothing to notice.
+
+### 6.2 — Rules & Terms silently destroyed the gym's Terms of Service · **BUG (fixed)**
+
+The draft state was one whole `GymPolicies` object overlaying the fetched one.
+Typing into Rules **before the GET resolved** built a draft carrying
+`gym_terms: ''`, and because a non-null draft masked the response for the rest
+of the session, Terms rendered empty and Save PATCHed that empty string over the
+real document — the one members legally agree to at registration.
+
+Reachable by any operator who types faster than the network. Found on the first
+day this screen had a test at all, which is precisely what ruling B1 predicted.
+Fixed to a per-field `Partial` overlay; the regression guard fails against the
+old implementation.
+
+### 6.3 — "Off-scale type is at zero" was false twice · **WRONG (rule now sees it)**
+
+- Six `text-[10px]` in `AnnouncementProgress`, found the moment the className
+  rule existed. Exempted under R6 (mobile), guarded by UI5.
+- **Far more the rules could not see at all.** First counted as "thirteen";
+  that number was itself wrong, produced by a regex that stopped at the first
+  `}` inside a `style={{...}}`. The real figure is **95 violations across 8
+  files** — every one in the auth/legal surface, none anywhere else.
+
+The measurement was never wrong about what it counted. It counted `className`.
+
+**Closed 2026-09-09**: two selectors added (inline-style
+fontSize/lineHeight/letterSpacing/fontWeight/borderRadius, and named CSS colour
+keywords), scoped to `name.name="style"` so recharts' `contentStyle`/
+`wrapperStyle` SVG props are untouched. The 8 auth/legal files carry a
+documented exemption — that surface runs its own `--ma-*` system and retheming
+it is a project, not a lint fix — and UI5 now fails if any exemption outlives
+its file or its need.
+
+### 6.4 — The token rules see `className`, and only `className` · **HOLE (mostly closed)**
+
+Four evasions written and run. Three work:
+
+| Evasion                                     | Result |
+| ------------------------------------------- | ------ |
+| `style={{ fontSize: 13, borderRadius: 7 }}` | EVADES |
+| `style={{ color: 'red' }}` (named colour)   | EVADES |
+| `className={'bg-' + 'red-500'}`             | EVADES |
+| `className={['text-[11px]'].join(' ')}`     | CAUGHT |
+
+The inline-style rule only fired on `#hex` or `rgb(`, so a named CSS colour
+passed; and nothing inspected numeric style values. The block was also scoped to
+`**/*.tsx`, so a `.ts` module holding class strings escaped entirely.
+
+**Closed 2026-09-09** for the first two rows and the `.ts` gap (scope is now
+`**/*.{ts,tsx}`). The concatenation case stays **open and accepted**: neither
+`'bg-'` nor `'red-500'` matches a palette pattern on its own, and a rule that
+fired on either fragment would be noise. It is also the one form nobody writes
+by accident.
+
+### 6.5 — UI4 matches filenames, not exports · **HOLE (fixed)**
+
+`export function Card()` inside `MemberPanel.tsx` produced zero violations. The
+rule caught the honest fork (`Card.tsx`) and missed the disguised one — which is
+the shape a fork actually takes once someone knows the rule exists.
+
+**Fixed 2026-09-09**: UI4 now checks the filename AND every PascalCase export
+against the design system's barrel names. Falsified against exactly that case.
+
+### 6.6 — UI3 guards the workspace only · **HOLE (closed for auth)**
+
+19 screens under `(dashboard)`/`(admin)` are gated and covered. **13 are not
+gated at all, and 12 of those have no test**: all five `(auth)` screens, the
+landing page, `/contact`, `/terms`, `/privacy`, `/refund-policy`, `/demo-sms`
+and the dev showcase. `/join/[token]` — the public registration funnel — is the
+only ungated screen that happens to be covered.
+
+Login and register are where a mount failure locks every user out of the
+product. They are outside the workspace directive's scope, which is why the rule
+stopped there; that is an explanation, not a justification.
+
+**Closed 2026-09-09 for `(auth)`.** All five auth screens were written tests and
+the rule now covers `(dashboard|admin|auth)` — 24 of 32 `page.tsx` files. The
+login suite pins the two directives that meet there: §2.15's full-document
+navigation (asserting `router.push` is NOT called), and `getSafeRedirect`
+against an absolute URL, a protocol-relative URL and a `javascript:` URL. All
+three hostile redirects are correctly refused.
+
+Still ungated: the landing page, the four legal/marketing routes, `/demo-sms`
+and the dev showcase. `/join/[token]` is covered but not gated.
+
+### 6.7 — A third token namespace exists · **FINDING (now tested)**
+
+`globals.css` declares 44 `--ds-*` variables and **14 `--ma-*`** ones for the
+auth surface. `token-parity.test.ts` checks the 44. "One design system" is true
+of the workspace; the auth screens run their own, styled with inline numeric
+type against `var(--ma-*)`, which is why 6.3's population lives there.
+
+**Closed 2026-09-09**: `token-parity.test.ts` now walks the whole source tree
+and fails on any `var(--ds-*)`/`var(--ma-*)` reference that globals.css does not
+declare — inline styles included, which no earlier check read. A companion
+assertion fails if either namespace parses as empty, so a restructure of
+globals.css cannot make the check vacuous.
+
+### 6.8 — Clean
+
+- **No dangling CSS variables.** All 27 `--ds-*`/`--ma-*` references resolve to
+  a declaration. Checked because 6.3 made it plausible they would not.
+- **The `reachableFrom()` extraction is behaviour-preserving.** The pre-refactor
+  script and the current one produce identical UI1 output against an injected
+  two-deep dead chain, and identical output on a clean tree.
+- **Nine mutations, nine caught.** One per screen test plus the reset-crosswire
+  and price-transposition cases. No test passed with its defect reintroduced.
+
+## What this pass says about the method
+
+**Two of the three probes were wrong before the code was.** Running the
+pre-refactor script from a scratchpad made it resolve `ROOT` to the wrong
+directory and bail on `src/features/ does not exist` — which read exactly like
+"the old rule never worked". And the first data-loss probe waited on the draft
+value, which was already on screen, so it settled before the query resolved and
+"failed" against the fix that had just made it pass.
+
+Both would have produced a confident, wrong finding written up as fact. The only
+thing that caught them was that the result was _too_ interesting: a rule that
+had never worked, and a fix that did not fix. Surprise is the signal to re-check
+the instrument, not to start writing.
+
+The standing conclusion from Pass 5 holds and now cuts at the rules too: **an
+instrument nobody has tried to fool is a claim.** Every gate here that was
+attacked leaked somewhere.
+
+## 6.9 — New findings from the fixing pass
+
+Fixing the above surfaced two more, plus two more wrong probes.
+
+- **`verify-email` prints its error message twice** · **FIXED**. On
+  `status === 'error'` the message rendered as the subtitle paragraph _and_
+  again in the alert below it. The error state now has its own fixed subtitle
+  and the alert is the sole carrier of the server's reason. **Verified in a
+  browser**, not only in jsdom — before: `Verification failed` / `Invalid or
+expired verification link` / `Invalid or expired verification link`; after:
+  `Verification failed` / `We couldn't confirm this link…` / `Invalid or
+expired verification link`. The test asserts _exactly one_ occurrence and
+  fails when the duplicate branch is restored.
+- **`reset-password` navigates with `router.push`** · the finding was wrong,
+  and what it was sitting on top of was far worse — see 6.10.
+
+**And two more probes that were wrong before the code was**, bringing this
+pass's total to four:
+
+- The login validation test asserted a Zod message for a malformed email. jsdom
+  implements `type="email"` constraint validation, so the form never submits and
+  the Zod branch is unreachable — in a real browser too. Rewritten to assert
+  what actually happens (no request), plus a case native validation _does_ let
+  through (empty password) to reach the Zod handler.
+- The register strength-meter table was built on arithmetic done in my head:
+  `abcdefgh` was called FAIR when it scores 2 (WEAK), `Abcdefgh` GOOD when it
+  scores 3 (FAIR). Recomputed from the function, then pinned at all five
+  boundaries.
+
+Both would have been written up as defects in the product. **Four wrong probes
+against two real product bugs is the honest ratio for this pass**, and it is the
+argument for running the instrument against a known-good case before trusting
+what it says about a suspect one.
+
+## 6.10 — Password recovery was broken end to end · **BUG (fixed)**
+
+Chasing the harmless-looking `router.push` in 6.9 turned up the real defect one
+layer down. `AUTH_ROUTES` — "auth routes that authenticated users shouldn't
+access" — contained `/reset-password`. But recovery is **session-bearing**:
+
+1. The emailed link hits `/auth/callback?type=recovery`.
+2. The callback calls `verifyOtp`, which **writes the auth cookies**.
+3. It then redirects to `/reset-password`.
+4. Middleware sees `isAuthenticated && isAuthRoute` and returns
+   **`307 → /dashboard`**.
+
+So a gym owner clicking "reset my password" was silently signed in and dropped
+on the dashboard. The form never rendered and the password never changed. The
+guard and the flow contradicted each other outright: `resetPassword()` calls
+`getUser()` and refuses _without_ a session, while the router refused the page
+_with_ one.
+
+`/verify-email` is the standing precedent — public, session-bearing, and
+deliberately absent from `AUTH_ROUTES`. `/reset-password` now matches it.
+
+**Why nothing caught it.** The page component mounts perfectly in isolation and
+now has seven passing tests, none of which touch middleware. `tsc`, ESLint,
+`arch:check` and 1,673 tests were green across a completely broken flow — the
+same shape as every other defect in this document. Middleware had **no test of
+any kind**; it now has one pinning all four routing decisions.
+
+**Proven, not reasoned.** The claim came from running `authMiddleware` against a
+mocked authenticated user and reading the response: `307 → /dashboard`. After
+four wrong probes earlier in this pass, reading the branch and inferring the
+outcome would not have been good enough.
+
+**Second-order fix.** With the route reachable, the user finishes the reset
+_still holding_ the recovery session — so `/login?reset=success` would tell
+someone already signed in to sign in. The screen now `POST`s `/api/auth/logout`
+and hard-navigates, matching what `verify-email` already does after an email
+change. That makes it a genuine auth-boundary navigation, so **§2.15 applies and
+`router.push` was wrong after all** — the opposite of what 6.9 first recorded.
+
+**Still unverified**: the real email round-trip. Minting a genuine Supabase
+recovery token is out of reach here. The middleware test pins the exact hop that
+broke; one real reset link should be clicked before this is called done.
