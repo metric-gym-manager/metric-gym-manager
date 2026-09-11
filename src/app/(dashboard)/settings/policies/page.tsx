@@ -20,8 +20,15 @@ import {
  */
 export default function GymPoliciesPage() {
   const queryClient = useQueryClient()
-  // Local edits overlay the fetched documents; no setState-in-effect needed.
-  const [draft, setDraft] = useState<GymPolicies | null>(null)
+  // Local edits overlay the fetched documents PER FIELD; no setState-in-effect.
+  //
+  // This was a whole-object draft (`GymPolicies | null`), which lost data:
+  // typing into Rules before the GET resolved built a draft carrying
+  // `gym_terms: ''`, and because the draft then masked the response for the
+  // rest of the session, Terms rendered empty and Save PATCHed the empty
+  // string over the gym's real Terms of Service — the document members agree
+  // to at registration. A partial overlay masks only what was actually edited.
+  const [draft, setDraft] = useState<Partial<GymPolicies>>({})
 
   const { data } = useQuery<GymPolicies>({
     queryKey: ['gym-policies'],
@@ -33,11 +40,16 @@ export default function GymPoliciesPage() {
     },
   })
 
-  const current: GymPolicies = draft ?? data ?? { gym_rules: '', gym_terms: '' }
+  const current: GymPolicies = {
+    ...(data ?? { gym_rules: '', gym_terms: '' }),
+    ...draft,
+  }
   const rules = current.gym_rules
   const terms = current.gym_terms
-  const setRules = (value: string) => setDraft({ ...current, gym_rules: value })
-  const setTerms = (value: string) => setDraft({ ...current, gym_terms: value })
+  const setRules = (value: string) =>
+    setDraft((d) => ({ ...d, gym_rules: value }))
+  const setTerms = (value: string) =>
+    setDraft((d) => ({ ...d, gym_terms: value }))
 
   const saveMutation = useMutation({
     mutationFn: async (payload: GymPolicies) => {
