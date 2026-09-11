@@ -59,3 +59,9 @@ playwright.local.config.ts
 
 # Dev server / build logs
 *.log
+# Scratch Remotion scaffold — a SEPARATE git repository (its own .git), 619MB of
+# which 612MB is node_modules. `git add` would record it as a broken gitlink
+# pointing at a repo with no remote; force-adding its files would drag the
+# node_modules tree into history. It is not part of this application — the root
+# ESLint config already ignores it (`my-video/**`).
+my-video/
