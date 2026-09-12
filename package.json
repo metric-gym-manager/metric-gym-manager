@@ -19,6 +19,7 @@
     "type-check": "tsc --noEmit",
     "arch:check": "node scripts/check-architecture.mjs",
     "db:audit": "node scripts/db-audit.mjs",
+    "auth:verify": "node scripts/verify-auth-redirects.mjs",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
