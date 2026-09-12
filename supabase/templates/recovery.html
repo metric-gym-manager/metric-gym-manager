@@ -1,18 +1,18 @@
 <!--
   Metric — password reset
 
-  The link MUST be the token_hash form below, not {{ .ConfirmationURL }}.
+  The link MUST be the token_hash form below, not .ConfirmationURL.
 
-  {{ .ConfirmationURL }} points at Supabase's own /verify endpoint, which spends
+  .ConfirmationURL points at Supabase's own /verify endpoint, which spends
   the one-time token on GET. Email scanners (Gmail's among them) issue a GET
   before the recipient ever clicks, so the token is already spent by the time
   the link is opened. Production logs for 2026-09-11 show four
   "403 One-time token not found" hits from Google IPs against a single token.
 
-  {{ .RedirectTo }} carries the token to our own page instead, which spends it
+  .RedirectTo carries the token to our own page instead, which spends it
   only when the form is submitted. A scanner's GET consumes nothing.
 
-  {{ .RedirectTo }} has no query string for any of our callers, so every
+  .RedirectTo has no query string for any of our callers, so every
   template here appends with "?" — keep it that way.
 -->
 <table

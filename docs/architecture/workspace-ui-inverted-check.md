@@ -1172,3 +1172,94 @@ verified by hand — the full-history regression rewrites 228 lines of
 matches the repository's standing convention (`check-architecture.mjs`,
 `db-audit.mjs` and `verify-auth-redirects.mjs` are likewise unverified by jest),
 so it is recorded rather than changed unilaterally.
+
+---
+
+# Pass 9 — forward against the assumptions, then hostile backwards · 2026-09-12
+
+Two deliberate passes. The first re-derived every load-bearing assumption from
+production rather than from the repository, on the premise that each one was
+wrong. The second attacked the implementation looking for ways to break it.
+
+One real defect, in my own work, found by the forward pass. The hostile pass
+found nothing — recorded as such rather than padded.
+
+## 9.1 — The templates carried the very link they warned against · **BUG (fixed)**
+
+Template content is WRITE-ONLY through the CLI: `config pull` round-trips a
+subject but never the HTML. So the templates pushed in Pass 7 had never been
+read back — only assumed correct because the local file looked right.
+
+Reading them out of the Management API showed all three link templates
+containing **`ConfirmationURL`**, the scanner-consumable form the entire
+recovery fix exists to avoid.
+
+The source was the explanatory comment written to warn against it:
+
+```html
+<!-- The link MUST be the token_hash form below, not {{ .ConfirmationURL }}. -->
+```
+
+Supabase renders these with Go's `text/template`, which has no concept of an
+HTML comment. `{{ .ConfirmationURL }}` inside `<!-- -->` is interpolated exactly
+as it would be in the body — so every sent email carried a live single-use
+confirmation URL in its source, twice, in a comment explaining why it must not
+be there. A scanner extracting URLs from the raw body rather than from `href`
+attributes would have spent the token, reinstating the original defect.
+
+Fixed by dropping the braces so the prose still names the directive without
+rendering it, re-pushed, and **verified by reading production back**: all three
+now expose `RedirectTo` and `TokenHash` only.
+
+A test now reads the template files and fails on any `{{ … }}` inside a comment,
+on any renderable `ConfirmationURL`, on a `&` separator, on a missing `type`,
+and on a link or token appearing in the notification template. It fails when the
+directive is restored.
+
+**The lesson is narrower than "verify your work".** The file was correct to
+read. The defect existed only in the rendered output, which nothing in the
+repository could see — the same shape as every other defect in this document,
+one layer further out.
+
+## 9.2 — Everything else in the forward pass held
+
+Read from production, not inferred:
+
+| Assumption                                         | Verified |
+| -------------------------------------------------- | -------- |
+| all three templates use the token_hash form        | ✓        |
+| `otp_expiry` is 1800                               | ✓        |
+| `secure_email_change` on                           | ✓        |
+| `email_changed` notification enabled               | ✓        |
+| signup confirmations enabled                       | ✓        |
+| notification names both addresses, carries no link | ✓        |
+
+## 9.3 — The hostile pass found nothing
+
+Attacks attempted, all repelled:
+
+- **Bypass the same-address guard** — exact, upper-cased local part, upper-cased
+  domain, leading space, trailing tab, trailing newline: all rejected. Plus-tags,
+  dot-tricks and a Cyrillic homoglyph are accepted, correctly: those are
+  genuinely different mailboxes to Supabase.
+- **Fool the pending-change expiry** — a future timestamp still shows (clock
+  skew fails visible, which is the safer direction), epoch-0 expires, an empty
+  `new_email` is treated as absent, and an unparseable timestamp fails visible.
+- **Leak the token now sitting in the URL** — the reset page makes **zero**
+  cross-origin requests, so no `Referer` can carry it to a third party, and the
+  token is never rendered into the DOM.
+- **Inject through `pending_email`** — an `<img onerror=…>` payload renders as
+  text; no element is created and no handler fires.
+- **False-green `auth:verify`** — pointed at `attacker.example`, it fails.
+
+One hostile probe was discarded rather than reported: disabling the verifier's
+own comparison makes every row pass, which is true of any check and proves
+nothing. Its mutation was also malformed. Counting it would have inflated the
+findings.
+
+## 9.4 — Tally
+
+Nine wrong probes against ten real defects. The forward pass is now the higher
+yield of the two: assumptions about things outside the repository — dashboard
+config, rendered email, live templates — have produced every defect in Passes 7,
+8 and 9, while the code inside the repository has held up under direct attack.
