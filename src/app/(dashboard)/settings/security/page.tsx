@@ -411,7 +411,7 @@ function EmailUpdateModal({
       }}
       size="md"
       title="Update Email Address"
-      description="Enter your new email address. You'll need to verify it before the change takes effect."
+      description="For your security, a confirmation link goes to BOTH your current and your new address. The change takes effect only once both are confirmed \u2014 so nobody who gains access to your account can move it to an address you don't control."
       footer={
         <>
           <Button
@@ -434,7 +434,7 @@ function EmailUpdateModal({
           >
             {updateMutation.isPending
               ? 'Sending...'
-              : 'Send Verification Email'}
+              : 'Send Confirmation Links'}
           </Button>
         </>
       }
@@ -873,10 +873,13 @@ export default function AccountSecurityPage() {
             description={
               gymProfile && !gymProfile.email_verified ? (
                 <>
-                  <strong className="text-warning">Action required:</strong>{' '}
-                  check your inbox at <strong>{gymProfile.email}</strong> and
-                  click the verification link. Use this new email for future
-                  logins.
+                  <strong className="text-warning">Action required:</strong> an
+                  email change is confirmed from <strong>both</strong>{' '}
+                  addresses. Open the link sent to your current address,{' '}
+                  <strong>{gymProfile.email}</strong>, and the one sent to the
+                  new address. The change takes effect only once both are done —
+                  which is what stops someone else moving your account to an
+                  address you do not control.
                 </>
               ) : (
                 'Used for login and account recovery'

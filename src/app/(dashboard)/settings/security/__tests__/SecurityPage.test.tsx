@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen, waitFor, within, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { renderScreen, mockFetchRoutes, apiOk } from '@/test-utils/renderScreen'
 import SecurityPage from '../page'
@@ -58,6 +58,63 @@ describe('SecurityPage', () => {
 
     expect(await screen.findByText('Unverified')).toBeInTheDocument()
     expect(screen.getByText(/Action required:/i)).toBeInTheDocument()
+  })
+
+  /**
+   * Supabase runs with `double_confirm_changes = true`: an email change is
+   * confirmed from the OLD address as well as the new one, and completes only
+   * when both are done. That is a deliberate account-takeover control — it
+   * stops someone who has hijacked a session from moving the account to an
+   * address the owner does not hold.
+   *
+   * The copy previously said "check your inbox at <old address>", naming one
+   * mailbox for a two-mailbox process, so the change looked stuck. Pinned here
+   * because the failure is pure copy: nothing else in the suite can tell
+   * "check your inbox" from "confirm from both", and the cost of getting it
+   * wrong is a user who believes the feature is broken.
+   */
+  it('says an email change needs BOTH addresses, not one', async () => {
+    mockFetchRoutes(
+      routes({ '/api/auth/profile': apiOk(profile({ email_verified: false })) })
+    )
+    renderScreen(<SecurityPage />)
+
+    const marker = await screen.findByText(/Action required:/i)
+    const copy = marker.closest('div')?.textContent ?? ''
+
+    expect(copy).toMatch(/both/i)
+    expect(copy).toMatch(/only once both/i)
+    // The old singular instruction must not come back.
+    expect(copy).not.toMatch(/check your inbox at/i)
+  })
+
+  /**
+   * The dialog is where the decision is made, so it is where the explanation
+   * has to be — before the user commits, not after two emails arrive and only
+   * one is expected. Pinned separately from the banner: they are different
+   * strings on different surfaces and either can drift alone.
+   */
+  it('explains double confirmation in the dialog, before the user commits', async () => {
+    mockFetchRoutes(routes())
+    renderScreen(<SecurityPage />)
+
+    await waitFor(() =>
+      expect(rowFor('Email address').getByRole('button')).toBeEnabled()
+    )
+    fireEvent.click(rowFor('Email address').getByRole('button'))
+
+    const dialog = await screen.findByRole('dialog')
+    const copy = dialog.textContent ?? ''
+
+    expect(copy).toMatch(/BOTH/)
+    expect(copy).toMatch(/current and your new address/i)
+    // Says WHY, not just what — the security reason is the justification for
+    // an otherwise annoying two-step.
+    expect(copy).toMatch(/gains access to your account/i)
+    // And the button promises two links, not one.
+    expect(
+      within(dialog).getByRole('button', { name: /send confirmation links/i })
+    ).toBeInTheDocument()
   })
 
   it('does not flag a verified email', async () => {

@@ -640,7 +640,7 @@ export async function updateEmail(
       success: true,
       data: {
         message:
-          'Verification email sent. Please check your inbox to confirm the new email address.',
+          'Confirmation links sent to both your current and new address. The change takes effect once both are confirmed.',
       },
     }
   } catch (error) {
