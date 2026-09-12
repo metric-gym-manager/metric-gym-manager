@@ -20,11 +20,17 @@ echo ""
 # Check if there are commits since last tag
 LAST_TAG=$(git tag --sort=-version:refname | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -1)
 
+# No tag means no release boundary, so "commits since the last release" has no
+# answer. Counting the whole history here reported hundreds of pending commits
+# and drove a changelog rewrite spanning the entire project. Stop early instead;
+# generate-changelog.js declines for the same reason and says so.
 if [ -z "$LAST_TAG" ]; then
-  COMMITS_COUNT=$(git log --oneline | wc -l)
-else
-  COMMITS_COUNT=$(git log "$LAST_TAG..HEAD" --oneline | wc -l)
+  echo "ℹ️  No version tag yet — skipping changelog generation."
+  echo "   Cut a release with 'npm run version:gui' and this starts working."
+  exit 0
 fi
+
+COMMITS_COUNT=$(git log "$LAST_TAG..HEAD" --oneline | wc -l)
 
 if [ "$COMMITS_COUNT" -eq 0 ]; then
   echo "ℹ️  No new commits since last release. Skipping changelog generation."
