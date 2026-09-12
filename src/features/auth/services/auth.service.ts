@@ -626,15 +626,23 @@ export async function updateEmail(
       }
     }
 
-    // Update email in gyms table and mark as unverified
-    await supabase
-      .from('gyms')
-      .update({
-        email: newEmail,
-        email_verified: false,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('user_id', user.id)
+    // The `gyms` row is DELIBERATELY not touched here.
+    //
+    // It used to be written optimistically with the new address and
+    // `email_verified: false` the moment a change was requested. Three
+    // problems, all of which reached production:
+    //
+    //  1. The row then held an address the user cannot yet sign in with, and
+    //     `pending_email` held the same value — so the settings banner named
+    //     the new address twice: "sent to X, and the one sent to X".
+    //  2. The true current address lives in Supabase's `user.email` until
+    //     both confirmations land, so nothing could name it.
+    //  3. Abandon the change and the row stays `email_verified: false`
+    //     forever, flagging an account whose email is perfectly fine.
+    //
+    // `/auth/callback` already writes `email` and `email_verified: true` when
+    // the change completes, which is the only moment either value is known.
+    // The pending state is carried by `user.new_email` instead.
 
     return {
       success: true,

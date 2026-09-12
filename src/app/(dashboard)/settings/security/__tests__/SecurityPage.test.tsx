@@ -114,6 +114,55 @@ describe('SecurityPage', () => {
   })
 
   /**
+   * Reported from production: the banner named the same address twice —
+   * "sent to colomboshyan@…, and the one sent to colomboshyan@…".
+   *
+   * `updateEmail` was writing the new address into the `gyms` row the moment a
+   * change was requested, so `gymProfile.email` and `pending_email` held the
+   * same value. The service no longer does that, but the screen should not rely
+   * on a server-side invariant to avoid printing nonsense: if the two ever
+   * coincide, name the address once.
+   */
+  it('never names the same address twice', async () => {
+    mockFetchRoutes(
+      routes({
+        '/api/auth/profile': apiOk(
+          profile({
+            email_verified: false,
+            email: 'same@titan.test',
+            pending_email: 'same@titan.test',
+          })
+        ),
+      })
+    )
+    renderScreen(<SecurityPage />)
+
+    const marker = await screen.findByText(/Action required:/i)
+    const copy = marker.closest('div')?.textContent ?? ''
+
+    expect(copy.split('same@titan.test').length - 1).toBe(1)
+  })
+
+  /**
+   * A change in flight is not an unverified account: the address on file is
+   * confirmed and usable, a different one is waiting. Labelling that
+   * "Unverified" reads as a fault with the current address.
+   */
+  it('labels a pending change distinctly from an unverified address', async () => {
+    mockFetchRoutes(
+      routes({
+        '/api/auth/profile': apiOk(
+          profile({ email_verified: true, pending_email: 'new@titan.test' })
+        ),
+      })
+    )
+    renderScreen(<SecurityPage />)
+
+    expect(await screen.findByText('Change pending')).toBeInTheDocument()
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+  })
+
+  /**
    * The dialog is where the decision is made, so it is where the explanation
    * has to be — before the user commits, not after two emails arrive and only
    * one is expected. Pinned separately from the banner: they are different

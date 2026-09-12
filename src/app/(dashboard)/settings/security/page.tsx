@@ -865,16 +865,27 @@ export default function AccountSecurityPage() {
             label={
               <span className="flex items-center gap-2">
                 Email address
-                {gymProfile && !gymProfile.email_verified && (
-                  <Badge variant="warning">Unverified</Badge>
-                )}
+                {gymProfile &&
+                  (gymProfile.pending_email &&
+                  gymProfile.pending_email !== gymProfile.email ? (
+                    // A change in flight is not the same as an unverified
+                    // account: the address on file is confirmed and usable, a
+                    // different one is waiting.
+                    <Badge variant="warning">Change pending</Badge>
+                  ) : (
+                    !gymProfile.email_verified && (
+                      <Badge variant="warning">Unverified</Badge>
+                    )
+                  ))}
               </span>
             }
             description={
-              gymProfile && !gymProfile.email_verified ? (
+              gymProfile &&
+              (gymProfile.pending_email || !gymProfile.email_verified) ? (
                 <>
                   <strong className="text-warning">Action required:</strong>{' '}
-                  {gymProfile.pending_email ? (
+                  {gymProfile.pending_email &&
+                  gymProfile.pending_email !== gymProfile.email ? (
                     <>
                       this change is confirmed from <strong>both</strong>{' '}
                       addresses. Open the link sent to your current address,{' '}
