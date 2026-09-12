@@ -933,3 +933,83 @@ change. That makes it a genuine auth-boundary navigation, so **§2.15 applies an
 **Still unverified**: the real email round-trip. Minting a genuine Supabase
 recovery token is out of reach here. The middleware test pins the exact hop that
 broke; one real reset link should be clicked before this is called done.
+
+---
+
+# Pass 7 — the password-recovery repair · 2026-09-12
+
+Two phases, each inverted-checked before the next began. Fourteen mutations, all
+caught. The checks found one real test weakness, one hole created during the fix
+itself, and **a third production bug of the same family as the one being fixed**.
+
+## 7.1 — Phase 1: a test that passed by way of a crash · **WEAK TEST (fixed)**
+
+`resetPassword`'s guard is `verifyError || !data.user`. The test named after the
+second half — "treats a success-shaped response with no user as a failure" —
+asserted only `success === false` and `updateUser` not called. Deleting
+`|| !data.user` still satisfied both: the function crashes on `data.user.email`,
+lands in the outer catch, and returns a failure. **The test was verifying the
+crash, not the guard.** It now asserts the exact message, which is what tells
+the two paths apart.
+
+## 7.2 — Two probes wrong before the code was · **METHOD**
+
+Of the first four Phase 1 mutations, two were bad probes:
+
+- `await supabase.auth.signOut()` occurs **twice** in `auth.service.ts`. A
+  `replace(old, new, 1)` mutated a different function 155 lines earlier, so the
+  test correctly did not fail. Fixed by scoping the mutator to the body of the
+  function under test.
+- A mutation meant to sign out on the failure path was inserted _after_ the
+  early `return` — unreachable, so it changed nothing.
+
+Both first read as "the test is weak". The tell was the same as in Pass 6: a
+result too interesting to accept without re-checking the instrument. Running
+tally for this document is **six wrong probes against six real defects**.
+
+## 7.3 — Phase 2 created a hole, then closed it · **CAUGHT IN REVIEW**
+
+Legacy recovery links were first redirected to
+`/forgot-password?error=link_expired`. That screen never reads query params, so
+the explanation would have vanished and the user would have met a bare form.
+Changed to `/reset-password` with no token, whose "Reset link incomplete" state
+already says links are single-use and offers a fresh one — a state that had been
+rendered and verified in a browser minutes earlier.
+
+## 7.4 — A third production bug, same family · **BUG (fixed)**
+
+Grepping for other consumers of `/auth/callback` turned up
+`changeEmail`, which built its confirmation link from **`NEXT_PUBLIC_SITE_URL`**
+while every other call site uses `NEXT_PUBLIC_APP_URL`. That variable is
+referenced exactly once in the codebase and **defined nowhere** — not in
+`.env.local`, not in `.env.example`. In production it resolved to `undefined`,
+so the email-change confirmation link pointed at `http://localhost:3000`.
+
+Nobody was looking for this. It surfaced because the check asked "who else
+depends on the thing I just changed", which is a different question from "does
+my change work".
+
+## 7.5 — What the live probes proved that tests could not
+
+- **`POST /verify` → 403** in the project's auth logs, from a curl against the
+  real endpoint with a bogus token. The new flow only ever POSTs, and only on
+  submit; the old one verified on GET. A scanner issues GETs. That difference is
+  the whole anti-scanner fix, and it is visible in production telemetry.
+- **The `?code=` probe produced no Supabase log entry at all.**
+  `exchangeCodeForSession` failed locally — with no stored code verifier the
+  client never makes a request. This independently confirms, by observation
+  rather than by reasoning, why PKCE recovery cannot work when the email is
+  opened on a different device from the one that requested it.
+- **Both `/reset-password` states rendered in a browser**, zero console errors,
+  and **no network call to Supabase on load** — the property the whole design
+  rests on. Rendering also caught a copy defect no test would have: the heading
+  read "Create a new password" above a link that could not create one.
+
+## 7.6 — Still unverified
+
+The real email round trip. It needs a genuine recovery token, which cannot be
+minted here, and it depends on dashboard configuration this session cannot
+change. **Phase 0 remains outstanding**, and until it lands the code changes are
+inert: the templates still emit PKCE links and Site URL still points at the old
+domain. The close-out is one real reset link, clicked **on a phone rather than
+the browser that requested it** — the case 7.5 shows was silently impossible.
