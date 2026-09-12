@@ -1263,3 +1263,38 @@ Nine wrong probes against ten real defects. The forward pass is now the higher
 yield of the two: assumptions about things outside the repository — dashboard
 config, rendered email, live templates — have produced every defect in Passes 7,
 8 and 9, while the code inside the repository has held up under direct attack.
+
+## 9.5 — Measured: Supabase does not clear an abandoned email change
+
+Left open at the end of Pass 9 and resolved by experiment rather than argument.
+
+**Method.** The project's own data could not answer it: every email change ever
+made here was completed, and completion clears the field, so an abandoned one
+had never existed. A throwaway auth user was created with `email_confirm: true`
+(so no mail was sent anywhere), put into the abandoned state directly —
+`email_change` set, `email_change_sent_at = now()` — and polled every two and a
+half minutes. `auth` has no triggers, so creating the user could not cascade
+into `gyms`.
+
+**Result.** Still set at 36 minutes, and the API kept returning
+`new_email: abandoned-target@…` the whole time — well past the 30-minute
+`otp_expiry` that had already killed the links.
+
+```
+t+ 0 … t+33 min : still pending
+VERDICT: still set at 36 min — Supabase does NOT clear abandoned changes.
+```
+
+At that same moment `pendingEmailIfLive()` returned `null`, which is the point:
+**the expiry guard is load-bearing, not defensive.** Without it the settings
+screen would advertise a pending change forever, aimed at links that no longer
+work, with nothing the user could do to clear it.
+
+**What it does not prove.** The probe set the column directly rather than going
+through GoTrue's write path, so it establishes that the value persists — not
+that no cleanup path exists anywhere. A reaper triggered by some other event
+would not show up in this design. That distinction does not affect the product,
+because the column tested is exactly the one the code reads.
+
+The throwaway user was deleted afterwards and the table verified back at 12
+users with no residue and no pending changes.

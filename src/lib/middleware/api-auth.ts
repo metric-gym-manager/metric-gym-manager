@@ -90,11 +90,15 @@ export const EMAIL_CHANGE_TTL_MS = 30 * 60 * 1000
 /**
  * The address awaiting confirmation, or null once its links have expired.
  *
- * Supabase clears `new_email` when a change COMPLETES — verified against this
- * project's `auth.users` — but an ABANDONED change has nothing to clear it. The
- * field would otherwise sit there and the settings screen would advertise a
- * pending change forever, pointing at links that stopped working at
- * `otp_expiry`.
+ * Supabase clears `new_email` when a change COMPLETES, and does NOT clear one
+ * that is abandoned. Both measured against this project, not inferred: a
+ * throwaway user was put into the abandoned state and polled for 36 minutes,
+ * and the API kept returning `new_email` the whole time — well past the
+ * 30-minute `otp_expiry` that had already killed the links.
+ *
+ * So this guard is load-bearing, not defensive. Without it the settings screen
+ * would advertise a pending change forever, pointing at links that stopped
+ * working, with no way for the user to clear it.
  *
  * Expiry is derived from `email_change_sent_at` rather than inferred from the
  * presence of `new_email`, so the banner disappears at the same moment the
