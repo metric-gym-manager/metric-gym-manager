@@ -61,21 +61,27 @@ describe('SecurityPage', () => {
   })
 
   /**
-   * Supabase runs with `double_confirm_changes = true`: an email change is
-   * confirmed from the OLD address as well as the new one, and completes only
-   * when both are done. That is a deliberate account-takeover control — it
-   * stops someone who has hijacked a session from moving the account to an
-   * address the owner does not hold.
+   * `email_verified: false` covers two different situations, and the banner has
+   * to tell them apart:
    *
-   * The copy previously said "check your inbox at <old address>", naming one
-   * mailbox for a two-mailbox process, so the change looked stuck. Pinned here
-   * because the failure is pure copy: nothing else in the suite can tell
-   * "check your inbox" from "confirm from both", and the cost of getting it
-   * wrong is a user who believes the feature is broken.
+   *   pending_email set    -> an email CHANGE is in flight. Supabase runs with
+   *                           `double_confirm_changes`, so the current address
+   *                           must approve as well as the new one. Two inboxes.
+   *   pending_email null   -> a signup that was never confirmed. One inbox.
+   *
+   * Naming one mailbox for a two-mailbox process made the change look stuck —
+   * one link clicked, still Unverified, no explanation. Naming two for a
+   * one-mailbox process would send the user hunting for an email that was never
+   * sent. Pinned because the failure is pure copy and nothing else in the suite
+   * can see it.
    */
-  it('says an email change needs BOTH addresses, not one', async () => {
+  it('names BOTH addresses while an email change is pending', async () => {
     mockFetchRoutes(
-      routes({ '/api/auth/profile': apiOk(profile({ email_verified: false })) })
+      routes({
+        '/api/auth/profile': apiOk(
+          profile({ email_verified: false, pending_email: 'new@titan.test' })
+        ),
+      })
     )
     renderScreen(<SecurityPage />)
 
@@ -83,9 +89,28 @@ describe('SecurityPage', () => {
     const copy = marker.closest('div')?.textContent ?? ''
 
     expect(copy).toMatch(/both/i)
+    expect(copy).toContain('owner@titan.test') // current
+    expect(copy).toContain('new@titan.test') // pending
     expect(copy).toMatch(/only once both/i)
-    // The old singular instruction must not come back.
     expect(copy).not.toMatch(/check your inbox at/i)
+  })
+
+  it('names ONE address for a signup that was never confirmed', async () => {
+    // No change in flight, so there is no second inbox to send anyone to.
+    mockFetchRoutes(
+      routes({
+        '/api/auth/profile': apiOk(
+          profile({ email_verified: false, pending_email: null })
+        ),
+      })
+    )
+    renderScreen(<SecurityPage />)
+
+    const marker = await screen.findByText(/Action required:/i)
+    const copy = marker.closest('div')?.textContent ?? ''
+
+    expect(copy).toContain('owner@titan.test')
+    expect(copy).not.toMatch(/both/i)
   })
 
   /**

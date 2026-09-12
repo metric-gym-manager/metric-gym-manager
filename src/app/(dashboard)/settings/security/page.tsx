@@ -873,13 +873,23 @@ export default function AccountSecurityPage() {
             description={
               gymProfile && !gymProfile.email_verified ? (
                 <>
-                  <strong className="text-warning">Action required:</strong> an
-                  email change is confirmed from <strong>both</strong>{' '}
-                  addresses. Open the link sent to your current address,{' '}
-                  <strong>{gymProfile.email}</strong>, and the one sent to the
-                  new address. The change takes effect only once both are done —
-                  which is what stops someone else moving your account to an
-                  address you do not control.
+                  <strong className="text-warning">Action required:</strong>{' '}
+                  {gymProfile.pending_email ? (
+                    <>
+                      this change is confirmed from <strong>both</strong>{' '}
+                      addresses. Open the link sent to your current address,{' '}
+                      <strong>{gymProfile.email}</strong>, and the one sent to{' '}
+                      <strong>{gymProfile.pending_email}</strong>. It takes
+                      effect only once both are done — which is what stops
+                      someone else moving your account to an address you do not
+                      control.
+                    </>
+                  ) : (
+                    <>
+                      open the link sent to <strong>{gymProfile.email}</strong>{' '}
+                      to confirm this address.
+                    </>
+                  )}
                 </>
               ) : (
                 'Used for login and account recovery'
