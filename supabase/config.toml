@@ -247,7 +247,12 @@ max_frequency = "1m0s"
 # Number of characters used in the email OTP.
 otp_length = 8
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# 30 minutes. Four places in the product tell the user a link is "valid for 30
+# minutes" — the reset email, the reset page, the forgot-password page and the
+# verify-email page — while this said 3600 (one hour). The copy was wrong for
+# as long as it existed. A shorter window is also the right default for a
+# single-use credential delivered by email.
+otp_expiry = 1800
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]

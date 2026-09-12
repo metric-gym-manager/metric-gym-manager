@@ -72,8 +72,46 @@ export async function getApiGymProfile() {
   return {
     gymProfile: {
       ...gymProfile,
-      pending_email: authResult.user!.new_email ?? null,
+      pending_email: pendingEmailIfLive(authResult.user!),
     },
     error: null,
   }
+}
+
+/**
+ * How long a confirmation link stays usable, in milliseconds.
+ *
+ * Mirrors `auth.email.otp_expiry` in supabase/config.toml. Keep the two in step:
+ * reporting a change as pending after its links have died leaves the user with
+ * a banner they cannot act on and no way to clear it.
+ */
+export const EMAIL_CHANGE_TTL_MS = 30 * 60 * 1000
+
+/**
+ * The address awaiting confirmation, or null once its links have expired.
+ *
+ * Supabase clears `new_email` when a change COMPLETES — verified against this
+ * project's `auth.users` — but an ABANDONED change has nothing to clear it. The
+ * field would otherwise sit there and the settings screen would advertise a
+ * pending change forever, pointing at links that stopped working at
+ * `otp_expiry`.
+ *
+ * Expiry is derived from `email_change_sent_at` rather than inferred from the
+ * presence of `new_email`, so the banner disappears at the same moment the
+ * links do.
+ */
+export function pendingEmailIfLive(user: {
+  new_email?: string
+  email_change_sent_at?: string
+}): string | null {
+  if (!user.new_email) return null
+
+  // No timestamp means we cannot tell. Showing it is the safer error: the user
+  // can still act, and a stale banner beats hiding a real change in flight.
+  if (!user.email_change_sent_at) return user.new_email
+
+  const sentAt = Date.parse(user.email_change_sent_at)
+  if (Number.isNaN(sentAt)) return user.new_email
+
+  return Date.now() - sentAt < EMAIL_CHANGE_TTL_MS ? user.new_email : null
 }

@@ -92,6 +92,51 @@ describe('updateEmail', () => {
     expect(gymsUpdate).not.toHaveBeenCalled()
   })
 
+  /**
+   * Reported from production: submitting the address the account already holds
+   * showed a green "sent" message and no email ever arrived.
+   *
+   * Supabase accepts it — the project's auth logs show `PUT /user 200
+   * user_modified` for exactly this, with no `/verify` traffic afterwards —
+   * because there is nothing to change and so nothing to confirm. The old code
+   * saw no error and ran its success path, promising mail that was never going
+   * to be sent. The "already in use" lookup could not catch it either: it
+   * excludes the current user by design (`.neq('user_id', user.id)`).
+   */
+  it('refuses the address the account already holds', async () => {
+    const result = await updateEmail('old@gym.lk')
+
+    expect(result.success).toBe(false)
+    expect(result.error).toMatch(/already your email address/i)
+    // Nothing may be asked of Supabase: the request is a no-op by definition.
+    expect(updateUser).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['different capitalisation', 'OLD@Gym.LK'],
+    ['surrounding whitespace', '  old@gym.lk  '],
+  ])('treats %s as the same address', async (_name, typed) => {
+    // Supabase stores addresses lowercased, so these are the same mailbox.
+    const result = await updateEmail(typed)
+
+    expect(result.success).toBe(false)
+    expect(updateUser).not.toHaveBeenCalled()
+  })
+
+  /**
+   * `updateUser` returns once the change is RECORDED. The SMTP send happens
+   * afterwards and its failure never reaches this function, so the message must
+   * not assert delivery — it is the one thing this code path cannot know.
+   */
+  it('does not claim mail was delivered', async () => {
+    const result = await updateEmail('new@gym.lk')
+
+    expect(result.success).toBe(true)
+    const message = (result.data as { message: string }).message
+    expect(message).not.toMatch(/\bsent\b/i)
+    expect(message).toMatch(/on their way|check spam/i)
+  })
+
   it('reports a rejection from Supabase rather than claiming success', async () => {
     updateUser.mockResolvedValue({ error: { message: 'rate limited' } })
 

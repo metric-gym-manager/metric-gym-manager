@@ -391,8 +391,14 @@ function EmailUpdateModal({
       // Immediately refresh the profile to show new email with unverified status
       queryClient.invalidateQueries({ queryKey: ['gym-profile'] })
 
+      // Fallback asserts a REQUEST, not a delivery. The previous wording
+      // ("Verification email sent") claimed something neither this component
+      // nor the server can observe: `updateUser` returns once the change is
+      // recorded, and the SMTP send happens afterwards. The server now sends
+      // its own honest message; this only covers a response that omits one.
       setSuccessMessage(
-        data.message || 'Verification email sent. Check your inbox to confirm.'
+        data.message ||
+          'Change requested. Confirmation links are on their way to both addresses.'
       )
       reset()
       // Don't auto-close - let user read the message and see the updated email

@@ -576,6 +576,26 @@ export async function updateEmail(
       }
     }
 
+    // Reject a no-op before asking Supabase to do anything.
+    //
+    // `PUT /user` with the address the account already holds returns 200 and
+    // sends NO email — there is nothing to confirm. Without this guard the
+    // success path ran anyway and the screen reported that links had been
+    // sent, so the user waited for mail that was never going to arrive.
+    // Confirmed in the project's auth logs: same-address submissions appear
+    // as `PUT /user 200 user_modified` with no `/verify` traffic after them.
+    //
+    // Compared trimmed and case-insensitively: Supabase stores addresses
+    // lowercased, and a user retyping their own address with different
+    // capitalisation means the same address.
+    const current = (user.email ?? '').trim().toLowerCase()
+    if (newEmail.trim().toLowerCase() === current) {
+      return {
+        success: false,
+        error: 'That is already your email address. Enter a different one.',
+      }
+    }
+
     // Check if email already in use by another user
     const { data: existingGym } = await supabase
       .from('gyms')
@@ -648,7 +668,11 @@ export async function updateEmail(
       success: true,
       data: {
         message:
-          'Confirmation links sent to both your current and new address. The change takes effect once both are confirmed.',
+          // States what was REQUESTED, not that mail was delivered. `updateUser`
+          // returns as soon as the change is recorded; the SMTP send happens
+          // afterwards and its failure never reaches this code. Claiming "sent"
+          // was the strongest thing this path could not know.
+          'Confirmation links are on their way to both your current and your new address. The change takes effect once both are confirmed. If nothing arrives within a few minutes, check spam and try again.',
       },
     }
   } catch (error) {
