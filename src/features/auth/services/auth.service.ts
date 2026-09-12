@@ -597,7 +597,13 @@ export async function updateEmail(
         email: newEmail,
       },
       {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback?next=/settings/security`,
+        // `NEXT_PUBLIC_APP_URL`, not `NEXT_PUBLIC_SITE_URL`. That was the only
+        // reference to the latter in the whole codebase and it is set nowhere —
+        // not in .env.local, not in .env.example — so in production it resolved
+        // to `undefined` and this confirmation link pointed at localhost. Same
+        // defect class as the recovery link that started this work; found by the
+        // Phase 2 inverted check.
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback?next=/settings/security`,
       }
     )
 

@@ -80,14 +80,15 @@ export const PUBLIC_ROUTE_PREFIXES = ['/join/'] as const
  * Note: /register is excluded to allow authenticated users to view it.
  *
  * **`/reset-password` is deliberately NOT here, and must not be re-added.**
- * Password recovery *requires* a session: `/auth/callback?type=recovery` calls
- * `verifyOtp`, which writes the auth cookies, and only then redirects to
- * `/reset-password`; `resetPassword()` in turn calls `supabase.auth.getUser()`
- * and refuses without one. Listing the route here therefore made the guard and
- * the flow contradict each other — the browser arrived carrying the session the
- * flow had just created, `isAuthenticated && isAuthRoute` matched, and every
- * recovery link 307'd to `/dashboard`. The user was silently signed in and the
- * reset form never rendered.
+ * The recovery link lands there directly, carrying its one-time token, and the
+ * page spends the token only when the form is submitted — so a visitor may
+ * arrive either anonymous (the normal case) or already signed in, and both must
+ * be served. Listing the route here bounced the signed-in case to `/dashboard`.
+ *
+ * It mattered more under the previous design, where `/auth/callback?type=recovery`
+ * called `verifyOtp` first and handed over an authenticated browser: every
+ * recovery link then 307'd to `/dashboard`, silently signing the user in while
+ * the reset form never rendered.
  *
  * `/verify-email` is the precedent: public, session-bearing, and deliberately
  * absent from this list for the same reason.
