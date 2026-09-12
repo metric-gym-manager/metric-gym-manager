@@ -1072,3 +1072,103 @@ Phase 0 itself. Until it is applied the Phase 1 and 2 code is inert: the
 templates still emit PKCE links and Site URL still points at the retired domain.
 `npm run auth:verify` flips from red to green the moment the allow list is
 corrected, and is the fastest confirmation that the dashboard half landed.
+
+---
+
+# Pass 8 — sweep across the whole session's work · 2026-09-12
+
+Prompted by an observation worth recording: defects in this session's own output
+were being found **after** each merge, one at a time, because each check only
+covered what had just been written. This pass ran one systematic sweep over all
+21 commits — mutation coverage, config drift, cross-file consistency, untested
+surfaces, orphans, and an audit of claims — before merging anything further.
+
+Ten mutations and five probe groups. Three real holes, one stale rule, one
+latent footgun. Two more wrong probes.
+
+## 8.1 — The linchpin of the whole fix had no test · **HOLE (fixed)**
+
+`sendPasswordResetEmail`'s `redirectTo` becomes `{{ .RedirectTo }}` in the email
+template, so it decides where every reset link points. Reverting it from
+`/reset-password` to `/auth/callback` — which restores verification-on-GET and
+with it the scanner defect — **broke nothing**. The function had no test at all.
+
+Every test around it covered what happens _after_ the link is clicked. Nothing
+covered where the link goes. Now three tests: the target, that it carries no
+query string (so all templates can append with `?`), and that an unset
+`NEXT_PUBLIC_APP_URL` falls back rather than building `undefined/...`.
+
+## 8.2 — A ratchet's SCOPE was not a ratchet · **HOLE (fixed)**
+
+UI3's allow-list could only shrink, which was the whole design. But narrowing
+the rule's _scope_ — changing `(dashboard|admin|auth)` to `(dashboard|admin)` —
+produced **zero violations and a green `arch:check`**, silently un-guarding the
+five `(auth)` screens where a mount failure locks every user out of the product.
+
+The net could be made smaller without anyone noticing. Fixed by enumerating
+route groups: every `(group)` under `src/app` must appear in `UI3_GROUPS` or
+`UI3_GROUPS_OUT_OF_SCOPE`, and a group listed in either that does not exist also
+fails. Adding a new route group now forces an explicit decision rather than
+defaulting to unguarded.
+
+Found by mutating the rule's scope rather than its contents — a question none of
+the earlier passes had asked of any ratchet.
+
+## 8.3 — Rule 2.15 described a flow that no longer exists · **STALE (fixed)**
+
+Two claims in the auto-loaded rules, both written by me earlier in this session
+and both falsified by Phase 1 a few hours later:
+
+- "A completed reset then `POST`s `/api/auth/logout` and hard-navigates" — the
+  client logout was removed; the service signs out server-side.
+- "`/auth/callback?type=recovery` runs `verifyOtp` … and `resetPassword()` calls
+  `getUser()`" — recovery no longer passes through the callback at all, and
+  `resetPassword()` takes a `token_hash`.
+
+This is the exact rot Pass 6 was written to stop, reproduced inside the same
+session. A rule injected into every future session is the worst place for a
+stale description, because it is read as current by definition. Rewritten to the
+present flow, including the "no fetch on that page's mount" invariant that the
+anti-scanner design depends on.
+
+## 8.4 — Three call sites could build `undefined/auth/callback` · **LATENT (fixed)**
+
+`${process.env.NEXT_PUBLIC_APP_URL}/auth/callback` with no fallback, in
+`email-confirmation.service.ts`, `auth.service.ts` and the resend-confirmation
+route. Harmless while the variable is set, and identical in shape to the
+`NEXT_PUBLIC_SITE_URL` bug fixed in Pass 7.4 — which was also harmless until it
+was not. All three now fall back explicitly.
+
+## 8.5 — Clean
+
+- `config.toml` shows **no declared drift** from production; `auth:verify` green.
+- All three email templates append with `?`, and every `emailRedirectTo` is now
+  byte-identical — the premise that made the separator uniform still holds.
+- No orphaned components (`arch:check` UI1), no residual session-based reset
+  path, `/auth/callback`'s recovery branch has no caller and is legacy-only as
+  documented.
+- Numeric claims in rule 2.21 verified against reality: 24 of 32 `page.tsx`
+  guarded, UI3 allow-list genuinely empty.
+
+## 8.6 — Two more wrong probes
+
+Running tally is now **eight wrong probes against nine real defects.**
+
+- Three mutations were driven with a jest pattern matching no test file. The
+  harness saw no failure and printed MISSED for each. Two were `arch:check` and
+  changelog-script concerns that jest never runs; re-probed through the right
+  runner, one was a real hole (8.2) and one was not.
+- An anchor asserted `count == 1` on a string appearing twice and correctly
+  refused — the guard added after Pass 7's identical mistake did its job.
+
+The lesson holds and now has a corollary: **a probe that reports a miss is as
+suspect as one that reports a hit.** Both are claims about the instrument.
+
+## 8.7 — Accepted, not fixed
+
+`scripts/generate-changelog.js` has no automated test. Its boundary logic was
+verified by hand — the full-history regression rewrites 228 lines of
+`CHANGELOG.md`, so it is detectable — but nothing in the suite runs it. That
+matches the repository's standing convention (`check-architecture.mjs`,
+`db-audit.mjs` and `verify-auth-redirects.mjs` are likewise unverified by jest),
+so it is recorded rather than changed unilaterally.

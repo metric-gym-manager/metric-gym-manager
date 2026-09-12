@@ -7,8 +7,8 @@
  * @module email-confirmation.service
  */
 
-import { createClient } from '@/lib/supabase/server';
-import type { AuthResponse } from '../types';
+import { createClient } from '@/lib/supabase/server'
+import type { AuthResponse } from '../types'
 
 /**
  * Logs an email confirmation sent to a user
@@ -34,10 +34,10 @@ export async function logEmailConfirmationSent(
   tokenHash: string
 ): Promise<void> {
   try {
-    const supabase = await createClient();
+    const supabase = await createClient()
 
     // Email confirmations expire after 24 hours (standard practice)
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
 
     await supabase.from('email_confirmations').insert({
       gym_id: gymId,
@@ -47,10 +47,10 @@ export async function logEmailConfirmationSent(
       status: 'pending',
       expires_at: expiresAt.toISOString(),
       // Optional: Could add ip_address and user_agent for security auditing
-    });
+    })
   } catch (error) {
     // Log error but don't fail the registration process
-    console.error('Failed to log email confirmation:', error);
+    console.error('Failed to log email confirmation:', error)
   }
 }
 
@@ -73,7 +73,7 @@ export async function markEmailConfirmed(
   userId: string
 ): Promise<AuthResponse<void>> {
   try {
-    const supabase = await createClient();
+    const supabase = await createClient()
 
     // Update email_confirmations table
     const { error: confError } = await supabase
@@ -83,10 +83,10 @@ export async function markEmailConfirmed(
         confirmed_at: new Date().toISOString(),
       })
       .eq('user_id', userId)
-      .eq('status', 'pending'); // Only update pending confirmations
+      .eq('status', 'pending') // Only update pending confirmations
 
     if (confError) {
-      console.error('Failed to update email confirmation:', confError);
+      console.error('Failed to update email confirmation:', confError)
       // Continue anyway - don't fail the process
     }
 
@@ -97,23 +97,23 @@ export async function markEmailConfirmed(
         email_verified: true,
         updated_at: new Date().toISOString(),
       })
-      .eq('user_id', userId);
+      .eq('user_id', userId)
 
     if (gymError) {
-      console.error('Failed to update gym email verification:', gymError);
+      console.error('Failed to update gym email verification:', gymError)
       return {
         success: false,
         error: 'Failed to verify email',
-      };
+      }
     }
 
-    return { success: true };
+    return { success: true }
   } catch (error) {
-    console.error('Mark email confirmed error:', error);
+    console.error('Mark email confirmed error:', error)
     return {
       success: false,
       error: 'An unexpected error occurred',
-    };
+    }
   }
 }
 
@@ -136,34 +136,34 @@ export async function resendEmailConfirmation(
   email: string
 ): Promise<AuthResponse<void>> {
   try {
-    const supabase = await createClient();
+    const supabase = await createClient()
 
     // Use Supabase's built-in resend functionality
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
       },
-    });
+    })
 
     if (error) {
-      console.error('Failed to resend confirmation email:', error);
+      console.error('Failed to resend confirmation email:', error)
       return {
         success: false,
         error: 'Failed to resend confirmation email',
-      };
+      }
     }
 
     return {
       success: true,
-    };
+    }
   } catch (error) {
-    console.error('Resend email confirmation error:', error);
+    console.error('Resend email confirmation error:', error)
     return {
       success: false,
       error: 'An unexpected error occurred',
-    };
+    }
   }
 }
 
@@ -175,16 +175,14 @@ export async function resendEmailConfirmation(
  * @param userId - Supabase auth.users ID
  * @returns Email confirmation record or null if none exists
  */
-export async function getEmailConfirmationStatus(
-  userId: string
-): Promise<{
-  status: 'pending' | 'confirmed' | 'expired';
-  sentAt: string;
-  confirmedAt?: string;
-  expiresAt: string;
+export async function getEmailConfirmationStatus(userId: string): Promise<{
+  status: 'pending' | 'confirmed' | 'expired'
+  sentAt: string
+  confirmedAt?: string
+  expiresAt: string
 } | null> {
   try {
-    const supabase = await createClient();
+    const supabase = await createClient()
 
     const { data, error } = await supabase
       .from('email_confirmations')
@@ -192,10 +190,10 @@ export async function getEmailConfirmationStatus(
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(1)
-      .single();
+      .single()
 
     if (error || !data) {
-      return null;
+      return null
     }
 
     return {
@@ -203,10 +201,10 @@ export async function getEmailConfirmationStatus(
       sentAt: data.sent_at,
       confirmedAt: data.confirmed_at || undefined,
       expiresAt: data.expires_at,
-    };
+    }
   } catch (error) {
-    console.error('Get email confirmation status error:', error);
-    return null;
+    console.error('Get email confirmation status error:', error)
+    return null
   }
 }
 
@@ -215,30 +213,30 @@ export async function getEmailConfirmationStatus(
 // ============================================================
 
 export type VerifyEmailChangeResult =
-  | { status: 'invalid' }
-  | { status: 'no_user' }
-  | { status: 'ok' };
+  { status: 'invalid' } | { status: 'no_user' } | { status: 'ok' }
 
 /**
  * Verifies an email-change token via Supabase Auth, then mirrors the new
  * verified email onto the gyms row. The mirror update is best-effort — a
  * failure there never fails the verification itself.
  */
-export async function verifyEmailChange(token: string): Promise<VerifyEmailChangeResult> {
-  const supabase = await createClient();
+export async function verifyEmailChange(
+  token: string
+): Promise<VerifyEmailChangeResult> {
+  const supabase = await createClient()
 
   const { data, error } = await supabase.auth.verifyOtp({
     token_hash: token,
     type: 'email_change',
-  });
+  })
 
   if (error) {
-    console.error('Email verification error:', error);
-    return { status: 'invalid' };
+    console.error('Email verification error:', error)
+    return { status: 'invalid' }
   }
 
   if (!data.user) {
-    return { status: 'no_user' };
+    return { status: 'no_user' }
   }
 
   const { error: updateError } = await supabase
@@ -248,12 +246,15 @@ export async function verifyEmailChange(token: string): Promise<VerifyEmailChang
       email_verified: true,
       updated_at: new Date().toISOString(),
     })
-    .eq('user_id', data.user.id);
+    .eq('user_id', data.user.id)
 
   if (updateError) {
-    console.error('Failed to update gym email verification status:', updateError);
+    console.error(
+      'Failed to update gym email verification status:',
+      updateError
+    )
     // Don't fail the request - Supabase verified the email successfully
   }
 
-  return { status: 'ok' };
+  return { status: 'ok' }
 }

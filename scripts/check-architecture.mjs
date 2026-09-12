@@ -438,8 +438,53 @@ const UI3_ALLOW = new Set([
 // visual directive's scope, but login and register are where a mount failure
 // locks every user out of the product — "outside the directive" was an
 // explanation for leaving them ungated, not a justification.
+// Route groups UI3 covers, and the ones deliberately outside it. EVERY group
+// under src/app must appear in one list or the other.
+//
+// Without this the rule's SCOPE was unprotected: narrowing the regex to drop
+// `(auth)` produced zero violations and a green `arch:check`, silently
+// un-guarding the five screens where a mount failure locks every user out. The
+// allow-list could only shrink, but nothing stopped the net being made smaller.
+// Found by mutating the scope itself rather than its contents.
+const UI3_GROUPS = ['dashboard', 'admin', 'auth']
+const UI3_GROUPS_OUT_OF_SCOPE = [
+  // Dev-only component showcase; imports every primitive by design.
+  'dev',
+]
+
+const allGroups = [
+  ...new Set(
+    walk(SRC, ['.tsx'])
+      .map((f) => rel(f).match(/^src\/app\/\(([^)]+)\)\//))
+      .filter(Boolean)
+      .map((m) => m[1])
+  ),
+]
+for (const g of allGroups) {
+  if (!UI3_GROUPS.includes(g) && !UI3_GROUPS_OUT_OF_SCOPE.includes(g)) {
+    fail(
+      'UI3',
+      `Route group "(${g})" is in neither UI3_GROUPS nor ` +
+        `UI3_GROUPS_OUT_OF_SCOPE. Decide whether its screens must be rendered ` +
+        `by a test, and say so explicitly — silence defaults to unguarded.`
+    )
+  }
+}
+for (const g of UI3_GROUPS) {
+  if (!allGroups.includes(g)) {
+    fail(
+      'UI3',
+      `UI3_GROUPS lists "(${g})" but no such route group exists. Remove it, or ` +
+        `the rule is guarding nothing under that name.`
+    )
+  }
+}
+
+const screenGroupRe = new RegExp(
+  `^src/app/\\((${UI3_GROUPS.join('|')})\\)/(.*/)?page\\.tsx$`
+)
 const screenPages = walk(SRC, ['.tsx']).filter((f) =>
-  /^src\/app\/\((dashboard|admin|auth)\)\/(.*\/)?page\.tsx$/.test(rel(f))
+  screenGroupRe.test(rel(f))
 )
 
 /**

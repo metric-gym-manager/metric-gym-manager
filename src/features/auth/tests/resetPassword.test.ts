@@ -14,12 +14,15 @@
 const verifyOtp = jest.fn()
 const updateUser = jest.fn()
 const signOut = jest.fn()
+const resetPasswordForEmail = jest.fn()
 
 jest.mock('@/lib/supabase/server', () => ({
-  createClient: async () => ({ auth: { verifyOtp, updateUser, signOut } }),
+  createClient: async () => ({
+    auth: { verifyOtp, updateUser, signOut, resetPasswordForEmail },
+  }),
 }))
 
-import { resetPassword } from '../services/auth.service'
+import { resetPassword, sendPasswordResetEmail } from '../services/auth.service'
 
 const user = { id: 'u1', email: 'owner@gym.lk' }
 
@@ -28,6 +31,56 @@ beforeEach(() => {
   verifyOtp.mockResolvedValue({ data: { user }, error: null })
   updateUser.mockResolvedValue({ error: null })
   signOut.mockResolvedValue({ error: null })
+  resetPasswordForEmail.mockResolvedValue({ error: null })
+})
+
+/**
+ * Where the emailed link points.
+ *
+ * This is the linchpin of the whole recovery fix and had NO test: `redirectTo`
+ * becomes `{{ .RedirectTo }}` in the email template, so reverting it to
+ * `/auth/callback` silently restores the defect — a link that verifies on GET,
+ * which an email scanner spends before the recipient clicks. Mutation testing
+ * found the gap: changing this value broke nothing.
+ */
+describe('sendPasswordResetEmail', () => {
+  const APP_URL = process.env.NEXT_PUBLIC_APP_URL
+
+  afterEach(() => {
+    process.env.NEXT_PUBLIC_APP_URL = APP_URL
+  })
+
+  it('points the link at the form, not at the verifying callback', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://www.metricgymos.com'
+
+    await sendPasswordResetEmail('owner@gym.lk')
+
+    expect(resetPasswordForEmail).toHaveBeenCalledWith('owner@gym.lk', {
+      redirectTo: 'https://www.metricgymos.com/reset-password',
+    })
+    // `/auth/callback` verifies on GET. Recovery must not go through it.
+    const [, opts] = resetPasswordForEmail.mock.calls[0]
+    expect(opts.redirectTo).not.toContain('/auth/callback')
+  })
+
+  it('carries no query string, so every template can append with "?"', async () => {
+    process.env.NEXT_PUBLIC_APP_URL = 'https://www.metricgymos.com'
+
+    await sendPasswordResetEmail('owner@gym.lk')
+
+    const [, opts] = resetPasswordForEmail.mock.calls[0]
+    expect(opts.redirectTo).not.toContain('?')
+  })
+
+  it('falls back to localhost rather than building an undefined URL', async () => {
+    delete process.env.NEXT_PUBLIC_APP_URL
+
+    await sendPasswordResetEmail('owner@gym.lk')
+
+    const [, opts] = resetPasswordForEmail.mock.calls[0]
+    expect(opts.redirectTo).toBe('http://localhost:3000/reset-password')
+    expect(opts.redirectTo).not.toContain('undefined')
+  })
 })
 
 describe('resetPassword', () => {
