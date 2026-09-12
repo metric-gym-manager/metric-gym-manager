@@ -65,6 +65,3 @@ playwright.local.config.ts
 # node_modules tree into history. It is not part of this application — the root
 # ESLint config already ignores it (`my-video/**`).
 my-video/
-
-# Supabase CLI scratch (version-check cache, linked-project state)
-supabase/.temp/
