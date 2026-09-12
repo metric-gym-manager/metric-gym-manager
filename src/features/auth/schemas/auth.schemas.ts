@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 // ============================================================
 // REGISTRATION SCHEMA
@@ -43,9 +43,9 @@ export const registrationSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
     path: ['confirmPassword'],
-  });
+  })
 
-export type RegistrationInput = z.infer<typeof registrationSchema>;
+export type RegistrationInput = z.infer<typeof registrationSchema>
 
 // ============================================================
 // LOGIN SCHEMAS
@@ -56,9 +56,9 @@ export const loginSchema = z.object({
   email: z.string().email('Must be a valid email address'),
   password: z.string().min(1, 'Password is required'),
   rememberMe: z.boolean().default(false),
-});
+})
 
-export type LoginInput = z.infer<typeof loginSchema>;
+export type LoginInput = z.infer<typeof loginSchema>
 
 // ============================================================
 // FORGOT PASSWORD SCHEMA
@@ -66,9 +66,9 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 export const forgotPasswordSchema = z.object({
   email: z.string().email('Must be a valid email address'),
-});
+})
 
-export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>
 
 // ============================================================
 // RESET PASSWORD SCHEMA
@@ -76,6 +76,12 @@ export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
 export const resetPasswordSchema = z
   .object({
+    /**
+     * One-time recovery token from the email link. Carried through the form and
+     * spent server-side on submit, so opening the link consumes nothing — see
+     * `resetPassword()` in auth.service.ts.
+     */
+    token_hash: z.string().min(1, 'Missing or invalid reset link'),
     password: z
       .string()
       .min(8, 'Password must be at least 8 characters')
@@ -87,9 +93,9 @@ export const resetPasswordSchema = z
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwords do not match',
     path: ['confirmPassword'],
-  });
+  })
 
-export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>
 
 // ============================================================
 // UPDATE PROFILE SCHEMAS
@@ -110,15 +116,15 @@ export const updateGymInfoSchema = z.object({
     .url('Must be a valid URL')
     .optional()
     .or(z.literal('')),
-});
+})
 
-export type UpdateGymInfoInput = z.infer<typeof updateGymInfoSchema>;
+export type UpdateGymInfoInput = z.infer<typeof updateGymInfoSchema>
 
 export const updateEmailSchema = z.object({
   newEmail: z.string().email('Must be a valid email address'),
-});
+})
 
-export type UpdateEmailInput = z.infer<typeof updateEmailSchema>;
+export type UpdateEmailInput = z.infer<typeof updateEmailSchema>
 
 export const updatePasswordSchema = z
   .object({
@@ -138,7 +144,6 @@ export const updatePasswordSchema = z
   .refine((data) => data.currentPassword !== data.newPassword, {
     message: 'New password must be different from current password',
     path: ['newPassword'],
-  });
+  })
 
-export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>;
-
+export type UpdatePasswordInput = z.infer<typeof updatePasswordSchema>

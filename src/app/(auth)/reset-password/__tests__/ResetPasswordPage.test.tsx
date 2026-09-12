@@ -3,8 +3,10 @@ import '@testing-library/jest-dom'
 import ResetPasswordPage from '../page'
 
 const push = jest.fn()
+let params = new URLSearchParams('token_hash=tok_from_email')
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
+  useSearchParams: () => params,
 }))
 
 const assign = jest.fn()
@@ -28,6 +30,7 @@ const fill = (a: string, b = a) => {
 }
 
 beforeEach(() => {
+  params = new URLSearchParams('token_hash=tok_from_email')
   jest.clearAllMocks()
   Object.defineProperty(window, 'location', {
     configurable: true,
@@ -90,19 +93,74 @@ describe('Reset password screen', () => {
     )
   })
 
-  it('drops the recovery session before leaving', async () => {
-    // `/auth/callback?type=recovery` signs the user in to authorise the reset,
-    // so the session outlives the password it was created against. Leaving it
-    // live would strand the user signed in while being told to sign in.
+  describe('the one-time token', () => {
+    /**
+     * The anti-scanner guarantee. Gmail's link scanner issues a GET before the
+     * recipient clicks; if merely rendering this screen spent the token, the
+     * user would arrive to a dead link. Mounting must touch the network zero
+     * times. This test fails the moment a fetch is added to the mount path.
+     */
+    it('spends nothing on mount — no request at all until submit', () => {
+      render(<ResetPasswordPage />)
+      expect(globalThis.fetch).not.toHaveBeenCalled()
+    })
+
+    it('carries the token from the link into the request', async () => {
+      params = new URLSearchParams('token_hash=tok_abc123')
+      render(<ResetPasswordPage />)
+      fill('Str0ngPassw0rd!')
+      fireEvent.click(submit())
+
+      await waitFor(() => {
+        const [, init] = (globalThis.fetch as jest.Mock).mock.calls[0]
+        expect(
+          JSON.parse((init as RequestInit).body as string).token_hash
+        ).toBe('tok_abc123')
+      })
+    })
+
+    it('accepts ?token= as an alias for an older template', async () => {
+      params = new URLSearchParams('token=legacy_tok')
+      render(<ResetPasswordPage />)
+      fill('Str0ngPassw0rd!')
+      fireEvent.click(submit())
+
+      await waitFor(() => {
+        const [, init] = (globalThis.fetch as jest.Mock).mock.calls[0]
+        expect(
+          JSON.parse((init as RequestInit).body as string).token_hash
+        ).toBe('legacy_tok')
+      })
+    })
+
+    it('offers a new link instead of a form that cannot succeed', () => {
+      params = new URLSearchParams()
+      render(<ResetPasswordPage />)
+
+      expect(
+        screen.getByRole('link', { name: /request a new reset link/i })
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: /reset password/i })
+      ).toBeNull()
+      // The heading has to agree with the state. Found by rendering it: the
+      // page said "Create a new password" above a link that cannot create one.
+      expect(
+        screen.getByRole('heading', { name: 'Reset link incomplete' })
+      ).toBeInTheDocument()
+    })
+  })
+
+  it('does not call logout — the server signs out after updating', async () => {
+    // `resetPassword()` spends the token, updates the password and signs out in
+    // one server round trip. A second client call would be a redundant request
+    // against a session that no longer exists.
     render(<ResetPasswordPage />)
     fill('Str0ngPassw0rd!')
     fireEvent.click(submit())
 
-    await waitFor(() => expect(calledUrls()).toContain('/api/auth/logout'))
-    const order = calledUrls()
-    expect(order.indexOf('/api/auth/logout')).toBeGreaterThan(
-      order.indexOf('/api/auth/reset-password')
-    )
+    await waitFor(() => expect(assign).toHaveBeenCalled())
+    expect(calledUrls()).not.toContain('/api/auth/logout')
   })
 
   it('leaves via a full-document navigation, never the router (§2.15)', async () => {
@@ -129,8 +187,5 @@ describe('Reset password screen', () => {
       await screen.findByText('Reset link has expired')
     ).toBeInTheDocument()
     expect(assign).not.toHaveBeenCalled()
-    // A failed reset must not sign the user out — the recovery session is
-    // their only way to retry without requesting a fresh link.
-    expect(calledUrls()).not.toContain('/api/auth/logout')
   })
 })
