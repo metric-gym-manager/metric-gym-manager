@@ -1013,3 +1013,62 @@ change. **Phase 0 remains outstanding**, and until it lands the code changes are
 inert: the templates still emit PKCE links and Site URL still points at the old
 domain. The close-out is one real reset link, clicked **on a phone rather than
 the browser that requested it** — the case 7.5 shows was silently impossible.
+
+## 7.7 — Phase 0: the config half, and how to check it without a dashboard
+
+Phase 0 is dashboard configuration and **cannot be applied from this
+environment**. Established three ways rather than assumed:
+
+- the Supabase MCP exposes no auth-configuration tool;
+- no Supabase CLI, no `~/.supabase/access-token`, no `supabase/config.toml`, and
+  no management token in the environment — the Management API needs an
+  account-scoped personal access token (`sbp_…`), and the service-role key is
+  not one;
+- `GET /auth/v1/settings`, which the publishable key _can_ read, returns
+  provider flags and signup settings but neither Site URL nor the allow list.
+
+An attempt to probe the Management API with the service-role key was refused by
+the sandbox, correctly — that would have sent a privileged credential to an
+external host. Not worked around.
+
+### The check is buildable even though the change is not
+
+`npm run auth:verify` (`scripts/verify-auth-redirects.mjs`). Supabase validates
+`redirect_to` against the allow list **when it issues the redirect**, so a
+deliberately invalid token reads the decision straight back: an allow-listed
+candidate is echoed, a rejected one is replaced by Site URL. No email, no
+secrets beyond the publishable project URL, no side effects.
+
+Baseline, recorded before any dashboard change — it must fail, or it proves
+nothing:
+
+| Candidate                                    | Result                            |
+| -------------------------------------------- | --------------------------------- |
+| `https://www.metricgymos.com/reset-password` | ✗ → `http://metricgymmanager.com` |
+| `https://www.metricgymos.com/auth/callback`  | ✗ → `http://metricgymmanager.com` |
+| `https://metricgymos.com/reset-password`     | ✗ → `http://metricgymmanager.com` |
+| `http://localhost:3000/reset-password`       | ✗ → `http://metricgymmanager.com` |
+| `http://localhost:3000/auth/callback`        | **✓ allow-listed**                |
+
+### What that table says
+
+**The allow list holds essentially one entry**, `http://localhost:3000/auth/callback`,
+from initial setup. It was never updated for production. That single fact
+explains the whole incident, and Site URL is now confirmed as
+`http://metricgymmanager.com` a second time, independently of the auth logs.
+
+**Local development password reset has never worked either** — `localhost:3000/reset-password`
+is rejected just as the production URLs are. Nobody noticed, because nobody
+resets a password in dev.
+
+**The check discriminates.** One candidate passes and an arbitrary third-party
+URL (`https://example.com/…`) is correctly rejected, so both branches are
+exercised. A verifier that failed everything would have looked identical on the
+four rows that matter.
+
+### Remaining
+
+Phase 0 itself. Until it is applied the Phase 1 and 2 code is inert: the
+templates still emit PKCE links and Site URL still points at the retired domain.
+`npm run auth:verify` flips from red to green the moment the allow list is
+corrected, and is the fastest confirmation that the dashboard half landed.
