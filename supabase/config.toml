@@ -254,15 +254,37 @@ otp_length = 8
 # single-use credential delivered by email.
 otp_expiry = 1800
 
-# Use a production-ready SMTP server
-# [auth.email.smtp]
-# enabled = true
-# host = "smtp.sendgrid.net"
-# port = 587
-# user = "apikey"
-# pass = "env(SENDGRID_API_KEY)"
-# admin_email = "admin@email.com"
-# sender_name = "Admin"
+# [auth.email.smtp] — DELIBERATELY UNDECLARED, do not uncomment.
+#
+# `config pull` cannot round-trip `pass`, so declaring this block would let a
+# `config push` overwrite live SMTP with a blank credential and silently stop
+# every auth email. Change it in the dashboard, or by PATCHing
+# /v1/projects/<ref>/config/auth. `arch:check` UI5 guards this exemption.
+#
+# What is live (recorded here because it exists nowhere else in the repo):
+#
+#   host           smtp.gmail.com : 465
+#   user           root@capitalistone.co      <- authenticates
+#   admin_email    noreply@metricgymos.com    <- what recipients see
+#   sender_name    Metric Gym OS
+#
+# The From address is an alias, not the authenticating account. That only
+# works because it is a verified "Send mail as" address on root@; an alias
+# alone CANNOT authenticate — trying it returns 535 and no mail is sent.
+#
+# Two DNS records carry this, on two different domains:
+#
+#   metricgymos.com   DKIM (google selector)  -> aligns with the From domain
+#   capitalistone.co  v=spf1 include:_spf.google.com ~all
+#
+# The SPF record is on capitalistone.co because that domain owns the envelope
+# sender. Without it SPF returned `none` and DMARC passed on DKIM alone — one
+# key rotation away from every auth email failing DMARC. Verified 2026-09-13:
+# SPF, DKIM and DMARC all PASS, From not rewritten, delivered in 3 seconds.
+#
+# Signup confirmations are ON, so a broken sender blocks registration
+# entirely. Send one real reset and read the headers before trusting a change
+# here — the send returning 200 only means Supabase queued it.
 
 # Email templates are version-controlled here rather than edited in the
 # dashboard, because the dashboard is where the defect that broke password
