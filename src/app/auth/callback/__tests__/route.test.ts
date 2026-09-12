@@ -131,27 +131,34 @@ describe('auth callback — legacy recovery links', () => {
   })
 })
 
-describe('auth callback — the `next` parameter', () => {
-  it('honours an internal path', async () => {
-    const r = await visit('?token_hash=tok&type=signup&next=/dashboard')
-    expect(r.location).toBe('/dashboard')
+describe('auth callback — destination is decided server-side', () => {
+  it('sends an email change to the security settings', async () => {
+    const r = await visit('?token_hash=tok&type=email_change')
+    expect(r.location).toBe('/settings/security')
+  })
+
+  it('sends a signup confirmation to the default landing page', async () => {
+    const r = await visit('?token_hash=tok&type=signup')
+    expect(r.location).toBe('/members')
+  })
+
+  it('falls back to the default for a PKCE code, which carries no type', async () => {
+    const r = await visit('?code=abc123')
+    expect(r.location).toBe('/members')
   })
 
   it.each([
-    ['protocol-relative', '//evil.com'],
-    ['absolute external', 'https://evil.com'],
-  ])('refuses a %s target', async (_name, hostile) => {
+    ['an internal path', '/dashboard'],
+    ['a protocol-relative URL', '//evil.com'],
+    ['an absolute external URL', 'https://evil.com'],
+  ])('ignores a client-supplied ?next= carrying %s', async (_name, target) => {
+    // Routing is a server-side fact now. `next` used to be honoured — which
+    // meant it had to be sanitised on every use — and is simply not read.
+    // Ignoring it outright is a stronger property than sanitising it.
     const r = await visit(
-      `?token_hash=tok&type=signup&next=${encodeURIComponent(hostile)}`
+      `?token_hash=tok&type=signup&next=${encodeURIComponent(target)}`
     )
-    // getSafeRedirect's fallback. Without it the raw value was interpolated
-    // straight after the origin.
-    expect(r.location).toBe('/dashboard')
-    expect(r.location).not.toContain('evil.com')
-  })
-
-  it('defaults to /members when absent', async () => {
-    const r = await visit('?token_hash=tok&type=signup')
     expect(r.location).toBe('/members')
+    expect(r.location).not.toContain('evil.com')
   })
 })

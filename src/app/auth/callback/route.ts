@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { type EmailOtpType } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getSafeRedirect } from '@/features/auth/utils/getSafeRedirect'
 
 /**
  * Auth Callback Handler — signup confirmation and email change.
@@ -32,10 +31,22 @@ export async function GET(request: NextRequest) {
   const token_hash = requestUrl.searchParams.get('token_hash')
   const type = requestUrl.searchParams.get('type') as EmailOtpType | null
 
-  // `next` is attacker-controllable, so it goes through the same sanitiser the
-  // login screen uses. Absent means the post-confirmation landing page.
-  const rawNext = requestUrl.searchParams.get('next')
-  const next = rawNext ? getSafeRedirect(rawNext) : '/members'
+  // Where each confirmation lands, decided HERE rather than carried in the URL.
+  //
+  // This used to be a `?next=` parameter baked into `emailRedirectTo`. Two
+  // problems with that. It was client-controllable routing, so the value had to
+  // be sanitised against open redirects on every use. And it put a query string
+  // into one caller's redirect URL and not the others', so that one email
+  // template had to append `&token_hash=` while the rest used `?token_hash=` —
+  // a one-character difference, invisible until a link broke, and exactly the
+  // class of mistake that broke recovery in the first place.
+  //
+  // Routing from `type` makes the destination a server-side fact with one home:
+  // change a path here and every email follows, with no template to re-edit.
+  const DESTINATION_BY_TYPE: Partial<Record<EmailOtpType, string>> = {
+    email_change: '/settings/security',
+  }
+  const DEFAULT_DESTINATION = '/members'
 
   if (!code && (!token_hash || !type)) {
     console.error('No verification token provided')
@@ -101,8 +112,12 @@ export async function GET(request: NextRequest) {
         `✅ Email updated and verified for user ${user.id}: ${user.email}`
       )
 
-      // Profile already exists, redirect to dashboard
-      return NextResponse.redirect(`${requestUrl.origin}${next}`)
+      // PKCE (`?code=`) carries no `type`, so it can only ever reach the
+      // default. One more reason the token_hash templates are preferable: they
+      // state what the link is for.
+      const destination =
+        (type && DESTINATION_BY_TYPE[type]) || DEFAULT_DESTINATION
+      return NextResponse.redirect(`${requestUrl.origin}${destination}`)
     }
 
     // NOTE: Profile creation now happens immediately on registration (not here).

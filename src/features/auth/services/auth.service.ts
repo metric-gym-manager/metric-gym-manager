@@ -597,13 +597,13 @@ export async function updateEmail(
         email: newEmail,
       },
       {
-        // `NEXT_PUBLIC_APP_URL`, not `NEXT_PUBLIC_SITE_URL`. That was the only
-        // reference to the latter in the whole codebase and it is set nowhere —
-        // not in .env.local, not in .env.example — so in production it resolved
-        // to `undefined` and this confirmation link pointed at localhost. Same
-        // defect class as the recovery link that started this work; found by the
-        // Phase 2 inverted check.
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback?next=/settings/security`,
+        // No `?next=` here. The callback decides the destination from the OTP
+        // `type`, so this URL is byte-identical to the other two callers — which
+        // means all three email templates can append `?token_hash=...` with the
+        // same separator. The old form ended in a query string, so its template
+        // alone needed `&`, and getting that one character wrong would have
+        // silently produced a malformed link.
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/auth/callback`,
       }
     )
 
