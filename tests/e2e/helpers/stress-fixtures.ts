@@ -43,7 +43,7 @@ import type { APIRequestContext } from '@playwright/test'
 // ── Names are the idempotency key. Keep them unlikely to collide. ──────────
 
 export const STRESS = {
-  /** 29 characters, as §28 specifies. */
+  /** 30 characters (§28 says 29; this is the plan's own name, verbatim). */
   longName: 'Wickramasinghe Arachchige Dona',
   /** Exactly 40 characters. */
   longDiscountName: 'Long-Standing Member Loyalty Reward Rate',
