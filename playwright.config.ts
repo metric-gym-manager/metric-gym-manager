@@ -30,6 +30,81 @@ loadEnvConfig(process.cwd())
 const PORT = Number(process.env.E2E_PORT ?? 3100)
 const BASE_URL = `http://localhost:${PORT}`
 
+/**
+ * Browser executable override, shared by every project.
+ *
+ * Locked-down CI images ship a Chromium that will not match the exact build
+ * this Playwright version wants to download, and `playwright install` is
+ * often unavailable there. Unset locally, so the normal managed-browser path
+ * is unchanged.
+ */
+const launch = process.env.PLAYWRIGHT_CHROMIUM_PATH
+  ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH } }
+  : {}
+
+/**
+ * The mobile-rebuild viewport matrix (plan §4, §17).
+ *
+ * Seven widths, one boundary: `< 768` is the phone tier, `≥ 768` the desktop
+ * tier. The phone projects emulate a phone properly — `isMobile` (so the
+ * viewport meta and `sec-ch-ua-mobile: ?1` behave as on a device), `hasTouch`,
+ * an iPhone UA, DPR 2–3 — because a desktop Chromium merely resized to 390 px
+ * is not what a gym owner holds. 768×1024 is an iPad in portrait: touch, but
+ * a desktop-class UA and `isMobile: false`, which is what iPadOS Safari
+ * reports and what the plan's tablet decision (d02) expects to receive.
+ * 1024/1366 are plain desktops; 1366 is the screenshot-baseline width.
+ *
+ * Only the mobile-rebuild specs (`mobile-*.spec.ts`) run across the matrix.
+ * `desktop-regression.spec.ts` runs at 1366 only, the spikes at 390 only.
+ */
+const VIEWPORT_SPECS = /mobile-.*\.spec\.ts$/
+const DESKTOP_REGRESSION_SPEC = /desktop-regression\.spec\.ts$/
+const SPIKE_SPECS = /spikes\/.*\.spec\.ts$/
+
+const IPHONE_UA = devices['iPhone 13'].userAgent
+
+const phone = (width: number, height: number, deviceScaleFactor: number) => ({
+  browserName: 'chromium' as const,
+  viewport: { width, height },
+  deviceScaleFactor,
+  isMobile: true,
+  hasTouch: true,
+  userAgent: IPHONE_UA,
+  ...launch,
+})
+
+const desktop = (width: number, height: number) => ({
+  ...devices['Desktop Chrome'],
+  viewport: { width, height },
+  ...launch,
+})
+
+const VIEWPORT_PROJECTS = [
+  { name: 'phone-320', use: phone(320, 568, 2), testMatch: [VIEWPORT_SPECS] },
+  { name: 'phone-360', use: phone(360, 800, 3), testMatch: [VIEWPORT_SPECS] },
+  {
+    name: 'phone-390',
+    use: phone(390, 844, 3),
+    testMatch: [VIEWPORT_SPECS, SPIKE_SPECS],
+  },
+  { name: 'phone-430', use: phone(430, 932, 3), testMatch: [VIEWPORT_SPECS] },
+  {
+    name: 'tablet-768',
+    use: { ...desktop(768, 1024), hasTouch: true, deviceScaleFactor: 2 },
+    testMatch: [VIEWPORT_SPECS],
+  },
+  {
+    name: 'desktop-1024',
+    use: desktop(1024, 768),
+    testMatch: [VIEWPORT_SPECS],
+  },
+  {
+    name: 'desktop-1366',
+    use: desktop(1366, 800),
+    testMatch: [VIEWPORT_SPECS, DESKTOP_REGRESSION_SPEC],
+  },
+]
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -67,22 +142,14 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        // Use a browser the environment already provides, when it says so.
-        // Locked-down CI images ship a Chromium that will not match the exact
-        // build this Playwright version wants to download, and `playwright
-        // install` is often unavailable there. Unset locally, so the normal
-        // managed-browser path is unchanged.
-        ...(process.env.PLAYWRIGHT_CHROMIUM_PATH
-          ? {
-              launchOptions: {
-                executablePath: process.env.PLAYWRIGHT_CHROMIUM_PATH,
-              },
-            }
-          : {}),
-      },
+      // The pre-rebuild suite (billing, access control) runs once, on the
+      // desktop it was written for. The viewport matrix below is for the
+      // mobile-rebuild specs only; running twenty sign-ins per viewport would
+      // trip Supabase's per-IP token limit (see helpers/billing.ts).
+      testIgnore: [VIEWPORT_SPECS, DESKTOP_REGRESSION_SPEC, SPIKE_SPECS],
+      use: { ...devices['Desktop Chrome'], ...launch },
     },
+    ...VIEWPORT_PROJECTS,
   ],
   webServer: {
     command: 'npm run dev',
