@@ -30,6 +30,13 @@
 >   `db_op: "batch"` whose entries include `if_version`. A write without it is
 >   refused with `version_mismatch`; `set` on a new document needs no pin.
 >
+> **Branch history (to avoid confusion).** The audit and this plan were written
+> on `claude/mobile-ui-rebuild-audit`, merged into `master` at `9420269` and
+> the branch deleted (never pushed). Implementation uses one branch per phase,
+> `claude/mobile-ui-rebuild-p<N>`, cut from `master`; the per-phase session
+> prompts are in `mobile-ui-rebuild-prompts.md`. `claude/workspace-ui-overhaul`
+> is fully merged and closed (see `workspace-ui-overhaul-closeout.md`).
+>
 > **Version history.** v1 written 2026-09-13 from the Phase 0 audit
 > (`mobile-ui-rebuild-audit.md`). **v1.5 (same day): Phase 1.5 review** —
 > scope-creep removal, product-behaviour changes moved out of the rebuild,
