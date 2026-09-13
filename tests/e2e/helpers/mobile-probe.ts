@@ -16,8 +16,11 @@
  *
  * Rules (each maps to one field of {@link ProbeReport}):
  *
- * 1. **Page overflow** — `documentElement.scrollWidth` must equal the viewport
- *    width. The page never scrolls sideways.
+ * 1. **Page overflow** — `documentElement.scrollWidth` must not exceed the
+ *    device width, and neither may `innerWidth`: a mobile browser meeting
+ *    content wider than the device zooms the layout viewport out to fit, so
+ *    `scrollWidth === innerWidth` can hold at 397/397 on a 390 px phone. Both
+ *    are page overflow.
  * 2. **Beyond the viewport** — no element inside the scope (`<main>` by
  *    default) may extend past the viewport's edges unless it sits inside a
  *    sanctioned scroller. On the phone tier that is only a `data-scroll="x"`
@@ -126,7 +129,12 @@ export interface ProbeReport {
   viewport: { width: number; height: number }
   tier: 'phone' | 'desktop'
   scope: string
-  page: { scrollWidth: number; innerWidth: number }
+  /**
+   * `viewportWidth` is the device width the project configured; `innerWidth`
+   * is what the browser reports after any zoom-to-fit. They differ only when
+   * the page overflowed and the browser shrank it.
+   */
+  page: { scrollWidth: number; innerWidth: number; viewportWidth: number }
   /** Outermost elements past the viewport edge (rule 2). */
   beyondViewport: ProbeBox[]
   /** Every element past the edge, descendants included. */
@@ -159,6 +167,7 @@ export async function probePage(
     route,
     scope,
     tier: resolvedTier,
+    viewportWidth: viewport.width,
     thresholds: {
       primary: TOUCH_PRIMARY_PX,
       dense: TOUCH_DENSE_PX,
@@ -244,14 +253,21 @@ export async function probePage(
       return false
     }
 
-    const vw = window.innerWidth
+    // The configured width, not `innerWidth`. When content is wider than
+    // the device, mobile Chromium (and Safari) zoom the layout viewport out
+    // to fit it — `innerWidth` then reports the widened viewport and
+    // `scrollWidth === innerWidth` holds at, say, 397/397 on a 390 px phone.
+    // The Renewals tab strip did exactly that once its badges reached three
+    // digits. Measuring against the device width keeps the rule honest.
+    const vw = a.viewportWidth
     const root = document.querySelector(a.scope)
     const scoped: Element[] = root ? Array.from(root.querySelectorAll('*')) : []
 
     // 1. Page overflow ------------------------------------------------------
     const pageMetrics = {
       scrollWidth: document.documentElement.scrollWidth,
-      innerWidth: vw,
+      innerWidth: window.innerWidth,
+      viewportWidth: vw,
     }
 
     // 2. Beyond the viewport ------------------------------------------------
@@ -500,7 +516,7 @@ export async function probePage(
 
     return {
       route: a.route,
-      viewport: { width: window.innerWidth, height: window.innerHeight },
+      viewport: { width: vw, height: window.innerHeight },
       tier: a.tier,
       scope: a.scope,
       page: pageMetrics,
@@ -528,9 +544,13 @@ export function probeViolations(report: ProbeReport): string[] {
   const out: string[] = []
   const at = `${report.route}@${report.viewport.width}`
 
-  if (report.page.scrollWidth > report.page.innerWidth) {
+  if (report.page.innerWidth > report.page.viewportWidth) {
     out.push(
-      `${at} page scrolls sideways: scrollWidth ${report.page.scrollWidth} > viewport ${report.page.innerWidth}`
+      `${at} page zoomed out to fit: layout viewport ${report.page.innerWidth} > device ${report.page.viewportWidth}`
+    )
+  } else if (report.page.scrollWidth > report.page.viewportWidth) {
+    out.push(
+      `${at} page scrolls sideways: scrollWidth ${report.page.scrollWidth} > viewport ${report.page.viewportWidth}`
     )
   }
   for (const b of report.beyondViewport) {
@@ -580,7 +600,7 @@ export function probeSummary(report: ProbeReport): string {
   const v = probeViolations(report)
   return [
     `${report.route} @ ${report.viewport.width}×${report.viewport.height} (${report.tier})`,
-    `  page ${report.page.scrollWidth}/${report.page.innerWidth}` +
+    `  page ${report.page.scrollWidth}/${report.page.innerWidth} (device ${report.page.viewportWidth})` +
       (report.bottomNav
         ? ` · bottom nav ${report.bottomNav.scrollWidth}/${report.bottomNav.clientWidth}`
         : ''),
