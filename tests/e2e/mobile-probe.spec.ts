@@ -36,6 +36,7 @@ import {
   probeSummary,
   probeViolations,
 } from './helpers/mobile-probe'
+import { ensureStressFixtures } from './helpers/stress-fixtures'
 import { gotoSettled, openTierPage, type TierPage } from './helpers/tier-page'
 
 test.skip(
@@ -128,7 +129,13 @@ export function unexplained(
 let tier: TierPage
 
 test.beforeAll(async ({ browser }, testInfo) => {
+  // The first seed registers 300 members; every later call is a few GETs.
+  test.setTimeout(600_000)
   tier = await openTierPage(browser, testInfo)
+  const seeded = await ensureStressFixtures(tier.page.request)
+  if (seeded.failed.length) {
+    throw new Error(`stress fixtures failed: ${seeded.failed.join('; ')}`)
+  }
 })
 
 test.afterAll(async () => {
