@@ -81,21 +81,32 @@ describe('SettingsLayout sub-navigation', () => {
     const { container } = renderAt('/settings')
     // Master/detail: on a phone the root is the menu, a sub-page is the
     // content. The classes are the whole mechanism, so they are the assertion.
+    // `phone:`, not `max-tablet:` — the same 768 boundary, now written the one
+    // way the rebuild uses everywhere (plan §4, ratchet UI6).
     const content = screen.getByTestId('section-content').parentElement!
-    expect(content.className).toContain('max-tablet:hidden')
+    expect(content.className).toContain('phone:hidden')
     expect(
       within(container).getByRole('heading', { name: 'Settings' })
     ).toBeInTheDocument()
   })
 
-  it('offers a back link only on a sub-page', () => {
-    const { unmount } = renderAt('/settings/gym')
-    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument()
-    unmount()
-
-    renderAt('/settings')
+  it('no longer carries its own back link — the AppBar has it', () => {
+    // The in-flow "‹ Settings" link was a 20 px text link inside the scrolling
+    // content. The phone shell's AppBar now shows a 44 px Back control in
+    // fixed chrome that navigates to /settings (plan §6.2), so a second one
+    // here is a duplicate target for the same action.
+    renderAt('/settings/gym')
     expect(
       screen.queryByRole('link', { name: 'Settings' })
     ).not.toBeInTheDocument()
+  })
+
+  it('keeps the heading for a screen reader while hiding it on a phone', () => {
+    // The AppBar shows "Settings" on a phone, so the in-flow copy is visually
+    // hidden — but `/settings` must still have a heading in the accessibility
+    // tree, and at ≥ 768 it is the menu's visible title.
+    const { container } = renderAt('/settings')
+    const heading = within(container).getByRole('heading', { name: 'Settings' })
+    expect(heading.className).toContain('phone:sr-only')
   })
 })
