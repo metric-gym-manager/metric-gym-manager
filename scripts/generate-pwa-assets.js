@@ -17,13 +17,26 @@ console.log(`📦 Generating PWA assets with version ${APP_VERSION}...`)
 // ============================================================================
 // Generate manifest.json
 // ============================================================================
+// `background_color` is what the OS paints during the splash, before the app
+// has rendered anything, and `theme_color` tints the system chrome around it.
+// Both were the pre-dark-flip defaults, so launching the installed app flashed
+// a WHITE screen and then painted the near-black workspace over it. The values
+// are `surface-base` from `globals.css` — this file sits outside the token
+// system (it is a Node script, not a component), so the parity test below
+// checks the two agree rather than trusting the comment.
+//
+// Presentation only: `start_url` and `display` are deliberately unchanged
+// (mobile rebuild plan §16, correction C12 — those are product decisions,
+// open item o11).
+const SURFACE_BASE = '#08080a'
+
 const manifest = {
   name: 'Metric Gym OS',
   short_name: 'Metric Gym OS',
   start_url: '/members',
   display: 'standalone',
-  background_color: '#ffffff',
-  theme_color: '#000000',
+  background_color: SURFACE_BASE,
+  theme_color: SURFACE_BASE,
   icons: [
     {
       src: `/icon-192.png?v=${APP_VERSION}`,
