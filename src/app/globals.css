@@ -179,6 +179,33 @@
   }
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Safe area — mobile rebuild plan §5.1, §16, §25.1.
+
+   Deliberately a SEPARATE rule from the colour block above. These are not
+   colours: they have no entry in `SemanticColorScale`, and the L1 parity test
+   reads the colour block as the list of variables `tokens.ts` must mirror
+   one-for-one. Declared here they are still `--ds-*` (so the whole-tree
+   resolution check covers them) without breaking that mirror.
+
+   `env()` returns 0px wherever the inset does not apply, so a class built on
+   these is correct on a desktop browser and on a notched phone alike. The
+   values only become non-zero once the document ships `viewport-fit=cover`
+   (`src/app/layout.tsx`).
+
+   The fallback is required, not decorative: a browser that does not know
+   `safe-area-inset-*` treats the whole `env()` as invalid and the declaration
+   is dropped, which would leave `padding-bottom` unset rather than zero.
+   ───────────────────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --ds-safe-top: env(safe-area-inset-top, 0px);
+    --ds-safe-bottom: env(safe-area-inset-bottom, 0px);
+    --ds-safe-left: env(safe-area-inset-left, 0px);
+    --ds-safe-right: env(safe-area-inset-right, 0px);
+  }
+}
+
 @layer base {
   * {
     @apply border-border;

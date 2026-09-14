@@ -1,6 +1,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { darkColors, shadow } from '../tokens'
+import {
+  breakpoints,
+  darkColors,
+  layout,
+  safeArea,
+  shadow,
+  spacing,
+  typeScale,
+} from '../tokens'
 
 /**
  * L1 parity — `globals.css` and `tokens.ts` must declare the same token set.
@@ -47,6 +55,25 @@ const toCamel = (v: string) =>
     .split('-')
     .reduce((a, w, i) => a + (i ? w[0].toUpperCase() + w.slice(1) : w), '')
 
+/**
+ * Every `--ds-*` variable globals.css declares, from anywhere in the file.
+ *
+ * Distinct from {@link cssTokenNames}, which reads only the colour block — the
+ * list `tokens.ts` mirrors one-for-one into `SemanticColorScale`. The safe-area
+ * variables are `--ds-*` but are not colours and have no mirror there, so the
+ * "is it declared at all" checks must look at the whole file or a correct
+ * reference reads as dangling.
+ */
+function allCssTokenNames(): string[] {
+  const css = fs.readFileSync(
+    path.join(process.cwd(), 'src/app/globals.css'),
+    'utf8'
+  )
+  return [
+    ...new Set([...css.matchAll(/--ds-([a-z0-9-]+)\s*:/g)].map((m) => m[1])),
+  ]
+}
+
 /** Every `var(--ds-*)` reference inside tailwind.config.ts. */
 function tailwindTokenRefs(): string[] {
   const cfg = fs.readFileSync(
@@ -86,7 +113,7 @@ describe('L1 token parity (globals.css ↔ tokens.ts)', () => {
  */
 describe('L1 token parity (tailwind.config.ts → globals.css)', () => {
   it('references no --ds-* variable that globals.css does not declare', () => {
-    const declared = new Set(cssTokenNames())
+    const declared = new Set(allCssTokenNames())
     expect(tailwindTokenRefs().filter((v) => !declared.has(v))).toEqual([])
   })
 })
@@ -145,5 +172,102 @@ describe('CSS custom property resolution (whole source tree)', () => {
     const ma = [...declared].filter((v) => v.startsWith('--ma-'))
     expect(ds.length).toBeGreaterThan(30)
     expect(ma.length).toBeGreaterThan(5)
+  })
+})
+
+/**
+ * The non-colour tokens the mobile rebuild adds (plan §5.1).
+ *
+ * The two suites above only ever compared COLOURS: `darkColors` against the
+ * `--ds-*` colour block. Every other token family — spacing, layout, type
+ * scale, breakpoints — lived in `tokens.ts` and in `tailwind.config.ts` with
+ * nothing comparing the two, so a touch target could read 44 in one file and
+ * 40 in the other with the gate green. That is not hypothetical for this
+ * phase: the §15.1 rule, the primitives, the probe and the DoD all quote the
+ * same two numbers, and the probe is the only one that would notice a drift —
+ * in a browser, on a route nobody has rebuilt yet.
+ *
+ * Each assertion reads the Tailwind config as TEXT rather than importing it,
+ * because the value that matters is the one written in the file that Tailwind
+ * actually loads.
+ */
+describe('L1 non-colour token parity (tokens.ts ↔ tailwind.config.ts)', () => {
+  const tailwind = fs.readFileSync(
+    path.join(process.cwd(), 'tailwind.config.ts'),
+    'utf8'
+  )
+
+  /** `key: 'value'` or `'key': 'value'` anywhere in the config. */
+  const entry = (key: string): string | undefined =>
+    tailwind.match(new RegExp(`(?:'${key}'|\\b${key})\\s*:\\s*'([^']+)'`))?.[1]
+
+  it.each([
+    ['touch', spacing.touch],
+    ['touch-sm', spacing['touch-sm']],
+    ['bottom-nav', layout.bottomNavHeight],
+    ['safe-top', 'var(--ds-safe-top)'],
+    ['safe-bottom', 'var(--ds-safe-bottom)'],
+    ['safe-left', 'var(--ds-safe-left)'],
+    ['safe-right', 'var(--ds-safe-right)'],
+  ])('binds spacing.%s to the tokens.ts value', (key, value) => {
+    expect(entry(key)).toBe(value)
+  })
+
+  it('binds spacing.sheet to layout.sheetMaxHeight', () => {
+    expect(entry('sheet')).toBe(layout.sheetMaxHeight)
+  })
+
+  it('binds screens.phone to breakpoints.phoneMax', () => {
+    expect(tailwind).toContain(`phone: { max: '${breakpoints.phoneMax}px' }`)
+    // The phone tier is the max-width side of `tablet`, never a second number.
+    expect(breakpoints.phoneMax).toBe(breakpoints.tablet - 1)
+  })
+
+  it('binds fontSize.input to typeScale.input', () => {
+    expect(tailwind).toContain(
+      `input: ['${typeScale.input.fontSize}', { lineHeight: '${typeScale.input.lineHeight}' }]`
+    )
+  })
+
+  it('declares every safe-area variable it binds, in globals.css', () => {
+    const declared = new Set(allCssTokenNames())
+    for (const side of ['top', 'bottom', 'left', 'right']) {
+      expect(declared.has(`safe-${side}`)).toBe(true)
+    }
+  })
+
+  it('mirrors the globals.css safe-area values in tokens.ts', () => {
+    const css = fs.readFileSync(
+      path.join(process.cwd(), 'src/app/globals.css'),
+      'utf8'
+    )
+    for (const [side, value] of Object.entries(safeArea)) {
+      // The `, 0px)` fallback is load-bearing: without it a browser that does
+      // not know the inset drops the whole declaration and the padding is
+      // unset rather than zero.
+      expect(value).toContain(', 0px)')
+      expect(css).toContain(`--ds-safe-${side}: ${value};`)
+    }
+  })
+
+  /**
+   * `fontSize` and `textColor` both emit `.text-<key>`, so a colour and a type
+   * token sharing a name produce one rule that sets BOTH — which is how
+   * `text-input` briefly carried `color: hsl(var(--input))` alongside its font
+   * size, painting every phone text control the legacy shadcn grey. Caught by
+   * building the CSS; pinned here so the config cannot reintroduce it.
+   */
+  it('shares no key between the colour palette and the type scale', () => {
+    const section = (name: string): string => {
+      const start = tailwind.indexOf(`      ${name}: {`)
+      expect(start).toBeGreaterThan(-1)
+      return tailwind.slice(start, tailwind.indexOf('\n      },', start))
+    }
+    const keysOf = (src: string) =>
+      [...src.matchAll(/^\s{8}'?([A-Za-z][\w-]*)'?:/gm)].map((m) => m[1])
+
+    const colourKeys = new Set(keysOf(section('colors')))
+    const clashes = keysOf(section('fontSize')).filter((k) => colourKeys.has(k))
+    expect(clashes).toEqual([])
   })
 })

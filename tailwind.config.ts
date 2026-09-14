@@ -28,6 +28,35 @@ const config: Config = {
         // Control heights from spec §11 that fall off the 8pt grid (4px sub-grid)
         '6.5': '26px', // Button XS / compact table action height
         '7.5': '30px', // Button SM / settings sub-nav height
+
+        // ── Mobile rebuild (plan §5.1) ──────────────────────────────────
+        // Touch targets (§15.1). Two thresholds, no third: `touch` is the
+        // primary one, `touch-sm` the dense one a control marked `data-dense`
+        // may use. Reached through `phone:` only.
+        touch: '44px',
+        'touch-sm': '40px',
+
+        // The bottom bar's own height (§25.3). In `spacing` rather than
+        // `height` on purpose: `<main>`'s bottom padding and the toast offset
+        // are derived from the bar, so `h-bottom-nav` and `pb-bottom-nav` must
+        // both exist and must be the same number.
+        'bottom-nav': '56px',
+
+        // Bottom-sheet ceiling. In `spacing` so `h-sheet` and `max-h-sheet`
+        // come from ONE entry: the `full` sheet sets the height and every
+        // sheet caps its max height, and those two must not be able to drift.
+        // `dvh` because a mobile browser's `vh` is the viewport with the
+        // address bar hidden — the old 85vh sheet was taller than the visible
+        // screen while the bar was showing.
+        sheet: '90dvh',
+
+        // Safe-area insets (§16). `env()` is 0px where it does not apply, so
+        // `pb-safe-bottom` is a no-op on a desktop browser. Declared in
+        // globals.css; bound here so no component needs an arbitrary value.
+        'safe-top': 'var(--ds-safe-top)',
+        'safe-bottom': 'var(--ds-safe-bottom)',
+        'safe-left': 'var(--ds-safe-left)',
+        'safe-right': 'var(--ds-safe-right)',
       },
       colors: {
         // ── Legacy shadcn tokens (unchanged) ──────────────────────────────
@@ -62,7 +91,15 @@ const config: Config = {
           foreground: 'hsl(var(--destructive-foreground))',
         },
         border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
+        // `input` is deliberately ABSENT from this legacy group. `fontSize`
+        // and `textColor` both emit `.text-<key>`, so a colour named `input`
+        // beside the `fontSize.input` token below produced ONE `.text-input`
+        // rule carrying `font-size: 16px; line-height: 24px; color: hsl(var(--input))`
+        // — every phone text control would have been painted the legacy
+        // shadcn `--input` grey (214.3 31.8% 91.4%) as a side effect of its
+        // font size. Found by building the CSS, not by reading the config.
+        // Nothing in `src/` referenced `bg-input`/`border-input`/`text-input`,
+        // so the binding is removed rather than the type token renamed.
         ring: 'hsl(var(--ring))',
         chart: {
           '1': 'hsl(var(--chart-1))',
@@ -225,6 +262,9 @@ const config: Config = {
         h3: ['14px', { lineHeight: '20px', fontWeight: '600' }],
         // Operational KPI value (directive §5.5). See tokens.ts `readout`.
         readout: ['24px', { lineHeight: '28px', fontWeight: '600' }],
+        // Mobile rebuild §5.1: 16px stops mobile Safari zooming the layout
+        // viewport on focus. `phone:text-input` on text controls only.
+        input: ['16px', { lineHeight: '24px' }],
         'body-lg': ['15px', { lineHeight: '24px' }],
         body: ['13px', { lineHeight: '20px' }],
         'body-sm': ['12px', { lineHeight: '16px' }],
@@ -295,6 +335,11 @@ const config: Config = {
         tablet: '768px',
         laptop: '1024px',
         desktop: '1440px',
+        // Mobile rebuild §4 — the one composition boundary, as the max-width
+        // side of `tablet`. `phone:` is how a primitive reaches the phone tier;
+        // `sm:`/`md:`/`lg:` stay legal for fluid refinement inside a
+        // composition but may never switch compositions.
+        phone: { max: '767px' },
       },
       animation: {
         'scroll-left': 'scroll-left 40s linear infinite',
