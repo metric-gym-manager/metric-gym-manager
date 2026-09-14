@@ -670,6 +670,34 @@ href and calls `history.back()`; the hook's close handler runs the navigation
 after the entry is gone. Verified in the browser — URL unchanged, sheet
 closed, and the stack left with nothing extra on it.
 
+### F17 — An unescaped pipe deletes a rule from `architecture.md`
+
+Phase 2's §2.21 edit wrote the UI6 rule as `` `sm:|md:|lg:|max-tablet:` `` —
+inside a **table cell**. GFM splits a row on every unescaped `|`, code span or
+not, so that one token became four phantom columns. Prettier then re-padded
+the row around those boundaries and closed up the spacing between the inline
+code spans on either side, leaving:
+
+```
+`sm: | md:            | lg: | max-tablet:`are banned in`components/workspace`
+```
+
+Which is not a rule; it is a column of whitespace with a fragment on each side.
+The same edit escaped `` `center`\|`sheet`\|`fullscreen` `` correctly three
+sentences earlier, so knowing the rule was not enough — the pipes have to be
+escaped **every** time, and the Pattern Index is a 22-row table where every
+rule is one wide cell.
+
+Nothing could catch it: `arch:check`, ESLint, `tsc`, Prettier and all 1,938
+tests were green with the sentence destroyed, because the file is prose to all
+of them. Prettier in particular _caused_ the mangling and then reported the
+result as correctly formatted. It was found by re-reading the committed file.
+
+The check that does work is mechanical and takes a second — split the row on
+unescaped pipes and count: a Pattern Index row has exactly three cells. Fixed
+by escaping (`` `sm:`\|`md:`\|`lg:`\|`max-tablet:` ``); the row now splits
+three ways and Prettier leaves it alone.
+
 ---
 
 ## 5. Open items
