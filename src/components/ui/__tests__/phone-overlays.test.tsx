@@ -24,6 +24,15 @@ function openModal(props: Partial<React.ComponentProps<typeof Modal>> = {}) {
 }
 
 describe('Modal placement — default is unchanged', () => {
+  it('sizes the centred dialog\u2019s close for touch on a phone as well', () => {
+    openModal({})
+    // Not only sheets: `center` is the default placement and the one every
+    // confirmation in the product uses.
+    expect(screen.getByRole('button', { name: 'Close' })).toHaveClass(
+      'phone:size-touch'
+    )
+  })
+
   it('renders the centred dialog with a trailing close, as before', () => {
     openModal()
     const dialog = screen.getByRole('dialog')
@@ -56,6 +65,27 @@ describe('Modal placement="sheet"', () => {
     expect(
       screen.queryByRole('button', { name: 'Back' })
     ).not.toBeInTheDocument()
+  })
+
+  /**
+   * The third close control, and the one that was missed.
+   *
+   * Phase 1 gave the fullscreen Back a 44 px box and the `Drawer`'s close a
+   * 44 px box, and left this one at 24 × 24 — under even the probe's 40 px
+   * floor. It survived because `fullscreen` hides it and `fullscreen` was the
+   * only placement any phase had probed with a dialog OPEN. The mobile
+   * rebuild's Phase 3 probed a sheet and the probe named it immediately.
+   *
+   * Applies to `center` too: every dialog in the product had this control at
+   * 24 px on a phone.
+   */
+  it('gives the trailing close a 44px hit area on phones, like the other two', () => {
+    openModal({ placement: 'sheet' })
+    const close = screen.getByRole('button', { name: 'Close' })
+    expect(close).toHaveClass('phone:size-touch')
+    // Desktop keeps the 24 px glyph: the padding that makes it is untouched
+    // and every override is phone-scoped.
+    expect(close).toHaveClass('p-1')
   })
 
   it('adds the home-indicator inset below its footer', () => {
