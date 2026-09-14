@@ -573,7 +573,8 @@ calls arose inside that scope and are recorded below.
 **Verification:**
 
 - `type-check` clean · `lint` 0 errors (the same pre-existing warnings) ·
-  `arch:check` green · Jest **1,965 passed**, 7 skipped (25 new).
+  `arch:check` green · Jest **1,968 passed**, 7 skipped (**30 new**: 11
+  request fixtures, 17 tier tests, 2 on the `Modal` close control).
 - **Rendered in Chromium and looked at**, at 390×844, 390×500 and 1366×900 —
   numbers in §2.6, and the screens match the §26 blueprint.
 - **Probe run over six states at four widths** — populated, empty, loading,
@@ -591,7 +592,7 @@ calls arose inside that scope and are recorded below.
   history are byte-identical screenshots across two freshly built trees, with
   build markers proving the trees differed (F23). The regression SUITE still
   did not run (§6.1).
-- **Mutation-falsified** (twelve, each restored). Requests: dropping
+- **Mutation-falsified** (**fourteen**, each restored). Requests: dropping
   `deductOverduePeriod` fails 1; the inline unrounded arithmetic fails 1;
   `planType` on a renewal fails 1; deleting without the confirm fails 2.
   Tiers: Mark Paid skipping its dialog fails 1; a centred phone placement
@@ -601,6 +602,24 @@ calls arose inside that scope and are recorded below.
   `phone:space-y-0` gives 48/48/24/48/48/48. Primitive: removing the close
   sizing fails 2. Payment history: forcing the table back on a phone fails 2;
   dropping the discount from the meta line fails 1.
+
+**Gate (§19): 8 of 10, and the two failures are deliberate.**
+
+| Gate                   | Result | Why                                                                                                                                                                                                                                                                              |
+| ---------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| g1 composition         | pass   | Matches §26 at 320 and 390 by eye; probe-clean at all four widths.                                                                                                                                                                                                               |
+| **g2 function intact** | **no** | The six request fixtures are green and four of them mutation-falsified — but §19 also requires the interaction checks to run **on the seeded E2E gym**. No credentials, so no mutation ever reached a real server. The wire format is proven; that the server accepts it is not. |
+| g3 desktop             | pass   | 1366 byte-identical, both states, across two builds proven different (F23).                                                                                                                                                                                                      |
+| **g4 phone verified**  | **no** | Five of six states clean at 320/360/390/430; **SMS history fails at every width** (MO-17). The §28 stress fixtures need the seeded gym regardless.                                                                                                                               |
+| g5 automated           | pass   | type-check, lint, arch:check, test all green; both tiers exercised; 14 mutations falsified.                                                                                                                                                                                      |
+| g6 rules               | pass   | No allow-list grew; token parity green; no composition breakpoint. This phase **removed the product's last `window.innerWidth`**.                                                                                                                                                |
+| g7 no duplication      | pass   | One member detail component — the phase's entire purpose.                                                                                                                                                                                                                        |
+| g8 scope               | pass   | Two changes beyond §10's remit (F18, F22), both logged here and in the PR rather than absorbed silently.                                                                                                                                                                         |
+| g9 states              | pass   | Loading, empty, populated and both disclosures each rendered and probed.                                                                                                                                                                                                         |
+| g10 docs               | pass   | `DESIGN_SYSTEM.md` and `architecture.md` §2.21 updated.                                                                                                                                                                                                                          |
+
+A green gate was available by marking the SMS table `data-scroll="x"`. It was
+not taken: see below.
 
 **Known and deliberate:** two things ship imperfect and recorded rather than
 quietly fixed.
@@ -1035,6 +1054,41 @@ operation that was wanted.
 Every later phase makes this comparison. Assert a marker, or do not claim the
 result.
 
+### F24 — A checking script reported a catastrophe, and the script was wrong
+
+Verifying that the placement change could not move the desktop, a hand-written
+scan of the built stylesheet reported **56 of 57 `.phone\:` selectors sitting
+outside any media query** — which, if true, would mean every phone rule in the
+product applies at every width and three phases of "desktop pixel-equivalent"
+were false.
+
+It was the script. Its brace accounting popped the media-query stack on each
+rule's closing `}` instead of the block's, so every selector after the first
+rule read as top-level. The correct answer is **0 outside**: all 57 sit inside
+the single `@media (max-width: 767px)` block, which a byte-range scan of the
+block confirms.
+
+Two things worth keeping from it.
+
+**The prior should have been the script.** A result implying that a core
+invariant had been broken for three phases, in a codebase whose gate is green
+and whose desktop was screenshot-compared twice, is far more likely to be a
+bug in the five-minute script than a bug in the product. The reflex to check
+the instrument first is the whole of it.
+
+**A measurement tool needs falsifying like a test does.** F23 is the same
+mistake in the other direction — there a broken tool said "identical" and the
+right answer was also "identical", so nothing looked wrong. Here a broken tool
+said "catastrophe" and the right answer was "fine". Both were caught only by
+asking what the tool would report if it were broken:
+
+- A comparison tool: assert a marker that MUST differ between the two sides.
+- A scanning tool: check its count against a second method that shares no
+  code with the first.
+
+Neither check costs more than a minute, and between them they are the
+difference between a measurement and a number.
+
 ---
 
 ## 5. Open items
@@ -1169,6 +1223,13 @@ covers:
   trees are the same string (F23). Assert one DOM fact that differs between
   the two sides and is invisible at the compared width, or do not claim the
   result.
+- **The measuring tool is usually the broken thing, not the codebase.** A
+  throwaway script written to verify an invariant is younger, less exercised
+  and less reviewed than the code it is checking, so a result implying a
+  long-standing catastrophe should be aimed at the script first (F24).
+  Falsify a measurement tool the way a test is falsified: a comparison needs
+  a marker that MUST differ; a count needs a second method sharing no code
+  with the first.
 - **UI7's fenced-block skip has never fired.** Nothing in `.claude/**` or
   `docs/architecture/**` puts a table inside a code fence today (verified:
   zero fenced lines start with a pipe), so that branch is defensive and
