@@ -430,11 +430,21 @@ export default function MemberDetailModal({
         title="Member Details"
         description="View and manage member information"
         footerStart={
+          /*
+           * Both carry an icon and no text, so `aria-label` supplies the
+           * accessible name (plan §10 step 4). `title` alone is the LAST
+           * fallback in the accessible-name algorithm — it happens to produce
+           * a name today, which is why this reads like a no-op, but it is the
+           * one source that a UA may skip, that touch never surfaces, and that
+           * any future `aria-hidden`/`alt` on the icon would displace. The
+           * `title` stays: it is the desktop hover tooltip.
+           */
           <div className="flex gap-2">
             <Button
               variant="destructive-ghost"
               size="icon"
               onClick={() => setShowDeleteDialog(true)}
+              aria-label="Delete member"
               title="Delete member"
             >
               <Trash2 className="h-4 w-4" />
@@ -443,6 +453,7 @@ export default function MemberDetailModal({
               variant="secondary"
               size="icon"
               onClick={onEditClick}
+              aria-label="Edit member"
               title="Edit member"
             >
               <Edit className="h-4 w-4" />
@@ -478,12 +489,35 @@ export default function MemberDetailModal({
           </>
         }
       >
-        <div className="space-y-6">
+        {/*
+         * Phone section order (plan §10 step 5, blueprint §26): identity →
+         * plan → status actions → photo → door access → payment history →
+         * SMS history. The DOM order below is the DESKTOP order and does not
+         * change, so the reading order a screen reader gets on a desktop is
+         * untouched and the 1366 rendering is untouched.
+         *
+         * The column has to be a flex container for `order` to mean anything,
+         * and `space-y-6` has to go with it: its margin lands between DOM
+         * siblings, not visual ones, so with `order` applied it would put a
+         * gap above the visually-first block and none above the fourth.
+         * `phone:gap-6` is the same 24 px, measured between what the reader
+         * actually sees.
+         *
+         * The orders are NEGATIVE on purpose. `accessSlot` is a bare slot with
+         * no element of ours to hang a class on, and wrapping it would add a
+         * permanent empty child — `MemberAccessPanel` renders null for every
+         * gym without the hardware, and a wrapper would turn that nothing into
+         * a 24 px gap. Leaving it at the default `order: 0` and pulling the
+         * four blocks above it to -4…-1 puts it exactly where it belongs,
+         * fifth, with nothing added. A new section added here needs an
+         * explicit order or it will land beside the door-access slot.
+         */}
+        <div className="space-y-6 phone:flex phone:flex-col phone:gap-6 phone:space-y-0">
           {/* Member Photo & Verification */}
-          <MemberPhotoSection member={member} />
+          <MemberPhotoSection member={member} className="phone:-order-1" />
 
           {/* Member Information */}
-          <div className="space-y-4">
+          <div className="space-y-4 phone:-order-4">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-semibold">{member.name}</h3>
@@ -517,7 +551,7 @@ export default function MemberDetailModal({
           </div>
 
           {/* Membership Plan */}
-          <div className="space-y-4 border-t border-line-1 pt-4">
+          <div className="space-y-4 border-t border-line-1 pt-4 phone:-order-3">
             <h3 className="text-sm font-semibold">Membership Plan</h3>
 
             <div className="grid grid-cols-2 gap-4">
@@ -575,7 +609,7 @@ export default function MemberDetailModal({
           </div>
 
           {/* Status Actions — context-aware action buttons based on current status */}
-          <div className="rounded-sm border border-accentui-border bg-accentui-bg p-4 space-y-3">
+          <div className="space-y-3 rounded-sm border border-accentui-border bg-accentui-bg p-4 phone:-order-2">
             <div>
               <h3 className="text-sm font-semibold text-ink">Status Actions</h3>
               <p className="text-xs text-ink-secondary mt-0.5">
@@ -647,10 +681,10 @@ export default function MemberDetailModal({
           {/* SMS History — sibling of Payment History. Imported through the
               SMS feature's barrel (R4); members does not reach into its
               internals. */}
-          <MemberSmsHistory memberId={member.id} />
+          <MemberSmsHistory memberId={member.id} className="phone:order-2" />
 
           {/* Payment History — distinct container */}
-          <div className="rounded-sm border border-line-1 bg-surface-input p-4 space-y-3">
+          <div className="space-y-3 rounded-sm border border-line-1 bg-surface-input p-4 phone:order-1">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-ink">

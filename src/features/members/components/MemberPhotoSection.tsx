@@ -10,10 +10,18 @@ import {
   uploadMemberPhoto,
   removeMemberPhoto,
 } from '@/features/members/services/photo-upload'
+import { cn } from '@/lib/utils'
 import type { MemberWithDiscount } from '@/features/members/types'
 
 interface MemberPhotoSectionProps {
   member: MemberWithDiscount
+  /**
+   * Layout class from the caller. Exists so `MemberDetailModal` can order this
+   * block on a phone without wrapping it in a div — a wrapper would be an
+   * extra child of the detail's `space-y-6`/`gap-6` column and would show up
+   * as a stray 24 px gap.
+   */
+  className?: string
 }
 
 /**
@@ -26,6 +34,7 @@ interface MemberPhotoSectionProps {
  */
 export default function MemberPhotoSection({
   member,
+  className,
 }: MemberPhotoSectionProps) {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -96,7 +105,7 @@ export default function MemberPhotoSection({
   }
 
   return (
-    <div className="flex items-center gap-4">
+    <div className={cn('flex items-center gap-4', className)}>
       <MemberAvatar
         name={member.name}
         photoPath={member.photo_path}
