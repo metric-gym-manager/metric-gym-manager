@@ -10,6 +10,7 @@ import {
   Badge,
   type BadgeProps,
   Input,
+  ListRow,
   Table,
   TableBody,
   TableCell,
@@ -707,48 +708,88 @@ export default function MemberDetailModal({
             {showPaymentHistory && (
               <div>
                 {payments.length > 0 ? (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Discount</TableHead>
-                        <TableHead>Next Due</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
+                  tier === 'phone' ? (
+                    /*
+                     * A list, not a table, on a phone (§9.2, §12 category A).
+                     *
+                     * Not a refinement — a REGRESSION FIX. The deleted
+                     * `MemberDetailModalMobile` rendered these as cards, and
+                     * making the desktop component serve both tiers put its
+                     * four-column `Table` on a phone: 405 px wide, overflowing
+                     * 320, 360, 390 and 430 alike. §10 called this phase a
+                     * "minimal parity change" on the assumption the desktop
+                     * component was a superset of the fork; for this one block
+                     * it was not.
+                     *
+                     * Every column the table shows has a home here (§12: "no
+                     * cell is dropped without a listed home") — date as the
+                     * primary, amount as the trailing value, discount and next
+                     * due date on the meta line, day pass as the status badge.
+                     */
+                    <ul role="list" className="-mx-4">
                       {payments.map((payment) => (
-                        <TableRow key={payment.id}>
-                          <TableCell>
-                            <span className="flex items-center gap-2">
-                              {formatDate(payment.payment_date)}
-                              {payment.payment_type === 'day_pass' && (
-                                <Badge variant="warning">Day Pass</Badge>
-                              )}
-                            </span>
-                          </TableCell>
-                          <TableCell className="font-medium">
-                            {formatCurrency(payment.amount_paid)}
-                          </TableCell>
-                          <TableCell>
-                            {payment.discount_applied ? (
-                              <span className="text-sm text-success">
-                                {payment.discount_applied} (
-                                {payment.discount_percentage}%)
-                              </span>
-                            ) : (
-                              <span className="text-sm text-ink-muted">
-                                None
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            {formatDate(payment.next_due_date_calculated)}
-                          </TableCell>
-                        </TableRow>
+                        <ListRow
+                          key={payment.id}
+                          primary={formatDate(payment.payment_date)}
+                          status={
+                            payment.payment_type === 'day_pass' ? (
+                              <Badge variant="warning">Day Pass</Badge>
+                            ) : undefined
+                          }
+                          meta={[
+                            payment.discount_applied
+                              ? `${payment.discount_applied} (${payment.discount_percentage}%)`
+                              : '',
+                            `Next due ${formatDate(payment.next_due_date_calculated)}`,
+                          ]}
+                          value={formatCurrency(payment.amount_paid)}
+                        />
                       ))}
-                    </TableBody>
-                  </Table>
+                    </ul>
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Discount</TableHead>
+                          <TableHead>Next Due</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {payments.map((payment) => (
+                          <TableRow key={payment.id}>
+                            <TableCell>
+                              <span className="flex items-center gap-2">
+                                {formatDate(payment.payment_date)}
+                                {payment.payment_type === 'day_pass' && (
+                                  <Badge variant="warning">Day Pass</Badge>
+                                )}
+                              </span>
+                            </TableCell>
+                            <TableCell className="font-medium">
+                              {formatCurrency(payment.amount_paid)}
+                            </TableCell>
+                            <TableCell>
+                              {payment.discount_applied ? (
+                                <span className="text-sm text-success">
+                                  {payment.discount_applied} (
+                                  {payment.discount_percentage}%)
+                                </span>
+                              ) : (
+                                <span className="text-sm text-ink-muted">
+                                  None
+                                </span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {formatDate(payment.next_due_date_calculated)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )
                 ) : (
                   <div className="flex h-32 items-center justify-center">
                     <p className="text-sm text-ink-muted">No payment history</p>

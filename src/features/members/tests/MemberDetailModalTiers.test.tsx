@@ -2,7 +2,7 @@ import { screen, fireEvent, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { renderScreen, mockFetchRoutes } from '@/test-utils/renderScreen'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
-import type { MemberWithDiscount } from '../types'
+import type { MemberWithDiscount, Payment } from '../types'
 import MemberDetailModal from '../components/MemberDetailModal'
 
 /**
@@ -51,6 +51,19 @@ const member: MemberWithDiscount = {
   discount: null,
 }
 
+const payments: Payment[] = [
+  {
+    id: 'payment-1',
+    member_id: MEMBER_ID,
+    payment_date: '2026-08-16',
+    amount_paid: 2233.11,
+    discount_applied: 'Student',
+    discount_percentage: 33,
+    next_due_date_calculated: '2026-09-16',
+    created_at: '2026-08-16T00:00:00Z',
+  },
+]
+
 function renderDetail(
   viewport: 'phone' | 'desktop',
   overrides: Partial<MemberWithDiscount> = {}
@@ -65,7 +78,7 @@ function renderDetail(
       open
       onClose={jest.fn()}
       member={{ ...member, ...overrides }}
-      payments={[]}
+      payments={payments}
       onEditClick={jest.fn()}
       accessSlot={<div data-testid="access-slot">Door access</div>}
     />,
@@ -284,6 +297,46 @@ describe('MemberDetailModal — phone section order (§10 step 5)', () => {
     const sections = sectionsOf(detailDialog())
     expect(sections).toHaveLength(7)
     expect(sections[0].textContent).not.toContain('Fathima Herath')
+  })
+})
+
+describe('MemberDetailModal — payment history is a list on a phone', () => {
+  /**
+   * A regression this phase introduced and then fixed. The deleted
+   * `MemberDetailModalMobile` rendered payments as cards; making the desktop
+   * component serve both tiers put its four-column `Table` on a phone, 405 px
+   * wide, overflowing 320/360/390/430 alike. Caught by probing the EXPANDED
+   * disclosure — collapsed, it renders nothing to measure.
+   */
+  const expand = (viewport: 'phone' | 'desktop') => {
+    renderDetail(viewport)
+    fireEvent.click(
+      within(detailDialog()).getByRole('button', {
+        name: 'View Payment History',
+      })
+    )
+    return within(detailDialog())
+  }
+
+  it('renders rows, not a table, on a phone', () => {
+    const dialog = expand('phone')
+    expect(dialog.queryByRole('table')).not.toBeInTheDocument()
+    expect(dialog.getAllByRole('listitem').length).toBeGreaterThan(0)
+  })
+
+  it('keeps the table on a desktop', () => {
+    const dialog = expand('desktop')
+    expect(dialog.getByRole('table')).toBeInTheDocument()
+  })
+
+  it('drops no column — every cell the table shows has a home in the row', () => {
+    const dialog = expand('phone')
+    const row = dialog.getAllByRole('listitem')[0]
+    // Date, amount, discount and next-due are the table's four columns.
+    expect(row).toHaveTextContent('16/08/2026')
+    expect(row).toHaveTextContent('2233.11')
+    expect(row).toHaveTextContent('Student (33%)')
+    expect(row).toHaveTextContent('Next due 16/09/2026')
   })
 })
 
