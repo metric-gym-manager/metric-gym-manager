@@ -1,21 +1,32 @@
 'use client'
 
-import { useState, useSyncExternalStore } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { useRef, useState, useSyncExternalStore } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { LogOut, Loader2 } from 'lucide-react'
+import { ChevronRight, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Avatar, Button } from '@/components/ui'
-import { MemberLimitBar } from '@/features/subscriptions'
+import { Avatar, Badge, Drawer, ListRow } from '@/components/ui'
+import { AppBar, BottomNav } from '@/components/common/composites'
+import { useViewportTier } from '@/hooks/useViewportTier'
+import { useHistoryBack } from '@/hooks/useHistoryBack'
+import { MemberLimitBar, useSubscription } from '@/features/subscriptions'
 import type { GymProfile } from '@/features/auth/types'
 import WorkspaceSidebar from './WorkspaceSidebar'
 import WorkspaceHeader from './WorkspaceHeader'
-import { WORKSPACE_NAV_ITEMS, activeNavItem } from './nav'
+import { activeNavItem, appBarTitle, mobileNav } from './nav'
 
 // Renamed from `mws-sidebar-collapsed` when the legacy layer was retired.
 // One-time cost: a sidebar collapsed before the rename reopens expanded once.
 const COLLAPSE_KEY = 'metric:sidebar-collapsed'
+
+/**
+ * Widths that get the sidebar collapsed by default (plan §4, decision o02).
+ *
+ * 768–1023 is the tablet band: the desktop composition, but not the room for
+ * a 240 px rail beside it. This is a *default*, not a rule — a stored choice
+ * wins at every width, which is why the snapshot below checks storage first.
+ */
+const TABLET_QUERY = '(max-width: 1023px)'
 
 // Sidebar collapse state is persisted to localStorage and shared across the
 // shell via useSyncExternalStore — SSR-safe (server snapshot = expanded) and
@@ -23,16 +34,36 @@ const COLLAPSE_KEY = 'metric:sidebar-collapsed'
 const collapseListeners = new Set<() => void>()
 function subscribeCollapse(cb: () => void): () => void {
   collapseListeners.add(cb)
-  return () => collapseListeners.delete(cb)
+  // Also re-read when the tablet boundary is crossed: with no stored choice
+  // the answer depends on the width, so a resize changes it.
+  const mq =
+    typeof window !== 'undefined' && window.matchMedia
+      ? window.matchMedia(TABLET_QUERY)
+      : null
+  mq?.addEventListener('change', cb)
+  return () => {
+    collapseListeners.delete(cb)
+    mq?.removeEventListener('change', cb)
+  }
 }
 function getCollapseSnapshot(): boolean {
   try {
-    return localStorage.getItem(COLLAPSE_KEY) === '1'
+    const stored = localStorage.getItem(COLLAPSE_KEY)
+    if (stored !== null) return stored === '1'
   } catch {
-    return false
+    /* ignore */
   }
+  // No stored choice: collapsed on a tablet, expanded on a desktop.
+  return typeof window !== 'undefined' && window.matchMedia
+    ? window.matchMedia(TABLET_QUERY).matches
+    : false
 }
 function getCollapseServerSnapshot(): boolean {
+  // The server cannot measure a width and the tablet band shares its UA with
+  // the desktop (ruling M5), so the server renders expanded and the client
+  // corrects on its first commit. Visible only at 768–1023, on a first visit
+  // with no stored choice — a band that today gets different chrome entirely,
+  // so there is no existing desktop rendering to disturb (correction C20).
   return false
 }
 function setCollapsed(value: boolean): void {
@@ -45,8 +76,15 @@ function setCollapsed(value: boolean): void {
 }
 
 /**
- * The App Workspace chrome: a fixed sidebar + breadcrumb header on desktop, and
- * a compact bar opening the same navigation in a drawer on mobile.
+ * The App Workspace chrome.
+ *
+ * Desktop (≥ 768) is the fixed sidebar + breadcrumb header, unchanged. Phone
+ * (< 768) is the `AppBar` above the content and the `BottomNav` below it, with
+ * everything that does not fit the bar's three slots in a More sheet.
+ *
+ * Both tiers read one list — `WORKSPACE_NAV` — so a destination cannot exist
+ * on one and be missing from the other (risk r04). The bars themselves are
+ * design-system composites; this file is composition and data.
  *
  * The workspace sets its own type baseline (Geist at the 13px body size) here.
  * That used to come from `.mws-root`, together with a set of `--mws-*` aliases
@@ -57,6 +95,9 @@ export default function WorkspaceShell({
 }: {
   children: React.ReactNode
 }) {
+  const tier = useViewportTier()
+  const [moreOpen, setMoreOpen] = useState(false)
+
   const collapsed = useSyncExternalStore(
     subscribeCollapse,
     getCollapseSnapshot,
@@ -67,6 +108,7 @@ export default function WorkspaceShell({
   return (
     <div
       data-theme="dark"
+      data-tier={tier}
       className="min-h-screen bg-surface-base font-geist text-body text-ink antialiased"
     >
       <WorkspaceSidebar
@@ -80,35 +122,31 @@ export default function WorkspaceShell({
       <div
         className={cn(
           'flex min-h-screen flex-col',
-          collapsed ? 'lg:pl-14' : 'lg:pl-60'
+          collapsed ? 'tablet:pl-14' : 'tablet:pl-60'
         )}
       >
         <WorkspaceHeader />
-        <MobileTopBar />
+        <PhoneAppBar moreOpen={moreOpen} onOpenMore={() => setMoreOpen(true)} />
 
         {/* Lite-tier remaining-slots bar + universal upgrade CTA (unchanged). */}
         <MemberLimitBar />
 
-        <main className="flex-1 p-6 pb-24 lg:pb-6">{children}</main>
+        {/* The bottom padding is the bar's own height plus the home-indicator
+            inset, derived from the token rather than a number, so the last row
+            of any list clears the fixed bar. */}
+        <main className="flex-1 p-6 phone:px-4 phone:pb-[calc(theme(spacing[bottom-nav])+var(--ds-safe-bottom))] phone:pt-3">
+          {children}
+        </main>
 
-        <MobileBottomNav />
+        <PhoneBottomNav open={moreOpen} onOpenChange={setMoreOpen} />
       </div>
     </div>
   )
 }
 
-/**
- * Mobile-only header: gym identity and sign-out.
- *
- * Kept deliberately close to its original shape. Mobile is being rebuilt from
- * scratch in a separate effort (ruling R6), so this pass only tokenises it —
- * the hardcoded `#fff` surfaces that would have survived the dark flip are gone,
- * and the avatar and button are DS primitives. No layout or behaviour change.
- */
-function MobileTopBar() {
-  const queryClient = useQueryClient()
-  const [isLoggingOut, setIsLoggingOut] = useState(false)
-  const { data: gymProfile } = useQuery<GymProfile>({
+/** The gym profile both phone surfaces show. Same query key as the desktop chrome. */
+function useGymProfile() {
+  return useQuery<GymProfile>({
     queryKey: ['gym-profile'],
     queryFn: async () => {
       const response = await fetch('/api/auth/profile')
@@ -118,7 +156,92 @@ function MobileTopBar() {
     },
     staleTime: 30000,
   })
+}
 
+/**
+ * The phone top bar: gym identity (which opens More) on a root page, Back on a
+ * nested one, and the section title. Hidden at ≥ 768 by CSS rather than by the
+ * tier hook, so the header cannot mismatch on hydration.
+ */
+function PhoneAppBar({
+  moreOpen,
+  onOpenMore,
+}: {
+  moreOpen: boolean
+  onOpenMore: () => void
+}) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const { data: gymProfile } = useGymProfile()
+  const { title, parentHref } = appBarTitle(pathname)
+
+  return (
+    <AppBar
+      className="tablet:hidden"
+      title={title}
+      // The PARENT route, not `router.back()`: Back must mean the same thing
+      // however the user arrived (plan §6.2).
+      onBack={parentHref ? () => router.push(parentHref) : undefined}
+      identity={{
+        name: gymProfile?.gym_name ?? 'Metric',
+        imageUrl: gymProfile?.profile_image_url ?? undefined,
+        onOpen: onOpenMore,
+        expanded: moreOpen,
+      }}
+    />
+  )
+}
+
+/**
+ * The phone bottom bar and the More sheet it opens.
+ *
+ * The bar carries three destinations; everything else in `WORKSPACE_NAV` is in
+ * the sheet, grouped as the sidebar groups it. The nine-item horizontal
+ * scroller this replaces was 754 px wide on a 390 px screen, with five
+ * destinations off-screen behind a scroll with no affordance (audit §D).
+ */
+function PhoneBottomNav({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const pathname = usePathname()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const { data: gymProfile } = useGymProfile()
+  const { data: subscription } = useSubscription()
+
+  const active = activeNavItem(pathname)
+  const { bar, more } = mobileNav(subscription?.subscription.capabilities)
+
+  // A row's navigation runs only after the sheet's own history entry is gone.
+  //
+  // Tapping a link while the entry is live would push the new route ON TOP of
+  // it, leaving a dead entry behind that swallows one Back press — and another
+  // for every subsequent trip through More. So a row records where it is going
+  // and asks the browser to go back; `useHistoryBack` then closes the sheet and
+  // this runs the navigation, on a stack with nothing left over.
+  const pendingHref = useRef<string | null>(null)
+  const closeMore = () => {
+    onOpenChange(false)
+    const href = pendingHref.current
+    pendingHref.current = null
+    if (href) router.push(href)
+  }
+  useHistoryBack(open, closeMore)
+
+  const go = (href: string) => (event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault()
+    pendingHref.current = href
+    window.history.back()
+  }
+
+  // Sign-out, moved from the deleted `MobileTopBar` unchanged — including its
+  // re-entrancy guard, and the full-document navigation §2.15 requires so
+  // middleware re-runs with cleared cookies.
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const handleLogout = async () => {
     if (isLoggingOut) return
     setIsLoggingOut(true)
@@ -131,73 +254,80 @@ function MobileTopBar() {
   }
 
   return (
-    <div className="sticky top-0 z-sticky flex h-bar items-center justify-between gap-3 border-b border-line-1 bg-surface-panel px-4 lg:hidden">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <Avatar
-          size="sm"
-          name={gymProfile?.gym_name ?? 'Metric'}
-          src={gymProfile?.profile_image_url ?? undefined}
-        />
-        <span className="truncate text-body font-semibold text-ink">
-          {gymProfile?.gym_name ?? 'Metric'}
-        </span>
-      </div>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleLogout}
-        disabled={isLoggingOut}
-        aria-label="Log out"
-      >
-        {isLoggingOut ? <Loader2 className="animate-spin" /> : <LogOut />}
-      </Button>
-    </div>
-  )
-}
+    <>
+      <BottomNav
+        className="tablet:hidden"
+        items={bar}
+        activeHref={active?.href}
+        more={{ open, onToggle: () => onOpenChange(!open) }}
+      />
 
-/**
- * Mobile-only bottom navigation (horizontally scrollable).
- *
- * Retained as-is per R6. Known limitation, deliberately not fixed here: nine
- * destinations at a 76px minimum overflow a phone viewport, so the later items
- * sit behind a horizontal scroll with no affordance. That is a mobile
- * information-architecture problem, and mobile is being rebuilt separately.
- * `aria-current` is set, which the original omitted.
- */
-function MobileBottomNav() {
-  const pathname = usePathname()
-  const active = activeNavItem(pathname)
-  return (
-    <nav
-      aria-label="Workspace"
-      className="scrollbar-hide fixed bottom-0 left-0 right-0 z-sticky flex overflow-x-auto border-t border-line-1 bg-surface-panel lg:hidden"
-    >
-      {WORKSPACE_NAV_ITEMS.map((item) => {
-        const isActive = active?.href === item.href
-        const Icon = item.icon
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={isActive ? 'page' : undefined}
-            className={cn(
-              'flex min-w-[76px] shrink-0 flex-col items-center px-1.5 py-2 transition-colors duration-fast',
-              isActive ? 'text-brand-link' : 'text-ink-secondary'
-            )}
-          >
-            <Icon
-              width={20}
-              height={20}
-              strokeWidth={1.8}
-              className="mb-1"
-              aria-hidden="true"
+      <Drawer
+        open={open}
+        onOpenChange={onOpenChange}
+        size="auto"
+        title="Navigation"
+      >
+        <div className="-mx-4 -mt-4 flex flex-col">
+          <div className="flex items-center gap-3 border-b border-line-1 px-4 py-3">
+            <Avatar
+              size="md"
+              name={gymProfile?.gym_name ?? 'Metric'}
+              src={gymProfile?.profile_image_url ?? undefined}
             />
-            <span className="text-center text-mono-xs font-medium leading-tight">
-              {item.name}
-            </span>
-          </Link>
-        )
-      })}
-    </nav>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-body font-medium text-ink">
+                {gymProfile?.gym_name ?? 'Metric'}
+              </p>
+              {gymProfile?.email && (
+                <p className="truncate font-mono text-mono-sm text-ink-muted">
+                  {gymProfile.email}
+                </p>
+              )}
+            </div>
+            {subscription?.subscription.subscriptionTier && (
+              <Badge variant="accent">
+                {subscription.subscription.subscriptionTier}
+              </Badge>
+            )}
+          </div>
+
+          {more.map((group) => (
+            <div key={group.label}>
+              <p className="px-4 pb-1 pt-3 text-metadata uppercase text-ink-muted">
+                {group.label}
+              </p>
+              <ul role="list">
+                {group.items.map((item) => (
+                  <ListRow
+                    key={item.href}
+                    href={item.href}
+                    onClick={go(item.href)}
+                    primary={item.name}
+                    selected={active?.href === item.href}
+                    value={
+                      <ChevronRight
+                        className="size-4 text-ink-muted"
+                        aria-hidden="true"
+                      />
+                    }
+                  />
+                ))}
+              </ul>
+            </div>
+          ))}
+
+          <button
+            type="button"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="flex min-h-touch items-center gap-2 px-4 py-3 text-left text-body text-error transition-colors duration-fast hover:bg-error-bg focus-visible:shadow-focus focus-visible:outline-none disabled:opacity-50"
+          >
+            <LogOut className="size-4" aria-hidden="true" />
+            {isLoggingOut ? 'Signing out…' : 'Sign out'}
+          </button>
+        </div>
+      </Drawer>
+    </>
   )
 }
