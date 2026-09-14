@@ -212,15 +212,33 @@ entry it needed and the probe spec were all removed before the commit. So
 this measures the real component tree and the real stylesheet, on data that
 did not come from Supabase.
 
-| What                   | 320        | 390        | 1366   |
-| ---------------------- | ---------- | ---------- | ------ |
-| probe `beyond`         | 0          | 0          | n/a    |
-| probe `overflow`       | 0          | 0          | n/a    |
-| probe `touch`          | 0          | 0          | n/a    |
-| Mark Paid sheet, touch | 0          | 0          | n/a    |
-| placement              | fullscreen | fullscreen | center |
-| Mark Paid button       | —          | 175×44     | 89×32  |
-| close control          | 44×44      | 44×44      | 24×24  |
+Probed in six states — populated, empty, loading (the skeleton), the Mark
+Paid sheet, payment history EXPANDED and SMS history EXPANDED — at all four
+phone widths. Violations, after the two fixes F18 and F22:
+
+| State                | 320   | 360   | 390   | 430   |
+| -------------------- | ----- | ----- | ----- | ----- |
+| populated            | 0     | 0     | 0     | 0     |
+| empty                | 0     | 0     | 0     | 0     |
+| loading (skeleton)   | 0     | 0     | 0     | 0     |
+| Mark Paid sheet      | 0     | 0     | 0     | 0     |
+| payment history open | 0     | 0     | 0     | 0     |
+| **SMS history open** | **2** | **2** | **2** | **1** |
+
+Sizes, measured on the real component:
+
+| What             | 320        | 390        | 1366   |
+| ---------------- | ---------- | ---------- | ------ |
+| placement        | fullscreen | fullscreen | center |
+| Mark Paid button | —          | 175×44     | 89×32  |
+| close control    | 44×44      | 44×44      | 24×24  |
+
+**SMS history is the one state still failing**, its table 384 px wide against
+every phone width. Not a regression — the deleted fork had no SMS history at
+all — and §12 assigns it "`ListRow` list via tier hook" with Phase 9 owning
+SMS and activity lists. Recorded rather than papered over: marking it
+`data-scroll="x"` would invent a fourth sanctioned scroller, and §25.1
+sanctions exactly two (`Tabs` lists, the bulk-import fallback).
 
 **Section order, measured rather than asserted.** At 390 the column reads
 identity → plan → status actions → photo → door access → payment history →
@@ -240,11 +258,22 @@ px short, which is the animation's own `translateY` and not a layout defect —
 worth recording because the first measurement said `anchoredToBottom: false`
 and looked like one.
 
-**What this still does not cover:** a member with a photo, a long name, a
-discount, many payments, or an expanded history — every fixture value here is
-short and well-formed. And the 1366 regression suite itself did not run
-(§6.1); the desktop evidence is the CSS-level proof in the Phase 3 entry plus
-this rendering.
+**Desktop 1366, compared on two freshly built trees.** The detail dialog and
+its expanded payment history are **byte-identical** before and after the
+branch. The first attempt produced that same answer for the wrong reason:
+`next dev` had not recompiled after the checkout, so both captures were of
+one build. It was caught by build markers that failed to flip — the close
+control's phone class, the column's `phone:flex`, the delete `aria-label` —
+and the re-run has all three `false` on the before tree and `true` on the
+after. **A byte-identical screenshot pair is worthless without evidence that
+the two sides were different builds**, and that evidence is cheap: assert one
+DOM fact that differs between them and is invisible at the compared width.
+
+**What this still does not cover:** a member with a photo, a long name, many
+payments, or the §28 stress fixtures — the probe fixture carries one payment
+and a two-word name (MO-15). The 1366 regression SUITE also did not run
+(§6.1); the desktop evidence is the pair above plus the CSS-level proof in
+the Phase 3 entry.
 
 ---
 
@@ -527,6 +556,11 @@ calls arose inside that scope and are recorded below.
 5. `aria-label` on the icon-only Delete and Edit.
 6. **Out of the phase's stated scope:** the `Modal` close control, 24 × 24 on
    every `center` and `sheet` dialog on a phone. See F18.
+7. **Payment history is a `ListRow` list on a phone** — a regression this
+   phase introduced and then fixed. The deleted fork rendered payments as
+   cards; the desktop component renders a four-column `Table`, and serving
+   both tiers from it put 405 px on a 320 px screen. Found only by probing
+   the EXPANDED disclosure. See F22.
 
 **Decisions taken inside the scope:**
 
@@ -542,16 +576,21 @@ calls arose inside that scope and are recorded below.
   `arch:check` green · Jest **1,965 passed**, 7 skipped (25 new).
 - **Rendered in Chromium and looked at**, at 390×844, 390×500 and 1366×900 —
   numbers in §2.6, and the screens match the §26 blueprint.
-- **Probe clean** over the detail overlay and the Mark Paid sheet at 320 and
-  390, after F18; **one violation before it**.
+- **Probe run over six states at four widths** — populated, empty, loading,
+  the Mark Paid sheet, payment history open, SMS history open, at 320 / 360 /
+  390 / 430. Five states clean after F18 and F22; **SMS history still fails**
+  at every width and belongs to Phase 9 (MO-17). Numbers in §2.6.
 - Escape closes the sheet and leaves the detail; Escape again closes the
   detail; hardware Back closes the detail with the URL unchanged. At 1366 Back
   does **not** close it — it leaves the page, which is `useHistoryBack`
   correctly declining to claim Back for a centred dialog.
-- **Desktop equivalence, at the CSS level:** the built stylesheet is
+- **Desktop equivalence, two ways.** At the CSS level the built stylesheet is
   byte-identical before and after the placement change (59,289 both), and all
   57 `.phone\:` selectors sit inside the single `@media (max-width: 767px)`
-  block — 0 outside. The 1366 regression SUITE still did not run (§6.1).
+  block — 0 outside. At 1366 the detail dialog and its expanded payment
+  history are byte-identical screenshots across two freshly built trees, with
+  build markers proving the trees differed (F23). The regression SUITE still
+  did not run (§6.1).
 - **Mutation-falsified** (twelve, each restored). Requests: dropping
   `deductOverduePeriod` fails 1; the inline unrounded arithmetic fails 1;
   `planType` on a renewal fails 1; deleting without the confirm fails 2.
@@ -560,13 +599,21 @@ calls arose inside that scope and are recorded below.
   1; dropping `phone:space-y-0` fails 4. Layout, in the browser: dropping
   `phone:flex` reverts the order and zeroes the gaps; dropping
   `phone:space-y-0` gives 48/48/24/48/48/48. Primitive: removing the close
-  sizing fails 2.
+  sizing fails 2. Payment history: forcing the table back on a phone fails 2;
+  dropping the discount from the meta line fails 1.
 
-**Known and deliberate:** the `Modal` `description` ("View and manage member
-information") renders above the ordered column on a phone, because it is a
-sibling of that column inside the scroller, not a child of it. It is the
-desktop behaviour unchanged and outside the §10 CSS-only remit; the §26
-blueprint does not draw it.
+**Known and deliberate:** two things ship imperfect and recorded rather than
+quietly fixed.
+
+- The `Modal` `description` ("View and manage member information") renders
+  above the ordered column on a phone, because it is a sibling of that column
+  inside the scroller, not a child of it. Desktop behaviour unchanged, outside
+  the §10 CSS-only remit, and the §26 blueprint does not draw it (MO-16).
+- **SMS history overflows every phone width.** §12 assigns it to a `ListRow`
+  list and Phase 9 owns it; it is not a regression, because the fork had no
+  SMS history at all. The alternative on offer was a `data-scroll="x"` marker,
+  which would have made the probe green by inventing a sanctioned scroller the
+  plan does not sanction — a worse outcome than a recorded defect (MO-17).
 
 ---
 
@@ -942,6 +989,52 @@ Recorded because the false reading is indistinguishable from a real
 positioning defect, and because the repair is one line: wait for the animation
 before measuring, not for the selector.
 
+### F22 — "Minimal parity change" assumed a superset, and one block was not
+
+§10's premise is that `MemberDetailModal` does everything
+`MemberDetailModalMobile` did and more, so deleting the fork can only add.
+For payment history that was false. The fork rendered payments as **cards**;
+the desktop component renders a four-column `<Table>`. Serving both tiers
+from the desktop component put a 405 px table on a 320 px screen and pushed
+the overlay's own scroller to 438 px — a regression, introduced by the phase
+whose stated purpose was parity.
+
+It hid twice over. The disclosure is collapsed by default, so the earlier
+probe runs and every screenshot measured a region that rendered **nothing**;
+and the phase's scope language ("CSS / props only") invited reading the block
+as untouched when in fact it had been swapped wholesale.
+
+Fixed with `ListRow` on the phone tier — §12's category-A treatment, which
+every comparable table in the plan gets — table on desktop, chosen by the
+tier hook the component already reads. No cell is dropped.
+
+**The check that would have caught it earlier is a list, not a rule:** before
+declaring a screen probed, enumerate its disclosures, its empty state, its
+loading state and its sub-dialogs, and probe each. Four of those five states
+were clean; the fifth was the defect.
+
+### F23 — A byte-identical screenshot pair can mean nothing at all
+
+The 1366 before/after comparison returned "byte-identical" on its first run
+and was wrong: `next dev` had not recompiled after the tree was switched, so
+both captures were of the same build. The answer a correct run gives and the
+answer a broken run gives are the same string.
+
+Caught by build markers — three DOM facts that differ between the two trees
+and are invisible at 1366 (the close control's phone class, the detail
+column's `phone:flex`, the delete `aria-label`). On the first run they were
+`true` on both sides, which is impossible for a genuine comparison. On the
+re-run, with the server restarted and `.next` cleared on each side, they read
+`false` then `true` and the identical pixels mean what they claim.
+
+Two mistakes fed it: `git stash` does not revert **committed** work, and the
+phase's source changes were four commits old by then — the tree never
+changed on the first attempt. `git checkout <base> -- <files>` is the
+operation that was wanted.
+
+Every later phase makes this comparison. Assert a marker, or do not claim the
+result.
+
 ---
 
 ## 5. Open items
@@ -964,6 +1057,9 @@ before measuring, not for the selector.
 | MO-14 | **The probe never sees a closed overlay (F18).** A dialog contributes nothing to a probe run unless something opens it first, which is how a 24 px close control survived three phases. Every phase that adds a sheet or a dialog needs a probe pass with it OPEN; Phase 10's sweep needs a list of overlays, not only of routes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | every phase |
 | MO-15 | **Member detail was rendered on a hard-coded fixture, not on real data.** Short name, no photo, no discount, one payment, collapsed histories. A long name, a photo, a discount row and an expanded payment table are all unmeasured at 320. Worth a pass once the seeded gym is reachable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Phase 4     |
 | MO-16 | The member-detail `Modal` `description` renders above the ordered column on a phone — it is a sibling of that column, not a child, so `order` cannot move it. Desktop behaviour unchanged and outside §10's CSS-only remit, but the §26 blueprint does not draw it. Decide at Phase 8 whether a fullscreen placement should suppress its description.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Phase 8     |
+| MO-17 | **The SMS history table overflows every phone width** (384 px), inside the member detail Phase 3 made reachable on a phone. §12 assigns it "`ListRow` list via tier hook"; Phase 9 owns SMS and activity lists. Not a regression (the deleted fork had no SMS history) and deliberately not papered over with a `data-scroll="x"` the plan does not sanction.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 9     |
+| MO-18 | **§12 does not list the member-detail payment-history table.** Phase 3 converted it (F22) because the phase introduced the regression, but the omission means the plan's table inventory is not complete — worth a sweep at Phase 10 for other tables no phase owns.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Phase 10    |
+| MO-19 | **Probe every state, not every route.** A screen is probed when its disclosures, empty state, loading state and sub-dialogs have each been measured. Four of member detail's five states were clean and the fifth was the defect (F22). Phase 10's DoD needs this as a checklist, not a sentence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | every phase |
 
 ---
 
@@ -1065,7 +1161,14 @@ covers:
   probe run unless something opens it first, so "probe green" on a route says
   nothing about the dialogs that route can open. This is how a 24 px close
   control lived through three phases (F18) — and it applies to every sheet,
-  dialog and drawer added from here on.
+  dialog and drawer added from here on. The same is true one level down: a
+  COLLAPSED disclosure renders nothing, which is how a 405 px table sat
+  inside a "clean" screen (F22). Probe the states, not the route.
+- **A before/after screenshot pair proves nothing without a build marker.**
+  The correct answer and the answer from a comparison that never switched
+  trees are the same string (F23). Assert one DOM fact that differs between
+  the two sides and is invisible at the compared width, or do not claim the
+  result.
 - **UI7's fenced-block skip has never fired.** Nothing in `.claude/**` or
   `docs/architecture/**` puts a table inside a code fence today (verified:
   zero fenced lines start with a pipe), so that branch is defensive and
