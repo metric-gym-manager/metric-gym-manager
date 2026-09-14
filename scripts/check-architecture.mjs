@@ -176,20 +176,13 @@ const UI1_ALLOW = new Set([
   'FilterBar',
   'Toolbar',
   'Popover',
-  // Directive targets — unused today, mounted during Phase 2/3. Deleting them
+  // Directive targets — unused today, mounted during Phase 3. Deleting them
   // would mean rebuilding under new names, which directive §4.4 bans.
-  'Drawer',
+  //
+  // `Drawer`, `AppBar` and `BottomNav` were here and are GONE: the mobile
+  // rebuild's Phase 2 mounted all three in `WorkspaceShell`, which is the
+  // deadline their entries carried.
   'Divider',
-  // Mobile rebuild Phase 1 (plan §5.11, §25.2–§25.3): the phone chrome is
-  // BUILT in Phase 1 and WIRED INTO THE SHELL in Phase 2, which is the order
-  // the plan sets (§18 rows 1 and 2) so the primitives exist before the shell
-  // that composes them. They render in the dev showcase, which UI1
-  // deliberately does not count as an entry point. Phase 2's scope item 6 is
-  // "remove Drawer, AppBar, BottomNav from any allow-list they were parked
-  // in" — so these two lines have a deadline, and the ratchet above fails the
-  // moment the shell mounts them and they are still listed here.
-  'AppBar',
-  'BottomNav',
   // DESIGN_SYSTEM.md §12 — staged for future placement, do not sweep.
   'RevenueMetricCard',
   'InstallButton',
@@ -589,6 +582,64 @@ for (const file of walk(SRC, ['.tsx'])) {
       `"${r}" declares "${name}", which the design system already provides. ` +
         `Extend the primitive's variants/props or add a token — do not create ` +
         `a second implementation (METRIC_UI_DIRECTIVE.md §4.4, §7).`
+    )
+  }
+}
+
+// ── UI6: One composition boundary in the shared UI (mobile rebuild §4) ─────
+// The rebuild has exactly one boundary, `tablet` (768): `phone:` is its
+// max-width side and the two are how a component switches COMPOSITION.
+// `sm:`/`md:`/`lg:` remain legal for fluid refinement inside a composition —
+// but not in the three directories that define the compositions themselves,
+// where a second boundary means the shell, a primitive and a screen disagree
+// about what "mobile" is. `max-tablet:` is the same 768 written a second way,
+// which is how it drifted in the first place.
+//
+// Feature and page code is deliberately OUT of scope: those are compositions,
+// not definitions of one, and `sm:`/`lg:` inside them are refinements.
+const UI6_DIRS = [
+  'src/components/workspace/',
+  'src/components/ui/primitives/',
+  'src/components/common/composites/',
+]
+// A Tailwind VARIANT, not an object key. `size: { sm: 'h-7.5' }` in a cva
+// block is `sm:` followed by a space; a variant is followed immediately by a
+// utility name (`lg:flex`), a negative (`lg:-mt-1`) or an arbitrary value
+// (`lg:[&>*]:flex-1`), and is preceded by a quote or whitespace. Written
+// loosely first, this rule reported five primitives that use none.
+const UI6_RE = /(?:^|[\s'"`])(?:sm|md|lg|max-tablet):[a-z[-]/m
+
+// Seeded EMPTY, and it was empty on the day the rule landed — the shell's
+// `lg:` classes became `tablet:` in the same commit. An entry here means a
+// second boundary was accepted somewhere it decides a composition; it needs a
+// written reason and a phase that removes it.
+const UI6_ALLOW = new Set([])
+
+for (const file of UI_SRC_TSX) {
+  const r = rel(file)
+  if (!UI6_DIRS.some((d) => r.startsWith(d))) continue
+  if (UI6_ALLOW.has(r)) continue
+  // Comments stripped: a doc comment showing a consumer how to lay out a band
+  // (`StatCard`'s `lg:grid-cols-4` example) is documenting page code, not
+  // switching a composition here.
+  if (UI6_RE.test(codeOf(file))) {
+    fail(
+      'UI6',
+      `"${r}" uses a \`sm:\`/\`md:\`/\`lg:\`/\`max-tablet:\` breakpoint. The ` +
+        `shared UI has ONE composition boundary: \`phone:\` (< 768) and ` +
+        `\`tablet:\` (≥ 768). See docs/architecture/mobile-ui-rebuild-plan.md §4.`
+    )
+  }
+}
+
+// Ratchets must shrink.
+for (const r of UI6_ALLOW) {
+  const abs = path.join(ROOT, r)
+  if (!exists(abs) || !UI6_RE.test(codeOf(abs))) {
+    fail(
+      'UI6',
+      `"${r}" is in UI6_ALLOW but no longer uses an off-boundary breakpoint. ` +
+        `Remove it from the allow-list so the ratchet keeps tightening.`
     )
   }
 }
