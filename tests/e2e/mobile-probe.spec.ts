@@ -86,17 +86,30 @@ export const KNOWN_DESKTOP_VIOLATIONS: ReadonlyArray<{
   pattern: RegExp
   clears: string
 }> = [
-  // Phase 1 (§5.9 `compactAxis` / `yTickFormatter`): 6-digit ticks do not fit
-  // a 40 px axis at any width. Visible as "0000 / 5000 / 0000 / 5000 / 0".
+  // 6-digit ticks do not fit a 40 px axis at any width. Visible as
+  // "0000 / 5000 / 0000 / 5000 / 0".
+  //
+  // Phase 1 built the fix (§5.9 `compactAxis` / `yTickFormatter` on
+  // `CartesianChartProps`) but could not APPLY it: the prop is opt-in, and
+  // §5.9's own instruction is that "screens pass it under the phone tier" —
+  // the screens are Phase 6. Making it the default instead would change the
+  // plot area of every chart at 1366, against Phase 1's binding constraint
+  // that the desktop renders pixel-equivalent, and would have to be absorbed
+  // into the desktop baselines, which MO-4 forbids.
+  //
+  // So these clear when `DashboardClient` and `RevenuePageClient` pass
+  // `compactAxis` — Phase 6 — and the phase that does it deletes these two
+  // entries in the same commit. Recorded as an EXCEPTION in the tracker log
+  // and in §4 F1 of mobile-ui-rebuild-log.md.
   {
     route: '/dashboard',
     pattern: /axis tick "\d{5,}" clipped/,
-    clears: 'Phase 1',
+    clears: 'Phase 6',
   },
   {
     route: '/revenue',
     pattern: /axis tick "\d{5,}" clipped/,
-    clears: 'Phase 1',
+    clears: 'Phase 6',
   },
   // Phase 7: the trailing x-axis label overshoots the chart by a pixel.
   {
