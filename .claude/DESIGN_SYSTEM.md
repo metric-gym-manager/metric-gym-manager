@@ -335,7 +335,20 @@ refinement inside a composition but may never switch compositions.
   24 px inside a 44 px label.
 - Overlays: `Modal placement` is `center` (default) · `sheet` · `fullscreen`;
   only `fullscreen` claims the hardware Back button, and only on a phone
-  (`useHistoryBack`, one implementation).
+  (`useHistoryBack`, one implementation). **All three close controls are 44 px
+  on a phone** — the fullscreen Back, the `Drawer`'s close, and the trailing
+  × that `center` and `sheet` keep. The × was a 24 px glyph for three phases
+  because `fullscreen` hides it and no probe run had ever opened a sheet; see
+  the rebuild log's F18.
+- **A probe only measures an overlay something opened.** A closed dialog
+  renders nothing, so "probe green" on a screen says nothing about the
+  dialogs that screen can open. Any phase adding a sheet, dialog or drawer
+  owes a probe pass with it open.
+- **`order` and `space-y-*` do not compose.** `space-y` puts its margin
+  between DOM siblings; `order` changes the visual sequence and nothing else,
+  so after reordering the margin lands on the wrong boundaries (measured:
+  48/48/24/48/48/48 instead of six 24s). A `phone:flex` column that reorders
+  pairs `phone:space-y-0` with `phone:gap-*`.
 - **The shell's two chromes are both always in the DOM**, one hidden per tier
   by `tablet:hidden` / `tablet:flex`. A tier-switched tree would have to agree
   between the server and the hydrating client; `display: none` takes the
