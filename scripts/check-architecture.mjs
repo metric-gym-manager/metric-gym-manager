@@ -138,7 +138,7 @@ if (isDir(MIGRATIONS)) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// UI OVERHAUL RATCHETS (UI1–UI2)
+// UI OVERHAUL RATCHETS (UI1–UI7)
 // Added 2026-08-29 for the workspace UI overhaul. See
 // docs/architecture/workspace-ui-overhaul-log.md and architecture.md rule 2.21.
 //
@@ -696,6 +696,79 @@ for (const r of exempted) {
         `file no longer uses an off-scale value. Delete it from the exemption ` +
         `list so the restriction applies there.`
     )
+  }
+}
+
+// ── UI7: No rulebook table row may be silently truncated ────────────────────
+// GFM splits a table row on every unescaped `|` — inside an inline code span
+// too — and then DISCARDS the cells past the header's column count. So one
+// unescaped pipe does not mangle a rule, it deletes it: §2.21's UI6 rule and
+// the PUBLIC_ROUTES sentence after it vanished from the rendered Pattern Index
+// for a whole commit, and the row still looked like a row. Nothing else in the
+// repo can see this — arch:check, ESLint, tsc, the full Jest suite and
+// Prettier were all green with two rules gone, and Prettier in fact CAUSED the
+// source mangling by re-padding the row around the phantom columns, then
+// reported it as correctly formatted (finding F17).
+//
+// The check is the arithmetic: every body row carries exactly as many cells as
+// its header. Escape a literal pipe as `\|`, as the rest of §2.21 already does
+// for `center`\|`sheet`\|`fullscreen`.
+const RULEBOOK_MD = [
+  ...walk(path.join(ROOT, '.claude'), ['.md']),
+  ...walk(path.join(ROOT, 'docs', 'architecture'), ['.md']),
+]
+
+/** Cells in one table row, splitting only on UNESCAPED pipes. */
+const rowCells = (line) =>
+  line
+    .trim()
+    .replace(/^\||\|$/g, '')
+    .split(/(?<!\\)\|/).length
+
+const DELIMITER_ROW = /^\s*\|[\s:|-]+\|\s*$/
+
+for (const file of RULEBOOK_MD) {
+  const lines = fs.readFileSync(file, 'utf8').split('\n')
+  let inFence = false
+  let header = null
+  let headerLine = 0
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    // A fenced block may legitimately contain a table — a doc quoting one as
+    // an example. Nothing in the scanned set does today (verified: zero
+    // fenced lines start with a pipe), so this is defensive, not load-bearing.
+    // The ESCAPE-awareness in `rowCells` is the opposite: drop it and ten
+    // correctly-escaped rows across four rulebooks report as ragged.
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+
+    if (!line.trim().startsWith('|')) {
+      header = null
+      continue
+    }
+    if (header === null) {
+      // A table starts where a `|` line is followed by the delimiter row.
+      if (DELIMITER_ROW.test(lines[i + 1] ?? '')) {
+        header = rowCells(line)
+        headerLine = i + 1
+      }
+      continue
+    }
+
+    const n = rowCells(line)
+    if (n !== header) {
+      fail(
+        'UI7',
+        `${rel(file)}:${i + 1} — table row has ${n} cells but the header at ` +
+          `line ${headerLine} has ${header}. An unescaped "|" splits the row; ` +
+          `cells past the header count are DROPPED when the file renders. ` +
+          `Escape it as "\\|".`
+      )
+    }
   }
 }
 

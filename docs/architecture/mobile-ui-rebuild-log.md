@@ -674,29 +674,70 @@ closed, and the stack left with nothing extra on it.
 
 Phase 2's §2.21 edit wrote the UI6 rule as `` `sm:|md:|lg:|max-tablet:` `` —
 inside a **table cell**. GFM splits a row on every unescaped `|`, code span or
-not, so that one token became four phantom columns. Prettier then re-padded
-the row around those boundaries and closed up the spacing between the inline
-code spans on either side, leaving:
+not, so that one token became four phantom columns.
+
+The source damage is visible: Prettier re-padded the row around those
+boundaries and closed up the spacing between the inline code spans on either
+side, leaving a band of whitespace with a fragment at each end.
 
 ```
 `sm: | md:            | lg: | max-tablet:`are banned in`components/workspace`
 ```
 
-Which is not a rule; it is a column of whitespace with a fragment on each side.
+The **rendered** damage is worse, and is the reason this is a finding rather
+than a typo. A GFM renderer discards cells past the header's column count, so
+on the page the row is still three cells — and they are:
+
+| cell        | content                                                               |
+| ----------- | --------------------------------------------------------------------- |
+| `#`         | `2.21`                                                                |
+| `Rule`      | …the rule, cut off mid-sentence at `` `sm: `` on an unclosed backtick |
+| `Reference` | `md:`                                                                 |
+
+Everything after that was **deleted from the document**: the `lg:`/
+`max-tablet:` ban, the `arch:check` UI6 note and its empty allow-list, the
+whole `/terms`, `/privacy`, `/refund-policy`, `/contact` `PUBLIC_ROUTES`
+sentence, and the Reference column's two links. Two rules gone, not one
+sentence mangled — and a reader has no signal that anything is missing,
+because the row still looks like a row.
+
 The same edit escaped `` `center`\|`sheet`\|`fullscreen` `` correctly three
 sentences earlier, so knowing the rule was not enough — the pipes have to be
 escaped **every** time, and the Pattern Index is a 22-row table where every
 rule is one wide cell.
 
 Nothing could catch it: `arch:check`, ESLint, `tsc`, Prettier and all 1,938
-tests were green with the sentence destroyed, because the file is prose to all
-of them. Prettier in particular _caused_ the mangling and then reported the
-result as correctly formatted. It was found by re-reading the committed file.
+tests were green with two rules deleted, because the file is prose to all of
+them. Prettier in particular _caused_ the source mangling and then reported
+the result as correctly formatted.
 
-The check that does work is mechanical and takes a second — split the row on
-unescaped pipes and count: a Pattern Index row has exactly three cells. Fixed
-by escaping (`` `sm:`\|`md:`\|`lg:`\|`max-tablet:` ``); the row now splits
-three ways and Prettier leaves it alone.
+Two checks do work, and neither is reading the diff:
+
+1. Split each row on unescaped pipes and count — every body row carries as
+   many cells as its header. This is now **`arch:check` UI7**, over
+   `.claude/**` and `docs/architecture/**`: 41 files, 171 tables. It is
+   arithmetic, so it costs nothing and cannot drift.
+2. **Render it.** The source check finds the split; only the renderer shows
+   what a reader actually loses, and here the two gave different answers —
+   the source looked mangled, the render was missing two rules. The
+   Verification Directives say to render a UI change before claiming it
+   works; a rulebook is no different.
+
+Fixed by escaping (`` `sm:`\|`md:`\|`lg:`\|`max-tablet:` ``); the row now
+renders as three cells with the rule intact end to end, confirmed through a
+GFM renderer against both the broken and the fixed file.
+
+**UI7, falsified.** Restoring the unescaped pipe fails it (`row has 6 cells
+but the header has 3`) and the fix clears it. Its escape-awareness is
+load-bearing, not decoration: splitting on _every_ pipe instead of unescaped
+ones reports 10 correctly-escaped rows across four rulebooks as ragged. Its
+fenced-block skip is defensive only — nothing in the scanned set puts a table
+inside a fence today (verified: zero fenced lines start with a pipe), and the
+comment in the script says so rather than implying it was proven.
+
+**What UI7 does not do:** it counts cells. A rule can still be wrong, stale,
+or contradict another rule, and no gate in this repo can tell. It closes
+exactly one hole — text silently vanishing from a file every session loads.
 
 ---
 
