@@ -417,6 +417,13 @@ p0 → phase-1 → p2). Scope: plan §18 row 2.
 7. `PageHeader`'s `<h1>` is `phone:sr-only` and the settings rail's is too;
    the in-flow "‹ Settings" link is **deleted** — the AppBar's 44 px Back
    replaces a 20 px text link inside the scrolling content.
+8. **Added after the phase was first recorded as done.** Item 5's own §2.21
+   entry was written with unescaped pipes inside a table cell and deleted two
+   rules from the rendered rulebook (F17). Repaired, and the class of defect
+   made a gate failure: **UI7** in `arch:check` — every body row in a markdown
+   table under `.claude/**` or `docs/architecture/**` carries exactly as many
+   cells as its header. 41 files, 171 tables. The stale `UI1–UI2` range in the
+   script's section header was corrected to `UI1–UI7` in the same commit.
 
 **Verification:**
 
@@ -424,9 +431,14 @@ p0 → phase-1 → p2). Scope: plan §18 row 2.
   `arch:check` green · Jest **1,938 passed**, 7 skipped (49 new).
 - Rendered at 320 and 390 and looked at; probe numbers and the desktop
   pixel comparison in §2.5.
-- **Mutation-falsified** (three, each restored): moving Renewals off the bar
+- The repaired §2.21 row **rendered through a GFM renderer**, before and
+  after — three cells, rule intact end to end. The source check and the
+  render disagreed, which is the whole of F17.
+- **Mutation-falsified** (five, each restored): moving Renewals off the bar
   fails 3 of 52; removing the capability filter fails 3 of 52; pointing the
-  AppBar's Back at `router.back()` fails 1 of 20.
+  AppBar's Back at `router.back()` fails 1 of 20; restoring the unescaped
+  pipe fails UI7; splitting on every pipe rather than unescaped ones makes
+  UI7 report 10 correctly-escaped rows across four rulebooks.
 
 **Known and deliberate:** the phone `AppBar` titles a settings section from
 `SETTINGS_SECTIONS`, and any _other_ nested route falls back to its parent's
@@ -831,3 +843,14 @@ covers:
   both indistinguishable from success (directive 2).
 - A test is decorative until the defect it names has been made to break it
   (directive 3) — see F13, which is that rule catching a test from this phase.
+- **Nothing reads the prose.** `arch:check`, ESLint, `tsc`, Prettier and the
+  whole Jest suite were green while two rules sat deleted from the rendered
+  §2.21 (F17). UI7 now counts table cells, which closes exactly one hole:
+  text vanishing from a file every session loads. It cannot tell whether a
+  rule is **wrong**, stale, or contradicted by another rule — and no gate
+  here can. A rulebook edit still has to be re-read after it is committed.
+- **UI7's fenced-block skip has never fired.** Nothing in `.claude/**` or
+  `docs/architecture/**` puts a table inside a code fence today (verified:
+  zero fenced lines start with a pipe), so that branch is defensive and
+  unexercised. Its escape-awareness _is_ exercised — remove it and 10
+  correctly-escaped rows across four rulebooks report as ragged.
