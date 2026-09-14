@@ -33,6 +33,7 @@ import ReactivationDialog, {
 } from '@/features/payments/components/ReactivationDialog'
 import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog'
 import MemberPhotoSection from './MemberPhotoSection'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import type { MemberWithDiscount, Payment } from '@/features/members/types'
 import { parseApiError } from '@/utils/api-error'
 import { formatMemberNumber } from '@/features/members/utils/formatMemberNumber'
@@ -56,6 +57,21 @@ export default function MemberDetailModal({
   onEditClick,
 }: MemberDetailModalProps) {
   const queryClient = useQueryClient()
+
+  /**
+   * Member detail is a SCREEN on a phone and a dialog on a desktop (plan §10,
+   * §3.2). The tier picks which, and nothing else: every visual consequence of
+   * `fullscreen` is already `phone:`-scoped inside `Modal`, so this decides
+   * the overlay's *kind* — leading Back instead of a trailing ×, focus on the
+   * title, and the hardware Back button — not its size.
+   *
+   * The sub-dialogs stay dialogs on both tiers. A confirmation is a moment,
+   * not a place, and giving one the whole screen (and the Back button with it)
+   * would make cancelling a delete feel like leaving the member.
+   */
+  const tier = useViewportTier()
+  const detailPlacement = tier === 'phone' ? 'fullscreen' : 'center'
+
   const [showPaymentHistory, setShowPaymentHistory] = useState(false)
   const [isMarkingRegularPaid, setIsMarkingRegularPaid] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
@@ -333,6 +349,7 @@ export default function MemberDetailModal({
           if (!next) onClose()
         }}
         size="lg"
+        placement={detailPlacement}
         title="Member Details"
         description="View and manage member information"
       >
@@ -409,6 +426,7 @@ export default function MemberDetailModal({
           if (!next) onClose()
         }}
         size="lg"
+        placement={detailPlacement}
         title="Member Details"
         description="View and manage member information"
         footerStart={
@@ -713,6 +731,10 @@ export default function MemberDetailModal({
         open={showDeleteDialog}
         onOpenChange={setShowDeleteDialog}
         title="Are you sure?"
+        // Explicit, though it is also the default: §11 classifies a
+        // confirmation as `center` on every tier, and a reader should see
+        // that the answer was chosen rather than inherited.
+        placement="center"
         destructive
         footer={
           <>
@@ -780,6 +802,8 @@ export default function MemberDetailModal({
         open={showActivateDialog}
         onOpenChange={setShowActivateDialog}
         title="Activate Member"
+        // One control and one decision — §11's sheet case.
+        placement="sheet"
         description={
           <>
             Select the new due date for <strong>{member.name}</strong>&apos;s
