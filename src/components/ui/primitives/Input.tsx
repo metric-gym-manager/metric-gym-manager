@@ -13,8 +13,11 @@ export const inputVariants = cva(
   {
     variants: {
       size: {
-        md: 'h-8 rounded-sm px-2.5', // 32px — app
-        lg: 'h-9 rounded-sm px-3', // 36px — auth / modals
+        // `phone:` only — 32/36 px stay the desktop heights. `text-input` is
+        // 16 px: below that, mobile Safari zooms the layout viewport on focus
+        // and never zooms back (§5.1, §5.2).
+        md: 'h-8 rounded-sm px-2.5 phone:min-h-touch phone:text-input', // 32px — app
+        lg: 'h-9 rounded-sm px-3 phone:min-h-touch phone:text-input', // 36px — auth / modals
       },
     },
     defaultVariants: { size: 'md' },

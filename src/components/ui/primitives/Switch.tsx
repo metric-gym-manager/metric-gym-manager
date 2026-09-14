@@ -56,7 +56,10 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         onClick={handleClick}
         className={cn(
           // Track — 34×19 with 10px radius (radius.2xl), per spec §11 Toggle.
-          'relative inline-flex h-[19px] w-[34px] shrink-0 cursor-pointer items-center rounded-sm border border-line-2 transition-colors duration-fast ease-out focus-visible:shadow-focus focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+          // Phone: 44×24 (mobile rebuild plan §5.2). The track IS the target
+          // here — unlike Checkbox/Radio there is no wrapping label to carry
+          // the hit area — so it is the widest control at 24 px tall.
+          'relative inline-flex h-[19px] w-[34px] shrink-0 cursor-pointer items-center rounded-sm border border-line-2 transition-colors duration-fast ease-out focus-visible:shadow-focus focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 phone:h-6 phone:w-11',
           on
             ? tone === 'success'
               ? 'bg-success'
@@ -70,8 +73,12 @@ export const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
           aria-hidden="true"
           className={cn(
             // Knob — 13×13 circle; travels 2px → 17px (spec §10 Toggle States).
-            'pointer-events-none absolute h-[13px] w-[13px] rounded-full transition-[left] duration-fast ease-out',
-            on ? 'left-[17px] bg-accentui-text' : 'left-0.5 bg-solid'
+            // Phone: 20×20 travelling 2px → 20px, which is the same geometry
+            // (track − knob − 2 − two 1px borders) at the larger track size.
+            'pointer-events-none absolute h-[13px] w-[13px] rounded-full transition-[left] duration-fast ease-out phone:h-5 phone:w-5',
+            on
+              ? 'left-[17px] bg-accentui-text phone:left-[20px]'
+              : 'left-0.5 bg-solid'
           )}
         />
       </button>

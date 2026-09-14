@@ -6,6 +6,14 @@ import { cn } from '@/lib/utils'
  * 14×14, accent-colored, with focus ring and disabled state. Pass `label` for a
  * clickable label wrapper, or omit it and wire your own via FormField.
  * Supports the `indeterminate` visual state.
+ *
+ * On a phone the control grows to 24 px and the LABEL carries the 44 px hit
+ * area (mobile rebuild plan §5.2, §15.1) — the target is the label, not the
+ * box, which is why the rule is written as "label wraps the control".
+ *
+ * Without a `label` there is no wrapper to enlarge, so a bare checkbox on a
+ * phone is only 24 px and the caller owns the hit area. The one phone caller
+ * is `DataTable`'s list mode, where the row's leading slot provides it.
  */
 export interface CheckboxProps extends Omit<
   React.InputHTMLAttributes<HTMLInputElement>,
@@ -33,7 +41,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
         type="checkbox"
         disabled={disabled}
         className={cn(
-          'size-3.5 shrink-0 cursor-pointer rounded-sm border border-line-2 accent-brand-accent focus-visible:shadow-focus focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50',
+          'size-3.5 shrink-0 cursor-pointer rounded-sm border border-line-2 accent-brand-accent focus-visible:shadow-focus focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 phone:size-6',
           className
         )}
         {...props}
@@ -46,7 +54,7 @@ export const Checkbox = React.forwardRef<HTMLInputElement, CheckboxProps>(
       <label
         htmlFor={controlId}
         className={cn(
-          'inline-flex cursor-pointer items-center gap-2 font-geist text-body text-ink',
+          'inline-flex cursor-pointer items-center gap-2 font-geist text-body text-ink phone:min-h-touch phone:gap-3',
           disabled && 'cursor-not-allowed opacity-50'
         )}
       >
