@@ -23,7 +23,7 @@
 | `mobile-ui-rebuild-audit.md`               | The measured phone baseline as of 2026-09-13 (390 px, E2E Enterprise gym, 46 members). | Snapshot        |
 | `mobile-ui-rebuild-plan.md`                | **The contract** (v1.5). Scope, blueprints, gates, amendment protocol.                 | Amended per §31 |
 | `mobile-ui-rebuild-prompts.md`             | The per-phase session prompts.                                                         | Fixed           |
-| **`mobile-ui-rebuild-log.md`** (this file) | Rulings, baselines, execution log, findings, open items.                               | Living          |
+| **`mobile-ui-rebuild-log.md`** (this file) | Rulings, baselines, execution log, findings, open items, verification debt.            | Living          |
 | Tracker artifact (db-backed)               | Status: `phases`, `decisions`, `open`, `risks`, `log`. URL in the plan header.         | Live            |
 
 Branches: one per phase, `claude/mobile-ui-rebuild-p<N>`, cut from `master`;
@@ -112,6 +112,45 @@ added 100 overdue rows with two 26 px buttons each — the fixture doing its job
 Phase 1 rebuilds no route, so `STRICT_PHONE_ROUTES` cannot grow yet (M3) and
 the 2.1 baseline is unchanged — the primitives are ready; nothing composes
 them outside the showcase until Phase 2.
+
+### 2.4 Phase 1 — the design-system showcase, probed and rendered
+
+The 2.1 routes need the seeded gym, which Phase 1's session could not reach
+(§6). The showcase does not: it is the one surface where every new primitive
+renders, and it is what the phase was verified against.
+
+`/design-system`, `next dev`, scope `body` (the showcase has no `<main>`):
+
+| Width | beyond | overflow | touch    | ticks   | Everything flagged                                                                                  |
+| ----- | ------ | -------- | -------- | ------- | --------------------------------------------------------------------------------------------------- |
+| 320   | 4 (24) | 6        | 56 / 210 | 18 /116 | `Table`/`DataTable` **table-mode** demos, `SideNav`, `UserMenu` — all pre-existing showcase content |
+| 390   | 2 (6)  | 0        | 46 / 210 | 18 /120 | same, minus the two that fit at 390                                                                 |
+| 430   | 0      | 0        | 46 / 210 | 18 /120 | touch only                                                                                          |
+| 1366  | 0      | 0        | 0 / 224  | 18 /120 | — (desktop tier: the touch rule does not apply)                                                     |
+
+**No `ListRow`, `AppBar`, `BottomNav` or `DataTable` list-mode violation at any
+width.** The touch counts are dominated by primitives this phase did not
+touch (`Alert`'s 18 px dismiss, `Breadcrumb` links, `SideNav` rows, sortable
+`<th>` buttons, column resize handles) plus two this phase created knowingly:
+the 44×24 `Switch` (F9) and the bare 24 px `Checkbox` in **table** mode, whose
+hit area belongs to its caller — in list mode `DataTable` supplies it. The 18
+clipped ticks are the deliberately-uncompacted comparison chart (the compact
+one beside it is clean) and the pre-existing 1 px x-tick.
+
+**Desktop equivalence, measured:** ten pre-existing showcase sections
+(Buttons, Form controls, Data display, Feedback & overlays, Navigation,
+DataTable, Charts, and the three Composites sections) screenshotted at 1366
+before and after the branch and compared at `maxDiffPixels: 0` — **identical**.
+Method: stash the branch, capture with `--update-snapshots`, unstash, compare.
+The temporary spec is not committed; re-create it the same way when a later
+phase needs the same evidence and the E2E gym is still out of reach.
+
+**Generated CSS read, not assumed:** `text-input`, `min-h-touch`,
+`size-touch`, `min-w-touch-sm`, `h-bottom-nav`, `pb-safe-bottom`,
+`h-sheet`/`max-h-sheet` and the `@media (max-width: 767px)` block were built
+with the Tailwind CLI and inspected. Two things only that could show: the
+`text-input` colour collision (F11), and that `theme(spacing.touch)` resolves
+inside an arbitrary `grid-cols-[…]` value.
 
 ---
 
@@ -252,12 +291,9 @@ showcase, `src/app/layout.tsx`, `scripts/generate-pwa-assets.js`, docs.
   `pb-safe-bottom`, `max-h-sheet` and the `phone:` media query.
 
 **Not verified, and why.** The seeded E2E gym is unreachable from this session
-(no Supabase credentials), so `mobile-probe.spec.ts` over the 16 real routes,
-`desktop-regression.spec.ts` and both spikes were **not** run. Phase 2 must
-re-run all three before its own work: the `viewport` spike in particular now
-asserts the Phase 1 state and has never executed against it. The showcase
-render also used fallback fonts (Geist could not be fetched offline), so glyph
-widths differ slightly from production.
+(no Supabase credentials), so four suites did not run and the browser pass had
+two blind spots. **Itemised in §6** — what each check would have caught, what
+that leaves unknown, and which to run first.
 
 **Deviation from the prompt's branch instruction.** The plan says one branch
 per phase cut from `master`. This session's branch,
@@ -424,19 +460,109 @@ guarded by "is our entry still the current one", which also makes it correct
 when the close _navigated_ (a More-sheet row) — there a blind `history.back()`
 would undo the navigation.
 
+### F13 — A §9.4 test passed under the mutation it existed to catch
+
+`DataTable`'s list mode must not render a column the `mobileRow` mapping does
+not name — §9.4's "accessible, not simultaneously visible", and the one rule
+that keeps a phone row from quietly growing back into a table. The test was:
+
+```ts
+expect(screen.queryByText('2024-02-11')).not.toBeInTheDocument()
+```
+
+Mutating `DataTable` to feed **every** column into the row's meta line left it
+**green**. The meta segments are joined into one string (F10), so the
+exact-text query matched nothing — and "matched nothing" is what the assertion
+wanted. The row carried the column it was guarding against, and the test
+reported success.
+
+Rewritten to assert on each row's text, and on the column's header as well as
+its value; it then fails under the same mutation. This is the third rule in
+`CLAUDE.md`'s Verification Directives landing on a test written the same day:
+a green assertion is not evidence until the defect it names has been made to
+break it.
+
+_Lesson for later phases:_ `queryByText(...).not.toBeInTheDocument()` is the
+weakest assertion in the suite — it passes when the text is absent, when it is
+present but split across nodes, and when the component failed to render at
+all. Prefer `expect(element).not.toHaveTextContent(...)` on a node the test
+has already proved exists.
+
 ---
 
 ## 5. Open items
 
-| Id    | Item                                                                                                                                                                                                                                                                           | Owner       |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
-| MO-1  | ~~Two axis entries clear in Phase 1~~ → **Phase 6**. Phase 1 built `compactAxis` but §5.9 has the _screens_ pass it, and a default change would move the plot area of every 1366 chart against Phase 1's pixel-equivalence constraint. The 1 px x-tick stays Phase 7.          | Phase 6 / 7 |
-| MO-2  | `STRICT_PHONE_ROUTES` is empty. Each phase adds the routes it rebuilt (M3); Phase 10 expects all 16. Phase 1 rebuilds no route, so it adds none.                                                                                                                               | every phase |
-| MO-3  | ~~`metadata.other['theme-color']` must go when `viewport.themeColor` arrives~~ — **done in Phase 1**; the spike now asserts `PLANNED_VIEWPORT_META` and the single theme-color.                                                                                                | closed      |
-| MO-4  | Desktop baselines picture live E2E data. Any seeding or payment on the Enterprise gym shifts them; re-baseline with `--update-snapshots` and say so in the PR — never to absorb a phase's own diff.                                                                            | every phase |
-| MO-5  | The NEW-badge fixture ages out weekly and is re-registered by the seed; the recent-payments list on the dashboard baseline reorders when that happens.                                                                                                                         | note        |
-| MO-6  | `TEST_ONLY_RENDER` lives under `tests/e2e/helpers`; jsdom tests that need it import it from there or re-export via `src/test-utils`. Phase 1 did not need it — the §28 shapes it carries (a 320-char SMS, 3-digit tab badges) belong to the screens, not the primitives.       | Phase 4+    |
-| MO-7  | **Phase 1's E2E suites were not run** (no Supabase credentials in that session): the 16-route probe, the 1366 desktop regression and both spikes. The `viewport` spike now asserts the Phase 1 state and has never executed against it. Run all three at the start of Phase 2. | Phase 2     |
-| MO-8  | `UI1_ALLOW` gained `AppBar` and `BottomNav` (M10). Phase 2 mounts them in `WorkspaceShell` and must delete both lines in the same commit, or the ratchet fails on staleness.                                                                                                   | Phase 2     |
-| MO-9  | o09 `bodyPhone` (14/20) is **proposed, not applied** — the rendered 13 vs 14 comparison is in the showcase's "Phase 1 decisions" section and in the PR. Applying it is a token + one class at the shell root.                                                                  | product     |
-| MO-10 | F9: the 44×24 `Switch` cannot meet the probe's 40 px minimum. Decide at Phase 8 (padded wrapper, or a §5.2 amendment) before Settings joins `STRICT_PHONE_ROUTES`.                                                                                                             | Phase 8     |
+| Id    | Item                                                                                                                                                                                                                                                                     | Owner       |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------- |
+| MO-1  | ~~Two axis entries clear in Phase 1~~ → **Phase 6**. Phase 1 built `compactAxis` but §5.9 has the _screens_ pass it, and a default change would move the plot area of every 1366 chart against Phase 1's pixel-equivalence constraint. The 1 px x-tick stays Phase 7.    | Phase 6 / 7 |
+| MO-2  | `STRICT_PHONE_ROUTES` is empty. Each phase adds the routes it rebuilt (M3); Phase 10 expects all 16. Phase 1 rebuilds no route, so it adds none.                                                                                                                         | every phase |
+| MO-3  | ~~`metadata.other['theme-color']` must go when `viewport.themeColor` arrives~~ — **done in Phase 1**; the spike now asserts `PLANNED_VIEWPORT_META` and the single theme-color.                                                                                          | closed      |
+| MO-4  | Desktop baselines picture live E2E data. Any seeding or payment on the Enterprise gym shifts them; re-baseline with `--update-snapshots` and say so in the PR — never to absorb a phase's own diff.                                                                      | every phase |
+| MO-5  | The NEW-badge fixture ages out weekly and is re-registered by the seed; the recent-payments list on the dashboard baseline reorders when that happens.                                                                                                                   | note        |
+| MO-6  | `TEST_ONLY_RENDER` lives under `tests/e2e/helpers`; jsdom tests that need it import it from there or re-export via `src/test-utils`. Phase 1 did not need it — the §28 shapes it carries (a 320-char SMS, 3-digit tab badges) belong to the screens, not the primitives. | Phase 4+    |
+| MO-7  | **Phase 1's E2E suites were not run** (no Supabase credentials in that session). Itemised in §6.1 with what each one leaves unknown; the `viewport` spike is the one to run first, because Phase 1 changed the layout AND flipped that spec's expectation together.      | Phase 2     |
+| MO-8  | `UI1_ALLOW` gained `AppBar` and `BottomNav` (M10). Phase 2 mounts them in `WorkspaceShell` and must delete both lines in the same commit, or the ratchet fails on staleness.                                                                                             | Phase 2     |
+| MO-9  | o09 `bodyPhone` (14/20) is **proposed, not applied** — the rendered 13 vs 14 comparison is in the showcase's "Phase 1 decisions" section and in the PR. Applying it is a token + one class at the shell root.                                                            | product     |
+| MO-10 | F9: the 44×24 `Switch` cannot meet the probe's 40 px minimum. Decide at Phase 8 (padded wrapper, or a §5.2 amendment) before Settings joins `STRICT_PHONE_ROUTES`.                                                                                                       | Phase 8     |
+
+---
+
+## 6. Verification debt
+
+Every phase ends with something it could not check. Recorded here rather than
+inside a phase's log entry, because the point is that the NEXT session pays it
+off, and a reader looking for "what is not yet known to work" should not have
+to reconstruct it from prose.
+
+Rule for this section: an item leaves it only when the check has actually been
+run and its result recorded — never because time passed, and never because the
+code "obviously" works.
+
+### 6.1 Phase 1 — four suites that did not run
+
+Phase 1's session had **no Supabase credentials**, so the seeded E2E
+Enterprise gym was unreachable and every spec gated on
+`E2E_ACCESS_CONTROL_ENABLED` skipped. Nothing was worked around; the gap is
+the gap.
+
+| Suite                                   | What it would have checked                                                                                          | What that leaves unknown                                                                                                                                                     | Owner   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `mobile-probe.spec.ts` (16 routes × 7)  | That the 2.1 phone numbers and the 2.2 desktop baseline still hold after the primitive changes                      | Whether a `phone:` class on a shared primitive shifted a real route. The showcase (2.4) covers the primitives; it does not cover a screen composing them.                    | Phase 2 |
+| `desktop-regression.spec.ts` (1366, ×7) | That the seven committed baselines still match                                                                      | The 2.4 comparison is the same evidence against a different page. It is strong for the primitives and silent about the screens.                                              | Phase 2 |
+| `spikes/viewport-export.spec.ts`        | That the document ships exactly `width=device-width, initial-scale=1, viewport-fit=cover` and **one** `theme-color` | **The highest-value one.** Phase 1 both changed the layout AND flipped this spec's expectation, so the assertion and the code it guards were written together and never met. | Phase 2 |
+| `spikes/app-router-history.spec.ts`     | That Next still adopts a no-URL `pushState` without navigating                                                      | `useHistoryBack` was built to spike (a)'s recorded findings; the spike has not re-run since the hook exists.                                                                 | Phase 2 |
+
+**If `viewport-export` fails at the start of Phase 2**, the likely causes in
+order: the `metadata.other['theme-color']` entry came back; `viewportFit` was
+dropped; or Next's meta ordering changed and `PLANNED_VIEWPORT_META` needs
+re-recording (the spike's header documents the renderer's fixed order).
+
+### 6.2 Phase 1 — what the browser pass could not see
+
+- **Fonts.** Geist could not be fetched offline, so every screenshot used the
+  fallback family. Glyph widths differ from production, which matters for two
+  of this phase's decisions: the `ListRow` wrap threshold (M9) and the o09
+  13-vs-14 comparison (MO-9). Both were also checked numerically —
+  `getComputedStyle` for the type sizes, the flex arithmetic for the wrap —
+  so the conclusions do not rest on the pixels alone, but a device check at
+  §29 sign-off should confirm them.
+- **A real device.** `env(safe-area-inset-*)` is 0 in headless Chromium at
+  every viewport, so `pt-safe-top` / `pb-safe-bottom` are proven to _resolve_
+  and never proven to _inset_. §16's CSS-override probe
+  (`--ds-safe-bottom: 34px`) and the one physical-device check at sign-off are
+  still outstanding.
+- **The on-screen keyboard.** §5.3's fullscreen footer is `dvh`-based and
+  outside the body scroller; risk r07 (iOS keyboard hides the action bar) is
+  untested until a reduced-height run and a manual iPhone check.
+
+### 6.3 Standing — what no automated gate in this repo can see
+
+Carried forward each phase so it is never mistaken for something a green run
+covers:
+
+- jsdom computes no geometry. A screen test proves a screen **mounts**, never
+  that it **looks right** (`CLAUDE.md`, Verification Directives 1).
+- Unit tests mock Supabase, so a missing column and an RLS-refused write are
+  both indistinguishable from success (directive 2).
+- A test is decorative until the defect it names has been made to break it
+  (directive 3) — see F13, which is that rule catching a test from this phase.
