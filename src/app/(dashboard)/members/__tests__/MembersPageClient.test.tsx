@@ -21,6 +21,12 @@ jest.mock('@/features/members', () => ({
   AddMemberModal: () => null,
   BulkAddMemberModal: () => null,
   DayPassModal: () => null,
+  // Added by the mobile rebuild's Phase 4. A `next/dynamic` import of a name
+  // this mock does not define resolves to `{ default: undefined }`, and React
+  // then throws "Element type is invalid" from `LoadableComponent` — which
+  // names the loader, not the missing export, so every assertion below fails
+  // at once for a reason none of them is about.
+  BulkImportGuidanceSheet: () => null,
 }))
 
 const openMember = jest.fn()
