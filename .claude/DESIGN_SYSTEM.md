@@ -344,6 +344,20 @@ refinement inside a composition but may never switch compositions.
   renders nothing, so "probe green" on a screen says nothing about the
   dialogs that screen can open. Any phase adding a sheet, dialog or drawer
   owes a probe pass with it open.
+- **`leading-*` does not resize an inline element.** `line-height` sizes the
+  line box of the containing block; `getBoundingClientRect` on an **inline**
+  element returns a box derived from the font metrics, which line-height does
+  not enter. An inline text link that must meet §15.1's 24 px line box
+  (WCAG 2.5.8) needs `inline-block leading-6` — both halves. Three links in
+  the product measured 13–15 px and `leading-6` alone changed none of them.
+- **`htmlFor` is not a hit area.** §15.1 keeps a checkbox at 24 px and puts
+  the 44 px on its label — which requires the label to **wrap** the input. A
+  label that merely points at one leaves the bare control as the target, and
+  the probe measures it as 24 × 24.
+- **A `ListRow` meta line truncates only when it is plain text.** Give it an
+  element — a `tel:` link, a `Badge` — and it wraps instead, because the probe
+  permits an ellipsis nowhere but on an element holding text alone (rule 9).
+  A richer line gets a second line rather than a silent cut.
 - **`order` and `space-y-*` do not compose.** `space-y` puts its margin
   between DOM siblings; `order` changes the visual sequence and nothing else,
   so after reordering the margin lands on the wrong boundaries (measured:

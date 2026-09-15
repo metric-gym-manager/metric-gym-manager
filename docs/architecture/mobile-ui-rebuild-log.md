@@ -275,6 +275,48 @@ and a two-word name (MO-15). The 1366 regression SUITE also did not run
 (§6.1); the desktop evidence is the pair above plus the CSS-level proof in
 the Phase 3 entry.
 
+### 2.7 Phase 4 — Members and its forms, probed with the §28 fixtures
+
+The first phase to probe a real SCREEN rather than a primitive or an overlay,
+and the first to use the §28 stress content: a 29-character name, a 20-char
+phone string, a 12,345,678 fee, 300 members. Still a temporary dev route with
+an intercepted `/api/members` (the seeded gym is unreachable — §6.1), so the
+component tree, the stylesheet and the browser are real and the data is not.
+
+**Eight states × four widths, after the fixes below: 32 of 32 clean.**
+
+| State                      | 320 | 360 | 390 | 430 |
+| -------------------------- | --- | --- | --- | --- |
+| list, populated            | 0   | 0   | 0   | 0   |
+| list, §28 stress fixtures  | 0   | 0   | 0   | 0   |
+| list, empty                | 0   | 0   | 0   | 0   |
+| overflow menu open         | 0   | 0   | 0   | 0   |
+| bulk-import guidance sheet | 0   | 0   | 0   | 0   |
+| day pass sheet             | 0   | 0   | 0   | 0   |
+| Add member, step 1         | 0   | 0   | 0   | 0   |
+| Add member, step 2         | 0   | 0   | 0   | 0   |
+
+**Before the fixes it was not clean, and the first run that said it was, lied.**
+The probe page patched `window.fetch` in a `useEffect`; React Query fires the
+list request during mount, before any effect runs, so roughly one run in three
+the real endpoint answered 401 and the screen rendered its ERROR CARD. A card
+has no rows, no links and no meta lines — so the probe reported zero
+violations, and the reading "the list is clean at 320 and 390, including under
+stress" was measuring nothing at all. Moving the interceptor to module scope
+is what made the three real defects visible (F25, F26, F27).
+
+**Where the overflow actually was: 390, and only 390.** At 320 and 360 the
+`ListRow` value wraps below the primary column and hands the meta line the
+full row width; at 430 there is room for both. 390 is the single width where
+the value sits alongside and squeezes the line to 174 px against 199 px of
+content. A three-width probe that skipped 360 and 430 would have found it;
+one that checked only 320 would not.
+
+**Desktop 1366: byte-identical**, before and after, on two freshly built
+trees, with a marker that flips — `Pagination`'s `responsive` readout is
+absent on the before tree and present (and `display: none`) on the after.
+F23's rule applied from the start this time rather than after a wrong answer.
+
 ---
 
 ## 3. Execution log
@@ -633,6 +675,63 @@ quietly fixed.
   SMS history at all. The alternative on offer was a `data-scroll="x"` marker,
   which would have made the probe green by inventing a sanctioned scroller the
   plan does not sanction — a worse outcome than a recorded defect (MO-17).
+
+### Phase 4 — Members and member forms · **DONE** 2026-09-15
+
+Branch `claude/mobile-ui-rebuild-p4`, cut from the Phase 3 head — the same
+deviation as Phases 2 and 3, for the same reason. Stack: p0 → phase-1 → p2 →
+p3 → p4. Scope: plan §8.2, §8.4–§8.8, §9.4, §14, §25.4.
+
+**Decisions the phase was asked to take:** none open. `o05` (bulk import:
+guidance sheet + labelled fallback) was already resolved and is implemented
+as written.
+
+**Built:**
+
+1. **Members list.** Two toolbars, one per tier — a switched TREE, because
+   they are not the same controls rearranged: the phone folds Day pass and
+   Bulk import into a "⋯" menu and moves the record count beside the status
+   filter, while the desktop keeps three buttons and the count in
+   `PageHeader`. Row = `DataTable mobileRow` per §9.4. `Pagination
+responsive`. Queries, params, server pagination and `openMember`
+   untouched; the desktop suite's assertions were not edited.
+2. **Add / Edit member** `fullscreen`; **Day pass** `sheet`, and its results
+   are now `ListRow`s — §8.8's VERIFY resolved, the markup **was** hand-rolled
+   (its own `<ul>`, its own `<button>`, its own two-line stack).
+3. **Bulk import (§14).** The phone menu item opens a guidance sheet with the
+   plan's copy verbatim, Copy link, and "Open the desktop grid here"; that
+   opens the real grid `fullscreen` with a persistent phone-only `Alert` and
+   `data-scroll="x"` on the table — one of exactly two places §25.1 sanctions
+   that marker. Desktop opens the grid directly, unchanged.
+
+**Beyond §10-style scope, each logged (g8):**
+
+| Change                                        | Why it could not wait                                                                                     |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `DataTableMobileRow.status` takes an array    | §9.3 wrote one column id; §8.2 needs badge + due from two the desktop must keep separately sortable (F24) |
+| `DropdownMenu` items touch-height             | §8.2 asks for "touch items"; Phase 1 never sized this primitive (F18's blind spot again)                  |
+| `ListRow` meta wraps when it holds an element | The probe cannot permit an ellipsis on a line containing a link (F26)                                     |
+| Five checkboxes wrapped by their labels       | §15.1 puts the 44 px on the label, which needs it to WRAP the input (F27)                                 |
+
+**Verification:**
+
+- `type-check` clean · `lint` 0 errors · `arch:check` green · Jest **1,982
+  passed**, 7 skipped (**14 new**, all phone-tier).
+- **Probe: 32 of 32 clean**, eight states × four widths, with the §28
+  fixtures. Numbers and the "before" in §2.7.
+- **Rendered and looked at** at 320 (stress), 390 and 1366, plus the bulk
+  guidance sheet — matches the §26 MEMBERS blueprint.
+- **Desktop 1366 byte-identical**, marker-verified (§2.7).
+- **Mutation-falsified** (five, each restored): the joined date creeping back
+  into the row fails 1; dropping `due` off the status line fails 2; losing
+  the `tel:` link's `data-inline-link` fails 1; the phone keeping the
+  desktop's three buttons fails 3; the avatar rendering twice fails 1.
+
+**Known and deliberate:** the Add-member consent labels contain links, so
+tapping "privacy policy" both navigates and toggles the checkbox. That is
+pre-existing — the label was already associated by `htmlFor` — and wrapping
+did not change it. Recorded as MO-22 rather than fixed, because the fix is a
+product decision about where consent links belong, not a layout one.
 
 ---
 
@@ -1089,6 +1188,86 @@ asking what the tool would report if it were broken:
 Neither check costs more than a minute, and between them they are the
 difference between a measurement and a number.
 
+### F24 — The plan's own two sections disagreed about one API
+
+§9.3 specifies `mobileRow.status` as a single column id. §8.2 specifies the
+Members status line as "status badge + due" — two columns, which the desktop
+table must keep as two separately sortable ones. Both are the approved plan.
+
+Widened `status` to `string | string[]`, matching `meta`, which had the shape
+already. The alternative was a combined column the desktop would have to
+hide, and `DataTable` has no hiding mechanism — adding one to satisfy a
+mapping would have been the larger change.
+
+Second instance of the same class as MO-18 (§12's table inventory missing the
+member-detail payment history). **An approved plan is not internally
+consistent merely because it was approved**, and the phase that first
+implements a cross-section requirement is where the disagreement surfaces.
+
+### F25 — A probe that measures an error card reports zero violations
+
+The Phase 4 probe page patched `window.fetch` inside a `useEffect`. React
+Query fires its request during mount, before any effect runs, so about one
+run in three the real endpoint answered 401 and the screen rendered its error
+state. An error card has no rows, no links and no meta lines — nothing the
+touch and overflow rules apply to — so the probe reported **clean**, and that
+reading was written down and reported as a result.
+
+It was wrong. Moving the interceptor to module scope turned the same eight
+states from "clean" into three real defects (F26, F27 and the `tel:` line
+box), every one of which had been present the whole time.
+
+This is F23 arriving from the other direction. There a broken comparison said
+"identical" and the truth was also identical, so nothing looked wrong. Here a
+broken fixture said "clean" and the truth was three defects. The shared
+lesson is narrow and worth stating plainly: **a green probe is only evidence
+if you know what it measured.** Assert the subject exists — row count, a
+known name, the absence of the error state — before believing a zero.
+
+### F26 — `truncate` and an inline element cannot coexist under the probe
+
+`ListRow`'s meta line truncates with an ellipsis, which probe rule 9 permits
+**only** for an element holding nothing but text. §9.4 asks Members to put
+the phone number there as a `tel:` link. So the line that §9.4 specifies can
+never satisfy rule 9, and any overflow on it is rule 3 — a silent clip.
+
+F10 recorded the same collision in Phase 1 at the level of a separator span.
+The general form is now in the primitive: **a meta line of plain text
+truncates; a meta line holding an element wraps.** A caller who chooses a
+richer line gets a second line rather than a cut.
+
+Found at **390 and nowhere else** — at 320 and 360 the value wraps below the
+primary column and the line gets the full row; at 430 both fit. A phase that
+probed one phone width would have called this clean.
+
+### F27 — `htmlFor` is not a hit area
+
+Five checkboxes across Add and Edit member sat as siblings of their labels,
+associated by `htmlFor`. Clicking the label toggles the box, so the behaviour
+was right and the geometry was not: the probe measures a control's
+`closest('label')`, and with no wrapping label it measured a bare 24 × 24
+checkbox against §15.1's 40 px floor.
+
+The rule as written — "a checkbox or radio is 24 px inside a 44 px label" —
+already said this. What it did not say is that the label has to **contain**
+the input for the 24 px to be inside anything. Fixed at the pattern level
+across both forms rather than on the single checkbox the probe reached first,
+because the other four were one step of a wizard away from the same report.
+
+### F28 — `leading-6` does not resize an inline element
+
+Three inline links failed §15.1's 24 px line-box minimum (WCAG 2.5.8): the
+members row's `tel:` link at 13 px, and Add member's two consent links at 15.
+The obvious fix — `leading-6` — changed nothing, twice, and the probe
+returned the identical measurement.
+
+`line-height` sizes the line box of the **containing block**;
+`getBoundingClientRect` on an **inline** element returns a box derived from
+the font metrics, which line-height does not enter. `inline-block` is what
+makes the element own its height. Both halves are needed, and the class list
+now says so at each of the three sites, because the next person will reach
+for `leading-6` alone as well.
+
 ---
 
 ## 5. Open items
@@ -1114,6 +1293,10 @@ difference between a measurement and a number.
 | MO-17 | **The SMS history table overflows every phone width** (384 px), inside the member detail Phase 3 made reachable on a phone. §12 assigns it "`ListRow` list via tier hook"; Phase 9 owns SMS and activity lists. Not a regression (the deleted fork had no SMS history) and deliberately not papered over with a `data-scroll="x"` the plan does not sanction.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 9     |
 | MO-18 | **§12 does not list the member-detail payment-history table.** Phase 3 converted it (F22) because the phase introduced the regression, but the omission means the plan's table inventory is not complete — worth a sweep at Phase 10 for other tables no phase owns.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Phase 10    |
 | MO-19 | **Probe every state, not every route.** A screen is probed when its disclosures, empty state, loading state and sub-dialogs have each been measured. Four of member detail's five states were clean and the fifth was the defect (F22). Phase 10's DoD needs this as a checklist, not a sentence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | every phase |
+| MO-20 | **`STRICT_PHONE_ROUTES` can finally take an entry.** Phase 4 rebuilt `/members`, the first real ROUTE in the rebuild, and probed it clean at four widths in eight states. Adding it needs the seeded gym (the probe ran on an intercepted endpoint), so it is Phase 5's to add once credentials exist.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Phase 5     |
+| MO-21 | **Every phone width matters, and 390 is not the worst case.** F26 failed at 390 alone — 320 and 360 wrap the value and hand the meta line the full row; 430 fits both. A phase that probes one or two widths is sampling, not checking.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | every phase |
+| MO-22 | Add member's consent labels wrap links, so tapping "privacy policy" both navigates and toggles the checkbox. Pre-existing (the label was already associated by `htmlFor`) and untouched by the wrapping fix. The remedy is a product decision about where consent links belong.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | product     |
+| MO-23 | **The §28 stress fixtures still have not run against the seeded gym.** Phase 4 reproduced their CONTENT (29-char name, 20-char phone, 12,345,678 fee, 300 members) on an intercepted endpoint, which exercises the layout but not the seeding, the real API's shaping, or the fixtures' own idempotence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Phase 5     |
 
 ---
 
@@ -1128,7 +1311,7 @@ Rule for this section: an item leaves it only when the check has actually been
 run and its result recorded — never because time passed, and never because the
 code "obviously" works.
 
-### 6.1 Phases 1, 2 and 3 — four suites that still have not run
+### 6.1 Phases 1–4 — four suites that still have not run
 
 No session had **Supabase credentials**, so the seeded E2E Enterprise gym was
 unreachable and every spec gated on `E2E_ACCESS_CONTROL_ENABLED` skipped.
@@ -1154,7 +1337,7 @@ order: the `metadata.other['theme-color']` entry came back; `viewportFit` was
 dropped; or Next's meta ordering changed and `PLANNED_VIEWPORT_META` needs
 re-recording (the spike's header documents the renderer's fixed order).
 
-### 6.2 Phases 1–3 — what the browser pass could not see
+### 6.2 Phases 1–4 — what the browser pass could not see
 
 - **Fonts.** Geist could not be fetched offline, so every screenshot used the
   fallback family. Glyph widths differ from production, which matters for two
@@ -1193,6 +1376,15 @@ re-recording (the spike's header documents the renderer's fixed order).
   holding its place at a reduced height, which is the closest available proxy
   and is not the same thing: a keyboard also changes `dvh` and moves focus.
   Risk r07 stays open.
+- **Nothing has been WRITTEN in a browser yet (Phase 4).** Add member was
+  probed on both steps and never submitted; Edit never round-tripped; Day pass
+  never issued; the bulk grid never imported. Every mutation on this screen is
+  covered by a mocked-`fetch` unit test and by nothing else, which is
+  precisely the gap Verification Directive 2 names.
+- **The §28 fixtures were reproduced, not seeded (Phase 4).** The content was
+  right — 29-char name, 20-char phone, 12,345,678 fee, 300 members — but it
+  came from an interceptor, so the seeding helper, the real API's response
+  shaping and the fixtures' idempotence are all still unexercised (MO-23).
 
 ### 6.3 Standing — what no automated gate in this repo can see
 
@@ -1218,6 +1410,11 @@ covers:
   dialog and drawer added from here on. The same is true one level down: a
   COLLAPSED disclosure renders nothing, which is how a 405 px table sat
   inside a "clean" screen (F22). Probe the states, not the route.
+- **A green probe is evidence only if you know what it measured.** A screen
+  showing its error state has no rows, no links and no meta lines, so every
+  touch and overflow rule passes vacuously (F25). Assert the subject exists —
+  a row count, a known name, the absence of the error card — before believing
+  a zero.
 - **A before/after screenshot pair proves nothing without a build marker.**
   The correct answer and the answer from a comparison that never switched
   trees are the same string (F23). Assert one DOM fact that differs between
