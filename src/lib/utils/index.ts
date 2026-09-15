@@ -21,6 +21,7 @@ const twMerge = extendTailwindMerge({
             'h1',
             'h2',
             'h3',
+            'input',
             'body-lg',
             'body',
             'body-sm',

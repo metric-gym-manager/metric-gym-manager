@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { Inter, Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
@@ -32,6 +32,31 @@ const geistMono = Geist_Mono({
   display: 'swap',
 })
 
+/**
+ * Viewport and theme colour (mobile rebuild plan §16).
+ *
+ * `viewport-fit=cover` lets the document paint under a notch and the home
+ * indicator; the safe-area insets (`--ds-safe-*`) are what keeps content
+ * clear of them, and they stay 0 until this is set — so the tokens and this
+ * export are one change, not two.
+ *
+ * `themeColor` lives HERE and not in `metadata.other`. It used to be
+ * `metadata.other['theme-color'] = '#000000'`, the pre-`viewport`-API way;
+ * adding this export beside it would have shipped TWO `theme-color` meta tags
+ * with different values, which `tests/e2e/spikes/viewport-export.spec.ts` pins
+ * against. The value is `surface-base`, matching the manifest.
+ *
+ * No `user-scalable=no` and no `maximumScale`: pinch-zoom is an accessibility
+ * affordance, and 16 px inputs (`text-input`) are how the focus-zoom problem
+ * is solved instead.
+ */
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#08080a',
+}
+
 export const metadata: Metadata = {
   title: 'Metric Gym OS',
   description:
@@ -42,9 +67,6 @@ export const metadata: Metadata = {
     { rel: 'icon', url: '/favicon.svg' },
     { rel: 'apple-touch-icon', url: `/icon-192.png?v=${PWA_VERSION}` },
   ],
-  other: {
-    'theme-color': '#000000',
-  },
   openGraph: {
     title: 'Metric Gym OS',
     description:

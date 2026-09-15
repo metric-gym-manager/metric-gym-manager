@@ -42,6 +42,19 @@ export interface PaginationProps {
   pageCount: number
   onPageChange: (page: number) => void
   siblingCount?: number
+  /**
+   * Collapse to Prev · "2 of 3" · Next on a phone (mobile rebuild plan §5.6).
+   *
+   * Numbered pages need seven 32 px targets in a row; at 320 px that is the
+   * full width with nothing left for the row count, and each target is well
+   * under the §15.1 minimum. The compact form keeps both controls at the dense
+   * 40 px size and states the position in words.
+   *
+   * Both forms are rendered and one is hidden by CSS — deliberately not a
+   * `useViewportTier()` switch. There is no composition difference to reason
+   * about here, and CSS cannot mismatch on hydration.
+   */
+  responsive?: boolean
   className?: string
 }
 
@@ -50,60 +63,90 @@ export function Pagination({
   pageCount,
   onPageChange,
   siblingCount = 1,
+  responsive,
   className,
 }: PaginationProps) {
   if (pageCount <= 1) return null
   const items = getPaginationRange(page, pageCount, siblingCount)
   const go = (p: number) => onPageChange(Math.min(Math.max(p, 1), pageCount))
 
+  const prev = (
+    <Button
+      size="icon"
+      variant="ghost"
+      aria-label="Previous page"
+      disabled={page <= 1}
+      onClick={() => go(page - 1)}
+      className="phone:size-touch-sm"
+    >
+      <ChevronLeft />
+    </Button>
+  )
+  const next = (
+    <Button
+      size="icon"
+      variant="ghost"
+      aria-label="Next page"
+      disabled={page >= pageCount}
+      onClick={() => go(page + 1)}
+      className="phone:size-touch-sm"
+    >
+      <ChevronRight />
+    </Button>
+  )
+
   return (
     <nav
       aria-label="Pagination"
+      // Pagination controls are secondary/dense targets (§15.1): 40, not 44.
+      // Set on the container so the numbered buttons and the compact readout
+      // are all covered by one marker.
+      data-dense=""
       className={cn('flex items-center gap-1', className)}
     >
-      <Button
-        size="icon"
-        variant="ghost"
-        aria-label="Previous page"
-        disabled={page <= 1}
-        onClick={() => go(page - 1)}
-      >
-        <ChevronLeft />
-      </Button>
+      {prev}
 
-      {items.map((item, i) =>
-        item === 'ellipsis' ? (
-          <span
-            key={`ellipsis-${i}`}
-            aria-hidden="true"
-            className="inline-flex h-8 w-8 items-center justify-center font-geist text-body text-ink-muted"
-          >
-            …
-          </span>
-        ) : (
-          <Button
-            key={item}
-            size="icon"
-            variant={item === page ? 'accent' : 'ghost'}
-            aria-label={`Page ${item}`}
-            aria-current={item === page ? 'page' : undefined}
-            onClick={() => go(item)}
-            className="font-mono tabular-nums"
-          >
-            {item}
-          </Button>
-        )
+      <span className={cn('contents', responsive && 'phone:hidden')}>
+        {items.map((item, i) =>
+          item === 'ellipsis' ? (
+            <span
+              key={`ellipsis-${i}`}
+              aria-hidden="true"
+              className="inline-flex h-8 w-8 items-center justify-center font-geist text-body text-ink-muted"
+            >
+              …
+            </span>
+          ) : (
+            <Button
+              key={item}
+              size="icon"
+              variant={item === page ? 'accent' : 'ghost'}
+              aria-label={`Page ${item}`}
+              aria-current={item === page ? 'page' : undefined}
+              onClick={() => go(item)}
+              className="font-mono tabular-nums phone:size-touch-sm"
+            >
+              {item}
+            </Button>
+          )
+        )}
+      </span>
+
+      {responsive && (
+        <span
+          // Not `aria-hidden`: the numbered buttons carrying
+          // `aria-current="page"` are `display: none` at this width, so they
+          // are out of the accessibility tree and this readout is the only
+          // statement of where the user is. The visible text is "2 of 3"; the
+          // screen reader hears "Page 2 of 3".
+          className="hidden min-w-16 justify-center whitespace-nowrap px-2 font-mono text-mono-sm text-ink-secondary tabular-nums phone:inline-flex"
+        >
+          <span className="sr-only">Page&nbsp;</span>
+          {page} of {pageCount}
+        </span>
       )}
 
-      <Button
-        size="icon"
-        variant="ghost"
-        aria-label="Next page"
-        disabled={page >= pageCount}
-        onClick={() => go(page + 1)}
-      >
-        <ChevronRight />
-      </Button>
+      {next}
     </nav>
   )
 }

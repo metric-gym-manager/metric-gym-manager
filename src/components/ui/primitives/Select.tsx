@@ -13,8 +13,10 @@ export const selectVariants = cva(
   {
     variants: {
       size: {
-        md: 'h-8 rounded-sm pl-2',
-        lg: 'h-9 rounded-sm pl-2.5',
+        // `phone:` only (§5.2). 16 px text for the same Safari-zoom reason as
+        // Input — a native <select> is a text control on iOS too.
+        md: 'h-8 rounded-sm pl-2 phone:min-h-touch phone:text-input',
+        lg: 'h-9 rounded-sm pl-2.5 phone:min-h-touch phone:text-input',
       },
     },
     defaultVariants: { size: 'md' },

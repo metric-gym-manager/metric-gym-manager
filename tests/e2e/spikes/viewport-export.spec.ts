@@ -18,10 +18,13 @@
  *   `generateViewport` (`docs/01-app/03-api-reference/04-functions/
  *   generate-viewport.md`). `src/app/layout.tsx` is a server component with
  *   no `viewport` export today, so the static object form applies.
- * - **Trap:** the root layout already emits `theme-color` through
+ * - **Trap:** the root layout already emitted `theme-color` through
  *   `metadata.other['theme-color'] = '#000000'`. Adding `viewport.themeColor`
  *   without removing that entry ships two `theme-color` tags with different
- *   values. The assertion below pins "exactly one" so Phase 1 cannot miss it.
+ *   values. The assertion below pins "exactly one" so Phase 1 could not miss
+ *   it — **Phase 1 removed the `metadata.other` entry** and the expectation
+ *   below moved from Next's default meta to {@link PLANNED_VIEWPORT_META}
+ *   (open item MO-3, now closed).
  *
  * The typed constant is the §16 export verbatim; `tsc` checks it against
  * Next's own type on every run, so a future Next upgrade that renames a
@@ -38,7 +41,7 @@ test.skip(
   'requires E2E_ACCESS_CONTROL=1 + a seeded Enterprise gym'
 )
 
-/** Plan §16, as Phase 1 will write it into `src/app/layout.tsx`. */
+/** Plan §16, as Phase 1 wrote it into `src/app/layout.tsx`. */
 export const PLANNED_VIEWPORT: Viewport = {
   width: 'device-width',
   initialScale: 1,
@@ -60,7 +63,7 @@ test.afterAll(async () => {
   await tier?.context.close()
 })
 
-test('recorded: the document ships Next’s default viewport and one theme-color today', async ({}, testInfo) => {
+test('the document ships the §16 viewport and exactly one theme-color', async ({}, testInfo) => {
   const { page } = tier
   await gotoSettled(page, '/dashboard')
 
@@ -80,12 +83,12 @@ test('recorded: the document ships Next’s default viewport and one theme-color
     description: `viewport=${JSON.stringify(head.viewport)} theme-color=${JSON.stringify(head.themeColor)}`,
   })
 
-  // Phase 0: no `viewport` export yet, so this is Next's default. Phase 1
-  // flips it to PLANNED_VIEWPORT_META.
-  expect(head.viewport).toEqual(['width=device-width, initial-scale=1'])
-  expect(head.viewport[0]).not.toContain('viewport-fit')
+  // Phase 1 added the `viewport` export. `viewport-fit=cover` is what makes
+  // the `--ds-safe-*` insets non-zero, so this failing means every safe-area
+  // padding in the product is silently 0 on a notched phone.
+  expect(head.viewport).toEqual([PLANNED_VIEWPORT_META])
 
-  // Exactly one theme-color, whatever its value. Two would mean
-  // `viewport.themeColor` was added beside `metadata.other['theme-color']`.
-  expect(head.themeColor).toHaveLength(1)
+  // Exactly one theme-color, and it is the export's. Two would mean
+  // `metadata.other['theme-color']` came back beside `viewport.themeColor`.
+  expect(head.themeColor).toEqual([PLANNED_VIEWPORT.themeColor])
 })

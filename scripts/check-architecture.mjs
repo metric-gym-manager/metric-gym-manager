@@ -180,6 +180,16 @@ const UI1_ALLOW = new Set([
   // would mean rebuilding under new names, which directive §4.4 bans.
   'Drawer',
   'Divider',
+  // Mobile rebuild Phase 1 (plan §5.11, §25.2–§25.3): the phone chrome is
+  // BUILT in Phase 1 and WIRED INTO THE SHELL in Phase 2, which is the order
+  // the plan sets (§18 rows 1 and 2) so the primitives exist before the shell
+  // that composes them. They render in the dev showcase, which UI1
+  // deliberately does not count as an entry point. Phase 2's scope item 6 is
+  // "remove Drawer, AppBar, BottomNav from any allow-list they were parked
+  // in" — so these two lines have a deadline, and the ratchet above fails the
+  // moment the shell mounts them and they are still listed here.
+  'AppBar',
+  'BottomNav',
   // DESIGN_SYSTEM.md §12 — staged for future placement, do not sweep.
   'RevenueMetricCard',
   'InstallButton',

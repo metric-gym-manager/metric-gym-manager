@@ -122,26 +122,35 @@ status), never the primitive ramp. Each resolves per theme (§5).
 
 ### 4.3 Non-color scales
 
-| Scale                                 | Tokens                                                                                                                                                                                                                                        |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Spacing** (8-pt grid, 4px sub-grid) | `0, 0.5(2px), 1(4px), 2(8px), 3(12px), 4(16px), 5, 6, 8, 10, 12, 16, 20, 24, 32`                                                                                                                                                              |
-| **Radius**                            | `none, xs(2), sm(4), md(5), lg(6), xl(8), 2xl(10), 3xl(12), full`                                                                                                                                                                             |
-| **Elevation / shadow**                | `none`, `focus`, `focusError`, `overlay`, `marketingOverlay` — elevation is background + hairline, **not** decorative drop shadows                                                                                                            |
-| **Z-index**                           | `base(0), sticky(50), drawerBackdrop(60), drawer(61), modalBackdrop(70), modal(71), modalNested(72/73), paletteBackdrop(80), palette(81), toast(90), demoModal(100)`                                                                          |
-| **Motion**                            | duration `fast(150), normal(200), slow(300), verySlow(600), drawer(180), modal(140)`; easing `default/in/out/inOut`                                                                                                                           |
-| **Blur**                              | `nav(16px)`, `modal(6px)`, `marketingModal(8px)`                                                                                                                                                                                              |
-| **Opacity**                           | `disabled(.5), hoverLight(.04), hoverDark(.06), pressed(.08), backdropLight(.45), backdropDark(.7)`                                                                                                                                           |
-| **Icon size**                         | `xs(12), sm(13), md(14), default(15), lg(20), xl(26)`                                                                                                                                                                                         |
-| **Breakpoints**                       | `mobile(480), tablet(768), laptop(1024), desktop(1440)`                                                                                                                                                                                       |
-| **Layout dims**                       | `sidebarWidth(240)`, `sidebarCollapsedWidth(56)`, `workspaceSelectorHeight(52)`, `breadcrumbHeight(52)`, `workspacePadding(24)`, `maxContentWidthApp(1200)`, `maxContentWidthMarketing(1120)`, `drawerWidth(420)`, `settingsSubNavWidth(160)` |
-| **Chart palette**                     | per-theme `bar, highlight, success, warning, error, grid, axis` (max 3 colors per chart)                                                                                                                                                      |
+| Scale                                 | Tokens                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Spacing** (8-pt grid, 4px sub-grid) | `0, 0.5(2px), 1(4px), 2(8px), 3(12px), 4(16px), 5, 6, 8, 10, 12, 16, 20, 24, 32`                                                                                                                                                                                                                                                                         |
+| **Radius**                            | `none, xs(2), sm(4), md(5), lg(6), xl(8), 2xl(10), 3xl(12), full`                                                                                                                                                                                                                                                                                        |
+| **Elevation / shadow**                | `none`, `focus`, `focusError`, `overlay`, `marketingOverlay` — elevation is background + hairline, **not** decorative drop shadows                                                                                                                                                                                                                       |
+| **Z-index**                           | `base(0), sticky(50), drawerBackdrop(60), drawer(61), modalBackdrop(70), modal(71), modalNested(72/73), paletteBackdrop(80), palette(81), toast(90), demoModal(100)`                                                                                                                                                                                     |
+| **Motion**                            | duration `fast(150), normal(200), slow(300), verySlow(600), drawer(180), modal(140)`; easing `default/in/out/inOut`                                                                                                                                                                                                                                      |
+| **Blur**                              | `nav(16px)`, `modal(6px)`, `marketingModal(8px)`                                                                                                                                                                                                                                                                                                         |
+| **Opacity**                           | `disabled(.5), hoverLight(.04), hoverDark(.06), pressed(.08), backdropLight(.45), backdropDark(.7)`                                                                                                                                                                                                                                                      |
+| **Icon size**                         | `xs(12), sm(13), md(14), default(15), lg(20), xl(26)`                                                                                                                                                                                                                                                                                                    |
+| **Breakpoints**                       | `mobile(480), tablet(768), laptop(1024), desktop(1440)`, `phoneMax(767)` — the max-width side of `tablet`, bound as Tailwind `screens.phone`                                                                                                                                                                                                             |
+| **Touch targets**                     | `touch(44)`, `touch-sm(40)` — the §15.1 rule's only two thresholds; reached through `phone:` (`phone:min-h-touch`, `phone:size-touch`)                                                                                                                                                                                                                   |
+| **Safe area**                         | `--ds-safe-top/bottom/left/right` = `env(safe-area-inset-*, 0px)`, bound as spacing (`pt-safe-top`, `pb-safe-bottom`). 0 everywhere the inset does not apply                                                                                                                                                                                             |
+| **Layout dims**                       | `sidebarWidth(240)`, `sidebarCollapsedWidth(56)`, `workspaceSelectorHeight(52)`, `breadcrumbHeight(52)`, `workspacePadding(24)`, `maxContentWidthApp(1200)`, `maxContentWidthMarketing(1120)`, `drawerWidth(420)`, `settingsSubNavWidth(160)`, `bottomNavHeight(56)` → `h-bottom-nav`/`pb-bottom-nav`, `sheetMaxHeight(90dvh)` → `h-sheet`/`max-h-sheet` |
+| **Chart palette**                     | per-theme `bar, highlight, success, warning, error, grid, axis` (max 3 colors per chart)                                                                                                                                                                                                                                                                 |
 
 ### 4.4 Typography
 
 - **Families:** `sans` = Geist, `mono` = Geist Mono. Weights `400/500/600/700`.
 - **Type scale** (`typeScale` → Tailwind `text-*`): `displayXl, display, displaySm,
-h1, h2, h3, bodyLg, body(13px default), bodyEmphasis, bodySm, caption, metadata
-(uppercase +tracking), label, button, buttonSm, mono, monoSm, monoXs, code`.
+h1, h2, h3, readout, input(16/24), bodyLg, body(13px default), bodyEmphasis,
+bodySm, caption, metadata (uppercase +tracking), label, button, buttonSm, mono,
+monoSm, monoXs, code`.
+- `input` is **phone-only, on text controls only** (`phone:text-input`): below
+  16 px mobile Safari zooms the layout viewport on focus and never zooms back.
+  A type-scale key may not share a name with a colour key — `fontSize` and
+  `textColor` both emit `.text-<key>`, so the two would merge into one rule
+  that sets a font size _and_ a colour (the legacy shadcn `input` colour was
+  removed for exactly this).
 - `cn()` (`src/lib/utils`) uses `extendTailwindMerge` so these custom `text-*`
   size tokens don't collide with `text-*` color utilities.
 
@@ -174,7 +183,7 @@ h1, h2, h3, bodyLg, body(13px default), bodyEmphasis, bodySm, caption, metadata
 
 ---
 
-## 6. Layer 2 — Primitive Registry (32 + 1 hook)
+## 6. Layer 2 — Primitive Registry (33 + 1 hook)
 
 No business logic. Every entry is token-driven, light+dark, keyboard-accessible,
 WCAG AA, responsive, strongly typed, and exports a `*Props` type.
@@ -197,7 +206,9 @@ Footer) · `Divider` · `Spinner` · `Skeleton` (+ `SkeletonText`) · `Progress`
 Separator) · `CommandPalette` (+ Command Empty/Group/Item/Separator).
 
 **Data & table:** `Table` (Container/Header/Body/Row/Head/Cell) — the low-level
-markup primitive · `DataTable` — the full-featured system (§8.1) · `useVirtualRows`
+markup primitive · `DataTable` — the full-featured system (§8.1) · `ListRow` —
+one record as a hairline-separated row, the phone presentation of every list
+(not a Card, not a table row; mobile rebuild plan §9.1) · `useVirtualRows`
 — virtualization hook.
 
 **Charts:** `LineChart` · `BarChart` · `AreaChart` · `PieChart` · `DonutChart` ·
@@ -205,27 +216,29 @@ markup primitive · `DataTable` — the full-featured system (§8.1) · `useVirt
 
 ---
 
-## 7. Layer 3 — Composite Registry (14)
+## 7. Layer 3 — Composite Registry (16)
 
 Generic, business-free compositions built from L2. Feature UI composes _these_;
 pages orchestrate them. Neither restyles primitives directly.
 
-| Composite                                 | Purpose                                                           |
-| ----------------------------------------- | ----------------------------------------------------------------- |
-| `SectionHeader`                           | Titled section divider with optional action slot                  |
-| `PageHeader`                              | Page title, breadcrumb slot, primary/secondary actions            |
-| `Toolbar`                                 | Horizontal action/control bar                                     |
-| `SearchBar`                               | Debounced search input with affordances                           |
-| `FilterBar`                               | Composable filter control row                                     |
-| `StatCard` / `MetricCard` (+ `StatDelta`) | KPI tiles with delta indicators                                   |
-| `ChartCard`                               | Titled chart container with state handling                        |
-| `StateLayouts`                            | `EmptyStateLayout` · `LoadingLayout` (skeleton/spinner scaffolds) |
-| `SettingsSection` (+ `SettingsRow`)       | Settings page section pattern                                     |
-| `ConfirmDialog`                           | Generic confirmation (default/destructive)                        |
-| `DeleteDialog`                            | Destructive-delete confirmation                                   |
-| `SideNav` (+ Group/Item)                  | Application sidebar navigation                                    |
-| `UserMenu`                                | Account/avatar dropdown                                           |
-| `NotificationMenu`                        | Notification dropdown                                             |
+| Composite                                 | Purpose                                                                     |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| `SectionHeader`                           | Titled section divider with optional action slot                            |
+| `PageHeader`                              | Page title, breadcrumb slot, primary/secondary actions                      |
+| `Toolbar`                                 | Horizontal action/control bar                                               |
+| `SearchBar`                               | Debounced search input with affordances                                     |
+| `FilterBar`                               | Composable filter control row                                               |
+| `StatCard` / `MetricCard` (+ `StatDelta`) | KPI tiles with delta indicators                                             |
+| `ChartCard`                               | Titled chart container with state handling                                  |
+| `StateLayouts`                            | `EmptyStateLayout` · `LoadingLayout` (skeleton/spinner scaffolds)           |
+| `SettingsSection` (+ `SettingsRow`)       | Settings page section pattern                                               |
+| `ConfirmDialog`                           | Generic confirmation (default/destructive)                                  |
+| `DeleteDialog`                            | Destructive-delete confirmation                                             |
+| `SideNav` (+ Group/Item)                  | Application sidebar navigation                                              |
+| `UserMenu`                                | Account/avatar dropdown                                                     |
+| `NotificationMenu`                        | Notification dropdown                                                       |
+| `AppBar`                                  | Phone top chrome: leading identity/Back + centred title. **No action slot** |
+| `BottomNav`                               | Phone persistent navigation: four slots, the fourth is More                 |
 
 ---
 
@@ -296,6 +309,29 @@ variants over separate components · shared primitives over custom implementatio
 
 **Single-implementation mandate.** There is exactly one of each: button, modal,
 table, form scaffold, tooltip, spacing system, type system, color system.
+
+---
+
+### 10.1 Phone tier (mobile rebuild)
+
+One boundary, `tablet` = 768 px. `phone:` is its max-width side and is the only
+way a component reaches the phone tier; `sm:`/`md:`/`lg:` stay legal for fluid
+refinement inside a composition but may never switch compositions.
+
+- **A phone change is `phone:`-scoped, or inert without its new prop.** Every
+  Phase 1 addition satisfies one of the two, which is why the desktop renders
+  pixel-equivalent.
+- **CSS chooses a treatment; `useViewportTier()` chooses a tree.** A component
+  reads the hook only when the two tiers render _different elements_ — a list
+  of `ListRow`s instead of a `<table>`, a history entry for Back. Sizing,
+  spacing and visibility stay in CSS. Never `window.innerWidth`.
+- **§15.1 touch rule, two thresholds and no third:** 44 px for a primary
+  target, 40 px for a control the primitive marks `data-dense`. Icon-only
+  controls grow their _hit area_, never their glyph. A checkbox or radio is
+  24 px inside a 44 px label.
+- Overlays: `Modal placement` is `center` (default) · `sheet` · `fullscreen`;
+  only `fullscreen` claims the hardware Back button, and only on a phone
+  (`useHistoryBack`, one implementation).
 
 ---
 

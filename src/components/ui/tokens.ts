@@ -214,6 +214,36 @@ export const spacing = {
   20: '80px',
   24: '96px',
   32: '128px',
+  /**
+   * Touch targets (mobile rebuild plan §5.1, §15.1). Two values and no third:
+   * `touch` (44) is the primary target every non-dense control must reach on a
+   * phone, `touch-sm` (40) the dense one a control marked `data-dense` may use.
+   * The probe (`tests/e2e/helpers/mobile-probe.ts`) asserts these exact numbers,
+   * so a change here is a change to the rule.
+   *
+   * Applied through `phone:` only — desktop control heights are unchanged.
+   */
+  touch: '44px',
+  'touch-sm': '40px',
+} as const
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Safe area (mobile rebuild plan §5.1, §16, §25.1)
+// ─────────────────────────────────────────────────────────────────────────────
+// The only tokens whose value is supplied by the device rather than by us: the
+// notch/home-indicator insets a `viewport-fit=cover` document must keep clear.
+// `env()` resolves to 0px everywhere it does not apply, so the same class is
+// correct on a desktop browser and on an iPhone in landscape.
+//
+// Declared in `globals.css` as `--ds-safe-*` OUTSIDE the colour block (they are
+// not colours and have no entry in `SemanticColorScale`) and bound to Tailwind
+// spacing so `pt-safe-top` / `pb-safe-bottom` exist without an arbitrary value.
+
+export const safeArea = {
+  top: 'env(safe-area-inset-top, 0px)',
+  bottom: 'env(safe-area-inset-bottom, 0px)',
+  left: 'env(safe-area-inset-left, 0px)',
+  right: 'env(safe-area-inset-right, 0px)',
 } as const
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -368,6 +398,13 @@ export const typeScale = {
    * precision and alignment, not size).
    */
   readout: { fontSize: '24px', lineHeight: '28px', fontWeight: 600 },
+  /**
+   * Input text on phones (mobile rebuild plan §5.1). 16px is not a taste
+   * decision: mobile Safari zooms the layout viewport when a focused text
+   * control renders below 16px, and the page never zooms back. Applied via
+   * `phone:text-input` on Input/Select/Textarea only.
+   */
+  input: { fontSize: '16px', lineHeight: '24px', fontWeight: 400 },
   bodyLg: { fontSize: '15px', lineHeight: '24px', fontWeight: 400 },
   body: { fontSize: '13px', lineHeight: '20px', fontWeight: 400 },
   bodyEmphasis: { fontSize: '13px', lineHeight: '20px', fontWeight: 500 },
@@ -417,6 +454,13 @@ export const breakpoints = {
   tablet: 768,
   laptop: 1024,
   desktop: 1440,
+  /**
+   * The phone tier's upper bound (mobile rebuild plan §4): one boundary at
+   * `tablet`, so `phone` is the max-width side of it. Tailwind binds this as
+   * `screens.phone = { max: '767px' }`; it is `tablet - 1`, never a second
+   * number to keep in step.
+   */
+  phoneMax: 767,
 } as const
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -433,6 +477,19 @@ export const layout = {
   maxContentWidthMarketing: '1120px',
   drawerWidth: '420px',
   settingsSubNavWidth: '160px',
+  /**
+   * Phone chrome (mobile rebuild plan §5.1, §25.3). The bottom bar's own
+   * height, before the safe-area inset; `<main>`'s bottom padding and the
+   * toast offset derive from it rather than repeating 56.
+   */
+  bottomNavHeight: '56px',
+  /**
+   * Bottom-sheet ceiling (`Modal placement="sheet"`, phone `Drawer`).
+   * `dvh`, not `vh`: with a mobile browser's collapsing address bar `vh` is
+   * the *largest* viewport, so an 85vh sheet was taller than the screen while
+   * the bar was showing and its footer sat below the fold.
+   */
+  sheetMaxHeight: '90dvh',
 } as const
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -465,6 +522,7 @@ export const tokens = {
   primitiveColors,
   colors,
   spacing,
+  safeArea,
   radius,
   shadow,
   zIndex,
