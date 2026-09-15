@@ -49,18 +49,25 @@ export default function WorkspaceSidebar({
   const location = gymProfile?.gym_address?.split(',').pop()?.trim() || null
   const subtitle = [location, tier?.toUpperCase()].filter(Boolean).join(' · ')
 
+  // A capability-gated destination (Door Access, Enterprise) is hidden until
+  // the subscription query answers, so it never appears and then vanishes.
+  // UX only — the page enforces the same check through `FeatureGate`, and
+  // every endpoint under it through `requireAccessControlGym`.
+  const capabilities = subscription?.subscription.capabilities
   const groups = WORKSPACE_NAV.map((group) => ({
     label: group.label,
-    items: group.items.map((item) => {
-      const Icon = item.icon
-      return {
-        label: item.name,
-        href: item.href,
-        icon: <Icon strokeWidth={1.8} aria-hidden="true" />,
-        active: active?.href === item.href,
-      }
-    }),
-  }))
+    items: group.items
+      .filter((item) => !item.capability || capabilities?.[item.capability])
+      .map((item) => {
+        const Icon = item.icon
+        return {
+          label: item.name,
+          href: item.href,
+          icon: <Icon strokeWidth={1.8} aria-hidden="true" />,
+          active: active?.href === item.href,
+        }
+      }),
+  })).filter((group) => group.items.length > 0)
 
   return (
     <SideNav
@@ -68,7 +75,7 @@ export default function WorkspaceSidebar({
       linkComponent={Link}
       collapsed={collapsed}
       ariaLabel="Workspace"
-      className="fixed inset-y-0 z-sticky hidden bg-surface-panel lg:flex"
+      className="fixed inset-y-0 z-sticky hidden bg-surface-panel tablet:flex"
       header={
         <div className="flex h-bar items-center gap-2.5 px-3">
           <Image

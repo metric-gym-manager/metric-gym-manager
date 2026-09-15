@@ -240,6 +240,10 @@ pages orchestrate them. Neither restyles primitives directly.
 | `AppBar`                                  | Phone top chrome: leading identity/Back + centred title. **No action slot** |
 | `BottomNav`                               | Phone persistent navigation: four slots, the fourth is More                 |
 
+Both are mounted by `WorkspaceShell`; neither knows the product's routes. The
+shell feeds them from `WORKSPACE_NAV` — the single navigation list both tiers
+read (`mobileNav()` splits it into the bar and the More sheet).
+
 ---
 
 ## 8. Cross-Cutting Subsystems
@@ -332,6 +336,17 @@ refinement inside a composition but may never switch compositions.
 - Overlays: `Modal placement` is `center` (default) · `sheet` · `fullscreen`;
   only `fullscreen` claims the hardware Back button, and only on a phone
   (`useHistoryBack`, one implementation).
+- **The shell's two chromes are both always in the DOM**, one hidden per tier
+  by `tablet:hidden` / `tablet:flex`. A tier-switched tree would have to agree
+  between the server and the hydrating client; `display: none` takes the
+  hidden one out of the accessibility tree anyway. The cost is two `banner`
+  landmarks and two `<nav aria-label="Workspace">` in the markup — one of each
+  live at a time — so a test has to name which it means.
+- **`sm:`/`md:`/`lg:`/`max-tablet:` are banned in `components/workspace`,
+  `components/ui/primitives` and `components/common/composites`** — the three
+  directories that _define_ compositions. Machine-enforced by `arch:check`
+  UI6, allow-list empty. Feature and page code may still use them for fluid
+  refinement inside a composition.
 
 ---
 

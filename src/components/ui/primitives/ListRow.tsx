@@ -54,10 +54,14 @@ export interface ListRowProps {
   value?: React.ReactNode
   /** One or two dense buttons. Three or more belong in a `DropdownMenu`. */
   actions?: React.ReactNode
-  /** Navigate on tap. Mutually exclusive with `onClick`. */
+  /** Navigate on tap. */
   href?: string
-  /** Act on tap. Mutually exclusive with `href`. */
-  onClick?: () => void
+  /**
+   * Act on tap. Alone it makes the row a `<button>`; alongside `href` it runs
+   * on the link's click, which is how the More sheet drops its own history
+   * entry before letting the navigation proceed.
+   */
+  onClick?: (event: React.MouseEvent<HTMLElement>) => void
   /** Persistent selection (§25.1, ruling R7): a `surface-selected` fill. */
   selected?: boolean
   className?: string
@@ -147,6 +151,7 @@ export function ListRow({
   const target = href ? (
     <Link
       href={href}
+      onClick={onClick}
       aria-labelledby={primaryId}
       aria-describedby={hasDescription ? descriptionId : undefined}
       className={targetClassName}

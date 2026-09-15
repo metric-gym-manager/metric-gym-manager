@@ -138,7 +138,7 @@ if (isDir(MIGRATIONS)) {
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// UI OVERHAUL RATCHETS (UI1–UI2)
+// UI OVERHAUL RATCHETS (UI1–UI7)
 // Added 2026-08-29 for the workspace UI overhaul. See
 // docs/architecture/workspace-ui-overhaul-log.md and architecture.md rule 2.21.
 //
@@ -176,20 +176,13 @@ const UI1_ALLOW = new Set([
   'FilterBar',
   'Toolbar',
   'Popover',
-  // Directive targets — unused today, mounted during Phase 2/3. Deleting them
+  // Directive targets — unused today, mounted during Phase 3. Deleting them
   // would mean rebuilding under new names, which directive §4.4 bans.
-  'Drawer',
+  //
+  // `Drawer`, `AppBar` and `BottomNav` were here and are GONE: the mobile
+  // rebuild's Phase 2 mounted all three in `WorkspaceShell`, which is the
+  // deadline their entries carried.
   'Divider',
-  // Mobile rebuild Phase 1 (plan §5.11, §25.2–§25.3): the phone chrome is
-  // BUILT in Phase 1 and WIRED INTO THE SHELL in Phase 2, which is the order
-  // the plan sets (§18 rows 1 and 2) so the primitives exist before the shell
-  // that composes them. They render in the dev showcase, which UI1
-  // deliberately does not count as an entry point. Phase 2's scope item 6 is
-  // "remove Drawer, AppBar, BottomNav from any allow-list they were parked
-  // in" — so these two lines have a deadline, and the ratchet above fails the
-  // moment the shell mounts them and they are still listed here.
-  'AppBar',
-  'BottomNav',
   // DESIGN_SYSTEM.md §12 — staged for future placement, do not sweep.
   'RevenueMetricCard',
   'InstallButton',
@@ -593,6 +586,64 @@ for (const file of walk(SRC, ['.tsx'])) {
   }
 }
 
+// ── UI6: One composition boundary in the shared UI (mobile rebuild §4) ─────
+// The rebuild has exactly one boundary, `tablet` (768): `phone:` is its
+// max-width side and the two are how a component switches COMPOSITION.
+// `sm:`/`md:`/`lg:` remain legal for fluid refinement inside a composition —
+// but not in the three directories that define the compositions themselves,
+// where a second boundary means the shell, a primitive and a screen disagree
+// about what "mobile" is. `max-tablet:` is the same 768 written a second way,
+// which is how it drifted in the first place.
+//
+// Feature and page code is deliberately OUT of scope: those are compositions,
+// not definitions of one, and `sm:`/`lg:` inside them are refinements.
+const UI6_DIRS = [
+  'src/components/workspace/',
+  'src/components/ui/primitives/',
+  'src/components/common/composites/',
+]
+// A Tailwind VARIANT, not an object key. `size: { sm: 'h-7.5' }` in a cva
+// block is `sm:` followed by a space; a variant is followed immediately by a
+// utility name (`lg:flex`), a negative (`lg:-mt-1`) or an arbitrary value
+// (`lg:[&>*]:flex-1`), and is preceded by a quote or whitespace. Written
+// loosely first, this rule reported five primitives that use none.
+const UI6_RE = /(?:^|[\s'"`])(?:sm|md|lg|max-tablet):[a-z[-]/m
+
+// Seeded EMPTY, and it was empty on the day the rule landed — the shell's
+// `lg:` classes became `tablet:` in the same commit. An entry here means a
+// second boundary was accepted somewhere it decides a composition; it needs a
+// written reason and a phase that removes it.
+const UI6_ALLOW = new Set([])
+
+for (const file of UI_SRC_TSX) {
+  const r = rel(file)
+  if (!UI6_DIRS.some((d) => r.startsWith(d))) continue
+  if (UI6_ALLOW.has(r)) continue
+  // Comments stripped: a doc comment showing a consumer how to lay out a band
+  // (`StatCard`'s `lg:grid-cols-4` example) is documenting page code, not
+  // switching a composition here.
+  if (UI6_RE.test(codeOf(file))) {
+    fail(
+      'UI6',
+      `"${r}" uses a \`sm:\`/\`md:\`/\`lg:\`/\`max-tablet:\` breakpoint. The ` +
+        `shared UI has ONE composition boundary: \`phone:\` (< 768) and ` +
+        `\`tablet:\` (≥ 768). See docs/architecture/mobile-ui-rebuild-plan.md §4.`
+    )
+  }
+}
+
+// Ratchets must shrink.
+for (const r of UI6_ALLOW) {
+  const abs = path.join(ROOT, r)
+  if (!exists(abs) || !UI6_RE.test(codeOf(abs))) {
+    fail(
+      'UI6',
+      `"${r}" is in UI6_ALLOW but no longer uses an off-boundary breakpoint. ` +
+        `Remove it from the allow-list so the ratchet keeps tightening.`
+    )
+  }
+}
+
 // ── UI5: No off-scale exemption in eslint.config.mjs may outlive its need ──
 // The exemption block re-declares no-restricted-syntax WITHOUT the off-scale
 // list for a named set of files. An exemption whose reason has expired is worse
@@ -645,6 +696,79 @@ for (const r of exempted) {
         `file no longer uses an off-scale value. Delete it from the exemption ` +
         `list so the restriction applies there.`
     )
+  }
+}
+
+// ── UI7: No rulebook table row may be silently truncated ────────────────────
+// GFM splits a table row on every unescaped `|` — inside an inline code span
+// too — and then DISCARDS the cells past the header's column count. So one
+// unescaped pipe does not mangle a rule, it deletes it: §2.21's UI6 rule and
+// the PUBLIC_ROUTES sentence after it vanished from the rendered Pattern Index
+// for a whole commit, and the row still looked like a row. Nothing else in the
+// repo can see this — arch:check, ESLint, tsc, the full Jest suite and
+// Prettier were all green with two rules gone, and Prettier in fact CAUSED the
+// source mangling by re-padding the row around the phantom columns, then
+// reported it as correctly formatted (finding F17).
+//
+// The check is the arithmetic: every body row carries exactly as many cells as
+// its header. Escape a literal pipe as `\|`, as the rest of §2.21 already does
+// for `center`\|`sheet`\|`fullscreen`.
+const RULEBOOK_MD = [
+  ...walk(path.join(ROOT, '.claude'), ['.md']),
+  ...walk(path.join(ROOT, 'docs', 'architecture'), ['.md']),
+]
+
+/** Cells in one table row, splitting only on UNESCAPED pipes. */
+const rowCells = (line) =>
+  line
+    .trim()
+    .replace(/^\||\|$/g, '')
+    .split(/(?<!\\)\|/).length
+
+const DELIMITER_ROW = /^\s*\|[\s:|-]+\|\s*$/
+
+for (const file of RULEBOOK_MD) {
+  const lines = fs.readFileSync(file, 'utf8').split('\n')
+  let inFence = false
+  let header = null
+  let headerLine = 0
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    // A fenced block may legitimately contain a table — a doc quoting one as
+    // an example. Nothing in the scanned set does today (verified: zero
+    // fenced lines start with a pipe), so this is defensive, not load-bearing.
+    // The ESCAPE-awareness in `rowCells` is the opposite: drop it and ten
+    // correctly-escaped rows across four rulebooks report as ragged.
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence
+      continue
+    }
+    if (inFence) continue
+
+    if (!line.trim().startsWith('|')) {
+      header = null
+      continue
+    }
+    if (header === null) {
+      // A table starts where a `|` line is followed by the delimiter row.
+      if (DELIMITER_ROW.test(lines[i + 1] ?? '')) {
+        header = rowCells(line)
+        headerLine = i + 1
+      }
+      continue
+    }
+
+    const n = rowCells(line)
+    if (n !== header) {
+      fail(
+        'UI7',
+        `${rel(file)}:${i + 1} — table row has ${n} cells but the header at ` +
+          `line ${headerLine} has ${header}. An unescaped "|" splits the row; ` +
+          `cells past the header count are DROPPED when the file renders. ` +
+          `Escape it as "\\|".`
+      )
+    }
   }
 }
 

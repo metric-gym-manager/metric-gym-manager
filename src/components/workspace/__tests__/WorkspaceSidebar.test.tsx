@@ -9,7 +9,12 @@ jest.mock('next/navigation', () => ({
   usePathname: () => pathname,
 }))
 
-const subscription = { subscription: { subscriptionTier: 'enterprise' } }
+const subscription = {
+  subscription: {
+    subscriptionTier: 'enterprise',
+    capabilities: { accessControlHardware: true },
+  },
+}
 jest.mock('@/features/subscriptions', () => ({
   __esModule: true,
   useSubscription: () => ({ data: subscription }),
@@ -56,6 +61,19 @@ describe('WorkspaceSidebar', () => {
    * no `aria-current` at all. The state was therefore unreadable both visually
    * and programmatically. `aria-current` is the half a test can hold.
    */
+  it('hides Door Access from a gym without the Enterprise capability', () => {
+    // The entry closes OPEN-1 (the page has never been in the navigation), and
+    // it is capability-gated: a Lite gym must not be shown a destination that
+    // renders an upgrade panel. UX only — the page enforces the same check.
+    subscription.subscription.capabilities.accessControlHardware = false
+    mockFetchRoutes(routes())
+    renderAt('/dashboard')
+    expect(
+      screen.queryByRole('link', { name: 'Door Access' })
+    ).not.toBeInTheDocument()
+    subscription.subscription.capabilities.accessControlHardware = true
+  })
+
   it('marks exactly one item as the current page', async () => {
     mockFetchRoutes(routes())
     renderAt('/members')

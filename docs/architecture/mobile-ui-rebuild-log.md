@@ -36,18 +36,20 @@ never commit to `master`.
 Numbered `M<n>` so they cannot be confused with the overhaul's `R<n>` rulings,
 which still bind (R6 hands mobile to this effort; R7 governs selection).
 
-| #       | Date       | Ruling                                                                                                                                                                                                                                                                                                                 | Rationale                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **M1**  | 2026-09-13 | **The probe's overflow rules are tier-aware.** Phone tier: only a `data-scroll="x"` container may hold or extend past the viewport. Desktop tier (≥ 768): any `overflow-x: auto\|scroll` container is sanctioned. A clip container (`hidden`/`clip`) with wider content is a violation on both tiers.                  | Plan §17 reads "no `main *` beyond the viewport except inside `data-scroll="x"`" with no tier qualifier, but §4 says tablet tables "scroll in their containers" and §5.20 sanctions horizontal scroll for tabular data. Read literally, §17 fails Members (767 px) and the cohort matrix (1,093 px) at 768 and 1024 with no phone involved. §4 is the more specific statement, so it wins. Logged as an EXCEPTION.   |
-| **M2**  | 2026-09-13 | **Known desktop probe violations are a shrinking allow-list, not a softened rule.** `KNOWN_DESKTOP_VIOLATIONS` in `mobile-probe.spec.ts` names each entry's clearing phase; a violation not on the list fails, and a listed entry that no longer occurs fails too.                                                     | The desktop was expected to probe clean and did not (F1). Phase 0 may not touch product code, and loosening the rule would hide a real defect. The same discipline as `UI1_ALLOW`–`UI5`: an entry that outlives its defect reads as sanctioned, so the ratchet fails on staleness. Exercised live once already — it flagged the cohort entry the moment M1 made it stale.                                            |
-| **M3**  | 2026-09-13 | **Phone-tier probe results are reported, not asserted, until a route is rebuilt.** `STRICT_PHONE_ROUTES` starts empty; each phase adds the routes it touched and the list never shrinks.                                                                                                                               | The audit measured every phone route failing. A suite that is red everywhere from day one teaches people to ignore red; the value in Phase 0 is the _numbers_ falling route by route, which the report gives and a failure would not.                                                                                                                                                                                |
-| **M4**  | 2026-09-13 | **§28 fixture values the product's validation rejects are test-only render constants**, not seeded. `TEST_ONLY_RENDER` carries 12,345,678 / 99,999,999, the 320-char SMS, the 20-char phone and the 128 / 1,024 tab badges; the seed carries the maxima the API accepts (1,000,000; a 160-char message with newlines). | `addMemberSchema` caps `planAmount`/`paymentAmount` at 1,000,000 and `createAnnouncementSchema` caps a message at 160. Seeding past those means bypassing validation — the door the fixtures exist to keep shut. The prompt's "through the app's own APIs" is the binding constraint; §28's numbers are examples of _shape_. Logged as an EXCEPTION.                                                                 |
-| **M5**  | 2026-09-13 | **768×1024 is emulated as an iPad, not a phone:** `hasTouch: true`, `isMobile: false`, desktop UA, DPR 2. The four phone projects are full phone emulation (`isMobile`, `hasTouch`, iPhone UA, DPR 2–3).                                                                                                               | iPadOS Safari reports a desktop UA and no client hints. The plan's tablet decision (d02) hands 768–1023 the desktop composition, and Phase 2's SSR hint reads `sec-ch-ua-mobile` — a 768 project sending `?1` would exercise the wrong branch and make the tablet tier look like a hydration flip. The emulation must match the device the decision is about.                                                        |
-| **M6**  | 2026-09-13 | **One sign-in per spec file per project, in the project's own viewport** (`helpers/tier-page.ts`).                                                                                                                                                                                                                     | Seven projects × a sign-in per test is ~110 sign-ins a run, past Supabase's per-IP token limit (`helpers/billing.ts` records two failed attempts at caching sessions). And `browser.newPage()` — the pattern the existing specs use in `beforeAll` — ignores the project's `use` block, so a "phone-390" run would silently measure a 1280×720 desktop. The helper rebuilds the context from `testInfo.project.use`. |
-| **M7**  | 2026-09-13 | **Page overflow is measured against the configured device width, not `innerWidth`.**                                                                                                                                                                                                                                   | F5: a mobile browser meeting content wider than the device zooms the layout viewport out, so `scrollWidth === innerWidth` held at 397/397 on the 390 project and the Renewals overflow passed. Comparing to `page.viewportSize().width` reports it as "zoomed out to fit".                                                                                                                                           |
-| **M8**  | 2026-09-14 | **`compactAxis` is a compact FORMATTER (`1400000 → 1.4M`), not the 56 px axis-width token.** §5.1's `chartAxisWidthCompact` is therefore not added.                                                                                                                                                                    | §5.9 offers both and hands the choice to the Phase 1 visual pass. Rendered both at 390 in the showcase: the 40 px axis shows `0000 / 0000 / 0000 / 0000 / 0` unformatted and `1.6M / 1.2M / 800k / 400k / 0` formatted. Widening to 56 takes 16 px of plot area from a 390 px screen AND still cannot hold `1000000` (7 chars). The formatter fixes it in the space there already is.                                |
-| **M9**  | 2026-09-14 | **`ListRow`'s value drops under the primary column by FLEX WRAPPING, not a breakpoint.** The primary column claims `basis-40` (160) and the value `min-w-24` (96); with the 12 px gap they sit side by side only above ~268 px of row content.                                                                         | §9.1 says the value drops "when the row is narrower than 340 px". There is no `phone-sm` token and adding one is a plan amendment. Wrapping reproduces the stated threshold (a row with a leading avatar wraps below ~338 px) and is content-aware in a way a viewport breakpoint is not — a row with a 44 px selection target wraps sooner than one with a 26 px avatar, which is correct in both cases.            |
-| **M10** | 2026-09-14 | **`AppBar` and `BottomNav` are parked in `UI1_ALLOW` for Phase 1.** Two entries, with Phase 2 named as their deadline.                                                                                                                                                                                                 | The Phase 1 prompt says to mount them in the showcase "so UI1 stays green", but UI1 explicitly does **not** count `src/app/(dev)/design-system/` as an entry point (a showcase imports everything by design). The plan's own sequencing builds the chrome in Phase 1 and wires it in Phase 2, and the Phase 2 prompt's scope item 6 is "remove Drawer, AppBar, BottomNav from any allow-list they were parked in".   |
+| #       | Date       | Ruling                                                                                                                                                                                                                                                                                                                 | Rationale                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------- | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **M1**  | 2026-09-13 | **The probe's overflow rules are tier-aware.** Phone tier: only a `data-scroll="x"` container may hold or extend past the viewport. Desktop tier (≥ 768): any `overflow-x: auto\|scroll` container is sanctioned. A clip container (`hidden`/`clip`) with wider content is a violation on both tiers.                  | Plan §17 reads "no `main *` beyond the viewport except inside `data-scroll="x"`" with no tier qualifier, but §4 says tablet tables "scroll in their containers" and §5.20 sanctions horizontal scroll for tabular data. Read literally, §17 fails Members (767 px) and the cohort matrix (1,093 px) at 768 and 1024 with no phone involved. §4 is the more specific statement, so it wins. Logged as an EXCEPTION.                                                                                    |
+| **M2**  | 2026-09-13 | **Known desktop probe violations are a shrinking allow-list, not a softened rule.** `KNOWN_DESKTOP_VIOLATIONS` in `mobile-probe.spec.ts` names each entry's clearing phase; a violation not on the list fails, and a listed entry that no longer occurs fails too.                                                     | The desktop was expected to probe clean and did not (F1). Phase 0 may not touch product code, and loosening the rule would hide a real defect. The same discipline as `UI1_ALLOW`–`UI5`: an entry that outlives its defect reads as sanctioned, so the ratchet fails on staleness. Exercised live once already — it flagged the cohort entry the moment M1 made it stale.                                                                                                                             |
+| **M3**  | 2026-09-13 | **Phone-tier probe results are reported, not asserted, until a route is rebuilt.** `STRICT_PHONE_ROUTES` starts empty; each phase adds the routes it touched and the list never shrinks.                                                                                                                               | The audit measured every phone route failing. A suite that is red everywhere from day one teaches people to ignore red; the value in Phase 0 is the _numbers_ falling route by route, which the report gives and a failure would not.                                                                                                                                                                                                                                                                 |
+| **M4**  | 2026-09-13 | **§28 fixture values the product's validation rejects are test-only render constants**, not seeded. `TEST_ONLY_RENDER` carries 12,345,678 / 99,999,999, the 320-char SMS, the 20-char phone and the 128 / 1,024 tab badges; the seed carries the maxima the API accepts (1,000,000; a 160-char message with newlines). | `addMemberSchema` caps `planAmount`/`paymentAmount` at 1,000,000 and `createAnnouncementSchema` caps a message at 160. Seeding past those means bypassing validation — the door the fixtures exist to keep shut. The prompt's "through the app's own APIs" is the binding constraint; §28's numbers are examples of _shape_. Logged as an EXCEPTION.                                                                                                                                                  |
+| **M5**  | 2026-09-13 | **768×1024 is emulated as an iPad, not a phone:** `hasTouch: true`, `isMobile: false`, desktop UA, DPR 2. The four phone projects are full phone emulation (`isMobile`, `hasTouch`, iPhone UA, DPR 2–3).                                                                                                               | iPadOS Safari reports a desktop UA and no client hints. The plan's tablet decision (d02) hands 768–1023 the desktop composition, and Phase 2's SSR hint reads `sec-ch-ua-mobile` — a 768 project sending `?1` would exercise the wrong branch and make the tablet tier look like a hydration flip. The emulation must match the device the decision is about.                                                                                                                                         |
+| **M6**  | 2026-09-13 | **One sign-in per spec file per project, in the project's own viewport** (`helpers/tier-page.ts`).                                                                                                                                                                                                                     | Seven projects × a sign-in per test is ~110 sign-ins a run, past Supabase's per-IP token limit (`helpers/billing.ts` records two failed attempts at caching sessions). And `browser.newPage()` — the pattern the existing specs use in `beforeAll` — ignores the project's `use` block, so a "phone-390" run would silently measure a 1280×720 desktop. The helper rebuilds the context from `testInfo.project.use`.                                                                                  |
+| **M7**  | 2026-09-13 | **Page overflow is measured against the configured device width, not `innerWidth`.**                                                                                                                                                                                                                                   | F5: a mobile browser meeting content wider than the device zooms the layout viewport out, so `scrollWidth === innerWidth` held at 397/397 on the 390 project and the Renewals overflow passed. Comparing to `page.viewportSize().width` reports it as "zoomed out to fit".                                                                                                                                                                                                                            |
+| **M8**  | 2026-09-14 | **`compactAxis` is a compact FORMATTER (`1400000 → 1.4M`), not the 56 px axis-width token.** §5.1's `chartAxisWidthCompact` is therefore not added.                                                                                                                                                                    | §5.9 offers both and hands the choice to the Phase 1 visual pass. Rendered both at 390 in the showcase: the 40 px axis shows `0000 / 0000 / 0000 / 0000 / 0` unformatted and `1.6M / 1.2M / 800k / 400k / 0` formatted. Widening to 56 takes 16 px of plot area from a 390 px screen AND still cannot hold `1000000` (7 chars). The formatter fixes it in the space there already is.                                                                                                                 |
+| **M9**  | 2026-09-14 | **`ListRow`'s value drops under the primary column by FLEX WRAPPING, not a breakpoint.** The primary column claims `basis-40` (160) and the value `min-w-24` (96); with the 12 px gap they sit side by side only above ~268 px of row content.                                                                         | §9.1 says the value drops "when the row is narrower than 340 px". There is no `phone-sm` token and adding one is a plan amendment. Wrapping reproduces the stated threshold (a row with a leading avatar wraps below ~338 px) and is content-aware in a way a viewport breakpoint is not — a row with a 44 px selection target wraps sooner than one with a 26 px avatar, which is correct in both cases.                                                                                             |
+| **M10** | 2026-09-14 | **`AppBar` and `BottomNav` are parked in `UI1_ALLOW` for Phase 1.** Two entries, with Phase 2 named as their deadline.                                                                                                                                                                                                 | The Phase 1 prompt says to mount them in the showcase "so UI1 stays green", but UI1 explicitly does **not** count `src/app/(dev)/design-system/` as an entry point (a showcase imports everything by design). The plan's own sequencing builds the chrome in Phase 1 and wires it in Phase 2, and the Phase 2 prompt's scope item 6 is "remove Drawer, AppBar, BottomNav from any allow-list they were parked in".                                                                                    |
+| **M11** | 2026-09-14 | **The More sheet's rows drop the sheet's history entry BEFORE navigating.** A row records its href, calls `history.back()`, and `useHistoryBack`'s close handler performs the navigation.                                                                                                                              | Tapping a link while the entry is live pushes the new route ON TOP of it. The dead entry then shares the previous route's URL, so the first Back looks right and the SECOND does nothing — and another is added every trip through More. Closing first is the only ordering that leaves the stack clean; the alternative (dropping the entry after the push) cannot work, because `history.back()` would undo the navigation.                                                                         |
+| **M12** | 2026-09-14 | **Both chromes stay in the DOM at every width, hidden by CSS.** `AppBar`/`BottomNav` carry `tablet:hidden`; `WorkspaceHeader`/`WorkspaceSidebar` carry `tablet:flex`.                                                                                                                                                  | A tier-switched TREE has to agree between the server and the hydrating client, and the tier is a measurement the server cannot take (M5) — the SSR hint is a guess. `display: none` removes the hidden chrome from the accessibility tree, so the only real cost is two `banner` landmarks and two `<nav aria-label="Workspace">` in the markup, one of each live at a time. Tests must name which they mean; the first version of the shell test did not, and silently asserted against the sidebar. |
 
 ---
 
@@ -98,20 +100,27 @@ added 100 overdue rows with two 26 px buttons each — the fixture doing its job
 
 ### 2.3 Suite sizes
 
-| Metric                                         | Phase 0 | Phase 1 |
-| ---------------------------------------------- | ------: | ------: |
-| Jest tests                                     |   1,760 |   1,889 |
-| Playwright mobile-rebuild tests (7 projects)   |     124 |     124 |
-| Pre-rebuild Playwright tests (`chromium` only) |      26 |      26 |
-| Desktop baselines (1366, committed)            |       7 |       7 |
-| `STRICT_PHONE_ROUTES`                          |       0 |       0 |
-| `KNOWN_DESKTOP_VIOLATIONS`                     |       3 |       3 |
-| Components mounted for mobile in `src/app`     |       0 |       0 |
-| `UI1_ALLOW` entries                            |      13 |      15 |
+| Metric                                         | Phase 0 | Phase 1 | Phase 2 |
+| ---------------------------------------------- | ------: | ------: | ------: |
+| Jest tests                                     |   1,760 |   1,889 |   1,938 |
+| Playwright mobile-rebuild tests (7 projects)   |     124 |     124 |     124 |
+| Pre-rebuild Playwright tests (`chromium` only) |      26 |      26 |      26 |
+| Desktop baselines (1366, committed)            |       7 |       7 |       7 |
+| `STRICT_PHONE_ROUTES`                          |       0 |       0 |       0 |
+| `KNOWN_DESKTOP_VIOLATIONS`                     |       3 |       3 |       3 |
+| Components mounted for mobile in `src/app`     |       0 |       0 |       3 |
+| `UI1_ALLOW` entries                            |      13 |      15 |      12 |
+| `UI6_ALLOW` entries                            |       — |       — |       0 |
 
 Phase 1 rebuilds no route, so `STRICT_PHONE_ROUTES` cannot grow yet (M3) and
 the 2.1 baseline is unchanged — the primitives are ready; nothing composes
 them outside the showcase until Phase 2.
+
+Phase 2 rebuilds the CHROME, not the screens' content, and still cannot run
+the suite against the seeded gym (§6.1). `STRICT_PHONE_ROUTES` therefore stays
+empty on purpose: adding `/dashboard` would assert a populated screen this
+session has never seen. `UI1_ALLOW` falls by three — `Drawer`, `AppBar` and
+`BottomNav` are mounted — and gains nothing.
 
 ### 2.4 Phase 1 — the design-system showcase, probed and rendered
 
@@ -151,6 +160,48 @@ phase needs the same evidence and the E2E gym is still out of reach.
 with the Tailwind CLI and inspected. Two things only that could show: the
 `text-input` colour collision (F11), and that `theme(spacing.touch)` resolves
 inside an arbitrary `grid-cols-[…]` value.
+
+### 2.5 Phase 2 — the rebuilt shell, probed
+
+`next dev`, the phone tier, with the workspace routes temporarily made public
+(the seeded gym is still unreachable — §6.1 — so the pages' own queries answer
+401 and only the CHROME rendered). Everything below is therefore a
+measurement of the shell, which is what this phase built.
+
+| Route           | Width | beyond | overflow | touch | bottom nav    |
+| --------------- | ----- | ------ | -------- | ----- | ------------- |
+| `/dashboard`    | 320   | 0      | 0        | 0 / 5 | **320 / 320** |
+| `/dashboard`    | 390   | 0      | 0        | 0 / 5 | **390 / 390** |
+| `/settings/gym` | 320   | 0      | 0        | 0 /11 | **320 / 320** |
+| `/settings/gym` | 390   | 0      | 0        | 0 /11 | **390 / 390** |
+| More sheet open | 320   | 0      | 0        | 0 / 8 | —             |
+| More sheet open | 390   | 0      | 0        | 0 / 8 | —             |
+
+`scrollWidth === clientWidth` on the bar at both widths is §6.2's assertion,
+and it is the audit's headline defect closed: the bar it replaces measured
+**754 px on a 390 px screen** with five of its nine destinations off-screen
+behind a scroll with no affordance.
+
+**Not a like-for-like touch count.** `/settings/gym` was `9 / 18` in the 2.1
+baseline and is `0 / 11` here — but seven of those eighteen controls are
+data-dependent and did not render without a session. The honest claim is
+narrower and still worth having: _every control that rendered met §15.1_, and
+the two the baseline names by construction — the 32 px inputs and the 20 px
+"‹ Settings" link — are gone, the first by Phase 1's primitive sizing and the
+second because the link itself was deleted.
+
+**Back closes the More sheet without navigating**, observed in the real
+router: URL unchanged after `page.goBack()`, `[role="dialog"]` count 0. That
+is spike (a)'s finding working through `useHistoryBack` for the first time.
+
+**Desktop equivalence, measured again:** `/dashboard` and `/settings/gym`
+screenshotted full-page at 1366 before and after the branch and compared at
+`maxDiffPixels: 0` — **identical**. The `lg:` → `tablet:` migration, the
+`AppBar`/`BottomNav` in the DOM and the shell's new padding change nothing at 1366. **Caveat:** the one expected desktop diff — the Door Access sidebar
+entry — does NOT appear in this environment, because it is gated on a
+capability the unreachable subscription endpoint would have to supply. So the
+comparison proves the rest of the desktop is untouched and says nothing about
+that entry; its rendering is covered by the jsdom sidebar test only.
 
 ---
 
@@ -325,6 +376,74 @@ per phase cut from `master`. This session's branch,
 because PR #71 is still open: `master` does not yet carry `renderScreen({
 viewport })`, the probe, the fixtures or the spikes, all of which Phase 1
 builds on. Merge #71 first; this branch then merges cleanly on top.
+
+### Phase 2 — Shell & navigation · **DONE** 2026-09-14
+
+Branch `claude/mobile-ui-rebuild-p2`, cut from the Phase 1 head (PR #71 and
+#72 are both still open — see the Phase 1 entry's deviation note; the stack is
+p0 → phase-1 → p2). Scope: plan §18 row 2.
+
+**Decisions the phase was asked to take:**
+
+| Question                                            | Answer                                                                      | Source                                                                                        |
+| --------------------------------------------------- | --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| o02 — tablet treatment (768–1023)                   | Desktop composition, **sidebar collapsed by default**; a stored choice wins | Tracker default, applied. The band gets the PHONE chrome today, so this defines a tier (C20). |
+| o03 — four bar items or five                        | **Four** (Dashboard · Members · Renewals · More)                            | Tracker default, applied; decision C8.                                                        |
+| o12 — Door Access in the desktop sidebar            | **Yes**, capability-gated                                                   | Tracker default, applied — **not an explicit approval**. It is the one expected desktop diff. |
+| How does the More sheet's history entry stay clean? | Rows drop it before navigating (M11)                                        | Reasoned from spike (a) and verified in the browser.                                          |
+
+**Built (plan §18 row 2):**
+
+1. `nav.ts`: `mobile: { placement, order }`, `capability`, `mobileNav()`, and
+   the `/access-control` entry — **OPEN-1 closed**. `WORKSPACE_NAV` is still
+   the only list; the sheet's groups ARE the sidebar's groups.
+   `SETTINGS_SECTIONS` moved here too, because the AppBar now needs a section
+   name and a second copy in the shell is the same fork one level down.
+2. `WorkspaceShell` rebuilt: `AppBar` + `BottomNav` + the More `Drawer`,
+   `data-tier` on the root, `<main>` `phone:px-4 phone:pt-3` and a bottom
+   padding derived from `bottom-nav` + `--ds-safe-bottom`, `lg:` → `tablet:`,
+   the tablet-collapsed default. `MobileTopBar` and `MobileBottomNav` deleted;
+   the sign-out handler moved into the More sheet with its re-entrancy guard
+   and its full-document navigation intact (§2.15).
+3. `(dashboard)/layout.tsx` reads `sec-ch-ua-mobile` / UA through the new pure
+   `tierFromHeaders` and supplies `ViewportTierProvider initialTier`.
+4. `Toaster` top-centre on a phone, offset by `h-bar` + safe-top. Sonner's own
+   `mobileOffset` stops at 600 px and ours is 768, so the offset is passed
+   both ways.
+5. **UI6** in `arch:check`: no `sm:|md:|lg:|max-tablet:` in
+   `components/workspace`, `ui/primitives`, `common/composites`. Allow-list
+   **empty** — the shell's `lg:` classes became `tablet:` in the same commit.
+6. `Drawer`, `AppBar`, `BottomNav` removed from `UI1_ALLOW` (MO-8 closed).
+7. `PageHeader`'s `<h1>` is `phone:sr-only` and the settings rail's is too;
+   the in-flow "‹ Settings" link is **deleted** — the AppBar's 44 px Back
+   replaces a 20 px text link inside the scrolling content.
+8. **Added after the phase was first recorded as done.** Item 5's own §2.21
+   entry was written with unescaped pipes inside a table cell and deleted two
+   rules from the rendered rulebook (F17). Repaired, and the class of defect
+   made a gate failure: **UI7** in `arch:check` — every body row in a markdown
+   table under `.claude/**` or `docs/architecture/**` carries exactly as many
+   cells as its header. 41 files, 171 tables. The stale `UI1–UI2` range in the
+   script's section header was corrected to `UI1–UI7` in the same commit.
+
+**Verification:**
+
+- `type-check` clean · `lint` 0 errors (the same 11 pre-existing warnings) ·
+  `arch:check` green · Jest **1,938 passed**, 7 skipped (49 new).
+- Rendered at 320 and 390 and looked at; probe numbers and the desktop
+  pixel comparison in §2.5.
+- The repaired §2.21 row **rendered through a GFM renderer**, before and
+  after — three cells, rule intact end to end. The source check and the
+  render disagreed, which is the whole of F17.
+- **Mutation-falsified** (five, each restored): moving Renewals off the bar
+  fails 3 of 52; removing the capability filter fails 3 of 52; pointing the
+  AppBar's Back at `router.back()` fails 1 of 20; restoring the unescaped
+  pipe fails UI7; splitting on every pipe rather than unescaped ones makes
+  UI7 report 10 correctly-escaped rows across four rulebooks.
+
+**Known and deliberate:** the phone `AppBar` titles a settings section from
+`SETTINGS_SECTIONS`, and any _other_ nested route falls back to its parent's
+crumb. Only `/settings` has children today; a future nested route gets a true
+but coarse title until it is named.
 
 ---
 
@@ -512,6 +631,126 @@ present but split across nodes, and when the component failed to render at
 all. Prefer `expect(element).not.toHaveTextContent(...)` on a node the test
 has already proved exists.
 
+### F14 — A rule written loosely reported five primitives that broke none
+
+UI6's first pattern was `/\b(?:sm|md|lg|max-tablet):/`, which is what "no
+`lg:` here" looks like written down. It flagged `Button`, `Input`, `Modal`,
+`Select` and `Spinner` — none of which uses a breakpoint. All five declare
+cva variants: `size: { sm: 'h-7.5 …', md: …, lg: … }`. An object KEY and a
+Tailwind VARIANT are both `word` + `:`.
+
+The pattern now requires what a variant actually looks like — preceded by a
+quote or whitespace, followed immediately by a utility, a negative or an
+arbitrary value — and the rule strips comments first, so `StatCard`'s doc
+comment showing a consumer `lg:grid-cols-4` is documenting page code rather
+than switching a composition here.
+
+_Lesson:_ a new `arch:check` rule is code, and its first run is its first
+test. Five false positives would have been five allow-list entries, and an
+allow-list entry that never had a defect behind it is a permanent hole.
+
+### F15 — Two chromes, one document: the landmark a test grabs by accident
+
+Both navigations are `<nav aria-label="Workspace">` and both are `fixed` —
+the sidebar `fixed inset-y-0`, the bottom bar `fixed inset-x-0 bottom-0`. The
+shell test's first helper picked "the fixed one", got the SIDEBAR, and
+thirteen assertions failed in ways that read like a broken bottom bar. The
+same shape exists for `banner`: `WorkspaceHeader` and `AppBar` are both
+`<header>`.
+
+In a browser this is harmless — `display: none` leaves exactly one of each in
+the accessibility tree — and it is the price of M12's CSS switch. In jsdom,
+which applies no CSS, a test that does not say which one it means is asserting
+against whichever comes first.
+
+### F16 — The More sheet's history entry survives the navigation it triggers
+
+`useHistoryBack` drops the entry it pushed when the overlay closes, guarded by
+"is our entry still the current one" (F12) — which is exactly right for a
+close that navigated, and exactly wrong for the More sheet, whose ONLY purpose
+is to navigate. Tapping a link pushes the new route on top of the live entry;
+the guard then correctly refuses to go back, and the dead entry stays.
+
+The symptom is subtle enough to survive review: the first Back from the new
+route lands on the dead entry, whose URL is the PREVIOUS route, so Next
+navigates there and everything looks right. The second Back lands on that
+route's own entry — same URL — and appears to do nothing. One swallowed press
+per trip through More, accumulating.
+
+Fixed by ordering rather than by a new mechanism (M11): a row records its
+href and calls `history.back()`; the hook's close handler runs the navigation
+after the entry is gone. Verified in the browser — URL unchanged, sheet
+closed, and the stack left with nothing extra on it.
+
+### F17 — An unescaped pipe deletes a rule from `architecture.md`
+
+Phase 2's §2.21 edit wrote the UI6 rule as `` `sm:|md:|lg:|max-tablet:` `` —
+inside a **table cell**. GFM splits a row on every unescaped `|`, code span or
+not, so that one token became four phantom columns.
+
+The source damage is visible: Prettier re-padded the row around those
+boundaries and closed up the spacing between the inline code spans on either
+side, leaving a band of whitespace with a fragment at each end.
+
+```
+`sm: | md:            | lg: | max-tablet:`are banned in`components/workspace`
+```
+
+The **rendered** damage is worse, and is the reason this is a finding rather
+than a typo. A GFM renderer discards cells past the header's column count, so
+on the page the row is still three cells — and they are:
+
+| cell        | content                                                               |
+| ----------- | --------------------------------------------------------------------- |
+| `#`         | `2.21`                                                                |
+| `Rule`      | …the rule, cut off mid-sentence at `` `sm: `` on an unclosed backtick |
+| `Reference` | `md:`                                                                 |
+
+Everything after that was **deleted from the document**: the `lg:`/
+`max-tablet:` ban, the `arch:check` UI6 note and its empty allow-list, the
+whole `/terms`, `/privacy`, `/refund-policy`, `/contact` `PUBLIC_ROUTES`
+sentence, and the Reference column's two links. Two rules gone, not one
+sentence mangled — and a reader has no signal that anything is missing,
+because the row still looks like a row.
+
+The same edit escaped `` `center`\|`sheet`\|`fullscreen` `` correctly three
+sentences earlier, so knowing the rule was not enough — the pipes have to be
+escaped **every** time, and the Pattern Index is a 22-row table where every
+rule is one wide cell.
+
+Nothing could catch it: `arch:check`, ESLint, `tsc`, Prettier and all 1,938
+tests were green with two rules deleted, because the file is prose to all of
+them. Prettier in particular _caused_ the source mangling and then reported
+the result as correctly formatted.
+
+Two checks do work, and neither is reading the diff:
+
+1. Split each row on unescaped pipes and count — every body row carries as
+   many cells as its header. This is now **`arch:check` UI7**, over
+   `.claude/**` and `docs/architecture/**`: 41 files, 171 tables. It is
+   arithmetic, so it costs nothing and cannot drift.
+2. **Render it.** The source check finds the split; only the renderer shows
+   what a reader actually loses, and here the two gave different answers —
+   the source looked mangled, the render was missing two rules. The
+   Verification Directives say to render a UI change before claiming it
+   works; a rulebook is no different.
+
+Fixed by escaping (`` `sm:`\|`md:`\|`lg:`\|`max-tablet:` ``); the row now
+renders as three cells with the rule intact end to end, confirmed through a
+GFM renderer against both the broken and the fixed file.
+
+**UI7, falsified.** Restoring the unescaped pipe fails it (`row has 6 cells
+but the header has 3`) and the fix clears it. Its escape-awareness is
+load-bearing, not decoration: splitting on _every_ pipe instead of unescaped
+ones reports 10 correctly-escaped rows across four rulebooks as ragged. Its
+fenced-block skip is defensive only — nothing in the scanned set puts a table
+inside a fence today (verified: zero fenced lines start with a pipe), and the
+comment in the script says so rather than implying it was proven.
+
+**What UI7 does not do:** it counts cells. A rule can still be wrong, stale,
+or contradict another rule, and no gate in this repo can tell. It closes
+exactly one hole — text silently vanishing from a file every session loads.
+
 ---
 
 ## 5. Open items
@@ -519,15 +758,18 @@ has already proved exists.
 | Id    | Item                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Owner       |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------- |
 | MO-1  | ~~Two axis entries clear in Phase 1~~ → **Phase 6**. Phase 1 built `compactAxis` but §5.9 has the _screens_ pass it, and a default change would move the plot area of every 1366 chart against Phase 1's pixel-equivalence constraint. The 1 px x-tick stays Phase 7.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Phase 6 / 7 |
-| MO-2  | `STRICT_PHONE_ROUTES` is empty. Each phase adds the routes it rebuilt (M3); Phase 10 expects all 16. Phase 1 rebuilds no route, so it adds none.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | every phase |
+| MO-2  | `STRICT_PHONE_ROUTES` is empty. Each phase adds the routes it rebuilt (M3); Phase 10 expects all 16. Phases 1 and 2 add none — Phase 1 rebuilt no route, and Phase 2 rebuilt the CHROME, so adding `/dashboard` would assert a populated screen no session here has seen.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | every phase |
 | MO-3  | ~~`metadata.other['theme-color']` must go when `viewport.themeColor` arrives~~ — **done in Phase 1**; the spike now asserts `PLANNED_VIEWPORT_META` and the single theme-color.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | closed      |
 | MO-4  | Desktop baselines picture live E2E data. Any seeding or payment on the Enterprise gym shifts them; re-baseline with `--update-snapshots` and say so in the PR — never to absorb a phase's own diff.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | every phase |
 | MO-5  | The NEW-badge fixture ages out weekly and is re-registered by the seed; the recent-payments list on the dashboard baseline reorders when that happens.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | note        |
 | MO-6  | `TEST_ONLY_RENDER` lives under `tests/e2e/helpers`; jsdom tests that need it import it from there or re-export via `src/test-utils`. Phase 1 did not need it — the §28 shapes it carries (a 320-char SMS, 3-digit tab badges) belong to the screens, not the primitives.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Phase 4+    |
-| MO-7  | **Phase 1's E2E suites were not run** (no Supabase credentials in that session). Itemised in §6.1 with what each one leaves unknown; the `viewport` spike is the one to run first, because Phase 1 changed the layout AND flipped that spec's expectation together.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Phase 2     |
-| MO-8  | `UI1_ALLOW` gained `AppBar` and `BottomNav` (M10). Phase 2 mounts them in `WorkspaceShell` and must delete both lines in the same commit, or the ratchet fails on staleness.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Phase 2     |
+| MO-7  | **Phase 1's E2E suites were not run**, and **Phase 2's were not either** — same session, same missing Supabase credentials. Itemised in §6.1; `viewport-export` is still the one to run first. Phase 2 adds `app-router-history` to the list for a second reason: `useHistoryBack` now has two consumers with opposite ordering needs (F16).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Phase 3     |
+| MO-8  | ~~`UI1_ALLOW` gained `AppBar` and `BottomNav`~~ — **closed in Phase 2**: all three (`Drawer` too) are mounted in `WorkspaceShell` and their entries are deleted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | closed      |
 | MO-9  | o09 `bodyPhone` (14/20) is **proposed, not applied** — see the decisions table in the Phase 1 entry above. **Recommendation: adopt.** At 13/20 the primary row text sits 1 px above the caption (12) and 2 px above the mono meta (11), so a member's name and its own status line read as one weight; at 14/20 they separate, and that is the most-scanned relationship in every phone list. The line-height stays 20, so no row grows and no §26 blueprint height changes. Against it: 13 is the workspace's body size everywhere else, and raising it on phones means the two tiers no longer share one body token. Rendered comparison in the showcase's "Phase 1 decisions" section, confirmed at `13px/20px` vs `14px/20px`; **caveat — fallback fonts** (§6.2). Applying it is one token across the three files plus one class at the shell root. | product     |
 | MO-10 | F9: the 44×24 `Switch` cannot meet the probe's 40 px minimum. Decide at Phase 8 (padded wrapper, or a §5.2 amendment) before Settings joins `STRICT_PHONE_ROUTES`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Phase 8     |
+| MO-11 | **o12 was applied from its default, not approved.** The Door Access entry in the DESKTOP sidebar is the rebuild's one intended desktop navigation change (§0.2). It is one line in `nav.ts` to remove if the answer is no, and the tracker entry is still `open`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | product     |
+| MO-12 | The tablet-collapsed default (o02) corrects on the client's first commit: the server cannot measure a width and an iPad shares the desktop UA (M5). Visible only at 768–1023, on a first visit with no stored choice. If it ever needs to be flicker-free, the mechanism is `Accept-CH: Sec-CH-Viewport-Width`, which is Chromium-only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | note        |
+| MO-13 | The phone `AppBar` names a settings section from `SETTINGS_SECTIONS`; any other nested route falls back to its parent's crumb. Only `/settings` has children today. A new nested route wants either an entry in that list or a generalisation of `appBarTitle`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Phase 8     |
 
 ---
 
@@ -542,26 +784,28 @@ Rule for this section: an item leaves it only when the check has actually been
 run and its result recorded — never because time passed, and never because the
 code "obviously" works.
 
-### 6.1 Phase 1 — four suites that did not run
+### 6.1 Phases 1 and 2 — four suites that still have not run
 
-Phase 1's session had **no Supabase credentials**, so the seeded E2E
-Enterprise gym was unreachable and every spec gated on
-`E2E_ACCESS_CONTROL_ENABLED` skipped. Nothing was worked around; the gap is
-the gap.
+Neither session had **Supabase credentials**, so the seeded E2E Enterprise gym
+was unreachable and every spec gated on `E2E_ACCESS_CONTROL_ENABLED` skipped.
+Nothing was worked around; the gap is the gap. Phase 2 did get a browser onto
+the real shell — by making four workspace routes temporarily public, which
+renders the chrome and answers 401 for every query underneath (§2.5) — so what
+is missing is specifically **populated screens**, not "a browser".
 
-| Suite                                   | What it would have checked                                                                                          | What that leaves unknown                                                                                                                                                     | Owner   |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| `mobile-probe.spec.ts` (16 routes × 7)  | That the 2.1 phone numbers and the 2.2 desktop baseline still hold after the primitive changes                      | Whether a `phone:` class on a shared primitive shifted a real route. The showcase (2.4) covers the primitives; it does not cover a screen composing them.                    | Phase 2 |
-| `desktop-regression.spec.ts` (1366, ×7) | That the seven committed baselines still match                                                                      | The 2.4 comparison is the same evidence against a different page. It is strong for the primitives and silent about the screens.                                              | Phase 2 |
-| `spikes/viewport-export.spec.ts`        | That the document ships exactly `width=device-width, initial-scale=1, viewport-fit=cover` and **one** `theme-color` | **The highest-value one.** Phase 1 both changed the layout AND flipped this spec's expectation, so the assertion and the code it guards were written together and never met. | Phase 2 |
-| `spikes/app-router-history.spec.ts`     | That Next still adopts a no-URL `pushState` without navigating                                                      | `useHistoryBack` was built to spike (a)'s recorded findings; the spike has not re-run since the hook exists.                                                                 | Phase 2 |
+| Suite                                   | What it would have checked                                                                                          | What that leaves unknown                                                                                                                                                      | Owner   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| `mobile-probe.spec.ts` (16 routes × 7)  | That the 2.1 phone numbers and the 2.2 desktop baseline still hold after the primitive changes                      | Whether a `phone:` class on a shared primitive shifted a real route. The showcase (2.4) covers the primitives; it does not cover a screen composing them.                     | Phase 2 |
+| `desktop-regression.spec.ts` (1366, ×7) | That the seven committed baselines still match                                                                      | The 2.4 comparison is the same evidence against a different page. It is strong for the primitives and silent about the screens.                                               | Phase 2 |
+| `spikes/viewport-export.spec.ts`        | That the document ships exactly `width=device-width, initial-scale=1, viewport-fit=cover` and **one** `theme-color` | **The highest-value one.** Phase 1 both changed the layout AND flipped this spec's expectation, so the assertion and the code it guards were written together and never met.  | Phase 3 |
+| `spikes/app-router-history.spec.ts`     | That Next still adopts a no-URL `pushState` without navigating                                                      | `useHistoryBack` now has TWO consumers with opposite ordering needs (F16), and the spike has not re-run since either existed. Phase 2 verified the More sheet's Back by hand. | Phase 3 |
 
 **If `viewport-export` fails at the start of Phase 2**, the likely causes in
 order: the `metadata.other['theme-color']` entry came back; `viewportFit` was
 dropped; or Next's meta ordering changed and `PLANNED_VIEWPORT_META` needs
 re-recording (the spike's header documents the renderer's fixed order).
 
-### 6.2 Phase 1 — what the browser pass could not see
+### 6.2 Phases 1 and 2 — what the browser pass could not see
 
 - **Fonts.** Geist could not be fetched offline, so every screenshot used the
   fallback family. Glyph widths differ from production, which matters for two
@@ -578,6 +822,15 @@ re-recording (the spike's header documents the renderer's fixed order).
 - **The on-screen keyboard.** §5.3's fullscreen footer is `dvh`-based and
   outside the body scroller; risk r07 (iOS keyboard hides the action bar) is
   untested until a reduced-height run and a manual iPhone check.
+- **A populated screen (Phase 2).** Every workspace route rendered its chrome
+  and an error card. So the shell is measured and the screens are not: whether
+  a real Members table still overflows at 390 under the new `<main>` padding
+  is a Phase 4 question, and the probe's phone numbers in §2.1 have not been
+  re-measured since Phase 0.
+- **The Door Access sidebar entry (Phase 2).** Capability-gated, and the
+  subscription endpoint answers 401 here, so the entry never rendered in a
+  browser. The jsdom sidebar test covers both branches; the 1366 comparison
+  covers everything except it.
 
 ### 6.3 Standing — what no automated gate in this repo can see
 
@@ -590,3 +843,14 @@ covers:
   both indistinguishable from success (directive 2).
 - A test is decorative until the defect it names has been made to break it
   (directive 3) — see F13, which is that rule catching a test from this phase.
+- **Nothing reads the prose.** `arch:check`, ESLint, `tsc`, Prettier and the
+  whole Jest suite were green while two rules sat deleted from the rendered
+  §2.21 (F17). UI7 now counts table cells, which closes exactly one hole:
+  text vanishing from a file every session loads. It cannot tell whether a
+  rule is **wrong**, stale, or contradicted by another rule — and no gate
+  here can. A rulebook edit still has to be re-read after it is committed.
+- **UI7's fenced-block skip has never fired.** Nothing in `.claude/**` or
+  `docs/architecture/**` puts a table inside a code fence today (verified:
+  zero fenced lines start with a pipe), so that branch is defensive and
+  unexercised. Its escape-awareness _is_ exercised — remove it and 10
+  correctly-escaped rows across four rulebooks report as ragged.
