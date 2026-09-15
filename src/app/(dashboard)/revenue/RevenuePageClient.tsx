@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import {
   BarChart,
   EmptyState,
+  ListRow,
+  Progress,
   Select,
   Table,
   TableBody,
@@ -19,6 +21,7 @@ import {
   ChartCard,
   SectionHeader,
 } from '@/components/common/composites'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import type { MonthlyRevenueResponse } from '@/features/revenue/types'
 
 interface CollectedPayment {
@@ -69,6 +72,7 @@ const fmt = (n: number) => n.toLocaleString('en-US')
  * count per plan — distinct from the per-plan payment count).
  */
 export default function RevenuePageClient() {
+  const tier = useViewportTier()
   const today = new Date()
   const [year, setYear] = useState(today.getFullYear())
   const [month, setMonth] = useState(today.getMonth() + 1)
@@ -223,44 +227,70 @@ export default function RevenuePageClient() {
     })
     .sort((a, b) => b.amount - a.amount || b.members - a.members)
 
+  const monthSelect = (
+    <Select
+      value={month}
+      onChange={(e) => setMonth(Number(e.target.value))}
+      aria-label="Month"
+    >
+      {MONTHS.map((label, i) => (
+        <option key={label} value={i + 1}>
+          {label}
+        </option>
+      ))}
+    </Select>
+  )
+
+  const yearSelect = (
+    <Select
+      value={year}
+      onChange={(e) => setYear(Number(e.target.value))}
+      aria-label="Year"
+    >
+      {yearOptions.map((y) => (
+        <option key={y} value={y}>
+          {y}
+        </option>
+      ))}
+    </Select>
+  )
+
   return (
     <div className="flex max-w-app flex-col gap-4">
+      {/*
+       * The period controls are the desktop header's `actions` and the phone's
+       * FIRST CONTENT ROW (§8.11, §25.4, §26 REVENUE). Passing them on both
+       * tiers would render two month selects on a phone — one under a hidden
+       * `<h1>` and one where the plan puts them — which is the trap Phase 4
+       * recorded on the Members record count.
+       *
+       * The phone row is its own tree rather than a `phone:` reflow of the
+       * header's: `PageHeader`'s actions slot is `shrink-0`, so a grid inside
+       * it sizes to its content and cannot span the row the blueprint draws.
+       */}
       <PageHeader
         title="Revenue"
         actions={
-          <div className="flex gap-2">
-            {/* Sized to the longest month name. `Select` wraps itself in a
-                `w-full` div, so the width has to go on the container — a
-                className on the Select lands on the inner <select> and leaves
-                the wrapper claiming the whole line. "September" was truncating
-                to "Septeml". */}
-            <div className="w-44 shrink-0">
-              <Select
-                value={month}
-                onChange={(e) => setMonth(Number(e.target.value))}
-                aria-label="Month"
-              >
-                {MONTHS.map((label, i) => (
-                  <option key={label} value={i + 1}>
-                    {label}
-                  </option>
-                ))}
-              </Select>
+          tier === 'phone' ? undefined : (
+            <div className="flex gap-2">
+              {/* Sized to the longest month name. `Select` wraps itself in a
+                  `w-full` div, so the width has to go on the container — a
+                  className on the Select lands on the inner <select> and leaves
+                  the wrapper claiming the whole line. "September" was truncating
+                  to "Septeml". */}
+              <div className="w-44 shrink-0">{monthSelect}</div>
+              {yearSelect}
             </div>
-            <Select
-              value={year}
-              onChange={(e) => setYear(Number(e.target.value))}
-              aria-label="Year"
-            >
-              {yearOptions.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </Select>
-          </div>
+          )
         }
       />
+
+      {tier === 'phone' && (
+        <div className="grid grid-cols-2 gap-2">
+          {monthSelect}
+          {yearSelect}
+        </div>
+      )}
 
       {/* Tiles */}
       <div className="grid grid-cols-2 divide-x divide-y divide-line-1 border-y border-line-1 lg:grid-cols-4 lg:divide-y-0">
@@ -280,6 +310,12 @@ export default function RevenuePageClient() {
         scale="LKR"
         bodyClassName="pt-2"
       >
+        {/*
+          §5.9, phone tier only — see the same note on `DashboardClient`. A
+          six-digit LKR tick does not fit the 40 px axis at ANY width (F1), but
+          the fix changes the tick TEXT, so applying it at 1366 would move a
+          baseline this phase may not touch.
+        */}
         <BarChart
           data={chartData}
           xKey="month"
@@ -289,6 +325,7 @@ export default function RevenuePageClient() {
           label="Monthly collected revenue"
           loading={isLoading}
           empty={<EmptyState title="No revenue history for this period." />}
+          compactAxis={tier === 'phone'}
         />
       </ChartCard>
 
@@ -299,58 +336,110 @@ export default function RevenuePageClient() {
           divider
           title="Breakdown by plan type"
         />
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Plan</TableHead>
-                <TableHead numeric>Members</TableHead>
-                <TableHead numeric>Payments</TableHead>
-                <TableHead numeric>Collected (LKR)</TableHead>
-                <TableHead numeric>Share</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {breakdown.length === 0 && (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="py-6 text-center text-ink-muted"
-                  >
-                    No plan activity for this period.
-                  </TableCell>
-                </TableRow>
-              )}
+        {tier === 'phone' ? (
+          /*
+           * §12 category A + a share bar: the `Table` stays on the desktop and
+           * the phone renders `ListRow`s. The table is 577 px in a 390 px
+           * viewport, which hid Collected AND Share — the two columns the
+           * section is read for (audit §C.1).
+           *
+           * §9.4 for this list: plan, collected and the share bar visible;
+           * "N members · N payments" disclosed on the second line. Both meta
+           * segments are plain strings, so the line joins to one text node and
+           * may truncate (probe rule 9) instead of clipping (F10, F27).
+           *
+           * The bar goes in the `actions` slot because that IS the row's last
+           * line in §9.1's anatomy, and §25.4 asks for a 2 px `Progress` there.
+           * §9.1 lists no other slot below the meta line; adding one would
+           * change a primitive four other lists already use, for one screen.
+           * Logged as an implementation exception.
+           */
+          breakdown.length === 0 ? (
+            <EmptyState
+              className="py-10"
+              title="No plan activity for this period."
+            />
+          ) : (
+            <ul role="list">
               {breakdown.map((p) => (
-                <TableRow key={p.plan}>
-                  <TableCell className="font-medium">
-                    {PLAN_LABEL[p.plan] ?? p.plan}
-                  </TableCell>
-                  <TableCell numeric className="text-ink-secondary">
-                    {p.members}
-                  </TableCell>
-                  <TableCell numeric className="text-ink-secondary">
-                    {p.count}
-                  </TableCell>
-                  <TableCell numeric>{fmt(p.amount)}</TableCell>
-                  <TableCell numeric>
-                    <div className="flex items-center justify-end gap-2">
-                      <div className="h-1 w-20 overflow-hidden rounded-sm bg-surface-hover">
-                        <div
-                          className="h-full bg-accentui"
-                          style={{ width: `${p.share}%` }}
-                        />
-                      </div>
-                      <span className="min-w-9 text-right font-mono text-mono-sm text-ink-secondary">
+                <ListRow
+                  key={p.plan}
+                  primary={PLAN_LABEL[p.plan] ?? p.plan}
+                  meta={[
+                    `${p.members} member${p.members === 1 ? '' : 's'}`,
+                    `${p.count} payment${p.count === 1 ? '' : 's'}`,
+                  ]}
+                  value={fmt(p.amount)}
+                  actions={
+                    <>
+                      <Progress
+                        value={p.share}
+                        className="h-0.5 flex-1"
+                        aria-label={`${PLAN_LABEL[p.plan] ?? p.plan} share of collected revenue`}
+                      />
+                      <span className="min-w-9 shrink-0 text-right font-mono text-mono-sm text-ink-secondary">
                         {p.share}%
                       </span>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    </>
+                  }
+                />
               ))}
-            </TableBody>
-          </Table>
-        </div>
+            </ul>
+          )
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Plan</TableHead>
+                  <TableHead numeric>Members</TableHead>
+                  <TableHead numeric>Payments</TableHead>
+                  <TableHead numeric>Collected (LKR)</TableHead>
+                  <TableHead numeric>Share</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {breakdown.length === 0 && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={5}
+                      className="py-6 text-center text-ink-muted"
+                    >
+                      No plan activity for this period.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {breakdown.map((p) => (
+                  <TableRow key={p.plan}>
+                    <TableCell className="font-medium">
+                      {PLAN_LABEL[p.plan] ?? p.plan}
+                    </TableCell>
+                    <TableCell numeric className="text-ink-secondary">
+                      {p.members}
+                    </TableCell>
+                    <TableCell numeric className="text-ink-secondary">
+                      {p.count}
+                    </TableCell>
+                    <TableCell numeric>{fmt(p.amount)}</TableCell>
+                    <TableCell numeric>
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="h-1 w-20 overflow-hidden rounded-sm bg-surface-hover">
+                          <div
+                            className="h-full bg-accentui"
+                            style={{ width: `${p.share}%` }}
+                          />
+                        </div>
+                        <span className="min-w-9 text-right font-mono text-mono-sm text-ink-secondary">
+                          {p.share}%
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </section>
     </div>
   )
