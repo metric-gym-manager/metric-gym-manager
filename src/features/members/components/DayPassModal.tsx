@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Modal, Button, Input, Label, Badge } from '@/components/ui'
+import { Modal, Button, Input, Label, Badge, ListRow } from '@/components/ui'
 import MemberAvatar from './MemberAvatar'
 import { formatDate } from '@/utils/date/date'
 import type { MemberWithDiscount } from '@/features/members/types'
@@ -170,6 +170,9 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
         if (!next) onClose()
       }}
       size="md"
+      // One decision — pick a member, collect the fee — so §11 puts it on the
+      // bottom edge rather than giving it the screen.
+      placement="sheet"
       title="Create Day Pass"
       description="For members whose membership has expired but who visit for a single day. Collect the daily fee and record it here."
       footer={
@@ -215,31 +218,36 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
             )}
 
             {searchResults && searchResults.length > 0 && (
-              <ul className="rounded-sm border border-line-1 divide-y divide-line-1 max-h-64 overflow-auto">
+              /*
+               * `ListRow`, not the hand-rolled row this replaces (§8.8,
+               * VERIFY resolved: the markup WAS hand-rolled — its own <ul>,
+               * its own <button>, its own two-line stack). Same content, same
+               * `setSelected` on tap; what it gains is the product's one list
+               * row, a 44 px target, and `aria-labelledby`/`describedby` so a
+               * screen reader announces the name rather than the whole card.
+               */
+              <ul
+                role="list"
+                className="max-h-64 overflow-auto rounded-sm border border-line-1"
+              >
                 {searchResults.map((member) => (
-                  <li key={member.id}>
-                    <button
-                      type="button"
-                      className="w-full px-3 py-2.5 flex items-center gap-3 text-left hover:bg-surface-hover"
-                      onClick={() => setSelected(member)}
-                    >
+                  <ListRow
+                    key={member.id}
+                    onClick={() => setSelected(member)}
+                    leading={
                       <MemberAvatar
                         name={member.name}
                         photoPath={member.photo_path}
                         photoUpdatedAt={member.photo_updated_at}
                       />
-                      <span className="flex-1 min-w-0">
-                        <span className="block text-sm font-medium truncate">
-                          {member.name}
-                        </span>
-                        <span className="block text-xs text-ink-muted">
-                          {member.phone_number} · due{' '}
-                          {formatDate(member.next_due_date)}
-                        </span>
-                      </span>
-                      <Badge variant="neutral">{member.plan_type}</Badge>
-                    </button>
-                  </li>
+                    }
+                    primary={member.name}
+                    meta={[
+                      member.phone_number,
+                      `due ${formatDate(member.next_due_date)}`,
+                    ]}
+                    value={<Badge variant="neutral">{member.plan_type}</Badge>}
+                  />
                 ))}
               </ul>
             )}

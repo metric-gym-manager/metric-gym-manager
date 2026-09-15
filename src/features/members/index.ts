@@ -16,6 +16,9 @@
 
 export { default as AddMemberModal } from './components/AddMemberModal'
 export { default as BulkAddMemberModal } from './components/BulkAddMemberModal'
+// The phone's gate in front of that grid (plan §14). Desktop opens the grid
+// directly; a phone gets this sheet first.
+export { default as BulkImportGuidanceSheet } from './components/BulkImportGuidanceSheet'
 export { default as EditMemberModal } from './components/EditMemberModal'
 // One component, both tiers. The `MemberDetailModalResponsive` wrapper and the
 // `MemberDetailModalMobile` fork it chose between were deleted in the mobile

@@ -68,8 +68,17 @@ export interface DataTableColumn<T> {
 export interface DataTableMobileRow<T> {
   /** The record's name. Required. */
   primary: string
-  /** Status line — usually the column whose `cell` renders a `Badge`. */
-  status?: string
+  /**
+   * Status line — usually the column whose `cell` renders a `Badge`.
+   *
+   * Accepts SEVERAL column ids, like `meta`, because a status line is often a
+   * state plus the date that state is about: Members reads "● EXPIRED ·
+   * 16/09/2026" from two separate columns (plan §8.2), and the desktop table
+   * must keep them as two sortable columns. §9.3 wrote this as a single id;
+   * §8.2 needs two, and widening it is the only way to satisfy both without
+   * adding a column the desktop would have to hide.
+   */
+  status?: string | string[]
   /** Secondary meta columns, in order. */
   meta?: string[]
   /** The trailing figure. */
@@ -457,6 +466,28 @@ export function DataTable<T>({
         {content}
       </>
     )
+  }
+
+  /**
+   * The status line: one column, or several laid side by side.
+   *
+   * `ListRow` renders this into a `flex items-center gap-2` span, so the parts
+   * space themselves and a missing column contributes nothing rather than an
+   * empty gap.
+   */
+  const statusCell = (
+    status: string | string[] | undefined,
+    row: T
+  ): React.ReactNode => {
+    if (!status) return undefined
+    if (typeof status === 'string') return labelledCell(status, row, false)
+    const parts = status
+      .map((columnId) => labelledCell(columnId, row, false))
+      .filter((node): node is React.ReactNode => node !== undefined)
+    if (parts.length === 0) return undefined
+    return parts.map((node, i) => (
+      <React.Fragment key={i}>{node}</React.Fragment>
+    ))
   }
 
   /** `columnId` + direction, round-tripped through the compact sort Select. */
@@ -872,7 +903,7 @@ export function DataTable<T>({
               key={id}
               leading={leading}
               primary={labelledCell(mobileRow?.primary, row, false)}
-              status={labelledCell(mobileRow?.status, row, false)}
+              status={statusCell(mobileRow?.status, row)}
               // Unlabelled, unlike `value`: a phone number and a plan name
               // say what they are, and an `sr-only` label would put an
               // ELEMENT inside the truncating meta line — which moves it from

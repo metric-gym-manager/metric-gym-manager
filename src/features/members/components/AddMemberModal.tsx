@@ -280,6 +280,11 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
         if (!next) handleClose()
       }}
       size="lg"
+      // A form of many fields across two steps — §11's fullscreen case. The
+      // existing stepper and `trigger()` step logic are untouched; what
+      // changes is that on a phone each step fills the screen and the footer
+      // becomes the sticky action bar.
+      placement="fullscreen"
       title="Add New Member"
       description={
         currentStep === 1

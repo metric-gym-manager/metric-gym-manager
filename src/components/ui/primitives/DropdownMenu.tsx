@@ -40,8 +40,18 @@ export const DropdownMenuContent = React.forwardRef<
 ))
 DropdownMenuContent.displayName = DropdownMenuPrimitive.Content.displayName
 
+/**
+ * A menu item is 36 px at desktop (`py-2` + a 20 px line) and `touch` on a
+ * phone.
+ *
+ * Phase 1 sized nine primitives for §15.1 and this was not among them, because
+ * a closed menu renders nothing for a probe to measure — the same blind spot
+ * that left the `Modal` close control at 24 px (rebuild log F18). The mobile
+ * plan §8.2 asks for "touch items" in the Members overflow menu, which is what
+ * surfaced it.
+ */
 const itemBase =
-  'relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-3 py-2 text-body text-ink outline-none transition-colors duration-fast focus:bg-surface-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:size-3.5 [&_svg]:shrink-0'
+  'relative flex cursor-pointer select-none items-center gap-2 rounded-sm px-3 py-2 text-body text-ink outline-none transition-colors duration-fast focus:bg-surface-hover data-[disabled]:pointer-events-none data-[disabled]:opacity-50 phone:min-h-touch [&_svg]:size-3.5 [&_svg]:shrink-0'
 
 export interface DropdownMenuItemProps extends React.ComponentPropsWithoutRef<
   typeof DropdownMenuPrimitive.Item

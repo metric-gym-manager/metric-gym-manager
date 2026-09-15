@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Modal, Button, Input, Badge } from '@/components/ui'
+import { Modal, Button, Input, Badge, Alert } from '@/components/ui'
 import { Trash2, Plus, CheckCircle, XCircle, HelpCircle } from 'lucide-react'
 import { parseApiError } from '@/utils/api-error'
 import QuotaReachedUpsell from '@/features/subscriptions/components/QuotaReachedUpsell'
@@ -401,6 +401,10 @@ export default function BulkAddMemberModal({
       }}
       size="lg"
       className="w-[1200px]"
+      // §14: on a phone this is the honest fallback behind the guidance sheet,
+      // not a mobile screen. Fullscreen so the grid gets every pixel there is,
+      // and so Back and Escape always get the user out of it.
+      placement="fullscreen"
       title="Bulk Register Members"
       description={
         <span className="flex items-start gap-1.5">
@@ -631,8 +635,28 @@ export default function BulkAddMemberModal({
         </div>
       </div>
 
+      {/*
+       * §14, verbatim. Persistent — no `onDismiss` — because the condition it
+       * describes never goes away while the grid is on a phone, and `phone:`
+       * so the desktop grid is exactly the grid it has always been.
+       */}
+      <Alert variant="warning" className="hidden phone:block">
+        This grid is not optimised for phones — swipe sideways to reach every
+        column.
+      </Alert>
+
       {/* Scrollable table */}
-      <div className="overflow-x-auto border border-line-1 rounded-sm">
+      {/*
+       * §14: the grid is a spreadsheet and stays one. `data-scroll="x"` is
+       * the probe's sanctioned horizontal scroller and §25.1 names this as one
+       * of exactly two places it may be used — the marker is what turns a
+       * silent clip into a declared scroll region. The Alert above says so in
+       * words, because a scroll with no affordance is the audit's own defect.
+       */}
+      <div
+        data-scroll="x"
+        className="overflow-x-auto rounded-sm border border-line-1"
+      >
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 z-sticky bg-surface-input border-b border-line-1">
             <tr>

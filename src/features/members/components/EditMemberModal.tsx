@@ -148,6 +148,10 @@ export default function EditMemberModal({
         if (!next) onClose()
       }}
       size="lg"
+      // Same form, one step (§8.5). Fullscreen so detail → edit → back →
+      // detail is a sequence of screens on a phone rather than stacked
+      // dialogs.
+      placement="fullscreen"
       title="Edit Member"
       description="Update member details and membership plan."
       footer={
