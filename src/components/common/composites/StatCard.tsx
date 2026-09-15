@@ -98,7 +98,21 @@ export function StatCard({
           <span className="text-ink-muted [&_svg]:size-3.5">{icon}</span>
         )}
       </div>
-      <span className="font-mono text-readout tabular-nums text-ink">
+      {/*
+       * `break-words` is the §27 "Large money" rule: a `text-readout` figure
+       * may wrap to two lines INSIDE the tile rather than push the page wider
+       * than the device. `99,999,999` renders 144 px in a 111 px tile at 320,
+       * and a mobile browser answers a 1 px page overflow by zooming the whole
+       * layout out (F5) — which is what the §28 fixture caught on both KPI
+       * bands here.
+       *
+       * Unscoped, because it is the composite's own robustness rule and a
+       * narrow desktop tile has the same problem. It changes line-breaking
+       * only for a word that does not fit its line, so at 1366 — where the
+       * widest figure is 144 px in a ~330 px tile — it breaks nothing; proven
+       * by the byte-identical 1366 comparison rather than asserted.
+       */}
+      <span className="break-words font-mono text-readout tabular-nums text-ink">
         {value}
       </span>
       {(sub || delta) && (

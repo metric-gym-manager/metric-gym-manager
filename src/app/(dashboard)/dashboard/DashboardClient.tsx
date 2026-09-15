@@ -89,11 +89,20 @@ const REMINDER_LABEL: Record<string, string> = {
 const fmt = (n: number) => n.toLocaleString('en-US')
 
 /**
- * The plan label as the desktop table renders it — the `Table` cell carries
- * `capitalize`, and the phone's meta line is one joined string, which no CSS
- * rule can reach segment by segment.
+ * The plan label exactly as the desktop table renders it.
+ *
+ * That cell carries `capitalize`, and CSS treats a hyphen as a word boundary:
+ * `6-months` prints as **6-Months** there. A phone `ListRow`'s meta line is one
+ * joined string (so it can truncate rather than clip — F10, F27), which no CSS
+ * rule can reach segment by segment, so the transform is done here instead.
+ * `charAt(0)` alone would have shipped "6-months" against the desktop's
+ * "6-Months" — the same plan, spelled two ways.
  */
-const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+const capitalise = (s: string) =>
+  s.replace(
+    /(^|[-\s])([a-z])/g,
+    (_, lead: string, char: string) => lead + char.toUpperCase()
+  )
 
 function whenLabel(days: number): string {
   if (days <= 0) return 'today'

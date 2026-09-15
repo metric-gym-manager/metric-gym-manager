@@ -145,6 +145,23 @@ describe('Dashboard on a phone — recent payments', () => {
     expect(within(r).getByText('Monthly · 2026-08-14')).toBeInTheDocument()
   })
 
+  /**
+   * The desktop cell carries `capitalize`, and CSS capitalises after a hyphen:
+   * that column reads "6-Months" at 1366 (verified in the browser). A joined
+   * meta string gets no CSS help, so the same plan must not be spelled two
+   * ways across the two tiers.
+   */
+  it('spells a hyphenated plan the way the desktop table does', async () => {
+    renderPhone({
+      '/api/payment-collection/collected': apiOk({
+        payments: [payment({ planType: '6-months' })],
+        summary: { totalRevenue: 5000, paymentCount: 1 },
+      }),
+    })
+    const r = await row('Sunil Fernando')
+    expect(within(r).getByText('6-Months · 2026-08-14')).toBeInTheDocument()
+  })
+
   it('keeps the NEW badge beside the name, so the row stays two lines', async () => {
     renderPhone({
       '/api/payment-collection/collected': apiOk({
