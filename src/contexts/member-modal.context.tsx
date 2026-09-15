@@ -11,10 +11,13 @@ import dynamic from 'next/dynamic'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { MemberWithDiscount, Payment } from '@/features/members/types'
 
-const MemberDetailModalResponsive = dynamic(
+// `ssr: false` because the detail overlay is never part of a first paint —
+// it opens from a list — and because `Modal` reads the viewport tier to decide
+// whether it is a screen or a dialog.
+const MemberDetailModal = dynamic(
   () =>
     import('@/features/members').then((mod) => ({
-      default: mod.MemberDetailModalResponsive,
+      default: mod.MemberDetailModal,
     })),
   { ssr: false }
 )
@@ -100,7 +103,7 @@ export function MemberModalProvider({ children }: { children: ReactNode }) {
     <MemberModalContext.Provider value={{ openMember }}>
       {children}
 
-      <MemberDetailModalResponsive
+      <MemberDetailModal
         open={detailOpen}
         onClose={handleDetailClose}
         member={memberData?.member ?? null}

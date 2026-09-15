@@ -203,6 +203,78 @@ capability the unreachable subscription endpoint would have to supply. So the
 comparison proves the rest of the desktop is untouched and says nothing about
 that entry; its rendering is covered by the jsdom sidebar test only.
 
+### 2.6 Phase 3 — the member detail, rendered and probed
+
+Not the seeded gym (§6.1 still stands) but not a stand-in either: a temporary
+dev-only route mounted the **real `MemberDetailModal`** with a hard-coded
+member, and `next dev` served it to Chromium. The route, the public-route
+entry it needed and the probe spec were all removed before the commit. So
+this measures the real component tree and the real stylesheet, on data that
+did not come from Supabase.
+
+Probed in six states — populated, empty, loading (the skeleton), the Mark
+Paid sheet, payment history EXPANDED and SMS history EXPANDED — at all four
+phone widths. Violations, after the two fixes F18 and F22:
+
+| State                | 320   | 360   | 390   | 430   |
+| -------------------- | ----- | ----- | ----- | ----- |
+| populated            | 0     | 0     | 0     | 0     |
+| empty                | 0     | 0     | 0     | 0     |
+| loading (skeleton)   | 0     | 0     | 0     | 0     |
+| Mark Paid sheet      | 0     | 0     | 0     | 0     |
+| payment history open | 0     | 0     | 0     | 0     |
+| **SMS history open** | **2** | **2** | **2** | **1** |
+
+Sizes, measured on the real component:
+
+| What             | 320        | 390        | 1366   |
+| ---------------- | ---------- | ---------- | ------ |
+| placement        | fullscreen | fullscreen | center |
+| Mark Paid button | —          | 175×44     | 89×32  |
+| close control    | 44×44      | 44×44      | 24×24  |
+
+**SMS history is the one state still failing**, its table 384 px wide against
+every phone width. Not a regression — the deleted fork had no SMS history at
+all — and §12 assigns it "`ListRow` list via tier hook" with Phase 9 owning
+SMS and activity lists. Recorded rather than papered over: marking it
+`data-scroll="x"` would invent a fourth sanctioned scroller, and §25.1
+sanctions exactly two (`Tabs` lists, the bulk-import fallback).
+
+**Section order, measured rather than asserted.** At 390 the column reads
+identity → plan → status actions → photo → door access → payment history →
+SMS history, with 24 px between every pair. At 1366 it reads photo →
+identity → plan → status → access → SMS → payments — the DOM order, every
+computed `order` 0. The DOM never changes, so a desktop screen reader walks
+exactly what it walked before.
+
+**The footer survives a short screen.** At 390×500 the sticky action bar sits
+at 379–500, inside the viewport, with the body scrolling behind it. That is
+the `dvh` composition holding up at the height the plan asks about (§11,
+risk r07) — it is **not** a keyboard test, which still needs a real device.
+
+**The Mark Paid sheet is flush with the bottom edge**: 844 of 844 at 390,
+once the `pal-in` entry animation settles. Measured mid-animation it reads 5
+px short, which is the animation's own `translateY` and not a layout defect —
+worth recording because the first measurement said `anchoredToBottom: false`
+and looked like one.
+
+**Desktop 1366, compared on two freshly built trees.** The detail dialog and
+its expanded payment history are **byte-identical** before and after the
+branch. The first attempt produced that same answer for the wrong reason:
+`next dev` had not recompiled after the checkout, so both captures were of
+one build. It was caught by build markers that failed to flip — the close
+control's phone class, the column's `phone:flex`, the delete `aria-label` —
+and the re-run has all three `false` on the before tree and `true` on the
+after. **A byte-identical screenshot pair is worthless without evidence that
+the two sides were different builds**, and that evidence is cheap: assert one
+DOM fact that differs between them and is invisible at the compared width.
+
+**What this still does not cover:** a member with a photo, a long name, many
+payments, or the §28 stress fixtures — the probe fixture carries one payment
+and a two-word name (MO-15). The 1366 regression SUITE also did not run
+(§6.1); the desktop evidence is the pair above plus the CSS-level proof in
+the Phase 3 entry.
+
 ---
 
 ## 3. Execution log
@@ -444,6 +516,123 @@ p0 → phase-1 → p2). Scope: plan §18 row 2.
 `SETTINGS_SECTIONS`, and any _other_ nested route falls back to its parent's
 crumb. Only `/settings` has children today; a future nested route gets a true
 but coarse title until it is named.
+
+### Phase 3 — Member detail parity · **DONE** 2026-09-14
+
+Branch `claude/mobile-ui-rebuild-p3`, cut from the Phase 2 head. **Deviation,
+same one as Phase 2:** the prompt says to branch from `master`, which would
+lose Phase 1's `Modal placement` and `useViewportTier` and Phase 2's shell —
+everything this phase builds on. The stack is p0 → phase-1 → p2 → p3.
+
+Scope: plan §10 "Required" and "Presentation on phone".
+
+**Decisions the phase was asked to take:** none were open. §10 specifies the
+placements, the order and the two accessibility fixes outright. Two judgment
+calls arose inside that scope and are recorded below.
+
+**Built (plan §10, in the migration order §10 gives):**
+
+1. **Request fixtures first.** The six mutations — suspend, activate, cancel,
+   markRegularPaid, reactivate, delete — pinned by method, URL, headers and
+   parsed body, before the component was touched. The risk in merging two code
+   paths is not a screen that fails to mount; it is a request that quietly
+   changes shape. Deliberately literal: recomputing the expected amount with
+   the same helper the component uses would agree with the component however
+   wrong both were.
+2. `MemberDetailModal` reads the tier: `fullscreen` on a phone, `center`
+   otherwise, on both the skeleton and the detail. Sub-dialogs stay dialogs —
+   delete `center` (explicit, though also the default), activate-with-date
+   `sheet`, `MarkPaidDialog` and `ReactivationDialog` `sheet` set inside each
+   component, since after this phase `MemberDetailModal` is the only caller of
+   both.
+3. **`MemberDetailModalMobile` (716 lines) and `MemberDetailModalResponsive`
+   (61) deleted.** The wrapper switched on `window.innerWidth`, which §2.21
+   bans, and it chose between implementations that had drifted: the fork had
+   no `MarkPaidDialog` (it recorded a payment with no date choice), no SMS
+   history, and no Radix dialog semantics, so Escape and hardware Back did
+   nothing. Three missing features, not three styling differences.
+4. Phone section order through `phone:order-*`, with the column becoming a
+   flex column and `space-y-6` neutralised on phones only.
+5. `aria-label` on the icon-only Delete and Edit.
+6. **Out of the phase's stated scope:** the `Modal` close control, 24 × 24 on
+   every `center` and `sheet` dialog on a phone. See F18.
+7. **Payment history is a `ListRow` list on a phone** — a regression this
+   phase introduced and then fixed. The deleted fork rendered payments as
+   cards; the desktop component renders a four-column `Table`, and serving
+   both tiers from it put 405 px on a 320 px screen. Found only by probing
+   the EXPANDED disclosure. See F22.
+
+**Decisions taken inside the scope:**
+
+| Question                                                     | Answer                                                                   | Why                                                                                                                                            |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| How does `accessSlot` get an order when it has no element?   | It does not — the four blocks above it go **negative** and it stays at 0 | A wrapper would be a permanent empty child, and `MemberAccessPanel` renders null for every gym without the hardware: a 24 px gap from nothing. |
+| How do `MemberPhotoSection` / `MemberSmsHistory` get theirs? | An optional `className`                                                  | Same reason. Each has exactly one production call site.                                                                                        |
+| Fix the 24 px close control here, or leave it to Phase 8?    | **Fix it**                                                               | §15.1 is a standing invariant, the fix is desktop-inert, and the phase's own verification criterion is "probe green" (F18).                    |
+
+**Verification:**
+
+- `type-check` clean · `lint` 0 errors (the same pre-existing warnings) ·
+  `arch:check` green · Jest **1,968 passed**, 7 skipped (**30 new**: 11
+  request fixtures, 17 tier tests, 2 on the `Modal` close control).
+- **Rendered in Chromium and looked at**, at 390×844, 390×500 and 1366×900 —
+  numbers in §2.6, and the screens match the §26 blueprint.
+- **Probe run over six states at four widths** — populated, empty, loading,
+  the Mark Paid sheet, payment history open, SMS history open, at 320 / 360 /
+  390 / 430. Five states clean after F18 and F22; **SMS history still fails**
+  at every width and belongs to Phase 9 (MO-17). Numbers in §2.6.
+- Escape closes the sheet and leaves the detail; Escape again closes the
+  detail; hardware Back closes the detail with the URL unchanged. At 1366 Back
+  does **not** close it — it leaves the page, which is `useHistoryBack`
+  correctly declining to claim Back for a centred dialog.
+- **Desktop equivalence, two ways.** At the CSS level the built stylesheet is
+  byte-identical before and after the placement change (59,289 both), and all
+  57 `.phone\:` selectors sit inside the single `@media (max-width: 767px)`
+  block — 0 outside. At 1366 the detail dialog and its expanded payment
+  history are byte-identical screenshots across two freshly built trees, with
+  build markers proving the trees differed (F23). The regression SUITE still
+  did not run (§6.1).
+- **Mutation-falsified** (**fourteen**, each restored). Requests: dropping
+  `deductOverduePeriod` fails 1; the inline unrounded arithmetic fails 1;
+  `planType` on a renewal fails 1; deleting without the confirm fails 2.
+  Tiers: Mark Paid skipping its dialog fails 1; a centred phone placement
+  fails 2; removing the photo order fails 1; dropping the `aria-label` fails
+  1; dropping `phone:space-y-0` fails 4. Layout, in the browser: dropping
+  `phone:flex` reverts the order and zeroes the gaps; dropping
+  `phone:space-y-0` gives 48/48/24/48/48/48. Primitive: removing the close
+  sizing fails 2. Payment history: forcing the table back on a phone fails 2;
+  dropping the discount from the meta line fails 1.
+
+**Gate (§19): 8 of 10, and the two failures are deliberate.**
+
+| Gate                   | Result | Why                                                                                                                                                                                                                                                                              |
+| ---------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| g1 composition         | pass   | Matches §26 at 320 and 390 by eye; probe-clean at all four widths.                                                                                                                                                                                                               |
+| **g2 function intact** | **no** | The six request fixtures are green and four of them mutation-falsified — but §19 also requires the interaction checks to run **on the seeded E2E gym**. No credentials, so no mutation ever reached a real server. The wire format is proven; that the server accepts it is not. |
+| g3 desktop             | pass   | 1366 byte-identical, both states, across two builds proven different (F23).                                                                                                                                                                                                      |
+| **g4 phone verified**  | **no** | Five of six states clean at 320/360/390/430; **SMS history fails at every width** (MO-17). The §28 stress fixtures need the seeded gym regardless.                                                                                                                               |
+| g5 automated           | pass   | type-check, lint, arch:check, test all green; both tiers exercised; 14 mutations falsified.                                                                                                                                                                                      |
+| g6 rules               | pass   | No allow-list grew; token parity green; no composition breakpoint. This phase **removed the product's last `window.innerWidth`**.                                                                                                                                                |
+| g7 no duplication      | pass   | One member detail component — the phase's entire purpose.                                                                                                                                                                                                                        |
+| g8 scope               | pass   | Two changes beyond §10's remit (F18, F22), both logged here and in the PR rather than absorbed silently.                                                                                                                                                                         |
+| g9 states              | pass   | Loading, empty, populated and both disclosures each rendered and probed.                                                                                                                                                                                                         |
+| g10 docs               | pass   | `DESIGN_SYSTEM.md` and `architecture.md` §2.21 updated.                                                                                                                                                                                                                          |
+
+A green gate was available by marking the SMS table `data-scroll="x"`. It was
+not taken: see below.
+
+**Known and deliberate:** two things ship imperfect and recorded rather than
+quietly fixed.
+
+- The `Modal` `description` ("View and manage member information") renders
+  above the ordered column on a phone, because it is a sibling of that column
+  inside the scroller, not a child of it. Desktop behaviour unchanged, outside
+  the §10 CSS-only remit, and the §26 blueprint does not draw it (MO-16).
+- **SMS history overflows every phone width.** §12 assigns it to a `ListRow`
+  list and Phase 9 owns it; it is not a regression, because the fork had no
+  SMS history at all. The alternative on offer was a `data-scroll="x"` marker,
+  which would have made the probe green by inventing a sanctioned scroller the
+  plan does not sanction — a worse outcome than a recorded defect (MO-17).
 
 ---
 
@@ -751,6 +940,155 @@ comment in the script says so rather than implying it was proven.
 or contradict another rule, and no gate in this repo can tell. It closes
 exactly one hole — text silently vanishing from a file every session loads.
 
+### F18 — Two of three close controls were sized, and the third hid the miss
+
+Phase 1 gave the fullscreen `Modal`'s Back control a 44 px box and the
+`Drawer`'s close a 44 px box, and each has a test saying so. The `Modal`'s own
+trailing × was left at **24 × 24** — a 16 px glyph in 4 px of padding — which
+is under even the probe's 40 px floor.
+
+That is every `center` and every `sheet` dialog in the product: every
+confirmation, every form dialog, a close button a thumb cannot reliably hit.
+
+It survived three phases for a precise reason: `fullscreen` **hides** this
+control, and `fullscreen` was the only placement any phase had probed **with a
+dialog open**. A closed dialog renders nothing to measure, and the design-
+system showcase's modals are closed. Phase 3 opened a sheet — and the probe
+named it on the first run, at both 320 and 390.
+
+Fixed at 44 rather than 40: it stands in for the Back control at the other
+placement and should match it, and a close button is not a dense control. Six
+`phone:`-scoped classes, all six compiling inside the single phone media
+query; measured at 44 × 44 at 390 and still 24 × 24 at 1366.
+
+**The lesson is about the probe, not the pixel.** An overlay contributes
+nothing to a probe run unless something opens it first. Every later phase that
+introduces a sheet or a dialog needs a probe pass with it OPEN, or the rule is
+being checked against an empty region.
+
+### F19 — `space-y` and `order` disagree about which siblings are adjacent
+
+`space-y-6` compiles to `> :not([hidden]) ~ :not([hidden]) { margin-top }` —
+a **DOM**-order rule. `order` changes the **visual** order and nothing else.
+Put together they do not compose: the margin lands above whichever block is
+DOM-second, which after reordering is not the block that is visually second.
+
+Measured in Chromium on the real column: 48 / 48 / 24 / 48 / 48 / 48 px
+instead of six 24s — a doubled gap above five boundaries and a single one in
+the middle, from a class that looks entirely innocent in the diff. jsdom
+computes no geometry, so no unit test in this repo could have seen it.
+
+The fix is `phone:gap-6` with `phone:space-y-0`, which measures between what
+the reader actually sees. Any later phase that adds `order` to a `space-y`
+column inherits this exactly.
+
+### F20 — A new section with no order class lands in the middle, not at the end
+
+The corollary of the negative-order scheme in §10 step 5, and the reason the
+scheme is commented where it is used. Because `accessSlot` sits at the default
+`order: 0` with four blocks pulled negative above it, a section added later
+with **no** order class also sits at 0 — and lands beside the door-access
+slot, fifth or sixth, not last.
+
+Measured, not predicted: an appended block with no class rendered between
+access and payments.
+
+The alternative was a wrapper around `accessSlot`, which is worse: it renders
+a permanent empty child for every gym whose `MemberAccessPanel` returns null,
+and an empty child in a gapped column is a 24 px hole from nothing.
+
+### F21 — An entry animation makes a layout measurement lie
+
+The Mark Paid sheet measured `bottom: 837` against an 844 px viewport — 7 px
+short of the bottom edge it is anchored to — and the first reading of that was
+"the sheet is not flush". It was: `animate-pal-in` was still running and its
+`translateY` had 5 px left to go. Settled, it is 844 of 844.
+
+Recorded because the false reading is indistinguishable from a real
+positioning defect, and because the repair is one line: wait for the animation
+before measuring, not for the selector.
+
+### F22 — "Minimal parity change" assumed a superset, and one block was not
+
+§10's premise is that `MemberDetailModal` does everything
+`MemberDetailModalMobile` did and more, so deleting the fork can only add.
+For payment history that was false. The fork rendered payments as **cards**;
+the desktop component renders a four-column `<Table>`. Serving both tiers
+from the desktop component put a 405 px table on a 320 px screen and pushed
+the overlay's own scroller to 438 px — a regression, introduced by the phase
+whose stated purpose was parity.
+
+It hid twice over. The disclosure is collapsed by default, so the earlier
+probe runs and every screenshot measured a region that rendered **nothing**;
+and the phase's scope language ("CSS / props only") invited reading the block
+as untouched when in fact it had been swapped wholesale.
+
+Fixed with `ListRow` on the phone tier — §12's category-A treatment, which
+every comparable table in the plan gets — table on desktop, chosen by the
+tier hook the component already reads. No cell is dropped.
+
+**The check that would have caught it earlier is a list, not a rule:** before
+declaring a screen probed, enumerate its disclosures, its empty state, its
+loading state and its sub-dialogs, and probe each. Four of those five states
+were clean; the fifth was the defect.
+
+### F23 — A byte-identical screenshot pair can mean nothing at all
+
+The 1366 before/after comparison returned "byte-identical" on its first run
+and was wrong: `next dev` had not recompiled after the tree was switched, so
+both captures were of the same build. The answer a correct run gives and the
+answer a broken run gives are the same string.
+
+Caught by build markers — three DOM facts that differ between the two trees
+and are invisible at 1366 (the close control's phone class, the detail
+column's `phone:flex`, the delete `aria-label`). On the first run they were
+`true` on both sides, which is impossible for a genuine comparison. On the
+re-run, with the server restarted and `.next` cleared on each side, they read
+`false` then `true` and the identical pixels mean what they claim.
+
+Two mistakes fed it: `git stash` does not revert **committed** work, and the
+phase's source changes were four commits old by then — the tree never
+changed on the first attempt. `git checkout <base> -- <files>` is the
+operation that was wanted.
+
+Every later phase makes this comparison. Assert a marker, or do not claim the
+result.
+
+### F24 — A checking script reported a catastrophe, and the script was wrong
+
+Verifying that the placement change could not move the desktop, a hand-written
+scan of the built stylesheet reported **56 of 57 `.phone\:` selectors sitting
+outside any media query** — which, if true, would mean every phone rule in the
+product applies at every width and three phases of "desktop pixel-equivalent"
+were false.
+
+It was the script. Its brace accounting popped the media-query stack on each
+rule's closing `}` instead of the block's, so every selector after the first
+rule read as top-level. The correct answer is **0 outside**: all 57 sit inside
+the single `@media (max-width: 767px)` block, which a byte-range scan of the
+block confirms.
+
+Two things worth keeping from it.
+
+**The prior should have been the script.** A result implying that a core
+invariant had been broken for three phases, in a codebase whose gate is green
+and whose desktop was screenshot-compared twice, is far more likely to be a
+bug in the five-minute script than a bug in the product. The reflex to check
+the instrument first is the whole of it.
+
+**A measurement tool needs falsifying like a test does.** F23 is the same
+mistake in the other direction — there a broken tool said "identical" and the
+right answer was also "identical", so nothing looked wrong. Here a broken tool
+said "catastrophe" and the right answer was "fine". Both were caught only by
+asking what the tool would report if it were broken:
+
+- A comparison tool: assert a marker that MUST differ between the two sides.
+- A scanning tool: check its count against a second method that shares no
+  code with the first.
+
+Neither check costs more than a minute, and between them they are the
+difference between a measurement and a number.
+
 ---
 
 ## 5. Open items
@@ -770,6 +1108,12 @@ exactly one hole — text silently vanishing from a file every session loads.
 | MO-11 | **o12 was applied from its default, not approved.** The Door Access entry in the DESKTOP sidebar is the rebuild's one intended desktop navigation change (§0.2). It is one line in `nav.ts` to remove if the answer is no, and the tracker entry is still `open`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | product     |
 | MO-12 | The tablet-collapsed default (o02) corrects on the client's first commit: the server cannot measure a width and an iPad shares the desktop UA (M5). Visible only at 768–1023, on a first visit with no stored choice. If it ever needs to be flicker-free, the mechanism is `Accept-CH: Sec-CH-Viewport-Width`, which is Chromium-only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | note        |
 | MO-13 | The phone `AppBar` names a settings section from `SETTINGS_SECTIONS`; any other nested route falls back to its parent's crumb. Only `/settings` has children today. A new nested route wants either an entry in that list or a generalisation of `appBarTitle`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Phase 8     |
+| MO-14 | **The probe never sees a closed overlay (F18).** A dialog contributes nothing to a probe run unless something opens it first, which is how a 24 px close control survived three phases. Every phase that adds a sheet or a dialog needs a probe pass with it OPEN; Phase 10's sweep needs a list of overlays, not only of routes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | every phase |
+| MO-15 | **Member detail was rendered on a hard-coded fixture, not on real data.** Short name, no photo, no discount, one payment, collapsed histories. A long name, a photo, a discount row and an expanded payment table are all unmeasured at 320. Worth a pass once the seeded gym is reachable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Phase 4     |
+| MO-16 | The member-detail `Modal` `description` renders above the ordered column on a phone — it is a sibling of that column, not a child, so `order` cannot move it. Desktop behaviour unchanged and outside §10's CSS-only remit, but the §26 blueprint does not draw it. Decide at Phase 8 whether a fullscreen placement should suppress its description.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Phase 8     |
+| MO-17 | **The SMS history table overflows every phone width** (384 px), inside the member detail Phase 3 made reachable on a phone. §12 assigns it "`ListRow` list via tier hook"; Phase 9 owns SMS and activity lists. Not a regression (the deleted fork had no SMS history) and deliberately not papered over with a `data-scroll="x"` the plan does not sanction.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 9     |
+| MO-18 | **§12 does not list the member-detail payment-history table.** Phase 3 converted it (F22) because the phase introduced the regression, but the omission means the plan's table inventory is not complete — worth a sweep at Phase 10 for other tables no phase owns.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Phase 10    |
+| MO-19 | **Probe every state, not every route.** A screen is probed when its disclosures, empty state, loading state and sub-dialogs have each been measured. Four of member detail's five states were clean and the fifth was the defect (F22). Phase 10's DoD needs this as a checklist, not a sentence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | every phase |
 
 ---
 
@@ -784,14 +1128,19 @@ Rule for this section: an item leaves it only when the check has actually been
 run and its result recorded — never because time passed, and never because the
 code "obviously" works.
 
-### 6.1 Phases 1 and 2 — four suites that still have not run
+### 6.1 Phases 1, 2 and 3 — four suites that still have not run
 
-Neither session had **Supabase credentials**, so the seeded E2E Enterprise gym
-was unreachable and every spec gated on `E2E_ACCESS_CONTROL_ENABLED` skipped.
-Nothing was worked around; the gap is the gap. Phase 2 did get a browser onto
-the real shell — by making four workspace routes temporarily public, which
-renders the chrome and answers 401 for every query underneath (§2.5) — so what
-is missing is specifically **populated screens**, not "a browser".
+No session had **Supabase credentials**, so the seeded E2E Enterprise gym was
+unreachable and every spec gated on `E2E_ACCESS_CONTROL_ENABLED` skipped.
+Nothing was worked around; the gap is the gap.
+
+Each phase got closer to a real rendering without closing it. Phase 2 put a
+browser on the real shell by making four workspace routes temporarily public,
+which renders the chrome and answers 401 underneath (§2.5). Phase 3 went
+further — a temporary dev route mounted the **real component** on a hard-coded
+member, so the tree, the stylesheet and the browser were all real and only the
+data was not (§2.6). What is missing is still **real data**, not "a browser":
+a long name, a photo, a discount, an expanded payment table (MO-15).
 
 | Suite                                   | What it would have checked                                                                                          | What that leaves unknown                                                                                                                                                      | Owner   |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
@@ -805,7 +1154,7 @@ order: the `metadata.other['theme-color']` entry came back; `viewportFit` was
 dropped; or Next's meta ordering changed and `PLANNED_VIEWPORT_META` needs
 re-recording (the spike's header documents the renderer's fixed order).
 
-### 6.2 Phases 1 and 2 — what the browser pass could not see
+### 6.2 Phases 1–3 — what the browser pass could not see
 
 - **Fonts.** Geist could not be fetched offline, so every screenshot used the
   fallback family. Glyph widths differ from production, which matters for two
@@ -831,6 +1180,19 @@ re-recording (the spike's header documents the renderer's fixed order).
   subscription endpoint answers 401 here, so the entry never rendered in a
   browser. The jsdom sidebar test covers both branches; the 1366 comparison
   covers everything except it.
+- **A member detail with real content (Phase 3).** The fixture is short and
+  well-formed: no photo, a two-word name, no discount row, one payment, both
+  histories collapsed. Every one of those is a thing that could overflow at
+  320 and none of them was measured (MO-15).
+- **The 1366 comparison was not repeated for Phase 3.** Desktop equivalence
+  rests on a CSS-level proof — a byte-identical stylesheet and every
+  `.phone\:` rule inside the phone media query — plus a 1366 rendering that
+  was looked at. That is strong for "no rule changed" and silent about
+  anything a screenshot diff would have caught.
+- **The on-screen keyboard, again.** 390×500 shows the fullscreen footer
+  holding its place at a reduced height, which is the closest available proxy
+  and is not the same thing: a keyboard also changes `dvh` and moves focus.
+  Risk r07 stays open.
 
 ### 6.3 Standing — what no automated gate in this repo can see
 
@@ -849,6 +1211,25 @@ covers:
   text vanishing from a file every session loads. It cannot tell whether a
   rule is **wrong**, stale, or contradicted by another rule — and no gate
   here can. A rulebook edit still has to be re-read after it is committed.
+- **A probe only sees what is open.** An overlay contributes nothing to a
+  probe run unless something opens it first, so "probe green" on a route says
+  nothing about the dialogs that route can open. This is how a 24 px close
+  control lived through three phases (F18) — and it applies to every sheet,
+  dialog and drawer added from here on. The same is true one level down: a
+  COLLAPSED disclosure renders nothing, which is how a 405 px table sat
+  inside a "clean" screen (F22). Probe the states, not the route.
+- **A before/after screenshot pair proves nothing without a build marker.**
+  The correct answer and the answer from a comparison that never switched
+  trees are the same string (F23). Assert one DOM fact that differs between
+  the two sides and is invisible at the compared width, or do not claim the
+  result.
+- **The measuring tool is usually the broken thing, not the codebase.** A
+  throwaway script written to verify an invariant is younger, less exercised
+  and less reviewed than the code it is checking, so a result implying a
+  long-standing catastrophe should be aimed at the script first (F24).
+  Falsify a measurement tool the way a test is falsified: a comparison needs
+  a marker that MUST differ; a count needs a second method sharing no code
+  with the first.
 - **UI7's fenced-block skip has never fired.** Nothing in `.claude/**` or
   `docs/architecture/**` puts a table inside a code fence today (verified:
   zero fenced lines start with a pipe), so that branch is defensive and

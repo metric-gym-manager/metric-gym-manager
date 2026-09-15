@@ -111,6 +111,22 @@ export function Modal({
       aria-label="Close"
       className={cn(
         '-mr-1 rounded-sm p-1 text-ink-muted transition-colors duration-fast hover:text-ink focus-visible:shadow-focus focus-visible:outline-none',
+        /*
+         * 24 × 24 at desktop, `touch` (44) on a phone.
+         *
+         * The icon and its padding make a 24 px box, which is under even the
+         * probe's 40 px floor — so every `center` and `sheet` dialog on a
+         * phone had a close control a thumb cannot reliably hit. Phase 1 sized
+         * the fullscreen Back control and the `Drawer`'s close and missed this
+         * one, and it survived because `fullscreen` HIDES it: fullscreen was
+         * the only placement any phase had probed with a dialog open. The
+         * mobile rebuild's Phase 3 probed a sheet and the probe named it at
+         * once. 44 rather than 40 so it matches the Back control it stands in
+         * for, and because a close button is not a dense control.
+         *
+         * Desktop is untouched: every class here is `phone:`-scoped.
+         */
+        'phone:-mr-2 phone:inline-flex phone:size-touch phone:items-center phone:justify-center phone:p-0',
         // Replaced by the leading Back control at phone width.
         placement === 'fullscreen' && 'phone:hidden'
       )}

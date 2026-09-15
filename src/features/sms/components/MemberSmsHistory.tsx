@@ -16,6 +16,7 @@ import {
 } from '@/components/ui'
 import { SmsDeliveryStatus } from '../config/SmsConfig'
 import type { SmsType } from '../config/SmsConfig'
+import { cn } from '@/lib/utils'
 
 /**
  * A member's SMS history, as a gym manager may see it.
@@ -89,9 +90,18 @@ interface HistoryResponse {
 
 export interface MemberSmsHistoryProps {
   memberId: string
+  /**
+   * Layout class from the caller — `MemberDetailModal` uses it to order this
+   * block on a phone. A wrapper div would do the same job and would also add a
+   * stray gap to the detail's spaced column, so the class comes here instead.
+   */
+  className?: string
 }
 
-export function MemberSmsHistory({ memberId }: MemberSmsHistoryProps) {
+export function MemberSmsHistory({
+  memberId,
+  className,
+}: MemberSmsHistoryProps) {
   const [expanded, setExpanded] = useState(false)
   const [page, setPage] = useState(1)
 
@@ -112,7 +122,12 @@ export function MemberSmsHistory({ memberId }: MemberSmsHistoryProps) {
   const total = data?.totalCount ?? 0
 
   return (
-    <div className="space-y-3 rounded-sm border border-line-1 bg-surface-input p-4">
+    <div
+      className={cn(
+        'space-y-3 rounded-sm border border-line-1 bg-surface-input p-4',
+        className
+      )}
+    >
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold text-ink">SMS History</h3>

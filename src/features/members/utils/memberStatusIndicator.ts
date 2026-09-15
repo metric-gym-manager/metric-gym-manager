@@ -6,9 +6,10 @@ import { getDaysUntilDue } from './getDaysUntilDue'
  *
  * Before this existed, the same four statuses were mapped four different ways:
  * `getStatusVariant` duplicated byte-for-byte in `MemberDetailModal` and
- * `MemberDetailModalMobile`, a `getStatusDotClass` colour-only dot in the
- * members table, and a `memberBadge` in the page client that alone knew about
- * "expires soon". They could disagree, and did.
+ * `MemberDetailModalMobile` (the latter deleted in the mobile rebuild's
+ * Phase 3), a `getStatusDotClass` colour-only dot in the members table, and a
+ * `memberBadge` in the page client that alone knew about "expires soon". They
+ * could disagree, and did.
  *
  * A data map, not a visual primitive — it returns a variant and a label, and
  * the caller renders a `Badge`. Directive §4.4 bans new visual abstractions;

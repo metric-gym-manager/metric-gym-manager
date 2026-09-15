@@ -1125,7 +1125,7 @@ INSERT INTO sms_logs (
 
 ### UI Component
 
-**Location**: `src/components/members/MemberDetailModalResponsive.tsx`
+**Location**: `src/features/members/components/MemberDetailModal.tsx`
 
 **Interactive Elements**:
 
@@ -1434,7 +1434,10 @@ Context-aware action buttons replace the status dropdown:
 - Submits to `POST /api/members/[id]/activate` with selected date
 
 **Mobile Support**:
-Identical functionality implemented in `MemberDetailModalMobile.tsx` with mobile-optimized layout.
+The same component, at every width. It renders as a fullscreen screen on a
+phone and a centred dialog on a desktop via `Modal placement` — so there is no
+second implementation that can drift, which is what the deleted
+`MemberDetailModalMobile.tsx` had done.
 
 ---
 
@@ -2581,15 +2584,9 @@ interface CronExecution {
         "errors": null
       }
     ],
-    "update-expired-status": [
-      /* ... */
-    ],
-    "cancel-overdue-members": [
-      /* ... */
-    ],
-    "expire-suspended-members": [
-      /* ... */
-    ]
+    "update-expired-status": [/* ... */],
+    "cancel-overdue-members": [/* ... */],
+    "expire-suspended-members": [/* ... */]
   }
 }
 ```
