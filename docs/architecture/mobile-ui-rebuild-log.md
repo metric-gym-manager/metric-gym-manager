@@ -380,6 +380,54 @@ the trigger box. Fixed in the primitive (F30); after the fix both states are
 byte-identical, with the marker (`[role=tablist]` `data-scroll`, `x` vs
 `none`) proving the two sides were different builds.
 
+### 2.9 Phase 6 — Dashboard and Revenue, probed with 99,999,999
+
+Seven states × four phone widths, plus three desktop widths. **32 of 32 clean
+on the phone tier**; the desktop tier's only violations are the inherited
+six-digit axis clips (F1), which `compactAxis` does NOT remove there (F31).
+The fixture is §28's shape applied to these two screens: a 99,999,999 payment
+and a 12,345,678 plan amount in every KPI and every list, the 30-character
+name `Wickramasinghe Arachchige Dona` as the first row of both lists, 1,024
+and 128 as reminder and enrolment counts, and nine recent payments so the
+six-row cap is exercised rather than assumed.
+
+| State                | 320 | 360 | 390 | 430 | 768 | 1024 | 1366 |
+| -------------------- | --- | --- | --- | --- | --- | ---- | ---- |
+| Dashboard populated  | 0   | 0   | 0   | 0   | 4\* | 4\*  | 4\*  |
+| Dashboard §28 stress | 0   | 0   | 0   | 0   | 4\* | 4\*  | 4\*  |
+| Dashboard empty      | 0   | 0   | 0   | 0   | 0   | 0    | 0    |
+| Dashboard error      | 0   | 0   | 0   | 0   | 0   | 0    | 0    |
+| Revenue populated    | 0   | 0   | 0   | 0   | 4\* | 4\*  | 4\*  |
+| Revenue §28 stress   | 0   | 0   | 0   | 0   | 4\* | 4\*  | 4\*  |
+| Revenue empty        | 0   | 0   | 0   | 0   | 0   | 0    | 0    |
+
+\* The four clipped y-axis ticks of F1, matching the `KNOWN_DESKTOP_VIOLATIONS`
+pattern. Every other rule is clean at every desktop width. The empty and error
+states render no chart, which is why they show 0.
+
+Axis text, read from the DOM rather than from a screenshot: at 390 the ticks
+are `0 · 200k · 400k · 600k · 800k`; at 1366 the same data gives
+`0 · 200000 · 400000 · 600000 · 800000`, each clipped by 12 px. With the
+stress fixture the phone reads `0 · 25M · 50M · 75M · 100M` and the desktop
+`100000000` clipped by 30 px.
+
+Interactive elements measured: 15 on the dashboard (four KPI tiles, six
+payment rows, the AppBar avatar, four bottom-nav items), 7 on Revenue (two
+selects plus the chrome — the breakdown rows are deliberately not interactive,
+§9.4 lists no detail for them), 9 on the empty dashboard, 5 on the error
+state. Bottom nav `scrollWidth === clientWidth` at every width.
+
+**The probe was falsified before its zeros were believed.** `compactAxis`
+forced to `false` and re-run at 390 reproduces the audit's defect exactly:
+`axis tick "200000" clipped by -12px` on both screens, four ticks each.
+Restored, and the zeros came back.
+
+**Desktop 1366 byte-identical**, both screens, across two freshly built trees
+with `.next` cleared on each side, with three build markers that flip:
+`StatCard`'s `break-words` (absent → present), the dashboard's phone `ListRow`
+count (0 → 8) and Revenue's phone share bars (0 → 4). The FIRST comparison
+said the dashboard differed and that answer was wrong — see F34.
+
 ---
 
 ## 3. Execution log
@@ -919,6 +967,99 @@ is a re-arm, not a second comment. Also established while checking: the repo
 has **no `.claude/skills/` directory**, so there is no `steward` or `babysit`
 guidance to defer to, and it does **not** run the `Claude Approvals` check —
 the only check run on either PR is `Vercel Preview Comments`.
+
+### Phase 6 — Dashboard and Revenue · **DONE** 2026-09-15
+
+Branch `claude/mobile-ui-rebuild-p6`, cut from `master` at `b62e85b` — the
+first phase whose base is `master` rather than the previous phase's head,
+because Phases 0–5 are all merged. Scope: plan §8.1, §8.11, §9.2, §9.4, §12,
+§25.4, §26.
+
+**Pre-satisfied by earlier phases, verified rather than built:** `PageHeader`
+already carries `phone:sr-only` on its `<h1>` from Phase 2, so "title hidden,
+timestamp as the first content row" needed a check, not a change; `ListRow`
+already joins a plain-text meta line to one text node (F10) and wraps one
+holding an element (F27); `Charts` already carries `compactAxis` from Phase 1.
+
+**Built:**
+
+1. **`compactAxis` on the phone tier**, on both `BarChart`s. At 390 the ticks
+   read `200k … 800k` instead of losing their leading digits to a 40 px axis.
+2. **Recent payments render `ListRow`s on the phone**, `Table` on the desktop
+   (§12 category A): name and the NEW badge on the primary line, amount
+   trailing, "plan · date" disclosed, and the row opens the member detail —
+   which is §9.4's listed home for everything else. `memberId` was already in
+   the endpoint's payload; the screen's local interface had simply never
+   named it.
+3. **The reminder queue renders `ListRow`s on the phone**: name and amount
+   visible, "reminder type · when" disclosed.
+4. **Revenue's month/year selects** are `PageHeader` actions on the desktop
+   and a `grid-cols-2` first content row on the phone (§25.4). Never both:
+   `PageHeader`'s `<h1>` is `sr-only` at that tier, so passing them twice
+   renders two month selects — the trap Phase 4 recorded on the Members
+   record count.
+5. **The breakdown renders `ListRow`s on the phone** with "N members ·
+   N payments" disclosed and a 2 px `Progress` share bar on the row's last
+   line.
+
+**THREE SCOPE EXCEPTIONS AND ONE CORRECTION, all logged (g8):**
+
+| Change                                          | Why                                                                                                       |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Reminder queue converted on the phone tier ONLY | §8.1 says "reminder queue as `ListRow`s" without naming a tier; converting the desktop moves its baseline |
+| The share bar rides `ListRow`'s `actions` slot  | §25.4 asks for a bottom `Progress`; §9.1's anatomy has no other slot below the meta line                  |
+| `StatCard` value gains `break-words`            | §27 "Large money", and the §28 fixture overflowed the page without it (F33)                               |
+| `capitalise` uppercases after a hyphen          | The desktop cell's CSS `capitalize` prints `6-Months`; `charAt(0)` alone printed `6-months`               |
+
+**GATE — 8 of 10, and the two failures are the same two Phases 4 and 5
+recorded, for the same reason:**
+
+**g2 FALSE** — §19 wants the phase's interaction checks run on the seeded E2E
+gym. No Supabase credentials. This phase writes nothing, so there is no
+mutation to verify; what is unverified is that the four endpoints shape their
+responses the way the fixtures assume, and that `openMember` reaches a real
+member. Both were driven against an interceptor.
+
+**g4 FALSE** — the probe is 32/32 clean on the phone tier at 320/360/390/430
+across seven states, and the §28 content was REPRODUCED on an interceptor
+rather than seeded through the app's APIs (MO-23, now three phases deep).
+
+**g1 TRUE** — matches the §26 DASHBOARD and REVENUE blueprints at 320 and 390
+by eye: timestamp as a mono caption under the app bar, 2×2 KPI band, compact
+chart, two-line queue rows with a trailing amount, avatar · name · NEW ·
+amount payment rows, the two-column select row, and breakdown rows with their
+share bar. §26's above-the-fold rule holds at 390 — the band, the chart and
+the first two queue rows are all above 730 px. Two caveats, both recorded
+below: the AppBar rendered titleless on the probe route (MO-25, same as Phase
+5), and the browser had no Geist until this phase wired the bundled files in
+(F32).
+
+**g3 TRUE** — 1366 byte-identical on both screens across two freshly built
+trees, markers flipping. `break-words` is therefore genuinely inert at the
+desktop tier, measured rather than asserted (MO-24).
+
+**g9 TRUE** — populated, §28-stress, empty and error all rendered and probed;
+loading was rendered but not probed as a separate row, because these two
+screens have no skeleton list of their own (the chart is a `Skeleton` and the
+KPI values are "—").
+
+**g6 TRUE** — no allow-list grew; token parity green; no `sm:`/`md:`/`lg:`
+composition switch; no `window.innerWidth`.
+
+**Verified:** type-check clean; lint 0 errors (11 pre-existing warnings);
+arch:check green; Jest **2,026 passed** / 7 skipped (**29 new** — 15 dashboard
+phone, 12 revenue phone, 2 `StatCard`; the two desktop suites' 34 assertions
+were not edited); **eleven mutations falsified** — `compactAxis` off on each
+screen, the queue's meta line split into elements, the payments row made
+inert, either list left as a `Table` on the phone, the NEW badge moved to the
+status slot, the share bar dropped, the selects passed on both tiers, the
+`break-words` class removed, and `charAt(0)` restored.
+
+**Not verified, and saying so:** the AppBar title and the selected BottomNav
+item on the real routes. The probe route has no `WORKSPACE_NAV` entry, so its
+AppBar rendered titleless — the same gap as MO-25. `appBarTitle('/dashboard')`
+returning `Overview` is pinned by Phase 2's `nav.test.ts`; the rendered
+pairing is not.
 
 ---
 
@@ -1495,6 +1636,102 @@ same before/after comparison a new component would.
 The test now asserts the scoped class and the ABSENCE of the bare one; the
 bare string put back fails it.
 
+### F31 — `compactAxis` on the phone does not clear the desktop's ratchet entries
+
+`KNOWN_DESKTOP_VIOLATIONS` carried two entries for the six-digit axis clip
+with `clears: 'Phase 6'` and a note saying the phase that applies `compactAxis`
+"deletes these two entries in the same commit". Phase 6 applied it, and the
+entries still match: at 1366 both charts still render `200000 … 800000`, each
+clipped by 12 px, and with the §28 fixture `100000000` clipped by 30.
+
+The note assumed the fix was tier-neutral. It is not: `compactAxis` changes
+the tick **text**, so switching it on at the desktop tier changes what
+`dashboard-desktop-1366.png` and `revenue-desktop-1366.png` contain. That is
+the same MO-4 objection which stopped Phase 1 making it the default, and it is
+a re-baseline, not a screen rebuild. Both the plan (§5.9, "screens pass it
+under the phone tier") and §8.1/§8.11 scope it to the phone, so following the
+plan and clearing the entries were never the same action.
+
+Entries re-pointed at the sweep phase, which owns the baselines, with the
+reasoning written into the file so the next reader does not re-derive it.
+
+_Lesson:_ a ratchet entry's `clears:` field is a **prediction**, and the phase
+it names is the first one able to test it. Phase 0 could not know that the fix
+would be tier-scoped, because §5.9 offered two implementations — widen the
+axis, or shorten the label — and only one of them is invisible at 1366.
+
+### F32 — The browser pass ran in the wrong typeface until the bundled fonts were wired in
+
+`fonts.googleapis.com` is denied by this environment's network policy: the
+proxy answers `403` to `CONNECT`, `next/font/google` logs "Failed to download
+Inter from Google Fonts. Using a fallback font instead", and the page renders
+in a system face. Every width the probe measures is then the wrong font's —
+and the rules that depend on it are rules 2, 3, 8 and 9 plus §15.1's inline
+line box, which is most of the probe.
+
+Fixed for the run by pointing `next/font/local` at the Geist `.woff` files the
+repo already bundles for the QR poster (`src/features/registration/assets/
+fonts/`): 400, 600, 700 and Mono 400/500 are all there; only Geist 500 is
+absent and falls back to 400, which is what CSS font-matching would do anyway.
+Reverted with the rest of the probe scaffolding.
+
+Two things follow. **The numbers in this section were measured in Geist**;
+without the swap they would have been measured in whatever DejaVu the image
+ships. And it is an open question whether the earlier phases' browser numbers
+were — nothing in their records says either way, and this session cannot
+determine what network policy those sessions ran under. Recorded as MO-27
+rather than asserted in either direction.
+
+### F33 — "KPI band unchanged" and the §28 fixture cannot both hold
+
+Both §8.1 and §8.11 say the KPI band is unchanged, and §28's
+`payment 99,999,999` fixture says it validates "value column width; **KPI
+wrap**; breakdown". At 320 the figure renders 144 px in a 111 px tile, the
+page overflowed by one pixel, and mobile Chromium answered by widening the
+layout viewport to 321 and zooming the whole page out (F5). Both bands failed,
+on both screens, and nothing else in the run did.
+
+§27's "Large money" row already names the fix — "KPI `text-readout` may wrap
+to two lines inside the tile (`break-words`)" — so the plan contains both the
+defect's cause and its cure and only the prompt says "unchanged". Taken as an
+instruction about composition (no tile added, removed or re-ordered) rather
+than about a robustness class, and the one class was added to `StatCard`,
+where §27's rule belongs. Nothing else §25.4 lists for that band — `min-h-touch`
+on the tile, `line-clamp-2` on the sub — was touched: neither is needed for the
+probe, both would change the desktop, and they are left to the sweep (MO-28).
+
+_Lesson:_ the stress fixtures are not a formality appended to a phase; §28
+names, for each fixture, the thing it is expected to break. Reading that column
+before the run tells you which "unchanged" claims the run is about to test.
+
+### F34 — Two ways the probe harness lied before the product could
+
+Both were caught, and both are the F26 family: an instrument that reports
+something other than what it claims to measure.
+
+**A `?screen=` branch read during render.** The throwaway probe page picked its
+component from `typeof window !== 'undefined' && location.search`, so the
+server rendered Dashboard and the client rendered Revenue, and React threw the
+tree away with a hydration error. The page still _looked_ right after the
+client re-render, and the probe still reported zeros — of a tree that had been
+regenerated rather than hydrated. Split into one route per screen; the console
+is silent and the measurement is of the tree the server sent. A harness whose
+own rendering is unsound cannot certify a screen's rendering.
+
+**A live clock in the compared region.** The first 1366 before/after pair said
+the dashboard **differed**. It did: by the header timestamp, which ticks every
+minute and had crossed one between the two captures. `desktop-regression.spec.ts`
+already masks `/ IST$/` for exactly this reason — the mask existed and the
+ad-hoc comparison did not use it. Re-captured with the repo's own mask list,
+and both screens are byte-identical.
+
+That is F23's mirror image and worth stating beside it: F23 is a comparison
+that says "identical" when it compared nothing, and this is one that says
+"differs" for a reason that is not the change. Neither is answered by looking
+harder at the number. Both are answered by asking what the tool would report
+if it were broken — a marker for the first, the repo's existing mask list for
+the second.
+
 ---
 
 ## 5. Open items
@@ -1520,13 +1757,15 @@ bare string put back fails it.
 | MO-17 | **The SMS history table overflows every phone width** (384 px), inside the member detail Phase 3 made reachable on a phone. §12 assigns it "`ListRow` list via tier hook"; Phase 9 owns SMS and activity lists. Not a regression (the deleted fork had no SMS history) and deliberately not papered over with a `data-scroll="x"` the plan does not sanction.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 9     |
 | MO-18 | **§12 does not list the member-detail payment-history table.** Phase 3 converted it (F22) because the phase introduced the regression, but the omission means the plan's table inventory is not complete — worth a sweep at Phase 10 for other tables no phase owns.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Phase 10    |
 | MO-19 | **Probe every state, not every route.** A screen is probed when its disclosures, empty state, loading state and sub-dialogs have each been measured. Four of member detail's five states were clean and the fifth was the defect (F22). Phase 10's DoD needs this as a checklist, not a sentence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | every phase |
-| MO-20 | **`STRICT_PHONE_ROUTES` can finally take an entry.** Phase 4 rebuilt `/members`, the first real ROUTE in the rebuild, and probed it clean at four widths in eight states. Adding it needs the seeded gym (the probe ran on an intercepted endpoint), so it is still unpaid. Phase 5 adds `/payment-collection` to the same queue for the same reason — two routes now probed clean against an interceptor and neither pinned. → **Phase 6**.                                                                                                                                                                                                                                                                                                                                                                                                             | Phase 5     |
+| MO-20 | **`STRICT_PHONE_ROUTES` can finally take an entry.** Phase 4 rebuilt `/members`, the first real ROUTE in the rebuild, and probed it clean at four widths in eight states. Adding it needs the seeded gym (the probe ran on an intercepted endpoint), so it is still unpaid. Phase 5 adds `/payment-collection` to the same queue for the same reason — two routes now probed clean against an interceptor and neither pinned. Phase 6 adds `/dashboard` and `/revenue` to the same queue, so the list is four routes long and `STRICT_PHONE_ROUTES` is still `[]`. → **Phase 7**.                                                                                                                                                                                                                                                                        | Phase 6     |
 | MO-21 | **Every phone width matters, and 390 is not the worst case.** F27 failed at 390 alone — 320 and 360 wrap the value and hand the meta line the full row; 430 fits both. A phase that probes one or two widths is sampling, not checking.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | every phase |
 | MO-22 | Add member's consent labels wrap links, so tapping "privacy policy" both navigates and toggles the checkbox. Pre-existing (the label was already associated by `htmlFor`) and untouched by the wrapping fix. The remedy is a product decision about where consent links belong.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | product     |
-| MO-23 | **The §28 stress fixtures still have not run against the seeded gym.** Phase 4 reproduced their CONTENT (29-char name, 20-char phone, 12,345,678 fee, 300 members) on an intercepted endpoint, which exercises the layout but not the seeding, the real API's shaping, or the fixtures' own idempotence. Phase 5 did the same with 100 dues and −299 days, so the debt is now two phases deep.                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Phase 5     |
+| MO-23 | **The §28 stress fixtures still have not run against the seeded gym.** Phase 4 reproduced their CONTENT (29-char name, 20-char phone, 12,345,678 fee, 300 members) on an intercepted endpoint, which exercises the layout but not the seeding, the real API's shaping, or the fixtures' own idempotence. Phase 5 did the same with 100 dues and −299 days, and Phase 6 with the 99,999,999 payment and the 30-character name, so the debt is now three phases deep.                                                                                                                                                                                                                                                                                                                                                                                      | Phase 6     |
 | MO-24 | **The first product use of an EXISTING variant needs the same 1366 comparison a new component gets.** `TabsList overflow="scroll"` shipped in Phase 1, sat in the dev showcase for three phases, and moved the desktop by a pixel the moment a product screen used it (F30). Phases 6–10 each reach for primitives built earlier; the comparison is not optional because the component is not new.                                                                                                                                                                                                                                                                                                                                                                                                                                                       | every phase |
-| MO-25 | **Renewals' AppBar title and selected BottomNav item are unverified on the real route.** Phase 5 probed `/payments-probe`, a stand-in with no `WORKSPACE_NAV` entry, so its AppBar rendered titleless. `Renewals` is a `bar` item in `nav.ts` and Phase 2 pinned the chrome, but the pairing was not seen. Clears with the seeded gym (§6.1).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 6     |
+| MO-25 | **Renewals' AppBar title and selected BottomNav item are unverified on the real route.** Phase 5 probed `/payments-probe`, a stand-in with no `WORKSPACE_NAV` entry, so its AppBar rendered titleless. `Renewals` is a `bar` item in `nav.ts` and Phase 2 pinned the chrome, but the pairing was not seen. Phase 6 hit the same wall on `/p6-probe/*`: `appBarTitle('/dashboard')` returns `Overview` in `nav.test.ts`, and no phase has yet SEEN it above the screen. Clears with the seeded gym (§6.1).                                                                                                                                                                                                                                                                                                                                                | Phase 7     |
 | MO-26 | **`Vercel – gym-management-saas-ihsw` failed on #75 and on #76's first head, then stopped attaching.** A second Vercel project, outside `team_Fl7rQYbRLMhzxU8bhXeMOE94`, appearing 2026-09-15 08:12 on both PRs; always `"Deployment failed."` with no `target_url`, red on the base branch too, while the real project deployed the same commits successfully. It attached to no commit after `f0333b4`: `0705ffb` took one status, green, and #76 went `mergeable_state: clean`. **#75 still reads red because its head has not moved** — those statuses are pinned to `91ea6aa` and are not re-evaluated; the next real push to that branch should clear it, and an empty commit to find out is banned. Nothing in this repository caused it or can fix it; if it returns, it is a Vercel account setting.                                            | product     |
+| MO-27 | **It is not known which typeface Phases 1–5 measured in.** `fonts.googleapis.com` is denied by this environment's network policy, so `next/font/google` silently falls back to a system face and every probe width is the wrong font's (F32). Phase 6 wired `next/font/local` at the Geist `.woff` files the repo already bundles, for the run only. Nothing in the earlier records says whether they hit the same denial. Re-running an earlier phase's probe is cheap once a route is reachable; re-deriving its numbers from prose is not.                                                                                                                                                                                                                                                                                                            | Phase 10    |
+| MO-28 | **Two §25.4 KPI-band deltas are still unapplied.** `min-h-touch` on the tile and `line-clamp-2` on the `sub` line. Phase 6 added only `break-words`, which the probe forced (F33); the other two are invisible to every probe rule (the tiles already measure over 44 px, and a wrapping sub line breaks nothing) and both would move the 1366 baseline. They belong with the axis re-baseline (F31) rather than in a screen phase.                                                                                                                                                                                                                                                                                                                                                                                                                      | Phase 10    |
 
 ---
 
@@ -1541,11 +1780,14 @@ Rule for this section: an item leaves it only when the check has actually been
 run and its result recorded — never because time passed, and never because the
 code "obviously" works.
 
-### 6.1 Phases 1–5 — four suites that still have not run
+### 6.1 Phases 1–6 — four suites that still have not run
 
 No session had **Supabase credentials**, so the seeded E2E Enterprise gym was
 unreachable and every spec gated on `E2E_ACCESS_CONTROL_ENABLED` skipped.
-Nothing was worked around; the gap is the gap.
+Nothing was worked around; the gap is the gap. Phase 6 makes it six phases
+deep, and adds a second environment gap beside it: `fonts.googleapis.com` is
+denied by the network policy, so a browser pass renders in a substitute face
+unless the bundled Geist files are wired in by hand (F32, MO-27).
 
 Each phase got closer to a real rendering without closing it. Phase 2 put a
 browser on the real shell by making four workspace routes temporarily public,
@@ -1567,7 +1809,7 @@ order: the `metadata.other['theme-color']` entry came back; `viewportFit` was
 dropped; or Next's meta ordering changed and `PLANNED_VIEWPORT_META` needs
 re-recording (the spike's header documents the renderer's fixed order).
 
-### 6.2 Phases 1–5 — what the browser pass could not see
+### 6.2 Phases 1–6 — what the browser pass could not see
 
 - **Fonts.** Geist could not be fetched offline, so every screenshot used the
   fallback family. Glyph widths differ from production, which matters for two
@@ -1690,6 +1932,25 @@ covers:
   Falsify a measurement tool the way a test is falsified: a comparison needs
   a marker that MUST differ; a count needs a second method sharing no code
   with the first.
+- **A green probe is only evidence if the page it measured was the page the
+  server sent.** A probe harness that picks its component from
+  `location.search` during render makes the server and the client render
+  different trees; React discards the server's and regenerates, the screen
+  ends up looking right, and the probe reports zeros for a tree that was
+  never hydrated (F34). A silent console is part of the measurement, not a
+  nicety.
+- **A before/after pair can differ for a reason that is not the change.** The
+  dashboard header carries a live clock, and a minute boundary between two
+  captures is enough to make the comparison say "differs" (F34). The repo's
+  own `desktop-regression.spec.ts` already masks `/ IST$/`; an ad-hoc
+  comparison that does not reuse that list is measuring something else. This
+  is F23's mirror: a marker catches a comparison that compared nothing, a
+  mask catches one that compared too much.
+- **The rendering environment can substitute the typeface without failing.**
+  `next/font/google` logs a warning and carries on when the font host is
+  unreachable, and most of the probe's rules — overflow, clipping, axis
+  ticks, the inline line box — are font-metric rules (F32). Check which faces
+  actually loaded before recording a width.
 - **UI7's fenced-block skip has never fired.** Nothing in `.claude/**` or
   `docs/architecture/**` puts a table inside a code fence today (verified:
   zero fenced lines start with a pipe), so that branch is defensive and
