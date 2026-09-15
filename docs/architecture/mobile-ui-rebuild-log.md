@@ -877,25 +877,40 @@ a `bar` item in `nav.ts` and Phase 2 pinned that chrome, but this phase did
 not see the real route's header. It needs the seeded gym, like the rest of
 §6.1.
 
-**CI, and the check that is not this PR's.** `Vercel – gym-management-saas`
-— the one project in `team_Fl7rQYbRLMhzxU8bhXeMOE94`, and so the real
-deployment — is **green on `f0333b4`**, which is Vercel building and shipping
-this exact tree in production mode. A second check, `Vercel –
-gym-management-saas-ihsw`, is red, and it is not this PR's:
+**CI — green, after a red check that was never this PR's and then stopped
+appearing.** `Vercel – gym-management-saas` — the one project in
+`team_Fl7rQYbRLMhzxU8bhXeMOE94`, and so the real deployment — has been green
+on every head this branch has had. A second check, `Vercel –
+gym-management-saas-ihsw`, was red on `f0333b4`, and was not this PR's:
 
-- it is **red on the base branch too** (`claude/mobile-ui-rebuild-p4` at
-  `91ea6aa`, a tree carrying none of this phase's three commits);
+- it was **red on the base branch too** (`claude/mobile-ui-rebuild-p4` at
+  `91ea6aa`, a tree carrying none of this phase's commits);
 - it **did not exist before #75** — PRs #71 and #74 have exactly one Vercel
-  check and it passes. It first appears at 2026-09-15 08:12, on both #75 and
-  #76, always `"Deployment failed."` with **no `target_url`**, so there is no
-  build log to read;
-- the project is **not in this repo's Vercel team**, so it cannot be
+  check and it passes. It first appeared at 2026-09-15 08:12, on #75 and
+  #76, always `"Deployment failed."` with **no `target_url`**, so there was
+  no build log to read;
+- the project is **not in this repo's Vercel team**, so it could not be
   inspected or re-run from here.
 
-Stood down with one comment on each PR naming the check and this evidence. No
-fix exists to port: nothing in this repository addresses a Vercel project
-connection outside the team's configuration, and clearing it needs someone
-with access to that account. Recorded as MO-26.
+Stood down with one comment on each PR naming the check and that evidence,
+because no fix existed to port: nothing in this repository addresses a Vercel
+project connection outside the team's configuration.
+
+**Then the next push settled it, and settled it against what had just been
+written here.** `0705ffb` — the commit carrying the paragraph above — took
+**one** status, green, and the PR went to `mergeable_state: clean`. The
+`-ihsw` check did not attach to that commit at all, and had not a minute or
+five minutes later. #75 still shows it red only because its head has not
+moved since 08:12; those statuses are pinned to `91ea6aa` and are not
+re-evaluated.
+
+The correction is the point. The first version of this paragraph, and MO-26
+with it, said the check would read red on _every_ phase PR from #75 on until
+someone with Vercel access cleared it — a claim about an external system's
+future behaviour, drawn from two samples an hour apart, disproved by the
+third sample within the hour. Two observations of a flaky integration
+support "it happened twice", not "it will keep happening". Recorded as
+MO-26, now describing what was observed rather than what it would do next.
 
 Two check-ins since (09:16 and 10:16 UTC) found **no change** on either PR:
 same statuses on the same head commits, no review threads, `mergeable_state`
@@ -1511,7 +1526,7 @@ bare string put back fails it.
 | MO-23 | **The §28 stress fixtures still have not run against the seeded gym.** Phase 4 reproduced their CONTENT (29-char name, 20-char phone, 12,345,678 fee, 300 members) on an intercepted endpoint, which exercises the layout but not the seeding, the real API's shaping, or the fixtures' own idempotence. Phase 5 did the same with 100 dues and −299 days, so the debt is now two phases deep.                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Phase 5     |
 | MO-24 | **The first product use of an EXISTING variant needs the same 1366 comparison a new component gets.** `TabsList overflow="scroll"` shipped in Phase 1, sat in the dev showcase for three phases, and moved the desktop by a pixel the moment a product screen used it (F30). Phases 6–10 each reach for primitives built earlier; the comparison is not optional because the component is not new.                                                                                                                                                                                                                                                                                                                                                                                                                                                       | every phase |
 | MO-25 | **Renewals' AppBar title and selected BottomNav item are unverified on the real route.** Phase 5 probed `/payments-probe`, a stand-in with no `WORKSPACE_NAV` entry, so its AppBar rendered titleless. `Renewals` is a `bar` item in `nav.ts` and Phase 2 pinned the chrome, but the pairing was not seen. Clears with the seeded gym (§6.1).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 6     |
-| MO-26 | **`Vercel – gym-management-saas-ihsw` fails on every PR it touches, and nobody here can see it.** A second Vercel project, outside `team_Fl7rQYbRLMhzxU8bhXeMOE94`, first appearing on #75 (2026-09-15 08:12) and on #76 since; always `"Deployment failed."` with no `target_url`, and red on the base branch too, while the real project deploys the same commits successfully. It is not any phase's diff and no repository change addresses it — clearing it needs someone with access to that Vercel account to disconnect the stale project or fix its settings. Until then every phase PR from #75 on reads red.                                                                                                                                                                                                                                  | product     |
+| MO-26 | **`Vercel – gym-management-saas-ihsw` failed on #75 and on #76's first head, then stopped attaching.** A second Vercel project, outside `team_Fl7rQYbRLMhzxU8bhXeMOE94`, appearing 2026-09-15 08:12 on both PRs; always `"Deployment failed."` with no `target_url`, red on the base branch too, while the real project deployed the same commits successfully. It attached to no commit after `f0333b4`: `0705ffb` took one status, green, and #76 went `mergeable_state: clean`. **#75 still reads red because its head has not moved** — those statuses are pinned to `91ea6aa` and are not re-evaluated; the next real push to that branch should clear it, and an empty commit to find out is banned. Nothing in this repository caused it or can fix it; if it returns, it is a Vercel account setting.                                            | product     |
 
 ---
 
@@ -1660,6 +1675,14 @@ covers:
   overflow cost the desktop a pixel of tab underline (F30). The plan's rule
   is "`phone:`-scoped OR inert"; scoping is cheap and deciding something is
   inert requires knowing every side effect it has.
+- **Two observations of a flaky external system support "it happened twice",
+  not "it will keep happening".** A failing Vercel check was correctly
+  established as not any phase's — red on the base branch, absent from the
+  earlier PRs, on a project outside the team — and then written up with a
+  prediction attached: that it would read red on every phase PR until someone
+  cleared it. The next push disproved that within the hour. The evidence
+  ruling a failure out is not evidence about what it does next; record what
+  was observed and stop there.
 - **The measuring tool is usually the broken thing, not the codebase.** A
   throwaway script written to verify an invariant is younger, less exercised
   and less reviewed than the code it is checking, so a result implying a
