@@ -100,21 +100,31 @@ added 100 overdue rows with two 26 px buttons each — the fixture doing its job
 
 ### 2.3 Suite sizes
 
-| Metric                                         | Phase 0 | Phase 1 | Phase 2 |
-| ---------------------------------------------- | ------: | ------: | ------: |
-| Jest tests                                     |   1,760 |   1,889 |   1,938 |
-| Playwright mobile-rebuild tests (7 projects)   |     124 |     124 |     124 |
-| Pre-rebuild Playwright tests (`chromium` only) |      26 |      26 |      26 |
-| Desktop baselines (1366, committed)            |       7 |       7 |       7 |
-| `STRICT_PHONE_ROUTES`                          |       0 |       0 |       0 |
-| `KNOWN_DESKTOP_VIOLATIONS`                     |       3 |       3 |       3 |
-| Components mounted for mobile in `src/app`     |       0 |       0 |       3 |
-| `UI1_ALLOW` entries                            |      13 |      15 |      12 |
-| `UI6_ALLOW` entries                            |       — |       — |       0 |
+| Metric                                         | Phase 0 | Phase 1 | Phase 2 | Phase 3 | Phase 4 | Phase 5 |
+| ---------------------------------------------- | ------: | ------: | ------: | ------: | ------: | ------: |
+| Jest tests                                     |   1,760 |   1,889 |   1,938 |   1,968 |   1,982 |   1,996 |
+| Playwright mobile-rebuild tests (7 projects)   |     124 |     124 |     124 |     124 |     124 |     124 |
+| Pre-rebuild Playwright tests (`chromium` only) |      26 |      26 |      26 |      26 |      26 |      26 |
+| Desktop baselines (1366, committed)            |       7 |       7 |       7 |       7 |       7 |       7 |
+| `STRICT_PHONE_ROUTES`                          |       0 |       0 |       0 |       0 |       0 |       0 |
+| `KNOWN_DESKTOP_VIOLATIONS`                     |       3 |       3 |       3 |       3 |       3 |       3 |
+| Components mounted for mobile in `src/app`     |       0 |       0 |       3 |       3 |       3 |       3 |
+| `UI1_ALLOW` entries                            |      13 |      15 |      13 |      13 |      13 |      13 |
+| `UI6_ALLOW` entries                            |       — |       — |       0 |       0 |       0 |       0 |
 
 Phase 1 rebuilds no route, so `STRICT_PHONE_ROUTES` cannot grow yet (M3) and
 the 2.1 baseline is unchanged — the primitives are ready; nothing composes
 them outside the showcase until Phase 2.
+
+Phases 3–5 add no Playwright tests: everything they built is pinned by Jest
+and measured by an ad-hoc probe run, which is exactly the shape of the debt in
+§6.1 — the suite that would pin these numbers needs the seeded gym. The E2E
+directory is byte-identical between the Phase 2 head and this one.
+
+**The Phase 2 `UI1_ALLOW` figure was wrong.** It read 12; the list has held 13
+entries at every phase head from Phase 2 onward (`AppBar`, `BottomNav` and
+`Drawer` left, `Divider` and the R3 set stayed). Corrected above by counting
+the set at each commit rather than by re-deriving it from the phase's prose.
 
 Phase 2 rebuilds the CHROME, not the screens' content, and still cannot run
 the suite against the seeded gym (§6.1). `STRICT_PHONE_ROUTES` therefore stays
@@ -303,7 +313,7 @@ the real endpoint answered 401 and the screen rendered its ERROR CARD. A card
 has no rows, no links and no meta lines — so the probe reported zero
 violations, and the reading "the list is clean at 320 and 390, including under
 stress" was measuring nothing at all. Moving the interceptor to module scope
-is what made the three real defects visible (F25, F26, F27).
+is what made the three real defects visible (F27, F28, F29).
 
 **Where the overflow actually was: 390, and only 390.** At 320 and 360 the
 `ListRow` value wraps below the primary column and hands the meta line the
@@ -316,6 +326,59 @@ one that checked only 320 would not.
 trees, with a marker that flips — `Pagination`'s `responsive` readout is
 absent on the before tree and present (and `display: none`) on the after.
 F23's rule applied from the start this time rather than after a wrong answer.
+
+### 2.8 Phase 5 — Renewals, probed with 100 dues and "299 DAYS AGO"
+
+Eight states × four widths, plus 1366. **33 of 33 clean.** The fixture is
+§28's shape applied to this screen: 100 dues (50 expired, 50 within the week),
+40 collected, the 29-character name and the 12,345,678 amount on every third
+row, and `daysUntilDue` down to −299 so the expired badge reads its widest.
+A temporary dev route with a module-scope interceptor — the F26 lesson applied
+from the start, and the readiness wait asserts a row rather than "an `li`
+exists", because the sidebar contributes hidden ones at phone widths.
+
+| State                     | 320 | 360 | 390 | 430 | 1366 |
+| ------------------------- | --- | --- | --- | --- | ---- |
+| Expired tab               | 0   | 0   | 0   | 0   | 0    |
+| Expires this week         | 0   | 0   | 0   | 0   | —    |
+| Collected                 | 0   | 0   | 0   | 0   | —    |
+| member detail, opened     | 0   | 0   | 0   | 0   | —    |
+| **Confirm Payment sheet** | 0   | 0   | 0   | 0   | —    |
+| loading (skeleton rows)   | 0   | 0   | 0   | 0   | —    |
+| empty (all three tabs)    | 0   | 0   | 0   | 0   | —    |
+| error (all three tabs)    | 0   | 0   | 0   | 0   | —    |
+
+Interactive elements measured: 62 on a dues tab, 37 on Collected, 11 in the
+detail overlay, 4 in the Confirm Payment sheet, 10 while loading (chrome only
+— the five skeleton rows carry no controls). Bottom nav
+`scrollWidth === clientWidth` at every width.
+
+**The Confirm Payment sheet is MO-14's first `sheet` pass.** F18 fixed
+`Modal`'s 24 px close control in Phase 3 and could not prove it: `fullscreen`
+hides that control, and no phase since had opened a `sheet` under the probe.
+Reaching it from this screen — Record payment → fullscreen detail → Mark Paid
+— measures it for the first time. Full device width, bottom-anchored, top at
+y 329 of 844 at 390; at **320 it rises to y 57**, which is the placement
+running out of room rather than a defect, and nothing goes beyond the viewport
+there either.
+
+**The probe was falsified before its zeros were believed.** Reverting
+`TabsList overflow="scroll"` to the default and re-running at 320 reproduced
+the audit's defect exactly: the three labels with their count badges measure
+**371 px**, the browser widened the layout viewport to 371 to fit them and
+zoomed the page out (F5), and `Collected` sat at x 266.4 with a width of
+104.5 — past the 320 px edge, outside any sanctioned scroller. Restored, and
+the zeros came back. A probe that has not been shown failing on the defect it
+exists to catch is a number, not a measurement.
+
+**Desktop 1366 was NOT byte-identical on the first comparison, and the
+difference was real.** 90 pixels on the Expired tab and 101 on Collected, all
+on one row, `y = 156`, spanning exactly the width of the active tab — the
+2 px underline rendering 1 px thin because `overflow-x-auto` had made the tab
+list a scroll container at every width and clipped the pixel that hangs below
+the trigger box. Fixed in the primitive (F30); after the fix both states are
+byte-identical, with the marker (`[role=tablist]` `data-scroll`, `x` vs
+`none`) proving the two sides were different builds.
 
 ---
 
@@ -708,10 +771,10 @@ responsive`. Queries, params, server pagination and `openMember`
 
 | Change                                        | Why it could not wait                                                                                     |
 | --------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `DataTableMobileRow.status` takes an array    | §9.3 wrote one column id; §8.2 needs badge + due from two the desktop must keep separately sortable (F24) |
+| `DataTableMobileRow.status` takes an array    | §9.3 wrote one column id; §8.2 needs badge + due from two the desktop must keep separately sortable (F25) |
 | `DropdownMenu` items touch-height             | §8.2 asks for "touch items"; Phase 1 never sized this primitive (F18's blind spot again)                  |
-| `ListRow` meta wraps when it holds an element | The probe cannot permit an ellipsis on a line containing a link (F26)                                     |
-| Five checkboxes wrapped by their labels       | §15.1 puts the 44 px on the label, which needs it to WRAP the input (F27)                                 |
+| `ListRow` meta wraps when it holds an element | The probe cannot permit an ellipsis on a line containing a link (F27)                                     |
+| Five checkboxes wrapped by their labels       | §15.1 puts the 44 px on the label, which needs it to WRAP the input (F28)                                 |
 
 **Verification:**
 
@@ -732,6 +795,130 @@ tapping "privacy policy" both navigates and toggles the checkbox. That is
 pre-existing — the label was already associated by `htmlFor` — and wrapping
 did not change it. Recorded as MO-22 rather than fixed, because the fix is a
 product decision about where consent links belong, not a layout one.
+
+### Phase 5 — Renewals and payment dialogs · **DONE** 2026-09-15 · PR #76
+
+Branch `claude/mobile-ui-rebuild-p5`, cut from the Phase 4 head. Stack: p0 →
+phase-1 → p2 → p3 → p4 → p5. Scope: plan §8.10, §9.4, §25.4.
+
+**Decisions the phase was asked to take:** none open. `o14` (no `intent: 'pay'`
+option on `openMember`) was already resolved against; Record payment opens the
+detail and nothing else.
+
+**Pre-satisfied by earlier phases, verified rather than built:**
+`MarkPaidDialog` and `ReactivationDialog` already carry `placement="sheet"`
+from Phase 3; `DataTable` already passes `responsive={layout === 'list'}` to
+its internal `Pagination`, so a page size is the whole of the compact control;
+`Button size="xs"` already carries `phone:min-h-touch-sm` and `data-dense`.
+Three of the phase's scope items needed a check, not a change.
+
+**Built:**
+
+1. **All three tables take a `mobileRow`**, so the phone renders `ListRow`s:
+   name, the days-overdue badge (or the due DATE on the expires-this-week tab,
+   from the same column id), the amount, both actions, avatar in the row's
+   `leading` slot. The member cell drops its own avatar on that tier or it
+   renders twice.
+2. **Record payment first on a phone, and no wrapper** — `ListRow` lays its
+   actions out as a wrapping flex row with §25.4's gap already, so a nested
+   `inline-flex` only fights it. The desktop keeps Remind first and keeps its
+   wrapper. This is the one deliberate ordering difference between the tiers:
+   collecting money is the primary action on the screen whose job is
+   collecting money (§8.10).
+3. **`TabsList overflow="scroll"`** — `data-scroll="x"`, snap points, trailing
+   fade. Three labels carrying count badges are 371 px and do not fit 320.
+4. **`pageSize` 25 on the phone only.** The desktop stays unpaginated, which
+   is today's behaviour there.
+
+**Beyond scope, logged (g8):**
+
+| Change                              | Why it could not wait                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `TabsList` scroller `phone:`-scoped | Renewals is the first product screen to use the variant, and it moved the desktop by a pixel (F30) |
+
+**Verification:**
+
+- `type-check` clean · `lint` 0 errors (11 warnings, all pre-existing) ·
+  `arch:check` green · Jest **1,996 passed**, 7 skipped (**14 new**, all
+  phone-tier; the desktop suite's 10 were not edited).
+- **Probe: 33 of 33 clean**, eight states × four widths plus 1366, with the
+  fixture in §2.8 — and the probe itself falsified first. The eighth state is
+  the **Confirm Payment sheet**, reached from this screen, which is the first
+  time any phase has measured a `sheet` with the probe (MO-14).
+- **Behaviour asserted in the browser, not only in jsdom**: both actions start
+  and end inside the viewport at every width; all three tabs reachable and
+  `aria-selected` after a tap; Remind issues exactly ONE request and opens no
+  dialog; Record payment opens a dialog measuring the full device width with
+  **Mark Paid** in its footer; pagination shows exactly 25 rows per page and
+  the first row changes on Next.
+- **Rendered and looked at** at 320 and 390 across all three tabs, the empty
+  state, the opened detail and the Confirm Payment sheet — matching the §26
+  RENEWALS blueprint (tab strip with a scroll cue, sort control, avatar · name
+  · amount, `● 299 DAYS AGO`, both actions, pagination, bottom nav). The one
+  cosmetic difference is the sort control's label, `Sort: default` against the
+  blueprint's `Sort [ Expired ▾ ]`; that string belongs to `DataTable` and
+  Phase 4 shipped Members with it, so changing it here would fork a shared
+  control for one screen.
+- **Desktop 1366 byte-identical** after F30, marker-verified; the desktop test
+  also pins the table, the Remind-first order and the absence of pagination.
+- **Mutation-falsified** (six, each restored): the phone keeping the desktop
+  action order fails 1; `overflow="fit"` tabs fails 1; no phone `pageSize`
+  fails 2; the status column dropped from the row fails 2; the avatar rendered
+  twice fails 1; the `TabsList` scroller made unconditional again fails 1.
+
+**Measured, not assumed:** at 768 and 1024 the Renewals tab strip is 664 and
+736 px inside its container with `overflow: visible`, so `phone:`-scoping the
+scroller costs the tablet band nothing.
+
+**Not verified, and saying so:** the AppBar title and the selected BottomNav
+item were probed on a stand-in route (`/payments-probe`), which has no
+`WORKSPACE_NAV` entry — so the AppBar rendered titleless there. `Renewals` is
+a `bar` item in `nav.ts` and Phase 2 pinned that chrome, but this phase did
+not see the real route's header. It needs the seeded gym, like the rest of
+§6.1.
+
+**CI — green, after a red check that was never this PR's and then stopped
+appearing.** `Vercel – gym-management-saas` — the one project in
+`team_Fl7rQYbRLMhzxU8bhXeMOE94`, and so the real deployment — has been green
+on every head this branch has had. A second check, `Vercel –
+gym-management-saas-ihsw`, was red on `f0333b4`, and was not this PR's:
+
+- it was **red on the base branch too** (`claude/mobile-ui-rebuild-p4` at
+  `91ea6aa`, a tree carrying none of this phase's commits);
+- it **did not exist before #75** — PRs #71 and #74 have exactly one Vercel
+  check and it passes. It first appeared at 2026-09-15 08:12, on #75 and
+  #76, always `"Deployment failed."` with **no `target_url`**, so there was
+  no build log to read;
+- the project is **not in this repo's Vercel team**, so it could not be
+  inspected or re-run from here.
+
+Stood down with one comment on each PR naming the check and that evidence,
+because no fix existed to port: nothing in this repository addresses a Vercel
+project connection outside the team's configuration.
+
+**Then the next push settled it, and settled it against what had just been
+written here.** `0705ffb` — the commit carrying the paragraph above — took
+**one** status, green, and the PR went to `mergeable_state: clean`. The
+`-ihsw` check did not attach to that commit at all, and had not a minute or
+five minutes later. #75 still shows it red only because its head has not
+moved since 08:12; those statuses are pinned to `91ea6aa` and are not
+re-evaluated.
+
+The correction is the point. The first version of this paragraph, and MO-26
+with it, said the check would read red on _every_ phase PR from #75 on until
+someone with Vercel access cleared it — a claim about an external system's
+future behaviour, drawn from two samples an hour apart, disproved by the
+third sample within the hour. Two observations of a flaky integration
+support "it happened twice", not "it will keep happening". Recorded as
+MO-26, now describing what was observed rather than what it would do next.
+
+Two check-ins since (09:16 and 10:16 UTC) found **no change** on either PR:
+same statuses on the same head commits, no review threads, `mergeable_state`
+`unstable` from CI rather than a conflict. Per the drive-to-green rules that
+is a re-arm, not a second comment. Also established while checking: the repo
+has **no `.claude/skills/` directory**, so there is no `steward` or `babysit`
+guidance to defer to, and it does **not** run the `Claude Approvals` check —
+the only check run on either PR is `Vercel Preview Comments`.
 
 ---
 
@@ -1188,7 +1375,7 @@ asking what the tool would report if it were broken:
 Neither check costs more than a minute, and between them they are the
 difference between a measurement and a number.
 
-### F24 — The plan's own two sections disagreed about one API
+### F25 — The plan's own two sections disagreed about one API
 
 §9.3 specifies `mobileRow.status` as a single column id. §8.2 specifies the
 Members status line as "status badge + due" — two columns, which the desktop
@@ -1204,7 +1391,7 @@ member-detail payment history). **An approved plan is not internally
 consistent merely because it was approved**, and the phase that first
 implements a cross-section requirement is where the disagreement surfaces.
 
-### F25 — A probe that measures an error card reports zero violations
+### F26 — A probe that measures an error card reports zero violations
 
 The Phase 4 probe page patched `window.fetch` inside a `useEffect`. React
 Query fires its request during mount, before any effect runs, so about one
@@ -1214,7 +1401,7 @@ touch and overflow rules apply to — so the probe reported **clean**, and that
 reading was written down and reported as a result.
 
 It was wrong. Moving the interceptor to module scope turned the same eight
-states from "clean" into three real defects (F26, F27 and the `tel:` line
+states from "clean" into three real defects (F27, F28 and the `tel:` line
 box), every one of which had been present the whole time.
 
 This is F23 arriving from the other direction. There a broken comparison said
@@ -1224,7 +1411,7 @@ lesson is narrow and worth stating plainly: **a green probe is only evidence
 if you know what it measured.** Assert the subject exists — row count, a
 known name, the absence of the error state — before believing a zero.
 
-### F26 — `truncate` and an inline element cannot coexist under the probe
+### F27 — `truncate` and an inline element cannot coexist under the probe
 
 `ListRow`'s meta line truncates with an ellipsis, which probe rule 9 permits
 **only** for an element holding nothing but text. §9.4 asks Members to put
@@ -1240,7 +1427,7 @@ Found at **390 and nowhere else** — at 320 and 360 the value wraps below the
 primary column and the line gets the full row; at 430 both fit. A phase that
 probed one phone width would have called this clean.
 
-### F27 — `htmlFor` is not a hit area
+### F28 — `htmlFor` is not a hit area
 
 Five checkboxes across Add and Edit member sat as siblings of their labels,
 associated by `htmlFor`. Clicking the label toggles the box, so the behaviour
@@ -1254,7 +1441,7 @@ the input for the 24 px to be inside anything. Fixed at the pattern level
 across both forms rather than on the single checkbox the probe reached first,
 because the other four were one step of a wizard away from the same report.
 
-### F28 — `leading-6` does not resize an inline element
+### F29 — `leading-6` does not resize an inline element
 
 Three inline links failed §15.1's 24 px line-box minimum (WCAG 2.5.8): the
 members row's `tel:` link at 13 px, and Add member's two consent links at 15.
@@ -1267,6 +1454,46 @@ the font metrics, which line-height does not enter. `inline-block` is what
 makes the element own its height. Both halves are needed, and the class list
 now says so at each of the three sites, because the next person will reach
 for `leading-6` alone as well.
+
+### F30 — A scroll container clips the underline it was given to hold
+
+`TabsList overflow="scroll"` (built in Phase 1, first used on a product screen
+in Phase 5) applied `overflow-x-auto` at every width. On a phone that is the
+point. On a desktop, where the strip fits and nothing scrolls, it looked
+inert — and was not.
+
+`overflow` other than `visible` establishes a scroll container, and a scroll
+container clips whatever sits outside its padding box. The active trigger's
+underline is `after:-bottom-px h-0.5`: a 2 px rule positioned 1 px BELOW the
+trigger, so it covers the list's own bottom border rather than sitting on top
+of it. That 1 px is outside the list's padding box. The desktop underline
+rendered 1 px thin.
+
+Ninety pixels on one row of one screenshot. Nothing else in the gate could see
+it: `tsc`, ESLint, `arch:check`, Prettier and 1,995 passing tests were all
+green, the render test asserted `data-scroll="x"` and the class was present,
+and at 390 the fix and the defect look the same because the strip scrolls
+either way. Only the 1366 comparison, with a marker proving the two sides were
+different builds (F23), could produce the number.
+
+Two things worth keeping.
+
+**"Inert on the desktop" is a claim about computed style, not about intent.**
+`overflow-x-auto` on a row that does not overflow changes no layout, paints no
+scrollbar and moves nothing — and still changed what the box clips. The plan's
+rule is "`phone:`-scoped OR inert", and the cheap way to satisfy it is to
+scope, because deciding a property is inert requires knowing every side effect
+it has.
+
+**A variant built in one phase and first used three phases later has never
+been measured.** The showcase exercised `overflow="scroll"` from Phase 1, but
+the showcase is a dev route nobody compares at 1366. The defect shipped the
+moment a product screen used it, which is also the moment it was caught —
+so the rule is that the FIRST product use of an existing variant gets the
+same before/after comparison a new component would.
+
+The test now asserts the scoped class and the ABSENCE of the bare one; the
+bare string put back fails it.
 
 ---
 
@@ -1287,16 +1514,19 @@ for `leading-6` alone as well.
 | MO-11 | **o12 was applied from its default, not approved.** The Door Access entry in the DESKTOP sidebar is the rebuild's one intended desktop navigation change (§0.2). It is one line in `nav.ts` to remove if the answer is no, and the tracker entry is still `open`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | product     |
 | MO-12 | The tablet-collapsed default (o02) corrects on the client's first commit: the server cannot measure a width and an iPad shares the desktop UA (M5). Visible only at 768–1023, on a first visit with no stored choice. If it ever needs to be flicker-free, the mechanism is `Accept-CH: Sec-CH-Viewport-Width`, which is Chromium-only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | note        |
 | MO-13 | The phone `AppBar` names a settings section from `SETTINGS_SECTIONS`; any other nested route falls back to its parent's crumb. Only `/settings` has children today. A new nested route wants either an entry in that list or a generalisation of `appBarTitle`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Phase 8     |
-| MO-14 | **The probe never sees a closed overlay (F18).** A dialog contributes nothing to a probe run unless something opens it first, which is how a 24 px close control survived three phases. Every phase that adds a sheet or a dialog needs a probe pass with it OPEN; Phase 10's sweep needs a list of overlays, not only of routes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | every phase |
+| MO-14 | **The probe never sees a closed overlay (F18).** A dialog contributes nothing to a probe run unless something opens it first, which is how a 24 px close control survived three phases. Every phase that adds a sheet or a dialog needs a probe pass with it OPEN; Phase 10's sweep needs a list of overlays, not only of routes. **Part-paid in Phase 5**: the Confirm Payment sheet is the first `sheet` measured, so the F18 fix is now proven for that placement as well as `center`.                                                                                                                                                                                                                                                                                                                                                                | every phase |
 | MO-15 | **Member detail was rendered on a hard-coded fixture, not on real data.** Short name, no photo, no discount, one payment, collapsed histories. A long name, a photo, a discount row and an expanded payment table are all unmeasured at 320. Worth a pass once the seeded gym is reachable.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Phase 4     |
 | MO-16 | The member-detail `Modal` `description` renders above the ordered column on a phone — it is a sibling of that column, not a child, so `order` cannot move it. Desktop behaviour unchanged and outside §10's CSS-only remit, but the §26 blueprint does not draw it. Decide at Phase 8 whether a fullscreen placement should suppress its description.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Phase 8     |
 | MO-17 | **The SMS history table overflows every phone width** (384 px), inside the member detail Phase 3 made reachable on a phone. §12 assigns it "`ListRow` list via tier hook"; Phase 9 owns SMS and activity lists. Not a regression (the deleted fork had no SMS history) and deliberately not papered over with a `data-scroll="x"` the plan does not sanction.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 9     |
 | MO-18 | **§12 does not list the member-detail payment-history table.** Phase 3 converted it (F22) because the phase introduced the regression, but the omission means the plan's table inventory is not complete — worth a sweep at Phase 10 for other tables no phase owns.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Phase 10    |
 | MO-19 | **Probe every state, not every route.** A screen is probed when its disclosures, empty state, loading state and sub-dialogs have each been measured. Four of member detail's five states were clean and the fifth was the defect (F22). Phase 10's DoD needs this as a checklist, not a sentence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | every phase |
-| MO-20 | **`STRICT_PHONE_ROUTES` can finally take an entry.** Phase 4 rebuilt `/members`, the first real ROUTE in the rebuild, and probed it clean at four widths in eight states. Adding it needs the seeded gym (the probe ran on an intercepted endpoint), so it is Phase 5's to add once credentials exist.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Phase 5     |
-| MO-21 | **Every phone width matters, and 390 is not the worst case.** F26 failed at 390 alone — 320 and 360 wrap the value and hand the meta line the full row; 430 fits both. A phase that probes one or two widths is sampling, not checking.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | every phase |
+| MO-20 | **`STRICT_PHONE_ROUTES` can finally take an entry.** Phase 4 rebuilt `/members`, the first real ROUTE in the rebuild, and probed it clean at four widths in eight states. Adding it needs the seeded gym (the probe ran on an intercepted endpoint), so it is still unpaid. Phase 5 adds `/payment-collection` to the same queue for the same reason — two routes now probed clean against an interceptor and neither pinned. → **Phase 6**.                                                                                                                                                                                                                                                                                                                                                                                                             | Phase 5     |
+| MO-21 | **Every phone width matters, and 390 is not the worst case.** F27 failed at 390 alone — 320 and 360 wrap the value and hand the meta line the full row; 430 fits both. A phase that probes one or two widths is sampling, not checking.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | every phase |
 | MO-22 | Add member's consent labels wrap links, so tapping "privacy policy" both navigates and toggles the checkbox. Pre-existing (the label was already associated by `htmlFor`) and untouched by the wrapping fix. The remedy is a product decision about where consent links belong.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | product     |
-| MO-23 | **The §28 stress fixtures still have not run against the seeded gym.** Phase 4 reproduced their CONTENT (29-char name, 20-char phone, 12,345,678 fee, 300 members) on an intercepted endpoint, which exercises the layout but not the seeding, the real API's shaping, or the fixtures' own idempotence.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Phase 5     |
+| MO-23 | **The §28 stress fixtures still have not run against the seeded gym.** Phase 4 reproduced their CONTENT (29-char name, 20-char phone, 12,345,678 fee, 300 members) on an intercepted endpoint, which exercises the layout but not the seeding, the real API's shaping, or the fixtures' own idempotence. Phase 5 did the same with 100 dues and −299 days, so the debt is now two phases deep.                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Phase 5     |
+| MO-24 | **The first product use of an EXISTING variant needs the same 1366 comparison a new component gets.** `TabsList overflow="scroll"` shipped in Phase 1, sat in the dev showcase for three phases, and moved the desktop by a pixel the moment a product screen used it (F30). Phases 6–10 each reach for primitives built earlier; the comparison is not optional because the component is not new.                                                                                                                                                                                                                                                                                                                                                                                                                                                       | every phase |
+| MO-25 | **Renewals' AppBar title and selected BottomNav item are unverified on the real route.** Phase 5 probed `/payments-probe`, a stand-in with no `WORKSPACE_NAV` entry, so its AppBar rendered titleless. `Renewals` is a `bar` item in `nav.ts` and Phase 2 pinned the chrome, but the pairing was not seen. Clears with the seeded gym (§6.1).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 6     |
+| MO-26 | **`Vercel – gym-management-saas-ihsw` failed on #75 and on #76's first head, then stopped attaching.** A second Vercel project, outside `team_Fl7rQYbRLMhzxU8bhXeMOE94`, appearing 2026-09-15 08:12 on both PRs; always `"Deployment failed."` with no `target_url`, red on the base branch too, while the real project deployed the same commits successfully. It attached to no commit after `f0333b4`: `0705ffb` took one status, green, and #76 went `mergeable_state: clean`. **#75 still reads red because its head has not moved** — those statuses are pinned to `91ea6aa` and are not re-evaluated; the next real push to that branch should clear it, and an empty commit to find out is banned. Nothing in this repository caused it or can fix it; if it returns, it is a Vercel account setting.                                            | product     |
 
 ---
 
@@ -1311,7 +1541,7 @@ Rule for this section: an item leaves it only when the check has actually been
 run and its result recorded — never because time passed, and never because the
 code "obviously" works.
 
-### 6.1 Phases 1–4 — four suites that still have not run
+### 6.1 Phases 1–5 — four suites that still have not run
 
 No session had **Supabase credentials**, so the seeded E2E Enterprise gym was
 unreachable and every spec gated on `E2E_ACCESS_CONTROL_ENABLED` skipped.
@@ -1337,7 +1567,7 @@ order: the `metadata.other['theme-color']` entry came back; `viewportFit` was
 dropped; or Next's meta ordering changed and `PLANNED_VIEWPORT_META` needs
 re-recording (the spike's header documents the renderer's fixed order).
 
-### 6.2 Phases 1–4 — what the browser pass could not see
+### 6.2 Phases 1–5 — what the browser pass could not see
 
 - **Fonts.** Geist could not be fetched offline, so every screenshot used the
   fallback family. Glyph widths differ from production, which matters for two
@@ -1385,6 +1615,21 @@ re-recording (the spike's header documents the renderer's fixed order).
   right — 29-char name, 20-char phone, 12,345,678 fee, 300 members — but it
   came from an interceptor, so the seeding helper, the real API's response
   shaping and the fixtures' idempotence are all still unexercised (MO-23).
+- **No SMS has actually been sent (Phase 5).** "Remind" was tapped in a
+  browser and the probe counted exactly one `/api/sms/send` per tap — against
+  an interceptor. Nothing reached the route, the provider, or `sms_logs`, so
+  rule 2.7's one-writer contract and the delivery-status columns are as
+  unexercised by this phase as they were before it. Verification Directive 2,
+  again: a mocked mutation and a refused one look identical.
+- **"Mark Paid" was reached, not pressed (Phase 5).** The fullscreen footer's
+  button was measured visible and inside the viewport; the payment it records
+  was not made, so the dialog it opens (`MarkPaidDialog`, `placement="sheet"`)
+  has been probed from Phase 3's fixtures and never from this screen's entry
+  point with a real overdue member.
+- **Renewals' own chrome (Phase 5).** The probe route has no `WORKSPACE_NAV`
+  entry, so the AppBar rendered without a title and no BottomNav item showed
+  as selected. Both are Phase 2's work and pinned by its tests; the pairing
+  with THIS screen was not seen in a browser (MO-25).
 
 ### 6.3 Standing — what no automated gate in this repo can see
 
@@ -1409,10 +1654,14 @@ covers:
   control lived through three phases (F18) — and it applies to every sheet,
   dialog and drawer added from here on. The same is true one level down: a
   COLLAPSED disclosure renders nothing, which is how a 405 px table sat
-  inside a "clean" screen (F22). Probe the states, not the route.
+  inside a "clean" screen (F22). Probe the states, not the route. Phase 5 paid
+  the first instalment: the Confirm Payment sheet, opened from Renewals, is
+  the first `sheet` any phase has measured, and `Modal`'s close control is
+  now proven at 40+ px with the control actually on screen rather than
+  hidden by `fullscreen`.
 - **A green probe is evidence only if you know what it measured.** A screen
   showing its error state has no rows, no links and no meta lines, so every
-  touch and overflow rule passes vacuously (F25). Assert the subject exists —
+  touch and overflow rule passes vacuously (F26). Assert the subject exists —
   a row count, a known name, the absence of the error card — before believing
   a zero.
 - **A before/after screenshot pair proves nothing without a build marker.**
@@ -1420,6 +1669,20 @@ covers:
   trees are the same string (F23). Assert one DOM fact that differs between
   the two sides and is invisible at the compared width, or do not claim the
   result.
+- **"Inert on the desktop" is a claim about computed style, not intent.** A
+  class that changes no layout, paints no scrollbar and moves nothing can
+  still change what a box clips — `overflow-x-auto` on a row that does not
+  overflow cost the desktop a pixel of tab underline (F30). The plan's rule
+  is "`phone:`-scoped OR inert"; scoping is cheap and deciding something is
+  inert requires knowing every side effect it has.
+- **Two observations of a flaky external system support "it happened twice",
+  not "it will keep happening".** A failing Vercel check was correctly
+  established as not any phase's — red on the base branch, absent from the
+  earlier PRs, on a project outside the team — and then written up with a
+  prediction attached: that it would read red on every phase PR until someone
+  cleared it. The next push disproved that within the hour. The evidence
+  ruling a failure out is not evidence about what it does next; record what
+  was observed and stop there.
 - **The measuring tool is usually the broken thing, not the codebase.** A
   throwaway script written to verify an invariant is younger, less exercised
   and less reviewed than the code it is checking, so a result implying a

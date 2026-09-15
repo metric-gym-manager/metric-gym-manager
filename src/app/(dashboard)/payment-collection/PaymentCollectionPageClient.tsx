@@ -14,6 +14,7 @@ import {
   type DataTableColumn,
 } from '@/components/ui'
 import { PageHeader } from '@/components/common/composites'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import { useMemberModal } from '@/contexts/member-modal.context'
 import { MemberAvatar } from '@/features/members'
 
@@ -70,6 +71,7 @@ const money = (n: number) => n.toLocaleString('en-US')
  * in the client, so `DataTable`'s own sorting applies directly.
  */
 export default function PaymentCollectionPageClient() {
+  const tier = useViewportTier()
   const [tab, setTab] = useState<Tab>('expired')
   const { openMember } = useMemberModal()
   const queryClient = useQueryClient()
@@ -143,19 +145,37 @@ export default function PaymentCollectionPageClient() {
   )
   const collectedRows = collected?.payments ?? []
 
+  // On a phone the avatar is the row's `leading` slot, so the cell would
+  // otherwise render it twice. The desktop branch is the cell this column has
+  // always had.
   const memberCell = (
     name: string,
     photoPath?: string | null,
     photoUpdatedAt?: string | null
-  ) => (
-    <div className="flex items-center gap-2">
-      <MemberAvatar
-        name={name}
-        photoPath={photoPath}
-        photoUpdatedAt={photoUpdatedAt}
-      />
+  ) =>
+    tier === 'phone' ? (
       <span className="font-medium">{name}</span>
-    </div>
+    ) : (
+      <div className="flex items-center gap-2">
+        <MemberAvatar
+          name={name}
+          photoPath={photoPath}
+          photoUpdatedAt={photoUpdatedAt}
+        />
+        <span className="font-medium">{name}</span>
+      </div>
+    )
+
+  const avatarFor = (
+    name: string,
+    photoPath?: string | null,
+    photoUpdatedAt?: string | null
+  ) => (
+    <MemberAvatar
+      name={name}
+      photoPath={photoPath}
+      photoUpdatedAt={photoUpdatedAt}
+    />
   )
 
   const dueColumns = (
@@ -192,9 +212,10 @@ export default function PaymentCollectionPageClient() {
       header: 'Action',
       className: 'text-right',
       headerClassName: 'text-right',
-      cell: (r) => (
-        <div className="inline-flex gap-1.5">
+      cell: (r) => {
+        const remind = (
           <Button
+            key="remind"
             size="xs"
             variant="secondary"
             disabled={pendingId === r.id}
@@ -207,17 +228,73 @@ export default function PaymentCollectionPageClient() {
           >
             {pendingId === r.id ? 'Sending…' : 'Remind'}
           </Button>
+        )
+        const record = (
           <Button
+            key="record"
             size="xs"
             variant="success-ghost"
             onClick={() => openMember(r.id)}
           >
             Record payment
           </Button>
-        </div>
-      ),
+        )
+        /*
+         * Record payment FIRST on a phone (§8.10), and no wrapper: `ListRow`
+         * already lays its actions out as a wrapping flex row with the gap
+         * §25.4 asks for, so a nested `inline-flex` would only fight it. The
+         * desktop cell keeps both its order and its wrapper.
+         *
+         * `size="xs"` is 40 px on a phone (`phone:min-h-touch-sm`) and carries
+         * `data-dense`, which is what lets §15.1 hold it to 40 rather than 44.
+         * Variants and behaviour are untouched: Remind still sends on tap,
+         * Record payment still opens the member detail.
+         */
+        return tier === 'phone' ? (
+          <>
+            {record}
+            {remind}
+          </>
+        ) : (
+          <div className="inline-flex gap-1.5">
+            {remind}
+            {record}
+          </div>
+        )
+      },
     },
   ]
+
+  /**
+   * §9.4 Renewals: name, days-overdue badge or due date, amount and BOTH
+   * actions are visible; nothing is disclosed on a second line. The plan and
+   * the exact dates live in the member detail, which is their listed home.
+   */
+  const dueMobileRow = {
+    primary: 'member',
+    status: 'when',
+    value: 'amount',
+    actions: 'action',
+    leading: (r: DueRow) => avatarFor(r.name, r.photoPath, r.photoUpdatedAt),
+  } as const
+
+  /** §9.4 Collected: name, paid on, amount, Receipt. */
+  const collectedMobileRow = {
+    primary: 'member',
+    status: 'paidOn',
+    value: 'amount',
+    actions: 'action',
+    leading: (r: CollectedRow) =>
+      avatarFor(r.memberName, r.photoPath, r.photoUpdatedAt),
+  } as const
+
+  /**
+   * Paginate on a phone only (§8.10). The desktop has always shown every row
+   * and still does; a 100-row list on a phone is a scroll with no end in
+   * sight, and `DataTable` gives the list path `Pagination responsive` for
+   * free once a page size exists.
+   */
+  const phonePageSize = tier === 'phone' ? 25 : undefined
 
   const collectedColumns: DataTableColumn<CollectedRow>[] = [
     {
@@ -286,7 +363,11 @@ export default function PaymentCollectionPageClient() {
       <PageHeader title="Renewals" />
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)}>
-        <TabsList>
+        {/* §8.10: three labels carrying count badges do not fit 320 px side
+            by side. `overflow="scroll"` marks the list `data-scroll="x"` —
+            the probe's sanctioned horizontal scroller — and snaps each tab
+            into place. At 1366 there is nothing to scroll, so it is inert. */}
+        <TabsList overflow="scroll">
           <TabsTrigger value="expired">
             {tabLabel('expired', 'Expired')}
           </TabsTrigger>
@@ -304,6 +385,8 @@ export default function PaymentCollectionPageClient() {
             data={expired}
             getRowId={(r) => r.id}
             caption="Expired memberships"
+            mobileRow={dueMobileRow}
+            pageSize={phonePageSize}
             loading={duesLoading}
             error={duesError ? 'Failed to load renewals.' : undefined}
             empty="No expired members."
@@ -316,6 +399,8 @@ export default function PaymentCollectionPageClient() {
             data={dueSoon}
             getRowId={(r) => r.id}
             caption="Memberships expiring within seven days"
+            mobileRow={dueMobileRow}
+            pageSize={phonePageSize}
             loading={duesLoading}
             error={duesError ? 'Failed to load renewals.' : undefined}
             empty="Nobody expires in the next 7 days."
@@ -328,6 +413,8 @@ export default function PaymentCollectionPageClient() {
             data={collectedRows}
             getRowId={(r) => r.paymentId}
             caption="Payments collected this month"
+            mobileRow={collectedMobileRow}
+            pageSize={phonePageSize}
             loading={collectedLoading}
             error={collectedError ? 'Failed to load payments.' : undefined}
             empty="No payments collected this month yet."

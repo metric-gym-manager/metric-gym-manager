@@ -198,7 +198,20 @@ describe('Tabs — phone sizing and overflow', () => {
     // container on a phone route as a defect — which is exactly what it is
     // anywhere else (plan §17, ruling M1).
     expect(list).toHaveAttribute('data-scroll', 'x')
-    expect(list).toHaveClass('overflow-x-auto')
+
+    // `phone:`-SCOPED, and the bare class must be ABSENT.
+    //
+    // An unconditional `overflow-x-auto` makes the list a scroll container at
+    // every width, and a scroll container clips what hangs outside its padding
+    // box — which the active trigger's underline does, by the 1 px of
+    // `after:-bottom-px` that covers the list's own border. The desktop strip
+    // has nothing to scroll and still lost a pixel of underline, breaking the
+    // rebuild's one standing promise to that tier (finding F30). Caught by a
+    // 1366 screenshot comparison, not by a render test, so this is the line
+    // that keeps it caught.
+    expect(list).toHaveClass('phone:overflow-x-auto')
+    expect(list.className.split(/\s+/)).not.toContain('overflow-x-auto')
+    expect(list).toHaveClass('phone:snap-x', 'phone:snap-mandatory')
   })
 })
 
