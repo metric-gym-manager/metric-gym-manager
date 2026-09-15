@@ -53,7 +53,18 @@ export const TabsList = React.forwardRef<
       className={cn(
         'flex items-center gap-0 border-b border-line-1',
         overflow === 'scroll'
-          ? 'scrollbar-hide snap-x snap-mandatory overflow-x-auto'
+          ? // `phone:`-SCOPED, and it has to be. An unconditional
+            // `overflow-x-auto` makes the list a scroll container at every
+            // width, and a scroll container clips its overflow: the active
+            // trigger's 2 px underline hangs 1 px below the trigger box
+            // (`after:-bottom-px`, so it covers the list's own border), and
+            // that 1 px is outside the padding box. On a desktop, where the
+            // strip fits and nothing scrolls, the underline still rendered
+            // 1 px thinner — a visible change to a tier this phase must
+            // leave pixel-equivalent (finding F30). Above the phone tier the
+            // list stays `overflow: visible`, which is what every other
+            // `TabsList` in the product already is.
+            'scrollbar-hide phone:snap-x phone:snap-mandatory phone:overflow-x-auto'
           : // Nothing to scroll: share the room instead of truncating.
             'phone:[&>*]:flex-1',
         className
