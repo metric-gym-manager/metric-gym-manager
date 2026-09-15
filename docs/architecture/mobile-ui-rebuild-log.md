@@ -796,7 +796,7 @@ pre-existing — the label was already associated by `htmlFor` — and wrapping
 did not change it. Recorded as MO-22 rather than fixed, because the fix is a
 product decision about where consent links belong, not a layout one.
 
-### Phase 5 — Renewals and payment dialogs · **DONE** 2026-09-15
+### Phase 5 — Renewals and payment dialogs · **DONE** 2026-09-15 · PR #76
 
 Branch `claude/mobile-ui-rebuild-p5`, cut from the Phase 4 head. Stack: p0 →
 phase-1 → p2 → p3 → p4 → p5. Scope: plan §8.10, §9.4, §25.4.
@@ -876,6 +876,34 @@ item were probed on a stand-in route (`/payments-probe`), which has no
 a `bar` item in `nav.ts` and Phase 2 pinned that chrome, but this phase did
 not see the real route's header. It needs the seeded gym, like the rest of
 §6.1.
+
+**CI, and the check that is not this PR's.** `Vercel – gym-management-saas`
+— the one project in `team_Fl7rQYbRLMhzxU8bhXeMOE94`, and so the real
+deployment — is **green on `f0333b4`**, which is Vercel building and shipping
+this exact tree in production mode. A second check, `Vercel –
+gym-management-saas-ihsw`, is red, and it is not this PR's:
+
+- it is **red on the base branch too** (`claude/mobile-ui-rebuild-p4` at
+  `91ea6aa`, a tree carrying none of this phase's three commits);
+- it **did not exist before #75** — PRs #71 and #74 have exactly one Vercel
+  check and it passes. It first appears at 2026-09-15 08:12, on both #75 and
+  #76, always `"Deployment failed."` with **no `target_url`**, so there is no
+  build log to read;
+- the project is **not in this repo's Vercel team**, so it cannot be
+  inspected or re-run from here.
+
+Stood down with one comment on each PR naming the check and this evidence. No
+fix exists to port: nothing in this repository addresses a Vercel project
+connection outside the team's configuration, and clearing it needs someone
+with access to that account. Recorded as MO-26.
+
+Two check-ins since (09:16 and 10:16 UTC) found **no change** on either PR:
+same statuses on the same head commits, no review threads, `mergeable_state`
+`unstable` from CI rather than a conflict. Per the drive-to-green rules that
+is a re-arm, not a second comment. Also established while checking: the repo
+has **no `.claude/skills/` directory**, so there is no `steward` or `babysit`
+guidance to defer to, and it does **not** run the `Claude Approvals` check —
+the only check run on either PR is `Vercel Preview Comments`.
 
 ---
 
@@ -1483,6 +1511,7 @@ bare string put back fails it.
 | MO-23 | **The §28 stress fixtures still have not run against the seeded gym.** Phase 4 reproduced their CONTENT (29-char name, 20-char phone, 12,345,678 fee, 300 members) on an intercepted endpoint, which exercises the layout but not the seeding, the real API's shaping, or the fixtures' own idempotence. Phase 5 did the same with 100 dues and −299 days, so the debt is now two phases deep.                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Phase 5     |
 | MO-24 | **The first product use of an EXISTING variant needs the same 1366 comparison a new component gets.** `TabsList overflow="scroll"` shipped in Phase 1, sat in the dev showcase for three phases, and moved the desktop by a pixel the moment a product screen used it (F30). Phases 6–10 each reach for primitives built earlier; the comparison is not optional because the component is not new.                                                                                                                                                                                                                                                                                                                                                                                                                                                       | every phase |
 | MO-25 | **Renewals' AppBar title and selected BottomNav item are unverified on the real route.** Phase 5 probed `/payments-probe`, a stand-in with no `WORKSPACE_NAV` entry, so its AppBar rendered titleless. `Renewals` is a `bar` item in `nav.ts` and Phase 2 pinned the chrome, but the pairing was not seen. Clears with the seeded gym (§6.1).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 6     |
+| MO-26 | **`Vercel – gym-management-saas-ihsw` fails on every PR it touches, and nobody here can see it.** A second Vercel project, outside `team_Fl7rQYbRLMhzxU8bhXeMOE94`, first appearing on #75 (2026-09-15 08:12) and on #76 since; always `"Deployment failed."` with no `target_url`, and red on the base branch too, while the real project deploys the same commits successfully. It is not any phase's diff and no repository change addresses it — clearing it needs someone with access to that Vercel account to disconnect the stale project or fix its settings. Until then every phase PR from #75 on reads red.                                                                                                                                                                                                                                  | product     |
 
 ---
 
