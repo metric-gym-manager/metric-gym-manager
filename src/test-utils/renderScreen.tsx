@@ -1,6 +1,10 @@
 import { render, type RenderResult } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactElement, ReactNode } from 'react'
+import {
+  ViewportTierProvider,
+  type ViewportTier,
+} from '@/hooks/useViewportTier'
 
 /**
  * Render harness for the workspace **screens**, as opposed to the primitives.
@@ -22,12 +26,23 @@ import type { ReactElement, ReactNode } from 'react'
  *   members toolbar wrapping onto three rows — the defect that motivated the
  *   visual pass — is invisible here and always will be. That class needs a
  *   browser; see the Playwright specs.
+ *
+ * `viewport` selects the composition tier a screen renders (mobile rebuild
+ * plan §4, §17): `'desktop'` (default) or `'phone'`. jsdom has no width, so
+ * the tier is *told*, not measured — the `ViewportTierProvider` override is
+ * the only test-controllable switch, which is why the plan forbids reading
+ * `window.innerWidth` in components. Every `(dashboard)` screen test runs in
+ * both tiers once the phone compositions exist.
  */
 export function renderScreen(
   ui: ReactElement,
   {
     wrapper: Extra,
-  }: { wrapper?: (props: { children: ReactNode }) => ReactElement } = {}
+    viewport = 'desktop',
+  }: {
+    wrapper?: (props: { children: ReactNode }) => ReactElement
+    viewport?: ViewportTier
+  } = {}
 ): RenderResult & { queryClient: QueryClient } {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -41,7 +56,9 @@ export function renderScreen(
   const result = render(ui, {
     wrapper: ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={queryClient}>
-        {Extra ? <Extra>{children}</Extra> : children}
+        <ViewportTierProvider tier={viewport}>
+          {Extra ? <Extra>{children}</Extra> : children}
+        </ViewportTierProvider>
       </QueryClientProvider>
     ),
   })
