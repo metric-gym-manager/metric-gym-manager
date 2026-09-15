@@ -149,7 +149,14 @@ export default function MembersPageClient() {
             href={`tel:${m.phone_number}`}
             data-inline-link
             onClick={(e) => e.stopPropagation()}
-            className="text-ink-secondary underline-offset-2 hover:underline"
+            // `inline-block leading-6` is the touch target, and both halves
+            // are needed. §15.1 holds an inline text link to a 24 px line box
+            // (WCAG 2.5.8) and this one measured 13. `leading-6` alone does
+            // nothing: line-height sizes the line box of the containing
+            // block, while `getBoundingClientRect` on an INLINE element
+            // returns a box from the font metrics — so the rect stayed at 13.
+            // `inline-block` is what makes the element own its height.
+            className="inline-block leading-6 text-ink-secondary underline-offset-2 hover:underline"
           >
             {m.phone_number}
           </a>

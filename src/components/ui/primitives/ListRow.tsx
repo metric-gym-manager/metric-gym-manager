@@ -101,6 +101,19 @@ export function ListRow({
    * no comment separators and computes no widths, so no unit test could have
    * seen it.
    */
+  /**
+   * True when the meta line is one joined string, false when the caller
+   * passed an element (a `tel:` link, a `Badge`). It decides whether the line
+   * TRUNCATES or WRAPS — see the class below.
+   */
+  const metaIsPlainText = React.useMemo(
+    () =>
+      (meta ?? [])
+        .filter((s) => s !== null && s !== undefined && s !== '')
+        .every((s) => typeof s === 'string' || typeof s === 'number'),
+    [meta]
+  )
+
   const metaContent = React.useMemo((): React.ReactNode => {
     if (!meta || meta.length === 0) return null
     const plain = meta.filter(
@@ -133,7 +146,26 @@ export function ListRow({
             </span>
           )}
           {metaContent !== null && (
-            <span className="truncate font-mono text-mono-sm text-ink-muted">
+            <span
+              className={cn(
+                'font-mono text-mono-sm text-ink-muted',
+                /*
+                 * Truncate a line of TEXT; wrap a line with an element in it.
+                 *
+                 * The probe permits an ellipsis only where the element holds
+                 * nothing but text (rule 9); anything else that overflows is
+                 * rule 3, a clip. A caller that puts a link or a badge here
+                 * therefore cannot have an ellipsis at all — so the honest
+                 * answer is a second line rather than a silent cut.
+                 *
+                 * Found at 390 and nowhere else: at 320 and 360 the value
+                 * WRAPS below the primary column and hands this line the full
+                 * row; at 430 there is room for both. 390 is the width where
+                 * the value sits alongside and the line is squeezed to 174 px.
+                 */
+                metaIsPlainText ? 'truncate' : 'break-words'
+              )}
+            >
               {metaContent}
             </span>
           )}

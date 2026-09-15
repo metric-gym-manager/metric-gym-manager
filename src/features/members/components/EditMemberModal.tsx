@@ -291,16 +291,19 @@ export default function EditMemberModal({
             </Select>
           </div>
 
-          <div className="flex items-center space-x-2">
+          {/* §15.1: 24 px control inside a 44 px LABEL — the label has to
+              wrap the input, not just point at it (see AddMemberModal). */}
+          <Label
+            htmlFor="recurringDiscount"
+            className="flex items-center gap-2 text-sm font-normal phone:min-h-touch"
+          >
             <Checkbox
               id="recurringDiscount"
               checked={watch('recurringDiscount')}
               onChange={(e) => setValue('recurringDiscount', e.target.checked)}
             />
-            <Label htmlFor="recurringDiscount" className="text-sm font-normal">
-              Apply discount to all future payments
-            </Label>
-          </div>
+            <span>Apply discount to all future payments</span>
+          </Label>
         </div>
 
         {/* Read-only Information */}

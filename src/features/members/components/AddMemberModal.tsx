@@ -521,7 +521,14 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                 </Select>
               </div>
 
-              <div className="flex items-center space-x-2">
+              {/* §15.1: the control stays 24 px and the LABEL carries the
+                  44 px hit area — which needs the label to WRAP the input,
+                  not merely point at it with `htmlFor`. As siblings the probe
+                  measures the bare checkbox and reports 24×24. */}
+              <Label
+                htmlFor="recurringDiscount"
+                className="flex items-center gap-2 text-sm font-normal phone:min-h-touch"
+              >
                 <Checkbox
                   id="recurringDiscount"
                   checked={!!watch('recurringDiscount')}
@@ -529,34 +536,31 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                     setValue('recurringDiscount', e.target.checked)
                   }
                 />
-                <Label
-                  htmlFor="recurringDiscount"
-                  className="text-sm font-normal flex items-center gap-1"
-                >
+                <span className="flex items-center gap-1">
                   Apply discount to all future payments
                   <span title="If checked, this discount will automatically apply to all recurring payments for this member, not just the initial payment.">
                     <HelpCircle className="h-3.5 w-3.5 text-ink-muted cursor-help" />
                   </span>
-                </Label>
-              </div>
+                </span>
+              </Label>
 
               {admissionFeeAvailable && (
-                <div className="flex items-center space-x-2">
+                <Label
+                  htmlFor="applyAdmissionFee"
+                  className="flex items-center gap-2 text-sm font-normal phone:min-h-touch"
+                >
                   <Checkbox
                     id="applyAdmissionFee"
                     checked={applyAdmissionFee}
                     onChange={(e) => setApplyAdmissionFee(e.target.checked)}
                   />
-                  <Label
-                    htmlFor="applyAdmissionFee"
-                    className="text-sm font-normal flex items-center gap-1"
-                  >
+                  <span className="flex items-center gap-1">
                     {`Charge one-time admission fee (Rs. ${gymAdmissionFee.toLocaleString()})`}
                     <span title="Ticked by default when your gym charges an admission fee. Untick to waive it for this member — the fee is added to the first payment only.">
                       <HelpCircle className="h-3.5 w-3.5 text-ink-muted cursor-help" />
                     </span>
-                  </Label>
-                </div>
+                  </span>
+                </Label>
               )}
 
               <div>
@@ -642,22 +646,27 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
 
             {/* Consents — required to register */}
             <div className="space-y-3">
-              <div className="flex items-start gap-2">
+              <Label
+                htmlFor="acceptedTerms"
+                className="flex items-start gap-2 text-sm font-normal leading-snug phone:min-h-touch"
+              >
                 <Checkbox
                   id="acceptedTerms"
                   checked={!!watch('acceptedTerms')}
                   onChange={(e) => setValue('acceptedTerms', e.target.checked)}
                 />
-                <Label
-                  htmlFor="acceptedTerms"
-                  className="text-sm font-normal leading-snug"
-                >
+                <span>
                   Member accepts Metric Gym OS&apos;s{' '}
                   <a
                     href="/privacy"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-brand-link underline"
+                    // §15.1 / WCAG 2.5.8: an inline text link needs a 24 px
+                    // line box and these measured 15. `inline-block` is what
+                    // makes the anchor own its height — `leading-6` alone
+                    // sizes the containing line, not the inline element's own
+                    // rect. Same fix as the members row's `tel:` link.
+                    className="inline-block leading-6 text-brand-link underline"
                   >
                     privacy policy
                   </a>{' '}
@@ -666,20 +675,28 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                     href="/terms"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-brand-link underline"
+                    // §15.1 / WCAG 2.5.8: an inline text link needs a 24 px
+                    // line box and these measured 15. `inline-block` is what
+                    // makes the anchor own its height — `leading-6` alone
+                    // sizes the containing line, not the inline element's own
+                    // rect. Same fix as the members row's `tel:` link.
+                    className="inline-block leading-6 text-brand-link underline"
                   >
                     terms of service
                   </a>
                   .
-                </Label>
-              </div>
+                </span>
+              </Label>
               {errors.acceptedTerms && (
                 <p className="text-sm text-error">
                   {errors.acceptedTerms.message}
                 </p>
               )}
 
-              <div className="flex items-start gap-2">
+              <Label
+                htmlFor="acceptedGymRules"
+                className="flex items-start gap-2 text-sm font-normal leading-snug phone:min-h-touch"
+              >
                 <Checkbox
                   id="acceptedGymRules"
                   checked={!!watch('acceptedGymRules')}
@@ -687,13 +704,10 @@ export default function AddMemberModal({ open, onClose }: AddMemberModalProps) {
                     setValue('acceptedGymRules', e.target.checked)
                   }
                 />
-                <Label
-                  htmlFor="acceptedGymRules"
-                  className="text-sm font-normal leading-snug"
-                >
+                <span>
                   Member agrees to the gym&apos;s guidelines and rules.
-                </Label>
-              </div>
+                </span>
+              </Label>
               {errors.acceptedGymRules && (
                 <p className="text-sm text-error">
                   {errors.acceptedGymRules.message}
