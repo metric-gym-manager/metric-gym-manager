@@ -104,6 +104,18 @@ export default function RootLayout({
       className={`${inter.variable} ${geist.variable} ${geistMono.variable}`}
     >
       <body className="font-sans">
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-D711W4RE25"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-D711W4RE25');
+          `}
+        </Script>
         <QueryProvider>
           {children}
           <Toaster />
