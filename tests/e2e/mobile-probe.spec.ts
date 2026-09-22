@@ -97,19 +97,24 @@ export const KNOWN_DESKTOP_VIOLATIONS: ReadonlyArray<{
   // that the desktop renders pixel-equivalent, and would have to be absorbed
   // into the desktop baselines, which MO-4 forbids.
   //
-  // So these clear when `DashboardClient` and `RevenuePageClient` pass
-  // `compactAxis` — Phase 6 — and the phase that does it deletes these two
-  // entries in the same commit. Recorded as an EXCEPTION in the tracker log
-  // and in §4 F1 of mobile-ui-rebuild-log.md.
+  // PHASE 6 APPLIED IT — on the phone tier, which is what §5.9 and §8.1 both
+  // specify — and that does NOT clear these two entries, which are measured
+  // at 1366. The note above expected it to, and was wrong: `compactAxis`
+  // changes the tick TEXT, so switching it on at the desktop tier moves the
+  // `dashboard-desktop-1366` and `revenue-desktop-1366` baselines, which is
+  // the same MO-4 objection that kept Phase 1 from making it the default.
+  // The desktop clip is real (F1) and needs a re-baseline to fix, so it is
+  // re-pointed at the sweep phase, which owns the baselines. Recorded as an
+  // EXCEPTION in the tracker log and in §4 F31 of mobile-ui-rebuild-log.md.
   {
     route: '/dashboard',
     pattern: /axis tick "\d{5,}" clipped/,
-    clears: 'Phase 6',
+    clears: 'Phase 10',
   },
   {
     route: '/revenue',
     pattern: /axis tick "\d{5,}" clipped/,
-    clears: 'Phase 6',
+    clears: 'Phase 10',
   },
   // Phase 7: the trailing x-axis label overshoots the chart by a pixel.
   {

@@ -8,6 +8,7 @@ import {
   Card,
   CardBody,
   EmptyState,
+  ListRow,
   Table,
   TableBody,
   TableCell,
@@ -22,6 +23,8 @@ import {
   SectionHeader,
 } from '@/components/common/composites'
 import { MemberAvatar } from '@/features/members'
+import { useMemberModal } from '@/contexts/member-modal.context'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import { useNow } from '@/hooks/useNow'
 import { useIsHydrated } from '@/hooks/useIsHydrated'
 import type { MonthlyRevenueResponse } from '@/features/revenue/types'
@@ -41,6 +44,12 @@ interface DashboardMetrics {
 
 interface CollectedPayment {
   paymentId: string
+  /**
+   * Already returned by `/api/payment-collection/collected` (see
+   * `payment-reports.service.ts`); the interface simply never named it,
+   * because nothing on this screen opened a member until the phone list did.
+   */
+  memberId: string
   memberName: string
   planType: string
   memberCreatedAt: string
@@ -79,6 +88,22 @@ const REMINDER_LABEL: Record<string, string> = {
 
 const fmt = (n: number) => n.toLocaleString('en-US')
 
+/**
+ * The plan label exactly as the desktop table renders it.
+ *
+ * That cell carries `capitalize`, and CSS treats a hyphen as a word boundary:
+ * `6-months` prints as **6-Months** there. A phone `ListRow`'s meta line is one
+ * joined string (so it can truncate rather than clip — F10, F27), which no CSS
+ * rule can reach segment by segment, so the transform is done here instead.
+ * `charAt(0)` alone would have shipped "6-months" against the desktop's
+ * "6-Months" — the same plan, spelled two ways.
+ */
+const capitalise = (s: string) =>
+  s.replace(
+    /(^|[-\s])([a-z])/g,
+    (_, lead: string, char: string) => lead + char.toUpperCase()
+  )
+
 function whenLabel(days: number): string {
   if (days <= 0) return 'today'
   if (days === 1) return 'tomorrow'
@@ -94,6 +119,8 @@ function whenLabel(days: number): string {
  */
 export default function DashboardClient() {
   const router = useRouter()
+  const tier = useViewportTier()
+  const { openMember } = useMemberModal()
 
   const {
     data: metricsRes,
@@ -253,6 +280,10 @@ export default function DashboardClient() {
   const queue = reminderQueue?.entries ?? []
   const queueTotal = reminderQueue?.total ?? 0
 
+  // The six rows both tiers render (§27 "Maximum list size": recent payments
+  // 6). Named once so the table and the phone list cannot drift apart.
+  const recentPayments = (collected?.payments ?? []).slice(0, 6)
+
   return (
     <div className="flex max-w-app flex-col gap-4">
       <PageHeader
@@ -293,6 +324,19 @@ export default function DashboardClient() {
           scale="LKR"
           bodyClassName="pt-2"
         >
+          {/*
+            §5.9. The axis is 40 px wide, which holds five mono characters: a
+            six-digit LKR total renders as "0000". `compactAxis` shortens the
+            tick to `420k` / `1.5M` instead of widening the axis, which would
+            take plot area a 320 px screen does not have.
+
+            Phone tier only, exactly as §5.9 and §8.1 specify. The clip is real
+            at 1366 as well (finding F1) and is NOT fixed here: the tick TEXT is
+            what changes, so applying it on the desktop would move the 1366
+            baselines this phase is required to leave alone. The two
+            `KNOWN_DESKTOP_VIOLATIONS` entries stay, re-pointed at the phase
+            that can own a desktop axis change.
+          */}
           <BarChart
             data={chartData}
             xKey="month"
@@ -302,6 +346,7 @@ export default function DashboardClient() {
             label="Trailing monthly collected revenue"
             loading={!revenue}
             empty={<EmptyState title="No revenue history for this period." />}
+            compactAxis={tier === 'phone'}
           />
         </ChartCard>
 
@@ -322,6 +367,35 @@ export default function DashboardClient() {
               title="No reminders scheduled"
               description="No automated reminders are due in the next 7 days."
             />
+          ) : tier === 'phone' ? (
+            /*
+             * §9.2 lists the reminder queue among the lists that share
+             * `ListRow`; §9.4 gives it name + amount visible and "reminder
+             * type · when" disclosed on the second line. Both segments are
+             * plain strings, so the meta line joins to one text node and
+             * truncates with an ellipsis (probe rule 9) rather than clipping
+             * (F10, F27).
+             *
+             * Phone tier only. The desktop branch below is today's markup,
+             * untouched: `ListRow` adds `px-4`, a 44 px minimum height and a
+             * different value size, so rendering it on both tiers would move
+             * the 1366 baseline, which this phase may not do. Logged as an
+             * implementation exception — §8.1 says "reminder queue as
+             * `ListRow`s" without naming a tier.
+             */
+            <ul role="list">
+              {queue.map((row) => (
+                <ListRow
+                  key={row.memberId}
+                  primary={row.memberName}
+                  meta={[
+                    REMINDER_LABEL[row.reminderType] ?? 'Reminder',
+                    whenLabel(row.scheduledInDays),
+                  ]}
+                  value={fmt(row.amount)}
+                />
+              ))}
+            </ul>
           ) : (
             queue.map((row) => (
               <div
@@ -349,54 +423,104 @@ export default function DashboardClient() {
       {/* Recent payments */}
       <section>
         <SectionHeader variant="metadata" divider title="Recent payments" />
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Member</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead numeric>Amount (LKR)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {(collected?.payments ?? []).slice(0, 6).map((p) => (
-                <TableRow key={p.paymentId}>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <MemberAvatar
-                        name={p.memberName}
-                        photoPath={p.photoPath ?? null}
-                        photoUpdatedAt={p.photoUpdatedAt ?? null}
-                      />
-                      <span className="font-medium">{p.memberName}</span>
+        {tier === 'phone' ? (
+          /*
+           * §12 category A: the `Table` stays on the desktop and the phone
+           * renders `ListRow`s through the tier hook. The table is 461 px in a
+           * 390 px viewport, which put the Amount column — the one figure the
+           * section exists for — off the right edge (audit §C.1).
+           *
+           * §9.4 for this list: name (+NEW) and amount visible, "plan · date"
+           * disclosed on the second line, everything else in the member
+           * detail, which the row opens (§8.1). The badge sits INSIDE
+           * `primary` so the row stays two lines (§25.4) rather than pushing
+           * the meta down to a third.
+           */
+          recentPayments.length === 0 ? (
+            <EmptyState
+              className="py-10"
+              title="No payments collected this month yet."
+            />
+          ) : (
+            <ul role="list">
+              {recentPayments.map((p) => (
+                <ListRow
+                  key={p.paymentId}
+                  onClick={() => openMember(p.memberId)}
+                  leading={
+                    <MemberAvatar
+                      name={p.memberName}
+                      photoPath={p.photoPath ?? null}
+                      photoUpdatedAt={p.photoUpdatedAt ?? null}
+                    />
+                  }
+                  primary={
+                    <>
+                      {p.memberName}
                       {isNewMember(p.memberCreatedAt) && (
-                        <Badge variant="accent">NEW</Badge>
+                        <>
+                          {' '}
+                          <Badge variant="accent">NEW</Badge>
+                        </>
                       )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="capitalize text-ink-secondary">
-                    {p.planType}
-                  </TableCell>
-                  <TableCell className="font-mono text-mono-sm text-ink-muted">
-                    {p.paymentDate}
-                  </TableCell>
-                  <TableCell numeric>{fmt(p.amountPaid)}</TableCell>
-                </TableRow>
+                    </>
+                  }
+                  meta={[capitalise(p.planType), p.paymentDate]}
+                  value={fmt(p.amountPaid)}
+                />
               ))}
-              {(!collected || collected.payments.length === 0) && (
+            </ul>
+          )
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="py-6 text-center text-ink-muted"
-                  >
-                    No payments collected this month yet.
-                  </TableCell>
+                  <TableHead>Member</TableHead>
+                  <TableHead>Plan</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead numeric>Amount (LKR)</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {(collected?.payments ?? []).slice(0, 6).map((p) => (
+                  <TableRow key={p.paymentId}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <MemberAvatar
+                          name={p.memberName}
+                          photoPath={p.photoPath ?? null}
+                          photoUpdatedAt={p.photoUpdatedAt ?? null}
+                        />
+                        <span className="font-medium">{p.memberName}</span>
+                        {isNewMember(p.memberCreatedAt) && (
+                          <Badge variant="accent">NEW</Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="capitalize text-ink-secondary">
+                      {p.planType}
+                    </TableCell>
+                    <TableCell className="font-mono text-mono-sm text-ink-muted">
+                      {p.paymentDate}
+                    </TableCell>
+                    <TableCell numeric>{fmt(p.amountPaid)}</TableCell>
+                  </TableRow>
+                ))}
+                {(!collected || collected.payments.length === 0) && (
+                  <TableRow>
+                    <TableCell
+                      colSpan={4}
+                      className="py-6 text-center text-ink-muted"
+                    >
+                      No payments collected this month yet.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        )}
       </section>
     </div>
   )
