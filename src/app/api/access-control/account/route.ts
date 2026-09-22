@@ -16,7 +16,7 @@ import {
 import { requireAccessControlGym } from '@/lib/auth/requireAccessControlGym'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
-import { toErrorResponse } from '@/lib/middleware/apiErrors'
+import { readJsonBody, toErrorResponse } from '@/lib/middleware/apiErrors'
 
 export async function GET() {
   const { caller, error } = await requireAccessControlGym()
@@ -42,7 +42,9 @@ export async function PUT(request: NextRequest) {
   if (error) return error
 
   try {
-    const parsed = accessControlAccountSchema.safeParse(await request.json())
+    const parsed = accessControlAccountSchema.safeParse(
+      await readJsonBody(request)
+    )
 
     if (!parsed.success) {
       return NextResponse.json(

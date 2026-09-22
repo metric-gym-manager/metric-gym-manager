@@ -55,4 +55,5 @@ export {
   decryptSecret,
   generateWebhookToken,
   safeCompare,
+  CredentialDecryptionError,
 } from './crypto'

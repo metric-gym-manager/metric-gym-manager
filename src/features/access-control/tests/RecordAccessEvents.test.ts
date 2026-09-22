@@ -51,11 +51,176 @@ function build(
 }
 
 describe('RecordAccessEvents', () => {
-  describe('payload handling', () => {
-    it('rejects a malformed body without throwing', async () => {
+  /**
+   * Scans are pushed once and never re-sent: the reader gets its 200 and moves
+   * on. So a batch we fail to parse is not a retry, it is a **permanent hole in
+   * the check-in history**, produced silently.
+   *
+   * The device-list probe of 2026-09-22 proved what the vendor's own JSON looks
+   * like in practice — numbers where the documented example shows strings, and
+   * `null` for anything absent (13 of 27 fields on a working reader). The
+   * webhook contract we hold is one hand-written example from the Postman
+   * collection, which is weaker evidence than that. Parsing it strictly means
+   * one unexpected scalar discards every scan delivered alongside it.
+   */
+  describe('vendor payload tolerance', () => {
+    it('accepts numeric scalars where the collection shows strings', async () => {
+      const { repo, useCase } = build()
+
+      const summary = await useCase.execute([
+        {
+          EmpId: 100001,
+          AttTime: '2026-01-10 12:00:00',
+          DeviceID: 'SER-001',
+          VerifyType: 1,
+          CheckingStatus: 0,
+          Event: 3,
+        },
+      ])
+
+      expect(summary.stored).toBe(1)
+      expect(repo.storedEvents[0]).toMatchObject({
+        subjectId: 100001,
+        verifyType: 1,
+        checkingStatus: 0,
+        eventCode: '3',
+      })
+    })
+
+    it('accepts null for the optional code fields', async () => {
+      const { repo, useCase } = build()
+
+      const summary = await useCase.execute([
+        {
+          EmpId: '100001',
+          AttTime: '2026-01-10 12:00:00',
+          DeviceID: 'SER-001',
+          VerifyType: null,
+          CheckingStatus: null,
+          Event: null,
+        },
+      ])
+
+      expect(summary.stored).toBe(1)
+      expect(repo.storedEvents[0]).toMatchObject({
+        verifyType: null,
+        checkingStatus: null,
+        eventCode: null,
+      })
+    })
+
+    it('keeps the good scans when one event in the batch is unusable', async () => {
+      const { repo, useCase } = build()
+
+      const summary = await useCase.execute([
+        event(),
+        { EmpId: '100001', DeviceID: 'SER-001' }, // no AttTime: unusable
+        event({ AttTime: '2026-01-10 12:05:00' }),
+      ])
+
+      // The whole point: one bad row must not discard its neighbours.
+      expect(summary.stored).toBe(2)
+      expect(summary.malformed).toBe(1)
+      expect(summary.received).toBe(3)
+      expect(repo.storedEvents).toHaveLength(2)
+    })
+
+    it('trims whitespace around the serial before resolving the reader', async () => {
       const { useCase } = build()
 
-      const summary = await useCase.execute({ not: 'an array' })
+      const summary = await useCase.execute([event({ DeviceID: ' SER-001 ' })])
+
+      // An unknown serial is dropped, so a stray space would lose the scan and
+      // report it as another company's traffic.
+      expect(summary.stored).toBe(1)
+      expect(summary.unknownDevice).toBe(0)
+    })
+
+    it('stores the serial we registered, not the spelling the reader sent', async () => {
+      const { repo, useCase } = build()
+
+      await useCase.execute([event({ DeviceID: ' Ser-001 ' })])
+
+      // Resolving leniently is right; propagating the loose spelling is not.
+      // `access_events.device_serial` is filtered and grouped on, so a second
+      // spelling splits one reader's history into two buckets.
+      expect(repo.storedEvents[0].deviceSerial).toBe('SER-001')
+    })
+
+    it('records clock skew against the registered serial', async () => {
+      const { repo, useCase } = build()
+
+      await useCase.execute([event({ DeviceID: 'ser-001' })])
+
+      // `recordDeviceClockSkew` filters on the serial, and a Supabase update
+      // that matches nothing reports success — so a loose spelling here means
+      // last_seen_at and drift silently stop being recorded for that reader.
+      expect(repo.clockSkews[0].deviceSerial).toBe('SER-001')
+    })
+
+    it('accepts a single event that is not wrapped in an array', async () => {
+      const { useCase } = build()
+
+      // The collection's example is an array, and that is what we expect. But a
+      // firmware build that posts one scan bare would otherwise have every
+      // delivery discarded, and we would never hear about it.
+      const summary = await useCase.execute(event())
+
+      expect(summary.stored).toBe(1)
+    })
+
+    /**
+     * Inverted (2026-09-23). Accepting a bare object was added so a firmware
+     * build that posts one unwrapped scan is not silently discarded. But it
+     * also means a WRAPPER — `{"events":[…50 scans…]}` — is read as one event,
+     * fails, and is counted as `malformed: 1`.
+     *
+     * One is not the number of scans lost. The count is the only alarm this
+     * path produces, so it must not understate by a factor of fifty.
+     */
+    it('reports an unreadable delivery separately from unreadable events', async () => {
+      const { useCase } = build()
+
+      const summary = await useCase.execute({
+        events: [event(), event({ AttTime: '2026-01-10 12:05:00' })],
+      })
+
+      expect(summary.stored).toBe(0)
+      expect(summary.unreadableDelivery).toBe(true)
+    })
+
+    it('does not claim a delivery was unreadable when only one event was', async () => {
+      const { useCase } = build()
+
+      const summary = await useCase.execute([
+        event(),
+        { EmpId: '100000', DeviceID: 'SER-001' },
+      ])
+
+      expect(summary.stored).toBe(1)
+      expect(summary.malformed).toBe(1)
+      expect(summary.unreadableDelivery).toBe(false)
+    })
+
+    it('counts a body that is not events at all as malformed', async () => {
+      const { useCase } = build()
+
+      const summary = await useCase.execute({ not: 'an event' })
+
+      expect(summary.stored).toBe(0)
+      expect(summary.malformed).toBe(1)
+      expect(summary.errors.length).toBeGreaterThan(0)
+    })
+  })
+
+  describe('payload handling', () => {
+    it('rejects a body that is not events at all, without throwing', async () => {
+      const { useCase } = build()
+
+      // A bare string cannot be an event or a batch of them. An *object* is a
+      // different case — it is treated as one unwrapped event and reported per
+      // event, which the tolerance suite below covers.
+      const summary = await useCase.execute('nonsense')
 
       expect(summary.stored).toBe(0)
       expect(summary.errors).toEqual(['Malformed webhook payload'])

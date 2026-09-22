@@ -24,7 +24,7 @@ import {
 import { requireAccessControlGym } from '@/lib/auth/requireAccessControlGym'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
-import { toErrorResponse } from '@/lib/middleware/apiErrors'
+import { readJsonBody, toErrorResponse } from '@/lib/middleware/apiErrors'
 
 export async function POST(
   request: NextRequest,
@@ -35,7 +35,7 @@ export async function POST(
 
   try {
     const { id } = await context.params
-    const parsed = enrolBiometricSchema.safeParse(await request.json())
+    const parsed = enrolBiometricSchema.safeParse(await readJsonBody(request))
 
     if (!parsed.success) {
       return NextResponse.json(

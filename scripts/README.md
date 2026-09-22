@@ -5,6 +5,7 @@ Quick utility scripts for development and testing.
 ## Available Scripts
 
 ### 🧹 Clear Rate Limits
+
 Clear OTP rate limits and get instructions for clearing Auth rate limits.
 
 ```bash
@@ -12,10 +13,12 @@ npm run dev:clear-limits
 ```
 
 **What it does:**
+
 - Deletes all OTP tokens (clears OTP rate limiting)
 - Provides instructions for clearing Supabase Auth email rate limits
 
 **When to use:**
+
 - Hit "email rate limit exceeded" during registration testing
 - Need to test OTP flow multiple times quickly
 - Want to reset development database state
@@ -31,6 +34,7 @@ npm run backup:supabase
 ```
 
 **Prerequisites:**
+
 1. Add `SUPABASE_DB_URL` to `.env.local` (see `.env.example`)
    - Supabase Dashboard → **Project Settings** → **Database** → **Connection string** (URI, direct)
 2. Or link the project: `npx supabase login` then `npx supabase link --project-ref <ref>`, then run:
@@ -41,6 +45,7 @@ npm run backup:supabase
 **Output:** `backups/supabase/<timestamp>/` (gitignored — may contain production data)
 
 **Includes:**
+
 - `schema.sql` — live remote schema
 - `data.sql` — application data
 - `auth-data.sql` — auth users/identities
@@ -49,6 +54,42 @@ npm run backup:supabase
 **Not included:** Cloudflare R2 member photos, PayHere config, dashboard auth/SMTP settings.
 
 ---
+
+### 🚪 VFT vendor probe (access control)
+
+Read the device serials off a live VFT/ZKTeco account — and check that our
+client still understands what that account returns.
+
+```bash
+npx tsx scripts/vft-probe.ts
+```
+
+**Prerequisites** in `.env.local` (gitignored):
+
+```bash
+VFT_API_BASE_URL=https://acccloudlk.com
+VFT_PROBE_EMAIL=...        # probe-only; production credentials live per gym,
+VFT_PROBE_PASSWORD=...     # encrypted, in access_control_secrets
+```
+
+**What it does:** signs in (`POST /api/user/`) through the real
+`VftAccessControlProvider`, then issues three `GET`s — `/api/device`,
+`/api/template`, `/api/devicecmd`. **Read-only by construction:** it enqueues no
+device command, so running it cannot reboot a reader, open a door, or touch a
+template.
+
+**Why it prints the payload twice.** `listDevices()` parses with `safeParse` and
+returns `[]` on a shape it does not recognise — which, against a live account,
+is indistinguishable from "this gym owns no readers". The probe prints the raw
+vendor payload beside the parsed result and fails loudly when they disagree.
+That is not hypothetical: on its first run it found `"TimeZone": null` emptying
+a two-reader account (master §6 V1).
+
+Raw payloads are saved to `backups/vft-probe/<timestamp>.json` (gitignored).
+Treat that file as account data — it holds serials and employee names.
+
+---
+
 Permanently delete all test users and their data.
 
 ```bash
@@ -56,11 +97,13 @@ npm run dev:delete-users
 ```
 
 **What it does:**
+
 - Lists all users in the database
 - Asks for confirmation (`DELETE ALL`)
 - Deletes all auth users and cascading data (gyms, plan_types, etc.)
 
 **When to use:**
+
 - Clean up after testing registration
 - Reset database to fresh state
 - Free up email addresses for re-testing
@@ -85,6 +128,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...your-actual-service-role-key
 ```
 
 **Important:**
+
 - The service_role key is different from the anon key
 - It has elevated privileges and bypasses RLS
 - Never commit this to source control
@@ -95,14 +139,18 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...your-actual-service-role-key
 ## Troubleshooting
 
 ### "Missing Supabase credentials"
+
 ✅ Make sure `.env.local` has both:
+
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 
 ### "Failed to clear OTP tokens"
+
 ✅ Check that the `otp_tokens` table exists in your database
 
 ### "Failed to delete users"
+
 ✅ Verify your service_role key is correct (not the anon key)
 
 ---
@@ -110,6 +158,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGc...your-actual-service-role-key
 ## Manual Alternatives
 
 ### Manually Clear Auth Rate Limits
+
 If scripts don't work, you can disable email confirmations temporarily:
 
 1. Go to: https://app.supabase.com/project/[your-project]/auth/providers
@@ -118,6 +167,7 @@ If scripts don't work, you can disable email confirmations temporarily:
 4. Re-enable after testing
 
 ### Manually Delete Users via Supabase Dashboard
+
 1. Go to: https://app.supabase.com/project/[your-project]/auth/users
 2. Select users
 3. Click "Delete selected users"

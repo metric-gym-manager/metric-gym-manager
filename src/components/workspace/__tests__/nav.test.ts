@@ -22,6 +22,43 @@ describe('workspace navigation', () => {
     expect(item?.name).toBe('Member Analytics')
   })
 
+  /**
+   * A duplicate entry is what a CLEAN merge produces.
+   *
+   * Two branches added Door Access independently, at different positions in
+   * the same array. Git merged both without a conflict, the type-checker was
+   * happy, every existing nav test passed — and the sidebar would have shown
+   * the link twice. Nothing else in the suite looks at the shape of the list
+   * as a whole.
+   */
+  it('has no duplicate destinations', () => {
+    const hrefs = WORKSPACE_NAV_ITEMS.map((i) => i.href)
+
+    expect(hrefs).toHaveLength(new Set(hrefs).size)
+  })
+
+  it('has no duplicate names', () => {
+    const names = WORKSPACE_NAV_ITEMS.map((i) => i.name)
+
+    expect(names).toHaveLength(new Set(names).size)
+  })
+
+  it('lists Door Access in the Operations group', () => {
+    const operations = WORKSPACE_NAV.find((g) => g.label === 'Operations')
+    expect(operations?.items.map((i) => i.href)).toContain('/access-control')
+  })
+
+  it('resolves the door-access route to its own nav item', () => {
+    expect(activeNavItem('/access-control')?.name).toBe('Door Access')
+  })
+
+  it('does not steal the access-control settings page from Settings', () => {
+    // Longest-prefix matching compares '/access-control' (15) against
+    // '/settings' (9), and the settings sub-page must still highlight
+    // Settings — the two screens are different jobs for different people.
+    expect(activeNavItem('/settings/access-control')?.name).toBe('Settings')
+  })
+
   it('resolves the analytics route (and its subpaths) to its nav item', () => {
     expect(activeNavItem('/member-analytics')?.name).toBe('Member Analytics')
     expect(activeNavItem('/member-analytics/anything')?.name).toBe(

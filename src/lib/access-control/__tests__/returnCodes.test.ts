@@ -125,6 +125,37 @@ describe('formatSubjectName', () => {
   it('handles a name that is already within limits untouched', () => {
     expect(formatSubjectName('Nimal')).toBe('Nimal')
   })
+
+  /**
+   * A Sri Lankan gym's member list is not all Latin script. Stripping
+   * non-ASCII is deliberate — vendor behaviour with it is undocumented — but
+   * stripping a name written entirely in Sinhala or Tamil leaves nothing at
+   * all, and an empty `EmpName` is a different failure from a truncated one:
+   * the reader shows a blank where a person should be, and the vendor console
+   * shows a row nobody can identify.
+   */
+  it('falls back to the identifier when nothing survives normalisation', () => {
+    expect(formatSubjectName('\u0d9a\u0dc3\u0dd4\u0db1\u0dca', '100001')).toBe(
+      'Member_100001'
+    )
+  })
+
+  it('falls back even without an identifier to hand', () => {
+    expect(formatSubjectName('\u0d9a\u0dc3\u0dd4\u0db1\u0dca')).toBe('Member')
+  })
+
+  it('keeps the fallback inside the vendor limit', () => {
+    expect(
+      formatSubjectName('\u0d9a\u0dc3\u0dd4', '123456789012345').length
+    ).toBeLessThanOrEqual(EMP_NAME_MAX_LENGTH)
+  })
+
+  it('does not use the fallback when any of the name survives', () => {
+    // Mixed script: the Latin part is still the person's name.
+    expect(formatSubjectName('Kasun \u0d9a\u0dc3\u0dd4', '100001')).toBe(
+      'Kasun'
+    )
+  })
 })
 
 describe('subject id validation', () => {

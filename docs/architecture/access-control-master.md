@@ -553,7 +553,7 @@ reader" conversation, not something to solve by locking out someone who paid.
 
 ---
 
-## 6. Defect history — twelve defects, found by inverting assumptions
+## 6. Defect history — twenty-four defects: twelve by inverting assumptions, three by the first live vendor call, six by re-reading the surface in its light, three by running the campaign
 
 **Do not reintroduce these.** Every one was invisible to forward tests and found
 by asking "what if the opposite were true?".
@@ -614,6 +614,91 @@ finding and C2, arriving a third time from a third direction: **a test can only
 fail in a way its substitutes model.** The E2E suite is the only thing in this
 repo that runs the real policies against the real renderer, which is the entire
 argument for having paid to get it green.
+
+### Fifth audit (2026-09-22) — the first live vendor call
+
+Not by inverting an assumption, and not by running our own thing. By running it
+**against the vendor**, for the first time: real base URL, real account, two
+real readers. `scripts/vft-probe.ts` (read-only) prints the raw vendor payload
+beside what our client parsed out of it.
+
+| #      | Inverted assumption                                 | The defect                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **V1** | "A field the vendor omits arrives as `undefined`"   | It arrives as **`null`** — 13 of 27 fields on a working reader. `z.optional()` accepts `undefined` and rejects `null`, so `"TimeZone": null` failed the whole-array parse and **`listDevices()` returned `[]` for an account that owns two readers.** Every caller reads that as "this gym has no hardware": no error, no log, nothing to notice. Fixed by `.nullish()` throughout **and** row-by-row parsing, so one odd reader can no longer empty an account. |
+| **V2** | "The collection's field names are the live ones"    | `AreaID` is **nested under `Area`** on the live wrapper; the flat field the collection documents is not sent. Read `AreaID ?? Area.AreaID`.                                                                                                                                                                                                                                                                                                                      |
+| **V3** | "One of our three presence guesses will be the one" | **None of them exists.** No `IsOnline`, no `LastSeen`, no `LastActivity` (simulator test A-2, answered from production). The only device-originated timestamp is `LastRequestTime`, null on both readers. `LastUpdateTime` is a decoy — it moves when the _record_ is edited, so renaming an unplugged reader would make it look online.                                                                                                                         |
+
+**V1 is the third instance of the same lesson, from a fourth direction.** A
+double cannot fail in a way it does not model (tenth finding, C2, E1) — and
+`MockAccessControlProvider` models a vendor that returns what we expected.
+Twenty-eight suites and 394 assertions were green against a client that could
+not read a device list. **Nothing below L4 could have caught it**, which is the
+argument the readiness assessment makes for L4 in one sentence.
+
+**Two environment findings from the same session**, neither of them code:
+
+- **The stored credential cannot be decrypted.** All **660** `reconcile_member`
+  jobs in `access_sync_jobs` are `dead` on `Unsupported state or unable to
+authenticate data` — the Node AES-GCM authentication failure, i.e. the
+  ciphertext in `access_control_secrets` was written under a different
+  `ACCESS_CONTROL_ENCRYPTION_KEY` than the one now deployed. Nightly since
+  2026-08-28, ~10 a night, still failing. The remedy is to re-enter the
+  credentials through the account form (which re-encrypts under the current
+  key); rotating the key is documented as making every stored credential
+  unreadable, and this is what that looks like from the outside.
+- **`access_control_accounts.base_url` is still `https://vft.example.com`** for
+  the only account row (the E2E gym). Even with a decryptable secret, every job
+  would have been talking to a placeholder host.
+
+### Sixth audit (2026-09-22) — the rest of the surface, after V1
+
+V1 was not a mistake about `TimeZone`. It was a mistake about **what a vendor
+payload is**: we had been treating one hand-written example in a Postman
+collection as a contract. Once the live account proved the wrapper mixes
+numbers, strings and `null` freely, every other place that parses vendor input
+had to be re-read on that assumption. These are what that found. None had a
+symptom a user could report.
+
+| #      | Inverted assumption                                     | The defect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **W1** | "A webhook batch either parses or does not"             | The batch was parsed as a unit against a schema requiring strings. **One scan with a numeric `EmpId` — or any `null` — discarded every scan delivered beside it.** A reader pushes once and gets its 200: those scans do not come back, and a missing check-in looks exactly like a member who did not come in. Now each event is parsed alone, scalars are coerced, `null` is tolerated, and unreadable events are counted and logged.                                                                 |
+| **W2** | "The serial we stored is the serial they send"          | The lookup was exact. A gym typing the serial in the wrong case — or pasting it with a space — registers a reader that looks fine on the dashboard and **matches no scan, ever**; each one is counted as another company's traffic and dropped. Registration now trims, and the lookup falls back to a case-insensitive match _confirmed in JavaScript_, because `_` is a `LIKE` wildcard and the serial charset allows it. Two readers differing only in case are refused rather than guessed between. |
+| **W3** | "A failure worth recording is a failure worth retrying" | A credential that cannot be decrypted was retried six times per job. It is configuration: it stays wrong until a person re-enters it. 660 jobs spent 25 days proving that, dead-lettering with the raw Node text "Unsupported state or unable to authenticate data", which names neither cause nor remedy. Now a typed `CredentialDecryptionError`, dead-lettered on the first attempt, flagged as needing attention, carrying the fix in its message.                                                  |
+| **W4** | "A count on a health screen counts the table"           | `/system-health` filtered the **returned page** for its dead-job total, so both counts were pinned at `JOB_LIMIT`. The screen said 50 while the table held 660 — and worse, it would have said 50 at 60 and at 6,000. A health number that stops moving is worse than no number. Now counted with `count: 'exact'`, with `jobsTruncated` marking the list as a page.                                                                                                                                    |
+| **W5** | "A documented constant is an implemented one"           | `TOKEN_CACHE_TTL_SECONDS` was exported, described in three documents as a 30-minute ceiling, and **read by nothing**. Tokens were cached until the instance died, and the per-account map grew without bound in any long-lived process. Now implemented, with expired entries dropped on read.                                                                                                                                                                                                          |
+| **W6** | "Normalising a name shortens it"                        | It can empty it. `formatSubjectName` strips non-ASCII, so a member whose name is written entirely in Sinhala or Tamil — in a Sri Lankan gym — reached the reader as an **empty `EmpName`**, and a stripped mixed-script name kept a stranded `_`. Now falls back to `Member_<subjectId>`, which the desk can also see.                                                                                                                                                                                  |
+
+**The shape they share.** Every one of these fails by producing a plausible
+number: no devices, no such reader, another company's traffic, fifty dead jobs,
+a blank name. Nothing throws, nothing 500s, nothing is red on a screen. That is
+what makes the vendor boundary different from the rest of this codebase and why
+`scripts/vft-probe.ts` prints the raw payload beside the parsed one.
+
+### Seventh audit (2026-09-22) — the campaign's first two blocks
+
+Found by running cases rather than reading code: the webhook suite against
+production and then against the fixed build, and the subject lifecycle against
+the live vendor account.
+
+| #      | Inverted assumption                             | The defect                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **X1** | "Resolving a serial leniently is where it ends" | The W2 fix resolved a mis-cased serial correctly and then stored **that** spelling in `access_events.device_serial` and passed it to `recordDeviceClockSkew`, which filters on that column. A Supabase update matching no row reports success, so drift and last-seen would silently stop being recorded for that reader — rule 2.7's shape exactly. The registered spelling is now used downstream; the reader's survives in `raw`. |
+| **X2** | "HTTP 200 means the vendor did it"              | `DELETE /api/template/{id}` for a subject that does not exist answers **200** with the reason in a `message` string. With no return code present we reported `queued` — i.e. fine. **A cancellation that silently did nothing leaves a member able to walk through a door.** Success is now matched positively; anything else fails and asks for a person.                                                                           |
+| **X3** | "5xx is transient, 4xx is permanent"            | This vendor answers **500 for validation**: duplicate `EmpId`, over-long name, over-long id. Every one would have burned the full six-attempt budget to arrive back where it started. A 5xx carrying a `message` is now permanent; a bare 5xx still retries.                                                                                                                                                                         |
+
+**X1 is the one to remember.** It was introduced _by a fix_, in the same
+session, and no test caught it — the fake repository matched serials exactly,
+so it could not fail the way production does. That is the fourth appearance of
+one lesson (the tenth finding, C2, E1, now X1): **a double cannot fail in a way
+it does not model.** The fake now resolves case-insensitively.
+
+**What the same run confirmed was already right:** unknown serials dropped
+without attribution; a payload carrying another gym's id still filed under
+ours; a redelivered scan producing exactly one row; out-of-order scans both
+kept; malformed JSON, null and empty serials storing nothing; an unknown event
+code preserved verbatim; a batch spanning both readers split per device. And
+the `EmpId` guard refused a 16-digit id **before** dispatch, where the vendor
+would have answered with a raw MySQL column error.
 
 ---
 
@@ -1053,19 +1138,36 @@ that will consume it, not from the vendor's documentation.
 
 > **Updated 2026-08-28 — the call happened.** VFT supplied the Postman
 > collection and both code tables (§3.11) and answered items **3, 6 and 7**
-> below. **Items 1, 2, 4 and 5 remain, and they are the whole critical path:
-> without credentials and a serial, `ACCESS_CONTROL_ENABLED=true` has nothing
-> to talk to.** The "give" half is now settled and live — see the host table
-> further down.
+> below. The "give" half is settled and live — see the host table further down.
+>
+> **Updated 2026-09-22 — items 1, 2 and 4 are answered.** Base URL
+> **`https://acccloudlk.com`**, an account login (held by the operator, never
+> committed), and **two device serials**:
+>
+> | Serial          | Vendor name | LAN IP        | Firmware               |
+> | --------------- | ----------- | ------------- | ---------------------- |
+> | `NYU7251900066` | Device1     | 192.168.8.127 | ZAM70-NF24HA-Ver3.0.15 |
+> | `NYU7254500734` | Device2     | 192.168.8.186 | ZAM70-NF24HA-Ver3.3.12 |
+>
+> Two readers, which is what P5 asked for — half the interesting failures need
+> a second one. Both sit in `Area` 1 ("Default Area") on company "Capitalist
+> One", both were created 2026-09-14, and the account expires 2027-09-14.
+> Obtained with `npx tsx scripts/vft-probe.ts`.
+>
+> **Item 5 (callback live) is the last one standing**, and it is now the whole
+> critical path: the readers exist, they can be listed, and nothing they see
+> can reach us until VFT registers the callback URL. Neither reader has ever
+> been sent a command, and no scan has ever arrived — `access_events` holds
+> **0** rows.
 
 #### Ask VFT for
 
 | #   | Item                                                                                                          | Where it lands                                                                                                                             | Why it is not optional                                                                                            |
 | --- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| 1   | **API base URL** (simulator or live)                                                                          | The `baseUrl` field of the account form (`accessControlAccountSchema`); `VFT_API_BASE_URL` is only a fallback for single-deployment setups | Nothing can be tested without it. The current value is the placeholder `https://vft.example.com`                  |
-| 2   | **Account login** — email + password                                                                          | `email` / `password` on the same form, AES-256-GCM at rest in `access_control_secrets`                                                     | This is the whole vendor identity; the client authenticates per gym and caches the bearer token                   |
+| 1   | ~~**API base URL**~~ **Answered 2026-09-22:** `https://acccloudlk.com`, reachable and authenticating          | The `baseUrl` field of the account form (`accessControlAccountSchema`); `VFT_API_BASE_URL` is only a fallback for single-deployment setups | Nothing can be tested without it. The stored account row still holds the placeholder `https://vft.example.com`    |
+| 2   | ~~**Account login**~~ **Answered 2026-09-22** — sign-in returns a 160-char JWT                                | `email` / `password` on the same form, AES-256-GCM at rest in `access_control_secrets`                                                     | This is the whole vendor identity; the client authenticates per gym and caches the bearer token                   |
 | 3   | ~~**`AreaID`**~~ **Answered:** default **1**, "not currently relevant, added for future development"          | Optional `areaId` on the same form                                                                                                         | Organisational only — **never** a security boundary (A9, trap 6). Tenant scoping is ours regardless               |
-| 4   | **Device serial(s)** — two if possible                                                                        | The "Connect a reader" form                                                                                                                | P5. Half the interesting failures only appear with two readers, and serials are how webhook events find their gym |
+| 4   | ~~**Device serial(s)**~~ **Answered 2026-09-22:** `NYU7251900066`, `NYU7254500734`                            | The "Connect a reader" form                                                                                                                | P5. Half the interesting failures only appear with two readers, and serials are how webhook events find their gym |
 | 5   | **Confirmation the callback is live**                                                                         | Their account-level callback configuration                                                                                                 | Configured **per account, not per gym** — there is no per-gym URL to hand out                                     |
 | 6   | **Token expiry duration** — _still open_                                                                      | Answer upgrades §3.10                                                                                                                      | Genuinely unknown. `TOKEN_CACHE_TTL_SECONDS` is a conservative 30 min guess; a 401 refresh covers being wrong     |
 | 7   | **Real `Pin` width on K40/F18 firmware** — _platform limit answered (15, numeric); firmware limit still open_ | Answer upgrades §3.10                                                                                                                      | The other genuine unknown. Affects the personnel-id ceiling (A1)                                                  |

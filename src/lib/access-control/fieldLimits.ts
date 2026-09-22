@@ -25,6 +25,16 @@ export const EMP_ID_MAX_LENGTH = 15
 export const EMP_NAME_MAX_LENGTH = 24
 
 /**
+ * What a member is called on the reader when their name does not survive
+ * normalisation.
+ *
+ * Never blank. A reader showing an empty row, and a vendor console listing one,
+ * is worse than a placeholder: it cannot be matched back to a person at the
+ * desk during the exact conversation the display exists for.
+ */
+const SUBJECT_NAME_FALLBACK = 'Member'
+
+/**
  * Format a member's name for the terminal.
  *
  * Spaces become underscores and the result is capped at 24 characters. Where
@@ -32,14 +42,24 @@ export const EMP_NAME_MAX_LENGTH = 24
  * as `Kasun_Perera` rather than `Kasun_Perer` — a clipped whole name reads far
  * better on a small reader display than a clipped word.
  *
+ * **A name can normalise to nothing.** The vendor's behaviour with non-ASCII is
+ * undocumented, so anything outside a conservative set is stripped — and this
+ * product serves Sri Lanka, where a member's name may be written entirely in
+ * Sinhala or Tamil. Stripping then leaves an empty string, which is not a
+ * shorter name but no name at all. Those fall back to the subject id, which is
+ * the one identifier the desk can also see.
+ *
  * @param name - The member's name as entered in our system.
- * @returns A name safe to send as `EmpName`.
+ * @param subjectId - The id this subject is known by, used only for the
+ *   fallback. Optional so the formatter stays usable without one.
+ * @returns A non-empty name safe to send as `EmpName`.
  *
  * @example
- * formatSubjectName('Kasun Perera')                 // => 'Kasun_Perera'
+ * formatSubjectName('Kasun Perera')                   // => 'Kasun_Perera'
  * formatSubjectName('Wickramasinghe Rajapaksa Silva') // => 'Wickramasinghe'
+ * formatSubjectName('කසුන්', '100001')                // => 'Member_100001'
  */
-export function formatSubjectName(name: string): string {
+export function formatSubjectName(name: string, subjectId?: string): string {
   const normalised = name
     .trim()
     // Any run of whitespace collapses to a single underscore.
@@ -47,6 +67,18 @@ export function formatSubjectName(name: string): string {
     // Strip anything outside a conservative safe set. Vendor behaviour with
     // non-ASCII is undocumented, and a mangled name is not worth the risk.
     .replace(/[^A-Za-z0-9_.-]/g, '')
+    // Stripping can leave separators stranded at either end — "Kasun කසුන්"
+    // becomes "Kasun_". Trailing punctuation reads as truncation to anyone
+    // looking at the reader.
+    .replace(/^[_.-]+|[_.-]+$/g, '')
+
+  if (normalised.length === 0) {
+    const fallback = subjectId
+      ? `${SUBJECT_NAME_FALLBACK}_${subjectId}`
+      : SUBJECT_NAME_FALLBACK
+
+    return fallback.slice(0, EMP_NAME_MAX_LENGTH)
+  }
 
   if (normalised.length <= EMP_NAME_MAX_LENGTH) {
     return normalised

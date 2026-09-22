@@ -10,7 +10,7 @@ import {
   type LegalSection,
 } from '@/components/legal'
 
-const LAST_UPDATED = 'July 2026'
+const LAST_UPDATED = 'September 2026'
 
 const sections: LegalSection[] = [
   {
@@ -185,6 +185,43 @@ const sections: LegalSection[] = [
               </LegalLI>
             </LegalList>
           </div>
+
+          <div>
+            <LegalSubHead>Cookies and Website Analytics</LegalSubHead>
+            <LegalP>
+              We use Google Analytics (provided by Google LLC) on our website
+              and web application to understand how visitors and operators use
+              Metric Gym OS. Google Analytics sets first-party cookies on your
+              device and may collect:
+            </LegalP>
+            <LegalList>
+              <LegalLI>
+                Pages and screens viewed, referring sites, and approximate
+                location derived from IP address
+              </LegalLI>
+              <LegalLI>
+                Browser, device, and operating-system information
+              </LegalLI>
+              <LegalLI>
+                A client identifier stored in cookies so repeat visits can be
+                distinguished from new ones
+              </LegalLI>
+            </LegalList>
+            <LegalP>
+              This processing is based on our legitimate interest in measuring
+              and improving the service. We do not use Google Analytics to
+              identify gym members or to sell advertising against your data.
+              Google may process this information on servers outside Sri Lanka,
+              including in the United States. Google&apos;s own privacy policy
+              is at policies.google.com/privacy.
+            </LegalP>
+            <LegalP>
+              You can refuse or delete these cookies in your browser settings,
+              or use Google&apos;s opt-out add-on at
+              tools.google.com/dlpage/gaoptout. Blocking analytics cookies does
+              not affect your ability to use the platform.
+            </LegalP>
+          </div>
         </div>
       </>
     ),
@@ -229,6 +266,11 @@ const sections: LegalSection[] = [
           <LegalLI>
             Provide customer support and respond to inquiries — necessary for
             the performance of our contract with you
+          </LegalLI>
+          <LegalLI>
+            Measure visits to our website and how the platform is used, using
+            Google Analytics — our legitimate interest in understanding and
+            improving the service
           </LegalLI>
           <LegalLI>
             Monitor platform performance, detect errors, and ensure system
@@ -328,6 +370,11 @@ const sections: LegalSection[] = [
               does not identify any individual data subject
             </LegalLI>
             <LegalLI>
+              Google Analytics records: retained by Google for the period
+              configured in our Google Analytics property, after which
+              event-level data is deleted or aggregated
+            </LegalLI>
+            <LegalLI>
               Door access records: entries and refused attempts recorded by a
               gym&apos;s biometric readers are deleted automatically 12 months
               after they occur
@@ -394,6 +441,11 @@ const sections: LegalSection[] = [
             securely
           </LegalLI>
           <LegalLI>
+            Google LLC (Google Analytics), to measure website and application
+            usage as described in Section 2. This may include IP address, device
+            and browser data, and pages viewed
+          </LegalLI>
+          <LegalLI>
             Professional advisers, such as lawyers or auditors, where required
             by law
           </LegalLI>
@@ -435,7 +487,9 @@ const sections: LegalSection[] = [
             You have the right to withdraw your consent at any time where
             processing is based on consent, and to request that we refrain from
             further processing your personal data where processing is based on
-            our legitimate interests.
+            our legitimate interests. You may object to Google Analytics by
+            blocking or deleting its cookies in your browser, or by using
+            Google&apos;s opt-out add-on.
           </LegalP>
         </div>
 

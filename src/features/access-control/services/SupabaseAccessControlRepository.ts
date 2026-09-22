@@ -74,6 +74,15 @@ interface MemberContextRow {
   member_access_subjects: MemberAccessSubject[] | MemberAccessSubject | null
 }
 
+/**
+ * Rows the case-insensitive serial fallback will consider.
+ *
+ * Serials are globally unique, so a correct system yields at most one. The
+ * ceiling exists because `ilike` can over-match through a wildcard character,
+ * and an unbounded read of an over-match is a different bug.
+ */
+const SERIAL_CANDIDATE_LIMIT = 5
+
 export class SupabaseAccessControlRepository implements IAccessControlRepository {
   constructor(private readonly supabase: SupabaseClient) {}
 
@@ -265,18 +274,83 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     return (data as AccessDevice | null) ?? null
   }
 
+  /**
+   * Resolve a reader from its serial — the routing key for every inbound scan.
+   *
+   * ## Why this is not a plain equality check
+   *
+   * The serial arrives from two places that need not agree on case or
+   * whitespace: a person typing what is printed on the reader, and the vendor's
+   * own push payload. A mismatch between them is **silent and total** — the
+   * event is counted as another company's traffic and dropped, the reader still
+   * shows as registered, and nothing retries, because the device already had
+   * its 200. So an exact match is tried first and a case-insensitive match
+   * second.
+   *
+   * ## Why the candidate is re-checked in JavaScript
+   *
+   * `_` is a single-character wildcard in `LIKE`/`ILIKE`, and the registration
+   * charset permits it. Left to the database, `NYU_123` would match `NYU-123`
+   * and attribute one gym's scan to another gym's reader — a tenant boundary
+   * crossed by a punctuation mark. The `ilike` is therefore a *candidate
+   * filter* only; the authoritative comparison happens here.
+   *
+   * @param deviceSerial - Serial as the vendor sent it, or as a person typed it.
+   * @returns The reader, or `null` when no serial matches case-insensitively.
+   */
   async findDeviceBySerial(deviceSerial: string): Promise<AccessDevice | null> {
+    const serial = deviceSerial.trim()
+
     const { data, error } = await this.supabase
       .from('access_devices')
       .select('*')
-      .eq('device_serial', deviceSerial)
+      .eq('device_serial', serial)
       .maybeSingle()
 
     if (error) {
       throw new DatabaseError(`Failed to load device: ${error.message}`)
     }
 
-    return (data as AccessDevice | null) ?? null
+    if (data) return data as AccessDevice
+
+    const { data: candidates, error: fallbackError } = await this.supabase
+      .from('access_devices')
+      .select('*')
+      .ilike('device_serial', serial)
+      .limit(SERIAL_CANDIDATE_LIMIT)
+
+    if (fallbackError) {
+      throw new DatabaseError(`Failed to load device: ${fallbackError.message}`)
+    }
+
+    const matches = ((candidates ?? []) as AccessDevice[]).filter(
+      (device) =>
+        device.device_serial.trim().toLowerCase() === serial.toLowerCase()
+    )
+
+    if (matches.length > 1) {
+      // Two readers whose serials differ only in case. The exact match above
+      // already failed, so there is no principled way to choose between them —
+      // and choosing wrong files a scan under the wrong gym. Refusing loses
+      // one event; guessing corrupts a tenant boundary.
+      console.error(
+        `Ambiguous device serial "${serial}": ${matches.length} readers match case-insensitively. Event dropped.`
+      )
+      return null
+    }
+
+    const match = matches[0]
+
+    if (match) {
+      // Worth saying out loud: it works, but the two records disagree, and the
+      // next person to compare the dashboard with the vendor console will lose
+      // time to it.
+      console.warn(
+        `Device serial matched case-insensitively: stored "${match.device_serial}", received "${serial}"`
+      )
+    }
+
+    return match ?? null
   }
 
   async registerDevice(
@@ -916,8 +990,7 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
 
     const rows =
       (data as
-        | (AccessEvent & { members?: { name: string } | null })[]
-        | null) ?? []
+        (AccessEvent & { members?: { name: string } | null })[] | null) ?? []
 
     return {
       events: rows.map((row) => ({

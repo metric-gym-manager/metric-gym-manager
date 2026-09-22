@@ -36,7 +36,11 @@ import type {
   SubjectOnDevice,
   ValidPeriodInput,
 } from './IAccessControlProvider'
-import { VENDOR_REQUEST_TIMEOUT_MS, isAccessControlEnabled } from './config'
+import {
+  TOKEN_CACHE_TTL_SECONDS,
+  VENDOR_REQUEST_TIMEOUT_MS,
+  isAccessControlEnabled,
+} from './config'
 import {
   ReturnCodeClass,
   classifyReturnCode,
@@ -61,53 +65,144 @@ const signInResponseSchema = z.object({
  */
 const deviceSchema = z.object({
   DevSN: z.string(),
-  DevName: z.string().optional(),
-  TimeZone: z.union([z.string(), z.number()]).optional(),
+  // Every optional field here is `nullish`, never `optional`. The live wrapper
+  // returns explicit `null` for anything it has no value for, and `optional()`
+  // accepts `undefined` but rejects `null` — one null field failed the whole
+  // parse and emptied the device list. Probed 2026-09-22: of 27 fields on a
+  // real reader, 13 arrived null, `TimeZone` among them.
+  DevName: z.string().nullish(),
+  TimeZone: z.union([z.string(), z.number()]).nullish(),
+  // The collection documents a flat `AreaID`; the live wrapper nests it under
+  // `Area`. Both are read — flat first — because only one of them will be
+  // present on any given build and the association is worth keeping.
   AreaID: z.union([z.string(), z.number()]).nullish(),
-  // Presence fields. NONE of these is documented — the field names below are
-  // the ones ZKTeco-derived wrappers commonly use, accepted optionally so the
-  // parse cannot fail on a build that omits them. Whichever (if any) the
-  // simulator actually returns is test A-2 in the simulator plan.
+  Area: z
+    .object({ AreaID: z.union([z.string(), z.number()]).nullish() })
+    .nullish(),
+  // Presence fields. NONE of these is documented — the first three are the
+  // names ZKTeco-derived wrappers commonly use. The live account answered test
+  // A-2 by sending none of them: presence has to come from `LastRequestTime`,
+  // the device's own last call home, or from the webhook contact time.
   //
-  // If none arrives we report presence as unknown rather than guessing, and
-  // fall back to the webhook contact time. Claiming a reader is online on no
-  // evidence is worse than admitting we cannot tell.
+  // `LastUpdateTime` is deliberately NOT read as presence. It moves when the
+  // record is edited, so a reader that has been unplugged for a week would
+  // look online the moment someone renames it.
+  //
+  // If nothing arrives we report presence as unknown rather than guessing.
+  // Claiming a reader is online on no evidence is worse than admitting we
+  // cannot tell.
   LastActivity: z.string().nullish(),
   LastSeen: z.string().nullish(),
+  LastRequestTime: z.string().nullish(),
   IsOnline: z.union([z.boolean(), z.string(), z.number()]).nullish(),
 })
 
+/**
+ * The envelope only. Rows are parsed one at a time by {@link parseRows} so a
+ * single malformed reader cannot empty an account's entire device list.
+ */
 const deviceListSchema = z.union([
-  z.object({ devices: z.array(deviceSchema) }),
-  z.array(deviceSchema),
+  z.object({ devices: z.array(z.unknown()) }),
+  z.array(z.unknown()),
 ])
 
 const subjectSchema = z.object({
   EmpId: z.union([z.string(), z.number()]),
-  EmpName: z.string().optional(),
+  // `nullish` for the same reason as the device fields above. The live account
+  // held no employees at probe time (2026-09-22), so this shape is inferred
+  // from the device response's conventions rather than observed.
+  EmpName: z.string().nullish(),
   AreaID: z.union([z.string(), z.number()]).nullish(),
+  Area: z
+    .object({ AreaID: z.union([z.string(), z.number()]).nullish() })
+    .nullish(),
   // Not documented; present on some builds. Used to detect enrolment.
   TemplateCount: z.union([z.string(), z.number()]).nullish(),
 })
 
 const subjectListSchema = z.union([
-  z.object({ templates: z.array(subjectSchema) }),
-  z.object({ data: z.array(subjectSchema) }),
-  z.array(subjectSchema),
+  z.object({ templates: z.array(z.unknown()) }),
+  z.object({ data: z.array(z.unknown()) }),
+  z.array(z.unknown()),
 ])
 
 const commandSchema = z.object({
-  id: z.union([z.string(), z.number()]).optional(),
-  ID: z.union([z.string(), z.number()]).optional(),
-  DevSN: z.string().optional(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  ID: z.union([z.string(), z.number()]).nullish(),
+  DevSN: z.string().nullish(),
   // The PUSH acknowledgement code, where the wrapper exposes it.
   Return: z.union([z.string(), z.number()]).nullish(),
+  /**
+   * The template endpoints' only verdict.
+   *
+   * They carry no return code at all — "Employee was added successfully" on
+   * the way through, and the reason in the same field when it did not work.
+   * Observed 2026-09-22 against the live account.
+   */
+  message: z.string().nullish(),
 })
 
 const commandListSchema = z.union([
-  z.object({ commands: z.array(commandSchema) }),
-  z.array(commandSchema),
+  z.object({ commands: z.array(z.unknown()) }),
+  z.array(z.unknown()),
 ])
+
+/**
+ * Phrases the vendor uses when it did not do the thing.
+ *
+ * Observed on `/api/template/*` (2026-09-22): "Cannot delete Employee with
+ * id=… The Employee was not found!", "Validation error", "Error updating
+ * Employee with id=…", "Data too long for column 'EmpId' at row 1". The rest
+ * are the obvious cousins of those, and they are the only licence this list
+ * takes beyond what was seen.
+ */
+const VENDOR_FAILURE_MARKERS = [
+  'cannot',
+  'not found',
+  'error',
+  'invalid',
+  'validation',
+  'too long',
+  'failed',
+  'unable',
+  'denied',
+  'not allowed',
+] as const
+
+/**
+ * Read the vendor's prose, where it is prose we recognise.
+ *
+ * Three answers, not two, and the third is the important one.
+ *
+ * The template endpoints are the only family whose responses have ever been
+ * observed. This rule also governs `/api/devicecmd/*` — six methods whose
+ * shape nobody has seen — so a rule of "anything not saying success is a
+ * failure" would turn an unobserved `{"message":"Command queued"}` into a
+ * dead letter needing attention, for every door open, reboot, validity
+ * period, grant, block and enrolment.
+ *
+ * So unfamiliar prose returns `null`, and the caller reports `queued`: that is
+ * exactly what the three-valued outcome exists to express, and the reconciler
+ * settles it later. Recognised failure wording still fails loudly, which keeps
+ * the case this rule was written for — a cancellation that silently did
+ * nothing.
+ *
+ * @returns `true` for success, `false` for a recognised failure, `null` when
+ *   the vendor said something we have no grounds to interpret.
+ */
+function readVendorMessage(message: string): boolean | null {
+  const text = message.toLowerCase()
+
+  // Checked first: "deleted successfully from all devices only!" is a success
+  // even though a failure marker could plausibly appear in a longer sentence.
+  if (text.includes('success')) return true
+
+  if (VENDOR_FAILURE_MARKERS.some((marker) => text.includes(marker))) {
+    return false
+  }
+
+  return null
+}
 
 /** Thrown when the vendor rejects our credentials or token. */
 export class VendorAuthError extends Error {
@@ -133,8 +228,17 @@ export class VftAccessControlProvider implements IAccessControlProvider {
    * Process-local, which is the right scope on serverless: a new instance
    * simply signs in again. The vendor issues independent tokens, so concurrent
    * instances do not invalidate each other.
+   *
+   * Entries expire after {@link TOKEN_CACHE_TTL_SECONDS}. The vendor documents
+   * no lifetime, so the ceiling is a guess — but it is a guess that costs one
+   * extra sign-in, where the alternative is discovering expiry as a 401 on a
+   * command someone is waiting for. The 401 path still exists underneath as
+   * the thing that makes being wrong survivable.
    */
-  private readonly tokenCache = new Map<string, string>()
+  private readonly tokenCache = new Map<
+    string,
+    { token: string; expiresAt: number }
+  >()
 
   getProviderName(): string {
     return 'VFT'
@@ -167,7 +271,11 @@ export class VftAccessControlProvider implements IAccessControlProvider {
       throw new VendorAuthError('Sign-in response did not contain a token')
     }
 
-    this.tokenCache.set(this.cacheKey(credentials), parsed.data.token)
+    this.tokenCache.set(this.cacheKey(credentials), {
+      token: parsed.data.token,
+      expiresAt: Date.now() + TOKEN_CACHE_TTL_SECONDS * 1000,
+    })
+
     return parsed.data.token
   }
 
@@ -191,16 +299,16 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     const parsed = deviceListSchema.safeParse(payload)
     if (!parsed.success) return []
 
-    const devices = Array.isArray(parsed.data)
-      ? parsed.data
-      : parsed.data.devices
+    const rows = Array.isArray(parsed.data) ? parsed.data : parsed.data.devices
 
-    return devices.map((device) => ({
+    return parseRows(rows, deviceSchema).map((device) => ({
       serial: device.DevSN,
       name: device.DevName ?? device.DevSN,
-      areaId: toNumberOrNull(device.AreaID),
+      areaId: toNumberOrNull(device.AreaID ?? device.Area?.AreaID),
       timezoneOffsetMinutes: toNumberOrNull(device.TimeZone),
-      lastSeenAt: parseVendorDate(device.LastActivity ?? device.LastSeen),
+      lastSeenAt: parseVendorDate(
+        device.LastActivity ?? device.LastSeen ?? device.LastRequestTime
+      ),
       online: toBooleanOrNull(device.IsOnline),
     }))
   }
@@ -219,8 +327,9 @@ export class VftAccessControlProvider implements IAccessControlProvider {
       body: {
         EmpId: subject.subjectId,
         // 24 characters, underscores for spaces — a vendor constraint, so it is
-        // applied here rather than trusted to callers.
-        EmpName: formatSubjectName(subject.name),
+        // applied here rather than trusted to callers. The id is passed so a
+        // name that normalises to nothing still identifies someone.
+        EmpName: formatSubjectName(subject.name, subject.subjectId),
         // Included deliberately: the collection sends it and the terminal needs
         // an area to associate the record with. Never set CardNo or Password —
         // the fingerprint must remain the sole credential, or revoking it would
@@ -244,7 +353,7 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     return this.command(credentials, {
       method: 'PUT',
       path: `/api/template/edit/${encodeURIComponent(subjectId)}`,
-      body: { EmpName: formatSubjectName(name) },
+      body: { EmpName: formatSubjectName(name, subjectId) },
     })
   }
 
@@ -353,10 +462,10 @@ export class VftAccessControlProvider implements IAccessControlProvider {
         ? parsed.data.templates
         : parsed.data.data
 
-    return rows.map((row) => ({
+    return parseRows(rows, subjectSchema).map((row) => ({
       subjectId: String(row.EmpId),
       name: row.EmpName ?? '',
-      areaId: toNumberOrNull(row.AreaID),
+      areaId: toNumberOrNull(row.AreaID ?? row.Area?.AreaID),
       templateCount: toNumberOrNull(row.TemplateCount),
     }))
   }
@@ -414,7 +523,7 @@ export class VftAccessControlProvider implements IAccessControlProvider {
 
     const rows = Array.isArray(parsed.data) ? parsed.data : parsed.data.commands
 
-    return rows.map((row) => ({
+    return parseRows(rows, commandSchema).map((row) => ({
       commandId: String(row.id ?? row.ID ?? ''),
       deviceSerial: row.DevSN ?? deviceSerial ?? '',
       returnCode: toNumberOrNull(row.Return),
@@ -475,7 +584,33 @@ export class VftAccessControlProvider implements IAccessControlProvider {
         }
       }
 
-      // No return code: accepted into the queue, awaiting collection.
+      // No return code. The template endpoints answer in prose instead, so a
+      // message is the only verdict they give — and it is a real one, not a
+      // hint: "Cannot delete Employee with id=… The Employee was not found!"
+      // arrives as HTTP 200 and used to read as queued, i.e. as fine.
+      const message = parsed.success ? parsed.data.message : null
+
+      const verdict = message ? readVendorMessage(message) : null
+
+      if (verdict === true) {
+        return {
+          status: 'applied',
+          commandId: commandId != null ? String(commandId) : undefined,
+        }
+      }
+
+      if (verdict === false) {
+        return {
+          status: 'failed',
+          error: message ?? 'Vendor reported a failure',
+          // The vendor named a reason, and the reason will not change by
+          // asking again. A person decides what to do about it.
+          retryable: false,
+          needsAttention: true,
+        }
+      }
+
+      // Nothing said at all: accepted into the queue, awaiting collection.
       return {
         status: 'queued',
         commandId: commandId != null ? String(commandId) : undefined,
@@ -485,10 +620,20 @@ export class VftAccessControlProvider implements IAccessControlProvider {
         return { status: 'failed', error: error.message, retryable: false }
       }
 
+      const retryable = isRetryable(error)
+
       return {
         status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown vendor error',
-        retryable: isRetryable(error),
+        error:
+          error instanceof VendorRequestError && error.detail
+            ? `${error.message}: ${error.detail}`
+            : error instanceof Error
+              ? error.message
+              : 'Unknown vendor error',
+        retryable,
+        // A permanent rejection from the vendor is not something the queue can
+        // work through on its own.
+        needsAttention: !retryable && error instanceof VendorRequestError,
       }
     }
   }
@@ -501,7 +646,7 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     options: RequestOptions
   ): Promise<unknown> {
     const token =
-      this.tokenCache.get(this.cacheKey(credentials)) ??
+      this.cachedToken(credentials) ??
       credentials.apiToken ??
       (await this.signIn(credentials))
 
@@ -531,9 +676,15 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     }
 
     if (!response.ok) {
+      // The body matters as much as the status: this vendor answers 500 for
+      // permanent validation failures, so a 5xx alone cannot decide whether
+      // retrying is worth anything.
+      const detail = (await response.text()).slice(0, 300)
+
       throw new VendorRequestError(
         `Vendor returned status ${response.status}`,
-        response.status
+        response.status,
+        detail
       )
     }
 
@@ -564,6 +715,28 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     return url.toString()
   }
 
+  /**
+   * The cached token for this account, if it has not aged out.
+   *
+   * An expired entry is dropped rather than left to accumulate: the cache is
+   * keyed per account and a long-lived process serving many gyms would
+   * otherwise hold a token for every one of them for the life of the instance.
+   */
+  private cachedToken(credentials: AccessCredentials): string | null {
+    const key = this.cacheKey(credentials)
+    const entry = this.tokenCache.get(key)
+
+    if (!entry) return null
+
+    if (entry.expiresAt <= Date.now()) {
+      this.tokenCache.delete(key)
+      return null
+    }
+
+    return entry.token
+  }
+
+  /** Keyed by account, never by gym: two gyms can share a vendor account. */
   private cacheKey(credentials: AccessCredentials): string {
     return `${credentials.baseUrl}::${credentials.email}`
   }
@@ -573,7 +746,9 @@ export class VftAccessControlProvider implements IAccessControlProvider {
 export class VendorRequestError extends Error {
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    /** The response body, truncated — the vendor's own reason, when it gave one. */
+    readonly detail: string = ''
   ) {
     super(message)
     this.name = 'VendorRequestError'
@@ -588,9 +763,60 @@ export class VendorRequestError extends Error {
  */
 function isRetryable(error: unknown): boolean {
   if (error instanceof VendorRequestError) {
-    return error.status >= 500
+    if (error.status < 500) return false
+
+    // Only a bare 500. This vendor answers 500 for business rejections — a
+    // duplicate `EmpId` returns `500 {"message":"Validation error"}` and will
+    // return it forever — so a 500 naming a reason is permanent.
+    //
+    // 502, 503 and 504 are gateway and availability codes, and they carry JSON
+    // bodies too. Reading those as permanent would dead-letter an entire queue
+    // during a vendor outage, which is the single failure retries exist for.
+    if (error.status !== 500) return true
+
+    return !describesVendorRejection(error.detail)
   }
   return true
+}
+
+/** Whether a failed response body carries the vendor's own reason. */
+function describesVendorRejection(detail: string): boolean {
+  if (!detail) return false
+
+  try {
+    const parsed: unknown = JSON.parse(detail)
+    const message = commandSchema.safeParse(parsed)
+    return Boolean(message.success && message.data.message)
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Parse list rows individually, discarding only the ones that fail.
+ *
+ * The vendor returns a bare array, and parsing it as `z.array(schema)` makes
+ * every row a single point of failure for the whole account: one reader with an
+ * unexpected field emptied a two-device list, and `safeParse` failing is
+ * reported to the caller as "no devices" — a state a real gym can legitimately
+ * be in, so nothing anywhere looks wrong.
+ *
+ * Dropping the individual bad row is not silent in the same way: the rest of
+ * the account still works, and the missing one is visible against the vendor
+ * console.
+ */
+function parseRows<T extends z.ZodTypeAny>(
+  rows: unknown[],
+  schema: T
+): z.infer<T>[] {
+  const parsed: z.infer<T>[] = []
+
+  for (const row of rows) {
+    const result = schema.safeParse(row)
+    if (result.success) parsed.push(result.data)
+  }
+
+  return parsed
 }
 
 /** Coerce a vendor field that may arrive as string, number, null or absent. */
@@ -632,6 +858,32 @@ function toBooleanOrNull(
  */
 function parseVendorDate(value: string | null | undefined): Date | null {
   if (!value) return null
+
+  // `MM/DD/YYYY, HH:mm:ss` — the format the live wrapper uses for its own
+  // timestamps (`09/22/2026, 10:36:20`). Month-first is not a guess: the same
+  // response carried `09/14/2026`, and there is no fourteenth month.
+  const slashed = value
+    .trim()
+    .match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})$/)
+
+  if (slashed) {
+    const [, month, day, year, hour, minute, second] = slashed
+    // Built as UTC deliberately. These timestamps carry no zone, and a
+    // local-time parse would shift them by the server's offset — which on
+    // Vercel is UTC and on a developer's laptop is not, making the same value
+    // render differently in the two places.
+    const parsed = new Date(
+      Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second)
+      )
+    )
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
 
   const parsed = new Date(value.includes('T') ? value : value.replace(' ', 'T'))
   return Number.isNaN(parsed.getTime()) ? null : parsed

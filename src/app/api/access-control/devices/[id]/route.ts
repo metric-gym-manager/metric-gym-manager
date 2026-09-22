@@ -17,7 +17,7 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAccessControlGym } from '@/lib/auth/requireAccessControlGym'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
-import { toErrorResponse } from '@/lib/middleware/apiErrors'
+import { readJsonBody, toErrorResponse } from '@/lib/middleware/apiErrors'
 
 export async function PATCH(
   request: NextRequest,
@@ -28,7 +28,7 @@ export async function PATCH(
 
   try {
     const { id } = await context.params
-    const parsed = updateDeviceSchema.safeParse(await request.json())
+    const parsed = updateDeviceSchema.safeParse(await readJsonBody(request))
 
     if (!parsed.success) {
       return NextResponse.json(

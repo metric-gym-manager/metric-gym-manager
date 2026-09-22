@@ -21,6 +21,7 @@
  */
 
 import type { IAccessControlProvider } from '@/lib/access-control'
+import { CredentialDecryptionError } from '@/lib/access-control/crypto'
 import { RequestPacer } from '@/lib/access-control/rateLimit'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 import type { SyncMemberAccess, SyncFailure } from './SyncMemberAccess'
@@ -132,6 +133,29 @@ export class DrainAccessSyncQueue {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown drain error'
+
+        // An unreadable credential is not a transient fault. The ciphertext
+        // and the key are both configuration: they stay wrong until a person
+        // re-enters the account, so six attempts per job learn nothing and
+        // bury the one thing worth saying behind a wall of ordinary retries.
+        // This deployment spent 25 days and 660 jobs proving that.
+        if (error instanceof CredentialDecryptionError) {
+          // `retryable` distinguishes a key that is WRONG from one that is
+          // momentarily ABSENT — a deploy or a cold start can produce the
+          // second, and dead-lettering that would strand a whole gym's sync
+          // over a blip.
+          await this.settleFailure(
+            job.id,
+            {
+              message,
+              retryable: error.retryable,
+              needsAttention: !error.retryable,
+            },
+            summary,
+            job.gym_id
+          )
+          continue
+        }
 
         summary.errors.push(message)
         await this.repo.failJob(job.id, message, true)

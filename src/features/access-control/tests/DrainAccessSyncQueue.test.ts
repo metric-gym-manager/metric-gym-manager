@@ -18,7 +18,10 @@ import { DrainAccessSyncQueue } from '@/features/access-control/services/DrainAc
 import { SyncMemberAccess } from '@/features/access-control/services/SyncMemberAccess'
 import { OperateDevice } from '@/features/access-control/services/OperateDevice'
 import { EvictInactiveSubjects } from '@/features/access-control/services/EvictInactiveSubjects'
-import { MockAccessControlProvider } from '@/lib/access-control'
+import {
+  CredentialDecryptionError,
+  MockAccessControlProvider,
+} from '@/lib/access-control'
 import type {
   CommandOutcome,
   IAccessControlProvider,
@@ -170,6 +173,65 @@ describe('DrainAccessSyncQueue', () => {
   })
 
   describe('failure classification (P2)', () => {
+    it('dead-letters immediately when the stored credentials cannot be decrypted', async () => {
+      const { repo, drain } = build({
+        contexts: [makeContext()],
+        claimable: [makeJob()],
+      })
+
+      // What a rotated ACCESS_CONTROL_ENCRYPTION_KEY does to every job for
+      // every gym: the ciphertext is intact, the key is not the one that wrote
+      // it, and no attempt can ever change that. 660 jobs took six attempts
+      // each to not learn this over 25 days.
+      repo.getCredentials = async () => {
+        throw new CredentialDecryptionError('authentication failed')
+      }
+
+      const summary = await drain.execute({ today: TODAY })
+
+      expect(summary.retrying).toBe(0)
+      expect(summary.deadLettered).toBe(1)
+      expect(summary.needingAttention).toBe(1)
+      expect(repo.settled[0]).toMatchObject({
+        outcome: 'failed',
+        retryable: false,
+      })
+    })
+
+    it('records the remedy, not the crypto library wording', async () => {
+      const { repo, drain } = build({
+        contexts: [makeContext()],
+        claimable: [makeJob()],
+      })
+
+      repo.getCredentials = async () => {
+        throw new CredentialDecryptionError('authentication failed')
+      }
+
+      await drain.execute({ today: TODAY })
+
+      // This string is what an operator reads on the system-health screen.
+      expect(repo.settled[0].error).toMatch(/re-enter/i)
+    })
+
+    it('still reschedules an ordinary thrown error', async () => {
+      const { repo, drain } = build({
+        contexts: [makeContext()],
+        claimable: [makeJob()],
+      })
+
+      // The narrowing must not turn every throw into a dead letter: a socket
+      // hang up is exactly what retries exist for.
+      repo.getCredentials = async () => {
+        throw new Error('socket hang up')
+      }
+
+      const summary = await drain.execute({ today: TODAY })
+
+      expect(summary.deadLettered).toBe(0)
+      expect(repo.settled[0]).toMatchObject({ retryable: true })
+    })
+
     it('reschedules a transient failure', async () => {
       const { repo, drain } = build(
         {
