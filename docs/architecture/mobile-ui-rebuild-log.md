@@ -1061,6 +1061,38 @@ AppBar rendered titleless — the same gap as MO-25. `appBarTitle('/dashboard')`
 returning `Overview` is pinned by Phase 2's `nav.test.ts`; the rendered
 pairing is not.
 
+#### After the PR — six days open, and what the wait cost
+
+PR #77 opened 2026-09-15 18:07 UTC and sat unreviewed until 2026-09-22.
+Eleven check-ins across that window found no change: no reviews, no review
+comments, no push, `updated_at` frozen. The record is kept because the wait
+produced two things worth having.
+
+**`Vercel – gym-management-saas-ihsw` was red on the first head, and this
+phase finally got its error string.** Phase 5 could only establish what it was
+NOT (red on a tree carrying none of its commits, on a project outside the
+team, no `target_url`, no build log). Here the `vercel[bot]` comment arrived
+seconds behind the status and named the cause: `The provided GitHub repository
+can't be found.` So it is a Vercel project whose GitHub link is broken, not a
+build of this code — which explains both the missing log and the real
+project's success on the same commit. Confirmed from the account rather than
+inferred: one team, one project in it (`gym-management-saas`), and
+`get_project` for `gym-management-saas-ihsw` under that team answers **404**.
+Two comments on the PR, and MO-26 rewritten from "no build log to read" to the
+cause.
+
+**The base moved under a green head.** By 2026-09-22 `master` had advanced to
+`e9d9656` — Google Analytics tags in `src/app/layout.tsx` and the matching
+privacy-policy text. No overlap with this branch's nine files, and GitHub
+reported `mergeable: true` throughout, so nothing looked wrong. But the PR's
+green head had only ever been built against `b62e85b`: **no CI anywhere had
+run the merged tree.** `master` was merged in as `da85405` and the whole gate
+re-run on the result — type-check clean, lint 0 errors, `arch:check` green,
+Jest 2,026 passed / 7 skipped, Vercel green on the new head, `mergeable_state`
+clean. It passed; the point is that until it ran, nobody knew.
+
+Phase 6 was then closed by merging #77 to `master` on the user's instruction.
+
 ---
 
 ## 4. Findings
@@ -1951,6 +1983,13 @@ covers:
   unreachable, and most of the probe's rules — overflow, clipping, axis
   ticks, the inline line box — are font-metric rules (F32). Check which faces
   actually loaded before recording a width.
+- **A PR's green head is evidence about the head, not about the merge.** A
+  long-open PR's base moves under it; GitHub's `mergeable: clean` answers
+  "will it apply", not "does the result build", and no CI anywhere runs the
+  merged tree until someone makes it. Phase 6 sat six days while `master`
+  gained two commits, and the combined tree had never been gated when the PR
+  still read green. Merge the base in and re-run the gate before treating a
+  stale PR as ready — this project merges ten phase PRs, so the case recurs.
 - **UI7's fenced-block skip has never fired.** Nothing in `.claude/**` or
   `docs/architecture/**` puts a table inside a code fence today (verified:
   zero fenced lines start with a pipe), so that branch is defensive and
