@@ -192,16 +192,16 @@ rejoin without re-enrolling), A-4 (who assigns `EmpId`), A-10 (timezone), G-1
 
 ## 6. Blockers, ranked
 
-| #          | Blocker                                                                                                            | Owner                | Blocks                                                                          | Status                                                                                                                                                                                                                                         |
-| ---------- | ------------------------------------------------------------------------------------------------------------------ | -------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ~~B1~~     | ~~Real `VFT_API_BASE_URL` + credentials + a device serial~~                                                        | —                    | —                                                                               | **Done 2026-09-22** — `https://acccloudlk.com`, login held by the operator, serials `NYU7251900066` / `NYU7254500734`                                                                                                                          |
-| **B6**     | VFT registers our callback URL on their account; the readers' own network reaches it                               | **VFT / commercial** | Every inbound scan. `access_events` holds 0 rows and nothing can put one there. | **Open — now the whole critical path**                                                                                                                                                                                                         |
-| **B7**     | Re-enter the vendor credentials through the account form, with the real base URL                                   | Us — operations      | Every outbound command for that gym                                             | **Open.** 660 `reconcile_member` jobs are `dead` on an AES-GCM decryption failure; the row still points at `https://vft.example.com`. See §12.                                                                                                 |
-| **B4**     | Access-control env vars proven present in the **deployed** environment, not just locally                           | Us — infra           | Every inbound scan; every credential save                                       | **Partly done 2026-09-22.** All four exist on Vercel (`gym-management-saas`) — but scoped to **`production` only**, so every preview deployment silently falls back to the mock and refuses every webhook. Values not verified, only presence. |
-| **L3-env** | No `.env.local` in this container                                                                                  | Us                   | All of L3 here                                                                  | **Open** — see §5                                                                                                                                                                                                                              |
-| **B5**     | Promote master onto the custom domains (still pinned to a build ~20 days older; 404 on every access-control route) | Us                   | A permanent handover URL; shipping to real gyms                                 | Open, not needed for the simulator session                                                                                                                                                                                                     |
-| ~~B2~~     | ~~Publicly reachable deployment~~                                                                                  | —                    | —                                                                               | Done                                                                                                                                                                                                                                           |
-| ~~B3~~     | ~~`npm run build` unverified~~                                                                                     | —                    | —                                                                               | Done 2026-08-27                                                                                                                                                                                                                                |
+| #          | Blocker                                                                                  | Owner                | Blocks                                                                          | Status                                                                                                                                                                                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~B1~~     | ~~Real `VFT_API_BASE_URL` + credentials + a device serial~~                              | —                    | —                                                                               | **Done 2026-09-22** — `https://acccloudlk.com`, login held by the operator, serials `NYU7251900066` / `NYU7254500734`                                                                                                                          |
+| **B6**     | VFT registers our callback URL on their account; the readers' own network reaches it     | **VFT / commercial** | Every inbound scan. `access_events` holds 0 rows and nothing can put one there. | **Open — now the whole critical path.** Our half is done and verified live (§12.1): the URL was handed over 2026-09-22 and answers correctly today.                                                                                            |
+| **B7**     | Re-enter the vendor credentials through the account form, with the real base URL         | Us — operations      | Every outbound command for that gym                                             | **Open.** 660 `reconcile_member` jobs are `dead` on an AES-GCM decryption failure; the row still points at `https://vft.example.com`. See §12.                                                                                                 |
+| **B4**     | Access-control env vars proven present in the **deployed** environment, not just locally | Us — infra           | Every inbound scan; every credential save                                       | **Partly done 2026-09-22.** All four exist on Vercel (`gym-management-saas`) — but scoped to **`production` only**, so every preview deployment silently falls back to the mock and refuses every webhook. Values not verified, only presence. |
+| **L3-env** | No `.env.local` in this container                                                        | Us                   | All of L3 here                                                                  | **Open** — see §5                                                                                                                                                                                                                              |
+| **B5**     | Promote master onto the custom domains                                                   | Us                   | Shipping the current build to real gyms                                         | **Partly stale.** The webhook route is live on `www.metricgymos.com` (§12.1), so "404 on every access-control route" no longer holds for it. The domain still serves whatever build is current — the V1 fix is **not** deployed yet.           |
+| ~~B2~~     | ~~Publicly reachable deployment~~                                                        | —                    | —                                                                               | Done                                                                                                                                                                                                                                           |
+| ~~B3~~     | ~~`npm run build` unverified~~                                                           | —                    | —                                                                               | Done 2026-08-27                                                                                                                                                                                                                                |
 
 **B1 is a vendor conversation, not an engineering task.** Master §8.6 items 1,
 2, 4 and 5 remain outstanding after the 2026-08-28 call: without credentials
@@ -364,6 +364,36 @@ loudly when they disagree. On the first run they disagreed.
 | `NYU7251900066` | Device1 | 192.168.8.127 | ZAM70-NF24HA-Ver3.0.15 | 1 Default Area |
 | `NYU7254500734` | Device2 | 192.168.8.186 | ZAM70-NF24HA-Ver3.3.12 | 1 Default Area |
 
+### 12.1 The callback URL — verified end to end, 2026-09-22
+
+Handed to VFT for registration:
+
+```
+https://www.metricgymos.com/api/webhooks/access-control/<ACCESS_CONTROL_WEBHOOK_TOKEN>
+```
+
+Probed against production, not reasoned about:
+
+| Probe                                                       | Result                                                                                               |
+| ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `GET` the path                                              | **405** — the route is deployed. (404 would have meant the custom domain serves a build without it.) |
+| `POST []` with the real token                               | **200 `{"received":true}`** — the token in the handed-over URL **equals the deployed env value**     |
+| `POST []` with a wrong token                                | **401** — so the 200 above is the token matching, not the endpoint accepting anything                |
+| `POST []` to `metricgymos.com` / `www.metricgymmanager.com` | **308** to the `www.metricgymos.com` form                                                            |
+
+An empty array is a genuine no-op — `RecordAccessEvents.execute` returns on
+`length === 0` before touching the database — so this probe stores nothing and
+can be repeated.
+
+**That closes the half of B4 that mattered most.** The failure it rules out is
+the one with no symptom: an unset or placeholder token answers `401` to every
+reader, identically to a wrong one, and nothing anywhere reports a problem.
+
+Still true, and still why the `www` form is the one to hand over: the apex and
+`www.metricgymmanager.com` answer **308**. Compliant clients preserve the method
+across a 308, but embedded reader firmware frequently does not follow redirects
+at all, and a dropped POST is silent on both sides.
+
 ### What this changes about the test plan
 
 - **L4 has started, and it found something on the first call.** The readiness
@@ -375,6 +405,12 @@ loudly when they disagree. On the first run they disagreed.
 - **A-2 is answered without hardware.** The vendor sends none of the three
   presence fields we guessed at. Presence must come from `LastRequestTime` or
   from webhook contact time; `LastUpdateTime` is a decoy.
+- **A second consequence of V1, worth naming.** `RefreshDeviceStatus` compares
+  our registered readers against the vendor's list, so an empty vendor list
+  does not merely show nothing — it marks **every** registered reader
+  `unknownToVendor`. The defect would have presented as "the vendor has never
+  heard of your hardware", a far more alarming and misleading symptom than an
+  empty list.
 - **Everything that writes is still untested.** Sign-in and three reads are not
   evidence about `add`, `syncsometoone`, `validperiod`, `accessgrant`,
   `accessblock`, `enrollfinger`, `dooropen` or `reboot`. The first write to a
