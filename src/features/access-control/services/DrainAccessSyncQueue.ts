@@ -140,9 +140,17 @@ export class DrainAccessSyncQueue {
         // bury the one thing worth saying behind a wall of ordinary retries.
         // This deployment spent 25 days and 660 jobs proving that.
         if (error instanceof CredentialDecryptionError) {
+          // `retryable` distinguishes a key that is WRONG from one that is
+          // momentarily ABSENT — a deploy or a cold start can produce the
+          // second, and dead-lettering that would strand a whole gym's sync
+          // over a blip.
           await this.settleFailure(
             job.id,
-            { message, retryable: false, needsAttention: true },
+            {
+              message,
+              retryable: error.retryable,
+              needsAttention: !error.retryable,
+            },
             summary,
             job.gym_id
           )

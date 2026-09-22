@@ -169,6 +169,39 @@ describe('RecordAccessEvents', () => {
       expect(summary.stored).toBe(1)
     })
 
+    /**
+     * Inverted (2026-09-23). Accepting a bare object was added so a firmware
+     * build that posts one unwrapped scan is not silently discarded. But it
+     * also means a WRAPPER — `{"events":[…50 scans…]}` — is read as one event,
+     * fails, and is counted as `malformed: 1`.
+     *
+     * One is not the number of scans lost. The count is the only alarm this
+     * path produces, so it must not understate by a factor of fifty.
+     */
+    it('reports an unreadable delivery separately from unreadable events', async () => {
+      const { useCase } = build()
+
+      const summary = await useCase.execute({
+        events: [event(), event({ AttTime: '2026-01-10 12:05:00' })],
+      })
+
+      expect(summary.stored).toBe(0)
+      expect(summary.unreadableDelivery).toBe(true)
+    })
+
+    it('does not claim a delivery was unreadable when only one event was', async () => {
+      const { useCase } = build()
+
+      const summary = await useCase.execute([
+        event(),
+        { EmpId: '100000', DeviceID: 'SER-001' },
+      ])
+
+      expect(summary.stored).toBe(1)
+      expect(summary.malformed).toBe(1)
+      expect(summary.unreadableDelivery).toBe(false)
+    })
+
     it('counts a body that is not events at all as malformed', async () => {
       const { useCase } = build()
 

@@ -40,6 +40,16 @@ export interface RecordAccessEventsSummary {
    * again.
    */
   malformed: number
+  /**
+   * The delivery itself could not be read, so `malformed` is not a count of
+   * anything.
+   *
+   * A body that is neither an array nor a single event — a wrapper such as
+   * `{"events":[…]}` — is one unreadable thing containing an unknown number of
+   * scans. Reporting that as `malformed: 1` would understate a fifty-scan loss
+   * as a single event, and this count is the only alarm this path produces.
+   */
+  unreadableDelivery: boolean
   /** Readers whose clock looks far enough out to matter. */
   driftingDevices: string[]
   errors: string[]
@@ -64,6 +74,7 @@ export class RecordAccessEvents {
       duplicates: 0,
       unknownDevice: 0,
       malformed: 0,
+      unreadableDelivery: false,
       driftingDevices: [],
       errors: [],
     }
@@ -72,7 +83,7 @@ export class RecordAccessEvents {
 
     if (!envelope.success) {
       summary.errors.push('Malformed webhook payload')
-      summary.malformed += 1
+      summary.unreadableDelivery = true
       return summary
     }
 
@@ -92,6 +103,11 @@ export class RecordAccessEvents {
 
       if (!parsed.success) {
         summary.malformed += 1
+        // One element that was never an array: the whole delivery is what was
+        // lost, and how many scans it held is unknowable.
+        if (envelope.data.length === 1 && !Array.isArray(payload)) {
+          summary.unreadableDelivery = true
+        }
         summary.errors.push(
           `Event ${index}: ${parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'} ${i.message}`).join('; ')}`
         )

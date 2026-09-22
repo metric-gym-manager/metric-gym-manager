@@ -87,6 +87,39 @@ describe('GET /api/admin/system-health/access-control', () => {
     expect(mockFrom).not.toHaveBeenCalled()
   })
 
+  /**
+   * Inverted (2026-09-23): counting against the table fixed the magnitude, but
+   * a count is only true of the thing it filtered. If the exact-count queries
+   * dropped the `gymId` scope that the page query keeps, a single gym's view
+   * would report the whole platform's dead jobs — a worse lie than the
+   * page-sized one it replaced, because it looks authoritative.
+   */
+  it('scopes the counts to the gym when one is asked for', async () => {
+    const seen: Record<string, unknown>[] = []
+
+    mockFrom.mockImplementation((table: string) => {
+      if (table === 'access_devices') {
+        return builder(() => ({ data: [], error: null }))
+      }
+      return builder((filters) => {
+        seen.push(filters)
+        return typeof filters.status === 'string'
+          ? { data: null, error: null, count: 3 }
+          : { data: [], error: null }
+      })
+    })
+
+    const res = await GET({
+      url: 'https://app.example.com/api/admin/system-health/access-control?gymId=gym-1',
+    } as unknown as Parameters<typeof GET>[0])
+
+    expect(res.status).toBe(200)
+
+    const counts = seen.filter((f) => typeof f.status === 'string')
+    expect(counts).toHaveLength(2)
+    counts.forEach((f) => expect(f.gym_id).toBe('gym-1'))
+  })
+
   it('reports the true number of dead jobs, not the size of the page', async () => {
     const page = Array.from({ length: 50 }, (_, i) => deadJob(i))
 

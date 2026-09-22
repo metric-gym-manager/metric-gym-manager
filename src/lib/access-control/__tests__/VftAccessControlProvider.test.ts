@@ -351,3 +351,88 @@ describe('VftAccessControlProvider — observed vendor response semantics', () =
     expect(outcome.status).toBe('queued')
   })
 })
+
+/**
+ * Inverted analysis of the fixes made during the campaign (2026-09-23).
+ *
+ * Each fix was verified forwards — it does what it was written to do. These
+ * ask the opposite question: **what did the fix break that nobody looked at?**
+ * Every case here failed when it was written.
+ */
+describe('VftAccessControlProvider — inverted analysis of the campaign fixes', () => {
+  let fetchMock: jest.Mock
+  let provider: VftAccessControlProvider
+
+  beforeEach(() => {
+    fetchMock = jest.fn()
+    global.fetch = fetchMock as unknown as typeof fetch
+    provider = new VftAccessControlProvider()
+  })
+
+  function respond(body: unknown, status = 200): void {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ token: 'TOKEN-1' }))
+      .mockResolvedValueOnce(jsonResponse(body, status))
+  }
+
+  /**
+   * The message rule was derived from `/api/template/*`, the only family whose
+   * responses have ever been observed. It then governed `/api/devicecmd/*` too
+   * — six methods whose shape nobody has seen. If one of those answers
+   * `{"message":"Command queued"}`, a positive match on "success" reads it as a
+   * FAILURE, and every door open, reboot, validity period, grant, block and
+   * enrolment becomes a dead letter needing attention.
+   *
+   * Unknown prose must mean `queued`: that is precisely what the three-valued
+   * outcome exists to express, and the reconciler resolves it later.
+   */
+  it('reports queued, not failed, for an unfamiliar message', async () => {
+    respond({ message: 'Command queued for device' })
+
+    const outcome = await provider.openDoor(credentials, 'NYU7251900066')
+
+    expect(outcome.status).toBe('queued')
+  })
+
+  it('still recognises a failure the vendor words differently', async () => {
+    respond({ message: 'Cannot open door: device is offline' })
+
+    const outcome = await provider.openDoor(credentials, 'NYU7251900066')
+
+    expect(outcome).toMatchObject({ status: 'failed', retryable: false })
+  })
+
+  /**
+   * `isRetryable` was taught that a 5xx carrying a message is permanent —
+   * true of this vendor's validation errors. But gateways speak 502/503/504
+   * and they increasingly answer with a JSON body. Treating those as permanent
+   * would dead-letter an entire queue during a vendor outage, which is the one
+   * failure retries exist for.
+   */
+  it('retries a 503 even when it carries a message', async () => {
+    respond({ message: 'Service temporarily unavailable' }, 503)
+
+    const outcome = await provider.openDoor(credentials, 'NYU7251900066')
+
+    expect(outcome).toMatchObject({ status: 'failed', retryable: true })
+  })
+
+  it('retries a 502 that carries a message', async () => {
+    respond({ message: 'Bad gateway' }, 502)
+
+    const outcome = await provider.openDoor(credentials, 'NYU7251900066')
+
+    expect(outcome).toMatchObject({ status: 'failed', retryable: true })
+  })
+
+  it('still refuses to retry a 500 that names a validation failure', async () => {
+    respond({ message: 'Validation error' }, 500)
+
+    const outcome = await provider.upsertSubject(credentials, {
+      subjectId: '90000001',
+      name: 'Probe',
+    })
+
+    expect(outcome).toMatchObject({ status: 'failed', retryable: false })
+  })
+})

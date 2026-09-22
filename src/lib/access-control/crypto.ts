@@ -84,7 +84,20 @@ export function encryptSecret(plaintext: string): string {
  * `access_sync_jobs.last_error`.
  */
 export class CredentialDecryptionError extends Error {
-  constructor(cause: string) {
+  /**
+   * Whether asking again could ever succeed.
+   *
+   * A wrong key or a corrupt ciphertext cannot be retried into working: the
+   * bytes were written under another key and stay that way until someone
+   * re-enters the credentials. An **absent** key is a different thing — an
+   * environment variable can be missing for a moment during a deploy, or on a
+   * cold start that raced its own configuration. Dead-lettering that on the
+   * first attempt turns a blip into every member of a gym silently not
+   * syncing until a person notices, which is the failure retries exist for.
+   */
+  readonly retryable: boolean
+
+  constructor(cause: string, options: { retryable?: boolean } = {}) {
     super(
       `Stored vendor credentials cannot be decrypted (${cause}). ` +
         'This is what a changed ACCESS_CONTROL_ENCRYPTION_KEY looks like from the outside: ' +
@@ -92,6 +105,7 @@ export class CredentialDecryptionError extends Error {
         'Re-enter the account credentials to store them under the current key.'
     )
     this.name = 'CredentialDecryptionError'
+    this.retryable = options.retryable ?? false
   }
 }
 
@@ -110,8 +124,11 @@ export function decryptSecret(payload: string): string {
   try {
     key = getKey()
   } catch (error) {
+    // Configuration that may not have arrived yet, rather than configuration
+    // that is wrong. Worth one more pass before giving up on it.
     throw new CredentialDecryptionError(
-      error instanceof Error ? error.message : 'encryption key unusable'
+      error instanceof Error ? error.message : 'encryption key unusable',
+      { retryable: true }
     )
   }
 

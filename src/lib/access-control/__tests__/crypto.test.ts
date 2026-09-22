@@ -68,6 +68,51 @@ describe('credential encryption', () => {
     expect(() => decryptSecret(stored)).toThrow(CredentialDecryptionError)
   })
 
+  /**
+   * Inverted (2026-09-23): the fix assumed every decryption failure is
+   * permanent. Two of the three are — a wrong key and a corrupt ciphertext
+   * stay wrong until someone re-enters the credentials. But an **absent** key
+   * is different: an env var can be missing for a moment during a deploy or on
+   * a cold start that raced its configuration. Dead-lettering on the first
+   * attempt turns a blip into every member of that gym silently not syncing
+   * until a person notices.
+   */
+  it('marks an absent key as worth retrying', () => {
+    const stored = encryptSecret('hunter2')
+    delete process.env.ACCESS_CONTROL_ENCRYPTION_KEY
+
+    try {
+      decryptSecret(stored)
+      throw new Error('expected a throw')
+    } catch (error) {
+      expect(error).toBeInstanceOf(CredentialDecryptionError)
+      expect((error as CredentialDecryptionError).retryable).toBe(true)
+    }
+  })
+
+  it('marks a wrong key as permanent', () => {
+    const stored = encryptSecret('hunter2')
+    process.env.ACCESS_CONTROL_ENCRYPTION_KEY = KEY_B
+
+    try {
+      decryptSecret(stored)
+      throw new Error('expected a throw')
+    } catch (error) {
+      // The ciphertext was written under another key. No amount of asking
+      // again changes that.
+      expect((error as CredentialDecryptionError).retryable).toBe(false)
+    }
+  })
+
+  it('marks a corrupt ciphertext as permanent', () => {
+    try {
+      decryptSecret('c2hvcnQ=')
+      throw new Error('expected a throw')
+    } catch (error) {
+      expect((error as CredentialDecryptionError).retryable).toBe(false)
+    }
+  })
+
   it('does not put the plaintext or the key in the message', () => {
     const stored = encryptSecret('hunter2')
     process.env.ACCESS_CONTROL_ENCRYPTION_KEY = KEY_B

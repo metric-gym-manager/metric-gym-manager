@@ -148,17 +148,60 @@ const commandListSchema = z.union([
 ])
 
 /**
- * Whether a `message` the vendor returned describes success.
+ * Phrases the vendor uses when it did not do the thing.
  *
- * Positive matching, deliberately. Every successful template call observed
- * says "…successfully"; the failures say "Cannot delete…", "Validation
- * error", "Data too long…". Matching the success wording means an unfamiliar
- * message is read as a failure — which retries or asks for a human, where the
- * opposite mistake silently reports that a member was removed from a door
- * when they were not.
+ * Observed on `/api/template/*` (2026-09-22): "Cannot delete Employee with
+ * id=… The Employee was not found!", "Validation error", "Error updating
+ * Employee with id=…", "Data too long for column 'EmpId' at row 1". The rest
+ * are the obvious cousins of those, and they are the only licence this list
+ * takes beyond what was seen.
  */
-function messageIsSuccess(message: string): boolean {
-  return /success/i.test(message)
+const VENDOR_FAILURE_MARKERS = [
+  'cannot',
+  'not found',
+  'error',
+  'invalid',
+  'validation',
+  'too long',
+  'failed',
+  'unable',
+  'denied',
+  'not allowed',
+] as const
+
+/**
+ * Read the vendor's prose, where it is prose we recognise.
+ *
+ * Three answers, not two, and the third is the important one.
+ *
+ * The template endpoints are the only family whose responses have ever been
+ * observed. This rule also governs `/api/devicecmd/*` — six methods whose
+ * shape nobody has seen — so a rule of "anything not saying success is a
+ * failure" would turn an unobserved `{"message":"Command queued"}` into a
+ * dead letter needing attention, for every door open, reboot, validity
+ * period, grant, block and enrolment.
+ *
+ * So unfamiliar prose returns `null`, and the caller reports `queued`: that is
+ * exactly what the three-valued outcome exists to express, and the reconciler
+ * settles it later. Recognised failure wording still fails loudly, which keeps
+ * the case this rule was written for — a cancellation that silently did
+ * nothing.
+ *
+ * @returns `true` for success, `false` for a recognised failure, `null` when
+ *   the vendor said something we have no grounds to interpret.
+ */
+function readVendorMessage(message: string): boolean | null {
+  const text = message.toLowerCase()
+
+  // Checked first: "deleted successfully from all devices only!" is a success
+  // even though a failure marker could plausibly appear in a longer sentence.
+  if (text.includes('success')) return true
+
+  if (VENDOR_FAILURE_MARKERS.some((marker) => text.includes(marker))) {
+    return false
+  }
+
+  return null
 }
 
 /** Thrown when the vendor rejects our credentials or token. */
@@ -547,17 +590,19 @@ export class VftAccessControlProvider implements IAccessControlProvider {
       // arrives as HTTP 200 and used to read as queued, i.e. as fine.
       const message = parsed.success ? parsed.data.message : null
 
-      if (message) {
-        if (messageIsSuccess(message)) {
-          return {
-            status: 'applied',
-            commandId: commandId != null ? String(commandId) : undefined,
-          }
-        }
+      const verdict = message ? readVendorMessage(message) : null
 
+      if (verdict === true) {
+        return {
+          status: 'applied',
+          commandId: commandId != null ? String(commandId) : undefined,
+        }
+      }
+
+      if (verdict === false) {
         return {
           status: 'failed',
-          error: message,
+          error: message ?? 'Vendor reported a failure',
           // The vendor named a reason, and the reason will not change by
           // asking again. A person decides what to do about it.
           retryable: false,
@@ -720,11 +765,15 @@ function isRetryable(error: unknown): boolean {
   if (error instanceof VendorRequestError) {
     if (error.status < 500) return false
 
-    // A 5xx naming a reason is this vendor reporting a business rejection, not
-    // a server having a bad moment: a duplicate `EmpId` answers
-    // `500 {"message":"Validation error"}` and will answer it forever.
-    // Retrying those burned the whole six-attempt budget to learn nothing.
-    // A bare 5xx — a gateway, a restart — still retries.
+    // Only a bare 500. This vendor answers 500 for business rejections — a
+    // duplicate `EmpId` returns `500 {"message":"Validation error"}` and will
+    // return it forever — so a 500 naming a reason is permanent.
+    //
+    // 502, 503 and 504 are gateway and availability codes, and they carry JSON
+    // bodies too. Reading those as permanent would dead-letter an entire queue
+    // during a vendor outage, which is the single failure retries exist for.
+    if (error.status !== 500) return true
+
     return !describesVendorRejection(error.detail)
   }
   return true
