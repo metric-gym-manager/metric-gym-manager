@@ -19,7 +19,11 @@
 
 import type { IAccessControlRepository } from './IAccessControlRepository'
 import type { IncomingAccessEvent } from './IAccessControlRepository'
-import { accessWebhookPayloadSchema } from '@/features/access-control/schemas/access-control.schemas'
+import {
+  accessWebhookEventSchema,
+  accessWebhookPayloadSchema,
+} from '@/features/access-control/schemas/access-control.schemas'
+import type { AccessWebhookEvent } from '@/features/access-control/schemas/access-control.schemas'
 import { DEVICE_CLOCK_SKEW_ALERT_SECONDS } from '@/features/access-control/config/AccessControlConfig'
 
 export interface RecordAccessEventsSummary {
@@ -28,6 +32,14 @@ export interface RecordAccessEventsSummary {
   duplicates: number
   /** Events for readers we do not know. Dropped, not guessed at. */
   unknownDevice: number
+  /**
+   * Events we could not read at all.
+   *
+   * Counted separately from `errors` because this is the number that means
+   * data was lost: the reader has already had its 200 and will not send them
+   * again.
+   */
+  malformed: number
   /** Readers whose clock looks far enough out to matter. */
   driftingDevices: string[]
   errors: string[]
@@ -51,23 +63,42 @@ export class RecordAccessEvents {
       stored: 0,
       duplicates: 0,
       unknownDevice: 0,
+      malformed: 0,
       driftingDevices: [],
       errors: [],
     }
 
-    const parsed = accessWebhookPayloadSchema.safeParse(payload)
+    const envelope = accessWebhookPayloadSchema.safeParse(payload)
 
-    if (!parsed.success) {
+    if (!envelope.success) {
       summary.errors.push('Malformed webhook payload')
+      summary.malformed += 1
       return summary
     }
 
-    summary.received = parsed.data.length
-    if (parsed.data.length === 0) return summary
+    summary.received = envelope.data.length
+    if (envelope.data.length === 0) return summary
 
     // Readers batch, so one delivery can span several devices.
-    const byDevice = new Map<string, typeof parsed.data>()
-    for (const event of parsed.data) {
+    //
+    // Each event is parsed on its own. A batch is a transport detail — the
+    // scans in it are unrelated — so one unreadable row must cost exactly
+    // itself. Parsing the array as a unit meant a single unexpected scalar
+    // discarded every scan delivered beside it, permanently and silently.
+    const byDevice = new Map<string, AccessWebhookEvent[]>()
+
+    for (const [index, candidate] of envelope.data.entries()) {
+      const parsed = accessWebhookEventSchema.safeParse(candidate)
+
+      if (!parsed.success) {
+        summary.malformed += 1
+        summary.errors.push(
+          `Event ${index}: ${parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'} ${i.message}`).join('; ')}`
+        )
+        continue
+      }
+
+      const event = parsed.data
       const existing = byDevice.get(event.DeviceID) ?? []
       existing.push(event)
       byDevice.set(event.DeviceID, existing)

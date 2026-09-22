@@ -36,7 +36,11 @@ import type {
   SubjectOnDevice,
   ValidPeriodInput,
 } from './IAccessControlProvider'
-import { VENDOR_REQUEST_TIMEOUT_MS, isAccessControlEnabled } from './config'
+import {
+  TOKEN_CACHE_TTL_SECONDS,
+  VENDOR_REQUEST_TIMEOUT_MS,
+  isAccessControlEnabled,
+} from './config'
 import {
   ReturnCodeClass,
   classifyReturnCode,
@@ -159,8 +163,17 @@ export class VftAccessControlProvider implements IAccessControlProvider {
    * Process-local, which is the right scope on serverless: a new instance
    * simply signs in again. The vendor issues independent tokens, so concurrent
    * instances do not invalidate each other.
+   *
+   * Entries expire after {@link TOKEN_CACHE_TTL_SECONDS}. The vendor documents
+   * no lifetime, so the ceiling is a guess — but it is a guess that costs one
+   * extra sign-in, where the alternative is discovering expiry as a 401 on a
+   * command someone is waiting for. The 401 path still exists underneath as
+   * the thing that makes being wrong survivable.
    */
-  private readonly tokenCache = new Map<string, string>()
+  private readonly tokenCache = new Map<
+    string,
+    { token: string; expiresAt: number }
+  >()
 
   getProviderName(): string {
     return 'VFT'
@@ -193,7 +206,11 @@ export class VftAccessControlProvider implements IAccessControlProvider {
       throw new VendorAuthError('Sign-in response did not contain a token')
     }
 
-    this.tokenCache.set(this.cacheKey(credentials), parsed.data.token)
+    this.tokenCache.set(this.cacheKey(credentials), {
+      token: parsed.data.token,
+      expiresAt: Date.now() + TOKEN_CACHE_TTL_SECONDS * 1000,
+    })
+
     return parsed.data.token
   }
 
@@ -245,8 +262,9 @@ export class VftAccessControlProvider implements IAccessControlProvider {
       body: {
         EmpId: subject.subjectId,
         // 24 characters, underscores for spaces — a vendor constraint, so it is
-        // applied here rather than trusted to callers.
-        EmpName: formatSubjectName(subject.name),
+        // applied here rather than trusted to callers. The id is passed so a
+        // name that normalises to nothing still identifies someone.
+        EmpName: formatSubjectName(subject.name, subject.subjectId),
         // Included deliberately: the collection sends it and the terminal needs
         // an area to associate the record with. Never set CardNo or Password —
         // the fingerprint must remain the sole credential, or revoking it would
@@ -270,7 +288,7 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     return this.command(credentials, {
       method: 'PUT',
       path: `/api/template/edit/${encodeURIComponent(subjectId)}`,
-      body: { EmpName: formatSubjectName(name) },
+      body: { EmpName: formatSubjectName(name, subjectId) },
     })
   }
 
@@ -527,7 +545,7 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     options: RequestOptions
   ): Promise<unknown> {
     const token =
-      this.tokenCache.get(this.cacheKey(credentials)) ??
+      this.cachedToken(credentials) ??
       credentials.apiToken ??
       (await this.signIn(credentials))
 
@@ -590,6 +608,28 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     return url.toString()
   }
 
+  /**
+   * The cached token for this account, if it has not aged out.
+   *
+   * An expired entry is dropped rather than left to accumulate: the cache is
+   * keyed per account and a long-lived process serving many gyms would
+   * otherwise hold a token for every one of them for the life of the instance.
+   */
+  private cachedToken(credentials: AccessCredentials): string | null {
+    const key = this.cacheKey(credentials)
+    const entry = this.tokenCache.get(key)
+
+    if (!entry) return null
+
+    if (entry.expiresAt <= Date.now()) {
+      this.tokenCache.delete(key)
+      return null
+    }
+
+    return entry.token
+  }
+
+  /** Keyed by account, never by gym: two gyms can share a vendor account. */
   private cacheKey(credentials: AccessCredentials): string {
     return `${credentials.baseUrl}::${credentials.email}`
   }

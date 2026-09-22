@@ -27,13 +27,19 @@ export type AccessControlAccountInput = z.infer<
 
 /** Registering a terminal we already know exists on the vendor side. */
 export const registerDeviceSchema = z.object({
-  deviceSerial: z
-    .string()
-    .min(1)
-    .max(64)
-    // Serials are alphanumeric; rejecting anything else keeps a hostile value
-    // out of a URL path we build against the vendor API.
-    .regex(/^[A-Za-z0-9_-]+$/, 'Serial must be alphanumeric'),
+  // Trimmed before validation: a serial is read off a label and pasted, and
+  // surrounding whitespace would otherwise fail the pattern with "must be
+  // alphanumeric", which describes neither the problem nor the fix.
+  deviceSerial: z.preprocess(
+    (value) => (typeof value === 'string' ? value.trim() : value),
+    z
+      .string()
+      .min(1)
+      .max(64)
+      // Serials are alphanumeric; rejecting anything else keeps a hostile
+      // value out of a URL path we build against the vendor API.
+      .regex(/^[A-Za-z0-9_-]+$/, 'Serial must be alphanumeric')
+  ),
   deviceName: z.string().min(1).max(100),
   areaId: z.number().int().positive().optional(),
   timezoneOffsetMinutes: z.number().int().min(-720).max(840).optional(),
@@ -78,20 +84,57 @@ export const enrolBiometricSchema = z.object({
 export type EnrolBiometricInput = z.infer<typeof enrolBiometricSchema>
 
 /**
+ * Normalise a vendor scalar to a trimmed string.
+ *
+ * The collection's `WebhookCheck` example sends every value as a string,
+ * including the numeric codes — but that is one hand-written example, and the
+ * live device API proved on 2026-09-22 that this vendor's JSON mixes numbers
+ * and strings freely and uses `null` liberally (13 of 27 fields on a working
+ * reader). A scan is pushed once and never re-sent, so parsing strictly here
+ * does not cause a retry: it causes a permanent, silent hole in the check-in
+ * history. Coercing costs nothing and cannot lose a scan.
+ *
+ * `null` and `undefined` are passed through untouched so the surrounding
+ * schema decides whether the field was required.
+ */
+const vendorScalar = (value: unknown): unknown =>
+  typeof value === 'number'
+    ? String(value)
+    : typeof value === 'string'
+      ? value.trim()
+      : value
+
+/** A vendor field we cannot use the event without. */
+const requiredVendorString = z.preprocess(vendorScalar, z.string().min(1))
+
+/**
+ * A vendor field we can do without.
+ *
+ * `null` is folded to `undefined` because the wrapper sends explicit nulls for
+ * absent values, and `.optional()` alone rejects them — the same mismatch that
+ * emptied a two-reader device list (master §6 V1).
+ */
+const optionalVendorString = z.preprocess(
+  (value) => (value === null ? undefined : vendorScalar(value)),
+  z.string().optional()
+)
+
+/**
  * One attendance record as the terminal platform pushes it.
  *
- * Every field arrives as a string, including the numeric codes, so each is
- * coerced explicitly rather than trusted. Unknown keys are preserved by the
- * caller into `access_events.raw` — this schema extracts, it does not gatekeep
- * the payload's shape beyond what we read.
+ * Unknown keys are preserved by the caller into `access_events.raw` — this
+ * schema extracts, it does not gatekeep the payload's shape beyond what we
+ * read.
  */
 export const accessWebhookEventSchema = z.object({
-  EmpId: z.string().min(1),
-  AttTime: z.string().min(1),
-  DeviceID: z.string().min(1),
-  CheckingStatus: z.string().optional(),
-  VerifyType: z.string().optional(),
-  Event: z.string().optional(),
+  EmpId: requiredVendorString,
+  AttTime: requiredVendorString,
+  // The one field whose spelling differs from every request in the collection:
+  // requests use `DevSN`, the webhook alone uses `DeviceID`.
+  DeviceID: requiredVendorString,
+  CheckingStatus: optionalVendorString,
+  VerifyType: optionalVendorString,
+  Event: optionalVendorString,
 })
 
 export type AccessWebhookEvent = z.infer<typeof accessWebhookEventSchema>
@@ -99,9 +142,20 @@ export type AccessWebhookEvent = z.infer<typeof accessWebhookEventSchema>
 /**
  * The webhook body: an array of events.
  *
- * The terminal batches, so a single delivery can carry many scans.
+ * The terminal batches, so a single delivery can carry many scans — and a
+ * single bare event is accepted too. The collection documents an array and
+ * that is what we expect; accepting one unwrapped object costs a line and
+ * removes a failure mode whose symptom is that nothing arrives, ever, with
+ * nothing logged anywhere.
+ *
+ * Elements are deliberately **not** validated here. `RecordAccessEvents`
+ * parses them one at a time, so that one unusable scan cannot discard the
+ * batch it was delivered in.
  */
-export const accessWebhookPayloadSchema = z.array(accessWebhookEventSchema)
+export const accessWebhookPayloadSchema = z.union([
+  z.array(z.unknown()),
+  z.record(z.string(), z.unknown()).transform((event) => [event as unknown]),
+])
 
 /** A subject id must fit the documented ZKTeco Personnel ID range. */
 export const subjectIdSchema = z

@@ -456,3 +456,141 @@ function makeJobClient(attempts: number, updates: Record<string, unknown>[]) {
     },
   } as unknown as SupabaseClient
 }
+
+/**
+ * Serial matching.
+ *
+ * The serial is the entire routing key for an inbound scan: `findDeviceBySerial`
+ * decides which gym an event belongs to, and a miss is counted as another
+ * company's traffic and dropped. Nothing retries — the reader has had its 200.
+ *
+ * The serial reaches us two ways that need not agree: typed into a form by a
+ * person reading a label, and sent by the vendor. A case difference between
+ * those two loses every scan from that reader, forever, with no error anywhere
+ * and a dashboard that shows the reader registered and fine.
+ */
+describe('SupabaseAccessControlRepository — serial matching', () => {
+  interface Query {
+    method: string
+    value: string
+  }
+
+  /**
+   * Double over a single stored device row.
+   *
+   * `eq` matches exactly; `ilike` matches case-insensitively, as Postgres
+   * does. Modelling the difference is the whole point — a double where both
+   * behave the same could not fail the way production does.
+   */
+  function makeDeviceClient(storedSerial: string, queries: Query[]) {
+    const row = {
+      id: 'device-1',
+      gym_id: 'gym-1',
+      device_serial: storedSerial,
+      is_active: true,
+    }
+
+    const builder = {
+      select: () => builder,
+      eq: (_column: string, value: string) => {
+        queries.push({ method: 'eq', value })
+        return {
+          ...builder,
+          maybeSingle: () =>
+            Promise.resolve({
+              data: value === storedSerial ? row : null,
+              error: null,
+            }),
+        }
+      },
+      ilike: (_column: string, value: string) => {
+        queries.push({ method: 'ilike', value })
+        const matches =
+          value.toLowerCase() === storedSerial.toLowerCase() ? [row] : []
+        return {
+          ...builder,
+          limit: () => Promise.resolve({ data: matches, error: null }),
+        }
+      },
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
+    }
+
+    return { from: () => builder } as unknown as SupabaseClient
+  }
+
+  it('finds the reader when the serial matches exactly', async () => {
+    const queries: Query[] = []
+    const repo = new SupabaseAccessControlRepository(
+      makeDeviceClient('NYU7251900066', queries)
+    )
+
+    const device = await repo.findDeviceBySerial('NYU7251900066')
+
+    expect(device?.id).toBe('device-1')
+    // The common case must stay one round trip.
+    expect(queries).toEqual([{ method: 'eq', value: 'NYU7251900066' }])
+  })
+
+  it('finds the reader when the stored serial differs only in case', async () => {
+    const queries: Query[] = []
+    const repo = new SupabaseAccessControlRepository(
+      makeDeviceClient('nyu7251900066', queries)
+    )
+
+    // What the vendor sends. The gym registered it lowercase, off the label.
+    const device = await repo.findDeviceBySerial('NYU7251900066')
+
+    expect(device?.id).toBe('device-1')
+    expect(queries.map((q) => q.method)).toEqual(['eq', 'ilike'])
+  })
+
+  it('does not match a different reader through an underscore wildcard', async () => {
+    const queries: Query[] = []
+    const repo = new SupabaseAccessControlRepository(
+      makeDeviceClient('NYU-7251900066', queries)
+    )
+
+    // `_` is a single-character wildcard in LIKE, and the serial charset
+    // allows it. A candidate row must still be confirmed in JS, or one gym's
+    // scan could be attributed to another gym's reader.
+    const device = await repo.findDeviceBySerial('NYU_7251900066')
+
+    expect(device).toBeNull()
+  })
+
+  it('refuses to choose when two readers differ only in case', async () => {
+    const rows = [
+      { id: 'device-1', gym_id: 'gym-1', device_serial: 'abc123' },
+      { id: 'device-2', gym_id: 'gym-2', device_serial: 'ABC123' },
+    ]
+
+    const builder = {
+      select: () => builder,
+      eq: () => ({
+        ...builder,
+        maybeSingle: () => Promise.resolve({ data: null, error: null }),
+      }),
+      ilike: () => ({
+        ...builder,
+        limit: () => Promise.resolve({ data: rows, error: null }),
+      }),
+    }
+
+    const repo = new SupabaseAccessControlRepository({
+      from: () => builder,
+    } as unknown as SupabaseClient)
+
+    // Two gyms, one ambiguous serial. Dropping the scan costs one event;
+    // guessing files it under the wrong gym.
+    expect(await repo.findDeviceBySerial('AbC123')).toBeNull()
+  })
+
+  it('ignores whitespace around the serial', async () => {
+    const queries: Query[] = []
+    const repo = new SupabaseAccessControlRepository(
+      makeDeviceClient('NYU7251900066', queries)
+    )
+
+    expect(await repo.findDeviceBySerial(' NYU7251900066 ')).not.toBeNull()
+  })
+})

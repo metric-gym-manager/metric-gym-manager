@@ -24,6 +24,7 @@
 
 import { VftAccessControlProvider } from '@/lib/access-control/VftAccessControlProvider'
 import type { AccessCredentials } from '@/lib/access-control'
+import { TOKEN_CACHE_TTL_SECONDS } from '@/lib/access-control/config'
 
 const credentials: AccessCredentials = {
   baseUrl: 'https://acccloudlk.com',
@@ -158,6 +159,62 @@ describe('VftAccessControlProvider — live GetAllDevice payload', () => {
     // A row with no serial cannot be addressed, so it is unusable — but it must
     // not take the rest of the account's readers down with it.
     expect(devices.map((d) => d.serial)).toEqual(['NYU7254500734'])
+  })
+
+  describe('token cache', () => {
+    afterEach(() => {
+      jest.useRealTimers()
+    })
+
+    it('reuses the cached token for a second call', async () => {
+      respondWithDevices(LIVE_DEVICE_LIST)
+      fetchMock.mockResolvedValueOnce(jsonResponse(LIVE_DEVICE_LIST))
+
+      await provider.listDevices(credentials)
+      await provider.listDevices(credentials)
+
+      // sign-in, list, list — not sign-in, list, sign-in, list.
+      expect(fetchMock).toHaveBeenCalledTimes(3)
+    })
+
+    it('signs in again once the cached token has aged past the TTL', async () => {
+      jest.useFakeTimers()
+      jest.setSystemTime(new Date('2026-09-22T10:00:00Z'))
+
+      respondWithDevices(LIVE_DEVICE_LIST)
+      await provider.listDevices(credentials)
+
+      // The vendor documents no token lifetime, so the cache holds one for
+      // TOKEN_CACHE_TTL_SECONDS and refreshes rather than discovering expiry
+      // through a 401 on a command we care about.
+      jest.setSystemTime(
+        new Date(Date.now() + (TOKEN_CACHE_TTL_SECONDS + 1) * 1000)
+      )
+
+      fetchMock
+        .mockResolvedValueOnce(jsonResponse({ token: 'TOKEN-2' }))
+        .mockResolvedValueOnce(jsonResponse(LIVE_DEVICE_LIST))
+
+      await provider.listDevices(credentials)
+
+      expect(fetchMock).toHaveBeenCalledTimes(4)
+      const [, listInit] = fetchMock.mock.calls[3]
+      expect(listInit.headers).toMatchObject({ ApiToken: 'TOKEN-2' })
+    })
+
+    it('keeps one gym off another gym cached token', async () => {
+      respondWithDevices(LIVE_DEVICE_LIST)
+      await provider.listDevices(credentials)
+
+      fetchMock
+        .mockResolvedValueOnce(jsonResponse({ token: 'TOKEN-OTHER' }))
+        .mockResolvedValueOnce(jsonResponse(LIVE_DEVICE_LIST))
+
+      await provider.listDevices({ ...credentials, email: 'other@example.com' })
+
+      const [, listInit] = fetchMock.mock.calls[3]
+      expect(listInit.headers).toMatchObject({ ApiToken: 'TOKEN-OTHER' })
+    })
   })
 
   it('signs in at the trailing-slash path and sends the token as ApiToken', async () => {

@@ -58,6 +58,23 @@ export async function GET(request: NextRequest) {
 
     if (gymId) deadJobsQuery = deadJobsQuery.eq('gym_id', gymId)
 
+    // Counted against the table, not the page.
+    //
+    // `JOB_LIMIT` bounds what a human can usefully read; it must not bound the
+    // number they are told. Filtering the returned page pinned both counts at
+    // 50 — so an outage growing past that looked stable, which is the reverse
+    // of what a health screen is for. This deployment sat at 660 dead jobs
+    // while the summary said 50.
+    const countQuery = (status: AccessSyncStatus) => {
+      let query = supabase
+        .from('access_sync_jobs')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', status)
+
+      if (gymId) query = query.eq('gym_id', gymId)
+      return query
+    }
+
     let devicesQuery = supabase
       .from('access_devices')
       .select(
@@ -67,10 +84,17 @@ export async function GET(request: NextRequest) {
 
     if (gymId) devicesQuery = devicesQuery.eq('gym_id', gymId)
 
-    const [jobs, devices] = await Promise.all([deadJobsQuery, devicesQuery])
+    const [jobs, devices, deadCount, retryingCount] = await Promise.all([
+      deadJobsQuery,
+      devicesQuery,
+      countQuery(AccessSyncStatus.Dead),
+      countQuery(AccessSyncStatus.Failed),
+    ])
 
     if (jobs.error) throw jobs.error
     if (devices.error) throw devices.error
+    if (deadCount.error) throw deadCount.error
+    if (retryingCount.error) throw retryingCount.error
 
     const deviceRows = devices.data ?? []
     const offlineThreshold = Date.now() - DEVICE_OFFLINE_AFTER_SECONDS * 1000
@@ -78,15 +102,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       ResponseBuilder.success({
         // Raw vendor text, verbatim. That is the entire point of this endpoint.
+        // The newest `JOB_LIMIT` rows — a page to read, not a total to count.
         jobs: jobs.data ?? [],
+        jobsTruncated: (jobs.data ?? []).length >= JOB_LIMIT,
         devices: deviceRows,
         summary: {
-          deadJobs: (jobs.data ?? []).filter(
-            (j) => j.status === AccessSyncStatus.Dead
-          ).length,
-          retryingJobs: (jobs.data ?? []).filter(
-            (j) => j.status === AccessSyncStatus.Failed
-          ).length,
+          deadJobs: deadCount.count ?? 0,
+          retryingJobs: retryingCount.count ?? 0,
           devicesTotal: deviceRows.length,
           devicesSilent: deviceRows.filter(
             (d) =>

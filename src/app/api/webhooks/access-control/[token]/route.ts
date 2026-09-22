@@ -85,6 +85,17 @@ export async function POST(
     const summary =
       await createRecordAccessEvents(createAdminClient()).execute(payload)
 
+    if (summary.malformed > 0) {
+      // The only trace that will ever exist. The reader has already had its
+      // 200 and will not send these again, so an unreadable scan is lost at
+      // this exact moment or not at all — and the gym sees nothing, because a
+      // missing check-in looks like a member who did not come in.
+      console.error(
+        `Access webhook: ${summary.malformed} of ${summary.received} events unreadable —`,
+        summary.errors.join(' | ')
+      )
+    }
+
     if (summary.driftingDevices.length > 0) {
       // The expiry cutover is enforced against the device's own clock, so
       // drift moves the moment a member stops being admitted.

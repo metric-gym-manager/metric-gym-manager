@@ -70,31 +70,75 @@ export function encryptSecret(plaintext: string): string {
 }
 
 /**
+ * A stored credential could not be read back.
+ *
+ * Its own type because of what it means operationally: **no retry can fix
+ * it.** The ciphertext is intact or it is not, and the key is right or it is
+ * not; both are configuration, and both stay wrong until a person acts. The
+ * outbox uses this to dead-letter such a job immediately and flag it for
+ * attention rather than spending six attempts discovering the same thing six
+ * times.
+ *
+ * It carries no plaintext, no key material and no ciphertext — the message is
+ * written to be read by an operator on a screen, and it ends up in
+ * `access_sync_jobs.last_error`.
+ */
+export class CredentialDecryptionError extends Error {
+  constructor(cause: string) {
+    super(
+      `Stored vendor credentials cannot be decrypted (${cause}). ` +
+        'This is what a changed ACCESS_CONTROL_ENCRYPTION_KEY looks like from the outside: ' +
+        'the ciphertext was written under a different key and no retry can recover it. ' +
+        'Re-enter the account credentials to store them under the current key.'
+    )
+    this.name = 'CredentialDecryptionError'
+  }
+}
+
+/**
  * Decrypt a stored secret.
  *
  * @param payload - Value produced by {@link encryptSecret}.
  * @returns The original plaintext.
- * @throws {Error} If the payload is malformed or fails authentication.
+ * @throws {CredentialDecryptionError} If the key is unusable, or the payload
+ *   is malformed or fails authentication. One error type for all three,
+ *   because the remedy is the same and the distinction only helps an attacker.
  */
 export function decryptSecret(payload: string): string {
-  const key = getKey()
+  let key: Buffer
+
+  try {
+    key = getKey()
+  } catch (error) {
+    throw new CredentialDecryptionError(
+      error instanceof Error ? error.message : 'encryption key unusable'
+    )
+  }
+
   const buffer = Buffer.from(payload, 'base64')
 
   if (buffer.length <= IV_LENGTH + AUTH_TAG_LENGTH) {
-    throw new Error('Ciphertext is too short to be valid')
+    throw new CredentialDecryptionError('ciphertext too short to be valid')
   }
 
   const iv = buffer.subarray(0, IV_LENGTH)
   const authTag = buffer.subarray(IV_LENGTH, IV_LENGTH + AUTH_TAG_LENGTH)
   const ciphertext = buffer.subarray(IV_LENGTH + AUTH_TAG_LENGTH)
 
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv)
-  decipher.setAuthTag(authTag)
+  try {
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv)
+    decipher.setAuthTag(authTag)
 
-  return Buffer.concat([
-    decipher.update(ciphertext),
-    decipher.final(),
-  ]).toString('utf8')
+    return Buffer.concat([
+      decipher.update(ciphertext),
+      decipher.final(),
+    ]).toString('utf8')
+  } catch {
+    // Deliberately not forwarding the Node message. "Unsupported state or
+    // unable to authenticate data" is what sat in 660 dead jobs for 25 days
+    // naming neither cause nor remedy.
+    throw new CredentialDecryptionError('authentication failed')
+  }
 }
 
 /**

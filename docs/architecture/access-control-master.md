@@ -553,7 +553,7 @@ reader" conversation, not something to solve by locking out someone who paid.
 
 ---
 
-## 6. Defect history — fifteen defects, twelve found by inverting assumptions and three by the first live vendor call
+## 6. Defect history — twenty-one defects: twelve by inverting assumptions, three by the first live vendor call, six by re-reading the rest of the surface in its light
 
 **Do not reintroduce these.** Every one was invisible to forward tests and found
 by asking "what if the opposite were true?".
@@ -649,6 +649,30 @@ authenticate data` — the Node AES-GCM authentication failure, i.e. the
 - **`access_control_accounts.base_url` is still `https://vft.example.com`** for
   the only account row (the E2E gym). Even with a decryptable secret, every job
   would have been talking to a placeholder host.
+
+### Sixth audit (2026-09-22) — the rest of the surface, after V1
+
+V1 was not a mistake about `TimeZone`. It was a mistake about **what a vendor
+payload is**: we had been treating one hand-written example in a Postman
+collection as a contract. Once the live account proved the wrapper mixes
+numbers, strings and `null` freely, every other place that parses vendor input
+had to be re-read on that assumption. These are what that found. None had a
+symptom a user could report.
+
+| #      | Inverted assumption                                     | The defect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **W1** | "A webhook batch either parses or does not"             | The batch was parsed as a unit against a schema requiring strings. **One scan with a numeric `EmpId` — or any `null` — discarded every scan delivered beside it.** A reader pushes once and gets its 200: those scans do not come back, and a missing check-in looks exactly like a member who did not come in. Now each event is parsed alone, scalars are coerced, `null` is tolerated, and unreadable events are counted and logged.                                                                 |
+| **W2** | "The serial we stored is the serial they send"          | The lookup was exact. A gym typing the serial in the wrong case — or pasting it with a space — registers a reader that looks fine on the dashboard and **matches no scan, ever**; each one is counted as another company's traffic and dropped. Registration now trims, and the lookup falls back to a case-insensitive match _confirmed in JavaScript_, because `_` is a `LIKE` wildcard and the serial charset allows it. Two readers differing only in case are refused rather than guessed between. |
+| **W3** | "A failure worth recording is a failure worth retrying" | A credential that cannot be decrypted was retried six times per job. It is configuration: it stays wrong until a person re-enters it. 660 jobs spent 25 days proving that, dead-lettering with the raw Node text "Unsupported state or unable to authenticate data", which names neither cause nor remedy. Now a typed `CredentialDecryptionError`, dead-lettered on the first attempt, flagged as needing attention, carrying the fix in its message.                                                  |
+| **W4** | "A count on a health screen counts the table"           | `/system-health` filtered the **returned page** for its dead-job total, so both counts were pinned at `JOB_LIMIT`. The screen said 50 while the table held 660 — and worse, it would have said 50 at 60 and at 6,000. A health number that stops moving is worse than no number. Now counted with `count: 'exact'`, with `jobsTruncated` marking the list as a page.                                                                                                                                    |
+| **W5** | "A documented constant is an implemented one"           | `TOKEN_CACHE_TTL_SECONDS` was exported, described in three documents as a 30-minute ceiling, and **read by nothing**. Tokens were cached until the instance died, and the per-account map grew without bound in any long-lived process. Now implemented, with expired entries dropped on read.                                                                                                                                                                                                          |
+| **W6** | "Normalising a name shortens it"                        | It can empty it. `formatSubjectName` strips non-ASCII, so a member whose name is written entirely in Sinhala or Tamil — in a Sri Lankan gym — reached the reader as an **empty `EmpName`**, and a stripped mixed-script name kept a stranded `_`. Now falls back to `Member_<subjectId>`, which the desk can also see.                                                                                                                                                                                  |
+
+**The shape they share.** Every one of these fails by producing a plausible
+number: no devices, no such reader, another company's traffic, fifty dead jobs,
+a blank name. Nothing throws, nothing 500s, nothing is red on a screen. That is
+what makes the vendor boundary different from the rest of this codebase and why
+`scripts/vft-probe.ts` prints the raw payload beside the parsed one.
 
 ---
 
