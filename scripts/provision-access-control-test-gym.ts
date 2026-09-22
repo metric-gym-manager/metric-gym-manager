@@ -24,6 +24,22 @@
  * Credentials come from the environment and are never printed, logged or
  * written anywhere but the encrypted column.
  *
+ * ## ⚠ Running this overwrites PRODUCTION's readable credential
+ *
+ * There is one ciphertext in the database and it can only be read by the
+ * environment whose `ACCESS_CONTROL_ENCRYPTION_KEY` wrote it. Local and
+ * production hold **different keys** (measured 2026-09-22: production could
+ * not decrypt a credential this script had written, and every
+ * `reconcile_member` job had been dead-lettering on it for 25 days).
+ *
+ * So `--apply` from a laptop re-encrypts with the laptop's key and leaves
+ * production unable to read its own credentials — silently, because a
+ * Supabase write that succeeds says nothing about who can decrypt it later.
+ * The repair is to re-enter them through the deployed app, which is what
+ * `PUT /api/access-control/account` does with production's key.
+ *
+ * `--apply` therefore refuses unless `ALLOW_CREDENTIAL_OVERWRITE=1` is set.
+ *
  * Usage:
  *   npx tsx scripts/provision-access-control-test-gym.ts            # show current state
  *   npx tsx scripts/provision-access-control-test-gym.ts --apply    # write it
@@ -159,6 +175,26 @@ async function main(): Promise<void> {
   }
 
   // ---- 1. Vendor account ----
+  //
+  // Guarded: see the header. Writing credentials from here encrypts them with
+  // THIS environment's key, which is not production's — and production then
+  // cannot read its own account until someone re-enters it through the app.
+  if (process.env.ALLOW_CREDENTIAL_OVERWRITE !== '1') {
+    throw new Error(
+      'Refusing to overwrite the stored credentials.\n' +
+        '\n' +
+        'They are encrypted with the key of whichever environment last wrote them,\n' +
+        "and production does not share this machine's key. Writing from here would\n" +
+        'leave the deployed app unable to decrypt its own account, silently.\n' +
+        '\n' +
+        'To store credentials for PRODUCTION, use the deployed Settings screen\n' +
+        '(or PUT /api/access-control/account against it).\n' +
+        '\n' +
+        "If you really mean to write them with this machine's key, re-run with\n" +
+        'ALLOW_CREDENTIAL_OVERWRITE=1.'
+    )
+  }
+
   const baseUrl = (process.env.VFT_API_BASE_URL ?? '').trim()
   const email = (process.env.VFT_PROBE_EMAIL ?? '').trim()
   const password = process.env.VFT_PROBE_PASSWORD ?? ''

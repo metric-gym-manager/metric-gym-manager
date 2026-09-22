@@ -852,6 +852,63 @@ Do not declare success because 'both readers worked'. Each of these is a release
 
 ---
 
+## 7. P0.1 — resolved 2026-09-22, and the trap it left behind
+
+**Production could not decrypt its own vendor credentials.** Measured, not
+inferred: `POST /api/access-control/account/verify` answered **500**, and the
+Vercel runtime log named it —
+
+```
+API error: Error: Unsupported state or unable to authenticate data
+    at ev.getCredentials (…)
+```
+
+— the same sentence sitting in all 660 dead `reconcile_member` jobs. The
+credentials had been written with a **local** `ACCESS_CONTROL_ENCRYPTION_KEY`;
+production holds a different one.
+
+Repaired through the deployed app itself (`PUT /api/access-control/account`),
+so production encrypted them with the key it actually has. `verify` then
+answered `{"verified": true}` — production now decrypts the credentials **and**
+authenticates against the vendor from Vercel's network.
+
+### The trap: one ciphertext, two keys
+
+There is a single ciphertext in `access_control_secrets`, readable only by the
+environment whose key wrote it. **Running the local provisioning script with
+`--apply` re-encrypts it with the laptop's key and leaves production unable to
+read its own account** — silently, because a Supabase write that succeeds says
+nothing about who can decrypt it afterwards. That is exactly how the 25-day
+outage began.
+
+`scripts/provision-access-control-test-gym.ts` now refuses to write credentials
+unless `ALLOW_CREDENTIAL_OVERWRITE=1` is set, and says why.
+
+### Two findings from the same hour
+
+- **The gym was told everything was fine for a month.** `GET
+/api/access-control/account` returned `verified: true` with
+  `lastVerifiedAt: 2026-08-27` throughout — a badge left over from the last
+  successful check, with no notion of "we can no longer even read these". A
+  verification timestamp is evidence about a moment, not a current state.
+- **`VerifyAccessAccount` swallows the cause.** It catches everything and
+  returns `verified: false`, which is right for the gym — a transport failure
+  and a wrong password mean the same thing to them — but it leaves _us_ with
+  nothing either, and this path is not covered by `/system-health`. During this
+  repair, "wrong password" and "vendor unreachable from Vercel" were
+  indistinguishable until timing separated them.
+
+### A tooling defect worth recording
+
+The first repair attempt stored a **wrong** password and the route answered
+`200`. The value had been read with `export $(grep … .env.local)`, which keeps
+the quotes that are part of `.env` syntax: a 12-character password arrived as
+14 characters beginning with `'`. `dotenv` strips them; the shell does not.
+The vendor rejected it in 1.2 s, and only checking the _outcome_ rather than
+the status code caught it.
+
+---
+
 ## 6. Tracker
 
 **https://claude.ai/artifact/EgC9mSfKccoq29nGH9rRNC**
