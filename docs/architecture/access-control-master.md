@@ -553,7 +553,7 @@ reader" conversation, not something to solve by locking out someone who paid.
 
 ---
 
-## 6. Defect history — twelve defects, found by inverting assumptions
+## 6. Defect history — fifteen defects, twelve found by inverting assumptions and three by the first live vendor call
 
 **Do not reintroduce these.** Every one was invisible to forward tests and found
 by asking "what if the opposite were true?".
@@ -614,6 +614,41 @@ finding and C2, arriving a third time from a third direction: **a test can only
 fail in a way its substitutes model.** The E2E suite is the only thing in this
 repo that runs the real policies against the real renderer, which is the entire
 argument for having paid to get it green.
+
+### Fifth audit (2026-09-22) — the first live vendor call
+
+Not by inverting an assumption, and not by running our own thing. By running it
+**against the vendor**, for the first time: real base URL, real account, two
+real readers. `scripts/vft-probe.ts` (read-only) prints the raw vendor payload
+beside what our client parsed out of it.
+
+| #      | Inverted assumption                                 | The defect                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| ------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **V1** | "A field the vendor omits arrives as `undefined`"   | It arrives as **`null`** — 13 of 27 fields on a working reader. `z.optional()` accepts `undefined` and rejects `null`, so `"TimeZone": null` failed the whole-array parse and **`listDevices()` returned `[]` for an account that owns two readers.** Every caller reads that as "this gym has no hardware": no error, no log, nothing to notice. Fixed by `.nullish()` throughout **and** row-by-row parsing, so one odd reader can no longer empty an account. |
+| **V2** | "The collection's field names are the live ones"    | `AreaID` is **nested under `Area`** on the live wrapper; the flat field the collection documents is not sent. Read `AreaID ?? Area.AreaID`.                                                                                                                                                                                                                                                                                                                      |
+| **V3** | "One of our three presence guesses will be the one" | **None of them exists.** No `IsOnline`, no `LastSeen`, no `LastActivity` (simulator test A-2, answered from production). The only device-originated timestamp is `LastRequestTime`, null on both readers. `LastUpdateTime` is a decoy — it moves when the _record_ is edited, so renaming an unplugged reader would make it look online.                                                                                                                         |
+
+**V1 is the third instance of the same lesson, from a fourth direction.** A
+double cannot fail in a way it does not model (tenth finding, C2, E1) — and
+`MockAccessControlProvider` models a vendor that returns what we expected.
+Twenty-eight suites and 394 assertions were green against a client that could
+not read a device list. **Nothing below L4 could have caught it**, which is the
+argument the readiness assessment makes for L4 in one sentence.
+
+**Two environment findings from the same session**, neither of them code:
+
+- **The stored credential cannot be decrypted.** All **660** `reconcile_member`
+  jobs in `access_sync_jobs` are `dead` on `Unsupported state or unable to
+authenticate data` — the Node AES-GCM authentication failure, i.e. the
+  ciphertext in `access_control_secrets` was written under a different
+  `ACCESS_CONTROL_ENCRYPTION_KEY` than the one now deployed. Nightly since
+  2026-08-28, ~10 a night, still failing. The remedy is to re-enter the
+  credentials through the account form (which re-encrypts under the current
+  key); rotating the key is documented as making every stored credential
+  unreadable, and this is what that looks like from the outside.
+- **`access_control_accounts.base_url` is still `https://vft.example.com`** for
+  the only account row (the E2E gym). Even with a decryptable secret, every job
+  would have been talking to a placeholder host.
 
 ---
 
@@ -1053,19 +1088,36 @@ that will consume it, not from the vendor's documentation.
 
 > **Updated 2026-08-28 — the call happened.** VFT supplied the Postman
 > collection and both code tables (§3.11) and answered items **3, 6 and 7**
-> below. **Items 1, 2, 4 and 5 remain, and they are the whole critical path:
-> without credentials and a serial, `ACCESS_CONTROL_ENABLED=true` has nothing
-> to talk to.** The "give" half is now settled and live — see the host table
-> further down.
+> below. The "give" half is settled and live — see the host table further down.
+>
+> **Updated 2026-09-22 — items 1, 2 and 4 are answered.** Base URL
+> **`https://acccloudlk.com`**, an account login (held by the operator, never
+> committed), and **two device serials**:
+>
+> | Serial          | Vendor name | LAN IP        | Firmware               |
+> | --------------- | ----------- | ------------- | ---------------------- |
+> | `NYU7251900066` | Device1     | 192.168.8.127 | ZAM70-NF24HA-Ver3.0.15 |
+> | `NYU7254500734` | Device2     | 192.168.8.186 | ZAM70-NF24HA-Ver3.3.12 |
+>
+> Two readers, which is what P5 asked for — half the interesting failures need
+> a second one. Both sit in `Area` 1 ("Default Area") on company "Capitalist
+> One", both were created 2026-09-14, and the account expires 2027-09-14.
+> Obtained with `npx tsx scripts/vft-probe.ts`.
+>
+> **Item 5 (callback live) is the last one standing**, and it is now the whole
+> critical path: the readers exist, they can be listed, and nothing they see
+> can reach us until VFT registers the callback URL. Neither reader has ever
+> been sent a command, and no scan has ever arrived — `access_events` holds
+> **0** rows.
 
 #### Ask VFT for
 
 | #   | Item                                                                                                          | Where it lands                                                                                                                             | Why it is not optional                                                                                            |
 | --- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
-| 1   | **API base URL** (simulator or live)                                                                          | The `baseUrl` field of the account form (`accessControlAccountSchema`); `VFT_API_BASE_URL` is only a fallback for single-deployment setups | Nothing can be tested without it. The current value is the placeholder `https://vft.example.com`                  |
-| 2   | **Account login** — email + password                                                                          | `email` / `password` on the same form, AES-256-GCM at rest in `access_control_secrets`                                                     | This is the whole vendor identity; the client authenticates per gym and caches the bearer token                   |
+| 1   | ~~**API base URL**~~ **Answered 2026-09-22:** `https://acccloudlk.com`, reachable and authenticating          | The `baseUrl` field of the account form (`accessControlAccountSchema`); `VFT_API_BASE_URL` is only a fallback for single-deployment setups | Nothing can be tested without it. The stored account row still holds the placeholder `https://vft.example.com`    |
+| 2   | ~~**Account login**~~ **Answered 2026-09-22** — sign-in returns a 160-char JWT                                | `email` / `password` on the same form, AES-256-GCM at rest in `access_control_secrets`                                                     | This is the whole vendor identity; the client authenticates per gym and caches the bearer token                   |
 | 3   | ~~**`AreaID`**~~ **Answered:** default **1**, "not currently relevant, added for future development"          | Optional `areaId` on the same form                                                                                                         | Organisational only — **never** a security boundary (A9, trap 6). Tenant scoping is ours regardless               |
-| 4   | **Device serial(s)** — two if possible                                                                        | The "Connect a reader" form                                                                                                                | P5. Half the interesting failures only appear with two readers, and serials are how webhook events find their gym |
+| 4   | ~~**Device serial(s)**~~ **Answered 2026-09-22:** `NYU7251900066`, `NYU7254500734`                            | The "Connect a reader" form                                                                                                                | P5. Half the interesting failures only appear with two readers, and serials are how webhook events find their gym |
 | 5   | **Confirmation the callback is live**                                                                         | Their account-level callback configuration                                                                                                 | Configured **per account, not per gym** — there is no per-gym URL to hand out                                     |
 | 6   | **Token expiry duration** — _still open_                                                                      | Answer upgrades §3.10                                                                                                                      | Genuinely unknown. `TOKEN_CACHE_TTL_SECONDS` is a conservative 30 min guess; a 401 refresh covers being wrong     |
 | 7   | **Real `Pin` width on K40/F18 firmware** — _platform limit answered (15, numeric); firmware limit still open_ | Answer upgrades §3.10                                                                                                                      | The other genuine unknown. Affects the personnel-id ceiling (A1)                                                  |

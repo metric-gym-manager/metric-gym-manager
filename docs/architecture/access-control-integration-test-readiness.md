@@ -4,6 +4,12 @@
 Scope: what it takes to _test_ the VFT/ZKTeco access-control integration, what
 can be tested right now, and what cannot be tested at all yet.
 
+> **Updated later the same day — B1 is largely gone and L4 has begun.** VFT
+> supplied a real base URL and account login, and the two device serials were
+> read back from their API with `scripts/vft-probe.ts`. The first live call
+> immediately found a defect that all 394 unit assertions were blind to (§12).
+> Sections 1, 6 and 9 are updated; everything else stands as compiled.
+
 > This file is a **readiness assessment**, not a design document. The design is
 > `docs/architecture/access-control-master.md` (§0 routes you to the right
 > section). Nothing here supersedes it. Where this file and the master disagree,
@@ -13,18 +19,23 @@ can be tested right now, and what cannot be tested at all yet.
 
 ## 1. Verdict
 
-**The software is testable; the integration is not.**
+**The software is testable; the integration is not.** _(Amended 2026-09-22:
+the read half of the integration is now testable, and failed on first contact —
+§12.)_
 
 Four distinct test layers exist. Three can be run today against a mock and
 prove our side of the boundary. The fourth — anything that proves the _vendor_
-side — is blocked on one thing that is not code: a real `VFT_API_BASE_URL`.
+side — was blocked on one thing that is not code: a real `VFT_API_BASE_URL`.
+That arrived. What remains blocked is every **write** and every **inbound
+scan**, because no command has been sent to these readers and VFT has not yet
+registered our callback URL.
 
-| Layer                                                   | What it proves                                                            | Runnable now                                    | Blocker                            |
-| ------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------- |
-| **L1 Unit** (jest)                                      | Domain decisions, command derivation, code tables, services against fakes | ✅ after `npm install`                          | none                               |
-| **L2 Integration** (jest, `jest.integration.config.js`) | Route + live-stack behaviour                                              | ⚠️ **no access-control tests exist** — see §7.1 | none technical; it is unwritten    |
-| **L3 E2E** (Playwright, mock provider)                  | The three screens, outbox enqueue, consent gate, RLS on real writes       | ✅ after install + `.env.local` + seeded gyms   | `.env.local` absent here (§3)      |
-| **L4 Vendor** (simulator/hardware)                      | That any of it matches a real terminal                                    | ❌                                              | **B1: no real `VFT_API_BASE_URL`** |
+| Layer                                                   | What it proves                                                            | Runnable now                                    | Blocker                         |
+| ------------------------------------------------------- | ------------------------------------------------------------------------- | ----------------------------------------------- | ------------------------------- |
+| **L1 Unit** (jest)                                      | Domain decisions, command derivation, code tables, services against fakes | ✅ after `npm install`                          | none                            |
+| **L2 Integration** (jest, `jest.integration.config.js`) | Route + live-stack behaviour                                              | ⚠️ **no access-control tests exist** — see §7.1 | none technical; it is unwritten |
+| **L3 E2E** (Playwright, mock provider)                  | The three screens, outbox enqueue, consent gate, RLS on real writes       | ✅ after install + `.env.local` + seeded gyms   | `.env.local` absent here (§3)   |
+| **L4 Vendor** (simulator/hardware)                      | That any of it matches a real terminal                                    | ⚠️ **reads only** — see §12                     | **B6: callback not registered** |
 
 The distinction that matters: **L1 cannot catch the highest-severity defect
 class this feature has already shipped twice.** Unit tests mock the repository,
@@ -181,14 +192,16 @@ rejoin without re-enrolling), A-4 (who assigns `EmpId`), A-10 (timezone), G-1
 
 ## 6. Blockers, ranked
 
-| #          | Blocker                                                                                                            | Owner                | Blocks                                                                                       | Status                                                                                                  |
-| ---------- | ------------------------------------------------------------------------------------------------------------------ | -------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| **B1**     | Real `VFT_API_BASE_URL` (simulator or hardware) + credentials + a device serial                                    | **VFT / commercial** | All of L4. With `ACCESS_CONTROL_ENABLED=false` the mock answers and a session tests nothing. | **Open — the whole critical path**                                                                      |
-| **B4**     | Access-control env vars proven present in the **deployed** environment, not just locally                           | Us — infra           | Every inbound scan; every credential save                                                    | **Open.** Minutes of work, and the one most likely to be skipped because nothing about it fails loudly. |
-| **L3-env** | No `.env.local` in this container                                                                                  | Us                   | All of L3 here                                                                               | **Open** — see §5                                                                                       |
-| **B5**     | Promote master onto the custom domains (still pinned to a build ~20 days older; 404 on every access-control route) | Us                   | A permanent handover URL; shipping to real gyms                                              | Open, not needed for the simulator session                                                              |
-| ~~B2~~     | ~~Publicly reachable deployment~~                                                                                  | —                    | —                                                                                            | Done                                                                                                    |
-| ~~B3~~     | ~~`npm run build` unverified~~                                                                                     | —                    | —                                                                                            | Done 2026-08-27                                                                                         |
+| #          | Blocker                                                                                                            | Owner                | Blocks                                                                          | Status                                                                                                                                                                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------------ | -------------------- | ------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~B1~~     | ~~Real `VFT_API_BASE_URL` + credentials + a device serial~~                                                        | —                    | —                                                                               | **Done 2026-09-22** — `https://acccloudlk.com`, login held by the operator, serials `NYU7251900066` / `NYU7254500734`                                                                                                                          |
+| **B6**     | VFT registers our callback URL on their account; the readers' own network reaches it                               | **VFT / commercial** | Every inbound scan. `access_events` holds 0 rows and nothing can put one there. | **Open — now the whole critical path**                                                                                                                                                                                                         |
+| **B7**     | Re-enter the vendor credentials through the account form, with the real base URL                                   | Us — operations      | Every outbound command for that gym                                             | **Open.** 660 `reconcile_member` jobs are `dead` on an AES-GCM decryption failure; the row still points at `https://vft.example.com`. See §12.                                                                                                 |
+| **B4**     | Access-control env vars proven present in the **deployed** environment, not just locally                           | Us — infra           | Every inbound scan; every credential save                                       | **Partly done 2026-09-22.** All four exist on Vercel (`gym-management-saas`) — but scoped to **`production` only**, so every preview deployment silently falls back to the mock and refuses every webhook. Values not verified, only presence. |
+| **L3-env** | No `.env.local` in this container                                                                                  | Us                   | All of L3 here                                                                  | **Open** — see §5                                                                                                                                                                                                                              |
+| **B5**     | Promote master onto the custom domains (still pinned to a build ~20 days older; 404 on every access-control route) | Us                   | A permanent handover URL; shipping to real gyms                                 | Open, not needed for the simulator session                                                                                                                                                                                                     |
+| ~~B2~~     | ~~Publicly reachable deployment~~                                                                                  | —                    | —                                                                               | Done                                                                                                                                                                                                                                           |
+| ~~B3~~     | ~~`npm run build` unverified~~                                                                                     | —                    | —                                                                               | Done 2026-08-27                                                                                                                                                                                                                                |
 
 **B1 is a vendor conversation, not an engineering task.** Master §8.6 items 1,
 2, 4 and 5 remain outstanding after the 2026-08-28 call: without credentials
@@ -319,3 +332,54 @@ lie to you:
 **Treat a green result as evidence rather than confirmation.** P2 and P5 in the
 simulator pre-flight were both written, reviewed, merged and unit-tested, and
 both were broken until something exercised them end to end.
+
+---
+
+## 12. First live vendor contact (2026-09-22)
+
+Run with `npx tsx scripts/vft-probe.ts`, which signs in and issues three `GET`s
+and nothing else. It is read-only by construction: no command is enqueued, so
+running it cannot change the state of a terminal.
+
+The script exists because of one property of our client: `listDevices()` parses
+with `safeParse` and returns `[]` on a shape it does not recognise. Against a
+live account that is indistinguishable from "this gym owns no readers". So the
+probe prints the **raw** payload beside the **parsed** result and says so
+loudly when they disagree. On the first run they disagreed.
+
+| Check                                        | Result                                                                                                                                                                             |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /api/user/` (trailing slash)           | ✅ 200, 160-character JWT. Base URL, credentials, path and the `ApiToken` header are all correct as built.                                                                         |
+| `GET /api/device` — raw                      | ✅ 200, bare array, **2 devices**, 27 fields each                                                                                                                                  |
+| `GET /api/device` — **as our client saw it** | ❌ **0 devices.** `"TimeZone": null` failed the array parse; `.optional()` rejects `null`. Fixed, re-probed, now 2. See master §6 V1–V3.                                           |
+| `GET /api/template`                          | ✅ 200, empty array — no employees on the account, so no member has ever been provisioned                                                                                          |
+| `GET /api/devicecmd`                         | ✅ 200, empty array — no command has ever been queued to either reader                                                                                                             |
+| `access_events` (our side)                   | **0 rows.** Nothing has ever arrived from a reader.                                                                                                                                |
+| `access_sync_jobs`                           | **660 rows, all `dead`**, all on `Unsupported state or unable to authenticate data` — the stored credential cannot be decrypted with the deployed key. ~10/night since 2026-08-28. |
+
+**The serials, which is what VFT asked for:**
+
+| Serial          | Name    | LAN IP        | Firmware               | Area           |
+| --------------- | ------- | ------------- | ---------------------- | -------------- |
+| `NYU7251900066` | Device1 | 192.168.8.127 | ZAM70-NF24HA-Ver3.0.15 | 1 Default Area |
+| `NYU7254500734` | Device2 | 192.168.8.186 | ZAM70-NF24HA-Ver3.3.12 | 1 Default Area |
+
+### What this changes about the test plan
+
+- **L4 has started, and it found something on the first call.** The readiness
+  verdict above argued that only L3 can catch the RLS defect class. V1 is the
+  same argument one layer further out: **only a live vendor call can catch a
+  schema that does not match the vendor**, and it was invisible to 28 suites
+  and 394 assertions because the mock returns what we expected. Simulator
+  pre-flight items that only _read_ (A-2 among them) can be answered now.
+- **A-2 is answered without hardware.** The vendor sends none of the three
+  presence fields we guessed at. Presence must come from `LastRequestTime` or
+  from webhook contact time; `LastUpdateTime` is a decoy.
+- **Everything that writes is still untested.** Sign-in and three reads are not
+  evidence about `add`, `syncsometoone`, `validperiod`, `accessgrant`,
+  `accessblock`, `enrollfinger`, `dooropen` or `reboot`. The first write to a
+  real reader should be one whose failure is harmless, on Device2, watched from
+  the vendor console.
+- **Next, in order:** re-enter the credentials + real base URL through the
+  account form (B7), register both serials, give VFT the callback URL (B6),
+  then work the simulator pre-flight Part A against real hardware.

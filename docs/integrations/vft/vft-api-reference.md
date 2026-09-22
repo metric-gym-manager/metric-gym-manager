@@ -84,6 +84,74 @@ reproduce it deliberately. Normalising it breaks enrolment. (Trap 2.)
 `StartDate` / `EndDate` are `YYYYMMDD` with no separators — `20251214`. The end
 date is **inclusive** and evaluated on the terminal's own clock (A5, confirmed).
 
+### GetAllDevice — the live response, probed 2026-09-22
+
+First contact with a real account (`https://acccloudlk.com`, Capitalist One,
+two ZAM70 readers). Run it again with `npx tsx scripts/vft-probe.ts` — the
+script is read-only and prints raw shape beside parsed result.
+
+`GET /api/device` returns a **bare array** of 27-field objects. One row
+verbatim, `null`s included, because the `null`s are the point:
+
+```jsonc
+{
+  "DevSN": "NYU7251900066", // the serial — the only field we can address a reader by
+  "DevName": "Device1",
+  "Area": { "AreaName": "Default Area", "AreaID": 1 }, // NESTED, not the flat AreaID the collection shows
+  "Company": { "CompanyName": "Capitalist One" },
+  "CompanyID": 8,
+  "DevIP": "192.168.8.127", // the reader's LAN address — not reachable from us
+  "DevFPVersion": "13",
+  "DevFaceVersion": null,
+  "DevFirmwareVersion": "ZAM70-NF24HA-Ver3.0.15",
+  "LockCount": 1,
+  "ReaderCount": 2,
+  "IsReboot": false,
+  "LastUpdateTime": "09/22/2026, 10:36:20", // record edited, NOT device contact
+  "CreatedDate": "09/14/2026, 12:08:51",
+  "ExpireDate": "2027-09-14, 12:08:51", // vendor-side account expiry, one year on
+  "LastRequestTime": null,
+  "TimeZone": null,
+  "UserCount": null,
+  "AttCount": null,
+  "FpCount": null,
+  "FaceCapacity": null,
+  "FaceCount": null,
+  "VendorName": null,
+  "ATTLOGStamp": null,
+  "OPERLOGStamp": null,
+  "ATTPHOTOStamp": null,
+  "TransFlag": null,
+}
+```
+
+Four facts that cost us a defect between them:
+
+1. **The wrapper sends explicit `null`, not absence.** Thirteen of the 27 fields
+   were `null` on a working, freshly provisioned reader. Zod's `.optional()`
+   accepts `undefined` and **rejects `null`**, so a single `"TimeZone": null`
+   failed the whole-array parse and `listDevices()` returned `[]` for an account
+   that owns two readers — reported to every caller as "this gym has no
+   hardware". **Every optional vendor field must be `.nullish()`**, and lists
+   are parsed row by row so one odd reader cannot empty an account.
+2. **`AreaID` is nested under `Area`.** The collection documents a flat
+   `AreaID`; the live wrapper does not send one. Read `AreaID ?? Area.AreaID`.
+3. **None of the three presence fields exists** — no `IsOnline`, no `LastSeen`,
+   no `LastActivity`. That is simulator test A-2 answered from production: the
+   only device-originated timestamp is `LastRequestTime` (null on both readers
+   at probe time, so its format and cadence are still unverified). **Do not use
+   `LastUpdateTime` for presence** — it moves when the record is edited, so
+   renaming an unplugged reader would make it look online.
+4. **Dates are `MM/DD/YYYY, HH:mm:ss`** in this response — month-first is not a
+   guess, the same payload carried `09/14/2026`. `ExpireDate` alone uses
+   `YYYY-MM-DD, HH:mm:ss`. None carries a timezone. Note this is a third date
+   format, unrelated to the `YYYYMMDD` that `validperiod` takes.
+
+**Confirmed live in the same run:** the `POST /api/user/` trailing slash, the
+`ApiToken` header (a 160-character JWT), and `GET /api/template` and
+`GET /api/devicecmd` both answering `200` with a bare array. What has **not**
+been exercised is any write: no command has ever been sent to these readers.
+
 ## 3. Endpoints we deliberately do not call
 
 | Collection name                   | Path                                          | Why not                                                                                                                                |

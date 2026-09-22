@@ -61,52 +61,78 @@ const signInResponseSchema = z.object({
  */
 const deviceSchema = z.object({
   DevSN: z.string(),
-  DevName: z.string().optional(),
-  TimeZone: z.union([z.string(), z.number()]).optional(),
+  // Every optional field here is `nullish`, never `optional`. The live wrapper
+  // returns explicit `null` for anything it has no value for, and `optional()`
+  // accepts `undefined` but rejects `null` — one null field failed the whole
+  // parse and emptied the device list. Probed 2026-09-22: of 27 fields on a
+  // real reader, 13 arrived null, `TimeZone` among them.
+  DevName: z.string().nullish(),
+  TimeZone: z.union([z.string(), z.number()]).nullish(),
+  // The collection documents a flat `AreaID`; the live wrapper nests it under
+  // `Area`. Both are read — flat first — because only one of them will be
+  // present on any given build and the association is worth keeping.
   AreaID: z.union([z.string(), z.number()]).nullish(),
-  // Presence fields. NONE of these is documented — the field names below are
-  // the ones ZKTeco-derived wrappers commonly use, accepted optionally so the
-  // parse cannot fail on a build that omits them. Whichever (if any) the
-  // simulator actually returns is test A-2 in the simulator plan.
+  Area: z
+    .object({ AreaID: z.union([z.string(), z.number()]).nullish() })
+    .nullish(),
+  // Presence fields. NONE of these is documented — the first three are the
+  // names ZKTeco-derived wrappers commonly use. The live account answered test
+  // A-2 by sending none of them: presence has to come from `LastRequestTime`,
+  // the device's own last call home, or from the webhook contact time.
   //
-  // If none arrives we report presence as unknown rather than guessing, and
-  // fall back to the webhook contact time. Claiming a reader is online on no
-  // evidence is worse than admitting we cannot tell.
+  // `LastUpdateTime` is deliberately NOT read as presence. It moves when the
+  // record is edited, so a reader that has been unplugged for a week would
+  // look online the moment someone renames it.
+  //
+  // If nothing arrives we report presence as unknown rather than guessing.
+  // Claiming a reader is online on no evidence is worse than admitting we
+  // cannot tell.
   LastActivity: z.string().nullish(),
   LastSeen: z.string().nullish(),
+  LastRequestTime: z.string().nullish(),
   IsOnline: z.union([z.boolean(), z.string(), z.number()]).nullish(),
 })
 
+/**
+ * The envelope only. Rows are parsed one at a time by {@link parseRows} so a
+ * single malformed reader cannot empty an account's entire device list.
+ */
 const deviceListSchema = z.union([
-  z.object({ devices: z.array(deviceSchema) }),
-  z.array(deviceSchema),
+  z.object({ devices: z.array(z.unknown()) }),
+  z.array(z.unknown()),
 ])
 
 const subjectSchema = z.object({
   EmpId: z.union([z.string(), z.number()]),
-  EmpName: z.string().optional(),
+  // `nullish` for the same reason as the device fields above. The live account
+  // held no employees at probe time (2026-09-22), so this shape is inferred
+  // from the device response's conventions rather than observed.
+  EmpName: z.string().nullish(),
   AreaID: z.union([z.string(), z.number()]).nullish(),
+  Area: z
+    .object({ AreaID: z.union([z.string(), z.number()]).nullish() })
+    .nullish(),
   // Not documented; present on some builds. Used to detect enrolment.
   TemplateCount: z.union([z.string(), z.number()]).nullish(),
 })
 
 const subjectListSchema = z.union([
-  z.object({ templates: z.array(subjectSchema) }),
-  z.object({ data: z.array(subjectSchema) }),
-  z.array(subjectSchema),
+  z.object({ templates: z.array(z.unknown()) }),
+  z.object({ data: z.array(z.unknown()) }),
+  z.array(z.unknown()),
 ])
 
 const commandSchema = z.object({
-  id: z.union([z.string(), z.number()]).optional(),
-  ID: z.union([z.string(), z.number()]).optional(),
-  DevSN: z.string().optional(),
+  id: z.union([z.string(), z.number()]).nullish(),
+  ID: z.union([z.string(), z.number()]).nullish(),
+  DevSN: z.string().nullish(),
   // The PUSH acknowledgement code, where the wrapper exposes it.
   Return: z.union([z.string(), z.number()]).nullish(),
 })
 
 const commandListSchema = z.union([
-  z.object({ commands: z.array(commandSchema) }),
-  z.array(commandSchema),
+  z.object({ commands: z.array(z.unknown()) }),
+  z.array(z.unknown()),
 ])
 
 /** Thrown when the vendor rejects our credentials or token. */
@@ -191,16 +217,16 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     const parsed = deviceListSchema.safeParse(payload)
     if (!parsed.success) return []
 
-    const devices = Array.isArray(parsed.data)
-      ? parsed.data
-      : parsed.data.devices
+    const rows = Array.isArray(parsed.data) ? parsed.data : parsed.data.devices
 
-    return devices.map((device) => ({
+    return parseRows(rows, deviceSchema).map((device) => ({
       serial: device.DevSN,
       name: device.DevName ?? device.DevSN,
-      areaId: toNumberOrNull(device.AreaID),
+      areaId: toNumberOrNull(device.AreaID ?? device.Area?.AreaID),
       timezoneOffsetMinutes: toNumberOrNull(device.TimeZone),
-      lastSeenAt: parseVendorDate(device.LastActivity ?? device.LastSeen),
+      lastSeenAt: parseVendorDate(
+        device.LastActivity ?? device.LastSeen ?? device.LastRequestTime
+      ),
       online: toBooleanOrNull(device.IsOnline),
     }))
   }
@@ -353,10 +379,10 @@ export class VftAccessControlProvider implements IAccessControlProvider {
         ? parsed.data.templates
         : parsed.data.data
 
-    return rows.map((row) => ({
+    return parseRows(rows, subjectSchema).map((row) => ({
       subjectId: String(row.EmpId),
       name: row.EmpName ?? '',
-      areaId: toNumberOrNull(row.AreaID),
+      areaId: toNumberOrNull(row.AreaID ?? row.Area?.AreaID),
       templateCount: toNumberOrNull(row.TemplateCount),
     }))
   }
@@ -414,7 +440,7 @@ export class VftAccessControlProvider implements IAccessControlProvider {
 
     const rows = Array.isArray(parsed.data) ? parsed.data : parsed.data.commands
 
-    return rows.map((row) => ({
+    return parseRows(rows, commandSchema).map((row) => ({
       commandId: String(row.id ?? row.ID ?? ''),
       deviceSerial: row.DevSN ?? deviceSerial ?? '',
       returnCode: toNumberOrNull(row.Return),
@@ -593,6 +619,33 @@ function isRetryable(error: unknown): boolean {
   return true
 }
 
+/**
+ * Parse list rows individually, discarding only the ones that fail.
+ *
+ * The vendor returns a bare array, and parsing it as `z.array(schema)` makes
+ * every row a single point of failure for the whole account: one reader with an
+ * unexpected field emptied a two-device list, and `safeParse` failing is
+ * reported to the caller as "no devices" — a state a real gym can legitimately
+ * be in, so nothing anywhere looks wrong.
+ *
+ * Dropping the individual bad row is not silent in the same way: the rest of
+ * the account still works, and the missing one is visible against the vendor
+ * console.
+ */
+function parseRows<T extends z.ZodTypeAny>(
+  rows: unknown[],
+  schema: T
+): z.infer<T>[] {
+  const parsed: z.infer<T>[] = []
+
+  for (const row of rows) {
+    const result = schema.safeParse(row)
+    if (result.success) parsed.push(result.data)
+  }
+
+  return parsed
+}
+
 /** Coerce a vendor field that may arrive as string, number, null or absent. */
 function toNumberOrNull(
   value: string | number | null | undefined
@@ -632,6 +685,32 @@ function toBooleanOrNull(
  */
 function parseVendorDate(value: string | null | undefined): Date | null {
   if (!value) return null
+
+  // `MM/DD/YYYY, HH:mm:ss` — the format the live wrapper uses for its own
+  // timestamps (`09/22/2026, 10:36:20`). Month-first is not a guess: the same
+  // response carried `09/14/2026`, and there is no fourteenth month.
+  const slashed = value
+    .trim()
+    .match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}),?\s+(\d{1,2}):(\d{2}):(\d{2})$/)
+
+  if (slashed) {
+    const [, month, day, year, hour, minute, second] = slashed
+    // Built as UTC deliberately. These timestamps carry no zone, and a
+    // local-time parse would shift them by the server's offset — which on
+    // Vercel is UTC and on a developer's laptop is not, making the same value
+    // render differently in the two places.
+    const parsed = new Date(
+      Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second)
+      )
+    )
+    return Number.isNaN(parsed.getTime()) ? null : parsed
+  }
 
   const parsed = new Date(value.includes('T') ? value : value.replace(' ', 'T'))
   return Number.isNaN(parsed.getTime()) ? null : parsed
