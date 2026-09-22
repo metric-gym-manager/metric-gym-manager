@@ -26,6 +26,40 @@ import { ResponseBuilder } from '@/utils/api/ApiResponse'
  *   return toErrorResponse(err, 'Failed to load devices')
  * }
  */
+/**
+ * A request body that is not JSON at all.
+ *
+ * Its own type so that only a *body* syntax failure becomes a 400. Mapping
+ * every `SyntaxError` would also catch one thrown while parsing something of
+ * ours, and report our bug as the caller's mistake.
+ */
+export class MalformedJsonError extends Error {
+  constructor(message = 'Request body is not valid JSON') {
+    super(message)
+    this.name = 'MalformedJsonError'
+  }
+}
+
+/**
+ * Parse a request body, turning unparseable input into a 400 rather than a 500.
+ *
+ * `request.json()` throws on malformed input, and a route that lets that reach
+ * its outer catch answers 500 — telling the caller the server broke when in
+ * fact they sent `{nope`. Beyond being wrong, it buries real faults in error
+ * monitoring under noise anyone can generate.
+ *
+ * @param request - The incoming request.
+ * @returns The parsed body, to be narrowed with a Zod schema by the caller.
+ * @throws {MalformedJsonError} If the body is not valid JSON.
+ */
+export async function readJsonBody(request: Request): Promise<unknown> {
+  try {
+    return await request.json()
+  } catch {
+    throw new MalformedJsonError()
+  }
+}
+
 export function toErrorResponse(
   error: unknown,
   fallbackMessage: string,
@@ -34,6 +68,14 @@ export function toErrorResponse(
   const name = error instanceof Error ? error.name : 'UnknownError'
 
   switch (name) {
+    case 'MalformedJsonError':
+      return NextResponse.json(
+        ResponseBuilder.validationError({
+          body: ['Request body is not valid JSON'],
+        }),
+        { status: 400 }
+      )
+
     case 'ValidationError':
       return NextResponse.json(
         ResponseBuilder.validationError(

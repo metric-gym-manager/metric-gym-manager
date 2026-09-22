@@ -16,7 +16,7 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAccessControlGym } from '@/lib/auth/requireAccessControlGym'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
-import { toErrorResponse } from '@/lib/middleware/apiErrors'
+import { readJsonBody, toErrorResponse } from '@/lib/middleware/apiErrors'
 
 export async function GET() {
   const { caller, error } = await requireAccessControlGym()
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   if (error) return error
 
   try {
-    const parsed = registerDeviceSchema.safeParse(await request.json())
+    const parsed = registerDeviceSchema.safeParse(await readJsonBody(request))
 
     if (!parsed.success) {
       return NextResponse.json(
