@@ -6,6 +6,7 @@ import {
   CreditCard,
   Megaphone,
   ScrollText,
+  DoorOpen,
   Settings,
   LifeBuoy,
   type LucideIcon,
@@ -55,6 +56,14 @@ export const WORKSPACE_NAV: WorkspaceNavGroup[] = [
         icon: ScrollText,
         crumb: 'Billing Setup',
       },
+      // Listed for every gym, not only Enterprise ones. The page itself is
+      // wrapped in `FeatureGate`, which renders the upgrade panel rather than
+      // an error, and every endpoint behind it independently enforces the
+      // capability — so a nav entry cannot grant anything. Hiding it would
+      // instead make the feature undiscoverable to the gyms entitled to it,
+      // which is what happened: the screen shipped reachable only by typing
+      // the URL.
+      { name: 'Door Access', href: '/access-control', icon: DoorOpen },
     ],
   },
   {
