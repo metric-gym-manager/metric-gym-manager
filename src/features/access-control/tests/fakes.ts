@@ -250,9 +250,14 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
   }
 
   async findDeviceBySerial(deviceSerial: string): Promise<AccessDevice | null> {
+    // Case- and whitespace-insensitive, like the real repository. A double that
+    // only matched exactly could not fail the way production does, and the
+    // point of these tests is what happens when the two spellings differ.
+    const wanted = deviceSerial.trim().toLowerCase()
+
     return (
       (this.options.devices ?? []).find(
-        (d) => d.device_serial === deviceSerial
+        (d) => d.device_serial.trim().toLowerCase() === wanted
       ) ?? null
     )
   }

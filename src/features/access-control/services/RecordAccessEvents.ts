@@ -104,14 +104,24 @@ export class RecordAccessEvents {
       byDevice.set(event.DeviceID, existing)
     }
 
-    for (const [deviceSerial, events] of byDevice) {
+    for (const [reportedSerial, events] of byDevice) {
       try {
-        const device = await this.repo.findDeviceBySerial(deviceSerial)
+        const device = await this.repo.findDeviceBySerial(reportedSerial)
 
         if (!device) {
           summary.unknownDevice += events.length
           continue
         }
+
+        // From here on, the REGISTERED spelling — never the one the reader
+        // sent. Resolution is deliberately lenient about case and whitespace,
+        // but letting a second spelling past this point splits one reader's
+        // history into two buckets and, worse, makes `recordDeviceClockSkew`
+        // filter on a serial that matches no row: a Supabase update that
+        // matches nothing reports success, so drift and last-seen would stop
+        // being recorded for that reader with nothing reporting a problem.
+        // The reader's own spelling survives in each event's `raw`.
+        const deviceSerial = device.device_serial
 
         const normalised: IncomingAccessEvent[] = []
         let newestScan: Date | null = null
@@ -185,8 +195,10 @@ export class RecordAccessEvents {
           }
         }
       } catch (error) {
+        // The reported spelling, deliberately: if resolution is what failed,
+        // the registered serial is exactly what we do not have.
         summary.errors.push(
-          `${deviceSerial}: ${error instanceof Error ? error.message : 'Unknown ingestion error'}`
+          `${reportedSerial}: ${error instanceof Error ? error.message : 'Unknown ingestion error'}`
         )
       }
     }

@@ -136,6 +136,28 @@ describe('RecordAccessEvents', () => {
       expect(summary.unknownDevice).toBe(0)
     })
 
+    it('stores the serial we registered, not the spelling the reader sent', async () => {
+      const { repo, useCase } = build()
+
+      await useCase.execute([event({ DeviceID: ' Ser-001 ' })])
+
+      // Resolving leniently is right; propagating the loose spelling is not.
+      // `access_events.device_serial` is filtered and grouped on, so a second
+      // spelling splits one reader's history into two buckets.
+      expect(repo.storedEvents[0].deviceSerial).toBe('SER-001')
+    })
+
+    it('records clock skew against the registered serial', async () => {
+      const { repo, useCase } = build()
+
+      await useCase.execute([event({ DeviceID: 'ser-001' })])
+
+      // `recordDeviceClockSkew` filters on the serial, and a Supabase update
+      // that matches nothing reports success — so a loose spelling here means
+      // last_seen_at and drift silently stop being recorded for that reader.
+      expect(repo.clockSkews[0].deviceSerial).toBe('SER-001')
+    })
+
     it('accepts a single event that is not wrapped in an array', async () => {
       const { useCase } = build()
 
