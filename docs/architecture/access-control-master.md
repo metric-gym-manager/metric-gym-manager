@@ -553,7 +553,7 @@ reader" conversation, not something to solve by locking out someone who paid.
 
 ---
 
-## 6. Defect history — twenty-one defects: twelve by inverting assumptions, three by the first live vendor call, six by re-reading the rest of the surface in its light
+## 6. Defect history — twenty-four defects: twelve by inverting assumptions, three by the first live vendor call, six by re-reading the surface in its light, three by running the campaign
 
 **Do not reintroduce these.** Every one was invisible to forward tests and found
 by asking "what if the opposite were true?".
@@ -673,6 +673,32 @@ number: no devices, no such reader, another company's traffic, fifty dead jobs,
 a blank name. Nothing throws, nothing 500s, nothing is red on a screen. That is
 what makes the vendor boundary different from the rest of this codebase and why
 `scripts/vft-probe.ts` prints the raw payload beside the parsed one.
+
+### Seventh audit (2026-09-22) — the campaign's first two blocks
+
+Found by running cases rather than reading code: the webhook suite against
+production and then against the fixed build, and the subject lifecycle against
+the live vendor account.
+
+| #      | Inverted assumption                             | The defect                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **X1** | "Resolving a serial leniently is where it ends" | The W2 fix resolved a mis-cased serial correctly and then stored **that** spelling in `access_events.device_serial` and passed it to `recordDeviceClockSkew`, which filters on that column. A Supabase update matching no row reports success, so drift and last-seen would silently stop being recorded for that reader — rule 2.7's shape exactly. The registered spelling is now used downstream; the reader's survives in `raw`. |
+| **X2** | "HTTP 200 means the vendor did it"              | `DELETE /api/template/{id}` for a subject that does not exist answers **200** with the reason in a `message` string. With no return code present we reported `queued` — i.e. fine. **A cancellation that silently did nothing leaves a member able to walk through a door.** Success is now matched positively; anything else fails and asks for a person.                                                                           |
+| **X3** | "5xx is transient, 4xx is permanent"            | This vendor answers **500 for validation**: duplicate `EmpId`, over-long name, over-long id. Every one would have burned the full six-attempt budget to arrive back where it started. A 5xx carrying a `message` is now permanent; a bare 5xx still retries.                                                                                                                                                                         |
+
+**X1 is the one to remember.** It was introduced _by a fix_, in the same
+session, and no test caught it — the fake repository matched serials exactly,
+so it could not fail the way production does. That is the fourth appearance of
+one lesson (the tenth finding, C2, E1, now X1): **a double cannot fail in a way
+it does not model.** The fake now resolves case-insensitively.
+
+**What the same run confirmed was already right:** unknown serials dropped
+without attribution; a payload carrying another gym's id still filed under
+ours; a redelivered scan producing exactly one row; out-of-order scans both
+kept; malformed JSON, null and empty serials storing nothing; an unknown event
+code preserved verbatim; a batch spanning both readers split per device. And
+the `EmpId` guard refused a 16-digit id **before** dispatch, where the vendor
+would have answered with a raw MySQL column error.
 
 ---
 

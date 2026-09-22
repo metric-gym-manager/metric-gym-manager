@@ -152,6 +152,58 @@ Four facts that cost us a defect between them:
 `GET /api/devicecmd` both answering `200` with a bare array. What has **not**
 been exercised is any write: no command has ever been sent to these readers.
 
+### The template endpoints — exercised live, 2026-09-22
+
+The whole subject lifecycle run against the real account with
+`npx tsx scripts/vft-lifecycle.ts --apply` (reversible; it cleans up after
+itself). What came back changes several things we had assumed.
+
+**A-4 is answered: we assign `EmpId`, and the vendor keeps it.** `POST
+/api/template/add` with `EmpId: "90000001"` stores exactly that; `GET
+/api/template` returns `{"EmpId":"90000001","EmpName":"…","AreaID":1}`. VFT
+mints nothing. Our allocator is therefore the sole authority on subject
+identity, which is what the `MAX_SUBJECT_ID` range exists to protect.
+
+**These endpoints carry no return code.** The 248-code tables belong to the
+device command queue. `/api/template/*` answers in prose:
+
+```jsonc
+{ "message": "Employee was added successfully" }
+{ "message": "Employee was updated successfully" }
+{ "message": "Employee was deleted successfully from server and all devices!" }
+{ "message": "Employee was deleted successfully from all devices only!" }  // fromdev
+```
+
+#### Two conventions that invert the usual reading
+
+| The vendor does this                                                                                                                                                                                                                                                        | Which means                                                                                                                                                             |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A business failure arrives as HTTP 200.** `DELETE /api/template/90009999` → `200 {"message":"Cannot delete Employee with id=90009999. The Employee was not found!"}`                                                                                                      | The status line is not the verdict. Reading it alone made a failed cancellation look successful — and a cancellation that did not happen leaves a member able to enter. |
+| **A permanent failure arrives as HTTP 500.** Duplicate `EmpId` → `500 {"message":"Validation error"}`; a 40-character `EmpName` → `500 {"message":"Error updating Employee with id=…"}`; a 16-digit `EmpId` → `500 {"message":"Data too long for column 'EmpId' at row 1"}` | "5xx is transient" is wrong here. Retrying any of those repeats it identically until the attempt budget is gone.                                                        |
+
+So `command()` matches success **positively** (`/success/i`) and treats any
+other message as a failure needing attention, and `isRetryable` treats a 5xx
+that carries a `message` as permanent while a bare 5xx still retries. An
+explicit `Return` code still wins over prose.
+
+#### Field limits, measured rather than quoted
+
+| Field                               | Result                                                                                                                                                                                                            |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `EmpName` 24 chars                  | Accepted. The stated limit is real.                                                                                                                                                                               |
+| `EmpName` 40 chars                  | **Rejected** (500), not truncated.                                                                                                                                                                                |
+| `EmpName` empty                     | Accepted. A blank name is the vendor's business, not ours — our `Member_<id>` fallback is a product choice.                                                                                                       |
+| `EmpName` in Sinhala (`කසුන්`)      | **Accepted** (200). Persistence not confirmed — the probe overwrote it before listing. Worth re-testing: if Unicode survives, stripping non-ASCII may be costing Sri Lankan gyms readable names on their readers. |
+| `EmpId` 15 digits                   | The real ceiling — 16 fails with `Data too long for column 'EmpId'`, which also tells us the store is MySQL.                                                                                                      |
+| `EmpId` non-numeric (`NOT-NUMERIC`) | **Accepted**, despite VFT's "numeric recommended". Our `assertValidSubjectId` is stricter than the vendor, deliberately.                                                                                          |
+
+#### One thing the vendor reports untruthfully
+
+`PUT /api/template/edit/90009999` — renaming a subject that does not exist —
+answers `200 {"message":"Employee was updated successfully"}`. **A successful
+rename is not evidence that the subject exists.** `PushRename` is best-effort
+so nothing depends on it today, but no future code may infer existence from it.
+
 ## 3. Endpoints we deliberately do not call
 
 | Collection name                   | Path                                          | Why not                                                                                                                                |
