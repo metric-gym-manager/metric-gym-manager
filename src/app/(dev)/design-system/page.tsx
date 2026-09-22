@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   LayoutDashboard,
   CreditCard,
+  Home,
 } from 'lucide-react'
 import {
   Accordion,
@@ -51,6 +52,7 @@ import {
   FormField,
   Input,
   LineChart,
+  ListRow,
   Modal,
   Pagination,
   PieChart,
@@ -82,6 +84,8 @@ import {
   useCommandK,
 } from '@/components/ui'
 import {
+  AppBar,
+  BottomNav,
   ChartCard,
   ConfirmDialog,
   DeleteDialog,
@@ -127,6 +131,20 @@ const PLAN_MIX = [
   { name: 'Lite', value: 42 },
   { name: 'Pro', value: 30 },
   { name: 'Enterprise', value: 12 },
+]
+
+/**
+ * Six-digit LKR figures, which is what the dashboard and revenue charts
+ * actually carry. A 40 px Y axis cuts these to "0000 / 5000" (finding F1), so
+ * the compact-axis comparison below has to use real magnitudes to mean
+ * anything.
+ */
+const LKR_REVENUE = [
+  { month: 'Mar', revenue: 420000 },
+  { month: 'Apr', revenue: 380000 },
+  { month: 'May', revenue: 1510000 },
+  { month: 'Jun', revenue: 640000 },
+  { month: 'Jul', revenue: 1190000 },
 ]
 
 const badgeForStatus = {
@@ -184,6 +202,11 @@ function Showcase({ theme }: { theme: 'light' | 'dark' }) {
   const [confirmOpen, setConfirmOpen] = React.useState(false)
   const [deleteOpen, setDeleteOpen] = React.useState(false)
   const [smsOn, setSmsOn] = React.useState(true)
+  const [sheetOpen, setSheetOpen] = React.useState(false)
+  const [fullscreenOpen, setFullscreenOpen] = React.useState(false)
+  const [moreOpen, setMoreOpen] = React.useState(false)
+  const [listPage, setListPage] = React.useState(2)
+  const [selectedRow, setSelectedRow] = React.useState<string[]>(['2'])
 
   const memberColumns: DataTableColumn<DemoMember>[] = [
     {
@@ -657,6 +680,250 @@ function Showcase({ theme }: { theme: 'light' | 'dark' }) {
           </Section>
 
           {/* ── Layer 3 composites ── */}
+          {/*
+            Mobile (mobile rebuild plan §5, §9, §25).
+
+            Everything here is `phone:`-scoped or inert without its new prop,
+            so at this width it is showing the DESKTOP rendering. Open the
+            page at 390 px to see the phone one — that is the width the Phase
+            1 visual pass was run at, and jsdom cannot see either.
+          */}
+          <Section title="Mobile — app bar & bottom navigation">
+            <Row label="AppBar — root page (identity opens More)">
+              <div className="w-full overflow-hidden rounded-sm border border-line-1">
+                <AppBar
+                  title="Overview"
+                  identity={{
+                    name: 'Colombo Iron',
+                    onOpen: () => setMoreOpen(true),
+                    expanded: moreOpen,
+                  }}
+                />
+              </div>
+            </Row>
+            <Row label="AppBar — nested page (leading Back)">
+              <div className="w-full overflow-hidden rounded-sm border border-line-1">
+                <AppBar title="Gym profile" onBack={() => {}} />
+              </div>
+            </Row>
+            <Row label="BottomNav — four slots, the fourth is More">
+              {/* `static` instead of `fixed` so the bar sits in the page
+                  rather than over it; tailwind-merge drops the `fixed`. */}
+              <div className="w-full overflow-hidden rounded-sm border border-line-1">
+                <BottomNav
+                  className="static"
+                  activeHref="/members"
+                  items={[
+                    { name: 'Dashboard', href: '/dashboard', icon: Home },
+                    { name: 'Members', href: '/members', icon: Users },
+                    {
+                      name: 'Renewals',
+                      href: '/payment-collection',
+                      icon: CreditCard,
+                    },
+                  ]}
+                  more={{
+                    open: moreOpen,
+                    onToggle: () => setMoreOpen((v) => !v),
+                  }}
+                />
+              </div>
+            </Row>
+          </Section>
+
+          <Section title="Mobile — ListRow">
+            <Row label="Slots: leading · primary · status · meta · value · actions">
+              {/* `-mx-4` cancels the Section's padding so the rows render at
+                  the width they get in the product — full-bleed under
+                  `<main>`. Inside the padded box the value wrapped under the
+                  name at 390, which is the ≤ 340 behaviour, in a row that is
+                  not that narrow in the app. */}
+              <ul role="list" className="-mx-4 w-[calc(100%+2rem)]">
+                <ListRow
+                  leading={<Avatar size="sm" name="Nimal Perera" />}
+                  primary="Nimal Perera"
+                  status={<Badge variant="error">Expired</Badge>}
+                  meta={['+94 77 123 4567', 'Monthly']}
+                  value="3,500"
+                  onClick={() => {}}
+                  actions={
+                    <>
+                      <Button size="sm" variant="secondary">
+                        Record payment
+                      </Button>
+                      <Button size="sm" variant="secondary">
+                        Remind
+                      </Button>
+                    </>
+                  }
+                />
+                <ListRow
+                  leading={<Avatar size="sm" name="Sara Kularatne" />}
+                  primary="Sara Kularatne"
+                  status={<Badge variant="warning">Due in 3 days</Badge>}
+                  meta={['+94 71 555 0100', 'Annual']}
+                  value="12,500"
+                  onClick={() => {}}
+                />
+                <ListRow
+                  leading={
+                    <Avatar size="sm" name="Wickramasinghe Arachchige Dona" />
+                  }
+                  primary="Wickramasinghe Arachchige Dona"
+                  status={<Badge variant="success">Active</Badge>}
+                  meta={['+94 76 900 4321', 'Class pack · 10 sessions']}
+                  value="1,000,000"
+                  selected
+                  onClick={() => {}}
+                />
+              </ul>
+            </Row>
+          </Section>
+
+          <Section title="Mobile — DataTable list mode">
+            <Row label='forceLayout="list" — the same columns, state and pagination as the table above'>
+              <div className="-mx-4 w-[calc(100%+2rem)]">
+                <DataTable
+                  columns={memberColumns}
+                  data={DEMO_MEMBERS}
+                  getRowId={(r) => r.id}
+                  caption="Members"
+                  searchable
+                  selectable
+                  selectedIds={selectedRow}
+                  onSelectionChange={setSelectedRow}
+                  pageSize={2}
+                  forceLayout="list"
+                  mobileRow={{
+                    primary: 'name',
+                    status: 'status',
+                    value: 'amount',
+                  }}
+                />
+              </div>
+            </Row>
+            <Row label="Empty and error states share the table path's">
+              <div className="flex w-full flex-col gap-4">
+                <DataTable
+                  columns={memberColumns}
+                  data={[]}
+                  getRowId={(r) => r.id}
+                  forceLayout="list"
+                  mobileRow={{ primary: 'name' }}
+                />
+                <DataTable
+                  columns={memberColumns}
+                  data={DEMO_MEMBERS}
+                  getRowId={(r) => r.id}
+                  forceLayout="list"
+                  error="Could not load members."
+                  mobileRow={{ primary: 'name' }}
+                />
+                <DataTable
+                  columns={memberColumns}
+                  data={DEMO_MEMBERS}
+                  getRowId={(r) => r.id}
+                  forceLayout="list"
+                  loading
+                  loadingRowCount={3}
+                  mobileRow={{ primary: 'name' }}
+                />
+              </div>
+            </Row>
+          </Section>
+
+          <Section title="Mobile — tabs overflow, compact pagination, sheets">
+            <Row label='TabsList overflow="scroll" — badge counts push the strip past 390 px (finding F5)'>
+              <div className="w-full">
+                <Tabs defaultValue="expired">
+                  <TabsList overflow="scroll">
+                    <TabsTrigger value="expired">Expired 115</TabsTrigger>
+                    <TabsTrigger value="week">Expires this week 39</TabsTrigger>
+                    <TabsTrigger value="collected">Collected 125</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="expired">
+                    <span className="text-ink-secondary">115 expired.</span>
+                  </TabsContent>
+                  <TabsContent value="week">
+                    <span className="text-ink-secondary">39 due.</span>
+                  </TabsContent>
+                  <TabsContent value="collected">
+                    <span className="text-ink-secondary">125 collected.</span>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </Row>
+            <Row label="Pagination responsive — numbered here, Prev · 2 of 8 · Next at 390">
+              <Pagination
+                responsive
+                page={listPage}
+                pageCount={8}
+                onPageChange={setListPage}
+              />
+            </Row>
+            <Row label="Modal placement">
+              <Button variant="secondary" onClick={() => setSheetOpen(true)}>
+                Open sheet
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => setFullscreenOpen(true)}
+              >
+                Open fullscreen
+              </Button>
+              <Button variant="secondary" onClick={() => setDrawerOpen(true)}>
+                Open drawer (bottom sheet at 390)
+              </Button>
+            </Row>
+          </Section>
+
+          <Section title="Mobile — Phase 1 decisions (rendered comparisons)">
+            <Row label="§5.9 compactAxis: OFF — six-digit LKR ticks in a 40 px axis">
+              <div className="w-full">
+                <LineChart
+                  label="Revenue, full ticks"
+                  data={LKR_REVENUE}
+                  xKey="month"
+                  series={[{ key: 'revenue', label: 'Revenue' }]}
+                  valueFormatter={(v) => `LKR ${Number(v).toLocaleString()}`}
+                />
+              </div>
+            </Row>
+            <Row label="§5.9 compactAxis: ON — 420k / 1.5M in the same 40 px">
+              <div className="w-full">
+                <LineChart
+                  label="Revenue, compact ticks"
+                  data={LKR_REVENUE}
+                  xKey="month"
+                  compactAxis
+                  series={[{ key: 'revenue', label: 'Revenue' }]}
+                  valueFormatter={(v) => `LKR ${Number(v).toLocaleString()}`}
+                />
+              </div>
+            </Row>
+            <Row label="o09 bodyPhone: 13/20 (text-body, today) vs 14/20 (text-base) — NOT applied; see the PR">
+              <div className="grid w-full grid-cols-1 gap-4 tablet:grid-cols-2">
+                <ul role="list" className="rounded-sm border border-line-1">
+                  <ListRow
+                    primary="Nimal Perera"
+                    status={<Badge variant="error">Expired</Badge>}
+                    meta={['+94 77 123 4567', 'Monthly']}
+                    value="3,500"
+                  />
+                </ul>
+                <ul role="list" className="rounded-sm border border-line-1">
+                  <ListRow
+                    className="[&_[class*=text-body]]:text-base"
+                    primary="Nimal Perera"
+                    status={<Badge variant="error">Expired</Badge>}
+                    meta={['+94 77 123 4567', 'Monthly']}
+                    value="3,500"
+                  />
+                </ul>
+              </div>
+            </Row>
+          </Section>
+
           <Section title="Composites — page & toolbar">
             <PageHeader
               title="Members"
@@ -873,10 +1140,69 @@ function Showcase({ theme }: { theme: 'light' | 'dark' }) {
           </p>
         </Modal>
 
+        <Modal
+          open={sheetOpen}
+          onOpenChange={setSheetOpen}
+          theme={theme}
+          placement="sheet"
+          title="Record payment"
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setSheetOpen(false)}>
+                Cancel
+              </Button>
+              <Button variant="accent" onClick={() => setSheetOpen(false)}>
+                Mark paid
+              </Button>
+            </>
+          }
+        >
+          <FormField label="Paid on">
+            <Input type="date" defaultValue="2026-09-14" />
+          </FormField>
+        </Modal>
+
+        <Modal
+          open={fullscreenOpen}
+          onOpenChange={setFullscreenOpen}
+          theme={theme}
+          placement="fullscreen"
+          title="Member details"
+          footerStart="Joined 2024-02-11"
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => setFullscreenOpen(false)}
+              >
+                Close
+              </Button>
+              <Button variant="accent" onClick={() => setFullscreenOpen(false)}>
+                Mark paid
+              </Button>
+            </>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <p className="text-ink-secondary">
+              At 390 px this fills the screen, leads with Back instead of ×, and
+              closes on the hardware Back button. At this width it is the
+              centred dialog — every placement effect is `phone:`-scoped.
+            </p>
+            <FormField label="Plan">
+              <Select defaultValue="pro">
+                <option value="lite">Lite</option>
+                <option value="pro">Pro</option>
+              </Select>
+            </FormField>
+          </div>
+        </Modal>
+
         <Drawer
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
           theme={theme}
+          size="auto"
           title="Member record"
           footer={
             <>

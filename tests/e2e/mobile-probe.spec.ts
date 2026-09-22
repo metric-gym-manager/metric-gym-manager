@@ -86,17 +86,35 @@ export const KNOWN_DESKTOP_VIOLATIONS: ReadonlyArray<{
   pattern: RegExp
   clears: string
 }> = [
-  // Phase 1 (§5.9 `compactAxis` / `yTickFormatter`): 6-digit ticks do not fit
-  // a 40 px axis at any width. Visible as "0000 / 5000 / 0000 / 5000 / 0".
+  // 6-digit ticks do not fit a 40 px axis at any width. Visible as
+  // "0000 / 5000 / 0000 / 5000 / 0".
+  //
+  // Phase 1 built the fix (§5.9 `compactAxis` / `yTickFormatter` on
+  // `CartesianChartProps`) but could not APPLY it: the prop is opt-in, and
+  // §5.9's own instruction is that "screens pass it under the phone tier" —
+  // the screens are Phase 6. Making it the default instead would change the
+  // plot area of every chart at 1366, against Phase 1's binding constraint
+  // that the desktop renders pixel-equivalent, and would have to be absorbed
+  // into the desktop baselines, which MO-4 forbids.
+  //
+  // PHASE 6 APPLIED IT — on the phone tier, which is what §5.9 and §8.1 both
+  // specify — and that does NOT clear these two entries, which are measured
+  // at 1366. The note above expected it to, and was wrong: `compactAxis`
+  // changes the tick TEXT, so switching it on at the desktop tier moves the
+  // `dashboard-desktop-1366` and `revenue-desktop-1366` baselines, which is
+  // the same MO-4 objection that kept Phase 1 from making it the default.
+  // The desktop clip is real (F1) and needs a re-baseline to fix, so it is
+  // re-pointed at the sweep phase, which owns the baselines. Recorded as an
+  // EXCEPTION in the tracker log and in §4 F31 of mobile-ui-rebuild-log.md.
   {
     route: '/dashboard',
     pattern: /axis tick "\d{5,}" clipped/,
-    clears: 'Phase 1',
+    clears: 'Phase 10',
   },
   {
     route: '/revenue',
     pattern: /axis tick "\d{5,}" clipped/,
-    clears: 'Phase 1',
+    clears: 'Phase 10',
   },
   // Phase 7: the trailing x-axis label overshoots the chart by a pixel.
   {

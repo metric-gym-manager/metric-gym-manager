@@ -66,7 +66,7 @@ export default function WorkspaceHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-sticky hidden h-bar items-center justify-between border-b border-line-1 bg-surface-base px-6 lg:flex">
+    <header className="sticky top-0 z-sticky hidden h-bar items-center justify-between border-b border-line-1 bg-surface-base px-6 tablet:flex">
       <Breadcrumb className="min-w-0">
         <BreadcrumbItem>{gymProfile?.gym_name ?? 'Workspace'}</BreadcrumbItem>
         <BreadcrumbSeparator />

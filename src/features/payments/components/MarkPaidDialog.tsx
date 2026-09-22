@@ -46,6 +46,10 @@ export default function MarkPaidDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
+      // A date and a confirm — one decision, so §11 puts it on the bottom
+      // edge on a phone. Inert at >= 768, where this stays the centred dialog
+      // it has always been. Its only caller is `MemberDetailModal`.
+      placement="sheet"
       title="Confirm Payment"
       description="Review payment details and confirm to record the payment."
       footer={

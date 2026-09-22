@@ -166,6 +166,43 @@ const dsLegend = (
   />
 )
 
+/**
+ * `1400000 → 1.4M`, `35000 → 35k` — the compact Y-axis tick (mobile rebuild
+ * plan §5.9).
+ *
+ * The axis is 40 px wide with an −8 px left margin, so ~32 px is available for
+ * the label. At the 10 px mono tick size that holds five characters: LKR
+ * figures of six or seven digits are cut to `0000` / `5000`, which reads as a
+ * number and is not one. Shortening the label fixes that in the space there
+ * is, where widening the axis would take 16 px of plot area from a 390 px
+ * screen and still not hold `1000000`.
+ *
+ * At most one decimal, and never a trailing `.0`.
+ */
+export function compactAxisTick(value: number | string): string {
+  const n = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(n)) return String(value)
+
+  const abs = Math.abs(n)
+  const unit =
+    abs >= 1e9
+      ? ([1e9, 'B'] as const)
+      : abs >= 1e6
+        ? ([1e6, 'M'] as const)
+        : abs >= 1e3
+          ? ([1e3, 'k'] as const)
+          : null
+  if (!unit) return String(n)
+
+  const scaled = n / unit[0]
+  // One decimal only where it carries information: 1.4M, but 12M not 12.0M.
+  const text =
+    Math.abs(scaled) < 10 && !Number.isInteger(scaled)
+      ? scaled.toFixed(1)
+      : String(Math.round(scaled))
+  return `${text}${unit[1]}`
+}
+
 // ── Line ─────────────────────────────────────────────────────────────────────
 export interface CartesianChartProps<T> extends BaseChartProps {
   data: T[]
@@ -174,6 +211,36 @@ export interface CartesianChartProps<T> extends BaseChartProps {
   showGrid?: boolean
   showLegend?: boolean
   valueFormatter?: (value: number | string) => string
+  /**
+   * Format the Y-axis tick labels. Wins over `compactAxis`.
+   *
+   * Separate from `valueFormatter`, which formats the *tooltip*: the tooltip
+   * has room for `LKR 1,400,000` and the axis does not, and conflating them is
+   * why the axis carried the full figure in the first place.
+   */
+  yTickFormatter?: (value: number | string) => string
+  /**
+   * Shorten Y-axis ticks to `35k` / `1.4M` ({@link compactAxisTick}).
+   *
+   * Opt-in and inert when unset, so no existing chart changes. Screens pass it
+   * under the phone tier (§5.9).
+   */
+  compactAxis?: boolean
+}
+
+/**
+ * The tick formatter a cartesian chart should use, or `undefined` for none.
+ *
+ * Exported because it is the whole of the decision — an explicit formatter
+ * wins, `compactAxis` is the shorthand, and neither set means the axis is
+ * untouched — and recharts renders no axis in jsdom, so this is the only
+ * place the rule can be tested rather than described.
+ */
+export function resolveYTickFormatter(
+  yTickFormatter?: (value: number | string) => string,
+  compactAxis?: boolean
+): ((value: number | string) => string) | undefined {
+  return yTickFormatter ?? (compactAxis ? compactAxisTick : undefined)
 }
 
 export function LineChart<T>({
@@ -183,6 +250,8 @@ export function LineChart<T>({
   showGrid = true,
   showLegend,
   valueFormatter,
+  yTickFormatter,
+  compactAxis,
   ...frame
 }: CartesianChartProps<T>) {
   const reduced = usePrefersReducedMotion()
@@ -201,7 +270,13 @@ export function LineChart<T>({
           interval="preserveStartEnd"
           minTickGap={16}
         />
-        <YAxis tick={axisTick} tickLine={false} axisLine={false} width={40} />
+        <YAxis
+          tick={axisTick}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+          tickFormatter={resolveYTickFormatter(yTickFormatter, compactAxis)}
+        />
         <DSTooltip valueFormatter={valueFormatter} />
         {showLegend && dsLegend}
         {series.map((s, i) => (
@@ -229,6 +304,8 @@ export function BarChart<T>({
   showGrid = true,
   showLegend,
   valueFormatter,
+  yTickFormatter,
+  compactAxis,
   ...frame
 }: CartesianChartProps<T>) {
   const reduced = usePrefersReducedMotion()
@@ -244,7 +321,13 @@ export function BarChart<T>({
           interval="preserveStartEnd"
           minTickGap={16}
         />
-        <YAxis tick={axisTick} tickLine={false} axisLine={false} width={40} />
+        <YAxis
+          tick={axisTick}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+          tickFormatter={resolveYTickFormatter(yTickFormatter, compactAxis)}
+        />
         <DSTooltip valueFormatter={valueFormatter} />
         {showLegend && dsLegend}
         {series.map((s, i) => (
@@ -275,6 +358,8 @@ export function AreaChart<T>({
   showGrid = true,
   showLegend,
   valueFormatter,
+  yTickFormatter,
+  compactAxis,
   ...frame
 }: CartesianChartProps<T>) {
   const reduced = usePrefersReducedMotion()
@@ -311,7 +396,13 @@ export function AreaChart<T>({
           interval="preserveStartEnd"
           minTickGap={16}
         />
-        <YAxis tick={axisTick} tickLine={false} axisLine={false} width={40} />
+        <YAxis
+          tick={axisTick}
+          tickLine={false}
+          axisLine={false}
+          width={40}
+          tickFormatter={resolveYTickFormatter(yTickFormatter, compactAxis)}
+        />
         <DSTooltip valueFormatter={valueFormatter} />
         {showLegend && dsLegend}
         {series.map((s, i) => {

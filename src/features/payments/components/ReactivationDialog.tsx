@@ -114,6 +114,9 @@ export default function ReactivationDialog({
     <Modal
       open={open}
       onOpenChange={onOpenChange}
+      // Four controls around a single decision — §11's sheet case, listed
+      // there by name. Inert at >= 768.
+      placement="sheet"
       title="Reactivate Membership"
       description="Choose the plan and payment details to bring this member back to active."
       footer={

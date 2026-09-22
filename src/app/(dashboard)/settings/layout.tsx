@@ -2,27 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronRight, ChevronLeft } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-const settingsNavigation = [
-  { name: 'Gym Information', href: '/settings/gym' },
-  { name: 'Registration', href: '/settings/registration' },
-  { name: 'Rules & Terms', href: '/settings/policies' },
-  { name: 'Security', href: '/settings/security' },
-  // Setup only — the door hardware's day-to-day view is the top-level
-  // /access-control page. Shown to every tier: the page itself renders the
-  // Enterprise upgrade panel, which is how a gym discovers the feature exists.
-  { name: 'Access Control', href: '/settings/access-control' },
-  { name: 'Subscription', href: '/settings/billing' },
-]
+import { SETTINGS_SECTIONS } from '@/components/workspace/nav'
 
 /**
  * Settings shell — a 160px sub-navigation beside the active section.
  *
  * The responsive behaviour is a master/detail: on a phone, `/settings` shows the
- * menu full-width and hides the content, a sub-page shows the content and a back
- * link instead of the menu. That was previously driven by five bespoke CSS
+ * menu full-width and hides the content, and a sub-page shows the content
+ * alone — Back lives in the AppBar (mobile rebuild plan §6.2). That was previously driven by five bespoke CSS
  * classes (`mws-settings-shell`, `-nav-root`, `-nav-sub`, `-content-root`,
  * `-content-sub`) full of `!important`; it is the same behaviour expressed in
  * layout classes, so the rules could be deleted.
@@ -44,17 +33,20 @@ export default function SettingsLayout({
   const isRoot = pathname === '/settings'
 
   return (
-    <div className="flex max-w-[1000px] gap-8 max-tablet:max-w-full max-tablet:flex-col max-tablet:gap-0">
+    <div className="flex max-w-[1000px] gap-8 phone:max-w-full phone:flex-col phone:gap-0">
       {/* Sub-navigation */}
       <div
         className={cn(
           'w-40 shrink-0',
-          isRoot ? 'max-tablet:w-full' : 'max-tablet:hidden'
+          isRoot ? 'phone:w-full' : 'phone:hidden'
         )}
       >
-        <h1 className="mb-3 text-h1 text-ink">Settings</h1>
+        {/* The AppBar shows "Settings" on a phone; a second copy of it costs a
+            row of the menu it sits above. Kept for screen readers, as
+            `PageHeader` does. */}
+        <h1 className="mb-3 text-h1 text-ink phone:sr-only">Settings</h1>
         <div className="flex flex-col gap-0.5">
-          {settingsNavigation.map((item) => {
+          {SETTINGS_SECTIONS.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + '/')
             return (
@@ -68,14 +60,13 @@ export default function SettingsLayout({
                     ? 'border-ink font-medium text-ink'
                     : 'border-transparent text-ink-secondary hover:bg-surface-active hover:text-ink',
                   // Larger touch targets when the menu is the whole screen.
-                  isRoot &&
-                    'max-tablet:h-12 max-tablet:justify-between max-tablet:px-3 max-tablet:text-base'
+                  isRoot && 'phone:min-h-touch phone:justify-between phone:px-3'
                 )}
               >
                 <span className="flex-1 truncate">{item.name}</span>
                 {isRoot && (
                   <ChevronRight
-                    className="hidden size-3.5 shrink-0 text-ink-muted max-tablet:block"
+                    className="hidden size-3.5 shrink-0 text-ink-muted phone:block"
                     aria-hidden="true"
                   />
                 )}
@@ -89,18 +80,13 @@ export default function SettingsLayout({
       <div
         className={cn(
           'min-w-0 flex-1 pt-10',
-          isRoot ? 'max-tablet:hidden' : 'max-tablet:pt-0'
+          isRoot ? 'phone:hidden' : 'phone:pt-0'
         )}
       >
-        {!isRoot && (
-          <Link
-            href="/settings"
-            className="mb-4 hidden items-center gap-1 text-body text-brand-link hover:text-brand-link-hover max-tablet:flex"
-          >
-            <ChevronLeft className="size-3.5" aria-hidden="true" />
-            Settings
-          </Link>
-        )}
+        {/* The in-flow "‹ Settings" link is gone: on a phone the AppBar's Back
+            control now goes to /settings, in fixed chrome, at a 44 px target
+            rather than the 20 px line this was (plan §6.2). At ≥ 768 the menu
+            is beside the content and there was never a link to remove. */}
         {children}
       </div>
     </div>

@@ -54,6 +54,7 @@ export * from './primitives/Progress'
 export * from './primitives/CommandPalette'
 
 // Data
+export * from './primitives/ListRow'
 export * from './primitives/DataTable'
 export * from './primitives/useVirtualRows'
 export * from './primitives/Charts'

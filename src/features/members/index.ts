@@ -6,7 +6,7 @@
  *
  * Example:
  * ```typescript
- * import { AddMemberModal, MemberDetailModalResponsive } from '@/features/members';
+ * import { AddMemberModal, MemberDetailModal } from '@/features/members';
  * ```
  */
 
@@ -16,9 +16,16 @@
 
 export { default as AddMemberModal } from './components/AddMemberModal'
 export { default as BulkAddMemberModal } from './components/BulkAddMemberModal'
+// The phone's gate in front of that grid (plan §14). Desktop opens the grid
+// directly; a phone gets this sheet first.
+export { default as BulkImportGuidanceSheet } from './components/BulkImportGuidanceSheet'
 export { default as EditMemberModal } from './components/EditMemberModal'
-// Desktop/mobile variants are internals of the responsive wrapper — not public API
-export { default as MemberDetailModalResponsive } from './components/MemberDetailModalResponsive'
+// One component, both tiers. The `MemberDetailModalResponsive` wrapper and the
+// `MemberDetailModalMobile` fork it chose between were deleted in the mobile
+// rebuild's Phase 3: the wrapper switched on `window.innerWidth` (banned by
+// rule 2.21) and the fork had drifted — no `MarkPaidDialog`, no SMS history,
+// no Radix dialog semantics. `Modal placement` expresses the difference now.
+export { default as MemberDetailModal } from './components/MemberDetailModal'
 export { default as MemberAvatar } from './components/MemberAvatar'
 export { default as MemberPhotoSection } from './components/MemberPhotoSection'
 export { default as DayPassModal } from './components/DayPassModal'

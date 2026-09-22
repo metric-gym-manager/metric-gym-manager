@@ -2,6 +2,8 @@
 
 import * as React from 'react'
 import { Toaster as SonnerToaster, toast } from 'sonner'
+import { useViewportTier } from '@/hooks/useViewportTier'
+import { layout, spacing } from '../tokens'
 
 /**
  * Toast — transient notifications, wrapping `sonner` (spec §11 Toast; §12
@@ -21,10 +23,37 @@ export { toast }
 
 export type ToasterProps = React.ComponentProps<typeof SonnerToaster>
 
+/**
+ * Where a toast sits on a phone (mobile rebuild plan §6.2, §25.1).
+ *
+ * Top-centre, cleared of the `AppBar` and of the notch — `h-bar` is the bar's
+ * height, read from the token rather than retyped, and `--ds-safe-top` is the
+ * inset. Sonner's own `mobileOffset` only applies below 600 px, so the same
+ * values are passed as `offset` when the tier is a phone; our boundary is 768.
+ */
+const PHONE_OFFSET = {
+  top: `calc(${layout.breadcrumbHeight} + var(--ds-safe-top) + ${spacing[2]})`,
+  left: spacing[4],
+  right: spacing[4],
+  bottom: spacing[4],
+}
+
 export function Toaster(props: ToasterProps) {
+  // Read directly, with no provider: the Toaster is mounted in the ROOT
+  // layout, above the dashboard's `ViewportTierProvider`, and the hook
+  // measures `matchMedia` whether or not a provider supplies a hint. Server
+  // and hydration both answer `desktop`, so there is no mismatch; the
+  // correction lands on the first client commit, with no toast on screen.
+  const tier = useViewportTier()
+  const phone = tier === 'phone'
+
   return (
     <SonnerToaster
-      position="top-right"
+      // Top-right leaves a phone toast hard against the edge under the
+      // AppBar's own corner; centred, it reads as the page's own banner.
+      position={phone ? 'top-center' : 'top-right'}
+      offset={phone ? PHONE_OFFSET : undefined}
+      mobileOffset={PHONE_OFFSET}
       duration={5000}
       gap={8}
       toastOptions={{
