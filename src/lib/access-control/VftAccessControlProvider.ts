@@ -132,12 +132,34 @@ const commandSchema = z.object({
   DevSN: z.string().nullish(),
   // The PUSH acknowledgement code, where the wrapper exposes it.
   Return: z.union([z.string(), z.number()]).nullish(),
+  /**
+   * The template endpoints' only verdict.
+   *
+   * They carry no return code at all — "Employee was added successfully" on
+   * the way through, and the reason in the same field when it did not work.
+   * Observed 2026-09-22 against the live account.
+   */
+  message: z.string().nullish(),
 })
 
 const commandListSchema = z.union([
   z.object({ commands: z.array(z.unknown()) }),
   z.array(z.unknown()),
 ])
+
+/**
+ * Whether a `message` the vendor returned describes success.
+ *
+ * Positive matching, deliberately. Every successful template call observed
+ * says "…successfully"; the failures say "Cannot delete…", "Validation
+ * error", "Data too long…". Matching the success wording means an unfamiliar
+ * message is read as a failure — which retries or asks for a human, where the
+ * opposite mistake silently reports that a member was removed from a door
+ * when they were not.
+ */
+function messageIsSuccess(message: string): boolean {
+  return /success/i.test(message)
+}
 
 /** Thrown when the vendor rejects our credentials or token. */
 export class VendorAuthError extends Error {
@@ -519,7 +541,31 @@ export class VftAccessControlProvider implements IAccessControlProvider {
         }
       }
 
-      // No return code: accepted into the queue, awaiting collection.
+      // No return code. The template endpoints answer in prose instead, so a
+      // message is the only verdict they give — and it is a real one, not a
+      // hint: "Cannot delete Employee with id=… The Employee was not found!"
+      // arrives as HTTP 200 and used to read as queued, i.e. as fine.
+      const message = parsed.success ? parsed.data.message : null
+
+      if (message) {
+        if (messageIsSuccess(message)) {
+          return {
+            status: 'applied',
+            commandId: commandId != null ? String(commandId) : undefined,
+          }
+        }
+
+        return {
+          status: 'failed',
+          error: message,
+          // The vendor named a reason, and the reason will not change by
+          // asking again. A person decides what to do about it.
+          retryable: false,
+          needsAttention: true,
+        }
+      }
+
+      // Nothing said at all: accepted into the queue, awaiting collection.
       return {
         status: 'queued',
         commandId: commandId != null ? String(commandId) : undefined,
@@ -529,10 +575,20 @@ export class VftAccessControlProvider implements IAccessControlProvider {
         return { status: 'failed', error: error.message, retryable: false }
       }
 
+      const retryable = isRetryable(error)
+
       return {
         status: 'failed',
-        error: error instanceof Error ? error.message : 'Unknown vendor error',
-        retryable: isRetryable(error),
+        error:
+          error instanceof VendorRequestError && error.detail
+            ? `${error.message}: ${error.detail}`
+            : error instanceof Error
+              ? error.message
+              : 'Unknown vendor error',
+        retryable,
+        // A permanent rejection from the vendor is not something the queue can
+        // work through on its own.
+        needsAttention: !retryable && error instanceof VendorRequestError,
       }
     }
   }
@@ -575,9 +631,15 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     }
 
     if (!response.ok) {
+      // The body matters as much as the status: this vendor answers 500 for
+      // permanent validation failures, so a 5xx alone cannot decide whether
+      // retrying is worth anything.
+      const detail = (await response.text()).slice(0, 300)
+
       throw new VendorRequestError(
         `Vendor returned status ${response.status}`,
-        response.status
+        response.status,
+        detail
       )
     }
 
@@ -639,7 +701,9 @@ export class VftAccessControlProvider implements IAccessControlProvider {
 export class VendorRequestError extends Error {
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    /** The response body, truncated — the vendor's own reason, when it gave one. */
+    readonly detail: string = ''
   ) {
     super(message)
     this.name = 'VendorRequestError'
@@ -654,9 +718,29 @@ export class VendorRequestError extends Error {
  */
 function isRetryable(error: unknown): boolean {
   if (error instanceof VendorRequestError) {
-    return error.status >= 500
+    if (error.status < 500) return false
+
+    // A 5xx naming a reason is this vendor reporting a business rejection, not
+    // a server having a bad moment: a duplicate `EmpId` answers
+    // `500 {"message":"Validation error"}` and will answer it forever.
+    // Retrying those burned the whole six-attempt budget to learn nothing.
+    // A bare 5xx — a gateway, a restart — still retries.
+    return !describesVendorRejection(error.detail)
   }
   return true
+}
+
+/** Whether a failed response body carries the vendor's own reason. */
+function describesVendorRejection(detail: string): boolean {
+  if (!detail) return false
+
+  try {
+    const parsed: unknown = JSON.parse(detail)
+    const message = commandSchema.safeParse(parsed)
+    return Boolean(message.success && message.data.message)
+  } catch {
+    return false
+  }
 }
 
 /**

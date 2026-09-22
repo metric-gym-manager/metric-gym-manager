@@ -34,7 +34,7 @@ const credentials: AccessCredentials = {
 
 /** The provider reads bodies with `.text()`; sign-in uses `.json()`. */
 function jsonResponse(body: unknown, status = 200): Response {
-  const text = JSON.stringify(body)
+  const text = typeof body === 'string' ? body : JSON.stringify(body)
   return {
     ok: status >= 200 && status < 300,
     status,
@@ -229,5 +229,125 @@ describe('VftAccessControlProvider — live GetAllDevice payload', () => {
     const [listUrl, listInit] = fetchMock.mock.calls[1]
     expect(listUrl).toBe('https://acccloudlk.com/api/device')
     expect(listInit.headers).toMatchObject({ ApiToken: 'TOKEN-1' })
+  })
+})
+
+/**
+ * How the vendor actually reports success and failure.
+ *
+ * Observed against the live account on 2026-09-22 by running the subject
+ * lifecycle end to end (`scripts/vft-lifecycle.ts`). Two findings, both of the
+ * shape this integration keeps producing — a plausible answer instead of an
+ * error:
+ *
+ *  - **A business failure arrives as HTTP 200** with the reason in a `message`
+ *    string. Deleting a subject that does not exist answers
+ *    `200 {"message":"Cannot delete Employee with id=… The Employee was not
+ *    found!"}`. Reading only the status made that a success.
+ *  - **A permanent validation failure arrives as HTTP 500.** A duplicate
+ *    `EmpId` answers `500 {"message":"Validation error"}`, an over-long name
+ *    `500 {"message":"Error updating Employee…"}`, an over-long id
+ *    `500 {"message":"Data too long for column 'EmpId' at row 1"}`. Our
+ *    transport treated every 5xx as transient, so each of those would burn the
+ *    full six-attempt retry budget to arrive where it started.
+ *
+ * None of these carry a `Return` code — the code tables belong to the device
+ * command queue, not to the template endpoints.
+ */
+describe('VftAccessControlProvider — observed vendor response semantics', () => {
+  let fetchMock: jest.Mock
+  let provider: VftAccessControlProvider
+
+  beforeEach(() => {
+    fetchMock = jest.fn()
+    global.fetch = fetchMock as unknown as typeof fetch
+    provider = new VftAccessControlProvider()
+  })
+
+  function respond(body: unknown, status = 200): void {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ token: 'TOKEN-1' }))
+      .mockResolvedValueOnce(jsonResponse(body, status))
+  }
+
+  it('treats a success message as applied', async () => {
+    respond({ message: 'Employee was added successfully' })
+
+    const outcome = await provider.upsertSubject(credentials, {
+      subjectId: '90000001',
+      name: 'Campaign Probe',
+    })
+
+    expect(outcome.status).toBe('applied')
+  })
+
+  it('treats a 200 carrying a failure message as failed, not queued', async () => {
+    respond({
+      message:
+        'Cannot delete Employee with id=90009999. The Employee was not found!',
+    })
+
+    const outcome = await provider.removeSubject(credentials, '90009999')
+
+    // The case that matters: a cancellation reporting success while the
+    // subject is still on the vendor would leave a member able to enter.
+    expect(outcome).toMatchObject({
+      status: 'failed',
+      retryable: false,
+      needsAttention: true,
+    })
+    expect(outcome.status === 'failed' && outcome.error).toContain('not found')
+  })
+
+  it('does not retry a 500 that carries a validation message', async () => {
+    respond({ message: 'Validation error' }, 500)
+
+    const outcome = await provider.upsertSubject(credentials, {
+      subjectId: '90000001',
+      name: 'Campaign Probe',
+    })
+
+    expect(outcome).toMatchObject({
+      status: 'failed',
+      retryable: false,
+      needsAttention: true,
+    })
+  })
+
+  it('still retries a bare 5xx with no message', async () => {
+    respond('', 503)
+
+    const outcome = await provider.upsertSubject(credentials, {
+      subjectId: '90000001',
+      name: 'Campaign Probe',
+    })
+
+    // A gateway or a restart says nothing about the request. Only the vendor
+    // naming a reason makes a failure permanent.
+    expect(outcome).toMatchObject({ status: 'failed', retryable: true })
+  })
+
+  it('lets an explicit Return code win over the message', async () => {
+    respond({ message: 'whatever', Return: -18 })
+
+    const outcome = await provider.upsertSubject(credentials, {
+      subjectId: '90000001',
+      name: 'Campaign Probe',
+    })
+
+    // The device command queue speaks in return codes; the classification
+    // table owns those and must not be second-guessed by prose.
+    expect(outcome).toMatchObject({ status: 'failed', returnCode: -18 })
+  })
+
+  it('still reports queued when the vendor says nothing at all', async () => {
+    respond({})
+
+    const outcome = await provider.upsertSubject(credentials, {
+      subjectId: '90000001',
+      name: 'Campaign Probe',
+    })
+
+    expect(outcome.status).toBe('queued')
   })
 })
