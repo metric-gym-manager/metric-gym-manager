@@ -177,9 +177,10 @@ test('records the consent and starts waiting for a finger', async ({
   await panel.getByRole('button', { name: /register fingerprint/i }).click()
 
   // "Awaiting" is an instruction, not a progress bar: the thing being waited
-  // on is a person walking to a terminal. It is also the only honest answer
-  // the vendor can give — the template exists once a finger is presented, and
-  // nothing reports that back.
+  // on is a person walking to a terminal. It also names the scan, because that
+  // is the only confirmation this vendor offers — VFT, 2026-09-23: the finger
+  // count arrives in a future update, and today a fingerprint "is considered
+  // with the attendance record".
   await expect(
     panel.getByText(/place their finger on the reader/i)
   ).toBeVisible()
