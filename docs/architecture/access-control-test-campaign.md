@@ -999,6 +999,22 @@ One signature (`reconcile_member`, E2E gym, the pre-W3 AES-GCM text, nightly
 signature. 17 jobs remain and the dead count is **0**, so the next one on
 `/system-health` is a real one.
 
+### The first production run, and what watching it found
+
+Triggered early with the operator's permission. `cron_logs`: success in 2,948 ms,
+`gymsConsidered 1`, `membersChecked 4`, `membersEnqueued 1`, **`vendorDrift 0`,
+`gymsVendorUnreadable 0`** — that last zero being the evidence that production
+reached `GET /api/template` and compared against it rather than falling back.
+It is also the first successful `reconcile-access` in 25 days.
+
+Following the job through the drain rather than stopping at the summary found
+**F35**: it was claimed two minutes later and marked **succeeded** having
+changed nothing at all, and a second trigger enqueued the same member again. A
+member no command could change was being re-queued by every run, forever.
+Fixed the same session, verified against production (`membersEnqueued` 1 → 0,
+`membersNothingToDo` 1), and the lesson is the campaign's own: **a green
+summary is a claim about a run, not about the state it left behind.**
+
 ### Still blocked on a person at VFT HQ
 
 Everything involving a finger or a scan — which now includes confirming any

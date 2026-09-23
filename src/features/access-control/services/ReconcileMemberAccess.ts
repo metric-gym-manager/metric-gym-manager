@@ -103,14 +103,29 @@ export interface ReconcileMemberAccessSummary {
    */
   slotsReclaimed: number
   /**
-   * Members the **vendor** disagreed with us about.
+   * Members the **vendor** contradicted.
    *
-   * A subset of `membersEnqueued`, and the number worth watching: these are
-   * the members our own record called settled. A non-zero figure here means
-   * something wrote to the hardware without us recording it — or, more likely,
-   * that a write-back of ours was lost.
+   * Either it holds a subject we have no record of ever pushing, or it holds a
+   * different window for one our own diff called settled. The number worth
+   * watching: it means something wrote to the hardware without us recording it
+   * — or, more likely, that a write-back of ours was lost.
    */
   vendorDrift: number
+  /**
+   * Members skipped because no command could change anything for them.
+   *
+   * A member who may not enter, is on no reader and was never provisioned:
+   * `deriveAccessCommands` answers with nothing, so enqueueing them produces a
+   * job that succeeds, writes nothing and leaves the diff exactly as it was —
+   * which then enqueues them again the next run, forever (F35, measured in
+   * production).
+   *
+   * Counted rather than silently dropped, because "we looked at 300 members
+   * and 40 of them have no hardware state at all" is a fact about a gym, and
+   * because a number that moves is how anyone would notice this rule starting
+   * to skip the wrong people.
+   */
+  membersNothingToDo: number
   /**
    * Gyms whose subjects the vendor would not tell us about this run.
    *
@@ -146,6 +161,7 @@ export class ReconcileMemberAccess {
       membersEnqueued: 0,
       slotsReclaimed: 0,
       vendorDrift: 0,
+      membersNothingToDo: 0,
       gymsVendorUnreadable: 0,
       errors: [],
     }
@@ -199,28 +215,47 @@ export class ReconcileMemberAccess {
           const desiredBlocked = !decision.allowed
 
           const current = context.subject
+          const vendorRecord = vendorSubjects?.get(String(current.subject_id))
+
+          // The vendor holding someone we have no record of pushing is a
+          // contradiction, not housekeeping — the Y1 shape, our record and the
+          // hardware having parted company. It must never be filed under
+          // "nothing to do" merely because today's sync cannot fix it alone.
+          const unrecordedAtVendor =
+            vendorRecord !== undefined && !current.provisioned_at
+
+          // A member no command could change is skipped rather than queued.
+          // See `hasNoHardwareWork` — enqueueing them is a job that succeeds,
+          // writes nothing, and leaves this same diff behind for tomorrow.
+          if (this.hasNoHardwareWork(decision.allowed, current)) {
+            if (!unrecordedAtVendor) {
+              summary.membersNothingToDo += 1
+              continue
+            }
+          }
 
           // Blocked is ours either way: the vendor exposes no such field.
           const blockMatches = current.last_synced_blocked === desiredBlocked
 
-          const vendorRecord = vendorSubjects?.get(String(current.subject_id))
+          const localWindowMatches =
+            normaliseDate(current.last_synced_valid_from) === desiredFrom &&
+            normaliseDate(current.last_synced_valid_to) === desiredTo
 
           const windowMatches = vendorSubjects
             ? this.vendorAgrees(vendorRecord, current, desiredFrom, desiredTo)
-            : normaliseDate(current.last_synced_valid_from) === desiredFrom &&
-              normaliseDate(current.last_synced_valid_to) === desiredTo
+            : localWindowMatches
 
-          if (windowMatches && blockMatches) continue
+          if (windowMatches && blockMatches && !unrecordedAtVendor) continue
 
-          // Drift proper: our own record was satisfied and the vendor was not.
-          // Counted apart from ordinary changes because it means our record
-          // and the hardware had parted company with nothing to show for it.
+          // Drift: the vendor contradicted us, either by holding a member we
+          // never recorded pushing, or by holding a different window for one
+          // our own record called settled.
           if (
-            vendorSubjects &&
-            !windowMatches &&
-            blockMatches &&
-            normaliseDate(current.last_synced_valid_from) === desiredFrom &&
-            normaliseDate(current.last_synced_valid_to) === desiredTo
+            unrecordedAtVendor ||
+            (vendorSubjects &&
+              !windowMatches &&
+              blockMatches &&
+              localWindowMatches)
           ) {
             summary.vendorDrift += 1
           }
@@ -254,6 +289,39 @@ export class ReconcileMemberAccess {
     }
 
     return summary
+  }
+
+  /**
+   * Whether the hardware has nothing that could be asked of it for this member.
+   *
+   * Mirrors `deriveAccessCommands`' own first answer: a member who may not
+   * enter and was never provisioned gets no commands at all, because
+   * provisioning someone purely in order to block them costs three API calls
+   * and creates a record the capacity policy then has to claw back.
+   *
+   * Deliberately **stricter** than that branch — it also requires that no
+   * reader is holding the member. Serials without a provisioning timestamp
+   * should not exist, but if that state ever occurs the member is on a reader
+   * and may not enter, and the conservative answer is to queue the work rather
+   * than to declare there is none. Every member skipped here is therefore one
+   * the sync would provably do nothing for, and the relationship is pinned by
+   * a test that asserts `deriveAccessCommands` returns nothing for this shape.
+   *
+   * @param allowed - Whether the access decision lets them in.
+   * @param subject - Our subject row for the member.
+   */
+  private hasNoHardwareWork(
+    allowed: boolean,
+    subject: {
+      provisioned_at: string | null
+      synced_device_serials: string[]
+    }
+  ): boolean {
+    return (
+      !allowed &&
+      !subject.provisioned_at &&
+      (subject.synced_device_serials ?? []).length === 0
+    )
   }
 
   /**

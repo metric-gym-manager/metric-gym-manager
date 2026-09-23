@@ -24,7 +24,12 @@ import {
   mockSubscriptionRepo,
 } from '@/features/subscriptions/tests/subscription-mocks'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
-import { AccessIntent } from '@/features/access-control/config/AccessControlConfig'
+import {
+  AccessDenialReason,
+  AccessIntent,
+} from '@/features/access-control/config/AccessControlConfig'
+import { deriveAccessCommands } from '@/features/access-control/domain/AccessCommands'
+import type { AccessSubjectInfo } from '@/lib/access-control'
 import type { Subscription } from '@/features/subscriptions/domain/Subscription'
 import {
   FakeAccessControlRepository,
@@ -625,5 +630,201 @@ describe('ReconcileMemberAccess — vendor as the comparison source', () => {
     await useCase.execute({ today: TODAY })
 
     expect(provider.getCommandsOfType('listSubjects')).toHaveLength(1)
+  })
+})
+
+/**
+ * The no-op loop (F35), measured in production on 2026-09-23.
+ *
+ * Triggering the reconcile enqueued a suspended member who had never been
+ * provisioned. The drain claimed it two minutes later and marked it
+ * SUCCEEDED — and the subject row was byte-identical afterwards, because
+ * `deriveAccessCommands` correctly produces NO commands for a member who
+ * cannot enter and is on no reader. `SyncMemberAccess` writes back only when
+ * it sent something, so nothing ever recorded that this is the settled state,
+ * and the next run enqueued the same member again. It cannot converge.
+ *
+ * The cost is not the wasted job. It is that `membersEnqueued` never reaches
+ * zero, so the night something really changes looks exactly like every other
+ * night.
+ */
+describe('ReconcileMemberAccess — members the hardware has no work for', () => {
+  function build(
+    contexts: ReturnType<typeof makeContext>[],
+    vendorSubjects: AccessSubjectInfo[] = []
+  ) {
+    const repo = new FakeAccessControlRepository({
+      credentials: testCredentials,
+      contexts,
+      gymsWithAccessControl: ['gym-1'],
+    })
+
+    const subscriptionRepo = mockSubscriptionRepo()
+    subscriptionRepo.findByGymId.mockImplementation(async () =>
+      makeSubscription({
+        gymId: 'gym-1',
+        tier: SaasTier.Enterprise,
+        status: SaasStatus.Active,
+      })
+    )
+
+    const provider = new MockAccessControlProvider()
+    provider.setSubjects(vendorSubjects)
+
+    return {
+      repo,
+      useCase: new ReconcileMemberAccess(
+        repo,
+        subscriptionRepo,
+        new EvictInactiveSubjects(repo, provider),
+        provider
+      ),
+    }
+  }
+
+  /** A member who cannot enter, is on no reader, and was never provisioned. */
+  const nothingToDo = () =>
+    makeContext({
+      status: MemberStatus.Suspended,
+      subject: makeSubject({
+        provisioned_at: null,
+        synced_device_serials: [],
+        last_synced_valid_from: null,
+        last_synced_valid_to: null,
+        last_synced_blocked: null,
+      }),
+    })
+
+  it('does not enqueue a member no command could change', async () => {
+    const { repo, useCase } = build([nothingToDo()])
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(0)
+    expect(summary.membersNothingToDo).toBe(1)
+    expect(repo.enqueued).toHaveLength(0)
+    // Still counted as checked: they were looked at, and a member who vanished
+    // from the sweep entirely would be a different kind of wrong.
+    expect(summary.membersChecked).toBe(1)
+  })
+
+  /**
+   * The skip has to be a strict subset of "the sync would do nothing", or it
+   * becomes a way to lose work. This asserts the relationship against the pure
+   * function itself, so a later change to that branch fails here rather than
+   * silently widening what the reconciler skips.
+   */
+  it('skips only a shape the command derivation itself answers with nothing', () => {
+    const commands = deriveAccessCommands({
+      decision: {
+        allowed: false,
+        reason: AccessDenialReason.Suspended,
+        validFrom: null,
+        validTo: null,
+        // Suspended, not cancelled: the record stays on the hardware. Building
+        // the decision by hand here is deliberate — this test is about the
+        // command derivation's answer to one exact shape, and deriving it
+        // through a member fixture would let the shape drift out from under it.
+        removeFromDevice: false,
+      },
+      subject: {
+        subjectId: '100001',
+        memberName: 'Test Member',
+        provisioned: false,
+        syncedDeviceSerials: [],
+        lastSyncedValidFrom: null,
+        lastSyncedValidTo: null,
+        lastSyncedBlocked: null,
+      },
+      deviceSerials: ['SER-001'],
+    })
+
+    expect(commands).toHaveLength(0)
+  })
+
+  it('still enqueues a blocked member a reader is holding', async () => {
+    // The door is the point. Someone on a reader who may not enter needs
+    // blocking, and skipping them would leave it open.
+    const { repo, useCase } = build([
+      makeContext({
+        status: MemberStatus.Suspended,
+        subject: makeSubject({
+          provisioned_at: '2026-01-01T00:00:00Z',
+          synced_device_serials: ['SER-001'],
+          last_synced_blocked: false,
+        }),
+      }),
+    ])
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(1)
+    expect(summary.membersNothingToDo).toBe(0)
+    expect(repo.enqueued).toHaveLength(1)
+  })
+
+  it('still enqueues a member who may enter but has never been pushed', async () => {
+    const { useCase } = build([
+      makeContext({
+        nextDueDate: day('2026-02-15'),
+        subject: makeSubject({
+          provisioned_at: null,
+          synced_device_serials: [],
+          last_synced_valid_from: null,
+          last_synced_valid_to: null,
+        }),
+      }),
+    ])
+
+    expect((await useCase.execute({ today: TODAY })).membersEnqueued).toBe(1)
+  })
+
+  it('still enqueues an impossible state rather than assuming it away', async () => {
+    // Serials without a provisioning timestamp should not exist. If it ever
+    // does, the member is on a reader and may not enter, so the conservative
+    // answer is to queue the work rather than to declare there is none.
+    const { useCase } = build([
+      makeContext({
+        status: MemberStatus.Suspended,
+        subject: makeSubject({
+          provisioned_at: null,
+          synced_device_serials: ['SER-001'],
+          last_synced_blocked: null,
+        }),
+      }),
+    ])
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(1)
+    expect(summary.membersNothingToDo).toBe(0)
+  })
+
+  it('keeps a divergence loud: the vendor holds someone we think was never provisioned', async () => {
+    // Silence is the worse failure here. Our record says this member was never
+    // pushed; the vendor is holding them. That is the Y1 shape — our record and
+    // the hardware having parted company — and it must not be filed under
+    // "nothing to do" just because today's sync cannot fix it on its own.
+    const { repo, useCase } = build(
+      [nothingToDo()],
+      [
+        {
+          subjectId: '100001',
+          name: 'Test Member',
+          areaId: 1,
+          templateCount: null,
+          validFrom: '20251215',
+          validTo: '20260115',
+          syncedToVendor: true,
+          deleted: false,
+        },
+      ]
+    )
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersNothingToDo).toBe(0)
+    expect(summary.vendorDrift).toBe(1)
+    expect(repo.enqueued).toHaveLength(1)
   })
 })

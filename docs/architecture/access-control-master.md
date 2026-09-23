@@ -521,6 +521,12 @@ anyone the vendor has never heard of, has deleted, or reports unsynced while we
 believe a reader holds them. Blocked state still comes from our record (the
 vendor exposes no such field), and an empty or failed vendor answer falls back
 to the local diff rather than being read as "the vendor holds nobody" (V1).
+A member no command could change — cannot enter, on no reader, never
+provisioned — is **skipped and counted** as `membersNothingToDo` rather than
+queued, because queueing them produces a job that succeeds having written
+nothing and leaves the identical diff behind for tomorrow (Z4). The one
+exception is a member the **vendor** is holding while our record says we never
+pushed them: that contradiction stays loud.
 
 **Cancellation → blocked + template revoked.** `accessblock` **plus**
 `DELETE /api/template/fromdev/{id}`. **Never `RemoveSubject`** — the vendor keeps
@@ -572,7 +578,7 @@ reader" conversation, not something to solve by locking out someone who paid.
 
 ---
 
-## 6. Defect history — thirty defects: twelve by inverting assumptions, three by the first live vendor call, six by re-reading the surface in its light, three by running the campaign, three by the first session against real readers, three by the vendor's answer to the question that session raised
+## 6. Defect history — thirty-one defects: twelve by inverting assumptions, three by the first live vendor call, six by re-reading the surface in its light, three by running the campaign, three by the first session against real readers, four by the vendor's answer and by watching the repair run in production
 
 **Do not reintroduce these.** Every one was invisible to forward tests and found
 by asking "what if the opposite were true?".
@@ -761,13 +767,15 @@ Measure the thing, not a proxy for it.
 
 Not defects found by inverting an assumption this time: two of them are the
 **repairs** the eighth audit named and could not yet make, and the third is
-what the first of those exposed.
+what the first of those exposed, and the fourth was found by watching the repair run
+in production rather than reading its summary.
 
-| #      | Inverted assumption                                        | The defect                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| ------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Z1** | "Our record of what we sent is a record of what they hold" | The nightly reconcile diffed the desired window against `last_synced_*` — our own writing on both sides of the comparison, which agrees with itself however wrong it is. That is precisely the state Y1 left two members in: correct on the reader, blocked in our database, invisible to every sweep. It now reads `GET /api/template` once per gym and compares against the vendor's `StartDate`/`EndDate`/`IsSync`, counting the disagreements as `vendorDrift`. |
-| **Z2** | "A capability the vendor has not built has no workaround"  | Asked how we learn a fingerprint was captured, VFT answered: _"in the next update, the finger count will be displayed. Now it is considered with the attendance record."_ The signal exists — it is the scan. `RecordAccessEvents` now sets `finger_enrolled` from a fingerprint-verified scan that resolves to one of our members, including a **refused** one, since the reader recognising the finger is the proof rather than the verdict.                      |
-| **Z3** | "Reporting what the vendor says is the honest answer"      | `DetectBiometricEnrolment` reported `enrolled` straight from the vendor's template count. With that count permanently absent, every subject reads as zero — so the enrolment dialog could never succeed, for anyone, ever. Zero from a vendor that counts nothing is not evidence of absence. It now reports the strongest evidence either side holds, and the desk is told the fingerprint is confirmed by the member's first entry.                               |
+| #      | Inverted assumption                                        | The defect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| ------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Z1** | "Our record of what we sent is a record of what they hold" | The nightly reconcile diffed the desired window against `last_synced_*` — our own writing on both sides of the comparison, which agrees with itself however wrong it is. That is precisely the state Y1 left two members in: correct on the reader, blocked in our database, invisible to every sweep. It now reads `GET /api/template` once per gym and compares against the vendor's `StartDate`/`EndDate`/`IsSync`, counting the disagreements as `vendorDrift`.                                                                                                                               |
+| **Z2** | "A capability the vendor has not built has no workaround"  | Asked how we learn a fingerprint was captured, VFT answered: _"in the next update, the finger count will be displayed. Now it is considered with the attendance record."_ The signal exists — it is the scan. `RecordAccessEvents` now sets `finger_enrolled` from a fingerprint-verified scan that resolves to one of our members, including a **refused** one, since the reader recognising the finger is the proof rather than the verdict.                                                                                                                                                    |
+| **Z3** | "Reporting what the vendor says is the honest answer"      | `DetectBiometricEnrolment` reported `enrolled` straight from the vendor's template count. With that count permanently absent, every subject reads as zero — so the enrolment dialog could never succeed, for anyone, ever. Zero from a vendor that counts nothing is not evidence of absence. It now reports the strongest evidence either side holds, and the desk is told the fingerprint is confirmed by the member's first entry.                                                                                                                                                             |
+| **Z4** | "A job that succeeds did something"                        | Found by watching the first production run of Z1 rather than reading its summary. The reconcile enqueued a suspended member who had never been provisioned; the drain claimed it two minutes later and marked it **succeeded**, and the subject row was byte-identical afterwards. A second trigger enqueued the same member again. `deriveAccessCommands` correctly answers with **no commands** for someone who cannot enter and is on no reader, but the write-back only runs when something was sent — so nothing ever records that this is the settled state, and the cycle cannot converge. |
 
 **Z1's real lesson is about where a comparison's two sides come from.** Nothing
 was wrong with the diff's logic; it was wrong about its source. A check whose
@@ -798,6 +806,19 @@ why blocked state is still ours. Verified end to end by running the real
 with `enqueue` intercepted: five subjects checked, the three live members
 matched the vendor and were not enqueued, and the two it did flag are members
 this account has genuinely never been given.
+
+**Z4's cost is not the wasted job.** It is that `membersEnqueued` never reaches
+zero, so the night something really changes looks exactly like every other
+night — the plausible-number class this feature keeps producing. The fix skips
+such members and counts them as `membersNothingToDo`, and the skip is
+deliberately **stricter** than the command derivation's own branch: it also
+requires that no reader holds the member, so every member skipped is provably
+one the sync would do nothing for. That relationship is pinned by a test
+asserting `deriveAccessCommands` returns nothing for exactly that shape, and a
+member the **vendor** holds while our record says we never pushed them is
+exempted from the skip, because silence is the worse failure for a real
+contradiction. Verified against production: `membersEnqueued` 1 → 0,
+`membersNothingToDo` 1.
 
 **And the 660 dead jobs are gone.** One homogeneous set — `reconcile_member`,
 the seeded E2E gym, `Unsupported state or unable to authenticate data`, nightly
