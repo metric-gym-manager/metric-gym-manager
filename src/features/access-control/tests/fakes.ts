@@ -97,7 +97,13 @@ export function makeContext(
     memberName: 'Test Member',
     status: MemberStatus.Active,
     membershipStartDate: day('2025-12-15'),
-    nextDueDate: day('2026-01-15'),
+    // Deliberately in the future. The default context describes an ACTIVE
+    // member, and since 2026-09-23 the enrolment path resolves the access
+    // decision before dispatching — a fixture whose due date has drifted into
+    // the past would make that member lapsed and every enrolment fixture
+    // refuse for the wrong reason. Tests that need a lapsed member set this
+    // explicitly.
+    nextDueDate: day('2027-01-15'),
     registrationSource: RegistrationSource.Manual,
     verifiedAt: null,
     // Consented by default so the existing suites keep exercising the paths

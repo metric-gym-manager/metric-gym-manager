@@ -71,6 +71,25 @@ export class DetectBiometricEnrolment {
     const context = await this.repo.getMemberAccessContext(memberId)
     if (!context || context.gymId !== gymId || !context.subject) return idle
 
+    // KNOWN LIMITATION, measured 2026-09-23 against the live VFT account.
+    //
+    // This detection cannot currently succeed. `GET /api/template` returns no
+    // template count — the real fields are EmpId, EmpName, Privilege, Group,
+    // Password, Card, StartDate, EndDate, verifyType, DeviceID, EmpPhoto,
+    // IsDelete, IsSync, Company*, Area*, Category* — and the vendor's own
+    // collection has no endpoint reporting biometric state at all. Dispatching
+    // a real enrolment moved nothing: FpCount, UserCount and AttCount stayed
+    // null on a reader that held the member and answered in two seconds.
+    //
+    // The behaviour below is still correct and safe: it is additive, so it
+    // never un-enrols anyone, and the poll that drives it treats a timeout as
+    // "not yet" rather than failure. It simply always answers "no template".
+    //
+    // The open question is with VFT (campaign findings F26/F29): is there an
+    // endpoint or field we have not been told about, or does a completed
+    // enrolment produce an event on the attendance callback? If it is the
+    // callback, the honest design is to let the first successful scan be the
+    // confirmation instead of polling for a flag.
     const vendorSubjects = await this.provider.listSubjects(credentials)
 
     // Index by id so the lookup below is against the vendor's answer for OUR

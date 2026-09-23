@@ -92,8 +92,32 @@ export interface AccessSubjectInfo {
   subjectId: string
   name: string
   areaId: number | null
-  /** Number of biometric templates on record, when the vendor reports it. */
+  /**
+   * Number of biometric templates on record — **when the vendor reports it,
+   * which this one does not.**
+   *
+   * Checked against the live account on 2026-09-23: `GET /api/template`
+   * returns no template field at all, and the vendor's own collection contains
+   * no endpoint that reports biometric state. Nothing in the API moves when an
+   * enrolment is dispatched either — `FpCount`, `UserCount` and `AttCount` are
+   * all null on a reader that demonstrably holds the member.
+   *
+   * So this is always `null` here, and anything deciding "has a fingerprint"
+   * from it will always decide no. Do not build on it without first confirming
+   * the vendor has started sending it.
+   */
   templateCount: number | null
+  /**
+   * The validity window the vendor holds for this subject, `YYYYMMDD`.
+   *
+   * The vendor's own account of the state, rather than our record of what we
+   * last sent — which is what reconciliation actually wants to compare
+   * against. Null on a subject that has never been given a window.
+   */
+  validFrom?: string | null
+  validTo?: string | null
+  /** The vendor's own sync flag for this subject. */
+  syncedToVendor?: boolean | null
 }
 
 /** A command still awaiting collection by a device. */

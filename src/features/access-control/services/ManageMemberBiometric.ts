@@ -34,6 +34,8 @@
 
 import type { IAccessControlProvider } from '@/lib/access-control'
 import type { IAccessControlRepository } from './IAccessControlRepository'
+import { resolveAccessDecision } from '@/features/access-control/domain/AccessDecision'
+import { getGymToday } from '@/features/access-control/utils/getGymToday'
 
 export interface EnrolMemberBiometricInput {
   gymId: string
@@ -101,6 +103,30 @@ export class ManageMemberBiometric {
       return { applicable: true, dispatched: false, error: 'Member not found' }
     }
 
+    // A member who may not enter may not be enrolled either.
+    //
+    // Enrolling means putting the subject onto that reader, and a reader is
+    // only supposed to hold people entitled to walk through it. Found live: a
+    // cancelled member reached a reader this way, which acknowledged the
+    // command exactly as it does for a real one.
+    const decision = resolveAccessDecision({
+      status: context.status,
+      membershipStartDate: context.membershipStartDate,
+      nextDueDate: context.nextDueDate,
+      registrationSource: context.registrationSource,
+      verifiedAt: context.verifiedAt,
+      today: getGymToday(),
+    })
+
+    if (!decision.allowed) {
+      return {
+        applicable: true,
+        dispatched: false,
+        error:
+          'This membership is not active, so their fingerprint cannot be registered yet',
+      }
+    }
+
     if (!context.biometricConsentAt) {
       if (!input.consentGranted) {
         return {
@@ -153,6 +179,39 @@ export class ManageMemberBiometric {
       await this.repo.updateSyncState(input.memberId, {
         provisioned: true,
         syncedDeviceSerials: subject.synced_device_serials ?? [],
+        validFrom: subject.last_synced_valid_from,
+        validTo: subject.last_synced_valid_to,
+        blocked: subject.last_synced_blocked ?? false,
+      })
+    }
+
+    // The reader has to hold the subject before it can enrol a finger for it.
+    //
+    // Creating the subject on the vendor is a different thing — the comment
+    // above says so, and the live failure proved it: `enrollfinger` went to a
+    // reader whose `synced_device_serials` did not include it, and the reader
+    // acknowledged the command with the same return value it gives for a
+    // subject it knows. Nothing distinguishes the two from outside.
+    const synced = subject.synced_device_serials ?? []
+
+    if (!synced.includes(device.device_serial)) {
+      const pushed = await this.provider.syncSubjectsToDevice(
+        credentials,
+        device.device_serial,
+        [String(subject.subject_id)]
+      )
+
+      if (pushed.status === 'failed') {
+        return {
+          applicable: true,
+          dispatched: false,
+          error: 'Could not put the member on that reader',
+        }
+      }
+
+      await this.repo.updateSyncState(input.memberId, {
+        provisioned: true,
+        syncedDeviceSerials: [...synced, device.device_serial],
         validFrom: subject.last_synced_valid_from,
         validTo: subject.last_synced_valid_to,
         blocked: subject.last_synced_blocked ?? false,

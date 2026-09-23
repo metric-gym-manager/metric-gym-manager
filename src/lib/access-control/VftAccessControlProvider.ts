@@ -116,8 +116,23 @@ const subjectSchema = z.object({
   Area: z
     .object({ AreaID: z.union([z.string(), z.number()]).nullish() })
     .nullish(),
-  // Not documented; present on some builds. Used to detect enrolment.
+  /**
+   * Not documented, and **not present on the live account** (checked
+   * 2026-09-23). Kept because a different build may send it, but nothing may
+   * depend on it — see the note on `templateCount` in IAccessControlProvider.
+   */
   TemplateCount: z.union([z.string(), z.number()]).nullish(),
+  /**
+   * The validity window the vendor actually holds for this subject, as
+   * `YYYYMMDD`. Observed live: a synced member shows `20250120`/`20270309`
+   * exactly as pushed, an unsynced one shows null. This is the vendor's own
+   * account of the state, which makes it far better evidence for
+   * reconciliation than our record of what we last sent.
+   */
+  StartDate: z.string().nullish(),
+  EndDate: z.string().nullish(),
+  /** The vendor's own sync flag. 1 on a subject it considers distributed. */
+  IsSync: z.union([z.string(), z.number(), z.boolean()]).nullish(),
 })
 
 const subjectListSchema = z.union([
@@ -475,6 +490,9 @@ export class VftAccessControlProvider implements IAccessControlProvider {
       name: row.EmpName ?? '',
       areaId: toNumberOrNull(row.AreaID ?? row.Area?.AreaID),
       templateCount: toNumberOrNull(row.TemplateCount),
+      validFrom: row.StartDate ?? null,
+      validTo: row.EndDate ?? null,
+      syncedToVendor: toBooleanOrNull(row.IsSync),
     }))
   }
 
