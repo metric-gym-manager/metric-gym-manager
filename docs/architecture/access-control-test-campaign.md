@@ -306,6 +306,8 @@ _Phase 3 — Second-device correctness (Device B) · default tier C_
 
 Run independently against A and B. `enrollfinger` only puts the reader into enrol mode — completing it needs a finger on the sensor.
 
+**How completion is observed (VFT, 2026-09-23):** _"in the next update, the finger count will be displayed. Now it is considered with the attendance record."_ There is no field to poll, so the member's **first fingerprint scan** is the confirmation — which makes every case below that says "enrolled" a case that needs a scan as well as a finger, and makes `ENR-18` (vendor accepts, webhook never arrives) considerably more interesting: with the webhook down, a real enrolment is now invisible until the next delivery.
+
 | ID       | Case                                        | Tier | Notes                                                                                  |
 | -------- | ------------------------------------------- | ---- | -------------------------------------------------------------------------------------- |
 | `ENR-01` | Enrol member on Device A                    | C    | —                                                                                      |
@@ -954,6 +956,53 @@ each time, and that matters more than the test result.**
 
 `access_events` has **never** received a row. Until a real scan arrives, the
 inbound half is proven only by synthetic deliveries against production.
+
+---
+
+## 9. Second session — the vendor's answer (2026-09-23)
+
+No hardware was touched. What changed is that the two questions the first
+session left with VFT came back with one usable answer, and the two items that
+were ours to finish got finished.
+
+### VFT on fingerprint capture
+
+> "In the next update, the finger count will be displayed. Now it is
+> considered with the attendance record."
+
+That closes F26/F29 as far as they can be closed: the template count we were
+reading **does not exist yet**, and the signal that a fingerprint was captured
+is the member's own scan. Built accordingly — a `VerifyType: 1` scan that
+resolves to one of our members sets `finger_enrolled`, a refused scan counts
+(the reader recognised the finger, then applied the window), and the enrolment
+dialog now tells the desk to ask for one scan to confirm.
+
+It also means **A-1 is now worth more, not less**: whether refused scans reach
+the callback decides whether a lapsed member's enrolment is confirmable at all.
+
+### F28 closed — the reconcile compares against the vendor
+
+`GET /api/template` is read once per gym and its `StartDate`/`EndDate`/`IsSync`
+compared against what the access decision wants, instead of against our own
+last write. Measured first: those dates arrive as `YYYYMMDD`, so they compare
+directly; there is no block field, so blocked state stays ours; an empty or
+failed answer falls back to the local diff rather than enqueueing every member
+of every gym.
+
+Verified against production and the live account with `enqueue` intercepted —
+the three live subjects matched the vendor and were left alone.
+
+### The 660 dead jobs are cleared
+
+One signature (`reconcile_member`, E2E gym, the pre-W3 AES-GCM text, nightly
+2026-08-28 → 2026-09-22, 351 members), snapshotted and then deleted by that
+signature. 17 jobs remain and the dead count is **0**, so the next one on
+`/system-health` is a real one.
+
+### Still blocked on a person at VFT HQ
+
+Everything involving a finger or a scan — which now includes confirming any
+enrolment. Nothing has changed about that.
 
 ---
 

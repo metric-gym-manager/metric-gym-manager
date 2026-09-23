@@ -243,35 +243,36 @@ independent hardware confirmation that our remote-unlock actually happened.
 
 ### 3.9 VFT's answers — operational parameters, and what we built to them
 
-| Parameter             | VFT's answer                                                               | Built as                                                             |
-| --------------------- | -------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| Rate limit            | Undocumented; keep **under 10 req/s**                                      | `VENDOR_MAX_REQUESTS_PER_SECOND = 5` for margin                      |
-| Error responses       | Undocumented; standard `401`/`400`/`500`                                   | Retry 500 + timeouts; never retry 400; refresh token once on 401     |
-| Token invalidation    | New sign-in does **not** invalidate prior tokens                           | Per-gym cached token, refresh on 401                                 |
-| Webhook retries       | Undocumented; ack immediately with 200                                     | Always-200 + idempotency constraint — correct under any retry policy |
-| Enrolment timeout     | **30–60 s** of sensor inactivity                                           | `ENROLMENT_POLL_TIMEOUT_MS = 120_000` (generous), polling every 3 s  |
-| Poll interval         | **5–30 s**                                                                 | "Takes effect within about a minute" is the honest promise to staff  |
-| Device capacity       | **1,000–3,000 templates**; PUSH loop returns error codes when full         | Learned from `-18`, or entered from the spec sheet                   |
-| Bulk validity         | **No bulk endpoint**                                                       | Diff-based reconcile is a _requirement_, not an optimisation         |
-| `EndDate` inclusivity | **"Expires on 15th means the member can walk in until 00:00 on the 16th"** | `validTo = next_due_date`                                            |
+| Parameter             | VFT's answer                                                                                                                | Built as                                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Rate limit            | Undocumented; keep **under 10 req/s**                                                                                       | `VENDOR_MAX_REQUESTS_PER_SECOND = 5` for margin                                                                    |
+| Error responses       | Undocumented; standard `401`/`400`/`500`                                                                                    | Retry 500 + timeouts; never retry 400; refresh token once on 401                                                   |
+| Token invalidation    | New sign-in does **not** invalidate prior tokens                                                                            | Per-gym cached token, refresh on 401                                                                               |
+| Webhook retries       | Undocumented; ack immediately with 200                                                                                      | Always-200 + idempotency constraint — correct under any retry policy                                               |
+| Enrolment timeout     | **30–60 s** of sensor inactivity                                                                                            | `ENROLMENT_POLL_TIMEOUT_MS = 120_000` (generous), polling every 3 s                                                |
+| Poll interval         | **5–30 s**                                                                                                                  | "Takes effect within about a minute" is the honest promise to staff                                                |
+| Device capacity       | **1,000–3,000 templates**; PUSH loop returns error codes when full                                                          | Learned from `-18`, or entered from the spec sheet                                                                 |
+| Bulk validity         | **No bulk endpoint**                                                                                                        | Diff-based reconcile is a _requirement_, not an optimisation                                                       |
+| `EndDate` inclusivity | **"Expires on 15th means the member can walk in until 00:00 on the 16th"**                                                  | `validTo = next_due_date`                                                                                          |
+| Fingerprint capture   | **"In the next update, the finger count will be displayed. Now it is considered with the attendance record."** (2026-09-23) | The member's first fingerprint scan confirms enrolment — `RecordAccessEvents` writes the flag; the poll reports it |
 
 ### 3.10 Evidence-graded assumptions — current state
 
 Grades: **A** observed · **B** documented · **C** inferred · **D** guess.
 **No grade-D assumption is allowed to gate door access.**
 
-| #   | Assumption                                                | Grade                              | If wrong                                                                                                                                          |
-| --- | --------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1  | Personnel ID numeric, 1–79,999,999                        | **B → A** (VFT: numeric, 15 chars) | Exhaustion (loud, slow), not truncation (silent). Cap is one constant.                                                                            |
-| A2  | Devices acknowledge with a return code                    | **A — CONFIRMED**                  | Degrade to disappearance-as-completion — the earlier design, still works                                                                          |
-| A3  | Device poll interval ~30 s                                | **B**                              | The UI copy is wrong, not the security                                                                                                            |
-| A4  | Device-local enrolments reach the platform                | **B/C**                            | Cannot confirm enrolment programmatically; **the door still works**, because access is governed by the validity window, not our flag              |
-| A5  | `EndDate` inclusive, evaluated on-device                  | **A — CONFIRMED**                  | _Was_ the highest-blast-radius assumption. Now fact.                                                                                              |
-| A6  | Enrolment API-triggered, completed at terminal            | **A — CONFIRMED**                  | Both paths exist; VFT confirmed the API one is intended                                                                                           |
-| A7  | Reverse reconciliation                                    | design decision                    | —                                                                                                                                                 |
-| A8  | Attendance code tables                                    | **B → now A**                      | Superseded by the full 128-code table (§3.6)                                                                                                      |
-| A9  | `AreaID` is a filter, **not** an authorization boundary   | **A — CONFIRMED** (default 1)      | We were merely stricter than necessary — costs nothing to be wrong                                                                                |
-| A10 | `accessblock` can be disturbed by later user-table writes | **C/D**                            | The guard costs nothing; the failure it prevents (silently un-suspending barred members nightly) is one we would never detect from inside the app |
+| #   | Assumption                                                | Grade                              | If wrong                                                                                                                                                                                                                                                                                   |
+| --- | --------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A1  | Personnel ID numeric, 1–79,999,999                        | **B → A** (VFT: numeric, 15 chars) | Exhaustion (loud, slow), not truncation (silent). Cap is one constant.                                                                                                                                                                                                                     |
+| A2  | Devices acknowledge with a return code                    | **A — CONFIRMED**                  | Degrade to disappearance-as-completion — the earlier design, still works                                                                                                                                                                                                                   |
+| A3  | Device poll interval ~30 s                                | **B**                              | The UI copy is wrong, not the security                                                                                                                                                                                                                                                     |
+| A4  | Device-local enrolments reach the platform                | **B/C → A for scans**              | A template is confirmed by the member's first fingerprint scan (VFT, 2026-09-23), so an enrolment done at the terminal's own admin menu is caught the first time that person uses the door. **The door works regardless**, because access is governed by the validity window, not our flag |
+| A5  | `EndDate` inclusive, evaluated on-device                  | **A — CONFIRMED**                  | _Was_ the highest-blast-radius assumption. Now fact.                                                                                                                                                                                                                                       |
+| A6  | Enrolment API-triggered, completed at terminal            | **A — CONFIRMED**                  | Both paths exist; VFT confirmed the API one is intended                                                                                                                                                                                                                                    |
+| A7  | Reverse reconciliation                                    | design decision                    | —                                                                                                                                                                                                                                                                                          |
+| A8  | Attendance code tables                                    | **B → now A**                      | Superseded by the full 128-code table (§3.6)                                                                                                                                                                                                                                               |
+| A9  | `AreaID` is a filter, **not** an authorization boundary   | **A — CONFIRMED** (default 1)      | We were merely stricter than necessary — costs nothing to be wrong                                                                                                                                                                                                                         |
+| A10 | `accessblock` can be disturbed by later user-table writes | **C/D**                            | The guard costs nothing; the failure it prevents (silently un-suspending barred members nightly) is one we would never detect from inside the app                                                                                                                                          |
 
 **Still genuinely unknown:** token expiry duration, and the real `Pin` width on
 K40/F18 firmware. (VFT's 15-character answer is the _platform_ limit; the
@@ -513,16 +514,32 @@ or QR self-registration (unverified members produce no commands).
 **Payment → extended window.** `next_due_date` moves → trigger enqueues →
 drain sends `validperiod`. The reader admits them through the new date.
 
+**Nightly reconcile.** `reconcile-access` at 18:30 UTC (00:00 SLT) reads
+**the vendor's own subject list once per gym** and enqueues every member whose
+`StartDate`/`EndDate` there differs from what the access decision wants — plus
+anyone the vendor has never heard of, has deleted, or reports unsynced while we
+believe a reader holds them. Blocked state still comes from our record (the
+vendor exposes no such field), and an empty or failed vendor answer falls back
+to the local diff rather than being read as "the vendor holds nobody" (V1).
+
 **Cancellation → blocked + template revoked.** `accessblock` **plus**
 `DELETE /api/template/fromdev/{id}`. **Never `RemoveSubject`** — the vendor keeps
 the central copy, so eviction and return are reversible without re-enrolment.
 A blocked subject is **never** sent a validity period (A10 guard).
 
 **Enrolment.** Desk ticks the consent box → `members.biometric_consent_at` is
-written **before** anything is dispatched → `enrollfinger` puts the reader into
-enrolment mode → member presents a finger → `useEnrolmentPoll` polls
-`/enrolment` until it appears. Detection is **additive only** — it can set
-`finger_enrolled` true, never false (N3). With no consent on file the gate
+written **before** anything is dispatched → the member's access decision is
+resolved and the subject pushed to that reader if it does not already hold them
+(Y2) → `enrollfinger` puts the reader into enrolment mode → member presents a
+finger → **the member scans once, and that scan is the confirmation**. VFT,
+2026-09-23: the finger count arrives in a future update, and today a
+fingerprint "is considered with the attendance record", so there is no field to
+poll (Y3). `RecordAccessEvents` sets `finger_enrolled` from a `VerifyType: 1`
+scan that resolves to one of our members; `useEnrolmentPoll` sees it on its next
+`/enrolment` call. A **refused** scan counts too — the reader recognised the
+finger and then applied the window, so identification is the proof, not the
+verdict. Detection is **additive only** — it can set `finger_enrolled` true,
+never false (N3). With no consent on file the gate
 refuses in `ManageMemberBiometric` (not the route), so no caller can route
 around it, and the refusal is `BIOMETRIC_CONSENT_REQUIRED`/400 rather than a
 502 — nothing failed at the reader.
@@ -538,8 +555,10 @@ under a permission we have already erased.
 
 **A scan.** Device → webhook → Zod parse → group by `DeviceID` → resolve gym from
 `device_serial` → normalise `AttTime` by that device's offset → resolve member →
-classify → insert (idempotent). Clock skew inferred from the **newest** scan in
-the batch (D4).
+classify → insert (idempotent) → **confirm the fingerprint** for any member who
+identified by finger. Clock skew inferred from the **newest** scan in the batch
+(D4), and recorded _after_ the enrolment write-back, which is therefore wrapped:
+a failed cosmetic flag must not cost the reader its drift tracking.
 
 **Capacity.** `-18` → recount the _refusing_ reader → record its limit → evict
 in strict order: cancelled (oldest) → expired (longest) → suspended. **Never an
@@ -553,7 +572,7 @@ reader" conversation, not something to solve by locking out someone who paid.
 
 ---
 
-## 6. Defect history — twenty-seven defects: twelve by inverting assumptions, three by the first live vendor call, six by re-reading the surface in its light, three by running the campaign, three by the first session against real readers
+## 6. Defect history — thirty defects: twelve by inverting assumptions, three by the first live vendor call, six by re-reading the surface in its light, three by running the campaign, three by the first session against real readers, three by the vendor's answer to the question that session raised
 
 **Do not reintroduce these.** Every one was invisible to forward tests and found
 by asking "what if the opposite were true?".
@@ -737,6 +756,54 @@ confident wrong answer — queue depth read as collection, a truncating helper
 reused for parsing, and a `Validation error` that was my own race. Each was
 caught by looking at the vendor's raw record rather than my summary of it.
 Measure the thing, not a proxy for it.
+
+### Ninth audit (2026-09-23, second session) — the vendor answered, and the diff stopped talking to itself
+
+Not defects found by inverting an assumption this time: two of them are the
+**repairs** the eighth audit named and could not yet make, and the third is
+what the first of those exposed.
+
+| #      | Inverted assumption                                        | The defect                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| ------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Z1** | "Our record of what we sent is a record of what they hold" | The nightly reconcile diffed the desired window against `last_synced_*` — our own writing on both sides of the comparison, which agrees with itself however wrong it is. That is precisely the state Y1 left two members in: correct on the reader, blocked in our database, invisible to every sweep. It now reads `GET /api/template` once per gym and compares against the vendor's `StartDate`/`EndDate`/`IsSync`, counting the disagreements as `vendorDrift`. |
+| **Z2** | "A capability the vendor has not built has no workaround"  | Asked how we learn a fingerprint was captured, VFT answered: _"in the next update, the finger count will be displayed. Now it is considered with the attendance record."_ The signal exists — it is the scan. `RecordAccessEvents` now sets `finger_enrolled` from a fingerprint-verified scan that resolves to one of our members, including a **refused** one, since the reader recognising the finger is the proof rather than the verdict.                      |
+| **Z3** | "Reporting what the vendor says is the honest answer"      | `DetectBiometricEnrolment` reported `enrolled` straight from the vendor's template count. With that count permanently absent, every subject reads as zero — so the enrolment dialog could never succeed, for anyone, ever. Zero from a vendor that counts nothing is not evidence of absence. It now reports the strongest evidence either side holds, and the desk is told the fingerprint is confirmed by the member's first entry.                               |
+
+**Z1's real lesson is about where a comparison's two sides come from.** Nothing
+was wrong with the diff's logic; it was wrong about its source. A check whose
+inputs are both derived from the thing being checked cannot fail, which is the
+same shape as a double that cannot fail in a way it does not model — this
+feature's oldest recurring lesson, arriving for the fifth time from a fifth
+direction. `MockAccessControlProvider` was given the subject window at the same
+time, so the fake now holds state where the vendor holds it.
+
+**Two hazards deliberately designed around**, both of them V1's shape:
+
+- `listSubjects` returns `[]` for a payload it cannot parse. Read as "the
+  vendor holds nobody", that would enqueue **every provisioned member of every
+  gym** — the stampede the diff exists to prevent. Empty or failed therefore
+  falls back to the local comparison, and is counted as `gymsVendorUnreadable`
+  rather than reported as an error.
+- `IsSync` is read only as a **contradiction** of our own record: the vendor
+  saying a member is not distributed, while we also believe no reader holds
+  them, is two sources agreeing. A bare `IsSync: 0` treated as drift would
+  re-push that member every night forever, and the field's semantics are
+  inferred (observed only as `1`).
+
+**Measured, not assumed.** `StartDate`/`EndDate` arrive as `YYYYMMDD` strings —
+`20250120`/`20270309` on Kasun Bandara, exactly as pushed — so they compare
+directly against `formatDeviceDate`. The 19 fields carry no block flag, which is
+why blocked state is still ours. Verified end to end by running the real
+`ReconcileMemberAccess` against the production database and the live account
+with `enqueue` intercepted: five subjects checked, the three live members
+matched the vendor and were not enqueued, and the two it did flag are members
+this account has genuinely never been given.
+
+**And the 660 dead jobs are gone.** One homogeneous set — `reconcile_member`,
+the seeded E2E gym, `Unsupported state or unable to authenticate data`, nightly
+from 2026-08-28 to 2026-09-22, 351 distinct members — deleted by that exact
+signature after being snapshotted, leaving 17 jobs and a dead count of **0**.
+The next dead job on `/system-health` will be a real one.
 
 ---
 
