@@ -59,9 +59,57 @@ async function raw(
   return { status: res.status, text: (await res.text()).slice(0, 200) }
 }
 
-async function depth(serial: string): Promise<number> {
-  const commands = await provider.listPendingCommands(credentials, serial)
-  return commands.length
+/** The 'never happened' placeholder the vendor uses for an unset timestamp. */
+const NEVER = '01/01/1999'
+
+interface QueueEntry {
+  Command?: string
+  CommitTime?: string
+  TransTime?: string
+  IsProcessed?: number | string
+  ReturnValue?: string
+}
+
+/**
+ * The queue as the vendor describes it, not merely how long it is.
+ *
+ * A collected command is NOT removed from the listing: it stays with
+ * `IsProcessed` flipped to 1 and the terminal's reply in `ReturnValue`.
+ * Counting rows therefore reports "not collected" for a reader that answered
+ * instantly - which is exactly the wrong answer to take into a hardware
+ * session, and is what this probe reported before it was corrected.
+ */
+async function entries(serial: string): Promise<QueueEntry[]> {
+  // Deliberately NOT via `raw()`: that helper truncates bodies to 200
+  // characters so they can be printed, and a truncated JSON array fails to
+  // parse and reads as an empty queue. Which is how this probe briefly
+  // reported both readers unreachable while one was answering in the same
+  // second it was asked.
+  const res = await fetch(
+    new URL(`/api/devicecmd/${serial}`, credentials.baseUrl).toString(),
+    { headers: { ApiToken: token }, signal: AbortSignal.timeout(15_000) }
+  )
+
+  try {
+    const parsed: unknown = await res.json()
+    return Array.isArray(parsed) ? (parsed as QueueEntry[]) : []
+  } catch {
+    return []
+  }
+}
+
+/** Collected means the device actually took it, whatever the depth says. */
+function collected(entry: QueueEntry): boolean {
+  return (
+    String(entry.IsProcessed) === '1' ||
+    (typeof entry.TransTime === 'string' && !entry.TransTime.startsWith(NEVER))
+  )
+}
+
+function describe(list: QueueEntry[]): string {
+  if (list.length === 0) return 'empty'
+  const done = list.filter(collected).length
+  return `${list.length} queued, ${done} collected`
 }
 
 const wait = (seconds: number) =>
@@ -73,7 +121,7 @@ async function main(): Promise<void> {
 
   console.log('Queue before:')
   for (const serial of SERIALS) {
-    console.log(`  ${serial}  ${await depth(serial)} pending`)
+    console.log(`  ${serial}  ${describe(await entries(serial))}`)
   }
 
   if (!queue) {
@@ -87,39 +135,45 @@ async function main(): Promise<void> {
     console.log(`  ${serial}  HTTP ${r.status}  ${r.text}`)
   }
 
-  const queued: Record<string, number> = {}
-  for (const serial of SERIALS) queued[serial] = await depth(serial)
   console.log(
-    `\nQueued now: ${SERIALS.map((s) => `${s}=${queued[s]}`).join('  ')}`
-  )
-
-  console.log(
-    `\nWatching for ${WATCH_SECONDS}s. A command that disappears was COLLECTED by the reader.\n`
+    `\nWatching for up to ${WATCH_SECONDS}s. Collected = IsProcessed 1, or TransTime set.\n`
   )
 
   for (
-    let elapsed = CHECK_EVERY_SECONDS;
+    let elapsed = 0;
     elapsed <= WATCH_SECONDS;
     elapsed += CHECK_EVERY_SECONDS
   ) {
-    await wait(CHECK_EVERY_SECONDS)
+    if (elapsed > 0) await wait(CHECK_EVERY_SECONDS)
 
-    const now: Record<string, number> = {}
-    for (const serial of SERIALS) now[serial] = await depth(serial)
+    const line: string[] = []
+    let allCollected = true
 
-    console.log(
-      `  +${String(elapsed).padStart(3)}s  ` +
-        SERIALS.map((s) => `${s}=${now[s]}`).join('  ')
-    )
+    for (const serial of SERIALS) {
+      const list = await entries(serial)
+      line.push(`${serial}=${describe(list)}`)
+      if (!list.length || !list.every(collected)) allCollected = false
+    }
+
+    console.log(`  +${String(elapsed).padStart(3)}s  ${line.join('   ')}`)
+    if (allCollected) break
   }
 
   console.log('\nVerdict:')
   for (const serial of SERIALS) {
-    const left = await depth(serial)
-    const collected = left < queued[serial]
-    console.log(
-      `  ${serial}  ${collected ? 'ONLINE — the reader collected its command' : 'NOT COLLECTED — the reader is not polling the vendor'}`
-    )
+    const list = await entries(serial)
+    const done = list.filter(collected)
+
+    if (done.length > 0) {
+      const last = done[done.length - 1]
+      console.log(
+        `  ${serial}  ONLINE - collected at ${last.TransTime}, replied ${last.ReturnValue || '(no value)'}`
+      )
+    } else {
+      console.log(
+        `  ${serial}  NOT REACHING THE VENDOR - TransTime still ${NEVER}, nothing transmitted`
+      )
+    }
   }
 
   console.log(
