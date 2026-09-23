@@ -632,6 +632,16 @@ export class VftAccessControlProvider implements IAccessControlProvider {
         return { status: 'failed', error: error.message, retryable: false }
       }
 
+      // Already true, or already queued. Re-sending would be the mistake, and
+      // reporting failure stops the write-back — which is how a member who
+      // rejoined ended up correct on the reader and blocked in our records.
+      if (
+        error instanceof VendorRequestError &&
+        describesBenignConflict(error.detail)
+      ) {
+        return { status: 'applied' }
+      }
+
       const retryable = isRetryable(error)
 
       return {
@@ -789,6 +799,35 @@ function isRetryable(error: unknown): boolean {
     return !describesVendorRejection(error.detail)
   }
   return true
+}
+
+/**
+ * The vendor's generic conflict phrase.
+ *
+ * Bare "Validation error" is what this vendor answers when the thing being
+ * asked for is already true or already in flight — a duplicate `EmpId`, a
+ * repeat of a validity window, a command that duplicates a queued one. Genuine
+ * field failures name themselves instead ("Data too long for column …").
+ *
+ * So this is the HTTP-level twin of return codes `-7` and `-28`: benign.
+ */
+const GENERIC_CONFLICT = /^\s*validation error\s*$/i
+
+/** Whether a 5xx body is the vendor saying "that is already the case". */
+function describesBenignConflict(detail: string): boolean {
+  if (!detail) return false
+
+  try {
+    const parsed: unknown = JSON.parse(detail)
+    const message = commandSchema.safeParse(parsed)
+    return Boolean(
+      message.success &&
+      message.data.message &&
+      GENERIC_CONFLICT.test(message.data.message)
+    )
+  } catch {
+    return false
+  }
 }
 
 /** Whether a failed response body carries the vendor's own reason. */

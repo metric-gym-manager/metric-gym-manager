@@ -299,8 +299,12 @@ describe('VftAccessControlProvider — observed vendor response semantics', () =
     expect(outcome.status === 'failed' && outcome.error).toContain('not found')
   })
 
-  it('does not retry a 500 that carries a validation message', async () => {
-    respond({ message: 'Validation error' }, 500)
+  it('does not retry a 500 that names what is wrong', async () => {
+    // Fixture changed 2026-09-23. This used the bare phrase "Validation
+    // error", which later evidence showed is the vendor's GENERIC CONFLICT
+    // response — sent when the thing asked for is already true. The principle
+    // being pinned is unchanged: a 5xx that names a real problem is permanent.
+    respond({ message: 'Error updating Employee with id=90000001' }, 500)
 
     const outcome = await provider.upsertSubject(credentials, {
       subjectId: '90000001',
@@ -426,12 +430,91 @@ describe('VftAccessControlProvider — inverted analysis of the campaign fixes',
   })
 
   it('still refuses to retry a 500 that names a validation failure', async () => {
-    respond({ message: 'Validation error' }, 500)
+    // Same fixture correction as above: a message that actually names a fault.
+    respond({ message: "Data too long for column 'EmpId' at row 1" }, 500)
 
     const outcome = await provider.upsertSubject(credentials, {
       subjectId: '90000001',
       name: 'Probe',
     })
+
+    expect(outcome).toMatchObject({ status: 'failed', retryable: false })
+  })
+})
+
+/**
+ * The vendor's generic conflict response.
+ *
+ * Observed three times on live hardware, always for a request whose desired
+ * state is ALREADY TRUE or already in flight:
+ *
+ *  - adding an `EmpId` that already exists
+ *  - re-sending a validity window identical to one sent seconds earlier
+ *  - a command duplicating one already queued for the same subject
+ *
+ * Each answers `500 {"message":"Validation error"}` — the bare, generic
+ * phrase. Genuine field failures do NOT look like this: they name what is
+ * wrong ("Data too long for column 'EmpId' at row 1", "Error updating Employee
+ * with id=…").
+ *
+ * Treating the generic form as a hard failure cost us twice in real flows. A
+ * member who lapsed and paid, and a member who cancelled and rejoined, both
+ * ended up correct ON THE READER while our record still said blocked and
+ * unsynced — because one duplicate command in the batch was reported as a
+ * permanent failure, so the write-back never happened and the job
+ * dead-lettered. This is the same shape as return codes `-7` (already queued)
+ * and `-28` (door already open), which we have always treated as benign.
+ */
+describe('VftAccessControlProvider — the generic conflict response', () => {
+  let fetchMock: jest.Mock
+  let provider: VftAccessControlProvider
+
+  beforeEach(() => {
+    fetchMock = jest.fn()
+    global.fetch = fetchMock as unknown as typeof fetch
+    provider = new VftAccessControlProvider()
+  })
+
+  function respond(body: unknown, status = 200): void {
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse({ token: 'TOKEN-1' }))
+      .mockResolvedValueOnce(jsonResponse(body, status))
+  }
+
+  it('treats a bare "Validation error" as benign, not a failure', async () => {
+    respond({ message: 'Validation error' }, 500)
+
+    const outcome = await provider.setValidPeriod(credentials, {
+      deviceSerial: 'NYU7251900066',
+      subjectId: '100004',
+      startDate: '20260219',
+      endDate: '20270219',
+    })
+
+    // The window is already what we are asking for. Reporting failure here
+    // stops the write-back and leaves our record disagreeing with the reader.
+    expect(outcome.status).toBe('applied')
+  })
+
+  it('still fails on a validation error that names the problem', async () => {
+    respond({ message: "Data too long for column 'EmpId' at row 1" }, 500)
+
+    const outcome = await provider.upsertSubject(credentials, {
+      subjectId: '999999999999999',
+      name: 'Too Long',
+    })
+
+    expect(outcome).toMatchObject({
+      status: 'failed',
+      retryable: false,
+      needsAttention: true,
+    })
+  })
+
+  it('still fails on an update error that names the subject', async () => {
+    respond({ message: 'Error updating Employee with id=90000002' }, 500)
+
+    const outcome = await provider.renameSubject(credentials, '90000002', 'X')
 
     expect(outcome).toMatchObject({ status: 'failed', retryable: false })
   })

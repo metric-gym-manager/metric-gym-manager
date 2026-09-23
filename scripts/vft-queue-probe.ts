@@ -165,7 +165,13 @@ async function main(): Promise<void> {
     const done = list.filter(collected)
 
     if (done.length > 0) {
-      const last = done[done.length - 1]
+      // The MOST RECENT collection, not whichever happens to sit last in the
+      // listing. Device A drained a backlog at 13:15:30 and took a fresh
+      // command at 13:16:56; reporting the former reads as a reader that woke
+      // up once rather than one answering now.
+      const last = [...done].sort((a, b) =>
+        String(b.TransTime ?? '').localeCompare(String(a.TransTime ?? ''))
+      )[0]
       console.log(
         `  ${serial}  ONLINE - collected at ${last.TransTime}, replied ${last.ReturnValue || '(no value)'}`
       )
