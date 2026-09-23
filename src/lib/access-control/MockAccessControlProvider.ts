@@ -40,6 +40,21 @@ export class MockAccessControlProvider implements IAccessControlProvider {
     this.devices = devices
   }
 
+  /**
+   * Seed the subjects the vendor is to report.
+   *
+   * Exists because reconciliation now compares against the vendor's own
+   * account of the state rather than our record of what we last sent, so a
+   * test has to be able to say "the vendor holds last month's date" without
+   * driving a push to get there.
+   */
+  setSubjects(subjects: AccessSubjectInfo[]): void {
+    this.subjects.clear()
+    for (const subject of subjects) {
+      this.subjects.set(subject.subjectId, subject)
+    }
+  }
+
   /** Everything sent so far, in order. */
   getCommands(): readonly RecordedCommand[] {
     return this.commands
@@ -92,6 +107,10 @@ export class MockAccessControlProvider implements IAccessControlProvider {
       name: subject.name,
       areaId: subject.areaId ?? null,
       templateCount: 0,
+      validFrom: null,
+      validTo: null,
+      syncedToVendor: true,
+      deleted: false,
     })
     return { status: 'applied' }
   }
@@ -168,6 +187,21 @@ export class MockAccessControlProvider implements IAccessControlProvider {
       deviceSerial: input.deviceSerial,
       details: { startDate: input.startDate, endDate: input.endDate },
     })
+
+    // The window is kept ON the subject, because that is where the real vendor
+    // keeps it: `GET /api/template` returns `StartDate`/`EndDate` per subject,
+    // measured against the live account on 2026-09-23. A double that recorded
+    // the command and forgot the state could not fail the way reconciliation
+    // now reads it — the lesson this feature has learned four times.
+    const existing = this.subjects.get(input.subjectId)
+    if (existing) {
+      this.subjects.set(input.subjectId, {
+        ...existing,
+        validFrom: input.startDate,
+        validTo: input.endDate,
+      })
+    }
+
     return { status: 'queued' }
   }
 

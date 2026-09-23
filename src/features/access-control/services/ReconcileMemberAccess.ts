@@ -25,6 +25,33 @@
  * That is the confirmed product decision — a gym's billing dispute must not
  * lock out members who paid — and it holds precisely because the device is the
  * authority rather than us.
+ *
+ * ## What it diffs against
+ *
+ * The **vendor's own account of the state**, not our record of what we last
+ * sent. `GET /api/template` carries `StartDate`, `EndDate` and `IsSync` per
+ * subject — measured on the live account 2026-09-23, `YYYYMMDD` strings
+ * exactly as pushed — so one call per gym answers "what does the vendor
+ * actually hold?".
+ *
+ * That matters because audit Y1 showed our record failing in the direction
+ * nothing could notice: a duplicate command misread as a permanent failure
+ * meant the write-back never ran, leaving two members correct on the reader
+ * and blocked in our database. A diff whose two sides are both our own record
+ * agrees with itself no matter how wrong it is.
+ *
+ * Three things the vendor cannot answer, which still come from our record:
+ *
+ *  - **Blocked.** There is no block field on the subject (19 fields, none of
+ *    them it), so a block is diffed against `last_synced_blocked` as before.
+ *  - **An unreadable answer.** `listSubjects` returns `[]` for a payload it
+ *    cannot parse — that is how an account with two readers once reported
+ *    none. Read as "the vendor holds nobody", an empty list would enqueue
+ *    every provisioned member of every gym: the exact stampede the diff
+ *    exists to prevent. Empty or failed therefore falls back to the local
+ *    comparison, which is strictly the old behaviour.
+ *  - **Per-reader placement.** The window is central to the account; which
+ *    terminal holds the template stays ours to track.
  */
 
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig'
@@ -32,6 +59,10 @@ import { isFeatureEnabled } from '@/features/subscriptions/domain/PlanRestrictio
 import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 import type { EvictInactiveSubjects } from './EvictInactiveSubjects'
+import type {
+  AccessSubjectInfo,
+  IAccessControlProvider,
+} from '@/lib/access-control'
 import { resolveAccessDecision } from '@/features/access-control/domain/AccessDecision'
 import {
   formatDeviceDate,
@@ -71,6 +102,23 @@ export interface ReconcileMemberAccessSummary {
    * plenty of room.
    */
   slotsReclaimed: number
+  /**
+   * Members the **vendor** disagreed with us about.
+   *
+   * A subset of `membersEnqueued`, and the number worth watching: these are
+   * the members our own record called settled. A non-zero figure here means
+   * something wrote to the hardware without us recording it — or, more likely,
+   * that a write-back of ours was lost.
+   */
+  vendorDrift: number
+  /**
+   * Gyms whose subjects the vendor would not tell us about this run.
+   *
+   * They fall back to the local diff rather than being skipped, so this is not
+   * an error — but a gym that is permanently here is reconciling blind against
+   * its own record, which is what F28 set out to stop.
+   */
+  gymsVendorUnreadable: number
   errors: string[]
 }
 
@@ -78,7 +126,8 @@ export class ReconcileMemberAccess {
   constructor(
     private readonly repo: IAccessControlRepository,
     private readonly gymSubscriptionRepo: IGymSubscriptionRepository,
-    private readonly evictSubjects: EvictInactiveSubjects
+    private readonly evictSubjects: EvictInactiveSubjects,
+    private readonly provider: IAccessControlProvider
   ) {}
 
   /**
@@ -96,6 +145,8 @@ export class ReconcileMemberAccess {
       membersChecked: 0,
       membersEnqueued: 0,
       slotsReclaimed: 0,
+      vendorDrift: 0,
+      gymsVendorUnreadable: 0,
       errors: [],
     }
 
@@ -124,6 +175,9 @@ export class ReconcileMemberAccess {
         const subjects = await this.repo.listSubjectsForReconcile(gymId)
         summary.membersChecked += subjects.length
 
+        const vendorSubjects = await this.readVendorState(gymId, subjects)
+        if (!vendorSubjects) summary.gymsVendorUnreadable += 1
+
         for (const context of subjects) {
           if (!context.subject) continue
 
@@ -145,12 +199,31 @@ export class ReconcileMemberAccess {
           const desiredBlocked = !decision.allowed
 
           const current = context.subject
-          const matches =
-            normaliseDate(current.last_synced_valid_from) === desiredFrom &&
-            normaliseDate(current.last_synced_valid_to) === desiredTo &&
-            current.last_synced_blocked === desiredBlocked
 
-          if (matches) continue
+          // Blocked is ours either way: the vendor exposes no such field.
+          const blockMatches = current.last_synced_blocked === desiredBlocked
+
+          const vendorRecord = vendorSubjects?.get(String(current.subject_id))
+
+          const windowMatches = vendorSubjects
+            ? this.vendorAgrees(vendorRecord, current, desiredFrom, desiredTo)
+            : normaliseDate(current.last_synced_valid_from) === desiredFrom &&
+              normaliseDate(current.last_synced_valid_to) === desiredTo
+
+          if (windowMatches && blockMatches) continue
+
+          // Drift proper: our own record was satisfied and the vendor was not.
+          // Counted apart from ordinary changes because it means our record
+          // and the hardware had parted company with nothing to show for it.
+          if (
+            vendorSubjects &&
+            !windowMatches &&
+            blockMatches &&
+            normaliseDate(current.last_synced_valid_from) === desiredFrom &&
+            normaliseDate(current.last_synced_valid_to) === desiredTo
+          ) {
+            summary.vendorDrift += 1
+          }
 
           // Enqueue rather than sync inline: the drainer owns pacing, retry
           // and failure classification, and having one path to the hardware is
@@ -181,6 +254,84 @@ export class ReconcileMemberAccess {
     }
 
     return summary
+  }
+
+  /**
+   * What the vendor holds for this gym's subjects, or `null` if it will not
+   * say.
+   *
+   * One call per gym, never one per member — the reconcile's whole economy is
+   * that vendor traffic stays proportional to real changes.
+   *
+   * Returns `null` rather than an empty map for every "we could not read it"
+   * case, so the caller cannot accidentally treat silence as "the vendor holds
+   * nobody". A failure is not an error on the summary either: falling back to
+   * the local diff is exactly the behaviour that shipped before this, so a
+   * vendor outage must not make the nightly log look broken.
+   */
+  private async readVendorState(
+    gymId: string,
+    subjects: Array<{ subject: unknown }>
+  ): Promise<Map<string, AccessSubjectInfo> | null> {
+    // Nothing provisioned: there is nothing to compare, and a call would be
+    // one HTTP request to learn that.
+    if (!subjects.some((context) => context.subject)) return null
+
+    try {
+      const credentials = await this.repo.getCredentials(gymId)
+      if (!credentials) return null
+
+      const vendorSubjects = await this.provider.listSubjects(credentials)
+      if (vendorSubjects.length === 0) return null
+
+      // Indexed by id, deliberately. The account is shared, so this list can
+      // hold other companies' people; the only safe use of it is a lookup of
+      // an id WE allocated, never a scan of their rows.
+      return new Map(vendorSubjects.map((s) => [String(s.subjectId), s]))
+    } catch {
+      return null
+    }
+  }
+
+  /**
+   * Whether the vendor's own record matches what the member should have.
+   *
+   * @param vendorRecord - The subject as the vendor holds it, if at all.
+   * @param current - Our subject row, for the "is anyone meant to hold them"
+   *   question `IsSync` is judged against.
+   * @param desiredFrom - `YYYYMMDD` the window should start.
+   * @param desiredTo - `YYYYMMDD` the window should end.
+   */
+  private vendorAgrees(
+    vendorRecord: AccessSubjectInfo | undefined,
+    current: { synced_device_serials: string[] },
+    desiredFrom: string | null,
+    desiredTo: string | null
+  ): boolean {
+    // We believe this member is provisioned and the vendor has never heard of
+    // them — or has deleted them. Either way the record has to be re-asserted.
+    if (!vendorRecord) return false
+    if (vendorRecord.deleted === true) return false
+
+    if (normaliseDate(vendorRecord.validFrom ?? null) !== desiredFrom) {
+      return false
+    }
+    if (normaliseDate(vendorRecord.validTo ?? null) !== desiredTo) return false
+
+    // `IsSync` is read only as a CONTRADICTION of our own record. The vendor
+    // saying a member is not distributed, when we also believe no reader holds
+    // them, is two sources agreeing — a cancelled member is off every reader on
+    // purpose. Treating a bare `IsSync: 0` as drift would re-push them nightly
+    // for ever, and the field's exact semantics are inferred rather than
+    // documented (observed only as `1`, on subjects that are indeed synced).
+    if (
+      vendorRecord.syncedToVendor === false &&
+      current.synced_device_serials.length > 0
+    ) {
+      return false
+    }
+
+    return true
   }
 
   /**
@@ -221,10 +372,14 @@ export class ReconcileMemberAccess {
 }
 
 /**
- * Normalise a stored `DATE` to the device's `YYYYMMDD` form for comparison.
+ * Normalise a date to the device's `YYYYMMDD` form for comparison.
  *
- * The column holds `2026-01-15`; the device wants `20260115`. Comparing the
- * two raw would report every member as changed, every night.
+ * Our column holds `2026-01-15`; the device and the vendor's subject record
+ * both want `20260115`. Comparing the two raw would report every member as
+ * changed, every night. Applied to the vendor's value as well — it arrives
+ * already in device form, but normalising both sides costs nothing and means
+ * a build that starts sending `2026-01-15` cannot silently re-push the whole
+ * gym.
  */
 function normaliseDate(value: string | null): string | null {
   if (!value) return null

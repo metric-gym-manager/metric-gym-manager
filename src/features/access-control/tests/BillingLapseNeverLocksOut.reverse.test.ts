@@ -183,7 +183,8 @@ describe('a gym billing lapse never locks members out', () => {
         const summary = await new ReconcileMemberAccess(
           repo,
           subscriptionRepo,
-          new EvictInactiveSubjects(repo, provider)
+          new EvictInactiveSubjects(repo, provider),
+          provider
         ).execute({ today: TODAY })
 
         expect(summary.gymsSkippedBilling).toBe(1)
@@ -229,7 +230,8 @@ describe('a gym billing lapse never locks members out', () => {
       await new ReconcileMemberAccess(
         repo,
         subscriptionRepo,
-        new EvictInactiveSubjects(repo, provider)
+        new EvictInactiveSubjects(repo, provider),
+        provider
       ).execute({ today: TODAY })
 
       expect(subject.last_synced_valid_to).toBe('2026-03-15')

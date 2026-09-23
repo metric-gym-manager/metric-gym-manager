@@ -111,7 +111,8 @@ function simulation(options: {
   const reconcile = new ReconcileMemberAccess(
     repo,
     subscriptionRepo,
-    new EvictInactiveSubjects(repo, provider)
+    new EvictInactiveSubjects(repo, provider),
+    provider
   )
 
   return { repo, provider, sync, reconcile, state }
@@ -295,10 +296,13 @@ describe('Inverted assumption 4 — an entitled gym stays entitled', () => {
       })
     )
 
+    const provider = new MockAccessControlProvider()
+
     const summary = await new ReconcileMemberAccess(
       repo,
       subscriptionRepo,
-      new EvictInactiveSubjects(repo, new MockAccessControlProvider())
+      new EvictInactiveSubjects(repo, provider),
+      provider
     ).execute({ today: TODAY })
 
     expect(summary.membersEnqueued).toBe(0)

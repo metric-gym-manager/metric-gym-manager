@@ -112,7 +112,8 @@ export function createReconcileMemberAccess(
   return new ReconcileMemberAccess(
     createAccessControlRepository(supabase),
     new SupabaseGymSubscriptionRepository(supabase),
-    createEvictInactiveSubjects(supabase)
+    createEvictInactiveSubjects(supabase),
+    createAccessControlProvider()
   )
 }
 

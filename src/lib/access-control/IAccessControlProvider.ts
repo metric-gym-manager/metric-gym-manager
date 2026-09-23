@@ -118,6 +118,15 @@ export interface AccessSubjectInfo {
   validTo?: string | null
   /** The vendor's own sync flag for this subject. */
   syncedToVendor?: boolean | null
+  /**
+   * The vendor's soft-delete flag (`IsDelete`).
+   *
+   * Observed `0` on every subject of the live account on 2026-09-23; the `1`
+   * case has never been seen, so callers treat `true` as "the vendor no longer
+   * holds this subject" — the conservative reading, since acting on it
+   * re-pushes a member and acting on nothing would leave one stranded.
+   */
+  deleted?: boolean | null
 }
 
 /** A command still awaiting collection by a device. */

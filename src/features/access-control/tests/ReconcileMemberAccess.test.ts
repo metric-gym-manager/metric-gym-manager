@@ -61,10 +61,14 @@ function build(
   return {
     repo,
     subscriptionRepo,
+    // An empty vendor list, deliberately: these cases are about the local
+    // diff, and an unreadable vendor answer falls back to exactly that. The
+    // vendor-sourced comparison has its own describe block below.
     useCase: new ReconcileMemberAccess(
       repo,
       subscriptionRepo,
-      new EvictInactiveSubjects(repo, new MockAccessControlProvider())
+      new EvictInactiveSubjects(repo, new MockAccessControlProvider()),
+      new MockAccessControlProvider()
     ),
   }
 }
@@ -304,5 +308,322 @@ describe('ReconcileMemberAccess', () => {
       expect(subscriptionRepo.findByGymId).toHaveBeenCalledTimes(1)
       expect(subscriptionRepo.findByGymId).toHaveBeenCalledWith('gym-1')
     })
+  })
+})
+
+/**
+ * Comparing against the vendor's own account of the state (F28).
+ *
+ * The diff used to ask "does the hardware hold what we last wrote down that we
+ * sent?" — a question whose answer is our own record on both sides. Audit
+ * Y1 showed exactly how that fails: a duplicate command misread as permanent
+ * left two members correct on the reader and blocked in our database, and
+ * nothing in the nightly sweep could notice, because our record agreed with
+ * itself.
+ *
+ * `GET /api/template` carries `StartDate`, `EndDate` and `IsSync` per subject.
+ * Measured against the live account on 2026-09-23: they arrive as `YYYYMMDD`
+ * strings — the device's own form — so they compare directly against what the
+ * decision engine wants pushed.
+ */
+describe('ReconcileMemberAccess — vendor as the comparison source', () => {
+  function vendorSubject(
+    overrides: Partial<{
+      subjectId: string
+      validFrom: string | null
+      validTo: string | null
+      syncedToVendor: boolean | null
+      deleted: boolean | null
+    }> = {}
+  ) {
+    return {
+      subjectId: '100001',
+      name: 'Test Member',
+      areaId: 1,
+      templateCount: null,
+      validFrom: '20251215',
+      validTo: '20260115',
+      syncedToVendor: true,
+      deleted: false,
+      ...overrides,
+    }
+  }
+
+  function buildWithVendor(
+    contexts: ReturnType<typeof makeContext>[],
+    vendorSubjects: ReturnType<typeof vendorSubject>[]
+  ) {
+    const repo = new FakeAccessControlRepository({
+      credentials: testCredentials,
+      contexts,
+      gymsWithAccessControl: ['gym-1'],
+    })
+
+    const subscriptionRepo = mockSubscriptionRepo()
+    subscriptionRepo.findByGymId.mockImplementation(async () =>
+      makeSubscription({
+        gymId: 'gym-1',
+        tier: SaasTier.Enterprise,
+        status: SaasStatus.Active,
+      })
+    )
+
+    const provider = new MockAccessControlProvider()
+    provider.setSubjects(vendorSubjects)
+
+    return {
+      repo,
+      provider,
+      useCase: new ReconcileMemberAccess(
+        repo,
+        subscriptionRepo,
+        new EvictInactiveSubjects(repo, provider),
+        provider
+      ),
+    }
+  }
+
+  it('enqueues a member the vendor disagrees about, even when our own record looks correct', async () => {
+    // The Y1 shape: our last-write record says we pushed the right window, so
+    // the old diff is satisfied. The vendor holds last month's date.
+    const { repo, useCase } = buildWithVendor(
+      [
+        makeContext({
+          nextDueDate: day('2026-01-15'),
+          subject: makeSubject({
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+            last_synced_blocked: false,
+          }),
+        }),
+      ],
+      [vendorSubject({ validTo: '20251215' })]
+    )
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(1)
+    expect(summary.vendorDrift).toBe(1)
+    expect(repo.enqueued).toHaveLength(1)
+  })
+
+  it('enqueues nothing when the vendor already holds the right window', async () => {
+    const { repo, useCase } = buildWithVendor(
+      [
+        makeContext({
+          nextDueDate: day('2026-01-15'),
+          // Deliberately EMPTY on our side: the vendor is the authority now,
+          // so a member we have no local record of pushing must not be
+          // re-pushed when the vendor plainly holds the right window.
+          subject: makeSubject({
+            last_synced_valid_from: null,
+            last_synced_valid_to: null,
+            last_synced_blocked: false,
+          }),
+        }),
+      ],
+      [vendorSubject()]
+    )
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(0)
+    expect(repo.enqueued).toHaveLength(0)
+  })
+
+  it('enqueues a member the vendor has never heard of', async () => {
+    const { useCase } = buildWithVendor(
+      [
+        makeContext({
+          nextDueDate: day('2026-01-15'),
+          subject: makeSubject({
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+            last_synced_blocked: false,
+          }),
+        }),
+      ],
+      [vendorSubject({ subjectId: '999999' })]
+    )
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(1)
+    expect(summary.vendorDrift).toBe(1)
+  })
+
+  it('enqueues a member the vendor has flagged deleted', async () => {
+    const { useCase } = buildWithVendor(
+      [
+        makeContext({
+          nextDueDate: day('2026-01-15'),
+          subject: makeSubject({
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+          }),
+        }),
+      ],
+      [vendorSubject({ deleted: true })]
+    )
+
+    expect((await useCase.execute({ today: TODAY })).membersEnqueued).toBe(1)
+  })
+
+  it('enqueues when the vendor says a member we believe is on a reader is unsynced', async () => {
+    const { useCase } = buildWithVendor(
+      [
+        makeContext({
+          nextDueDate: day('2026-01-15'),
+          subject: makeSubject({
+            synced_device_serials: ['SER-001'],
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+          }),
+        }),
+      ],
+      [vendorSubject({ syncedToVendor: false })]
+    )
+
+    expect((await useCase.execute({ today: TODAY })).membersEnqueued).toBe(1)
+  })
+
+  it('does not enqueue an unsynced member no reader is supposed to hold', async () => {
+    // The vendor agreeing with us is not drift. A cancelled member is off every
+    // reader on purpose, and IsSync=0 says exactly that.
+    const { useCase } = buildWithVendor(
+      [
+        makeContext({
+          nextDueDate: day('2026-01-15'),
+          subject: makeSubject({
+            synced_device_serials: [],
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+          }),
+        }),
+      ],
+      [vendorSubject({ syncedToVendor: false })]
+    )
+
+    expect((await useCase.execute({ today: TODAY })).membersEnqueued).toBe(0)
+  })
+
+  /**
+   * The V1 hazard, pointed at the reconciler.
+   *
+   * `listSubjects` answers `[]` for a payload it cannot parse — that is how an
+   * account with two readers reported none. An empty list read as "the vendor
+   * holds nobody" would enqueue every provisioned member of every gym, which
+   * is the 500-call stampede the diff exists to prevent. Absence of evidence
+   * has to fall back to our own record.
+   */
+  it('falls back to our own record when the vendor list is empty', async () => {
+    const { repo, useCase } = buildWithVendor(
+      [
+        makeContext({
+          nextDueDate: day('2026-01-15'),
+          subject: makeSubject({
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+            last_synced_blocked: false,
+          }),
+        }),
+      ],
+      []
+    )
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(0)
+    expect(summary.gymsVendorUnreadable).toBe(1)
+    expect(repo.enqueued).toHaveLength(0)
+  })
+
+  it('falls back to our own record when the vendor call fails, without failing the gym', async () => {
+    const { provider, useCase } = buildWithVendor(
+      [
+        makeContext({
+          nextDueDate: day('2026-02-15'),
+          subject: makeSubject({
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+            last_synced_blocked: false,
+          }),
+        }),
+      ],
+      [vendorSubject()]
+    )
+
+    jest
+      .spyOn(provider, 'listSubjects')
+      .mockRejectedValue(new Error('vendor unreachable'))
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    // The local diff still notices the date moved, and the gym is not skipped.
+    expect(summary.membersEnqueued).toBe(1)
+    expect(summary.gymsVendorUnreadable).toBe(1)
+    expect(summary.errors).toHaveLength(0)
+  })
+
+  it('still blocks from our own record, which the vendor does not expose', async () => {
+    // `GET /api/template` has no block field — 19 fields, measured. So a member
+    // whose window matches but who should be blocked is still caught here.
+    const { useCase } = buildWithVendor(
+      [
+        makeContext({
+          status: MemberStatus.Suspended,
+          nextDueDate: day('2026-01-15'),
+          subject: makeSubject({
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+            last_synced_blocked: false,
+          }),
+        }),
+      ],
+      [vendorSubject()]
+    )
+
+    expect((await useCase.execute({ today: TODAY })).membersEnqueued).toBe(1)
+  })
+
+  it('reads only our own subjects out of an account-wide list', async () => {
+    // The account is shared: `listSubjects` returns other companies' people.
+    // Matching must be a lookup of OUR subject id, never a scan of their list.
+    const { useCase } = buildWithVendor(
+      [
+        makeContext({
+          nextDueDate: day('2026-01-15'),
+          subject: makeSubject({
+            subject_id: 100001,
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+          }),
+        }),
+      ],
+      [
+        vendorSubject({ subjectId: '500000', validTo: '19990101' }),
+        vendorSubject(),
+        vendorSubject({ subjectId: '500001', validTo: '19990101' }),
+      ]
+    )
+
+    expect((await useCase.execute({ today: TODAY })).membersEnqueued).toBe(0)
+  })
+
+  it('makes one vendor call per gym, not one per member', async () => {
+    const { provider, useCase } = buildWithVendor(
+      [
+        makeContext({ memberId: 'member-1' }),
+        makeContext({
+          memberId: 'member-2',
+          subject: makeSubject({ member_id: 'member-2', subject_id: 100002 }),
+        }),
+      ],
+      [vendorSubject(), vendorSubject({ subjectId: '100002' })]
+    )
+
+    await useCase.execute({ today: TODAY })
+
+    expect(provider.getCommandsOfType('listSubjects')).toHaveLength(1)
   })
 })

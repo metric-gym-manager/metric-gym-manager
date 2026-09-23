@@ -133,6 +133,8 @@ const subjectSchema = z.object({
   EndDate: z.string().nullish(),
   /** The vendor's own sync flag. 1 on a subject it considers distributed. */
   IsSync: z.union([z.string(), z.number(), z.boolean()]).nullish(),
+  /** Soft delete. 0 on every live subject observed; 1 has never been seen. */
+  IsDelete: z.union([z.string(), z.number(), z.boolean()]).nullish(),
 })
 
 const subjectListSchema = z.union([
@@ -493,6 +495,7 @@ export class VftAccessControlProvider implements IAccessControlProvider {
       validFrom: row.StartDate ?? null,
       validTo: row.EndDate ?? null,
       syncedToVendor: toBooleanOrNull(row.IsSync),
+      deleted: toBooleanOrNull(row.IsDelete),
     }))
   }
 
