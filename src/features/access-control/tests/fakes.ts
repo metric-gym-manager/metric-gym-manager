@@ -225,6 +225,13 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
 
   async markAccountVerified(): Promise<void> {}
 
+  /** Gyms whose stored confirmation was cleared, in order. */
+  readonly verificationFailures: string[] = []
+
+  async markAccountVerificationFailed(gymId: string): Promise<void> {
+    this.verificationFailures.push(gymId)
+  }
+
   // ---- Devices -------------------------------------------------------------
 
   async listDevices(_gymId: string): Promise<AccessDevice[]> {

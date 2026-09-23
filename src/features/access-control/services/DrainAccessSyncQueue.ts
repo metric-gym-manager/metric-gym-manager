@@ -140,6 +140,11 @@ export class DrainAccessSyncQueue {
         // bury the one thing worth saying behind a wall of ordinary retries.
         // This deployment spent 25 days and 660 jobs proving that.
         if (error instanceof CredentialDecryptionError) {
+          // The jobs are what discover this, so they are what must report it.
+          // For twenty-five days they knew the credentials were unreadable
+          // while the only screen a gym owner reads said Connected.
+          await this.repo.markAccountVerificationFailed(job.gym_id)
+
           // `retryable` distinguishes a key that is WRONG from one that is
           // momentarily ABSENT — a deploy or a cold start can produce the
           // second, and dead-lettering that would strand a whole gym's sync

@@ -112,12 +112,16 @@ export default function AccessAccountCard() {
 
         {!isLoading && account && (
           <Badge variant={account.verified ? 'success' : 'warning'} dot>
-            {account.verified ? 'Connected' : 'Not verified'}
+            {account.verified
+              ? 'Connected'
+              : account.lastVerifiedAt
+                ? 'Needs checking'
+                : 'Not verified'}
           </Badge>
         )}
       </div>
 
-      {account && !account.verified && (
+      {account && !account.verified && !account.lastVerifiedAt && (
         <Alert
           variant="warning"
           icon={<ShieldAlert className="h-4 w-4" aria-hidden="true" />}
@@ -128,11 +132,21 @@ export default function AccessAccountCard() {
         </Alert>
       )}
 
-      {account?.lastVerifiedAt && (
+      {account && !account.verified && account.lastVerifiedAt && (
+        <Alert
+          variant="warning"
+          icon={<ShieldAlert className="h-4 w-4" aria-hidden="true" />}
+          title="We have not reached your door hardware recently"
+        >
+          It last worked on {new Date(account.lastVerifiedAt).toLocaleString()}.
+          Press Verify to check it again.
+        </Alert>
+      )}
+
+      {account?.verified && account.lastVerifiedAt && (
         <p className="flex items-center gap-1.5 text-sm text-ink-secondary">
           <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
-          Last confirmed working{' '}
-          {new Date(account.lastVerifiedAt).toLocaleString()}
+          Confirmed working {new Date(account.lastVerifiedAt).toLocaleString()}
         </p>
       )}
 

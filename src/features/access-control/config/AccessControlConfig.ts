@@ -26,6 +26,21 @@
 export const MAX_SUBJECT_ID = 79_999_999
 
 /**
+ * How long a successful credential check stands for.
+ *
+ * A check proves the account worked at that moment; it says nothing about now.
+ * Treating one as permanent is how the Access Control card showed "Connected"
+ * for twenty-five days while production could not decrypt its own credentials
+ * and every nightly job died — the badge was reporting 27 August on
+ * 22 September.
+ *
+ * A day is chosen to match the rhythm of the thing that would break it: the
+ * reconciler runs nightly, so a gym in normal use re-confirms itself roughly
+ * once a day, and anything older means nobody has heard from the vendor since.
+ */
+export const ACCOUNT_VERIFICATION_TTL_HOURS = 24
+
+/**
  * IANA timezone the gyms operate in.
  *
  * The access decision is a calendar-day comparison, and the terminal enforces

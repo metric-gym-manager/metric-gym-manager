@@ -130,6 +130,15 @@ export interface IAccessControlRepository {
   /** Record that a credential probe succeeded. */
   markAccountVerified(gymId: string): Promise<void>
 
+  /**
+   * Record that the credentials did NOT work.
+   *
+   * Clears the stored confirmation, so the Access Control card stops claiming
+   * Connected the moment something proves otherwise — rather than waiting for
+   * the last success to age out, or waiting for a person to press Verify.
+   */
+  markAccountVerificationFailed(gymId: string): Promise<void>
+
   // ---- Devices -------------------------------------------------------------
 
   listDevices(gymId: string): Promise<AccessDevice[]>

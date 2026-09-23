@@ -146,7 +146,11 @@ describe('Access-control routes', () => {
         base_url: 'https://vft.example.com',
         area_id: 1,
         is_active: true,
-        last_verified_at: '2026-01-01T00:00:00Z',
+        // Recent, so `verified` is legitimately true here. A fixed date used
+        // to serve: `verified` once meant "a check succeeded at some point,
+        // ever", which is what let the card read Connected for twenty-five
+        // days through a total outage. It now expires.
+        last_verified_at: new Date().toISOString(),
         created_at: '2026-01-01T00:00:00Z',
         updated_at: '2026-01-01T00:00:00Z',
       })

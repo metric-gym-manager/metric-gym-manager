@@ -215,6 +215,22 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     return account
   }
 
+  async markAccountVerificationFailed(gymId: string): Promise<void> {
+    // Clearing the timestamp rather than keeping a stale one: a date that
+    // describes a moment which has since been disproved is worse than no date,
+    // because the card renders it beside a green tick.
+    const { error } = await this.supabase
+      .from('access_control_accounts')
+      .update({ last_verified_at: null })
+      .eq('gym_id', gymId)
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to record credential failure: ${error.message}`
+      )
+    }
+  }
+
   async markAccountVerified(gymId: string): Promise<void> {
     const { error } = await this.supabase
       .from('access_control_accounts')

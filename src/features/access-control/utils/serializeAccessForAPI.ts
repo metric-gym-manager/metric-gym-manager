@@ -22,6 +22,7 @@ import {
   classifyDeviceEvent,
 } from '@/features/access-control/config/DeviceEventCodes'
 import {
+  ACCOUNT_VERIFICATION_TTL_HOURS,
   DEVICE_CLOCK_SKEW_ALERT_SECONDS,
   DEVICE_OFFLINE_AFTER_SECONDS,
 } from '@/features/access-control/config/AccessControlConfig'
@@ -31,8 +32,16 @@ export interface SerializedAccessAccount {
   baseUrl: string
   areaId: number | null
   isActive: boolean
-  /** Whether a sign-in probe has ever succeeded. */
+  /**
+   * Whether a sign-in probe succeeded **recently**.
+   *
+   * Not "ever". A check is evidence about a moment, and the moment expires —
+   * see {@link ACCOUNT_VERIFICATION_TTL_HOURS}. Read together with
+   * `lastVerifiedAt`, the two describe three states: connected, worked once
+   * but not lately, and never confirmed at all.
+   */
   verified: boolean
+  /** When a probe last succeeded, kept even once it has gone stale. */
   lastVerifiedAt: string | null
 }
 
@@ -50,9 +59,24 @@ export function serializeAccessAccountForAPI(
     baseUrl: account.base_url,
     areaId: account.area_id,
     isActive: account.is_active,
-    verified: account.last_verified_at !== null,
+    verified: isVerificationFresh(account.last_verified_at),
     lastVerifiedAt: account.last_verified_at,
   }
+}
+
+/**
+ * Whether a recorded success is recent enough to still mean anything.
+ *
+ * An unparseable timestamp counts as stale: a date we cannot read is not
+ * evidence, and the safe direction here is to under-claim.
+ */
+function isVerificationFresh(lastVerifiedAt: string | null): boolean {
+  if (!lastVerifiedAt) return false
+
+  const at = new Date(lastVerifiedAt).getTime()
+  if (Number.isNaN(at)) return false
+
+  return Date.now() - at < ACCOUNT_VERIFICATION_TTL_HOURS * 60 * 60 * 1000
 }
 
 export interface SerializedAccessDevice {

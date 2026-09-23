@@ -40,6 +40,8 @@ export class VerifyAccessAccount {
 
       if (verified) {
         await this.repo.markAccountVerified(gymId)
+      } else {
+        await this.repo.markAccountVerificationFailed(gymId)
       }
 
       return { applicable: true, verified }
