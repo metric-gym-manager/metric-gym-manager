@@ -131,7 +131,15 @@ const commandSchema = z.object({
   ID: z.union([z.string(), z.number()]).nullish(),
   DevSN: z.string().nullish(),
   // The PUSH acknowledgement code, where the wrapper exposes it.
+  //
+  // Both spellings: the command-queue listing calls it `ReturnValue` (observed
+  // on the live account 2026-09-23), while the collection's command responses
+  // show `Return`. Reading only one of them meant every queued command came
+  // back with no return code at all.
   Return: z.union([z.string(), z.number()]).nullish(),
+  ReturnValue: z.union([z.string(), z.number()]).nullish(),
+  /** 0 until the terminal has collected and run the command. */
+  IsProcessed: z.union([z.string(), z.number(), z.boolean()]).nullish(),
   /**
    * The template endpoints' only verdict.
    *
@@ -526,7 +534,11 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     return parseRows(rows, commandSchema).map((row) => ({
       commandId: String(row.id ?? row.ID ?? ''),
       deviceSerial: row.DevSN ?? deviceSerial ?? '',
-      returnCode: toNumberOrNull(row.Return),
+      returnCode: toNumberOrNull(row.Return ?? row.ReturnValue),
+      // `IsProcessed: 0` is the queue saying the terminal has not collected
+      // this yet — the difference between "sent" and "done", which is the
+      // whole reason `CommandOutcome` has a `queued` state.
+      processed: toBooleanOrNull(row.IsProcessed) ?? false,
     }))
   }
 
@@ -552,7 +564,7 @@ export class VftAccessControlProvider implements IAccessControlProvider {
         ? (parsed.data.id ?? parsed.data.ID)
         : undefined
       const returnCode = parsed.success
-        ? toNumberOrNull(parsed.data.Return)
+        ? toNumberOrNull(parsed.data.Return ?? parsed.data.ReturnValue)
         : null
 
       if (returnCode !== null) {

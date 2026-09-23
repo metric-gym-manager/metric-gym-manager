@@ -98,6 +98,14 @@ export interface AccessSubjectInfo {
 
 /** A command still awaiting collection by a device. */
 export interface PendingCommand {
+  /**
+   * Whether the terminal has collected and run this command.
+   *
+   * `false` means it is still sitting in the vendor's queue untouched — which
+   * is what eight commands looked like after six hours when the readers were
+   * not polling at all.
+   */
+  processed?: boolean
   commandId: string
   deviceSerial: string
   /** Vendor return code, when exposed. `>= 0` is success in the ZKTeco family. */
