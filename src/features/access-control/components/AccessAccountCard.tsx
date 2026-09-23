@@ -139,7 +139,7 @@ export default function AccessAccountCard() {
           title="We have not reached your door hardware recently"
         >
           It last worked on {new Date(account.lastVerifiedAt).toLocaleString()}.
-          Press Verify to check it again.
+          Press Test connection to check it again.
         </Alert>
       )}
 

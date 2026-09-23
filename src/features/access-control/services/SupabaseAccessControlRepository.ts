@@ -161,6 +161,17 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       areaId?: number | null
     }
   ): Promise<AccessControlAccount> {
+    // Encrypt BEFORE writing anything.
+    //
+    // A key that cannot be used throws here, and nothing has been stored yet.
+    // Doing it the other way round left a real gym with an access-control
+    // account marked active, pointing at a vendor, holding no credentials at
+    // all: the deployed key was 21 bytes instead of 32, and the throw landed
+    // after the account row was already written and before the guard below
+    // could deactivate it.
+    const emailCiphertext = encryptSecret(input.email)
+    const passwordCiphertext = encryptSecret(input.password)
+
     const { data: accountData, error: accountError } = await this.supabase
       .from('access_control_accounts')
       .upsert(
@@ -189,8 +200,8 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       .upsert(
         {
           account_id: account.id,
-          email_ciphertext: encryptSecret(input.email),
-          password_ciphertext: encryptSecret(input.password),
+          email_ciphertext: emailCiphertext,
+          password_ciphertext: passwordCiphertext,
           // A new password invalidates any cached token.
           api_token_ciphertext: null,
           token_expires_at: null,
