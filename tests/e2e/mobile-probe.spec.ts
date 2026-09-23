@@ -116,11 +116,34 @@ export const KNOWN_DESKTOP_VIOLATIONS: ReadonlyArray<{
     pattern: /axis tick "\d{5,}" clipped/,
     clears: 'Phase 10',
   },
-  // Phase 7: the trailing x-axis label overshoots the chart by a pixel.
+  // The trailing x-axis label overshoots the chart by a pixel.
+  //
+  // PHASE 7 DID NOT CLEAR THIS, and could not reproduce it either. Probed on
+  // the rebuilt screen at all seven widths with the labels the PRODUCT emits
+  // (`bucketLabel`, so `"Jan 26"…"Dec 26"` at month granularity — the first
+  // Phase 7 fixture used bare `"Jan"`, which is not a format this app
+  // produces), the trailing `"Dec 26"` tick is NOT clipped at 320, 360, 390,
+  // 430, 768, 1024 or 1366.
+  //
+  // What does reproduce, at every one of those widths, is the sibling case:
+  // at DAY granularity (the 1M range) the trailing `"30 Sep"` overhangs its
+  // surface by 0.6 px — width-independent, so it is chart geometry, not
+  // layout. The probe suite navigates each route at its default range, which
+  // for this screen is YTD, so no run of the spec ever selects the range that
+  // shows it; an entry for it would read stale on its first run and fail the
+  // ratchet below. Recorded in §4 F37 of mobile-ui-rebuild-log.md instead.
+  //
+  // The entry stays, re-pointed, rather than being deleted: a sub-pixel
+  // overhang that appears at one chart width and not another is exactly what
+  // a fixture cannot settle, and only the seeded gym can say whether the real
+  // route still shows it. Every fix for it — a wider right margin, a
+  // `textAnchor` on the end tick — moves the plot area or the label, so it
+  // belongs with the two y-tick entries above, in the phase that owns the
+  // baselines.
   {
     route: '/member-analytics',
     pattern: /axis tick "[A-Z][a-z]{2} \d{2}" clipped by -?1px/,
-    clears: 'Phase 7',
+    clears: 'Phase 10',
   },
 ]
 
