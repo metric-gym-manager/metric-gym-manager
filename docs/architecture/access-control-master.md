@@ -553,7 +553,7 @@ reader" conversation, not something to solve by locking out someone who paid.
 
 ---
 
-## 6. Defect history — twenty-four defects: twelve by inverting assumptions, three by the first live vendor call, six by re-reading the surface in its light, three by running the campaign
+## 6. Defect history — twenty-seven defects: twelve by inverting assumptions, three by the first live vendor call, six by re-reading the surface in its light, three by running the campaign, three by the first session against real readers
 
 **Do not reintroduce these.** Every one was invisible to forward tests and found
 by asking "what if the opposite were true?".
@@ -699,6 +699,44 @@ kept; malformed JSON, null and empty serials storing nothing; an unknown event
 code preserved verbatim; a batch spanning both readers split per device. And
 the `EmpId` guard refused a 16-digit id **before** dispatch, where the vendor
 would have answered with a raw MySQL column error.
+
+### Eighth audit (2026-09-23) — the first session against real readers
+
+Two ZAM70 terminals on the live VFT account, both reachable. Everything below
+was found by driving the production code paths at them and reading the
+**reader's own command queue** rather than our summary of it.
+
+| #      | Inverted assumption                                        | The defect                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------ | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Y1** | "A rejected command means the work did not happen"         | It meant the opposite. The vendor answers `500 {"message":"Validation error"}` — the bare, generic phrase — when the thing asked for is **already true or already queued**. Hit twice in real flows (lapse→restore, cancel→rejoin): every command succeeded on the reader with `Return=0`, while one duplicate in the batch was read as a permanent failure, so the write-back never ran and the job dead-lettered. Both members ended up **correct on the hardware and blocked in our records.** Now benign, like `-7` and `-28`. Genuine field failures name themselves ("Data too long for column 'EmpId'"). |
+| **Y2** | "Creating the subject on the vendor puts it on the reader" | It does not, and the code's own comment said so — but the enrolment path dispatched anyway. `Enroll User 100003` reached a reader for a **cancelled** member whose `synced_device_serials` was empty. The reader acknowledged it with the same return value it gives for a subject it knows, so nothing distinguished the two from outside. Enrolment now resolves the access decision first and pushes the subject to that specific reader before dispatching.                                                                                                                                                 |
+| **Y3** | "We can tell when a fingerprint has been captured"         | We cannot, by any documented route. `GET /api/template` carries no template count — 19 fields, none of them biometric — and VFT's collection has **no endpoint reporting biometric state at all**. Dispatching a real enrolment moved nothing: `FpCount`, `UserCount`, `AttCount` all null on a reader that held the member and answered in two seconds. `DetectBiometricEnrolment` therefore always answers "no template". Recorded at the source; the open question is with the vendor.                                                                                                                       |
+
+**Y1 is the one to carry forward.** Every earlier defect in this feature made a
+failure look like success. This one made a _success_ look like a failure — and
+the damage was the same shape, because the write-back is what keeps our record
+and the hardware in step. **Reconcile against the vendor's own account of the
+state, not against our record of what we last sent** — which is now possible,
+since `GET /api/template` returns `StartDate`/`EndDate`/`IsSync` per subject.
+
+**What the same session proved correct**, on real terminals rather than
+doubles: provisioning; the `YYYYMMDD` validity window (visible in the vendor's
+own description of the queued command); blocking on lapse and granting on
+restore; **cancel-then-rejoin with no re-enrolment**, the case the simulator
+plan singles out; the deliberately inconsistent `EmployeeId` casing; device
+rename write-back; and `ACCESS-06` where it matters most — `members.status`
+never changed, only the due date, and the terminal followed the date.
+
+And the outbox, against the real database: two workers racing three jobs
+claimed each exactly once; a job abandoned `in_flight` for thirty minutes was
+reclaimed, claimed and completed in a single pass; ten simultaneous syncs of
+one member produced zero failures.
+
+**A note on method.** Three times this session a probe of mine gave a
+confident wrong answer — queue depth read as collection, a truncating helper
+reused for parsing, and a `Validation error` that was my own race. Each was
+caught by looking at the vendor's raw record rather than my summary of it.
+Measure the thing, not a proxy for it.
 
 ---
 

@@ -909,6 +909,54 @@ the status code caught it.
 
 ---
 
+## 8. First hardware session (2026-09-23)
+
+Both readers live on the Titan Fitness account. **Roughly 100 of 398 cases
+run.** What follows is the state a later session needs; the case-by-case
+results are in the tracker.
+
+### The rig, as it now stands
+
+|              | Device A                               | Device B                                      |
+| ------------ | -------------------------------------- | --------------------------------------------- |
+| Serial       | `NYU7251900066`                        | `NYU7254500734`                               |
+| Gym          | Titan Fitness                          | Titan Fitness                                 |
+| State        | **ACTIVE**                             | **ACTIVE**                                    |
+| Reachability | Online since 13:15:30; answers in ~2s  | Online all session; answers in 0–3s           |
+| Vendor name  | `Device1`                              | `Device B (test)` — our rename pushed through |
+| Location     | **VFT HQ** — nobody can press a finger | **VFT HQ**                                    |
+
+Member `100001` (Kasun Bandara) is provisioned on both, unblocked, valid to
+`2027-03-09`. Member `100004` (Tony) went through a full cancel/rejoin and is
+back to normal. Both are real members of a real gym: **their data was restored
+each time, and that matters more than the test result.**
+
+### What only real hardware could tell us
+
+- A duplicate command comes back as a **500 that looks like a failure** and is
+  not. Two real flows left members correct on the reader and blocked in our
+  records before this was understood (master §6 Y1).
+- **Enrolment was dispatching to readers that had never received the subject.**
+  The reader acknowledges it identically either way (Y2).
+- **Fingerprint capture is unobservable** through this API. No field, no
+  endpoint, nothing moves (Y3).
+- The command queue exposes `IsProcessed`, `TransTime` and `ReturnValue` —
+  "sent" versus "done", which is exactly what the three-valued `CommandOutcome`
+  exists to express, and which we were not reading.
+
+### Still blocked, and on whom
+
+| Blocked on             | What it blocks                                                                                                                               |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A person at VFT HQ** | Every fingerprint, every scan, and **A-1 — whether a refused scan reaches the callback**, still the single most valuable unanswered question |
+| **VFT answering**      | How we learn a fingerprint was captured (Y3); whether our callback URL is registered                                                         |
+| Nothing else           | The outbox, tenancy, RLS, the access decision and the vendor command surface are all exercised                                               |
+
+`access_events` has **never** received a row. Until a real scan arrives, the
+inbound half is proven only by synthetic deliveries against production.
+
+---
+
 ## 6. Tracker
 
 **https://claude.ai/artifact/EgC9mSfKccoq29nGH9rRNC**
