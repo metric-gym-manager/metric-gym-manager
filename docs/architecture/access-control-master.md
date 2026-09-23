@@ -985,7 +985,14 @@ npx jest src/features/access-control src/lib/access-control \
 
 ### 8.2 The E2E suite — how to actually run it
 
-**Green as of 2026-08-27: 14 passed, 1 skipped, 0 failed.** It took eleven
+**Green as of 2026-09-23: 14 passed, 1 skipped, 0 failed** — re-run after the
+vendor-sourced reconcile and the scan confirmation, and unchanged by them.
+
+**Run it with `ACCESS_CONTROL_ENABLED=false`.** The suite is written for the
+mock, and with the real provider it overwrites the seeded gym's vendor
+credentials with placeholders and then fails against them (trap 26).
+`.env.local` wins over a shell variable, so this means editing that file, not
+prefixing the command. It took eleven
 distinct causes to get there; §8.3 is the full history, and it is worth reading
 before assuming a future red run is a bug in the specs. The skip is the
 fingerprint-withdrawal test, and it is honest — see §8.3.
@@ -1506,6 +1513,22 @@ Twenty-five things that will bite someone who does not know them.
     asserts anything about the codes — so trimming it fails loudly. The
     transcription's source of truth is
     `docs/integrations/vft/vft-code-tables.md`.
+
+26. **The E2E suite is written for the mock, and with `ACCESS_CONTROL_ENABLED=true`
+    it writes to a real vendor account.** `ensureVendorAccount` fills the
+    settings form with `https://vft.example.com` / `installer@example.com` /
+    `not-a-real-secret` and saves — so a run **overwrites whatever credentials
+    that gym had**, and the setup spec's own comment says the quiet part
+    ("the mock accepts any credentials, so this is the success path"). Run with
+    the real provider on 2026-09-23 it replaced the seeded E2E gym's live
+    credentials with those placeholders and then failed two specs against them:
+    the enrolment spec reporting "Could not prepare the member on the reader",
+    which reads exactly like a product defect and is not one. With the mock, the
+    same 15 specs are 14 passed / 1 skipped. Two rules follow: **run E2E with
+    `ACCESS_CONTROL_ENABLED=false`**, and **no seeded gym may hold credentials
+    for the live vendor account** — the specs also enrol members and register
+    readers, and the only thing standing between that and a real terminal is
+    which provider the server happened to build.
 
 ---
 
