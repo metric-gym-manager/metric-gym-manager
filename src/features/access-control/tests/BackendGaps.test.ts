@@ -399,18 +399,36 @@ describe('Gap 3 — enrolment detection', () => {
     expect(result.enrolled).toBe(false)
   })
 
-  it('reports a vanished template without un-enrolling the member', async () => {
+  it('reports an already-known fingerprint the vendor cannot count', async () => {
     const { enrolled, useCase } = build([vendorSubject('100001', 0)], true)
 
     const result = await useCase.execute('gym-1', 'member-1')
 
-    // Detection is additive only. A zero count is ambiguous — it may mean the
-    // member was evicted for capacity while the vendor still holds their
-    // central copy — and clearing the flag on that would send the desk to walk
-    // them back to the scanner for nothing. The explicit clear path stays the
-    // sole way `finger_enrolled` goes false.
-    expect(result.enrolled).toBe(false)
+    // A zero count is not evidence of absence. This vendor sends no template
+    // count at all (audit Y3, measured on the live account), so zero is what
+    // every subject reads as — and the member may equally have been evicted
+    // for capacity while the central copy survives. The stored flag is the
+    // stronger evidence and is what the caller is told.
+    //
+    // Additive still: nothing here writes, and nothing here may ever clear the
+    // flag. The explicit clear path stays the sole way it goes false.
+    expect(result.enrolled).toBe(true)
     expect(enrolled).toHaveLength(0)
+  })
+
+  it('reports a scan-confirmed fingerprint even though the vendor lists none', async () => {
+    // The live shape, exactly: VFT reports no template field, so the vendor
+    // side is permanently silent and `finger_enrolled` was set by the member's
+    // first fingerprint scan arriving on the webhook. The enrolment dialog has
+    // to be able to succeed on that, or it waits for a flag nothing can set.
+    const { useCase } = build(
+      [{ ...vendorSubject('100001', 0), templateCount: null }],
+      true
+    )
+
+    const result = await useCase.execute('gym-1', 'member-1')
+
+    expect(result.enrolled).toBe(true)
   })
 
   it('does nothing for a member of another gym', async () => {

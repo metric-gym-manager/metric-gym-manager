@@ -15,6 +15,15 @@
  * **Never trust the payload for identity.** The gym comes from our own
  * `access_devices` lookup on the serial, and the member from our own subject
  * mapping. Nothing in the body decides who anything belongs to.
+ *
+ * ## It is also how we learn a fingerprint was enrolled
+ *
+ * Asked on 2026-09-23 how the platform is supposed to find out that a
+ * fingerprint was actually captured, VFT answered: *"in the next update, the
+ * finger count will be displayed. Now it is considered with the attendance
+ * record."* So there is nothing to poll for — findings F26/F29, audit Y3 — and
+ * the scan itself is the evidence: the reader matched a template against a
+ * finger and told us whose it was.
  */
 
 import type { IAccessControlRepository } from './IAccessControlRepository'
@@ -24,7 +33,10 @@ import {
   accessWebhookPayloadSchema,
 } from '@/features/access-control/schemas/access-control.schemas'
 import type { AccessWebhookEvent } from '@/features/access-control/schemas/access-control.schemas'
-import { DEVICE_CLOCK_SKEW_ALERT_SECONDS } from '@/features/access-control/config/AccessControlConfig'
+import {
+  DEVICE_CLOCK_SKEW_ALERT_SECONDS,
+  VerifyType,
+} from '@/features/access-control/config/AccessControlConfig'
 
 export interface RecordAccessEventsSummary {
   received: number
@@ -50,6 +62,13 @@ export interface RecordAccessEventsSummary {
    * as a single event, and this count is the only alarm this path produces.
    */
   unreadableDelivery: boolean
+  /**
+   * Members whose fingerprint this delivery confirmed for the first time.
+   *
+   * Almost always zero: it takes one scan per member, ever. A non-zero value
+   * is somebody's first entry after being enrolled.
+   */
+  enrolmentsConfirmed: number
   /** Readers whose clock looks far enough out to matter. */
   driftingDevices: string[]
   errors: string[]
@@ -75,6 +94,7 @@ export class RecordAccessEvents {
       unknownDevice: 0,
       malformed: 0,
       unreadableDelivery: false,
+      enrolmentsConfirmed: 0,
       driftingDevices: [],
       errors: [],
     }
@@ -183,6 +203,11 @@ export class RecordAccessEvents {
           const result = await this.repo.recordEvents(device.gym_id, normalised)
           summary.stored += result.inserted
           summary.duplicates += result.duplicates
+
+          summary.enrolmentsConfirmed += await this.confirmEnrolments(
+            normalised,
+            summary
+          )
         }
 
         if (newestScan) {
@@ -220,6 +245,75 @@ export class RecordAccessEvents {
     }
 
     return summary
+  }
+
+  /**
+   * Take a fingerprint scan as proof that the member has a template.
+   *
+   * ## Why a REFUSED scan counts too
+   *
+   * Being turned away for an expired membership means the reader recognised
+   * the finger and then applied the window — the identification is what proves
+   * the template, not the verdict. Gating on "granted" would leave a lapsed
+   * member showing as never enrolled however many times they came to the door.
+   *
+   * ## Why only `VerifyType` 1
+   *
+   * A card or password scan says nothing about a fingerprint, and an absent
+   * verify type says nothing at all. Both are left alone: this is additive and
+   * may never clear the flag, so the only cost of being conservative is a flag
+   * that flips on a later scan.
+   *
+   * A scan that maps to no member of ours cannot confirm anything — a template
+   * can legitimately outlive the member row that owned it.
+   *
+   * ## Why a failure here is not a failure of ingestion
+   *
+   * The scans are already stored by the time this runs, and they never come
+   * again. Losing a reader's check-in history to a failed write on a
+   * presentation flag would be a far worse trade, so this is recorded as an
+   * error and the batch stands.
+   */
+  private async confirmEnrolments(
+    events: IncomingAccessEvent[],
+    summary: RecordAccessEventsSummary
+  ): Promise<number> {
+    const byMember = new Map<string, Date>()
+
+    for (const event of events) {
+      if (!event.memberId) continue
+      if (event.verifyType !== VerifyType.Fingerprint) continue
+
+      // Earliest scan in the batch: it is the first moment we could have
+      // known, and a batch can carry a whole day of them.
+      const existing = byMember.get(event.memberId)
+      if (!existing || event.occurredAt < existing) {
+        byMember.set(event.memberId, event.occurredAt)
+      }
+    }
+
+    let confirmed = 0
+
+    for (const [memberId, observedAt] of byMember) {
+      try {
+        if (
+          await this.repo.confirmBiometricEnrolmentFromScan(
+            memberId,
+            observedAt
+          )
+        ) {
+          confirmed += 1
+        }
+      } catch (error) {
+        summary.errors.push(
+          `Enrolment confirmation for member ${memberId}: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`
+        )
+      }
+    }
+
+    return confirmed
   }
 }
 

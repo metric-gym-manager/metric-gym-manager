@@ -345,6 +345,14 @@ export default function MemberAccessPanel({
  * screen is stale rather than that the enrolment failed: detection is additive,
  * so a member who did present a finger is enrolled regardless of whether we
  * were still watching when it happened.
+ *
+ * Both lines name the **scan**, because that is what the platform can actually
+ * see. VFT, 2026-09-23: the finger count arrives in a future update, and until
+ * then a fingerprint "is considered with the attendance record" — so the
+ * template is created when the member presses their finger, and confirmed here
+ * when they use the door. Telling the desk to wait for a signal that only
+ * arrives on the next entry is the difference between a screen that looks
+ * broken and one that is merely patient.
  */
 function EnrolmentStatus({
   state,
@@ -357,7 +365,8 @@ function EnrolmentStatus({
     return (
       <p className="flex items-center gap-1.5 text-xs text-brand-link">
         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-        Ask the member to place their finger on the reader now.
+        Ask the member to place their finger on the reader, then scan once to
+        confirm.
       </p>
     )
   }
@@ -374,8 +383,9 @@ function EnrolmentStatus({
   if (state === 'timed-out') {
     return (
       <p className="text-xs text-ink-muted">
-        Still waiting for a finger. If the member has already scanned, reopen
-        this member to check — otherwise start again.
+        Not confirmed yet. If the fingerprint was taken, it is confirmed the
+        first time the member uses the door — reopen this member to check.
+        Otherwise start again.
       </p>
     )
   }

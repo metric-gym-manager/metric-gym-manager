@@ -190,6 +190,8 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     deviceSerial: string
     capacity: number
   }> = []
+  /** Members whose enrolment a scan confirmed, in order, once each. */
+  readonly scanConfirmedEnrolments: string[] = []
   readonly consentWrites: Array<{ memberId: string; at: Date }> = []
   readonly consentClears: string[] = []
   /** Cutoff/limit pairs the retention purge asked for, in call order. */
@@ -382,6 +384,32 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     fingerId?: number | null
   ): Promise<void> {
     this.enrolments.push({ memberId, enrolled, fingerId: fingerId ?? null })
+  }
+
+  /**
+   * Conditional exactly as the real one is.
+   *
+   * The double has to model the `.eq('finger_enrolled', false)` clause, or the
+   * "one write however many scans" property would be tested against a fake
+   * that cannot fail it — the lesson this feature has now learned four times.
+   */
+  async confirmBiometricEnrolmentFromScan(
+    memberId: string,
+    observedAt: Date
+  ): Promise<boolean> {
+    const subject = (this.options.contexts ?? []).find(
+      (c) => c.memberId === memberId
+    )?.subject
+
+    if (!subject || subject.finger_enrolled) return false
+
+    // Actually flips the fixture, so a second scan finds the state the first
+    // one left — the condition IS the behaviour under test.
+    subject.finger_enrolled = true
+    subject.enrolled_at = observedAt.toISOString()
+
+    this.scanConfirmedEnrolments.push(memberId)
+    return true
   }
 
   // ---- Outbox --------------------------------------------------------------

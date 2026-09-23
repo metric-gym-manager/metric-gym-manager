@@ -754,6 +754,45 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
   }
 
   /**
+   * Flip `finger_enrolled` on the strength of a fingerprint scan.
+   *
+   * `.eq('finger_enrolled', false)` is what makes this cheap AND safe: cheap
+   * because a member who scans twice a day costs one write ever, safe because
+   * it can only ever move the flag one way.
+   *
+   * The row count is the evidence, not the absence of an error — an RLS-refused
+   * or no-match UPDATE reports success with nothing written (F11), which is the
+   * shape rule 2.7 exists to stop. `.select('id')` is what makes a count
+   * available at all.
+   */
+  async confirmBiometricEnrolmentFromScan(
+    memberId: string,
+    observedAt: Date
+  ): Promise<boolean> {
+    const { data, error } = await this.supabase
+      .from('member_access_subjects')
+      .update({
+        finger_enrolled: true,
+        // The scan is the first moment we KNOW a template exists, which is
+        // what this column has always meant. `finger_id` is deliberately
+        // untouched: a scan does not say which finger it was.
+        enrolled_at: observedAt.toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('member_id', memberId)
+      .eq('finger_enrolled', false)
+      .select('id')
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to confirm enrolment from scan: ${error.message}`
+      )
+    }
+
+    return (data?.length ?? 0) > 0
+  }
+
+  /**
    * Record consent to fingerprint collection, once.
    *
    * `.is('biometric_consent_at', null)` is the whole safeguard: re-enrolling a

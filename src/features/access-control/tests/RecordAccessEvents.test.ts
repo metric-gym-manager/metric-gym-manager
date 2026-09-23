@@ -42,7 +42,9 @@ function build(
     contexts: [
       makeContext({
         memberId: 'member-1',
-        subject: makeSubject({ subject_id: 100001 }),
+        // Not yet enrolled: a scan is what proves the template exists, so a
+        // fixture that starts enrolled could not show the flip happening.
+        subject: makeSubject({ subject_id: 100001, finger_enrolled: false }),
       }),
     ],
   })
@@ -375,6 +377,106 @@ describe('RecordAccessEvents', () => {
       expect(summary.stored).toBe(0)
       expect(summary.duplicates).toBe(1)
       expect(repo.storedEvents).toHaveLength(1)
+    })
+  })
+
+  /**
+   * A fingerprint scan is the only confirmation of enrolment this API offers.
+   *
+   * VFT, asked directly on 2026-09-23 how we learn that a fingerprint was
+   * captured: *"in the next update, the finger count will be displayed. Now it
+   * is considered with the attendance record."* So until that firmware ships
+   * there is no field to poll — findings F26/F29 — and the honest signal is the
+   * scan itself: the reader matched a template against a finger and told us
+   * whose it was.
+   *
+   * Additive only, exactly like the polled detection it replaces. Nothing here
+   * may ever clear the flag: withdrawal has its own path, which knows it meant
+   * it.
+   */
+  describe('enrolment confirmed by a scan', () => {
+    it('records a fingerprint scan as proof the template exists', async () => {
+      const { repo, useCase } = build()
+
+      const summary = await useCase.execute([event({ VerifyType: '1' })])
+
+      expect(summary.enrolmentsConfirmed).toBe(1)
+      expect(repo.scanConfirmedEnrolments).toEqual(['member-1'])
+    })
+
+    it('confirms from a REFUSED fingerprint scan too', async () => {
+      // Being turned away for an expired membership still means the reader
+      // recognised the finger. Event 21 is "outside the valid time period".
+      const { repo, useCase } = build()
+
+      await useCase.execute([event({ Event: '21', VerifyType: '1' })])
+
+      expect(repo.scanConfirmedEnrolments).toEqual(['member-1'])
+    })
+
+    it('does not infer a fingerprint from a card or password scan', async () => {
+      const { repo, useCase } = build()
+
+      await useCase.execute([
+        event({ VerifyType: '2' }),
+        event({ AttTime: '2026-01-10 12:01:00', VerifyType: '0' }),
+      ])
+
+      expect(repo.scanConfirmedEnrolments).toHaveLength(0)
+    })
+
+    it('does not infer anything when the reader omits the verify type', async () => {
+      const { repo, useCase } = build()
+
+      await useCase.execute([{ ...event(), VerifyType: undefined }])
+
+      expect(repo.scanConfirmedEnrolments).toHaveLength(0)
+    })
+
+    it('does not confirm for a scan that maps to no member of ours', async () => {
+      const { repo, useCase } = build()
+
+      await useCase.execute([event({ EmpId: '999999' })])
+
+      expect(repo.scanConfirmedEnrolments).toHaveLength(0)
+    })
+
+    it('confirms a member once, however many times they scan', async () => {
+      // Polled every entry, this would be a row update per scan per member. The
+      // write is conditional on the flag still being false, so the second scan
+      // costs a no-op.
+      const { repo, useCase } = build()
+
+      await useCase.execute([event()])
+      const summary = await useCase.execute([
+        event({ AttTime: '2026-01-10 12:05:00' }),
+      ])
+
+      expect(summary.enrolmentsConfirmed).toBe(0)
+      expect(repo.scanConfirmedEnrolments).toEqual(['member-1'])
+    })
+
+    it('finishes ingesting the delivery even if the enrolment write-back fails', async () => {
+      // The check-in history is the primary job here, and a failure to flip a
+      // cosmetic flag must not cost a reader its scans — they never come again.
+      //
+      // The assertion that matters is the clock skew, NOT the stored count:
+      // the scans are already written by the time this runs, so `stored` stays
+      // 1 however the failure propagates. Skew and last-seen are recorded
+      // AFTER it, so letting the error escape would silently stop tracking the
+      // drift of the very clock the lockout boundary runs on — rule 2.7's
+      // shape, one flag further down.
+      const { repo, useCase } = build()
+
+      jest
+        .spyOn(repo, 'confirmBiometricEnrolmentFromScan')
+        .mockRejectedValue(new Error('write failed'))
+
+      const summary = await useCase.execute([event()])
+
+      expect(summary.stored).toBe(1)
+      expect(summary.errors).toHaveLength(1)
+      expect(repo.clockSkews).toHaveLength(1)
     })
   })
 })

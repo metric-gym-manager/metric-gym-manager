@@ -267,6 +267,34 @@ export interface IAccessControlRepository {
   ): Promise<void>
 
   /**
+   * Record that a fingerprint scan proved this member has a template.
+   *
+   * The only confirmation of enrolment this vendor offers today. Asked on
+   * 2026-09-23 how we learn a fingerprint was captured, VFT answered: *"in the
+   * next update, the finger count will be displayed. Now it is considered with
+   * the attendance record."* Until that firmware ships there is no field to
+   * poll — the reader matching a finger and naming the member **is** the
+   * evidence.
+   *
+   * Separate from `setBiometricEnrolled` for two reasons:
+   *
+   *  - It must only ever set the flag, never clear it. Withdrawal has its own
+   *    path, which knows it meant it.
+   *  - A scan does not say which finger was used, so `finger_id` is left
+   *    exactly as it is. `setBiometricEnrolled` would overwrite it with null.
+   *
+   * Implementations must write **only when the flag is still false** and
+   * report whether a row actually changed — this runs on every entry of every
+   * member, and an unconditional update would be a write per scan.
+   *
+   * @returns `true` if this scan is what flipped the flag.
+   */
+  confirmBiometricEnrolmentFromScan(
+    memberId: string,
+    observedAt: Date
+  ): Promise<boolean>
+
+  /**
    * Record that the member consented to fingerprint collection.
    *
    * Written *before* the enrolment command is dispatched, never after. A
