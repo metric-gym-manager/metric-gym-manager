@@ -71,7 +71,13 @@ export default function SupportPage() {
     <div className="flex max-w-[720px] flex-col gap-6">
       <h1 className="text-h1 text-ink">Support</h1>
 
-      {/* Contact */}
+      {/* Contact — the two links are the row's ACTION, not prose inside a
+          sentence, so §15.1's inline-link exemption does not apply to them:
+          they are the only way to reach support from a phone and they measured
+          16 px tall. `inline-flex` is load-bearing — an inline element's box
+          comes from its font metrics, so `min-h` alone does not resize it
+          (Phase 4's rule). Everything here is `phone:`-scoped; the desktop
+          renders both exactly as before. */}
       <section>
         <SectionHeader variant="metadata" divider title="Contact" />
         <SettingsRow
@@ -82,7 +88,7 @@ export default function SupportPage() {
               href="https://wa.me/94704379967"
               target="_blank"
               rel="noopener noreferrer"
-              className="font-mono text-mono-md text-brand-link hover:text-brand-link-hover"
+              className="font-mono text-mono-md text-brand-link hover:text-brand-link-hover phone:inline-flex phone:min-h-touch phone:items-center"
             >
               +94 70 437 9967
             </a>
@@ -94,7 +100,7 @@ export default function SupportPage() {
           control={
             <a
               href="tel:0704379967"
-              className="font-mono text-mono-md text-brand-link hover:text-brand-link-hover"
+              className="font-mono text-mono-md text-brand-link hover:text-brand-link-hover phone:inline-flex phone:min-h-touch phone:items-center"
             >
               070 437 9967
             </a>

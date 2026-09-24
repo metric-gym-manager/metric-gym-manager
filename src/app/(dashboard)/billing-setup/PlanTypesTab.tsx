@@ -538,9 +538,14 @@ export default function PlanTypesTab() {
                           >
                             {plan.is_active ? 'Deactivate' : 'Activate'}
                           </Button>
+                          {/* Icon-only, so it needs a name: the probe's rule 5
+                              found it unnamed at 768, 1024 and 1366. The phone
+                              tier never hit it because its Delete sits in the
+                              named "⋯" menu. */}
                           <Button
                             variant="destructive-ghost"
                             size="sm"
+                            aria-label={`Delete ${getPlanLabel(plan.plan_type)} Plan`}
                             onClick={() =>
                               handleDelete(plan.plan_type as PlanTypeEnum)
                             }
