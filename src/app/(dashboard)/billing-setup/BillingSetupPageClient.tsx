@@ -2,9 +2,11 @@
 
 import { useState } from 'react'
 import dynamic from 'next/dynamic'
-import { ChevronRight, ChevronLeft } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
+  Button,
   Card,
+  ListRow,
   Skeleton,
   Tabs,
   TabsList,
@@ -12,6 +14,8 @@ import {
   TabsContent,
 } from '@/components/ui'
 import { PageHeader } from '@/components/common/composites'
+import { useViewportTier } from '@/hooks/useViewportTier'
+import { useHistoryBack } from '@/hooks/useHistoryBack'
 
 type MobileSection = 'plans' | 'discounts' | 'admission-fee'
 
@@ -53,78 +57,113 @@ const sectionContent: Record<MobileSection, React.ReactNode> = {
   'admission-fee': <AdmissionFeeTab />,
 }
 
+/**
+ * Membership Setup — one tree per tier (mobile rebuild plan §8.13, C5).
+ *
+ * **Both trees used to be in the DOM at once** (`tablet:hidden` +
+ * `hidden tablet:block`), which is audit constraint I.4: the hidden desktop
+ * `Tabs` mounts its ACTIVE tab on a phone, so `PlanTypesTab` ran its two
+ * queries on every phone visit for a tab nobody could see, and opening the
+ * same section from the menu mounted a second copy of it. `useViewportTier()`
+ * now chooses which tree exists, so a phone issues one request per section it
+ * actually opens.
+ *
+ * The sections stay **state-driven, not routed** (C5): no new pages, no
+ * desktop URL change, and UI3's page inventory is unaffected. What state-driven
+ * sections lacked was the browser's Back button — entering a section and
+ * pressing Back left the page entirely. `useHistoryBack` is the same hook the
+ * fullscreen overlays use, so Back now returns to the menu.
+ *
+ * **The in-flow back control stays, and §8.13's "the section header uses the
+ * AppBar Back" is not implementable as written.** `appBarTitle()` is a pure
+ * function of `pathname`, and C5 deliberately removed the nested routes these
+ * sections would have needed — so on `/billing-setup` the AppBar resolves a
+ * root nav item, renders no Back control, and cannot name a section. The two
+ * corrections conflict; the behaviour §8.13 asks for (Back returns to the
+ * menu) is delivered by the hook, and the visible affordance stays in flow at
+ * a touch-sized target rather than as a 20 px text line.
+ */
 export default function BillingSetupPageClient() {
   const [mobileSection, setMobileSection] = useState<MobileSection | null>(null)
+  const phone = useViewportTier() === 'phone'
+
+  // Back returns to the menu instead of leaving the page. Scoped to the phone
+  // tier: the desktop tree has tabs, not sections, and never sets this state.
+  useHistoryBack(mobileSection !== null, () => setMobileSection(null), phone)
+
+  const activeSection = SECTIONS.find((s) => s.id === mobileSection)
+
+  if (phone) {
+    return (
+      <div className="flex max-w-app flex-col gap-4">
+        {activeSection ? (
+          <>
+            <Button
+              variant="link"
+              size="sm"
+              className="self-start"
+              onClick={() => setMobileSection(null)}
+            >
+              <ChevronLeft className="size-3.5" aria-hidden="true" />
+              Membership Setup
+            </Button>
+            {sectionContent[activeSection.id]}
+          </>
+        ) : (
+          <>
+            <PageHeader
+              title="Membership Setup"
+              description="Configure membership plan types and discount presets"
+            />
+            <Card>
+              {/* No `divide-y`: `ListRow` draws its own `border-b`, and the
+                  two together double every rule. */}
+              <ul role="list">
+                {SECTIONS.map((section) => (
+                  <ListRow
+                    key={section.id}
+                    primary={section.label}
+                    meta={[section.description]}
+                    onClick={() => setMobileSection(section.id)}
+                    value={
+                      <ChevronRight
+                        className="size-4 text-ink-muted"
+                        aria-hidden="true"
+                      />
+                    }
+                  />
+                ))}
+              </ul>
+            </Card>
+          </>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="flex max-w-app flex-col gap-4">
-      {/* Header — full page header when on menu; back button when inside a section */}
-      {mobileSection ? (
-        <button
-          type="button"
-          onClick={() => setMobileSection(null)}
-          className="mb-4 flex items-center gap-1 text-body text-brand-link transition-colors duration-fast hover:text-brand-link-hover focus-visible:rounded-sm focus-visible:shadow-focus focus-visible:outline-none"
-        >
-          <ChevronLeft className="size-3.5" aria-hidden="true" />
-          Membership Setup
-        </button>
-      ) : (
-        <PageHeader
-          title="Membership Setup"
-          description="Configure membership plan types and discount presets"
-        />
-      )}
+      <PageHeader
+        title="Membership Setup"
+        description="Configure membership plan types and discount presets"
+      />
+      <Tabs defaultValue="plans">
+        <TabsList>
+          <TabsTrigger value="plans">Plan types</TabsTrigger>
+          <TabsTrigger value="discounts">Discounts</TabsTrigger>
+          <TabsTrigger value="admission-fee">Admission fee</TabsTrigger>
+        </TabsList>
 
-      {/* ── Mobile view (below tablet breakpoint) ── */}
-      <div className="tablet:hidden">
-        {mobileSection ? (
-          sectionContent[mobileSection]
-        ) : (
-          <Card className="divide-y divide-line-1">
-            {SECTIONS.map((section) => (
-              <button
-                key={section.id}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-surface-hover transition-colors"
-                onClick={() => setMobileSection(section.id)}
-              >
-                <div>
-                  <p className="text-sm font-medium text-ink">
-                    {section.label}
-                  </p>
-                  <p className="text-xs text-ink-muted mt-0.5">
-                    {section.description}
-                  </p>
-                </div>
-                <ChevronRight
-                  className="text-ink-muted flex-shrink-0 ml-3"
-                  style={{ width: 14, height: 14 }}
-                />
-              </button>
-            ))}
-          </Card>
-        )}
-      </div>
-
-      {/* ── Desktop view (tablet breakpoint and above) ── */}
-      <div className="hidden tablet:block">
-        <Tabs defaultValue="plans">
-          <TabsList>
-            <TabsTrigger value="plans">Plan types</TabsTrigger>
-            <TabsTrigger value="discounts">Discounts</TabsTrigger>
-            <TabsTrigger value="admission-fee">Admission fee</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="plans">
-            <PlanTypesTab />
-          </TabsContent>
-          <TabsContent value="discounts">
-            <DiscountsTab />
-          </TabsContent>
-          <TabsContent value="admission-fee">
-            <AdmissionFeeTab />
-          </TabsContent>
-        </Tabs>
-      </div>
+        <TabsContent value="plans">
+          <PlanTypesTab />
+        </TabsContent>
+        <TabsContent value="discounts">
+          <DiscountsTab />
+        </TabsContent>
+        <TabsContent value="admission-fee">
+          <AdmissionFeeTab />
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

@@ -9,6 +9,7 @@ import {
   Button,
   Badge,
   type BadgeProps,
+  ListRow,
   Table,
   TableBody,
   TableCell,
@@ -17,6 +18,7 @@ import {
   TableRow,
 } from '@/components/ui'
 import { ChevronLeft, ChevronRight, Printer, RefreshCw } from 'lucide-react'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import { useBillingHistory } from '../hooks/useBillingHistory'
 import type { BillingHistoryRow } from '../types'
 
@@ -37,6 +39,7 @@ const STATUS_VARIANTS: Record<
 export default function BillingHistoryTable() {
   const [page, setPage] = useState(1)
   const { data, isLoading, error, refetch } = useBillingHistory(page)
+  const phone = useViewportTier() === 'phone'
 
   return (
     <Card>
@@ -75,38 +78,67 @@ export default function BillingHistoryTable() {
           </div>
         ) : (
           <>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Order</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.payments.map((row) => (
-                    <TableRow key={row.id}>
-                      <TableCell className="text-sm">{row.date}</TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {row.orderId ?? '—'}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {row.amount
-                          ? `${row.currency ?? ''} ${row.amount}`.trim()
-                          : '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={STATUS_VARIANTS[row.status]}>
-                          {row.status}
-                        </Badge>
-                      </TableCell>
+            {phone ? (
+              /*
+               * §9.4 "Billing history": date, amount and status in the row;
+               * the order id disclosed on the meta line. The desktop keeps its
+               * four-column `Table`, which sits in an `overflow-x-auto` div —
+               * a scroller that hid two of those columns on a phone rather
+               * than widening the page (probe rule 3).
+               */
+              <ul role="list">
+                {data.payments.map((row) => (
+                  <ListRow
+                    key={row.id}
+                    primary={row.date}
+                    status={
+                      <Badge variant={STATUS_VARIANTS[row.status]}>
+                        {row.status}
+                      </Badge>
+                    }
+                    meta={[row.orderId ?? '—']}
+                    value={
+                      row.amount
+                        ? `${row.currency ?? ''} ${row.amount}`.trim()
+                        : '—'
+                    }
+                  />
+                ))}
+              </ul>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Order</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Status</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {data.payments.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell className="text-sm">{row.date}</TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {row.orderId ?? '—'}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {row.amount
+                            ? `${row.currency ?? ''} ${row.amount}`.trim()
+                            : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={STATUS_VARIANTS[row.status]}>
+                            {row.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
 
             {data.totalPages > 1 && (
               <div className="flex items-center justify-between mt-4">
