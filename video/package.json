@@ -1,0 +1,29 @@
+{
+  "name": "metric-gym-os-video",
+  "private": true,
+  "version": "0.0.0",
+  "description": "\"100 Squares\" — Metric Gym OS launch film, built with Remotion. Standalone: not part of the Next.js app bundle.",
+  "type": "module",
+  "scripts": {
+    "prepare-assets": "node scripts/prepare-assets.mjs",
+    "studio": "npm run prepare-assets && remotion studio src/index.ts",
+    "render": "npm run prepare-assets && remotion render src/index.ts HundredSquares out/metric-100-squares-9x16.mp4",
+    "render:landscape": "npm run prepare-assets && remotion render src/index.ts HundredSquaresLandscape out/metric-100-squares-16x9.mp4",
+    "render:muted": "npm run prepare-assets && remotion render src/index.ts HundredSquares out/metric-100-squares-9x16-muted.mp4 --muted",
+    "still": "npm run prepare-assets && remotion still src/index.ts HundredSquares",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.529",
+    "@remotion/fonts": "4.0.529",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "remotion": "4.0.529"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "typescript": "5.7.2",
+    "vitest": "5.0.2"
+  }
+}

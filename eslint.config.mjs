@@ -113,6 +113,9 @@ const eslintConfig = [
       // and eslint.config.mjs. Untracked, not part of this application, and
       // linting it produced 92 of the 97 errors that appeared to block §8.9.
       'my-video/**',
+      // Tracked standalone Remotion project (launch film). Own package.json,
+      // tsconfig and vitest; not part of the application bundle.
+      'video/**',
       '*.config.js',
       'next-env.d.ts',
     ],
