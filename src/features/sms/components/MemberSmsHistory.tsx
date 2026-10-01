@@ -5,6 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import {
   Badge,
   Button,
+  ListRow,
+  Pagination,
   Table,
   TableBody,
   TableCell,
@@ -14,6 +16,7 @@ import {
   EmptyState,
   Skeleton,
 } from '@/components/ui'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import { SmsDeliveryStatus } from '../config/SmsConfig'
 import type { SmsType } from '../config/SmsConfig'
 import { cn } from '@/lib/utils'
@@ -104,6 +107,17 @@ export function MemberSmsHistory({
 }: MemberSmsHistoryProps) {
   const [expanded, setExpanded] = useState(false)
   const [page, setPage] = useState(1)
+  // Per-row message expansion (§27 "Very long SMS / message"): the row shows
+  // two clamped lines and a tap reveals the whole body. Local state, because
+  // this list is a plain `Table` on the desktop and has no `renderExpanded`.
+  const [openRows, setOpenRows] = useState<ReadonlySet<string>>(() => new Set())
+  const phone = useViewportTier() === 'phone'
+  const toggleRow = (id: string) =>
+    setOpenRows((prev) => {
+      const next = new Set(prev)
+      if (!next.delete(id)) next.add(id)
+      return next
+    })
 
   const { data, isLoading, error } = useQuery<HistoryResponse>({
     queryKey: ['member-sms-history', memberId, page],
@@ -169,80 +183,118 @@ export function MemberSmsHistory({
             />
           ) : (
             <>
-              {/* Horizontal scroll rather than an overflowing row: this table
-                  sits inside a fixed-width drawer, and a long message body
-                  otherwise pushes the row past the panel's right edge. */}
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sent at</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Message</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {entries.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell className="whitespace-nowrap font-mono text-mono-sm text-ink-muted">
-                          {new Date(entry.sentAt).toLocaleString('en-GB', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap text-ink-secondary">
-                          {TYPE_LABEL[entry.smsType] ?? entry.smsType}
-                        </TableCell>
-                        <TableCell>
+              {phone ? (
+                /*
+                 * §9.4 "SMS history": type, status and sent-at in the row, the
+                 * message disclosed on its own line clamped to two and
+                 * expanding on tap. MO-17 measured this table at 384 px on
+                 * every phone width, inside the member detail Phase 3 made
+                 * reachable there — and because the wrapper below is
+                 * `overflow-x-auto`, it hid the message column rather than
+                 * widening the page.
+                 *
+                 * The message rides the `actions` slot, the only one below the
+                 * meta line (§9.1's anatomy), which is where Phase 7 put the
+                 * expanded cohort series for the same reason.
+                 */
+                <ul role="list">
+                  {entries.map((entry) => {
+                    const open = openRows.has(entry.id)
+                    return (
+                      <ListRow
+                        key={entry.id}
+                        primary={TYPE_LABEL[entry.smsType] ?? entry.smsType}
+                        status={
                           <Badge variant={STATUS_VARIANT[entry.deliveryStatus]}>
                             {STATUS_LABEL[entry.deliveryStatus]}
                           </Badge>
-                        </TableCell>
-                        <TableCell className="text-ink-secondary">
-                          {/* Truncation lives on an inner block, not the cell:
-                            `max-width` on a <td> is ignored unless the table is
-                            `table-layout: fixed`, so the cell grew instead. */}
-                          <div
-                            className="max-w-[22rem] truncate"
-                            title={entry.messageBody}
+                        }
+                        value={new Date(entry.sentAt).toLocaleString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        onClick={() => toggleRow(entry.id)}
+                        actions={
+                          <span
+                            className={cn(
+                              'text-body-sm text-ink-secondary',
+                              !open && 'line-clamp-2'
+                            )}
                           >
                             {entry.messageBody}
-                          </div>
-                        </TableCell>
+                          </span>
+                        }
+                      />
+                    )
+                  })}
+                </ul>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Sent at</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Message</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-
-              {data && data.pageCount > 1 && (
-                <div className="mt-3 flex items-center justify-between">
-                  <span className="font-mono text-mono-sm text-ink-muted">
-                    Page {data.page} of {data.pageCount}
-                  </span>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      disabled={data.page <= 1}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      disabled={data.page >= data.pageCount}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Next
-                    </Button>
-                  </div>
+                    </TableHeader>
+                    <TableBody>
+                      {entries.map((entry) => (
+                        <TableRow key={entry.id}>
+                          <TableCell className="whitespace-nowrap font-mono text-mono-sm text-ink-muted">
+                            {new Date(entry.sentAt).toLocaleString('en-GB', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-ink-secondary">
+                            {TYPE_LABEL[entry.smsType] ?? entry.smsType}
+                          </TableCell>
+                          <TableCell>
+                            <Badge
+                              variant={STATUS_VARIANT[entry.deliveryStatus]}
+                            >
+                              {STATUS_LABEL[entry.deliveryStatus]}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-ink-secondary">
+                            {/* Truncation lives on an inner block, not the cell:
+                            `max-width` on a <td> is ignored unless the table is
+                            `table-layout: fixed`, so the cell grew instead. */}
+                            <div
+                              className="max-w-[22rem] truncate"
+                              title={entry.messageBody}
+                            >
+                              {entry.messageBody}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
+              )}
+
+              {/* The hand-rolled Prev/Next pager this replaces was a second
+                  implementation of a pattern the design system owns (§2.17),
+                  and its 26 px `xs` buttons were the audit's complaint. The
+                  primitive's `responsive` form collapses to Prev · "2 of 3" ·
+                  Next on a phone and renders the numbered pages unchanged
+                  above `tablet`. */}
+              {data && (
+                <Pagination
+                  className="mt-3"
+                  page={data.page}
+                  pageCount={data.pageCount}
+                  onPageChange={setPage}
+                  responsive
+                />
               )}
             </>
           )}

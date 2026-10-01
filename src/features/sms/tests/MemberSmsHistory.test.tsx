@@ -121,10 +121,18 @@ describe('MemberSmsHistory', () => {
     expand()
 
     await screen.findByText('3-day reminder')
-    expect(screen.getByText('Page 1 of 3')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
+    // The DS `Pagination` primitive replaced a hand-rolled Prev/Next pager —
+    // a second implementation of a pattern the design system owns (§2.17),
+    // whose `xs` buttons were 26 px. Its controls are icon buttons with
+    // accessible names, and the current page carries `aria-current`.
+    const pager = within(screen.getByRole('navigation', { name: 'Pagination' }))
+    expect(pager.getByRole('button', { name: 'Page 1' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    )
+    expect(pager.getByRole('button', { name: 'Previous page' })).toBeDisabled()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next' }))
+    fireEvent.click(pager.getByRole('button', { name: 'Next page' }))
     await waitFor(() => {
       const urls = fetchMock.mock.calls.map((c) => String(c[0]))
       expect(urls.some((u) => u.includes('page=2'))).toBe(true)
@@ -137,9 +145,8 @@ describe('MemberSmsHistory', () => {
     expand()
 
     await screen.findByText('3-day reminder')
-    expect(
-      screen.queryByRole('button', { name: 'Next' })
-    ).not.toBeInTheDocument()
+    // `Pagination` renders nothing at all for a single page.
+    expect(screen.queryByRole('navigation', { name: 'Pagination' })).toBeNull()
   })
 
   it('requests a bounded page rather than the whole history', async () => {

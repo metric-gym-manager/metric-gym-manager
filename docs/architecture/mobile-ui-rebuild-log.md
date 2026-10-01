@@ -538,6 +538,61 @@ eighth, Subscription, is **geometry-identical** — `main` [240,52,1126,904],
 same rectangles, document height 956 on both sides — and its pixel difference
 is the sidebar's load animation caught at two moments (F41).
 
+### 2.12 Phase 9 — Door Access and the member SMS history
+
+Seven states across two screens, each phone width, plus the three desktop
+widths. **28 of 28 clean on the phone tier; 18 of 18 clean on the desktop
+tier** (`sms-expanded` drives the row-expand toggle, which exists on the phone
+tree alone, so it is skipped above `tablet`).
+
+| State                                       | 320 | 360 | 390 | 430 | 768 | 1024 | 1366 |
+| ------------------------------------------- | --- | --- | --- | --- | --- | ---- | ---- |
+| Door Access (3 readers, 4 events, 3 alerts) | 0   | 0   | 0   | 0   | 0   | 0    | 0    |
+| Door Access, empty (no readers, no scans)   | 0   | 0   | 0   | 0   | 0   | 0    | 0    |
+| Door Access, Alerts filter applied          | 0   | 0   | 0   | 0   | 0   | 0    | 0    |
+| SMS history collapsed                       | 0   | 0   | 0   | 0   | 0   | 0    | 0    |
+| SMS history open (320-char body, 3 pages)   | 0   | 0   | 0   | 0   | 0   | 0    | 0    |
+| SMS history, a row expanded                 | 0   | 0   | 0   | 0   | —   | —    | —    |
+| SMS history, empty                          | 0   | 0   | 0   | 0   | 0   | 0    | 0    |
+
+**The phase's "verify only" item was the phase's defect.** The prompt said
+`DeviceStatusCard`s "already stack below `tablet` — verify only", and the
+Phase 9 commit repeated it as "verified by reading, not changed". Stacking was
+true; fitting was not, and only measurement could tell them apart. At 320 the
+whole page zoomed out to a **572 px layout viewport** — every reader card, the
+activity list and the pager with it. Two independent causes, in F42 and F43.
+
+**The fixture is what made it visible, and nearly what made it deniable.** The
+first measurement used a 22-character hyphenated serial of my own invention.
+Shortening it to the product's observed shape made the screen clean, which is
+the moment F35 exists for: a defect that disappears with the fixture is the
+fixture's. The discriminator was to stop guessing and bisect the two long
+values — and an **ordinary 26-character device name**, "Front door — main
+entrance", still took the viewport to 363. Free text a gym types, a third of
+the schema's 100-char limit. The serial, measured the same way, turned out to
+be the opposite case: the vendor's own documented format is 13 unbreakable
+characters (`NYU7251900066`,
+`docs/integrations/vft/vft-api-reference.md`), which fits, and only the
+schema maximum breaks it — real, but at a different distance.
+
+**The probe was falsified against the defect this phase exists to remove.**
+Forcing the desktop tree onto a 320 px phone reproduces both: the access
+activity table is **543 px in a 286 px container**, the SMS history table
+**771 px in a 254 px container**, each inside an `overflow-x-auto` wrapper, so
+neither widens the page and neither is visible as a defect — they just hide
+their right-hand columns. MO-17 measured that SMS table at 384 px; with a
+real 320-character message in it at 320 px it is twice that.
+
+**Desktop 1366: one intended change, and it is only the pager.** Door Access
+is **byte-identical** — same md5 across two freshly built trees — because
+`responsive` adds the compact readout to the DOM and CSS hides it, exactly as
+the jsdom test asserts. The SMS history differs in **9,814 px, 0.90% of the
+frame, confined to the bounding box (264, 261)–(1342, 310)**: the pager row and
+nothing else. That is the §2.17 fix landing — a hand-rolled "Page 1 of 3" plus
+two `xs` (26 px) Previous/Next buttons replaced by the DS `Pagination`, whose
+numbered pages are 32 px. The card grows 6 px. Nothing above the pager moves by
+a pixel.
+
 ---
 
 ## 3. Execution log
@@ -1434,6 +1489,65 @@ area" rule had three callers with no wrapping label.
 **Not verified, and saying so:** nothing on these screens has been WRITTEN in
 a browser — no plan created, no discount deleted, no password changed, no
 broadcast sent; MO-23's fixtures are still intercepted rather than seeded.
+
+### Phase 9 — Door Access, SMS history and activity lists · **DONE** 2026-10-01
+
+Branch `claude/mobile-ui-rebuild-p9`, **cut from the Phase 8 head `4afb098`,
+not from `master`** — PR #79 is open and unmerged, and the user has not
+authorised merging it. Recorded as a deviation from the prompt's
+`git checkout master && git pull` because it makes this PR's diff read against
+Phase 8 rather than against `master`. Scope: plan §0 C15, §8.15, §9.2, §9.4,
+§12, §25.4 "Door Access", §26 DOOR ACCESS blueprint, §27.
+
+Three commits:
+
+1. `74f4157` — the two lists. `AccessActivityLog` keeps its desktop `Table` and
+   renders `ListRow`s on the phone tier (visible: who, the kind badge and the
+   description, when; disclosed: the reader on the meta line), its pager gains
+   `responsive`. `MemberSmsHistory` the same (visible: type, status, sent at;
+   the message disclosed in the `actions` slot, `line-clamp-2`, expanding on
+   tap, one row at a time), and its hand-rolled Prev/Next pager — a second
+   implementation of a pattern the design system owns (§2.17), with 26 px `xs`
+   buttons — is replaced by the DS `Pagination`.
+2. `a11e4fc` — the two width defects on the reader cards (F42, F43).
+3. `a6c773e` — MO-10 (F44).
+
+**The phase's one "verify only" instruction was where its defect was.** The
+prompt said `DeviceStatusCard`s "already stack — verify only", and 74f4157's
+own message repeated it as "verified by reading, not changed". Reading
+established stacking and could not establish fitting; the browser did, at a
+**572 px layout viewport on a 320 px device**. Both causes are structural and
+neither is visible to `tsc`, ESLint, `arch:check` or 2,184 passing tests. The
+instruction was not wrong to be given — it was wrong to be answered by reading.
+
+**F35's discrimination, run properly and nearly failed.** Shortening the serial
+to the product's observed shape made the whole screen clean, which is the exact
+shape of "the defect was the fixture's". The bisect is what settled it: an
+**ordinary 26-character device name** still took the viewport to 363. The
+serial turned out to be the other case — the vendor's own documented format
+(`NYU7251900066`, 13 chars) fits, and only the schema maximum breaks it.
+
+**MO-10 was settled, two phases after it was raised, by going and measuring
+it.** F9's premise was that a `Switch` has no wrapping label. Its one product
+caller already wraps it; what it lacked was a height — **88×24**, so neither
+the control nor its hit area reached 40 px. One `phone:`-scoped class makes it
+88×44. The probe still reads the 44×24 track, because its label substitution
+covers checkbox and radio and not `role="switch"` (F45) — left for Phase 10,
+because changing the instrument to turn a reading green is the one move this
+log exists to prevent.
+
+**What this phase measured but did not rebuild.** `/settings/access-control`
+has never been in any phase's scope, and probing it for MO-10 surfaced two more
+items on it: "Connect a reader" sits flush against the card's border, eating
+all 12 px of its right padding at 320 and 390; and the reader-name input clips
+its own value (scrollWidth 450 in a 306 px box). Rebuilding that screen is
+Phase 10's, not a one-class fix, and it is in §5 rather than in this diff.
+
+**Not verified, and saying so:** nothing was WRITTEN through a browser — no
+door opened, no reader renamed, no fingerprint enrolled. Every fixture is
+intercepted (MO-23). The Lite-gym capability check the prompt asks for
+("Lite gym still sees no Door Access entry") is covered by the existing
+`FeatureGate` suites, not re-measured here.
 
 ---
 
@@ -2339,6 +2453,98 @@ run what another screenshot pair cannot.
 
 ---
 
+### F42 — A grid with no column template is floored by its items' max-content
+
+`grid gap-3 md:grid-cols-2 xl:grid-cols-3` declares no template below `md`, so
+the implicit single track is `auto` — whose base size is its items'
+**max-content** contribution. The device-name `h3` carries `truncate`, which is
+`white-space: nowrap` plus `overflow: hidden` plus an ellipsis: the hidden
+overflow governs what is PAINTED, and the nowrap governs what the track ASKS
+FOR. A truncating heading therefore asks for its whole untruncated string.
+
+Measured in Chromium at a 320 px device: a 26-character name ("Front door —
+main entrance") took the layout viewport to **363**, a 58-character one to
+**572**. Every card then stretched to the widened viewport — including the two
+with short names, which is why the first reading looked like a shared minimum
+rather than one item's demand.
+
+`grid-cols-1` is `repeat(1, minmax(0, 1fr))`. The 0 minimum is the entire fix,
+and it is inert from `md` up where the explicit templates already win. The
+`grid-cols-2` grids elsewhere in the product were never exposed: Tailwind emits
+`minmax(0, 1fr)` for all of them. **The exposed shape is specifically a `grid`
+whose only column templates are breakpoint-prefixed** — one other instance
+exists (`PricingTable`, `grid gap-4 md:grid-cols-3`) and Phase 8 measured that
+screen clean, so it is latent and recorded rather than changed (MO-33).
+
+### F43 — `min-w-0` protects the column, not the unbreakable word inside it
+
+The device serial sits under the name in the same `min-w-0` flex column, with
+no wrapping rule of its own — the `truncate` belongs to its sibling `h3`. At
+the schema maximum (64 chars, `registerDeviceSchema`) the `<p>`'s scrollWidth
+was **422 in a 181 px box**, and the layout viewport went to **459 even with
+F42 fixed**: `min-w-0` lets the flex item shrink, it does not make an
+unbreakable token wrap.
+
+`break-all`, not the sibling's `truncate`: a serial is the one field a gym
+reads back to support off this screen, and an ellipsis destroys it. Both are
+inert at the vendor's documented 13-character format (`NYU7251900066`,
+`docs/integrations/vft/vft-api-reference.md` — FACT under rule 2.20, not
+inference), which fits on one line and never breaks.
+
+The two defects are independent, and each was measurable only after the other
+was fixed. A single probe run reports one number for the page; the second cause
+is invisible until the first stops dominating it.
+
+### F44 — Two deferrals were right to wait and wrong about the shape
+
+MO-10 was raised at Phase 1 and deferred twice: to Phase 8 ("decide before
+Settings joins `STRICT_PHONE_ROUTES`"), then to Phase 9 ("nothing this phase
+probed renders a `Switch`"). Both deferrals reasoned from F9's premise —
+**"a `Switch` has no wrapping label: in `SettingsRow` the label sits beside
+it"** — and that premise is false for the switch's one product caller, where
+the label already wraps the control.
+
+The conclusion survived for a different reason than the one recorded: the label
+measured **88×24**. §15.1's row is "control 24 px; 44 px label hit area (label
+wraps the control)", so the structure was right and only the height was
+missing, which is one `phone:`-scoped class rather than the "DOM restructure
+that would change the desktop markup for a phone problem" F9 feared.
+
+The general shape, which this log has now paid for three times (F28, F39, this):
+**a claim about a component's callers, written in prose next to the component,
+is unchecked and ages.** Grep before believing it — and when an item names your
+phase, the thing it is waiting for is usually a measurement nobody has taken.
+
+### F45 — The probe under-implements the rule it cites, in the direction of noise
+
+The touch rule's own comment reads "measured on the wrapping `<label>` when one
+exists (control 24, label 44)", and §15.1's row names Checkbox, Radio **and**
+Switch together. The implementation substitutes the label for `input` controls
+only, so a `role="switch"` button inside a label is still measured directly and
+reported at 44×24 against a 40 px floor.
+
+Left for Phase 10, deliberately. The fix is one predicate in a shared
+instrument that every phase's ratchet is calibrated against, and making it here
+would turn a reading green in the same commit that produced the reading. The
+product change that makes §15.1 TRUE on the screen was made; the instrument
+change that makes the probe AGREE was not. Those are different acts and this
+log does not let them share a commit.
+
+### F46 — A shared screenshot directory silently mixes runs
+
+The falsification pass — forcing the desktop tree onto a phone to prove the
+probe catches the defect being removed — writes to the same
+`${project}-${state}.png` paths as the real pass. Reviewing `phone-320-access.png`
+afterwards showed the four-column desktop table at 320 and read, for several
+minutes, as a tier-hook bug at 320 that 390 did not have.
+
+It was the falsification's own artefact, still on disk. Nothing was wrong with
+the product and nothing was wrong with the probe; the directory is a mutable
+global that two runs with opposite intentions both wrote to. **A pass whose
+purpose is to produce a failure must not write where the passing run's evidence
+lives** — or the evidence has to be re-captured after it, which is what
+happened here.
+
 ## 5. Open items
 
 | Id    | Item                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Owner         |
@@ -2352,7 +2558,7 @@ run what another screenshot pair cannot.
 | MO-7  | **Phase 1's E2E suites were not run**, and **Phase 2's were not either** — same session, same missing Supabase credentials. Itemised in §6.1; `viewport-export` is still the one to run first. Phase 2 adds `app-router-history` to the list for a second reason: `useHistoryBack` now has two consumers with opposite ordering needs (F16).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Phase 3       |
 | MO-8  | ~~`UI1_ALLOW` gained `AppBar` and `BottomNav`~~ — **closed in Phase 2**: all three (`Drawer` too) are mounted in `WorkspaceShell` and their entries are deleted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | closed        |
 | MO-9  | o09 `bodyPhone` (14/20) is **proposed, not applied** — see the decisions table in the Phase 1 entry above. **Recommendation: adopt.** At 13/20 the primary row text sits 1 px above the caption (12) and 2 px above the mono meta (11), so a member's name and its own status line read as one weight; at 14/20 they separate, and that is the most-scanned relationship in every phone list. The line-height stays 20, so no row grows and no §26 blueprint height changes. Against it: 13 is the workspace's body size everywhere else, and raising it on phones means the two tiers no longer share one body token. Rendered comparison in the showcase's "Phase 1 decisions" section, confirmed at `13px/20px` vs `14px/20px`; **caveat — fallback fonts** (§6.2). Applying it is one token across the three files plus one class at the shell root.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | product       |
-| MO-10 | F9: the 44×24 `Switch` cannot meet the probe's 40 px minimum. ~~Decide at Phase 8~~ → **Phase 9**. It names Phase 8 because Settings is that phase's scope, but the `Switch` has exactly one product caller — `AccessReadersCard` on `/settings/access-control` — which belongs to Door Access. Nothing Phase 8 probed renders one, so there was no measurement to decide on. Phase 8 settled the neighbouring CHECKBOX case instead (F39): same rule, three callers with no wrapping label. Options unchanged: a padded wrapper that is the target, or a §5.2 amendment.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Phase 8       |
+| MO-10 | ~~F9: the 44×24 `Switch` cannot meet the probe's 40 px minimum~~ → **SETTLED, Phase 9** (F44). F9's premise — "a `Switch` has no wrapping label" — is false for its one product caller: `AccessReadersCard` already wraps it. The label simply had no height, measured **88×24**. §15.1's row is "control 24 px; 44 px label hit area (label wraps the control)", so the structure was right and the fix is one `phone:min-h-touch` on the label; measured **88×44** after, with §5.2's 44×24 track untouched. The DOM restructure F9 feared was never needed. What remains is the instrument, not the product — see MO-34.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | closed        |
 | MO-11 | **o12 was applied from its default, not approved.** The Door Access entry in the DESKTOP sidebar is the rebuild's one intended desktop navigation change (§0.2). It is one line in `nav.ts` to remove if the answer is no, and the tracker entry is still `open`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | product       |
 | MO-12 | The tablet-collapsed default (o02) corrects on the client's first commit: the server cannot measure a width and an iPad shares the desktop UA (M5). Visible only at 768–1023, on a first visit with no stored choice. If it ever needs to be flicker-free, the mechanism is `Accept-CH: Sec-CH-Viewport-Width`, which is Chromium-only.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | note          |
 | MO-13 | The phone `AppBar` names a settings section from `SETTINGS_SECTIONS`; any other nested route falls back to its parent's crumb. Only `/settings` has children today. A new nested route wants either an entry in that list or a generalisation of `appBarTitle`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Phase 8       |
@@ -2375,6 +2581,11 @@ run what another screenshot pair cannot.
 | MO-30 | **The trailing day-granularity x tick overhangs its chart by 0.6 px at every width** (F37), on both tiers, and no run of the probe suite can see it: the suite visits each route at its default range, which for this screen is YTD. It needs the 1M or 3M range selected — a probe that drives a control before measuring, which no phase has needed yet. Fold into the Phase 10 axis work, which already owns the other three entries (MO-1).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Phase 10      |
 | MO-31 | **Nothing on the Phase 8 screens has been written in a browser.** Eleven mutations across five screens — create/update/delete a plan, create/toggle/delete a discount, save the admission fee, change four credentials, send a broadcast, submit a ticket, save policies — are covered by mocked-`fetch` unit tests and by nothing else. Verification Directive 2 names exactly this gap: a mocked mutation and an RLS-refused one look identical. Clears with the seeded gym (§6.1).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Phase 10      |
 | MO-32 | **`Checkbox`'s doc comment claimed one phone caller and had four** (F39). The three product ones are fixed and the comment is now true. Nothing keeps it true: a component's prose about its own callers is checked by no gate, and this is the second such claim to age badly in two phases — F36 was the plan's, this was the primitive's. If a rule matters enough to write into a doc comment, consider whether `arch:check` can hold it instead.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | design system |
+| MO-33 | **One latent instance of F42 remains.** `PricingTable` is `grid gap-4 md:grid-cols-3` — the exposed shape: a grid whose only column templates are breakpoint-prefixed, leaving the implicit track `auto` and floored by its items' max-content. Phase 8 probed `/subscription` clean, so it is latent, not broken, and changing it on no measurement is what this log argues against. The sweep is the place: grep for a `grid` class with no unprefixed `grid-cols-*`, then measure before adding one.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Phase 10      |
+| MO-34 | **The probe measures a `role="switch"` directly, against its own comment** (F45). Its touch rule says controls "are measured on the wrapping `<label>` when one exists (control 24, label 44)", and §15.1 names Checkbox, Radio and Switch in one row, but the substitution covers `input` controls only. One predicate — and it is in a shared instrument every phase's ratchet is calibrated against, so it belongs to the phase that owns the baselines, not to the phase that produced the reading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Phase 10      |
+| MO-35 | **`/settings/access-control` has never been in any phase's scope.** Probed for MO-10 only, and it has two defects beyond the switch: "Connect a reader" sits flush against the card border, eating all 12 px of its right padding at 320 and 390; and the reader-name input clips its own value (scrollWidth 450 in a 306 px box) — native `<input>` behaviour, so whether that is a defect or a probe rule-3 reading needs a judgement, not a class. Neither is a one-class fix and neither belongs in a phase that did not own the screen.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Phase 10      |
+| MO-36 | **PR #79 (Phase 8) is unmerged, so Phase 9 is stacked on it.** `claude/mobile-ui-rebuild-p9` is cut from `4afb098`, not from `master`, against the prompt's own `git checkout master && git pull`. PR #80's diff therefore reads against Phase 8. If #79 merges first this resolves itself; if it does not, #80 must be rebased before review or it carries Phase 8's changes in its diff.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | this phase    |
+| MO-37 | **The Door Access activity log formats its timestamps with raw `toLocaleString()`** — `9/24/2026, 8:41:00 AM` — on BOTH tiers, where the rest of the product uses `formatDate`/`formatDateShort` from `@/utils/date` (`24 Sept 2026, 08:41`). Pre-existing on the desktop table; the phone row mirrors it deliberately rather than introducing a second format. Fixing it changes the desktop table too, which is not a layout phase's to do.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 10      |
 
 ---
 
@@ -2605,3 +2816,20 @@ covers:
   zero fenced lines start with a pipe), so that branch is defensive and
   unexercised. Its escape-awareness _is_ exercised — remove it and 10
   correctly-escaped rows across four rulebooks report as ragged.
+- **"Verify only" names a claim, not a method.** A prompt that says a
+  component "already stacks — verify only" has stated what someone believes;
+  reading the source confirms the belief and nothing else. Phase 9's one
+  verify-only item was the phase's defect, and the gap between the claim
+  (stacks) and the truth (does not fit) is exactly the gap reading cannot
+  close (F42, F43). Verify in the browser or say which you did.
+- **Two width defects on one page report as one number.** The layout viewport
+  is a single figure for the whole document, so the widest cause dominates it
+  and every narrower one is invisible until that cause is fixed. A probe run
+  that goes from 572 to clean is not evidence of one defect; re-measure at the
+  boundary values after each fix (F43).
+- **A falsification run must not write where the passing run's evidence
+  lives.** Forcing a defect back in to prove the probe catches it produces
+  screenshots that look exactly like a regression, in the same filenames
+  (F46). Either write them elsewhere or re-capture afterwards — and a
+  screenshot reviewed after any falsification pass is stale until you know
+  which run wrote it.

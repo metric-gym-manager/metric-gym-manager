@@ -237,7 +237,12 @@ function ReaderRow({ device }: { device: SerializedAccessDevice }) {
         </div>
 
         <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-ink-secondary">
+          {/* §15.1 for Checkbox/Radio/Switch: the control stays 24 px and the
+              LABEL carries the 44 px hit area, which is why it wraps the
+              control rather than pointing at it (F28). Measured 88×24 on a
+              phone before this class; the switch track itself is 44×24 by
+              §5.2 and stays that way. */}
+          <label className="flex items-center gap-2 text-sm text-ink-secondary phone:min-h-touch">
             <Switch
               checked={device.isActive}
               onCheckedChange={handleToggle}

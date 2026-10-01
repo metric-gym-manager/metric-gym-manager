@@ -25,6 +25,7 @@ import { DoorOpen } from 'lucide-react'
 import {
   Badge,
   EmptyState,
+  ListRow,
   Pagination,
   Skeleton,
   Table,
@@ -36,6 +37,7 @@ import {
   TableRow,
 } from '@/components/ui'
 import { Button } from '@/components/ui'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import { useAccessEvents } from '../hooks/useAccessControl'
 import { DeviceEventKind } from '../config/DeviceEventCodes'
 import type { SerializedAccessEvent } from '../utils/serializeAccessForAPI'
@@ -67,6 +69,7 @@ export default function AccessActivityLog({
 }: AccessActivityLogProps) {
   const [page, setPage] = useState(1)
   const [kind, setKind] = useState<DeviceEventKind | undefined>(undefined)
+  const phone = useViewportTier() === 'phone'
 
   const { data, isLoading } = useAccessEvents({
     page,
@@ -111,51 +114,96 @@ export default function AccessActivityLog({
         />
       ) : (
         <>
-          <TableContainer>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>When</TableHead>
-                  <TableHead>Who</TableHead>
-                  <TableHead>What happened</TableHead>
-                  <TableHead>Reader</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.events.map((event) => (
-                  <TableRow key={event.id}>
-                    <TableCell className="whitespace-nowrap">
-                      {new Date(event.occurredAt).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      {event.memberName ?? (
-                        // An unrecognised finger has no member to name. Shown
-                        // rather than hidden — this row is how a gym notices
-                        // someone trying their luck at the door.
-                        <span className="text-ink-muted">Not recognised</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <span className="flex items-center gap-2">
-                        <KindBadge kind={event.kind} />
-                        <span className="text-ink-secondary">
-                          {event.description}
-                        </span>
+          {phone ? (
+            /*
+             * §9.4 "Access activity": who, badge and when in the row, the
+             * reader disclosed on the meta line. C15 is explicit that this
+             * table stays a plain `Table` on the desktop and renders rows on a
+             * phone through the tier hook — no `Table` → `DataTable`
+             * conversion. The desktop's four columns all survive: who is the
+             * primary, "what happened" keeps the badge AND its description in
+             * the status slot exactly as the desktop cell composes them, the
+             * reader is the meta line, and the timestamp is the trailing
+             * value.
+             *
+             * The `TableContainer` the desktop keeps is `overflow-x-auto`, so
+             * on a phone this never widened the page — it hid two of the four
+             * columns inside a scroller with no visual cue (probe rule 3).
+             */
+            <ul role="list">
+              {data.events.map((event) => (
+                <ListRow
+                  key={event.id}
+                  primary={
+                    event.memberName ?? (
+                      <span className="text-ink-muted">Not recognised</span>
+                    )
+                  }
+                  status={
+                    <span className="flex items-center gap-2">
+                      <KindBadge kind={event.kind} />
+                      <span className="text-ink-secondary">
+                        {event.description}
                       </span>
-                    </TableCell>
-                    <TableCell className="font-mono text-mono-sm text-ink-muted">
-                      {event.deviceSerial}
-                    </TableCell>
+                    </span>
+                  }
+                  meta={[event.deviceSerial]}
+                  value={new Date(event.occurredAt).toLocaleString()}
+                />
+              ))}
+            </ul>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead>Who</TableHead>
+                    <TableHead>What happened</TableHead>
+                    <TableHead>Reader</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHeader>
+                <TableBody>
+                  {data.events.map((event) => (
+                    <TableRow key={event.id}>
+                      <TableCell className="whitespace-nowrap">
+                        {new Date(event.occurredAt).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        {event.memberName ?? (
+                          // An unrecognised finger has no member to name. Shown
+                          // rather than hidden — this row is how a gym notices
+                          // someone trying their luck at the door.
+                          <span className="text-ink-muted">Not recognised</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-2">
+                          <KindBadge kind={event.kind} />
+                          <span className="text-ink-secondary">
+                            {event.description}
+                          </span>
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-mono text-mono-sm text-ink-muted">
+                        {event.deviceSerial}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
 
+          {/* §26's DOOR ACCESS blueprint draws the compact "[‹ Prev] 1 of 4
+              [Next ›]" pager: numbered pages need seven 32 px targets in a row,
+              which is the full width of a 320 px screen. Both forms are in the
+              DOM and CSS picks one, so the desktop is untouched. */}
           <Pagination
             page={data.page}
             pageCount={data.totalPages}
             onPageChange={setPage}
+            responsive
           />
         </>
       )}
