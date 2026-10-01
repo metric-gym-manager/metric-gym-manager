@@ -120,13 +120,25 @@ defensible and what its first run against the seeded gym will actually test.
    rest of the product uses `formatDate` / `formatDateShort`. Pre-existing on
    the desktop table; the phone row mirrors it deliberately rather than
    introducing a second format. Fixing it changes the desktop too.
-10. **UI1_ALLOW's thirteen entries.** All pre-date the rebuild, which orphaned
+10. **MO-39 — two of these follow-ups understated their own scope**, found by a
+    post-merge audit and corrected in §5 of the log. **MO-33 is four instances,
+    not one**: `PricingTable` plus `AccessReadersCard` (twice) and
+    `AccessAccountCard`, the last three on `/settings/access-control`, the one
+    screen no phase owned. **MO-37 is three screens in two wrong formats, not
+    one**: the Door Access log's `toLocaleString()`, plus raw ISO dates in
+    `PaymentCollectionPageClient` (`nextDueDate`, `paymentDate`) and
+    `DashboardClient` (`paymentDate`). Neither is a measured defect — both
+    screens probe clean — and both were logged from a browser pass, which sees
+    the screens a phase owned. An entry naming a code pattern should be opened
+    with the sweep that proves its extent; both sweeps are one `grep` and are
+    quoted in the log entries.
+11. **UI1_ALLOW's thirteen entries.** All pre-date the rebuild, which orphaned
     none of them (measured: 14 entries at the base commit, 13 now, the one
     difference `Drawer`). Deleting them is a design-system cleanup. Four have
     positive evidence of redundancy — Phase 4 built its phone toolbar from
     `DropdownMenu` rather than `Toolbar` or `FilterBar`, and Phases 7 and 9
     disclosed rows with local state rather than `Accordion`.
-11. **MO-23 / MO-31** — **nothing in this rebuild was written through a
+12. **MO-23 / MO-31** — **nothing in this rebuild was written through a
     browser.** No member registered, no payment recorded, no broadcast sent, no
     door opened, no fingerprint enrolled. Every fixture in every phase was
     intercepted, because no session had Supabase credentials. The jsdom suites
