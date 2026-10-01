@@ -50,6 +50,13 @@ export const AUTH_LOOP_WINDOW_SECONDS = 10
  *
  * Exact matches, deliberately: a `/terms/` prefix would make every future
  * `/terms/<anything>` public by accident.
+ *
+ * The marketing pages below (the `(marketing)` route group) are public for the
+ * same reasons and on the same terms: static, no session, no tenant data. Each
+ * one is listed in the page registry (`features/marketing/config/pages.ts`),
+ * and `pages.test.ts` fails if a registered page is missing here — a page left
+ * out would answer Googlebot with 307 → /login and never be indexed, with
+ * every other check green.
  */
 export const PUBLIC_ROUTES = [
   '/',
@@ -66,6 +73,18 @@ export const PUBLIC_ROUTES = [
   '/privacy',
   '/refund-policy',
   '/contact',
+  // Public marketing pages (SEO). Exact matches, like the legal set.
+  '/gym-management-software-sri-lanka',
+  '/features/membership-management',
+  '/features/payment-collection',
+  '/features/sms-reminders',
+  '/features/revenue-reporting',
+  '/features/access-control',
+  '/pricing',
+  '/about',
+  '/resources',
+  '/resources/membership-renewal-reminders',
+  '/resources/billed-vs-collected-revenue',
 ] as const
 
 /**

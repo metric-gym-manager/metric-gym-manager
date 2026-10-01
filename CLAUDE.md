@@ -76,6 +76,8 @@ src/
                     #   touching it, read docs/architecture/access-control-master.md,
                     #   the single source of truth for the VFT/ZKTeco integration
     auth/ announcements/ registration/ revenue/ settings/
+    marketing/      #   public website: page registry, SEO metadata, JSON-LD, sitemap,
+                    #   published pricing (docs/seo/SEO_AUDIT.md; rule 2.23)
   lib/              # third-party glue: supabase/, payhere/, storage/, cron/, auth/, middleware/
   hooks/            # shared React hooks
   utils/            # pure utilities: api/ (ResponseBuilder), errors/, date/, phone/, money/

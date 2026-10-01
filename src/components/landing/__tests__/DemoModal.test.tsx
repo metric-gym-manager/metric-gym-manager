@@ -1,0 +1,73 @@
+import { fireEvent, render, screen } from '@testing-library/react'
+import '@testing-library/jest-dom'
+import { LeadInterest } from '@/features/leads'
+import { DemoModal } from '../DemoModal'
+
+/**
+ * SEO-035: a demo request is the public site's conversion. GA4 can only tie an
+ * organic landing page to a lead if the form reports one — and only after the
+ * lead was actually stored, and without the visitor's personal data.
+ */
+describe('DemoModal analytics', () => {
+  const gtag = jest.fn()
+  const fetchMock = jest.fn()
+
+  beforeEach(() => {
+    gtag.mockReset()
+    fetchMock.mockReset()
+    window.gtag = gtag
+    global.fetch = fetchMock as unknown as typeof fetch
+  })
+
+  afterEach(() => {
+    delete window.gtag
+  })
+
+  function submitDemoRequest() {
+    render(<DemoModal />)
+    fireEvent.click(screen.getByRole('button', { name: 'Request a demo' }))
+    fireEvent.change(screen.getByLabelText(/name/i), {
+      target: { value: 'Nimal Perera' },
+    })
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: 'nimal@example.lk' },
+    })
+    fireEvent.change(screen.getByLabelText(/phone/i), {
+      target: { value: '+94 77 123 4567' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }))
+  }
+
+  it('reports generate_lead once the lead is stored, with no personal data', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    })
+
+    submitDemoRequest()
+
+    expect(await screen.findByText(/be in touch/i)).toBeInTheDocument()
+    expect(gtag).toHaveBeenCalledTimes(1)
+    expect(gtag).toHaveBeenCalledWith('event', 'generate_lead', {
+      form: 'demo_request',
+      interest: LeadInterest.Demo,
+    })
+    const params = JSON.stringify(gtag.mock.calls[0])
+    expect(params).not.toMatch(/Nimal|example\.lk|123 4567/)
+  })
+
+  it('reports nothing when the lead was rejected', async () => {
+    fetchMock.mockResolvedValue({
+      ok: false,
+      json: async () => ({
+        success: false,
+        error: { message: 'Too many requests' },
+      }),
+    })
+
+    submitDemoRequest()
+
+    expect(await screen.findByText('Too many requests')).toBeInTheDocument()
+    expect(gtag).not.toHaveBeenCalled()
+  })
+})

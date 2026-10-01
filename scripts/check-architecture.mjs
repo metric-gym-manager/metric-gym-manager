@@ -502,7 +502,11 @@ const UI3_ALLOW = new Set([
 // un-guarding the five screens where a mount failure locks every user out. The
 // allow-list could only shrink, but nothing stopped the net being made smaller.
 // Found by mutating the scope itself rather than its contents.
-const UI3_GROUPS = ['dashboard', 'admin', 'auth']
+// `(marketing)` joined on 2026-10-01 with the public SEO pages. Those pages are
+// what a search engine indexes and what a prospective customer sees first; a
+// mount failure there is invisible to every workspace test, so they are held to
+// the same rule as the screens.
+const UI3_GROUPS = ['dashboard', 'admin', 'auth', 'marketing']
 const UI3_GROUPS_OUT_OF_SCOPE = [
   // Dev-only component showcase; imports every primitive by design.
   'dev',

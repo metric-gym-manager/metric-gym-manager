@@ -138,6 +138,38 @@ describe('authMiddleware', () => {
     )
 
     /**
+     * The public marketing pages (SEO, 2026-10-01). A page that is not public
+     * answers Googlebot — which never has a session — with 307 → /login, so
+     * it can never be indexed while every rendering test stays green. These
+     * are the pages a search result is most likely to land on; the full set is
+     * held to PUBLIC_ROUTES by `features/marketing/tests/pages.test.ts`.
+     */
+    it.each([
+      '/gym-management-software-sri-lanka',
+      '/pricing',
+      '/features/access-control',
+      '/about',
+      '/resources/billed-vs-collected-revenue',
+    ])(
+      'serves the marketing page %s to a signed-out visitor',
+      async (pathname) => {
+        signedOut(400, 'Auth session missing!')
+        const res = await authMiddleware(makeRequest(pathname))
+        expect(res.status).toBe(200)
+        expect(res.headers.get('location')).toBeNull()
+      }
+    )
+
+    it.each(['/features', '/pricing/admin', '/resources/drafts'])(
+      'still guards the unlisted path %s',
+      async (pathname) => {
+        signedOut(400, 'Auth session missing!')
+        const res = await authMiddleware(makeRequest(pathname))
+        expect(new URL(res.headers.get('location')!).pathname).toBe('/login')
+      }
+    )
+
+    /**
      * A signed-in gym manager must still be able to read the terms they are
      * operating under — these are public documents, not an auth funnel, so
      * they must not join AUTH_ROUTES and bounce to /dashboard.

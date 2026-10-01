@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { LeadInterest } from '@/features/leads'
+import { trackEvent } from '@/lib/analytics/gtag'
 
 const css = `
 .l-modal-btn:hover{background:#fff!important}
@@ -12,13 +13,18 @@ const css = `
 }
 `
 
-const PLAN_OPTIONS = ['Starter', 'Growth', 'Enterprise'] as const
+const PLAN_OPTIONS = ['Lite', 'Pro', 'Enterprise'] as const
 type PlanOption = (typeof PLAN_OPTIONS)[number]
 
-/** The dropdown speaks marketing plan names; the API speaks the LeadInterest enum. */
+/**
+ * The dropdown speaks the product's tier names (TIER_DISPLAY_NAME); the API
+ * speaks the LeadInterest enum, whose stored values predate the July 2026
+ * rename (LeadConfig documents Starter = Lite, Growth = Pro). Mapping here
+ * keeps existing lead rows comparable without a data migration.
+ */
 const PLAN_TO_INTEREST: Record<PlanOption, LeadInterest> = {
-  Starter: LeadInterest.Starter,
-  Growth: LeadInterest.Growth,
+  Lite: LeadInterest.Starter,
+  Pro: LeadInterest.Growth,
   Enterprise: LeadInterest.Enterprise,
 }
 
@@ -106,6 +112,9 @@ export function DemoModal() {
         return
       }
       setStatus('success')
+      // GA4 recommended event: ties an organic landing page to a lead. No
+      // personal data — only which plan, if any, the visitor asked about.
+      trackEvent('generate_lead', { form: 'demo_request', interest })
     } catch {
       setError('Network error. Please try again.')
       setStatus('idle')

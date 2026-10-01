@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui'
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration'
 import { AuthRecovery } from '@/features/auth/components/AuthRecovery'
 import { PWA_VERSION } from '@/lib/pwa-version'
+import { OG_IMAGE, SITE_NAME, SITE_URL } from '@/features/marketing'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -57,39 +58,55 @@ export const viewport: Viewport = {
   themeColor: '#08080a',
 }
 
+/**
+ * Site-wide metadata defaults.
+ *
+ * - `metadataBase` is the canonical `www` origin. The apex and the retired
+ *   metricgymmanager.com domains 308-redirect to it, so absolute URLs built on
+ *   the apex (as they were) all pointed at a redirect.
+ * - No `alternates.canonical` and no `openGraph.url` here, deliberately: both
+ *   are inherited by every page beneath this layout, so a value here would
+ *   declare every route a copy of the homepage. Public pages set their own via
+ *   `buildPageMetadata()` (features/marketing).
+ * - `title.template` names the product on in-app pages that set only a short
+ *   title (e.g. "Join Gym"); public pages use absolute titles.
+ */
 export const metadata: Metadata = {
-  title: 'Metric Gym OS',
+  title: {
+    default: SITE_NAME,
+    template: `%s | ${SITE_NAME}`,
+  },
   description:
-    'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
-  metadataBase: new URL('https://metricgymos.com'),
+    'Gym management software for Sri Lankan gyms: members, renewals, SMS reminders, revenue reporting and fingerprint door access.',
+  metadataBase: new URL(SITE_URL),
+  applicationName: SITE_NAME,
   manifest: '/manifest.json',
   icons: [
     { rel: 'icon', url: '/favicon.svg' },
     { rel: 'apple-touch-icon', url: `/icon-192.png?v=${PWA_VERSION}` },
   ],
   openGraph: {
-    title: 'Metric Gym OS',
+    siteName: SITE_NAME,
+    title: SITE_NAME,
     description:
-      'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
-    url: 'https://metricgymos.com',
-    siteName: 'Metric Gym OS',
+      'Gym management software for Sri Lankan gyms: members, renewals, SMS reminders, revenue reporting and fingerprint door access.',
     images: [
       {
-        url: '/linkPreviewLogo.png',
-        width: 1200,
-        height: 630,
-        alt: 'Metric Gym OS',
+        url: OG_IMAGE.path,
+        width: OG_IMAGE.width,
+        height: OG_IMAGE.height,
+        alt: OG_IMAGE.alt,
       },
     ],
-    locale: 'en_US',
+    locale: 'en_LK',
     type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Metric Gym OS',
+    title: SITE_NAME,
     description:
-      'Modern gym and fitness center management platform for streamlined operations, member management, and business growth',
-    images: ['/linkPreviewLogo.png'],
+      'Gym management software for Sri Lankan gyms: members, renewals, SMS reminders, revenue reporting and fingerprint door access.',
+    images: [OG_IMAGE.path],
   },
 }
 

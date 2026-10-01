@@ -1,0 +1,7 @@
+export type { MarketingPage, MarketingPageKind } from '../config/pages'
+export type { PricingTier } from '../config/pricing'
+export type { NavLink, FooterGroup } from '../config/navigation'
+export type { JsonLd } from '../utils/structured-data'
+export type { FaqItem } from '../components/FaqSection'
+export type { FeatureLink } from '../components/FeatureLinkGrid'
+export type { RelatedPage } from '../components/RelatedPages'

@@ -1,0 +1,19 @@
+import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
+
+/**
+ * Reached only from a one-time recovery link (rule 2.15). Never indexed: the
+ * URL carries a token and the page has no content of its own.
+ */
+export const metadata: Metadata = {
+  title: 'Set a new password',
+  robots: { index: false, follow: false },
+}
+
+export default function ResetPasswordLayout({
+  children,
+}: {
+  children: ReactNode
+}) {
+  return children
+}

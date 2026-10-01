@@ -1,3 +1,5 @@
+import type { Metadata } from 'next'
+import { buildPageMetadata } from '@/features/marketing'
 import Link from 'next/link'
 import {
   LegalLayout,
@@ -8,6 +10,9 @@ import {
   LegalContactItem,
   type LegalSection,
 } from '@/components/legal'
+
+/** Title, description and canonical come from the public page registry. */
+export const metadata: Metadata = buildPageMetadata('/terms')
 
 const LAST_UPDATED = 'July 2026'
 

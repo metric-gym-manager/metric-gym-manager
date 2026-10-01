@@ -137,4 +137,34 @@ describe('Table', () => {
       'tabular-nums'
     )
   })
+
+  /**
+   * A static row must carry no event handler, so a Server Component can render
+   * it: a function on a host element cannot be serialised across the server
+   * render, and the public pricing/feature tables failed `next build` with
+   * "Event handlers cannot be passed to Client Component props" when every row
+   * had one. jsdom cannot reproduce that render, so assert the element itself.
+   */
+  it('attaches no key handler to a static row, and keeps one on a clickable row', () => {
+    type RowElement = React.ReactElement<{
+      onKeyDown?: unknown
+      tabIndex?: number
+    }>
+    const renderRow = (
+      props: React.ComponentProps<typeof TableRow>
+    ): RowElement =>
+      (
+        TableRow as unknown as {
+          render: (p: typeof props, ref: null) => RowElement
+        }
+      ).render(props, null)
+
+    const staticRow = renderRow({ children: null })
+    expect(staticRow.props.onKeyDown).toBeUndefined()
+    expect(staticRow.props.tabIndex).toBeUndefined()
+
+    const clickableRow = renderRow({ clickable: true, onClick: () => {} })
+    expect(typeof clickableRow.props.onKeyDown).toBe('function')
+    expect(clickableRow.props.tabIndex).toBe(0)
+  })
 })

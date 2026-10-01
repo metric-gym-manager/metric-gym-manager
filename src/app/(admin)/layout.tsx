@@ -1,9 +1,15 @@
+import type { Metadata } from 'next'
 import { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin'
 
 interface AdminLayoutProps {
   children: ReactNode
+}
+
+/** SaaS-operator surface: never indexable, whatever serves it. */
+export const metadata: Metadata = {
+  robots: { index: false, follow: false },
 }
 
 /**
