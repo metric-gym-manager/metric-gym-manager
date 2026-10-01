@@ -330,12 +330,20 @@ export default function DashboardClient() {
             tick to `420k` / `1.5M` instead of widening the axis, which would
             take plot area a 320 px screen does not have.
 
-            Phone tier only, exactly as §5.9 and §8.1 specify. The clip is real
-            at 1366 as well (finding F1) and is NOT fixed here: the tick TEXT is
-            what changes, so applying it on the desktop would move the 1366
-            baselines this phase is required to leave alone. The two
-            `KNOWN_DESKTOP_VIOLATIONS` entries stay, re-pointed at the phase
-            that can own a desktop axis change.
+            **Now both tiers.** Phases 1 and 6 scoped it to the phone because
+            the tick TEXT is what changes, so the desktop needs a re-baseline
+            and MO-4 forbids absorbing a phase's own diff into one. Phase 10
+            owns the baselines, and the clip is real above `tablet` too —
+            re-measured at 768, 1024 and 1366, where `250000`/`500000`/`750000`
+            are each cut by 12 px and `1000000` by 18. The two
+            `KNOWN_DESKTOP_VIOLATIONS` entries clear with this line.
+
+            `dashboard-desktop-1366` and `revenue-desktop-1366` must be
+            re-taken with `--update-snapshots` on a machine with the seeded
+            gym: the y-axis reads `250k / 500k / 750k / 1.0M` after this and
+            `0000 / 5000 / …` before it. That run is not possible in the
+            environment this change was made in (no Supabase credentials), so
+            it is a named handoff in the closeout rather than a silent absorb.
           */}
           <BarChart
             data={chartData}
@@ -346,7 +354,7 @@ export default function DashboardClient() {
             label="Trailing monthly collected revenue"
             loading={!revenue}
             empty={<EmptyState title="No revenue history for this period." />}
-            compactAxis={tier === 'phone'}
+            compactAxis
           />
         </ChartCard>
 

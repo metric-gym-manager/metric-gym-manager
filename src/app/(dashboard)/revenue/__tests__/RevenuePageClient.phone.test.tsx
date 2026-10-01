@@ -202,11 +202,12 @@ describe('Revenue on a phone — chart axis', () => {
     expect(barChartProps.at(-1)?.compactAxis).toBe(true)
   })
 
-  it('leaves the desktop axis alone', async () => {
+  /** Inverted at Phase 10 — see `DashboardClient.phone.test.tsx` for why. */
+  it('asks for the compact axis on the desktop too', async () => {
     mockFetchRoutes(routes())
     renderScreen(<RevenuePageClient />, { viewport: 'desktop' })
     await screen.findByTestId('bar-chart')
-    expect(barChartProps.at(-1)?.compactAxis).toBe(false)
+    expect(barChartProps.at(-1)?.compactAxis).toBe(true)
   })
 })
 

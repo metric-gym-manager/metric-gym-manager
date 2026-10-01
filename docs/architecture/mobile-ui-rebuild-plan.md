@@ -1,4 +1,12 @@
-# Mobile UI Rebuild — Phase 1 Implementation Plan (v1.5, reviewed)
+# Mobile UI Rebuild — Implementation Plan (v1.6 — DELIVERED 2026-10-01)
+
+> **This plan is delivered.** Phases 0–10 are complete and merged; the record
+> of what was built, measured and deferred is
+> `docs/architecture/mobile-ui-rebuild-closeout.md`, whose §1 names the two
+> screenshot baselines a reviewer must re-take. The plan text below is
+> unchanged from v1.5 and is kept as the contract the work was executed
+> against — read it to understand a decision, not to find out what shipped.
+> `.claude/rules/architecture.md` §2.21 carries the standing invariants.
 
 > **Status of this document.** The plan text below is the canonical,
 > git-tracked implementation contract. **Execution status lives in the live

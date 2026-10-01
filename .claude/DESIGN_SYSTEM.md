@@ -318,6 +318,12 @@ table, form scaffold, tooltip, spacing system, type system, color system.
 
 ### 10.1 Phone tier (mobile rebuild)
 
+> **Delivered 2026-10-01**, Phases 0–10. Closeout:
+> `docs/architecture/mobile-ui-rebuild-closeout.md`; standing invariants in
+> `.claude/rules/architecture.md` §2.21; every measurement and all 48 findings
+> in `docs/architecture/mobile-ui-rebuild-log.md`. What follows is the
+> contract, not a migration plan.
+
 One boundary, `tablet` = 768 px. `phone:` is its max-width side and is the only
 way a component reaches the phone tier; `sm:`/`md:`/`lg:` stay legal for fluid
 refinement inside a composition but may never switch compositions.
@@ -332,7 +338,10 @@ refinement inside a composition but may never switch compositions.
 - **§15.1 touch rule, two thresholds and no third:** 44 px for a primary
   target, 40 px for a control the primitive marks `data-dense`. Icon-only
   controls grow their _hit area_, never their glyph. A checkbox or radio is
-  24 px inside a 44 px label.
+  24 px inside a 44 px label — **and so is a `Switch`**: §15.1 names all three
+  together, the label must WRAP the control rather than point at it with
+  `htmlFor`, and the probe's own predicate was corrected at Phase 10 to measure
+  the wrapper for a `role="switch"` as it already did for an `input`.
 - Overlays: `Modal placement` is `center` (default) · `sheet` · `fullscreen`;
   only `fullscreen` claims the hardware Back button, and only on a phone
   (`useHistoryBack`, one implementation). **All three close controls are 44 px

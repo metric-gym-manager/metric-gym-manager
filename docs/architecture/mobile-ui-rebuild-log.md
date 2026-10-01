@@ -593,6 +593,34 @@ two `xs` (26 px) Previous/Next buttons replaced by the DS `Pagination`, whose
 numbered pages are 32 px. The card grows 6 px. Nothing above the pager moves by
 a pixel.
 
+### 2.13 Phase 10 — the sweep across every workspace route
+
+**Fifteen of the sixteen `(dashboard)` routes, every viewport, populated and
+empty.** The sixteenth, `/settings`, renders `null` by design — its content is
+the layout's sub-nav — so it has no probe page and is measured through the
+shell.
+
+| Tier                               | States | Violations              | Console errors |
+| ---------------------------------- | ------ | ----------------------- | -------------- |
+| Phone, populated (320/360/390/430) | 60     | **0**                   | **0**          |
+| Phone, empty (320/390)             | 30     | **0**                   | **0**          |
+| Desktop (768/1024/1366)            | 45     | 8 (two ratchet entries) | **0**          |
+
+The eight desktop violations are the `/dashboard` and `/revenue` y-ticks —
+`250000`, `500000` and `750000` cut by 12 px, `1000000` by 18 — at all three
+widths, which is MO-1's entry reproducing exactly as F1 described it. **Fixed
+in this phase**, which is the one that owns the baselines.
+
+**The §28 fixtures, at magnitudes their own producers can emit.** F35 is the
+reason this list reads the way it does: a 26-character member name, `1,000,000`
+as both a plan amount and a payment (the schema maximum, not §28's 12,345,678,
+which `addMemberSchema` rejects), a 320-character SMS, 26 announcements, 12
+cohorts (the config's `COHORT_RETENTION_MAX_COHORTS`, not §28's 24), and a
+58-character device name.
+
+**Every payload is transcribed from the screen's own jsdom suite** (F47). The
+first hand-written stub crashed eleven of fifteen routes.
+
 ---
 
 ## 3. Execution log
@@ -1548,6 +1576,100 @@ door opened, no reader renamed, no fingerprint enrolled. Every fixture is
 intercepted (MO-23). The Lite-gym capability check the prompt asks for
 ("Lite gym still sees no Door Access entry") is covered by the existing
 `FeatureGate` suites, not re-measured here.
+
+### Phase 10 — Cleanup, sweep and sign-off · **DONE** 2026-10-01
+
+Branch `claude/mobile-ui-rebuild-p10`, cut from `master` at `b0dc48b` — the
+first phase since Phase 7 whose base is master, because **PRs #79 (Phase 8) and
+#80 (Phase 9) were merged at the start of this session**, on the user's
+instruction. #79 went in as `1c2d069` and #80 as `b0dc48b`; the full gate was
+re-run on the merged tree and is green (2,184 passed / 7 skipped, `tsc` clean,
+lint 0 errors, `arch:check` green). §6.3's standing item — a PR's green head is
+evidence about the head, not about the merge — was satisfied by checking rather
+than by the case looking clean: `master`'s tree after #79 is **byte-identical**
+to `4afb098`, so the tree #80 merged into was the exact tree Phase 9 gated, and
+`master`'s tree after #80 is byte-identical to `212856a`.
+
+Scope: plan §18 row 10.
+
+**Items 1 and 2 were already satisfied, and saying so took a measurement.**
+`UI1_ALLOW` held 14 entries at the rebuild's base commit and holds 13 now; the
+single difference is `Drawer`, consumed when Phase 2 mounted it. `UI6_ALLOW`
+has shipped `new Set([])` since it was written. The rebuild orphaned nothing
+still on the list, so item 2's target set is empty — and the R3 comment that
+read "re-evaluate after Phase 3" now records that verdict instead of a deadline
+three phases stale.
+
+**What the sweep DID find is a hole in the ratchet, not in the product.** UI1
+reports `.tsx` under `src/components` and `features/*/components`, because "a
+component" was the unit the directive named — so `src/hooks` was never walked,
+and two hooks with zero references had been sitting there since commits that
+predate the rebuild by months. The reachability graph already covered them;
+only the reporting set was narrow. `useCountUp` and `useIntersectionObserver`
+are deleted and **UI1b** ships with an empty allow-list, falsified by restoring
+one of them.
+
+**The three `KNOWN_DESKTOP_VIOLATIONS` entries are cleared — two fixed, one
+deleted, and the difference matters.** `compactAxis` now ships on both tiers,
+which is the change Phases 1 and 6 correctly refused to make: it moves the 1366
+baselines, and MO-4 forbids a screen phase absorbing its own diff into one.
+The third entry's condition does not exist — F37 established that and this
+sweep reproduces it — so it is deleted, because a pattern matching nothing is
+the stale entry the ratchet exists to catch.
+
+**MO-34 settled, one phase after it was raised.** Phase 9 made the product
+change that satisfies §15.1 and left the instrument to the phase that owns the
+baselines, because turning a reading green in the commit that produced the
+reading is the move this discipline exists to prevent. The predicate now covers
+`role="switch"` as §15.1's own row says it should, and unwrapping the label
+still reports all three switches.
+
+**MO-2 closed.** `STRICT_PHONE_ROUTES` holds all sixteen routes, with the
+reasoning for nine phases of emptiness written beside it: every number in this
+rebuild was taken against intercepted endpoints, and that list's suite runs
+against the seeded gym. The promotion rests on coverage, and its first real run
+is the test of the line.
+
+**Four open decisions resolved or handed off** (o01 resolved — the product has
+no role to distinguish, so the question cannot be answered the other way
+without a product change; o06, o09 and o12 handed off, each with what it costs
+and who owes it). **`docs/architecture/mobile-ui-rebuild-closeout.md` written**,
+and its §1 is the one thing a reviewer must read before merging.
+
+**Not verified, and saying so.** Nothing in eleven phases was WRITTEN through a
+browser — no member registered, no payment recorded, no broadcast sent, no door
+opened (MO-23/MO-31). No physical device has opened the app in standalone mode,
+so the safe-area insets are proven wired and not proven respected. And **two
+desktop baselines are knowingly left stale**, named in the closeout rather than
+re-taken against intercepted fixtures.
+
+#### Closing the record
+
+**All eleven phases are on `master`.** PR #81 was merged on the user's
+instruction in the same session that opened it, after #79 and #80 earlier the
+same day. The full gate was re-run on merged `master` and the result is
+recorded in #81.
+
+**This file stops changing here.** Its header says "update at the end of every
+phase, in the same PR as the phase" and there is no twelfth phase, so from now
+on it is a historical record rather than a living one. Three things supersede
+it for anything a later change needs:
+
+- **`.claude/rules/architecture.md` §2.21** carries the standing invariants and
+  is auto-loaded. That is what binds future work; nothing here does.
+- **`docs/architecture/mobile-ui-rebuild-closeout.md`** carries what merging
+  did not finish — §1's two stale baselines, the three owner items, the five
+  numbered follow-ups.
+- **§5 of this file** carries the open items by id. An `MO-` id referenced
+  anywhere else resolves there.
+
+**What a reader should NOT take from this file.** The plan is `v1.6 —
+DELIVERED` and its body is unchanged from v1.5, so a §-reference in these
+entries points at the contract the work was executed against and not
+necessarily at the product: §13's `renderExpanded` (F36), §8.13's AppBar Back
+(F40) and §28's own fixture magnitudes (F35, F37) were each found wrong
+against the code, and the finding is the correction. Read a plan section and
+its findings together or not at all.
 
 ---
 
@@ -2545,6 +2667,50 @@ purpose is to produce a failure must not write where the passing run's evidence
 lives** — or the evidence has to be re-captured after it, which is what
 happened here.
 
+### F47 — A hand-written stub crashed eleven of fifteen screens; the unit tests were the producers
+
+The Phase 10 sweep needed fixtures for every endpoint the sixteen workspace
+routes reach. The first cut was written by reading endpoint names and guessing
+shapes, and eleven of fifteen routes rendered Next's error card instead:
+`Cannot read properties of undefined` on `count`, `paymentCount`,
+`totalRevenue`, `registrations`, `announcements`, `split` and
+`accessControlHardware`. F38 is the same failure at one-fifteenth the scale.
+
+**Every screen already had a correct fixture, in its own jsdom suite**, kept
+true by a suite that runs on every commit. Transcribing from those made all
+fifteen render. Two of them (`MembersListResponse`, `MemberAnalyticsResponse`)
+have an exported response type, and annotating the fixture with it turned the
+next two errors into `tsc` failures before a browser ever ran — `days_overdue`
+missing from an `OverdueMember`, and the string `'expired'` where the product
+uses `MemberStatus.Expired`.
+
+The rule generalises past fixtures: **where a field has a producer in the
+codebase, import the producer; where a whole payload has one, import that.**
+F35's lesson was about magnitude and F37's about format; this is the structural
+version — a payload typed against the product's own interface cannot be wrong
+in a way that type-checks.
+
+### F48 — A stub that answers instantly manufactures a hydration mismatch
+
+`/settings/security` reported `Hydration failed because the server rendered
+HTML didn't match the client` on every sweep run, and the component trail
+pointed at a real `SettingsRow` whose label is conditional on a react-query
+result. It read exactly like a product defect worth fixing.
+
+It is not reachable. `page.route` fulfils from memory, so `/api/auth/profile`
+answered **before React finished hydrating** and the client's first render
+carried data the server's render could not have had. Adding a 150 ms delay —
+less than any real network — removes it, on every run.
+
+This completes the family. F26: a probe that measures an error card reports
+zero violations. F38: a fixture with the wrong shape makes it measure the dev
+overlay. F41: a screenshot of a screen inside animated chrome measures the
+chrome. F46: a falsification run overwrites the passing run's evidence. **F48:
+the harness's own speed produces a defect class the product cannot exhibit.**
+A stub is a simulation of a network, and a network that answers in zero
+milliseconds is not one — give it latency, or it will invent races and resolve
+them in the wrong direction.
+
 ## 5. Open items
 
 | Id    | Item                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Owner         |
@@ -2582,10 +2748,11 @@ happened here.
 | MO-31 | **Nothing on the Phase 8 screens has been written in a browser.** Eleven mutations across five screens — create/update/delete a plan, create/toggle/delete a discount, save the admission fee, change four credentials, send a broadcast, submit a ticket, save policies — are covered by mocked-`fetch` unit tests and by nothing else. Verification Directive 2 names exactly this gap: a mocked mutation and an RLS-refused one look identical. Clears with the seeded gym (§6.1).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Phase 10      |
 | MO-32 | **`Checkbox`'s doc comment claimed one phone caller and had four** (F39). The three product ones are fixed and the comment is now true. Nothing keeps it true: a component's prose about its own callers is checked by no gate, and this is the second such claim to age badly in two phases — F36 was the plan's, this was the primitive's. If a rule matters enough to write into a doc comment, consider whether `arch:check` can hold it instead.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | design system |
 | MO-33 | **One latent instance of F42 remains.** `PricingTable` is `grid gap-4 md:grid-cols-3` — the exposed shape: a grid whose only column templates are breakpoint-prefixed, leaving the implicit track `auto` and floored by its items' max-content. Phase 8 probed `/subscription` clean, so it is latent, not broken, and changing it on no measurement is what this log argues against. The sweep is the place: grep for a `grid` class with no unprefixed `grid-cols-*`, then measure before adding one.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Phase 10      |
-| MO-34 | **The probe measures a `role="switch"` directly, against its own comment** (F45). Its touch rule says controls "are measured on the wrapping `<label>` when one exists (control 24, label 44)", and §15.1 names Checkbox, Radio and Switch in one row, but the substitution covers `input` controls only. One predicate — and it is in a shared instrument every phase's ratchet is calibrated against, so it belongs to the phase that owns the baselines, not to the phase that produced the reading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Phase 10      |
+| MO-34 | ~~The probe measures a `role="switch"` directly, against its own comment~~ → **CLOSED, Phase 10.** The predicate now covers `role="switch"` alongside checkbox and radio, as §15.1's own row says it should, and the label loop recognises a wrapped switch. Falsified: unwrap `AccessReadersCard`'s label and all three switches are reported again, so the instrument narrowed only where the rule says it should. Phase 9 deliberately left this to the phase that owns the baselines.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | closed        |
 | MO-35 | **`/settings/access-control` has never been in any phase's scope.** Probed for MO-10 only, and it has two defects beyond the switch: "Connect a reader" sits flush against the card border, eating all 12 px of its right padding at 320 and 390; and the reader-name input clips its own value (scrollWidth 450 in a 306 px box) — native `<input>` behaviour, so whether that is a defect or a probe rule-3 reading needs a judgement, not a class. Neither is a one-class fix and neither belongs in a phase that did not own the screen.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Phase 10      |
 | MO-36 | **PR #79 (Phase 8) is unmerged, so Phase 9 is stacked on it.** `claude/mobile-ui-rebuild-p9` is cut from `4afb098`, not from `master`, against the prompt's own `git checkout master && git pull`. PR #80's diff therefore reads against Phase 8. If #79 merges first this resolves itself; if it does not, #80 must be rebased before review or it carries Phase 8's changes in its diff.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | this phase    |
 | MO-37 | **The Door Access activity log formats its timestamps with raw `toLocaleString()`** — `9/24/2026, 8:41:00 AM` — on BOTH tiers, where the rest of the product uses `formatDate`/`formatDateShort` from `@/utils/date` (`24 Sept 2026, 08:41`). Pre-existing on the desktop table; the phone row mirrors it deliberately rather than introducing a second format. Fixing it changes the desktop table too, which is not a layout phase's to do.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Phase 10      |
+| MO-38 | **The two desktop screenshot baselines are knowingly stale.** `dashboard-desktop-1366-linux.png` and `revenue-desktop-1366-linux.png` hold the pre-`compactAxis` y-axis; re-take with `--update-snapshots` on a machine carrying `E2E_ACCESS_CONTROL=1` and the seeded gym. Until then `desktop-regression.spec.ts` is expected to fail on exactly those two screens with a diff confined to the axis labels — any other difference in that run is a real regression. Named rather than absorbed because a baseline taken here would be a picture of intercepted fixtures (MO-4).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | handoff       |
 
 ---
 
