@@ -142,7 +142,7 @@ describe('Dashboard on a phone — recent payments', () => {
   it('discloses the plan and the date on the second line', async () => {
     renderPhone()
     const r = await row('Sunil Fernando')
-    expect(within(r).getByText('Monthly · 2026-08-14')).toBeInTheDocument()
+    expect(within(r).getByText('Monthly · 14 Aug 2026')).toBeInTheDocument()
   })
 
   /**
@@ -159,7 +159,7 @@ describe('Dashboard on a phone — recent payments', () => {
       }),
     })
     const r = await row('Sunil Fernando')
-    expect(within(r).getByText('6-Months · 2026-08-14')).toBeInTheDocument()
+    expect(within(r).getByText('6-Months · 14 Aug 2026')).toBeInTheDocument()
   })
 
   it('keeps the NEW badge beside the name, so the row stays two lines', async () => {

@@ -27,8 +27,15 @@ of intercepted fixtures rather than of the product. Absorbing the diff silently
 is what MO-4 forbids; naming it is the alternative.
 
 Until that run happens, `desktop-regression.spec.ts` is expected to fail on
-exactly those two screens, with a diff confined to the y-axis labels. Any other
-difference in that run is a real regression.
+exactly those three screens, with diffs confined to the y-axis labels and the
+date columns. Any other difference in that run is a real regression.
+
+**The date columns are the post-merge follow-up round** (MO-37): four call
+sites across Renewals, the Dashboard and the Door Access log printed a raw
+`2026-08-14` or a `9/24/2026, 8:41:00 AM` where the product has `formatDate`.
+That round also closed MO-28 and MO-33, and **closed MO-22 and MO-35 as not
+defects** — each had been logged from a reading rather than a cause, which is
+MO-40.
 
 ---
 

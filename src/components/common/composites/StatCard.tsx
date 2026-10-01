@@ -87,7 +87,11 @@ export function StatCard({
   className,
 }: StatCardProps) {
   const base = cn(
-    'flex flex-col gap-1.5 px-4 py-3 text-left font-geist',
+    // §25.4's Dashboard row: "tiles `min-h-touch`". `phone:`-scoped because
+    // that row is the PHONE spec — a desktop tile is already taller than 44 px
+    // from its own content, so an unscoped floor would move three committed
+    // 1366 baselines (dashboard, revenue, analytics) for no visible gain.
+    'flex flex-col gap-1.5 px-4 py-3 text-left font-geist phone:min-h-touch',
     boxed && 'rounded-sm border border-line-1 bg-surface-card'
   )
   const content = (
@@ -119,7 +123,14 @@ export function StatCard({
         <div className="flex items-center gap-2">
           {delta && <DeltaBadge delta={delta} />}
           {sub && (
-            <span className="text-caption text-ink-secondary">{sub}</span>
+            // §25.4: "sub `text-caption` `line-clamp-2`". Scoped for the same
+            // reason as the tile floor above: a clamp that never triggers at
+            // 1366 is still a class the baseline comparison would have to
+            // absorb, and this one CAN trigger — "3 critical · 5 warning ·
+            // 6 mild" wraps to two lines at 320 and must not reach three.
+            <span className="text-caption text-ink-secondary phone:line-clamp-2">
+              {sub}
+            </span>
           )}
         </div>
       )}

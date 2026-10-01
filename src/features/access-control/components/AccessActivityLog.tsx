@@ -42,6 +42,28 @@ import { useAccessEvents } from '../hooks/useAccessControl'
 import { DeviceEventKind } from '../config/DeviceEventCodes'
 import type { SerializedAccessEvent } from '../utils/serializeAccessForAPI'
 
+import { formatDate } from '@/utils/date/date'
+
+/**
+ * A scan's time, in the product's own date format plus a 24-hour clock.
+ *
+ * Both tiers rendered `new Date(...).toLocaleString()` — `9/24/2026, 8:41:00 AM`
+ * in this runtime — where every other surface uses `formatDate` (`24 Sep 2026`).
+ * The seconds were noise on a row that is read for *who* and *roughly when*, and
+ * the US month-first order is wrong for a Sri Lankan gym whose every other date
+ * reads day-first. `formatDate` for the date so there is one producer (F47), and
+ * an explicit `en-GB` 24-hour time beside it rather than a second locale guess.
+ */
+function formatEventTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return 'Unknown'
+  const time = date.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${formatDate(date)}, ${time}`
+}
+
 const PAGE_SIZE = 25
 
 /**
@@ -148,7 +170,7 @@ export default function AccessActivityLog({
                     </span>
                   }
                   meta={[event.deviceSerial]}
-                  value={new Date(event.occurredAt).toLocaleString()}
+                  value={formatEventTime(event.occurredAt)}
                 />
               ))}
             </ul>
@@ -167,7 +189,7 @@ export default function AccessActivityLog({
                   {data.events.map((event) => (
                     <TableRow key={event.id}>
                       <TableCell className="whitespace-nowrap">
-                        {new Date(event.occurredAt).toLocaleString()}
+                        {formatEventTime(event.occurredAt)}
                       </TableCell>
                       <TableCell>
                         {event.memberName ?? (
