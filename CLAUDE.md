@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Session Initialization Rules
+
+- Invoke the Task Observer skill ("One Skill to Rule Them All") before the first tool call of any session and before proposing a development plan.
+
 ## Project Identity
 
 A production-grade, multi-tenant SaaS platform for gym and fitness center management. Built with Next.js 16 (App Router), Supabase (PostgreSQL + Auth), TypeScript, and React 19.
