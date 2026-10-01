@@ -93,26 +93,40 @@ export default function AdmissionFeeTab() {
                 one column. (The DS `Label` is itself a flex row, so nesting the
                 description inside it made each run a sibling flex item and
                 shattered the text across narrow columns.) */}
-            <div className="flex items-start gap-2">
+            {/* The `<label>` WRAPS the control, rather than pointing at it
+                with `htmlFor` alone: `htmlFor` is an association, not a hit
+                area, and §15.1 puts the 44 px on the label. A bare `Checkbox`
+                is 24 px on a phone, under the probe's floor.
+
+                Both text runs are `<span>`s, not `<p>`s: a label's content
+                model is phrasing content, so a paragraph inside it is invalid.
+                Tailwind's preflight zeroes paragraph margins, so the two
+                render identically.
+
+                A GRID rather than the flex row this replaced, because the
+                label's own text has to be a DIRECT child — nested one level
+                deeper inside a text column, `jsx-a11y/label-has-associated-
+                control` reports the label as having no accessible text. The
+                two columns give the same geometry: the control, then the title
+                and the description stacked beside it. */}
+            <label
+              htmlFor="admission-fee-enabled"
+              className="grid cursor-pointer grid-cols-[auto_1fr] items-start gap-x-2 gap-y-0.5 phone:min-h-touch"
+            >
               <Checkbox
                 id="admission-fee-enabled"
                 className="mt-1"
                 checked={enabled}
                 onChange={(e) => setEnabled(e.target.checked)}
               />
-              <div className="min-w-0 space-y-0.5">
-                <label
-                  htmlFor="admission-fee-enabled"
-                  className="block cursor-pointer text-body font-medium text-ink"
-                >
-                  Enable admission fee
-                </label>
-                <p className="text-caption text-ink-muted">
-                  When enabled, the fee appears on the self-registration form
-                  and is added to the amount due.
-                </p>
-              </div>
-            </div>
+              <span className="min-w-0 text-body font-medium text-ink">
+                Enable admission fee
+              </span>
+              <span className="col-start-2 text-caption text-ink-muted">
+                When enabled, the fee appears on the self-registration form and
+                is added to the amount due.
+              </span>
+            </label>
 
             <div className="space-y-1.5">
               <Label htmlFor="admission-fee-amount">Admission Fee (LKR)</Label>

@@ -98,6 +98,7 @@ function PasswordChangeModal({
         if (!next) onClose()
       }}
       size="md"
+      placement="sheet"
       title="Change Password"
       description="Enter your current password and choose a new password"
       footer={
@@ -267,6 +268,7 @@ function UsernameUpdateModal({
         if (!next) onClose()
       }}
       size="md"
+      placement="sheet"
       title="Update Username"
       description="Choose a new username for your account"
       footer={
@@ -416,6 +418,7 @@ function EmailUpdateModal({
         if (!next) onClose()
       }}
       size="md"
+      placement="sheet"
       title="Update Email Address"
       description="For your security, a confirmation link goes to BOTH your current and your new address. The change takes effect only once both are confirmed \u2014 so nobody who gains access to your account can move it to an address you don't control."
       footer={
@@ -615,6 +618,7 @@ function PhoneUpdateModal({
         if (!next) handleClose()
       }}
       size="md"
+      placement="sheet"
       title="Update Phone Number"
       description={
         step === 'phone'

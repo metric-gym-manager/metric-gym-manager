@@ -5,14 +5,21 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Card,
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   Label,
   Badge,
+  ListRow,
+  Modal,
   Select,
   Checkbox,
 } from '@/components/ui'
-import { Plus, Trash2 } from 'lucide-react'
+import { MoreHorizontal, Plus, Trash2 } from 'lucide-react'
 import { useConfirmDialog } from '@/hooks/use-confirm-dialog'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import type { PlanType } from '@/features/settings/types'
 import type {
   UpdatePlanTypeInput,
@@ -36,6 +43,7 @@ export default function PlanTypesTab() {
     Record<string, { amount: number; isActive: boolean }>
   >({})
   const { confirm, ConfirmDialog } = useConfirmDialog()
+  const phone = useViewportTier() === 'phone'
 
   // Add new plan state
   const [isAddingPlan, setIsAddingPlan] = useState(false)
@@ -215,10 +223,69 @@ export default function PlanTypesTab() {
     })
   }
 
+  /**
+   * The edit form, rendered inline on the desktop and inside a `sheet` on a
+   * phone (§8.13, §11: "≤ 4 controls / one decision → sheet"). One function,
+   * so the two tiers cannot drift into different fields or a different
+   * `updateMutation` call — which is what a second copy of a form becomes.
+   */
+  const editFields = (plan: PlanType) => {
+    const currentValues = planValues[plan.plan_type] || {
+      amount: plan.default_amount,
+      isActive: plan.is_active,
+    }
+    return (
+      <>
+        <div>
+          <Label htmlFor={`amount-${plan.plan_type}`}>
+            Default Amount (LKR)
+          </Label>
+          <Input
+            id={`amount-${plan.plan_type}`}
+            type="number"
+            value={currentValues.amount}
+            onChange={(e) =>
+              setPlanValues({
+                ...planValues,
+                [plan.plan_type]: {
+                  ...currentValues,
+                  amount: parseFloat(e.target.value) || 0,
+                },
+              })
+            }
+            min="0"
+            step="0.01"
+          />
+        </div>
+
+        {/* `Checkbox label=` rather than a sibling `Label htmlFor=`: the 44 px
+            hit area belongs to a label that WRAPS its control, and `htmlFor`
+            alone is not a hit area (mobile rebuild plan §15.1). A bare
+            checkbox is 24 px on a phone, under the probe's floor. */}
+        <Checkbox
+          id={`active-${plan.plan_type}`}
+          checked={currentValues.isActive}
+          onChange={(e) =>
+            setPlanValues({
+              ...planValues,
+              [plan.plan_type]: {
+                ...currentValues,
+                isActive: e.target.checked,
+              },
+            })
+          }
+          label="Active (available for new members)"
+        />
+      </>
+    )
+  }
+
   const getPlanLabel = (planType: string) => {
     const plan = ALL_PLAN_TYPES.find((p) => p.value === planType)
     return plan?.label || planType.charAt(0).toUpperCase() + planType.slice(1)
   }
+
+  const editingPlanType = planTypes?.find((p) => p.plan_type === editingPlan)
 
   // Get available plan types (not yet created)
   const existingPlanTypes = planTypes?.map((p) => p.plan_type) || []
@@ -325,147 +392,175 @@ export default function PlanTypesTab() {
             <p className="text-sm text-ink-muted">Loading plan types...</p>
           </div>
         ) : planTypes && planTypes.length > 0 ? (
-          <div className="divide-y divide-line-1">
-            {planTypes.map((plan) => {
-              const isEditing = editingPlan === plan.plan_type
-              const currentValues = planValues[plan.plan_type] || {
-                amount: plan.default_amount,
-                isActive: plan.is_active,
-              }
-
-              return (
-                <div key={plan.plan_type} className="p-6">
-                  <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
-                    <div className="flex-1">
-                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <h3 className="text-base font-semibold">
-                          {getPlanLabel(plan.plan_type)} Plan
-                        </h3>
-                        <Badge variant={plan.is_active ? 'success' : 'neutral'}>
-                          {plan.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                        <Badge variant="neutral">
-                          {enrolMap.get(plan.plan_type) ?? 0} enrolled
-                        </Badge>
-                      </div>
-
-                      {isEditing ? (
-                        <div className="space-y-3 mt-4 max-w-md">
-                          <div>
-                            <Label htmlFor={`amount-${plan.plan_type}`}>
-                              Default Amount (LKR)
-                            </Label>
-                            <Input
-                              id={`amount-${plan.plan_type}`}
-                              type="number"
-                              value={currentValues.amount}
-                              onChange={(e) =>
-                                setPlanValues({
-                                  ...planValues,
-                                  [plan.plan_type]: {
-                                    ...currentValues,
-                                    amount: parseFloat(e.target.value) || 0,
-                                  },
-                                })
-                              }
-                              min="0"
-                              step="0.01"
-                            />
-                          </div>
-
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              id={`active-${plan.plan_type}`}
-                              checked={currentValues.isActive}
-                              onChange={(e) =>
-                                setPlanValues({
-                                  ...planValues,
-                                  [plan.plan_type]: {
-                                    ...currentValues,
-                                    isActive: e.target.checked,
-                                  },
-                                })
-                              }
-                            />
-                            <Label
-                              htmlFor={`active-${plan.plan_type}`}
-                              className="text-sm font-normal"
-                            >
-                              Active (available for new members)
-                            </Label>
-                          </div>
-
-                          <div className="flex gap-2 pt-2">
-                            <Button
-                              variant="accent"
-                              size="sm"
-                              onClick={() => handleSave(plan.plan_type)}
-                              disabled={updateMutation.isPending}
-                            >
-                              {updateMutation.isPending ? 'Saving...' : 'Save'}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={handleCancel}
-                              disabled={updateMutation.isPending}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <p className="text-sm text-ink-secondary">
-                            Default Amount:{' '}
-                            <span className="font-medium text-ink">
-                              LKR {plan.default_amount.toFixed(2)}
-                            </span>
-                          </p>
-                        </div>
-                      )}
-                    </div>
-
-                    {!isEditing && (
-                      <div className="flex gap-2">
+          phone ? (
+            /*
+             * Phone rows (§25.4 "plan rows"): primary name, status `Badge`,
+             * meta price · enrolled, and the three actions behind a "⋯" menu —
+             * `ListRow` documents three or more as a `DropdownMenu`, and the
+             * desktop's three side-by-side buttons are 26 px each.
+             *
+             * `space-y-6` on the section and a 6 px-padded desktop row do not
+             * survive a 320 px screen; the row primitive owns its own spacing.
+             */
+            <ul role="list">
+              {planTypes.map((plan) => (
+                <ListRow
+                  key={plan.plan_type}
+                  primary={`${getPlanLabel(plan.plan_type)} Plan`}
+                  status={
+                    <Badge variant={plan.is_active ? 'success' : 'neutral'}>
+                      {plan.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  }
+                  meta={[
+                    `LKR ${plan.default_amount.toFixed(2)}`,
+                    `${enrolMap.get(plan.plan_type) ?? 0} enrolled`,
+                  ]}
+                  actions={
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
                         <Button
                           variant="secondary"
-                          size="sm"
-                          onClick={() => handleEdit(plan)}
+                          size="icon"
+                          aria-label={`Actions for ${getPlanLabel(plan.plan_type)} Plan`}
                         >
-                          Edit
+                          <MoreHorizontal className="size-4" />
                         </Button>
-                        <Button
-                          variant={plan.is_active ? 'secondary' : 'accent'}
-                          size="sm"
-                          onClick={() =>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent theme="dark" align="end">
+                        <DropdownMenuItem onSelect={() => handleEdit(plan)}>
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() =>
                             toggleActive(
                               plan.plan_type,
                               plan.is_active,
                               plan.default_amount
                             )
                           }
-                          disabled={updateMutation.isPending}
                         >
                           {plan.is_active ? 'Deactivate' : 'Activate'}
-                        </Button>
-                        <Button
-                          variant="destructive-ghost"
-                          size="sm"
-                          onClick={() =>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={() =>
                             handleDelete(plan.plan_type as PlanTypeEnum)
                           }
-                          disabled={deleteMutation.isPending}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  }
+                />
+              ))}
+            </ul>
+          ) : (
+            <div className="divide-y divide-line-1">
+              {planTypes.map((plan) => {
+                const isEditing = editingPlan === plan.plan_type
+
+                return (
+                  <div key={plan.plan_type} className="p-6">
+                    <div className="flex flex-col gap-3 tablet:flex-row tablet:items-center tablet:justify-between">
+                      <div className="flex-1">
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <h3 className="text-base font-semibold">
+                            {getPlanLabel(plan.plan_type)} Plan
+                          </h3>
+                          <Badge
+                            variant={plan.is_active ? 'success' : 'neutral'}
+                          >
+                            {plan.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                          <Badge variant="neutral">
+                            {enrolMap.get(plan.plan_type) ?? 0} enrolled
+                          </Badge>
+                        </div>
+
+                        {isEditing ? (
+                          <div className="space-y-3 mt-4 max-w-md">
+                            {editFields(plan)}
+
+                            <div className="flex gap-2 pt-2">
+                              <Button
+                                variant="accent"
+                                size="sm"
+                                onClick={() => handleSave(plan.plan_type)}
+                                disabled={updateMutation.isPending}
+                              >
+                                {updateMutation.isPending
+                                  ? 'Saving...'
+                                  : 'Save'}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={handleCancel}
+                                disabled={updateMutation.isPending}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <p className="text-sm text-ink-secondary">
+                              Default Amount:{' '}
+                              <span className="font-medium text-ink">
+                                LKR {plan.default_amount.toFixed(2)}
+                              </span>
+                            </p>
+                          </div>
+                        )}
                       </div>
-                    )}
+
+                      {!isEditing && (
+                        <div className="flex gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleEdit(plan)}
+                          >
+                            Edit
+                          </Button>
+                          <Button
+                            variant={plan.is_active ? 'secondary' : 'accent'}
+                            size="sm"
+                            onClick={() =>
+                              toggleActive(
+                                plan.plan_type,
+                                plan.is_active,
+                                plan.default_amount
+                              )
+                            }
+                            disabled={updateMutation.isPending}
+                          >
+                            {plan.is_active ? 'Deactivate' : 'Activate'}
+                          </Button>
+                          {/* Icon-only, so it needs a name: the probe's rule 5
+                              found it unnamed at 768, 1024 and 1366. The phone
+                              tier never hit it because its Delete sits in the
+                              named "⋯" menu. */}
+                          <Button
+                            variant="destructive-ghost"
+                            size="sm"
+                            aria-label={`Delete ${getPlanLabel(plan.plan_type)} Plan`}
+                            onClick={() =>
+                              handleDelete(plan.plan_type as PlanTypeEnum)
+                            }
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )
         ) : (
           <div className="flex h-48 items-center justify-center">
             <div className="text-center">
@@ -506,6 +601,49 @@ export default function PlanTypesTab() {
               : 'Failed to delete plan type'}
           </p>
         </div>
+      )}
+
+      {/*
+       * Phone edit → `sheet` (§8.13, §11). Same inputs, same `updateMutation`,
+       * same `handleSave`/`handleCancel` — only the container differs, and the
+       * desktop keeps editing inline exactly as before.
+       */}
+      {phone && (
+        <Modal
+          open={editingPlan !== null}
+          onOpenChange={(next) => {
+            if (!next) handleCancel()
+          }}
+          placement="sheet"
+          title={
+            editingPlanType
+              ? `Edit ${getPlanLabel(editingPlanType.plan_type)} Plan`
+              : ''
+          }
+          footer={
+            <>
+              <Button
+                variant="secondary"
+                onClick={handleCancel}
+                disabled={updateMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="accent"
+                onClick={() => editingPlan && handleSave(editingPlan)}
+                loading={updateMutation.isPending}
+                disabled={updateMutation.isPending}
+              >
+                {updateMutation.isPending ? 'Saving...' : 'Save'}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
+            {editingPlanType && editFields(editingPlanType)}
+          </div>
+        </Modal>
       )}
 
       {/* Confirmation Dialog */}

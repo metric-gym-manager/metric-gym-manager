@@ -16,17 +16,32 @@ import {
   TableCell,
   Badge,
   Label,
+  ListRow,
+  Pagination,
   Select,
   Textarea,
   HelperText,
   type BadgeProps,
 } from '@/components/ui'
 import { PageHeader } from '@/components/common/composites'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import AnnouncementProgress from '@/features/announcements/components/AnnouncementProgress'
 import { FeatureGate } from '@/features/subscriptions'
 import type { Announcement } from '@/features/announcements/types'
 
 const MAX_MESSAGE_LENGTH = 160
+
+/**
+ * Phone page size for the delivery log (§27 "Maximum list size").
+ *
+ * VERIFIED rather than assumed: `getAnnouncements` selects every row for the
+ * gym ordered by `sent_at` with **no `.limit()` and no `.range()`**, so the log
+ * is uncapped — a gym that broadcasts weekly for two years renders a hundred
+ * rows. §27 says "if uncapped, phone `pageSize` 25". The desktop table is left
+ * exactly as it was, unpaginated, because changing it is a desktop change this
+ * phase does not own.
+ */
+const PHONE_LOG_PAGE_SIZE = 25
 
 type Audience = 'all' | 'active' | 'expired'
 
@@ -84,6 +99,8 @@ function AnnouncementComposer() {
   const [currentAnnouncementId, setCurrentAnnouncementId] = useState<
     string | null
   >(null)
+  const [logPage, setLogPage] = useState(1)
+  const phone = useViewportTier() === 'phone'
 
   const { data: announcements, isLoading } = useQuery<Announcement[]>({
     queryKey: ['announcements'],
@@ -115,6 +132,16 @@ function AnnouncementComposer() {
       setCurrentAnnouncementId(result.data.announcement.id)
     },
   })
+
+  // Phone-only slice; the desktop table still renders every row, unchanged.
+  const logPageCount = Math.max(
+    1,
+    Math.ceil((announcements?.length ?? 0) / PHONE_LOG_PAGE_SIZE)
+  )
+  const logRows = (announcements ?? []).slice(
+    (logPage - 1) * PHONE_LOG_PAGE_SIZE,
+    logPage * PHONE_LOG_PAGE_SIZE
+  )
 
   const len = message.length
   const segments = Math.max(1, Math.ceil(len / MAX_MESSAGE_LENGTH))
@@ -224,67 +251,121 @@ function AnnouncementComposer() {
           <CardHeader>
             <CardLabel>Delivery log</CardLabel>
           </CardHeader>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Message</TableHead>
-                  <TableHead>Sent</TableHead>
-                  <TableHead numeric>Delivered</TableHead>
-                  <TableHead numeric>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+          {phone ? (
+            /*
+             * §9.4 "Announcement delivery log": excerpt and status in the row,
+             * "sent N · delivered N" disclosed on the meta line. `ListRow`'s
+             * primary is already `line-clamp-2`, which is what §25.4 asks for.
+             *
+             * The desktop keeps its four-column `Table`. It sits in an
+             * `overflow-x-auto` div inside an `overflow-hidden` `Card`, so on a
+             * phone the message column did not widen the page — it was clipped,
+             * and the audit measured the table at 347 px only because the log
+             * was empty.
+             */
+            <>
+              <ul role="list">
                 {isLoading && (
-                  <TableRow>
-                    <TableCell
-                      colSpan={4}
-                      className="py-6 text-center text-ink-muted"
-                    >
-                      Loading…
-                    </TableCell>
-                  </TableRow>
+                  <li className="px-4 py-6 text-center text-ink-muted">
+                    Loading…
+                  </li>
                 )}
-                {!isLoading &&
-                  (!announcements || announcements.length === 0) && (
+                {!isLoading && logRows.length === 0 && (
+                  <li className="px-4 py-6 text-center text-ink-muted">
+                    No announcements sent yet.
+                  </li>
+                )}
+                {logRows.map((a) => {
+                  const badge = deliveryBadge(a)
+                  return (
+                    <ListRow
+                      key={a.id}
+                      primary={a.message}
+                      status={
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
+                      }
+                      meta={[
+                        `sent ${a.sent_count}/${a.recipient_count}`,
+                        ...(a.failed_count > 0
+                          ? [`${a.failed_count} failed`]
+                          : []),
+                        new Date(a.sent_at).toLocaleDateString('en-CA'),
+                      ]}
+                    />
+                  )
+                })}
+              </ul>
+              <Pagination
+                page={logPage}
+                pageCount={logPageCount}
+                onPageChange={setLogPage}
+                responsive
+                className="px-4 py-3"
+              />
+            </>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Message</TableHead>
+                    <TableHead>Sent</TableHead>
+                    <TableHead numeric>Delivered</TableHead>
+                    <TableHead numeric>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading && (
                     <TableRow>
                       <TableCell
                         colSpan={4}
                         className="py-6 text-center text-ink-muted"
                       >
-                        No announcements sent yet.
+                        Loading…
                       </TableCell>
                     </TableRow>
                   )}
-                {announcements?.map((a) => {
-                  const badge = deliveryBadge(a)
-                  return (
-                    <TableRow key={a.id}>
-                      <TableCell className="max-w-xs truncate text-ink-secondary">
-                        {a.message}
-                      </TableCell>
-                      <TableCell className="font-mono text-mono-sm text-ink-muted">
-                        {new Date(a.sent_at).toLocaleDateString('en-CA')}
-                      </TableCell>
-                      <TableCell numeric>
-                        <span className="text-ink">
-                          {a.sent_count}/{a.recipient_count}
-                        </span>
-                        {a.failed_count > 0 && (
-                          <span className="ml-2 text-error">
-                            {a.failed_count} failed
+                  {!isLoading &&
+                    (!announcements || announcements.length === 0) && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={4}
+                          className="py-6 text-center text-ink-muted"
+                        >
+                          No announcements sent yet.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  {announcements?.map((a) => {
+                    const badge = deliveryBadge(a)
+                    return (
+                      <TableRow key={a.id}>
+                        <TableCell className="max-w-xs truncate text-ink-secondary">
+                          {a.message}
+                        </TableCell>
+                        <TableCell className="font-mono text-mono-sm text-ink-muted">
+                          {new Date(a.sent_at).toLocaleDateString('en-CA')}
+                        </TableCell>
+                        <TableCell numeric>
+                          <span className="text-ink">
+                            {a.sent_count}/{a.recipient_count}
                           </span>
-                        )}
-                      </TableCell>
-                      <TableCell numeric>
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
+                          {a.failed_count > 0 && (
+                            <span className="ml-2 text-error">
+                              {a.failed_count} failed
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell numeric>
+                          <Badge variant={badge.variant}>{badge.label}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </Card>
       </div>
     </div>

@@ -12,6 +12,7 @@ import {
   Label,
   Badge,
   Checkbox,
+  ListRow,
   Table,
   TableBody,
   TableCell,
@@ -20,6 +21,7 @@ import {
   TableRow,
 } from '@/components/ui'
 import { useConfirmDialog } from '@/hooks/use-confirm-dialog'
+import { useViewportTier } from '@/hooks/useViewportTier'
 import {
   createDiscountSchema,
   type CreateDiscountInput,
@@ -30,6 +32,7 @@ export default function DiscountsTab() {
   const queryClient = useQueryClient()
   const [addModalOpen, setAddModalOpen] = useState(false)
   const { confirm, ConfirmDialog } = useConfirmDialog()
+  const phone = useViewportTier() === 'phone'
 
   const {
     register,
@@ -175,33 +178,30 @@ export default function DiscountsTab() {
             <p className="text-sm text-ink-muted">Loading discounts...</p>
           </div>
         ) : discounts && discounts.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Discount Name</TableHead>
-                <TableHead>Percentage</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead numeric>In use</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          phone ? (
+            /*
+             * The desktop keeps its five-column `Table`; a phone gets rows.
+             * The table lives in a `Card` that is itself `overflow-x-auto`, so
+             * on a phone it did not widen the page — it hid three columns
+             * inside a scroller with no visual cue, which is the audit's
+             * "overflowing tables hid here" case (probe rule 3).
+             */
+            <ul role="list">
               {discounts.map((discount) => (
-                <TableRow key={discount.id}>
-                  <TableCell className="font-medium">
-                    {discount.discount_name}
-                  </TableCell>
-                  <TableCell>{discount.discount_percentage}%</TableCell>
-                  <TableCell>
+                <ListRow
+                  key={discount.id}
+                  primary={discount.discount_name}
+                  status={
                     <Badge variant={discount.is_active ? 'success' : 'neutral'}>
                       {discount.is_active ? 'Active' : 'Inactive'}
                     </Badge>
-                  </TableCell>
-                  <TableCell numeric>
-                    {usageMap.get(discount.id) ?? 0}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                  }
+                  meta={[
+                    `${discount.discount_percentage}% off`,
+                    `${usageMap.get(discount.id) ?? 0} in use`,
+                  ]}
+                  actions={
+                    <>
                       <Button
                         variant="secondary"
                         size="sm"
@@ -223,12 +223,69 @@ export default function DiscountsTab() {
                       >
                         Delete
                       </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                    </>
+                  }
+                />
               ))}
-            </TableBody>
-          </Table>
+            </ul>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Discount Name</TableHead>
+                  <TableHead>Percentage</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead numeric>In use</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {discounts.map((discount) => (
+                  <TableRow key={discount.id}>
+                    <TableCell className="font-medium">
+                      {discount.discount_name}
+                    </TableCell>
+                    <TableCell>{discount.discount_percentage}%</TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={discount.is_active ? 'success' : 'neutral'}
+                      >
+                        {discount.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell numeric>
+                      {usageMap.get(discount.id) ?? 0}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            toggleMutation.mutate({
+                              id: discount.id,
+                              isActive: discount.is_active,
+                            })
+                          }
+                          disabled={toggleMutation.isPending}
+                        >
+                          {discount.is_active ? 'Deactivate' : 'Activate'}
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDelete(discount)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )
         ) : (
           <div className="flex h-48 items-center justify-center">
             <div className="text-center">
@@ -258,6 +315,7 @@ export default function DiscountsTab() {
       <Modal
         open={addModalOpen}
         onOpenChange={setAddModalOpen}
+        placement="sheet"
         title="Add New Discount"
         description="Create a discount preset that can be applied to member registrations"
         footer={
@@ -324,16 +382,15 @@ export default function DiscountsTab() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="is_active"
-              {...register('is_active')}
-              defaultChecked
-            />
-            <Label htmlFor="is_active" className="text-sm font-normal">
-              Active (available for selection)
-            </Label>
-          </div>
+          {/* `Checkbox label=` rather than a sibling `Label htmlFor=`: the
+              44 px hit area belongs to a label that WRAPS its control (§15.1).
+              A bare checkbox is 24 px on a phone, under the probe's floor. */}
+          <Checkbox
+            id="is_active"
+            {...register('is_active')}
+            defaultChecked
+            label="Active (available for selection)"
+          />
 
           {/* Error Message */}
           {createMutation.isError && (
