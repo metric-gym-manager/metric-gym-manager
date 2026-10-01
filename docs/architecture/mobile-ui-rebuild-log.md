@@ -1643,6 +1643,34 @@ so the safe-area insets are proven wired and not proven respected. And **two
 desktop baselines are knowingly left stale**, named in the closeout rather than
 re-taken against intercepted fixtures.
 
+#### Closing the record
+
+**All eleven phases are on `master`.** PR #81 was merged on the user's
+instruction in the same session that opened it, after #79 and #80 earlier the
+same day. The full gate was re-run on merged `master` and the result is
+recorded in #81.
+
+**This file stops changing here.** Its header says "update at the end of every
+phase, in the same PR as the phase" and there is no twelfth phase, so from now
+on it is a historical record rather than a living one. Three things supersede
+it for anything a later change needs:
+
+- **`.claude/rules/architecture.md` §2.21** carries the standing invariants and
+  is auto-loaded. That is what binds future work; nothing here does.
+- **`docs/architecture/mobile-ui-rebuild-closeout.md`** carries what merging
+  did not finish — §1's two stale baselines, the three owner items, the five
+  numbered follow-ups.
+- **§5 of this file** carries the open items by id. An `MO-` id referenced
+  anywhere else resolves there.
+
+**What a reader should NOT take from this file.** The plan is `v1.6 —
+DELIVERED` and its body is unchanged from v1.5, so a §-reference in these
+entries points at the contract the work was executed against and not
+necessarily at the product: §13's `renderExpanded` (F36), §8.13's AppBar Back
+(F40) and §28's own fixture magnitudes (F35, F37) were each found wrong
+against the code, and the finding is the correction. Read a plan section and
+its findings together or not at all.
+
 ---
 
 ## 4. Findings
