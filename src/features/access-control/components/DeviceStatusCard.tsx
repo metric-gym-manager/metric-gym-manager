@@ -150,7 +150,7 @@ export default function DeviceStatusCard({
           <h3 className="truncate text-base font-semibold text-ink">
             {device.deviceName}
           </h3>
-          <p className="mt-0.5 font-mono text-mono-sm text-ink-muted">
+          <p className="mt-0.5 break-all font-mono text-mono-sm text-ink-muted">
             {device.deviceSerial}
           </p>
         </div>

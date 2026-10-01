@@ -127,7 +127,7 @@ export default function AccessControlDashboard() {
         <h2 className="text-base font-semibold text-ink">Readers</h2>
 
         {devices && devices.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {devices.map((device) => (
               <DeviceStatusCard key={device.id} device={device} />
             ))}
