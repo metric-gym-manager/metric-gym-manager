@@ -264,13 +264,24 @@ describe('Dashboard on a phone — chart axis and header', () => {
     expect(barChartProps.at(-1)?.compactAxis).toBe(true)
   })
 
-  it('leaves the desktop axis alone', async () => {
+  /**
+   * **Inverted at Phase 10, and the inversion is the point.** Phases 6–9 ran
+   * this as "leaves the desktop axis alone", because the tick TEXT is what
+   * `compactAxis` changes and a screen phase may not absorb its own diff into
+   * a committed 1366 baseline (MO-4). The clip was real above `tablet` the
+   * whole time (F1): re-measured at 768, 1024 and 1366, `250000`, `500000`
+   * and `750000` were each cut by 12 px and `1000000` by 18.
+   *
+   * Phase 10 owns the baselines, so the prop now ships on both tiers and
+   * `dashboard-desktop-1366` is a named re-baseline in the closeout. The
+   * assertion is kept rather than deleted so the decision stays pinned in the
+   * direction it actually points.
+   */
+  it('asks for the compact axis on the desktop too', async () => {
     mockFetchRoutes(routes())
     renderScreen(<DashboardClient />, { viewport: 'desktop' })
     await screen.findByTestId('bar-chart')
-    // The tick TEXT is what `compactAxis` changes, so switching it on at 1366
-    // would move a screenshot baseline this phase may not touch (F1).
-    expect(barChartProps.at(-1)?.compactAxis).toBe(false)
+    expect(barChartProps.at(-1)?.compactAxis).toBe(true)
   })
 
   /**

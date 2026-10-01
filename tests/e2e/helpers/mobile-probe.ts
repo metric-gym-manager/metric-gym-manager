@@ -328,9 +328,22 @@ export async function probePage(
       .filter((el) => !CONTAINER_ROLES.test(el.getAttribute('role') ?? ''))
       // A control inside a labelled wrapper is measured on the wrapper below;
       // don't count the inner control twice.
+      //
+      // §15.1 names Checkbox, Radio AND Switch in one row — "control 24 px;
+      // 44 px label hit area (label wraps the control)" — but this predicate
+      // covered `input` controls only, so a `role="switch"` button inside a
+      // label was still measured directly and reported at its 44x24 track
+      // against a 40 px floor. Phase 9 made the product change that satisfies
+      // the rule (`AccessReadersCard`'s label is 88x44) and deliberately left
+      // this one to the phase that owns the baselines, because turning a
+      // reading green in the commit that produced it is the move this
+      // discipline exists to prevent. This is that phase.
       .filter((el) => {
-        if (!(el instanceof HTMLInputElement)) return true
-        if (el.type !== 'checkbox' && el.type !== 'radio') return true
+        const isBoxControl =
+          (el instanceof HTMLInputElement &&
+            (el.type === 'checkbox' || el.type === 'radio')) ||
+          el.getAttribute('role') === 'switch'
+        if (!isBoxControl) return true
         return el.closest('label') === null
       })
 
@@ -397,12 +410,18 @@ export async function probePage(
           touch.push({ ...b, dense, inline, rule: 'primary-height', name })
         }
       }
-      // A label wrapping a checkbox/radio is the hit area (§15.1: control
-      // 24 px, label 44 px); the inner control was skipped above.
+      // A label wrapping a checkbox, radio or switch is the hit area
+      // (§15.1: control 24 px, label 44 px); the inner control was skipped
+      // above. A switch whose label does NOT wrap it is still measured as
+      // itself, which is the case the rule is about.
       for (const lab of Array.from(
         document.body.querySelectorAll('label')
       ).filter(isRendered)) {
-        if (!lab.querySelector('input[type="checkbox"], input[type="radio"]'))
+        if (
+          !lab.querySelector(
+            'input[type="checkbox"], input[type="radio"], [role="switch"]'
+          )
+        )
           continue
         if (labelled.has(lab)) continue
         labelled.add(lab)

@@ -325,7 +325,10 @@ export default function RevenuePageClient() {
           label="Monthly collected revenue"
           loading={isLoading}
           empty={<EmptyState title="No revenue history for this period." />}
-          compactAxis={tier === 'phone'}
+          // Both tiers since Phase 10 — see `DashboardClient` for why the
+          // earlier phases scoped it to the phone, and for the re-baseline
+          // this needs.
+          compactAxis
         />
       </ChartCard>
 

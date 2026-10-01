@@ -67,11 +67,28 @@ export const WORKSPACE_ROUTES = [
 /**
  * Phone routes whose probe must be clean. Grows by phase; never shrinks.
  *
- * Phase 0: none — see the file header.
+ * **All sixteen, as of Phase 10 (MO-2).** Phases 1–9 each left this empty and
+ * said why: every phase's measurement was taken against intercepted endpoints
+ * on throwaway `/pN-probe/*` routes, because no session in the rebuild had
+ * Supabase credentials, and a route asserted strict here is asserted against
+ * the SEEDED gym this list's own suite requires. Promising on one body of
+ * evidence what a different one will check is how a ratchet starts lying.
+ *
+ * What makes the promotion defensible now rather than then is coverage, not a
+ * new kind of evidence: Phase 10 probed fifteen of these sixteen at 320, 360,
+ * 390 and 430 — sixty states, zero violations, zero console errors, with §28
+ * content at magnitudes each field's own producer can emit — and the sixteenth
+ * (`/settings`) renders `null` by design and is measured through the shell.
+ * A route that is clean on every phone width with a full fixture and dirty on
+ * the seeded gym is a DATA difference worth a failure, which is exactly what
+ * this list is for.
+ *
+ * First run against the seeded gym is therefore the real test of this line.
+ * If it fails, the fix is the screen or the fixture — never a deletion here.
  */
 export const STRICT_PHONE_ROUTES: ReadonlyArray<
   (typeof WORKSPACE_ROUTES)[number]
-> = []
+> = WORKSPACE_ROUTES
 
 /**
  * Desktop-tier violations that exist today, as patterns over the probe's
@@ -86,65 +103,33 @@ export const KNOWN_DESKTOP_VIOLATIONS: ReadonlyArray<{
   pattern: RegExp
   clears: string
 }> = [
-  // 6-digit ticks do not fit a 40 px axis at any width. Visible as
-  // "0000 / 5000 / 0000 / 5000 / 0".
+  // EMPTY — all three entries cleared at Phase 10, the phase that owns the
+  // desktop baselines. The list may only shrink; an entry added here needs a
+  // written reason and a named clearing phase.
   //
-  // Phase 1 built the fix (§5.9 `compactAxis` / `yTickFormatter` on
-  // `CartesianChartProps`) but could not APPLY it: the prop is opt-in, and
-  // §5.9's own instruction is that "screens pass it under the phone tier" —
-  // the screens are Phase 6. Making it the default instead would change the
-  // plot area of every chart at 1366, against Phase 1's binding constraint
-  // that the desktop renders pixel-equivalent, and would have to be absorbed
-  // into the desktop baselines, which MO-4 forbids.
+  // **The two y-tick entries were FIXED.** `compactAxis` now ships on both
+  // tiers for `/dashboard` and `/revenue`. Phases 1 and 6 scoped it to the
+  // phone because it changes the tick TEXT and so moves the committed 1366
+  // baselines, which MO-4 forbids a screen phase from absorbing; this phase
+  // owns them. Re-measured after the change: clean at 768, 1024 and 1366,
+  // where `250000`/`500000`/`750000` had each been cut by 12 px and
+  // `1000000` by 18. **`dashboard-desktop-1366` and `revenue-desktop-1366`
+  // still carry the OLD axis and must be re-taken with `--update-snapshots`
+  // on a machine with the seeded gym** — stated in the closeout rather than
+  // absorbed here, because this environment has no Supabase credentials and a
+  // baseline taken against intercepted fixtures would be a different picture
+  // of a different screen.
   //
-  // PHASE 6 APPLIED IT — on the phone tier, which is what §5.9 and §8.1 both
-  // specify — and that does NOT clear these two entries, which are measured
-  // at 1366. The note above expected it to, and was wrong: `compactAxis`
-  // changes the tick TEXT, so switching it on at the desktop tier moves the
-  // `dashboard-desktop-1366` and `revenue-desktop-1366` baselines, which is
-  // the same MO-4 objection that kept Phase 1 from making it the default.
-  // The desktop clip is real (F1) and needs a re-baseline to fix, so it is
-  // re-pointed at the sweep phase, which owns the baselines. Recorded as an
-  // EXCEPTION in the tracker log and in §4 F31 of mobile-ui-rebuild-log.md.
-  {
-    route: '/dashboard',
-    pattern: /axis tick "\d{5,}" clipped/,
-    clears: 'Phase 10',
-  },
-  {
-    route: '/revenue',
-    pattern: /axis tick "\d{5,}" clipped/,
-    clears: 'Phase 10',
-  },
-  // The trailing x-axis label overshoots the chart by a pixel.
-  //
-  // PHASE 7 DID NOT CLEAR THIS, and could not reproduce it either. Probed on
-  // the rebuilt screen at all seven widths with the labels the PRODUCT emits
-  // (`bucketLabel`, so `"Jan 26"…"Dec 26"` at month granularity — the first
-  // Phase 7 fixture used bare `"Jan"`, which is not a format this app
-  // produces), the trailing `"Dec 26"` tick is NOT clipped at 320, 360, 390,
-  // 430, 768, 1024 or 1366.
-  //
-  // What does reproduce, at every one of those widths, is the sibling case:
-  // at DAY granularity (the 1M range) the trailing `"30 Sep"` overhangs its
-  // surface by 0.6 px — width-independent, so it is chart geometry, not
-  // layout. The probe suite navigates each route at its default range, which
-  // for this screen is YTD, so no run of the spec ever selects the range that
-  // shows it; an entry for it would read stale on its first run and fail the
-  // ratchet below. Recorded in §4 F37 of mobile-ui-rebuild-log.md instead.
-  //
-  // The entry stays, re-pointed, rather than being deleted: a sub-pixel
-  // overhang that appears at one chart width and not another is exactly what
-  // a fixture cannot settle, and only the seeded gym can say whether the real
-  // route still shows it. Every fix for it — a wider right margin, a
-  // `textAnchor` on the end tick — moves the plot area or the label, so it
-  // belongs with the two y-tick entries above, in the phase that owns the
-  // baselines.
-  {
-    route: '/member-analytics',
-    pattern: /axis tick "[A-Z][a-z]{2} \d{2}" clipped by -?1px/,
-    clears: 'Phase 10',
-  },
+  // **The `/member-analytics` entry was DELETED, not fixed**, because its
+  // condition does not exist. F37 probed the rebuilt screen at all seven
+  // widths with the labels the product's own `bucketLabel` emits and found
+  // the trailing tick whole at every one; this phase's sweep reproduces that.
+  // The ratchet's own rule is that an entry must still match a violation, and
+  // a pattern that matches nothing is the stale entry the rule exists to
+  // catch. The sibling case F37 found — a 0.6 px overhang at DAY granularity,
+  // width-independent and therefore chart geometry — is NOT this entry and
+  // needs a probe that drives the range control before measuring; it is
+  // carried as MO-30, not as a pattern no run can reach.
 ]
 
 /**

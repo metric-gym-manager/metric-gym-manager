@@ -167,7 +167,17 @@ function codeOf(file) {
 // That produced 6,026 dead lines. A component referenced ONLY by an index.ts
 // (or only by the dev showcase) is orphaned.
 const UI1_ALLOW = new Set([
-  // Ruling R3 (2026-08-29) — kept deliberately; re-evaluate after Phase 3.
+  // Ruling R3 (2026-08-29) — kept deliberately. **Re-evaluated at the mobile
+  // rebuild's Phase 10 sweep (2026-10-01), which is the "after Phase 3" this
+  // line used to name.** Measured rather than assumed: the list held 14 entries
+  // at the rebuild's base commit and holds 13 now, and the single difference is
+  // `Drawer`, consumed when Phase 2 mounted it. Every entry below was already
+  // dead before Phase 0 and the rebuild orphaned none of them, so deleting them
+  // is a design-system cleanup and not this phase's to make — carried as a
+  // follow-up in `docs/architecture/mobile-ui-rebuild-closeout.md`, with the
+  // evidence that the rebuild declined four of them outright (Phase 4 built its
+  // phone toolbar from `DropdownMenu` rather than `Toolbar` or `FilterBar`, and
+  // Phases 7 and 9 disclosed rows with local state rather than `Accordion`).
   'CommandPalette',
   'Accordion',
   'Radio',
@@ -371,6 +381,49 @@ for (const file of componentFiles) {
     `Unreachable component "${rel(file)}" — no import path leads to it from ` +
       `src/app. Delete it, or wire it up. If it is deliberately staged, add it ` +
       `to UI1_ALLOW with the reason.`
+  )
+}
+
+// ── UI1b: a shared hook unreachable from src/app is dead code too ───────────
+// UI1 reports only `.tsx` under `src/components` and `features/*/components`,
+// because "a component" was the unit the directive named. `src/hooks` was
+// never walked — and Phase 10's sweep found two hooks sitting there with zero
+// references, orphaned by commits that predate the mobile rebuild by months.
+// The reachability graph above already covers them; only the REPORTING set was
+// narrow. A hook is cheaper to leave dead than a component and therefore more
+// likely to be, which is the argument for the rule rather than against it.
+const UI1B_ALLOW = new Set([
+  // EMPTY — every shared hook is reachable from src/app. An entry here means a
+  // hook was kept without a caller, and needs a written reason.
+])
+
+const hookFiles = UI_SRC_TSX.filter((f) => {
+  const r = rel(f)
+  if (!r.startsWith('src/hooks/')) return false
+  if (r.includes('__tests__')) return false
+  return !/\/index\.tsx?$/.test(r)
+})
+
+for (const file of hookFiles) {
+  const base = path.basename(file).replace(/\.tsx?$/, '')
+  if (UI1B_ALLOW.has(base) && reachable.has(file)) {
+    fail(
+      'UI1b',
+      `"${base}" is in UI1B_ALLOW but is now reachable from src/app. Remove it ` +
+        `from the allow-list so the ratchet keeps tightening.`
+    )
+  }
+}
+
+for (const file of hookFiles) {
+  const base = path.basename(file).replace(/\.tsx?$/, '')
+  if (UI1B_ALLOW.has(base)) continue
+  if (reachable.has(file)) continue
+  fail(
+    'UI1b',
+    `Unreachable hook "${rel(file)}" — no import path leads to it from ` +
+      `src/app. Delete it, or wire it up. If it is deliberately staged, add it ` +
+      `to UI1B_ALLOW with the reason.`
   )
 }
 
