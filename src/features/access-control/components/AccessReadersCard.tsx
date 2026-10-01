@@ -70,6 +70,17 @@ export default function AccessReadersCard() {
 
   return (
     <Card className="space-y-4 p-6">
+      {/*
+        MO-35 was NOT a defect, and nothing here changed. The entry read
+        "'Connect a reader' sits flush against the card border, eating all
+        12 px of its right padding at 320 and 390". It does not: re-measured,
+        the button ends 1 px inside the card's padding box at both widths. The
+        original reading came from a probe that resolved the card with
+        `btn.closest('.rounded-sm')` — a selector the Button itself matches, so
+        it measured the button against its own box and reported the radius as
+        an overflow. Same family as F26, F38 and F48: the harness lying before
+        the product could.
+      */}
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-base font-semibold text-ink">Readers</h3>
@@ -89,7 +100,7 @@ export default function AccessReadersCard() {
 
       {adding && (
         <div className="space-y-4 border-t border-line-1 pt-4">
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <FormField
               label="Serial number"
               helperText="Printed on the back of the reader."
@@ -270,7 +281,7 @@ function ReaderRow({ device }: { device: SerializedAccessDevice }) {
         </p>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
         <FormField label="Name">
           <Input
             value={name}

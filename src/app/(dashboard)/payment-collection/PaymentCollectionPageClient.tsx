@@ -17,6 +17,7 @@ import { PageHeader } from '@/components/common/composites'
 import { useViewportTier } from '@/hooks/useViewportTier'
 import { useMemberModal } from '@/contexts/member-modal.context'
 import { MemberAvatar } from '@/features/members'
+import { formatDate } from '@/utils/date/date'
 
 type Tab = 'expired' | 'due' | 'collected'
 
@@ -196,7 +197,7 @@ export default function PaymentCollectionPageClient() {
           <Badge variant="error">{Math.abs(r.daysUntilDue)} days ago</Badge>
         ) : (
           <span className="font-mono text-mono-md text-warning">
-            {r.nextDueDate}
+            {formatDate(r.nextDueDate)}
           </span>
         ),
     },
@@ -309,7 +310,7 @@ export default function PaymentCollectionPageClient() {
       sortValue: (r) => r.paymentDate,
       cell: (r) => (
         <span className="font-mono text-mono-md text-ink-muted">
-          {r.paymentDate}
+          {formatDate(r.paymentDate)}
         </span>
       ),
     },

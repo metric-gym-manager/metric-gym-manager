@@ -162,7 +162,7 @@ describe('Renewals on a phone — §9.4 visible set', () => {
     const r = within(await row('Soon Member'))
     // The same column id renders a days-ago badge on one tab and a date on
     // the other; the row maps the column, not the rendering.
-    expect(r.getByText('2026-09-02')).toBeInTheDocument()
+    expect(r.getByText('02 Sept 2026')).toBeInTheDocument()
   })
 
   it('carries the avatar as the row leading, once', async () => {

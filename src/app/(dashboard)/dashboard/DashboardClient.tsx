@@ -29,6 +29,7 @@ import { useNow } from '@/hooks/useNow'
 import { useIsHydrated } from '@/hooks/useIsHydrated'
 import type { MonthlyRevenueResponse } from '@/features/revenue/types'
 import { isNewMember } from '@/features/members'
+import { formatDate } from '@/utils/date/date'
 
 interface DashboardMetrics {
   overdueMembers: {
@@ -473,7 +474,7 @@ export default function DashboardClient() {
                       )}
                     </>
                   }
-                  meta={[capitalise(p.planType), p.paymentDate]}
+                  meta={[capitalise(p.planType), formatDate(p.paymentDate)]}
                   value={fmt(p.amountPaid)}
                 />
               ))}
@@ -510,7 +511,7 @@ export default function DashboardClient() {
                       {p.planType}
                     </TableCell>
                     <TableCell className="font-mono text-mono-sm text-ink-muted">
-                      {p.paymentDate}
+                      {formatDate(p.paymentDate)}
                     </TableCell>
                     <TableCell numeric>{fmt(p.amountPaid)}</TableCell>
                   </TableRow>
