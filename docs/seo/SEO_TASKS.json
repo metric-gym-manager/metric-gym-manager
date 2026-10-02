@@ -1611,7 +1611,7 @@
       "title": "GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included",
       "category": "measurement",
       "priority": "P1",
-      "status": "discovered",
+      "status": "implemented",
       "intent": "none",
       "targetQueries": [],
       "finding": "GA4 is configured on every route in the root layout and sends the full page URL, query string included, as page_location (dl). Password-recovery links land on /reset-password?token_hash=…&type=recovery, and that page spends the token only when the form is submitted (rule 2.15), so a still-valid recovery token reaches Google Analytics on every reset visit. Anyone who can read the GA4 property's page_location before the token expires could use it to set the account's password. Email-change links (/verify-email?type=email_change&token_hash=…) send their token the same way, although that one is spent on load. Contentsquare, when NEXT_PUBLIC_ENABLE_ANALYTICS is on, also records URLs. Found while verifying SEO-056.",
@@ -1621,17 +1621,24 @@
         "supabase/templates/recovery.html and rule 2.15: the recovery link carries token_hash to /reset-password, which makes no Supabase call until submit"
       ],
       "recommendedChange": "Owner, in GA4 now (no deploy needed): Admin → Data streams → the web stream → Redact data → turn on query-parameter redaction for token_hash, token, code and email. Then, as one reviewed change: stop sending auth query strings to analytics at all, either by setting a sanitised page_location in the gtag config (strip token_hash, token, code, type) or by not loading GA on the (auth) routes, with a test that fails if a token-bearing URL reaches gtag. Check Contentsquare's URL masking before NEXT_PUBLIC_ENABLE_ANALYTICS is turned on.",
-      "implementation": "",
+      "implementation": "src/lib/analytics/ga-init.ts gaInitScript() is now the only GA bootstrap; the root layout renders it as one inline afterInteractive Script, in place of the raw gtag.js Script and inline config. It always defines dataLayer and gtag, so trackEvent() stays a no-op, then returns before loading anything when the URL has a token_hash, token, code or email query parameter or a path under /join/. Otherwise it runs the standard snippet: js, config G-D711W4RE25, and an async gtag.js. The check runs at document load, which is enough because every credential URL arrives by a full page load (email link, QR scan, pasted link) and none is reachable by in-app navigation; the JSDoc says the rule must move if that changes. Rule 2.23 records the invariant. Contentsquare is unchanged: it is off in production (NEXT_PUBLIC_ENABLE_ANALYTICS=false) and needs URL masking checked before it is turned on.",
       "files": [
+        "src/lib/analytics/ga-init.ts",
+        "src/lib/analytics/__tests__/ga-init.test.ts",
         "src/app/layout.tsx",
-        "src/app/(auth)/reset-password/page.tsx",
-        "src/app/(auth)/verify-email/page.tsx"
+        ".claude/rules/architecture.md"
       ],
-      "verification": [],
+      "verification": [
+        "ga-init.test.ts runs the generated script at global scope, as a browser runs an inline script: six credential URLs (recovery token_hash and token, email-change token_hash, PKCE code, email, /join/tok_abc) leave no config and no gtag.js; six ordinary URLs (/, /pricing, /register, /verify-email, /login?redirect=, /joinery) get exactly one config and one gtag.js; and a source check holds the layout to gaInitScript() with no raw googletagmanager.com or gtag('config')",
+        "Seven mutations, each caught: token_hash removed from the list, path-prefix check removed, query guard inverted, config before the guard, script injected before the guard, prefix loosened to /join, raw gtag.js Script re-added to the layout",
+        "Full suite 196 suites and 2,388 tests passed (7 skipped), with tsc as pretest; lint 0 errors (the same 11 warnings); arch:check passes",
+        "Chromium via Playwright against next dev, every Google request recorded: /reset-password?token_hash=…&type=recovery, /verify-email?type=email_change&token_hash=… and /join/tok_probe made 0 requests to Google and rendered normally; / and /pricing loaded gtag.js and sent page_view; the stubbed register flow still sent sign_up",
+        "Not verified: the live GA4 property. Owner, as defence in depth: GA4 → Admin → Data streams → Redact data → query parameters token_hash, token, code, email"
+      ],
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-02T15:36:21Z",
-      "updatedAt": "2026-10-02T15:36:21Z",
+      "updatedAt": "2026-10-02T16:25:08Z",
       "completedAt": null
     }
   ]

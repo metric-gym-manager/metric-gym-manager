@@ -6,6 +6,7 @@ import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Toaster } from '@/components/ui'
 import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration'
 import { AuthRecovery } from '@/features/auth/components/AuthRecovery'
+import { gaInitScript } from '@/lib/analytics/ga-init'
 import { PWA_VERSION } from '@/lib/pwa-version'
 import { OG_IMAGE, SITE_NAME, SITE_URL } from '@/features/marketing'
 
@@ -121,17 +122,9 @@ export default function RootLayout({
       className={`${inter.variable} ${geist.variable} ${geistMono.variable}`}
     >
       <body className="font-sans">
-        <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-D711W4RE25"
-          strategy="afterInteractive"
-        />
+        {/* GA4, never on a URL that carries a credential (SEO-059). */}
         <Script id="google-analytics" strategy="afterInteractive">
-          {`
-            window.dataLayer = window.dataLayer || [];
-            function gtag(){dataLayer.push(arguments);}
-            gtag('js', new Date());
-            gtag('config', 'G-D711W4RE25');
-          `}
+          {gaInitScript()}
         </Script>
         <QueryProvider>
           {children}

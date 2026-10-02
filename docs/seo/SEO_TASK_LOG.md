@@ -7,14 +7,14 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-02T15:36:21Z |
+| Last task update | 2026-10-02T16:25:08Z |
 | Total tasks | 59 |
 | P0 remaining (not verified/rejected) | 2 |
 | P1 remaining (not verified/rejected) | 5 |
-| Implemented (awaiting verification) | 2 |
+| Implemented (awaiting verification) | 3 |
 | Verified | 37 |
 | In progress | 0 |
-| Open (discovered/planned) | 7 |
+| Open (discovered/planned) | 6 |
 | Blocked | 9 |
 | Rejected | 4 |
 | External action required | 15 |
@@ -24,7 +24,7 @@
 | Priority | discovered | planned | in_progress | implemented | verified | blocked | rejected |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 9 | 2 | 0 |
-| P1 | 1 | 0 | 0 | 2 | 17 | 2 | 0 |
+| P1 | 0 | 0 | 0 | 3 | 17 | 2 | 0 |
 | P2 | 1 | 0 | 0 | 0 | 9 | 3 | 0 |
 | P3 | 5 | 0 | 0 | 0 | 2 | 2 | 4 |
 
@@ -64,7 +64,7 @@
 | [SEO-046](#seo-046) | P1 | verified | measurement | Measurement plan | no |
 | [SEO-048](#seo-048) | P1 | verified | technical | Design-system TableRow could not render in a Server Component | no |
 | [SEO-056](#seo-056) | P1 | implemented | measurement | Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL | yes |
-| [SEO-059](#seo-059) | P1 | discovered | measurement | GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included | yes |
+| [SEO-059](#seo-059) | P1 | implemented | measurement | GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included | yes |
 | [SEO-010](#seo-010) | P2 | verified | technical | Authenticated route groups have no defensive noindex | no |
 | [SEO-022](#seo-022) | P2 | verified | content | Resources hub with two first-party articles | no |
 | [SEO-027](#seo-027) | P2 | verified | technical | Unreferenced public images expose an old UI, the old brand and personal data | no |
@@ -100,7 +100,7 @@
 - **SEO-035** (P1, implemented) — No analytics event for demo requests
 - **SEO-038** (P1, blocked) — Partner citation from VFT Holdings
 - **SEO-056** (P1, implemented) — Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL
-- **SEO-059** (P1, discovered) — GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included
+- **SEO-059** (P1, implemented) — GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included
 - **SEO-037** (P2, blocked) — Google Business Profile eligibility
 - **SEO-039** (P2, blocked) — Software directories and review profiles
 - **SEO-042** (P2, blocked) — Real case studies and first-party data content
@@ -1660,12 +1660,12 @@ register/page.tsx fires GA4's recommended sign_up event with { method: 'email' }
 | Field | Value |
 | --- | --- |
 | Priority | P1 |
-| Status | discovered |
+| Status | implemented |
 | Category | measurement |
 | Intent | none |
 | External action | required |
 | Created | 2026-10-02T15:36:21Z |
-| Updated | 2026-10-02T15:36:21Z |
+| Updated | 2026-10-02T16:25:08Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1689,17 +1689,22 @@ Owner, in GA4 now (no deploy needed): Admin → Data streams → the web stream 
 
 **Implementation**
 
-—
+src/lib/analytics/ga-init.ts gaInitScript() is now the only GA bootstrap; the root layout renders it as one inline afterInteractive Script, in place of the raw gtag.js Script and inline config. It always defines dataLayer and gtag, so trackEvent() stays a no-op, then returns before loading anything when the URL has a token_hash, token, code or email query parameter or a path under /join/. Otherwise it runs the standard snippet: js, config G-D711W4RE25, and an async gtag.js. The check runs at document load, which is enough because every credential URL arrives by a full page load (email link, QR scan, pasted link) and none is reachable by in-app navigation; the JSDoc says the rule must move if that changes. Rule 2.23 records the invariant. Contentsquare is unchanged: it is off in production (NEXT_PUBLIC_ENABLE_ANALYTICS=false) and needs URL masking checked before it is turned on.
 
 **Files**
 
+- `src/lib/analytics/ga-init.ts`
+- `src/lib/analytics/__tests__/ga-init.test.ts`
 - `src/app/layout.tsx`
-- `src/app/(auth)/reset-password/page.tsx`
-- `src/app/(auth)/verify-email/page.tsx`
+- `.claude/rules/architecture.md`
 
 **Verification**
 
-- Not yet verified
+- ga-init.test.ts runs the generated script at global scope, as a browser runs an inline script: six credential URLs (recovery token_hash and token, email-change token_hash, PKCE code, email, /join/tok_abc) leave no config and no gtag.js; six ordinary URLs (/, /pricing, /register, /verify-email, /login?redirect=, /joinery) get exactly one config and one gtag.js; and a source check holds the layout to gaInitScript() with no raw googletagmanager.com or gtag('config')
+- Seven mutations, each caught: token_hash removed from the list, path-prefix check removed, query guard inverted, config before the guard, script injected before the guard, prefix loosened to /join, raw gtag.js Script re-added to the layout
+- Full suite 196 suites and 2,388 tests passed (7 skipped), with tsc as pretest; lint 0 errors (the same 11 warnings); arch:check passes
+- Chromium via Playwright against next dev, every Google request recorded: /reset-password?token_hash=…&type=recovery, /verify-email?type=email_change&token_hash=… and /join/tok_probe made 0 requests to Google and rendered normally; / and /pricing loaded gtag.js and sent page_view; the stubbed register flow still sent sign_up
+- Not verified: the live GA4 property. Owner, as defence in depth: GA4 → Admin → Data streams → Redact data → query parameters token_hash, token, code, email
 
 ### SEO-010
 
