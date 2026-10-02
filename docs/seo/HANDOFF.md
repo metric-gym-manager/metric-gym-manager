@@ -15,6 +15,7 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
 
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
+- **SEO-055 implemented (P2).** Charts moved to their own barrel, `@/components/ui/charts`. Measured on production builds, the public pages' JS fell from 465 to 345 KB gzip (−26%), and recharts went from 102 references to 0. The chart pages still render, checked signed in as the E2E gym. The remaining root-layout providers are SEO-060 (P3).
 - **SEO-024 extended.** The sign-in side panel (`AuthShell`) shows the same unconfirmed figures (25+ gyms, 7,900+ members, 99.99% uptime) on `/register` and the other auth pages.
 
 ## Evidence limits
@@ -138,10 +139,9 @@ All nine wait on the owner or a third party.
 
 Ready now, in priority order:
 
-1. ~~**SEO-056 (P1)**~~ and ~~**SEO-059 (P1)**~~ were implemented on 2026-10-02 (see the progress note at the top).
-2. **SEO-055 (P2).** Move Charts out of the main `@/components/ui` barrel (or give it its own entry point), then confirm with a build that recharts no longer loads on `/`, `/login` and the marketing pages.
-3. **New guides** from `SEO_AUDIT.md` §8, one at a time: choosing gym management software in Sri Lanka; moving a gym from a register book or spreadsheet; overdue memberships (when to expire, when to cancel); Excel and WhatsApp vs dedicated software. Each one needs a registry entry, a `PUBLIC_ROUTES` entry, a link from its feature page and from `/resources`, and its own task.
-4. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-053 — each needs the owner's decision noted above.
+1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
+2. **New guides** from `SEO_AUDIT.md` §8, one at a time: choosing gym management software in Sri Lanka; moving a gym from a register book or spreadsheet; overdue memberships (when to expire, when to cancel); Excel and WhatsApp vs dedicated software. Each one needs a registry entry, a `PUBLIC_ROUTES` entry, a link from its feature page and from `/resources`, and its own task.
+3. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-053, SEO-060 — each needs the owner's decision noted above.
 
 Waiting on owner input:
 

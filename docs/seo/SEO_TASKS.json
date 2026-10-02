@@ -1483,10 +1483,10 @@
     },
     {
       "id": "SEO-055",
-      "title": "Every public page ships the chart library and workspace providers it never uses",
+      "title": "Every public page ships the chart library it never uses",
       "category": "performance",
       "priority": "P2",
-      "status": "discovered",
+      "status": "implemented",
       "intent": "none",
       "targetQueries": [],
       "finding": "Lighthouse reports about 255 KiB of unused JavaScript on each public page. The largest chunk (637 KiB raw, 182 KiB transferred, 176 KiB unused) holds recharts and sonner and loads on /, the hub, /pricing and /login alike; a second (245 KiB raw, 52 KiB unused) holds the Supabase client, react-query, the service-worker registration and AuthRecovery. Likely cause: the root layout imports Toaster through the @/components/ui barrel, which re-exports the 'use client' Charts module, and Next includes every client module a server component's import graph reaches. /login reaches the barrel only through the root layout. Not confirmed by experiment.",
@@ -1496,13 +1496,30 @@
         "src/app/layout.tsx imports { Toaster } from '@/components/ui'; src/components/ui/index.ts has export * from './primitives/Charts'"
       ],
       "recommendedChange": "A design-system decision, not an SEO one: the DS contract requires barrel imports ('always the barrel, never a deep path'), so the fix belongs in the barrel — e.g. move Charts to its own entry point (@/components/ui/charts) or stop re-exporting it from the main barrel — then confirm with a build that recharts leaves the public pages. Separately, consider mounting QueryProvider and AuthRecovery in the signed-in layouts rather than the root. Measure before and after; lab scores are already 92–96, so the benefit is data cost and main-thread time on mobile, not a ranking lever by itself.",
-      "implementation": "",
-      "files": [],
-      "verification": [],
+      "implementation": "Charts moved to their own design-system barrel, src/components/ui/charts/index.ts, and the main @/components/ui barrel no longer re-exports them. Cause, confirmed from the 23 September production build: the main barrel's export * of the 'use client' Charts module, which imports recharts at module scope, put a 638 KB chunk into every page that imported any primitive, and the root layout's Toaster import made that every page. The four chart consumers (DashboardClient, RevenuePageClient, MemberAnalyticsClient, the dev design-system page) import chart symbols from @/components/ui/charts. arch:check UI4 now reads both barrels so a chart fork is still flagged. DESIGN_SYSTEM.md §3 and rule 2.17 record the exception and its reason. The second chunk the audit named (Supabase client, react-query, service-worker registration, AuthRecovery on public pages) is SEO-060.",
+      "files": [
+        "src/components/ui/charts/index.ts",
+        "src/components/ui/index.ts",
+        "src/components/ui/__tests__/charts-entry.test.ts",
+        "src/app/(dashboard)/dashboard/DashboardClient.tsx",
+        "src/app/(dashboard)/revenue/RevenuePageClient.tsx",
+        "src/features/analytics/components/MemberAnalyticsClient.tsx",
+        "src/app/(dev)/design-system/page.tsx",
+        "scripts/check-architecture.mjs",
+        ".claude/DESIGN_SYSTEM.md",
+        ".claude/rules/architecture.md"
+      ],
+      "verification": [
+        "Production builds (next build, Turbopack) before and after, JS each page loads summed from its prerendered HTML or its client reference manifest, gzip -9: /, the hub and /pricing 465.0 → 344.9 KB; /login 468.3 → 348.3 KB; /register 468.9 → 348.8 KB (−120 KB, −26%); recharts references 102 → 0 on all five. Chart pages keep recharts in their own 419 KB chunk: /dashboard 492.7 → 489.9 KB, /revenue 451.8 → 449.0 KB, /member-analytics 452.3 → 449.5 KB",
+        "charts-entry.test.ts: the main barrel loads without evaluating recharts (a jest.doMock factory flag), @/components/ui/charts serves all seven chart components and CHART_SERIES, and the main barrel no longer exposes them. Three mutations, each caught: Charts re-exported from the main barrel, one chart symbol re-exported, a barrel primitive importing recharts",
+        "arch:check UI4: a probe feature-local `export function Sparkline()` fails UI4 with the change; without the new dsNames line, UI4 misses it",
+        "Full suite 197 suites and 2,391 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes",
+        "Rendered on next start with the after build, signed in as the seeded E2E Enterprise gym (read-only): /dashboard's bar chart and /member-analytics' trend line, year-over-year bars and at-risk bars draw, matching a capture of the HEAD build taken the same way; /revenue renders its chart surface. /design-system returns 404 under next start (development-only), so it was not checked"
+      ],
       "dependencies": [],
       "externalActionRequired": false,
       "createdAt": "2026-10-01T21:30:00Z",
-      "updatedAt": "2026-10-01T21:30:00Z",
+      "updatedAt": "2026-10-02T16:47:44Z",
       "completedAt": null
     },
     {
@@ -1639,6 +1656,29 @@
       "externalActionRequired": true,
       "createdAt": "2026-10-02T15:36:21Z",
       "updatedAt": "2026-10-02T16:25:08Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-060",
+      "title": "Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery",
+      "category": "performance",
+      "priority": "P3",
+      "status": "discovered",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "Split from SEO-055. After the chart library left the public pages, they still load about 345 KB of gzipped JS. A chunk the audit measured at 245 KB raw (52 KB unused) carries the Supabase client, @tanstack/react-query, the service-worker registration and AuthRecovery, all mounted by the root layout for every route. They sit in the root on purpose: AuthRecovery is the hard-navigation escape for a broken session (rule 2.15), and the service worker's single-reload rule (2.19) assumes it runs on every full-document navigation. So moving them is an auth and PWA decision, not a bundle tweak.",
+      "evidence": [
+        "src/app/layout.tsx mounts QueryProvider, ServiceWorkerRegistration and AuthRecovery around every route, the (marketing) group included",
+        "SEO-055's after-build: / still loads 344.9 KB gzip over 12 chunks with no recharts"
+      ],
+      "recommendedChange": "Measure first: which of these modules the public pages actually execute, and what each costs. Then decide with rules 2.15 and 2.19 in hand whether QueryProvider can move to the signed-in layouts, and whether AuthRecovery and the service-worker registration can load lazily on public routes. Lab scores are already 92–96, so this is a data and main-thread cost on mobile, not a ranking lever.",
+      "implementation": "",
+      "files": ["src/app/layout.tsx"],
+      "verification": [],
+      "dependencies": ["SEO-055"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-02T16:47:44Z",
+      "updatedAt": "2026-10-02T16:47:44Z",
       "completedAt": null
     }
   ]

@@ -7,11 +7,11 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-02T16:25:08Z |
-| Total tasks | 59 |
+| Last task update | 2026-10-02T16:47:44Z |
+| Total tasks | 60 |
 | P0 remaining (not verified/rejected) | 2 |
 | P1 remaining (not verified/rejected) | 5 |
-| Implemented (awaiting verification) | 3 |
+| Implemented (awaiting verification) | 4 |
 | Verified | 37 |
 | In progress | 0 |
 | Open (discovered/planned) | 6 |
@@ -25,8 +25,8 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 9 | 2 | 0 |
 | P1 | 0 | 0 | 0 | 3 | 17 | 2 | 0 |
-| P2 | 1 | 0 | 0 | 0 | 9 | 3 | 0 |
-| P3 | 5 | 0 | 0 | 0 | 2 | 2 | 4 |
+| P2 | 0 | 0 | 0 | 1 | 9 | 3 | 0 |
+| P3 | 6 | 0 | 0 | 0 | 2 | 2 | 4 |
 
 ## All tasks
 
@@ -76,7 +76,7 @@
 | [SEO-049](#seo-049) | P2 | verified | technical | Homepage overflowed a 320 px viewport | no |
 | [SEO-050](#seo-050) | P2 | verified | on-page | In-text links relied on colour alone; footer contact links below 24 px | no |
 | [SEO-054](#seo-054) | P2 | verified | architecture | Record the public-site rules where future work will find them | no |
-| [SEO-055](#seo-055) | P2 | discovered | performance | Every public page ships the chart library and workspace providers it never uses | no |
+| [SEO-055](#seo-055) | P2 | implemented | performance | Every public page ships the chart library it never uses | no |
 | [SEO-057](#seo-057) | P2 | verified | schema | Every WebPage node claimed to be about the product, on pages that never describe it | no |
 | [SEO-031](#seo-031) | P3 | rejected | schema | FAQPage structured data | no |
 | [SEO-032](#seo-032) | P3 | rejected | schema | LocalBusiness structured data | no |
@@ -91,6 +91,7 @@
 | [SEO-052](#seo-052) | P3 | discovered | trust | Weekly members get their '7 days before' reminder on the day they pay | yes |
 | [SEO-053](#seo-053) | P3 | discovered | trust | Automated reminders and receipts do not name the gym | yes |
 | [SEO-058](#seo-058) | P3 | verified | internal-linking | Seven related-page cards linked the hub with the same exact-match anchor | no |
+| [SEO-060](#seo-060) | P3 | discovered | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | no |
 
 ## External tasks (cannot be completed in code)
 
@@ -2226,17 +2227,17 @@ Pattern Index row 2.23 in .claude/rules/architecture.md (registry + PUBLIC_ROUTE
 
 ### SEO-055
 
-**Every public page ships the chart library and workspace providers it never uses**
+**Every public page ships the chart library it never uses**
 
 | Field | Value |
 | --- | --- |
 | Priority | P2 |
-| Status | discovered |
+| Status | implemented |
 | Category | performance |
 | Intent | none |
 | External action | no |
 | Created | 2026-10-01T21:30:00Z |
-| Updated | 2026-10-01T21:30:00Z |
+| Updated | 2026-10-02T16:47:44Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -2260,15 +2261,28 @@ A design-system decision, not an SEO one: the DS contract requires barrel import
 
 **Implementation**
 
-—
+Charts moved to their own design-system barrel, src/components/ui/charts/index.ts, and the main @/components/ui barrel no longer re-exports them. Cause, confirmed from the 23 September production build: the main barrel's export * of the 'use client' Charts module, which imports recharts at module scope, put a 638 KB chunk into every page that imported any primitive, and the root layout's Toaster import made that every page. The four chart consumers (DashboardClient, RevenuePageClient, MemberAnalyticsClient, the dev design-system page) import chart symbols from @/components/ui/charts. arch:check UI4 now reads both barrels so a chart fork is still flagged. DESIGN_SYSTEM.md §3 and rule 2.17 record the exception and its reason. The second chunk the audit named (Supabase client, react-query, service-worker registration, AuthRecovery on public pages) is SEO-060.
 
 **Files**
 
-- —
+- `src/components/ui/charts/index.ts`
+- `src/components/ui/index.ts`
+- `src/components/ui/__tests__/charts-entry.test.ts`
+- `src/app/(dashboard)/dashboard/DashboardClient.tsx`
+- `src/app/(dashboard)/revenue/RevenuePageClient.tsx`
+- `src/features/analytics/components/MemberAnalyticsClient.tsx`
+- `src/app/(dev)/design-system/page.tsx`
+- `scripts/check-architecture.mjs`
+- `.claude/DESIGN_SYSTEM.md`
+- `.claude/rules/architecture.md`
 
 **Verification**
 
-- Not yet verified
+- Production builds (next build, Turbopack) before and after, JS each page loads summed from its prerendered HTML or its client reference manifest, gzip -9: /, the hub and /pricing 465.0 → 344.9 KB; /login 468.3 → 348.3 KB; /register 468.9 → 348.8 KB (−120 KB, −26%); recharts references 102 → 0 on all five. Chart pages keep recharts in their own 419 KB chunk: /dashboard 492.7 → 489.9 KB, /revenue 451.8 → 449.0 KB, /member-analytics 452.3 → 449.5 KB
+- charts-entry.test.ts: the main barrel loads without evaluating recharts (a jest.doMock factory flag), @/components/ui/charts serves all seven chart components and CHART_SERIES, and the main barrel no longer exposes them. Three mutations, each caught: Charts re-exported from the main barrel, one chart symbol re-exported, a barrel primitive importing recharts
+- arch:check UI4: a probe feature-local `export function Sparkline()` fails UI4 with the change; without the new dsNames line, UI4 misses it
+- Full suite 197 suites and 2,391 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes
+- Rendered on next start with the after build, signed in as the seeded E2E Enterprise gym (read-only): /dashboard's bar chart and /member-analytics' trend line, year-over-year bars and at-risk bars draw, matching a capture of the HEAD build taken the same way; /revenue renders its chart surface. /design-system returns 404 under next start (development-only), so it was not checked
 
 ### SEO-057
 
@@ -2899,4 +2913,49 @@ Seven card titles and summaries rewritten per page (e.g. 'From registration to t
 
 - Served build: contextual anchors to the hub are the five-page breadcrumb label plus 13 distinct anchors; none repeated outside the breadcrumb
 - No horizontal overflow at 7 widths; the access-control and revenue-guide cards inspected at 320 px
+
+### SEO-060
+
+**Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery**
+
+| Field | Value |
+| --- | --- |
+| Priority | P3 |
+| Status | discovered |
+| Category | performance |
+| Intent | none |
+| External action | no |
+| Created | 2026-10-02T16:47:44Z |
+| Updated | 2026-10-02T16:47:44Z |
+| Completed | — |
+| Dependencies | SEO-055 |
+
+**Target queries**
+
+- —
+
+**Finding**
+
+Split from SEO-055. After the chart library left the public pages, they still load about 345 KB of gzipped JS. A chunk the audit measured at 245 KB raw (52 KB unused) carries the Supabase client, @tanstack/react-query, the service-worker registration and AuthRecovery, all mounted by the root layout for every route. They sit in the root on purpose: AuthRecovery is the hard-navigation escape for a broken session (rule 2.15), and the service worker's single-reload rule (2.19) assumes it runs on every full-document navigation. So moving them is an auth and PWA decision, not a bundle tweak.
+
+**Evidence**
+
+- src/app/layout.tsx mounts QueryProvider, ServiceWorkerRegistration and AuthRecovery around every route, the (marketing) group included
+- SEO-055's after-build: / still loads 344.9 KB gzip over 12 chunks with no recharts
+
+**Recommended change**
+
+Measure first: which of these modules the public pages actually execute, and what each costs. Then decide with rules 2.15 and 2.19 in hand whether QueryProvider can move to the signed-in layouts, and whether AuthRecovery and the service-worker registration can load lazily on public routes. Lab scores are already 92–96, so this is a data and main-thread cost on mobile, not a ranking lever.
+
+**Implementation**
+
+—
+
+**Files**
+
+- `src/app/layout.tsx`
+
+**Verification**
+
+- Not yet verified
 

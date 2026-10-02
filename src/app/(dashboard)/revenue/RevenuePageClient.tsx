@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  BarChart,
   EmptyState,
   ListRow,
   Progress,
@@ -15,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
+import { BarChart } from '@/components/ui/charts'
 import {
   PageHeader,
   StatCard,

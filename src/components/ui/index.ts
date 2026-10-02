@@ -57,4 +57,5 @@ export * from './primitives/CommandPalette'
 export * from './primitives/ListRow'
 export * from './primitives/DataTable'
 export * from './primitives/useVirtualRows'
-export * from './primitives/Charts'
+// Charts are NOT re-exported here: they live on `@/components/ui/charts`, so
+// recharts reaches only the pages that draw a chart (SEO-055).

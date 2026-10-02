@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
   Badge,
-  BarChart,
   Card,
   CardBody,
   EmptyState,
@@ -16,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
+import { BarChart } from '@/components/ui/charts'
 import {
   PageHeader,
   StatCard,

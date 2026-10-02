@@ -64,7 +64,8 @@ src/
   components/
     ui/
       tokens.ts                 # L1 — JS source of truth for every token
-      index.ts                  # L2 barrel  →  import { … } from '@/components/ui'
+      index.ts                  # L2 barrel  →  import { … } from '@/components/ui'  (everything except Charts)
+      charts/index.ts           # L2 charts barrel → import { … } from '@/components/ui/charts'
       primitives/*.tsx          # L2 — 32 primitives + useVirtualRows hook
       <name>.tsx                # DEPRECATED legacy shadcn (rethemed to tokens; kept until screens migrate)
     common/
@@ -82,12 +83,25 @@ tailwind.config.ts              # L1 — maps --ds-* vars onto Tailwind utilitie
 
 ```ts
 import { Button, Input, Modal, DataTable, tokens } from '@/components/ui'
+import { LineChart, Sparkline, CHART_SERIES } from '@/components/ui/charts'
 import {
   PageHeader,
   StatCard,
   ConfirmDialog,
 } from '@/components/common/composites'
 ```
+
+**Charts are the one family on their own barrel.** `Charts.tsx` imports
+recharts at module scope, and a bundler keeps every module a barrel
+re-exports. While the main barrel re-exported Charts, every page importing
+any primitive shipped recharts. The root layout imports `Toaster`, so that
+was every page: a 638 KB chunk on the homepage, `/login` and the marketing
+site (SEO-055).
+
+- Never re-export a chart from `@/components/ui`.
+  `src/components/ui/__tests__/charts-entry.test.ts` fails if the main barrel
+  loads recharts.
+- `arch:check` UI4 reads both barrels, so a chart fork is still caught.
 
 ---
 

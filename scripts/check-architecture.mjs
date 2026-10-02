@@ -604,9 +604,12 @@ for (const page of screenPages) {
 // PascalCase only. `exportedNames()` seeds each module's own basename, which
 // drags lowercase entries like `layout` into the barrel map — and every
 // Next.js `layout.tsx` in the tree then reads as a fork of it.
+// Charts have their own barrel (SEO-055 — recharts off every non-chart page);
+// leaving it out here would let a feature-local `LineChart` fork pass UI4.
 const dsNames = new Set(
   [
     ...barrelMap(path.join(SRC, 'components/ui/index.ts')).keys(),
+    ...barrelMap(path.join(SRC, 'components/ui/charts/index.ts')).keys(),
     ...barrelMap(
       path.join(SRC, 'components/common/composites/index.ts')
     ).keys(),
