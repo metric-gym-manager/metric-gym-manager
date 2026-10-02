@@ -1,15 +1,9 @@
 import React from 'react'
-import { Audio, Sequence, staticFile } from 'remotion'
+import { Cues, type Cue } from '../../shared/Cues'
 import { MEMBERS } from './data'
 import { LABEL_AT, MORPH_AT, REMINDER_AT, T } from './timeline'
 import { BOOT_LINE, TYPE_FROM, TYPE_FRAMES_PER_CHAR, READY_AT } from './Boot'
 
-type Sfx = 'tick' | 'tickUp' | 'thud' | 'sub' | 'hit' | 'ping' | 'sweep' | 'key' | 'chord'
-export interface Cue {
-  at: number
-  sfx: Sfx
-  volume: number
-}
 
 /** Every sound is derived from the same data as the picture, so sync cannot drift. */
 export function buildCues(): Cue[] {
@@ -37,12 +31,4 @@ export function buildCues(): Cue[] {
 
 const CUES = buildCues()
 
-export const Sound: React.FC = () => (
-  <>
-    {CUES.map((c, i) => (
-      <Sequence key={i} from={c.at} layout="none">
-        <Audio src={staticFile(`sfx/${c.sfx}.wav`)} volume={c.volume} />
-      </Sequence>
-    ))}
-  </>
-)
+export const Sound: React.FC = () => <Cues cues={CUES} />

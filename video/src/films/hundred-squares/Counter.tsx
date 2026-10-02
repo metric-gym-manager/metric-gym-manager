@@ -1,7 +1,7 @@
 import React from 'react'
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
 import { MEMBERS, uncollectedAt, formatLkr } from './data'
-import { C, FONT } from './theme'
+import { C, FONT } from '../../shared/theme'
 import { useLayout } from './layout'
 import { LABEL_AT, MORPH_AT } from './timeline'
 

@@ -1,11 +1,13 @@
 import React from 'react'
 import { AbsoluteFill } from 'remotion'
-import { C, loadFonts } from './theme'
+import { C, loadFonts } from '../../shared/theme'
 import { Squares } from './Squares'
 import { Counter } from './Counter'
 import { Captions } from './Captions'
 import { TableChrome } from './TableChrome'
-import { Boot, Dimmer, EndCard } from './Boot'
+import { Boot, Dimmer } from './Boot'
+import { EndCard } from '../../shared/EndCard'
+import { T } from './timeline'
 import { Sound } from './Sound'
 
 loadFonts()
@@ -23,7 +25,7 @@ export const Film: React.FC<{ muted?: boolean }> = ({ muted }) => (
     <Captions />
     <Dimmer />
     <Boot />
-    <EndCard />
+    <EndCard from={T.card.from} />
     {!muted && <Sound />}
   </AbsoluteFill>
 )

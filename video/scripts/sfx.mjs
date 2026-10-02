@@ -30,6 +30,22 @@ function tone({ dur, f0, f1 = f0, decay, gain, attack = 0.002 }) {
   return out
 }
 
+/** Filtered noise burst (deterministic LCG), for air and mechanical sounds. */
+function noise({ dur, decay, gain, attack = 0.002, smooth = 0.5, seed = 1 }) {
+  const n = Math.round(dur * RATE)
+  const out = new Float64Array(n)
+  let x = seed >>> 0
+  let prev = 0
+  for (let i = 0; i < n; i++) {
+    x = (Math.imul(x, 1664525) + 1013904223) >>> 0
+    const r = x / 2147483648 - 1
+    prev = prev * smooth + r * (1 - smooth)
+    const t = i / RATE
+    out[i] = prev * Math.min(1, t / attack) * Math.exp(-t / decay) * gain
+  }
+  return out
+}
+
 function mix(...parts) {
   const n = Math.max(...parts.map((p) => p.length))
   const out = new Float64Array(n)
@@ -62,6 +78,21 @@ const SFX = {
     const notes = [220, 277.18, 329.63, 440].map((f) => tone({ dur: 2.2, f0: f, decay: 0.9, gain: 0.16, attack: 0.03 }))
     return mix(...notes)
   })(),
+  // Zoom Out: camera pull-back.
+  whoosh: noise({ dur: 1.2, decay: 0.5, gain: 3.2, attack: 0.6, smooth: 0.92, seed: 7 }),
+  // Selfie / scan.
+  shutter: mix(noise({ dur: 0.06, decay: 0.01, gain: 0.8, seed: 3 }), noise({ dur: 0.12, decay: 0.02, gain: 0.6, seed: 9 }).map((v, i) => (i < 2600 ? 0 : v))),
+  // Phone buzz / delivery receipt.
+  buzz: tone({ dur: 0.35, f0: 180, decay: 0.3, gain: 0.35, attack: 0.01 }).map((v, i) => v * (Math.floor(i / 1500) % 2 ? 0.3 : 1)),
+  // Door reader: granted (two rising notes) / denied (low double).
+  grant: mix(tone({ dur: 0.18, f0: 1047, decay: 0.08, gain: 0.35 }), tone({ dur: 0.4, f0: 1568, decay: 0.12, gain: 0.35 }).map((v, i) => (i < 6000 ? 0 : v))),
+  deny: mix(tone({ dur: 0.22, f0: 220, decay: 0.15, gain: 0.5 }), tone({ dur: 0.5, f0: 196, decay: 0.15, gain: 0.5 }).map((v, i) => (i < 11000 ? 0 : v))),
+  // Cable cut.
+  snip: mix(noise({ dur: 0.08, decay: 0.012, gain: 0.9, seed: 11 }), tone({ dur: 0.1, f0: 2600, decay: 0.01, gain: 0.3 })),
+  // UI element landing.
+  pop: tone({ dur: 0.12, f0: 600, f1: 900, decay: 0.03, gain: 0.4 }),
+  // Clock tick for time-lapse.
+  clock: mix(tone({ dur: 0.05, f0: 3800, decay: 0.004, gain: 0.25 }), noise({ dur: 0.03, decay: 0.004, gain: 0.25, seed: 5 })),
 }
 
 export function writeSfx(dir) {

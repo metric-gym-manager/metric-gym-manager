@@ -1,23 +1,13 @@
 /**
- * Film palette. Colours come from the app's L1 design tokens so the film and
- * the product it morphs into are the same dark workspace, not a lookalike.
+ * Series palette and type. Colours come from the app's L1 design tokens so
+ * every film and the product it shows are the same dark workspace.
  */
-import { darkColors, fontFamily } from '../../src/components/ui/tokens'
+import { darkColors, fontFamily } from '../../../src/components/ui/tokens'
 import { loadFont } from '@remotion/fonts'
 import { staticFile } from 'remotion'
-import type { Status } from './data'
 
 export const C = darkColors
 export const FONT = fontFamily
-
-/** Square fills. Paid is deliberately dim so due/expired read as anomalies. */
-export const FILL: Record<Exclude<Status, 'hidden'>, string> = {
-  paid: 'rgba(63,185,80,0.40)',
-  due: C.warningText,
-  expired: C.errorText,
-}
-export const FILL_BRIGHT_PAID = C.successText
-export const REMINDER = C.accentLink
 
 const FACES = [
   { family: 'Geist', file: 'geist-400.woff', weight: '400' },

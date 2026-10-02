@@ -1,6 +1,6 @@
 import React from 'react'
-import { interpolate, useCurrentFrame, Img, staticFile, spring, useVideoConfig } from 'remotion'
-import { C, FONT } from './theme'
+import { interpolate, useCurrentFrame } from 'remotion'
+import { C, FONT } from '../../shared/theme'
 import { useLayout } from './layout'
 import { T } from './timeline'
 
@@ -43,40 +43,6 @@ export const Boot: React.FC = () => {
         <span style={{ opacity: cursorOn ? 1 : 0, color: C.accentLink }}>▌</span>
       </div>
       <div style={{ color: C.successText, letterSpacing: '0.3em', opacity: frame >= READY_AT ? 1 : 0 }}>SYSTEM READY</div>
-    </div>
-  )
-}
-
-export const EndCard: React.FC = () => {
-  const frame = useCurrentFrame()
-  const { fps } = useVideoConfig()
-  const L = useLayout()
-  if (frame < T.card.from) return null
-  const f = frame - T.card.from
-  const logo = spring({ frame: f, fps, config: { damping: 15 } })
-  const title = interpolate(f, [6, 16], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
-  const tag = interpolate(f, [16, 26], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' })
-  const logoSize = 340 * L.s
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 36 * L.s,
-        textAlign: 'center',
-      }}
-    >
-      <Img src={staticFile('logo.svg')} style={{ width: logoSize, height: logoSize, transform: `scale(${0.8 + 0.2 * logo})`, opacity: logo }} />
-      <div style={{ fontFamily: FONT.sans, fontWeight: 700, fontSize: 92 * L.s, letterSpacing: '0.06em', color: C.textPrimary, opacity: title }}>
-        METRIC GYM OS
-      </div>
-      <div style={{ fontFamily: FONT.sans, fontSize: 40 * L.s, color: C.textSecondary, opacity: tag, maxWidth: L.portrait ? 800 : 1200 }}>
-        The operating system for serious gyms.
-      </div>
     </div>
   )
 }

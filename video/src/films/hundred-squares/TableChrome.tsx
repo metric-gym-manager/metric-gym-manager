@@ -1,7 +1,7 @@
 import React from 'react'
 import { interpolate, useCurrentFrame } from 'remotion'
 import { BILLED, countsAt, uncollectedAt, formatLkr } from './data'
-import { C, FONT } from './theme'
+import { C, FONT } from '../../shared/theme'
 import { useLayout } from './layout'
 import { tableGeometry } from './table'
 import { MORPH_AT, T } from './timeline'
