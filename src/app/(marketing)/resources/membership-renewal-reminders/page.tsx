@@ -138,6 +138,14 @@ export default function RenewalRemindersArticle() {
             cannot — that they are travelling, injured, or unhappy with
             something you can fix.
           </p>
+          <p>
+            What happens next — when to cancel, and how a late payment is dated
+            — is in{' '}
+            <Link href={ARTICLE_PATHS.overdue}>
+              when to expire and when to cancel an overdue membership
+            </Link>
+            .
+          </p>
         </Prose>
       </MarketingSection>
 

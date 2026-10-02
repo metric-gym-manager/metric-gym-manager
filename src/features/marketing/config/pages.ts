@@ -61,10 +61,12 @@ export const FEATURE_PATHS = {
 
 export const ARTICLE_PATHS = {
   reminders: '/resources/membership-renewal-reminders',
+  overdue: '/resources/overdue-gym-memberships',
   revenue: '/resources/billed-vs-collected-revenue',
 } as const
 
 const SITE_LAUNCH = '2026-10-01'
+const OVERDUE_GUIDE = '2026-10-02'
 
 export const MARKETING_PAGES: readonly MarketingPage[] = [
   {
@@ -171,10 +173,10 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     kind: 'resources',
     title: 'Resources for Gym Owners | Metric Gym OS',
     description:
-      'Practical guides for running a gym in Sri Lanka: when to send renewal reminders, and how to measure revenue owed against revenue collected.',
+      'Guides for running a gym in Sri Lanka: renewal reminder timing, overdue memberships, and measuring revenue owed against revenue collected.',
     label: 'Resources',
     parent: HOME_PATH,
-    lastModified: SITE_LAUNCH,
+    lastModified: OVERDUE_GUIDE,
   },
   {
     path: ARTICLE_PATHS.reminders,
@@ -186,6 +188,17 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     parent: RESOURCES_PATH,
     lastModified: SITE_LAUNCH,
     published: SITE_LAUNCH,
+  },
+  {
+    path: ARTICLE_PATHS.overdue,
+    kind: 'article',
+    title: 'Overdue Gym Members: When to Expire or Cancel | Metric Gym OS',
+    description:
+      'When an unpaid gym membership should expire, how long to wait before cancelling it, and what to do when a member pays late — the rules Metric runs on.',
+    label: 'Overdue memberships',
+    parent: RESOURCES_PATH,
+    lastModified: OVERDUE_GUIDE,
+    published: OVERDUE_GUIDE,
   },
   {
     path: ARTICLE_PATHS.revenue,

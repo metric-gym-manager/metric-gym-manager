@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import {
+  ARTICLE_PATHS,
   CallToAction,
   FEATURE_PATHS,
   FaqSection,
@@ -169,6 +170,14 @@ export default function PaymentCollectionPage() {
             ahead on monthly plans, and a final message on the due date itself
             saying the membership expires today. The full schedule is on the{' '}
             <Link href={FEATURE_PATHS.sms}>SMS reminders</Link> page.
+          </p>
+          <p>
+            Why expiry has no grace period, when an unpaid membership should be
+            cancelled, and how a late payment is dated are explained in{' '}
+            <Link href={ARTICLE_PATHS.overdue}>
+              overdue gym memberships: when to expire, when to cancel
+            </Link>
+            .
           </p>
         </Prose>
       </MarketingSection>

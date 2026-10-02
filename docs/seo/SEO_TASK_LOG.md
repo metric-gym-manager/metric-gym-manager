@@ -7,12 +7,12 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-02T16:47:44Z |
-| Total tasks | 60 |
+| Last task update | 2026-10-02T18:11:31Z |
+| Total tasks | 61 |
 | P0 remaining (not verified/rejected) | 2 |
 | P1 remaining (not verified/rejected) | 5 |
 | Implemented (awaiting verification) | 4 |
-| Verified | 37 |
+| Verified | 38 |
 | In progress | 0 |
 | Open (discovered/planned) | 6 |
 | Blocked | 9 |
@@ -25,7 +25,7 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 9 | 2 | 0 |
 | P1 | 0 | 0 | 0 | 3 | 17 | 2 | 0 |
-| P2 | 0 | 0 | 0 | 1 | 9 | 3 | 0 |
+| P2 | 0 | 0 | 0 | 1 | 10 | 3 | 0 |
 | P3 | 6 | 0 | 0 | 0 | 2 | 2 | 4 |
 
 ## All tasks
@@ -78,6 +78,7 @@
 | [SEO-054](#seo-054) | P2 | verified | architecture | Record the public-site rules where future work will find them | no |
 | [SEO-055](#seo-055) | P2 | implemented | performance | Every public page ships the chart library it never uses | no |
 | [SEO-057](#seo-057) | P2 | verified | schema | Every WebPage node claimed to be about the product, on pages that never describe it | no |
+| [SEO-061](#seo-061) | P2 | verified | content | Guide: overdue gym memberships — when to expire, when to cancel | no |
 | [SEO-031](#seo-031) | P3 | rejected | schema | FAQPage structured data | no |
 | [SEO-032](#seo-032) | P3 | rejected | schema | LocalBusiness structured data | no |
 | [SEO-033](#seo-033) | P3 | rejected | technical | llms.txt or AI-specific markup | no |
@@ -2333,6 +2334,62 @@ webPageJsonLd(path, about?) emits about only when given; StructuredData passes S
 - New test 'references only entities defined in its own graph' failed on 10 of 12 marketing pages before the fix and passes on all 12 after
 - New test pins the subject: product on the hub and /pricing, company on /about, none on /features/sms-reminders and the reminders guide
 - Mutations each fail the suite: about → product on every page (11 failures), about never set (1), /about not about the company (1)
+
+### SEO-061
+
+**Guide: overdue gym memberships — when to expire, when to cancel**
+
+| Field | Value |
+| --- | --- |
+| Priority | P2 |
+| Status | verified |
+| Category | content |
+| Intent | informational |
+| External action | no |
+| Created | 2026-10-02T18:11:31Z |
+| Updated | 2026-10-02T18:11:31Z |
+| Completed | 2026-10-02T18:11:31Z |
+| Dependencies | — |
+
+**Target queries**
+
+- `gym membership grace period`
+- `when to cancel an unpaid gym membership`
+- `overdue gym members`
+- `gym membership expired what to do`
+
+**Finding**
+
+SEO_AUDIT.md §8 lists four buying and switching guides built on product facts. Overdue memberships was written first because every claim in it traces to code: no-grace expiry (StatusConfig, update-expired-status), cancellation 14 days after the due date (MEMBER_CANCELLATION_OVERDUE_DAYS), late payments dated from the payment day (CollectPayment), expired members still billable and cancelled ones not (rule 2.22), reactivation with a welcome-back SMS, and readers that block on cancel and restore on return (rule 2.20).
+
+**Evidence**
+
+- docs/seo/SEO_AUDIT.md §8 item 3: 'Overdue memberships: when to expire, when to cancel (Metric's no-grace expiry and 14-day cancellation rules)'
+
+**Recommended change**
+
+Publish the guide at /resources/overdue-gym-memberships, with its timeline derived from the product's own constants, and link it from /resources, the payment-collection page, the reminders guide and the footer.
+
+**Implementation**
+
+src/app/(marketing)/resources/overdue-gym-memberships/page.tsx: Article page in the reminders guide's pattern (MarketingHero, MarketingSection, Prose, RelatedPages, Article + BreadcrumbList JSON-LD, buildPageMetadata). Its worked timeline is computed from REMINDER_RULES[Monthly], MEMBER_CANCELLATION_OVERDUE_DAYS and calculateNextDueDate, so it cannot drift from the product. Registry entry and ARTICLE_PATHS.overdue in features/marketing/config/pages.ts (the /resources description now names three guides); PUBLIC_ROUTES entry; body links from /features/payment-collection and the reminders guide; footer Resources link; added to the MarketingPages screen-test table. Left out on purpose: suspension (it does not pause the clock and Metric has no freeze) and the dashboard's >14-day 'critical' tier.
+
+**Files**
+
+- `src/app/(marketing)/resources/overdue-gym-memberships/page.tsx`
+- `src/features/marketing/config/pages.ts`
+- `src/features/marketing/config/navigation.ts`
+- `src/lib/auth-config.ts`
+- `src/app/(marketing)/features/payment-collection/page.tsx`
+- `src/app/(marketing)/resources/membership-renewal-reminders/page.tsx`
+- `src/app/(marketing)/__tests__/MarketingPages.test.tsx`
+
+**Verification**
+
+- Jest: the registry, public-route and MarketingPages suites pass for the new page (one H1, registered metadata, JSON-LD graph, links that resolve, heading outline, linked from another page); removing the path from PUBLIC_ROUTES fails pages.test; full suite 197 suites and 2,400 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes
+- next build prerenders /resources/overdue-gym-memberships as static. On next start: 200, one H1, self canonical https://www.metricgymos.com/resources/overdue-gym-memberships, no robots meta, title 'Overdue Gym Members: When to Expire or Cancel | Metric Gym OS', JSON-LD Organization, WebSite, WebPage, BreadcrumbList, Article; sitemap.xml has 17 <loc> including the guide; /resources, /features/payment-collection, the reminders guide and the footer link it; a vercel.app host gets X-Robots-Tag: noindex
+- Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; full-page screenshots and the timeline table at 320 read by eye. The timeline shows 12 Nov reminder, 15 Nov due-date SMS, 16 Nov expired, 16–28 Nov follow-up, 29 Nov cancelled, payment on 20 Nov → next due 20 Dec
+- Not verified: indexing or ranking (needs Search Console, SEO-036)
 
 ### SEO-031
 
