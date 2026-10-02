@@ -1,9 +1,36 @@
-# "100 Squares" — Metric Gym OS launch film
+# Metric Gym OS — short films
 
 Standalone Remotion project. Not part of the Next.js app: own `package.json`,
 `tsconfig.json` and tests; excluded from the app's ESLint.
 
-## The film (30s, 30fps, 900 frames)
+Every idea, built or not, is logged in the **Video Ideas Registry** (Claude
+Docs: https://claude.ai/code/artifact/8ea5904e-5142-493b-b5f1-d68fd908b6cd).
+Check it before adding a film: a new idea may share at most one of mechanism,
+hook, reveal and product claim with an existing one.
+
+| Composition | Film | Length | Folder |
+| --- | --- | --- | --- |
+| `HundredSquares` / `HundredSquaresLandscape` | 100 Squares | 30s | `src/films/hundred-squares` |
+| `ZoomOut` | Zoom Out (QR self-registration) | 30s | `src/films/zoom-out` |
+| `Overnight` | Overnight (scheduled jobs) | 30s | `src/films/overnight` |
+| `SentNotDelivered` | Sent Is Not Delivered (SMS receipts) | 25s | `src/films/sent-not-delivered` |
+| `Lineup` | The Lineup (member status) | 25s | `src/films/lineup` |
+| `Unplugged` | Unplugged (Enterprise door readers) | 30s | `src/films/unplugged` |
+
+**Unplugged is on publication hold** until VFT simulator test C-1.3 ("does an
+offline reader still admit valid members?") has a recorded pass. On-device
+`EndDate` evaluation is confirmed (A5); offline admission is not.
+
+Shared pieces live in `src/shared`: theme (the app's L1 tokens), end card,
+caption, cue player, abstract avatar.
+
+```bash
+npx remotion render src/index.ts <CompositionId> out/<name>.mp4
+scripts/stills.sh <CompositionId> <frame>...   # key frames for visual review
+scripts/probe.sh out/<name>.mp4                 # streams + audio peak per second
+```
+
+## Film 1: 100 Squares (30s, 30fps, 900 frames)
 
 A 10×10 grid the viewer spends 20 seconds reading before learning it is a
 gym's membership database. Pattern → members → money → operating system.
@@ -50,5 +77,5 @@ the app — the app owns the originals — and generates the procedural SFX into
 `public/` (gitignored). In a container without Remotion's own browser, set
 `REMOTION_BROWSER_EXECUTABLE` to a Chromium headless shell.
 
-Retime the film by editing `src/timeline.ts`; re-author events in `src/data.ts`.
+Retime 100 Squares in `src/films/hundred-squares/timeline.ts`; re-author its events in `data.ts`.
 Colours come from the app's L1 tokens (`src/components/ui/tokens.ts`).

@@ -10,6 +10,8 @@ import { SentNotDeliveredFilm } from './films/sent-not-delivered/Film'
 import { DURATION as SENT_DURATION } from './films/sent-not-delivered/data'
 import { LineupFilm } from './films/lineup/Film'
 import { DURATION as LINEUP_DURATION } from './films/lineup/data'
+import { UnpluggedFilm } from './films/unplugged/Film'
+import { DURATION as UNPLUGGED_DURATION } from './films/unplugged/data'
 
 export const Root: React.FC = () => (
   <>
@@ -20,5 +22,6 @@ export const Root: React.FC = () => (
     <Composition id="Overnight" component={OvernightFilm} durationInFrames={OVERNIGHT_DURATION} fps={FPS} width={1080} height={1920} defaultProps={{ muted: false }} />
     <Composition id="SentNotDelivered" component={SentNotDeliveredFilm} durationInFrames={SENT_DURATION} fps={FPS} width={1080} height={1920} defaultProps={{ muted: false }} />
     <Composition id="Lineup" component={LineupFilm} durationInFrames={LINEUP_DURATION} fps={FPS} width={1080} height={1920} defaultProps={{ muted: false }} />
+    <Composition id="Unplugged" component={UnpluggedFilm} durationInFrames={UNPLUGGED_DURATION} fps={FPS} width={1080} height={1920} defaultProps={{ muted: false }} />
   </>
 )
