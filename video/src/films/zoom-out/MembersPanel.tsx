@@ -1,7 +1,7 @@
 import React from 'react'
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
 import { C, FONT } from '../../shared/theme'
-import { Avatar } from './Phone'
+import { Avatar } from '../../shared/Avatar'
 import { NAME, PANEL_AT, PLAN_LABEL, ROW_AT, T } from './timeline'
 
 const EXISTING = [

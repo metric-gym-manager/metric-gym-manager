@@ -2,6 +2,7 @@ import React from 'react'
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from 'remotion'
 import { C, FONT } from '../../shared/theme'
 import { QrSvg } from './Poster'
+import { Avatar } from '../../shared/Avatar'
 import {
   T, SCAN_AT, FORM_AT, NAME, PHONE, PLAN_AT, SELFIE_AT, REGISTER_AT, SUCCESS_AT, PANEL_AT,
   GYM, PLAN_LABEL, PLAN_AMOUNT, ADMISSION_FEE, AMOUNT_DUE, rs,
@@ -38,15 +39,6 @@ const Field: React.FC<{ label: string; value: string; active: boolean; caret?: b
     </div>
   )
 }
-
-/** An abstract member avatar: never a real face. */
-export const Avatar: React.FC<{ size: number; hue?: string }> = ({ size, hue = C.accentDefault }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" style={{ display: 'block' }}>
-    <circle cx="50" cy="50" r="50" fill={hue} opacity={0.35} />
-    <circle cx="50" cy="40" r="17" fill={C.textPrimary} opacity={0.85} />
-    <path d="M18 88 C24 64 76 64 82 88 Z" fill={C.textPrimary} opacity={0.85} />
-  </svg>
-)
 
 const Scanner: React.FC = () => {
   const f = useCurrentFrame()

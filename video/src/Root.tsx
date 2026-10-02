@@ -8,6 +8,8 @@ import { OvernightFilm } from './films/overnight/Film'
 import { DURATION as OVERNIGHT_DURATION } from './films/overnight/timeline'
 import { SentNotDeliveredFilm } from './films/sent-not-delivered/Film'
 import { DURATION as SENT_DURATION } from './films/sent-not-delivered/data'
+import { LineupFilm } from './films/lineup/Film'
+import { DURATION as LINEUP_DURATION } from './films/lineup/data'
 
 export const Root: React.FC = () => (
   <>
@@ -17,5 +19,6 @@ export const Root: React.FC = () => (
     <Composition id="ZoomOut" component={ZoomOutFilm} durationInFrames={ZOOM_OUT_DURATION} fps={FPS} width={1080} height={1920} defaultProps={{ muted: false }} />
     <Composition id="Overnight" component={OvernightFilm} durationInFrames={OVERNIGHT_DURATION} fps={FPS} width={1080} height={1920} defaultProps={{ muted: false }} />
     <Composition id="SentNotDelivered" component={SentNotDeliveredFilm} durationInFrames={SENT_DURATION} fps={FPS} width={1080} height={1920} defaultProps={{ muted: false }} />
+    <Composition id="Lineup" component={LineupFilm} durationInFrames={LINEUP_DURATION} fps={FPS} width={1080} height={1920} defaultProps={{ muted: false }} />
   </>
 )
