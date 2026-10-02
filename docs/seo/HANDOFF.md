@@ -11,6 +11,12 @@
 
 This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json` disagree, the JSON wins.
 
+**Progress since the snapshot (2026-10-02, terminal session):**
+
+- **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
+- **SEO-059 added (P1).** GA4 receives one-time auth tokens: an unspent password-reset `token_hash` is in the page URL GA records. The owner can stop it now with GA4 query-parameter redaction (step 3 below).
+- **SEO-024 extended.** The sign-in side panel (`AuthShell`) shows the same unconfirmed figures (25+ gyms, 7,900+ members, 99.99% uptime) on `/register` and the other auth pages.
+
 ## Evidence limits
 
 **Search Console, competitor websites and production were all out of reach from this environment.**
@@ -114,7 +120,7 @@ All nine wait on the owner or a third party.
 
 1. **Search Console.** Verify metricgymos.com as a Domain property (DNS TXT record); submit `https://www.metricgymos.com/sitemap.xml`; inspect `/`, `/gym-management-software-sri-lanka` and `/pricing`.
 2. **Old domain.** Verify metricgymmanager.com too and file a Change of Address to metricgymos.com. Keep its 308 redirects permanently.
-3. **GA4.** Turn on email redaction for the web stream (Admin → Data streams → the web stream → Redact data → Email); confirm `generate_lead` arrives in DebugView; mark it as a key event.
+3. **GA4.** Turn on email redaction for the web stream (Admin → Data streams → the web stream → Redact data → Email), and query-parameter redaction for `token_hash`, `token`, `code` and `email` (SEO-059). Confirm `generate_lead` and `sign_up` arrive in DebugView, and mark both as key events.
 4. **Homepage proof.** Confirm each of the six named gyms is a current customer that agreed to be shown, and the Zulfi Ahamath / Fitness Empire testimonial with consent and its 80% figure — or have them removed.
 5. **VFT.** Confirm VFT is content to be named on `/features/access-control`, then ask for a "compatible software" mention linking to it.
 6. **Directories.** List Metric on software directories (Capterra, G2 and similar) and collect genuine reviews only.
@@ -132,7 +138,8 @@ All nine wait on the owner or a third party.
 
 Ready now, in priority order:
 
-1. **SEO-056 (P1).** Fire GA4 `sign_up` with `{ method: 'email' }` after a successful registration and stop carrying the address in the `/verify-email` URL. Read rule 2.15 first; add a test that fails without the change.
+1. ~~**SEO-056 (P1).**~~ Implemented 2026-10-02 (see the progress note at the top).
+   **SEO-059 (P1)** takes its place: stop sending auth query strings to analytics, either with a sanitised `page_location` or no GA on `(auth)` routes, plus a test.
 2. **SEO-055 (P2).** Move Charts out of the main `@/components/ui` barrel (or give it its own entry point), then confirm with a build that recharts no longer loads on `/`, `/login` and the marketing pages.
 3. **New guides** from `SEO_AUDIT.md` §8, one at a time: choosing gym management software in Sri Lanka; moving a gym from a register book or spreadsheet; overdue memberships (when to expire, when to cancel); Excel and WhatsApp vs dedicated software. Each one needs a registry entry, a `PUBLIC_ROUTES` entry, a link from its feature page and from `/resources`, and its own task.
 4. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-053 — each needs the owner's decision noted above.
@@ -212,6 +219,8 @@ npm run seo:report -- --check    # task log matches SEO_TASKS.json
 npm run type-check && npm run lint && npm run arch:check && npm test
 npm run build && npm start       # serves on http://localhost:3000
 ```
+
+In a checkout with an older `.next/` directory, `npm test` can fail in its `tsc` pretest with TS2307 errors under `.next/`. The generated route validators still import `src/app/(dashboard)/page.tsx` and `src/app/contact/page.tsx`, which this branch deleted and moved. To fix it, run `npx next typegen`, which rewrites `.next/types`, then start `next dev` once to rewrite `.next/dev/types`. The Stop hook reports this only as "No stderr output".
 
 The cloud builds needed a Google Fonts mock because the sandbox blocked fonts.googleapis.com. None of that is in the repository, and a machine with normal network access needs none of it. The crawler, overflow sweep and JSON-LD reference check used here lived in the session's scratchpad and are not in the repository; the invariants Jest can hold are pinned by `pages.test.ts`, `metadata.test.ts`, `MarketingPages.test.tsx` and `HomePage.test.tsx`.
 

@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
+import { PENDING_VERIFICATION_EMAIL_KEY } from '@/features/auth/utils/pendingVerificationEmail'
 import VerifyEmailPage from '../page'
 
 let params = new URLSearchParams()
@@ -40,6 +41,7 @@ const errorText = async (re: RegExp | string) => {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  sessionStorage.clear()
   globalThis.fetch = jest.fn(async () =>
     okJson({ success: true })
   ) as unknown as typeof fetch
@@ -47,13 +49,44 @@ beforeEach(() => {
 
 describe('Verify email screen', () => {
   it('prompts the user to check their inbox when they arrive with no token', async () => {
-    at('email=owner@gym.lk')
+    // Registration leaves the address in this tab's sessionStorage (SEO-056).
+    sessionStorage.setItem(PENDING_VERIFICATION_EMAIL_KEY, 'owner@gym.lk')
+    at('')
     expect(
       await screen.findByText(/open it to activate your workspace/i)
     ).toBeInTheDocument()
     // The address it is waiting on is echoed back, so the user can spot a typo.
     expect(screen.getByText('owner@gym.lk')).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Email address' })).toHaveValue(
+      'owner@gym.lk'
+    )
     expect(globalThis.fetch).not.toHaveBeenCalled()
+  })
+
+  it('does not take the address from the URL', async () => {
+    // GA4 records the full page URL, so an address in the query string is an
+    // address sent to Google Analytics (SEO-056). Nothing produces `?email=`
+    // any more; reading it would only invite a producer back.
+    at('email=owner@gym.lk')
+    expect(
+      await screen.findByText(/open it to activate your workspace/i)
+    ).toBeInTheDocument()
+    expect(screen.queryByText('owner@gym.lk')).toBeNull()
+    expect(screen.getByRole('textbox', { name: 'Email address' })).toHaveValue(
+      ''
+    )
+  })
+
+  it('still asks for the address when this tab has none to offer', async () => {
+    // A new tab, a private window with storage blocked, or a version purge:
+    // the user types the address into the resend field instead.
+    at('')
+    expect(
+      await screen.findByText(/open it to activate your workspace/i)
+    ).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Email address' })).toHaveValue(
+      ''
+    )
   })
 
   describe('following a verification link', () => {

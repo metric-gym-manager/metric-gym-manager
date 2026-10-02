@@ -7,24 +7,24 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-01T22:20:00Z |
-| Total tasks | 58 |
+| Last task update | 2026-10-02T15:36:21Z |
+| Total tasks | 59 |
 | P0 remaining (not verified/rejected) | 2 |
-| P1 remaining (not verified/rejected) | 4 |
-| Implemented (awaiting verification) | 1 |
+| P1 remaining (not verified/rejected) | 5 |
+| Implemented (awaiting verification) | 2 |
 | Verified | 37 |
 | In progress | 0 |
 | Open (discovered/planned) | 7 |
 | Blocked | 9 |
 | Rejected | 4 |
-| External action required | 14 |
+| External action required | 15 |
 
 ## Status by priority
 
 | Priority | discovered | planned | in_progress | implemented | verified | blocked | rejected |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 9 | 2 | 0 |
-| P1 | 1 | 0 | 0 | 1 | 17 | 2 | 0 |
+| P1 | 1 | 0 | 0 | 2 | 17 | 2 | 0 |
 | P2 | 1 | 0 | 0 | 0 | 9 | 3 | 0 |
 | P3 | 5 | 0 | 0 | 0 | 2 | 2 | 4 |
 
@@ -63,7 +63,8 @@
 | [SEO-038](#seo-038) | P1 | blocked | off-site | Partner citation from VFT Holdings | yes |
 | [SEO-046](#seo-046) | P1 | verified | measurement | Measurement plan | no |
 | [SEO-048](#seo-048) | P1 | verified | technical | Design-system TableRow could not render in a Server Component | no |
-| [SEO-056](#seo-056) | P1 | discovered | measurement | Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL | yes |
+| [SEO-056](#seo-056) | P1 | implemented | measurement | Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL | yes |
+| [SEO-059](#seo-059) | P1 | discovered | measurement | GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included | yes |
 | [SEO-010](#seo-010) | P2 | verified | technical | Authenticated route groups have no defensive noindex | no |
 | [SEO-022](#seo-022) | P2 | verified | content | Resources hub with two first-party articles | no |
 | [SEO-027](#seo-027) | P2 | verified | technical | Unreferenced public images expose an old UI, the old brand and personal data | no |
@@ -98,7 +99,8 @@
 - **SEO-026** (P1, blocked) — Retired domain metricgymmanager.com is still indexed with stale claims
 - **SEO-035** (P1, implemented) — No analytics event for demo requests
 - **SEO-038** (P1, blocked) — Partner citation from VFT Holdings
-- **SEO-056** (P1, discovered) — Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL
+- **SEO-056** (P1, implemented) — Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL
+- **SEO-059** (P1, discovered) — GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included
 - **SEO-037** (P2, blocked) — Google Business Profile eligibility
 - **SEO-039** (P2, blocked) — Software directories and review profiles
 - **SEO-042** (P2, blocked) — Real case studies and first-party data content
@@ -572,7 +574,7 @@ Removed or corrected every contradicted claim: HIKVISION badge → 'ZKTECO · FI
 | Intent | commercial |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T18:23:33Z |
+| Updated | 2026-10-02T15:36:21Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -588,10 +590,11 @@ The homepage shows a 'Trusted by leading gyms across Sri Lanka' strip naming six
 
 - src/components/landing/LandingPage.tsx trust strip, quote section, feature badge, hero eyebrow.
 - Search index still shows older, larger claims from metricgymmanager.com ('25+ gyms', '7.9K+ active members', '99.99% uptime') that also have no evidence in the repository.
+- Found 2026-10-02: the same figures are live in the product, not only in the old index. src/components/auth/AuthShell.tsx renders 'Gyms on platform 25+', 'Members managed 7,900+' and 'Uptime, trailing 12 mo 99.99%', plus a 'metricgym.lk' domain label, beside every auth form: /register (indexable, canonicalised), /login, /forgot-password, /reset-password and /verify-email. Seen in a 1366 px screenshot of /verify-email.
 
 **Recommended change**
 
-Owner to confirm: each named gym is a current customer that agreed to be shown; the testimonial is real, attributed with consent and its 80% figure is the customer's own; the −95% figure has a dataset behind it. Remove anything that cannot be confirmed. Once confirmed, consider real case studies (SEO-042).
+Owner to confirm: each named gym is a current customer that agreed to be shown; the testimonial is real, attributed with consent and its 80% figure is the customer's own; the −95% figure has a dataset behind it; and the auth panel's 25+ gyms, 7,900+ members and 99.99% uptime have evidence behind them (and whether 'metricgym.lk' is a domain Metric uses, against the canonical www.metricgymos.com). Remove anything that cannot be confirmed. Once confirmed, consider real case studies (SEO-042).
 
 **Implementation**
 
@@ -600,6 +603,7 @@ Partially actioned: the '−95% LATE PAYMENTS' statistic and 'RUNNING NATIONWIDE
 **Files**
 
 - `src/components/landing/LandingPage.tsx`
+- `src/components/auth/AuthShell.tsx`
 
 **Verification**
 
@@ -1602,12 +1606,12 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 | Field | Value |
 | --- | --- |
 | Priority | P1 |
-| Status | discovered |
+| Status | implemented |
 | Category | measurement |
 | Intent | transactional |
 | External action | required |
 | Created | 2026-10-01T21:45:00Z |
-| Updated | 2026-10-01T21:45:00Z |
+| Updated | 2026-10-02T15:36:21Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1631,11 +1635,67 @@ Owner, in GA4 now: check Admin → Data streams → web stream → Redact data �
 
 **Implementation**
 
+register/page.tsx fires GA4's recommended sign_up event with { method: 'email' } only after /api/auth/register returns success, then hands the address to /verify-email through this tab's sessionStorage (features/auth/utils/pendingVerificationEmail.ts, a client-safe deep import over the fail-safe @/lib/client-state wrappers) and navigates to plain /verify-email. The verify page reads the address from that storage and no longer reads ?email= at all. Signup creates no session, so router.push stays (rule 2.15: not an auth-boundary navigation). If storage is unavailable, the resend field starts empty and the user types the address.
+
+**Files**
+
+- `src/app/(auth)/register/page.tsx`
+- `src/app/(auth)/verify-email/page.tsx`
+- `src/features/auth/utils/pendingVerificationEmail.ts`
+- `src/features/auth/utils/pendingVerificationEmail.test.ts`
+- `src/app/(auth)/register/__tests__/RegisterPage.test.tsx`
+- `src/app/(auth)/verify-email/__tests__/VerifyEmailPage.test.tsx`
+
+**Verification**
+
+- Jest: the register, verify-email and pendingVerificationEmail suites pass (31 tests); the full suite passes 195 suites and 2,375 tests (7 skipped), with tsc as pretest, lint 0 errors (the same 11 warnings, none in touched files) and arch:check passing
+- Eight mutations, each caught by a named test: the address back in the push URL; the sign_up call deleted; the email added to the event params; sign_up moved before the response check; the verify page reading ?email= again; the verify page no longer reading storage; the module switched to localStorage; the module reading storage unguarded
+- Chromium via Playwright against next dev, with /api/auth/register and GA's /g/collect stubbed: after sign-up the URL is exactly /verify-email and the address (owner+probe@example.lk) is echoed; GA received one sign_up hit carrying ep.method=email; none of the 4 collect requests contained the address raw or URL-encoded; the address survives a reload at 390 and at 1366 with no console errors and 0 px horizontal overflow; screenshots reviewed
+- Not verified: delivery to the live GA4 property. Owner: mark sign_up as a key event and confirm it in DebugView after deploy, then this task can be marked verified
+
+### SEO-059
+
+**GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included**
+
+| Field | Value |
+| --- | --- |
+| Priority | P1 |
+| Status | discovered |
+| Category | measurement |
+| Intent | none |
+| External action | required |
+| Created | 2026-10-02T15:36:21Z |
+| Updated | 2026-10-02T15:36:21Z |
+| Completed | — |
+| Dependencies | — |
+
+**Target queries**
+
+- —
+
+**Finding**
+
+GA4 is configured on every route in the root layout and sends the full page URL, query string included, as page_location (dl). Password-recovery links land on /reset-password?token_hash=…&type=recovery, and that page spends the token only when the form is submitted (rule 2.15), so a still-valid recovery token reaches Google Analytics on every reset visit. Anyone who can read the GA4 property's page_location before the token expires could use it to set the account's password. Email-change links (/verify-email?type=email_change&token_hash=…) send their token the same way, although that one is spent on load. Contentsquare, when NEXT_PUBLIC_ENABLE_ANALYTICS is on, also records URLs. Found while verifying SEO-056.
+
+**Evidence**
+
+- Chromium via Playwright against next dev (2026-10-02), GA's /g/collect intercepted and stubbed: loading /reset-password?token_hash=PROBETOKEN0001&type=recovery produced a collect hit whose dl was that exact URL; loading /verify-email?type=email_change&token_hash=PROBETOKEN0002 did the same (the API it calls was stubbed so no real token was spent)
+- src/app/layout.tsx: gtag('config', 'G-D711W4RE25') with no page_location override, rendered for every route including (auth)
+- supabase/templates/recovery.html and rule 2.15: the recovery link carries token_hash to /reset-password, which makes no Supabase call until submit
+
+**Recommended change**
+
+Owner, in GA4 now (no deploy needed): Admin → Data streams → the web stream → Redact data → turn on query-parameter redaction for token_hash, token, code and email. Then, as one reviewed change: stop sending auth query strings to analytics at all, either by setting a sanitised page_location in the gtag config (strip token_hash, token, code, type) or by not loading GA on the (auth) routes, with a test that fails if a token-bearing URL reaches gtag. Check Contentsquare's URL masking before NEXT_PUBLIC_ENABLE_ANALYTICS is turned on.
+
+**Implementation**
+
 —
 
 **Files**
 
-- —
+- `src/app/layout.tsx`
+- `src/app/(auth)/reset-password/page.tsx`
+- `src/app/(auth)/verify-email/page.tsx`
 
 **Verification**
 

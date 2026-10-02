@@ -1,11 +1,14 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
+import { PENDING_VERIFICATION_EMAIL_KEY } from '@/features/auth/utils/pendingVerificationEmail'
 import RegisterPage from '../page'
 
 const push = jest.fn()
 jest.mock('next/navigation', () => ({
   useRouter: () => ({ push }),
 }))
+
+const gtag = jest.fn()
 
 const okJson = (body: unknown, status = 200) =>
   ({
@@ -32,9 +35,15 @@ const continueBtn = () => screen.getByRole('button', { name: 'Continue' })
 
 beforeEach(() => {
   jest.clearAllMocks()
+  sessionStorage.clear()
+  window.gtag = gtag
   globalThis.fetch = jest.fn(async () =>
     okJson({ success: true })
   ) as unknown as typeof fetch
+})
+
+afterEach(() => {
+  delete window.gtag
 })
 
 describe('Register screen', () => {
@@ -122,10 +131,11 @@ describe('Register screen', () => {
       })
     })
 
-    it('hands the email to the verify screen, URL-encoded', async () => {
-      // The address goes into a query string. An unencoded `+` or `&` in an
-      // address would silently truncate it and the verify screen would prompt
-      // for the wrong mailbox.
+    it('hands the email to the verify screen through the tab, never the URL', async () => {
+      // SEO-056: the address used to ride in `/verify-email?email=…`, and GA4
+      // records the full page URL — so every sign-up sent its owner's email
+      // address to Google Analytics. It now travels in sessionStorage, verbatim
+      // (a `+` must survive; the verify screen offers to resend to it).
       render(<RegisterPage />)
       fillStep1({ 'register-email': 'owner+gym@example.lk' })
       fireEvent.click(continueBtn())
@@ -133,10 +143,24 @@ describe('Register screen', () => {
       set('register-gym-address', '12 Galle Road, Colombo')
       fireEvent.click(screen.getByRole('button', { name: /create account/i }))
 
-      await waitFor(() =>
-        expect(push).toHaveBeenCalledWith(
-          '/verify-email?email=owner%2Bgym%40example.lk'
-        )
+      await waitFor(() => expect(push).toHaveBeenCalledWith('/verify-email'))
+      expect(push).toHaveBeenCalledTimes(1)
+      expect(sessionStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY)).toBe(
+        'owner+gym@example.lk'
+      )
+    })
+
+    it('reports sign_up once the account exists, with no personal data', async () => {
+      // SEO-056: "Start free trial" is every public page's call to action; GA4
+      // can only tie a landing page to a trial if registration reports one.
+      reachStep2()
+      fireEvent.click(screen.getByRole('button', { name: /create account/i }))
+
+      await waitFor(() => expect(push).toHaveBeenCalled())
+      expect(gtag).toHaveBeenCalledTimes(1)
+      expect(gtag).toHaveBeenCalledWith('event', 'sign_up', { method: 'email' })
+      expect(JSON.stringify(gtag.mock.calls)).not.toMatch(
+        /owner|gym\.lk|ironhouse|Iron House|Galle/
       )
     })
 
@@ -152,6 +176,9 @@ describe('Register screen', () => {
         await screen.findByText('Username already taken')
       ).toBeInTheDocument()
       expect(push).not.toHaveBeenCalled()
+      // No account was created: nothing to report, nothing to remember.
+      expect(gtag).not.toHaveBeenCalled()
+      expect(sessionStorage.getItem(PENDING_VERIFICATION_EMAIL_KEY)).toBeNull()
     })
 
     it('goes back to step 1 with the credentials still filled in', () => {

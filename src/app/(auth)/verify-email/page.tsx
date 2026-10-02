@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Mail } from 'lucide-react'
 import AuthShell from '@/components/auth/AuthShell'
+import { readPendingVerificationEmail } from '@/features/auth/utils/pendingVerificationEmail'
 
 function VerifyEmailContent() {
   const router = useRouter()
@@ -31,8 +32,10 @@ function VerifyEmailContent() {
     const verifyEmail = async () => {
       const token = searchParams.get('token')
       const type = searchParams.get('type')
-      const emailParam = searchParams.get('email')
-      if (emailParam) setEmail(emailParam)
+      // From /register, via this tab's sessionStorage. Never `?email=`: GA4
+      // records the full page URL (SEO-056).
+      const pendingEmail = readPendingVerificationEmail()
+      if (pendingEmail) setEmail(pendingEmail)
 
       if (type === 'signup') {
         setStatus('success')

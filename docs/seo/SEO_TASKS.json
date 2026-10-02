@@ -718,16 +718,20 @@
       "finding": "The homepage shows a 'Trusted by leading gyms across Sri Lanka' strip naming six businesses, a testimonial attributed to 'Zulfi Ahamath — Owner, Fitness Empire, Wattala' claiming 80% less admin time, a '−95% late payments' badge and 'Running nationwide'. Nothing in the repository supports or refutes them. They were left in place, are not repeated on any new page and are excluded from structured data.",
       "evidence": [
         "src/components/landing/LandingPage.tsx trust strip, quote section, feature badge, hero eyebrow.",
-        "Search index still shows older, larger claims from metricgymmanager.com ('25+ gyms', '7.9K+ active members', '99.99% uptime') that also have no evidence in the repository."
+        "Search index still shows older, larger claims from metricgymmanager.com ('25+ gyms', '7.9K+ active members', '99.99% uptime') that also have no evidence in the repository.",
+        "Found 2026-10-02: the same figures are live in the product, not only in the old index. src/components/auth/AuthShell.tsx renders 'Gyms on platform 25+', 'Members managed 7,900+' and 'Uptime, trailing 12 mo 99.99%', plus a 'metricgym.lk' domain label, beside every auth form: /register (indexable, canonicalised), /login, /forgot-password, /reset-password and /verify-email. Seen in a 1366 px screenshot of /verify-email."
       ],
-      "recommendedChange": "Owner to confirm: each named gym is a current customer that agreed to be shown; the testimonial is real, attributed with consent and its 80% figure is the customer's own; the −95% figure has a dataset behind it. Remove anything that cannot be confirmed. Once confirmed, consider real case studies (SEO-042).",
+      "recommendedChange": "Owner to confirm: each named gym is a current customer that agreed to be shown; the testimonial is real, attributed with consent and its 80% figure is the customer's own; the −95% figure has a dataset behind it; and the auth panel's 25+ gyms, 7,900+ members and 99.99% uptime have evidence behind them (and whether 'metricgym.lk' is a domain Metric uses, against the canonical www.metricgymos.com). Remove anything that cannot be confirmed. Once confirmed, consider real case studies (SEO-042).",
       "implementation": "Partially actioned: the '−95% LATE PAYMENTS' statistic and 'RUNNING NATIONWIDE' were replaced with verifiable text (reminder schedule badge; descriptive eyebrow). The six named gyms in the trust strip and the Zulfi Ahamath / Fitness Empire testimonial remain unchanged pending owner confirmation, are repeated nowhere else, and are excluded from structured data.",
-      "files": ["src/components/landing/LandingPage.tsx"],
+      "files": [
+        "src/components/landing/LandingPage.tsx",
+        "src/components/auth/AuthShell.tsx"
+      ],
       "verification": [],
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-01T17:40:00Z",
-      "updatedAt": "2026-10-01T18:23:33Z",
+      "updatedAt": "2026-10-02T15:36:21Z",
       "completedAt": null
     },
     {
@@ -1506,7 +1510,7 @@
       "title": "Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL",
       "category": "measurement",
       "priority": "P1",
-      "status": "discovered",
+      "status": "implemented",
       "intent": "transactional",
       "targetQueries": [],
       "finding": "'Start free trial' is the call to action on every public page, but registration fires no analytics event, so organic landing pages cannot be tied to trials. After a successful sign-up the register page navigates to /verify-email?email=<address>. GA4 is loaded on every route with a plain config call; if the web stream's enhanced measurement counts history changes as page views (GA4's default) and email redaction is not on, that URL — with the address in it — reaches Google Analytics as page_location.",
@@ -1516,13 +1520,25 @@
         "The GA4 stream's enhanced-measurement and data-redaction settings are not visible from the repository"
       ],
       "recommendedChange": "Owner, in GA4 now: check Admin → Data streams → web stream → Redact data → Email is on. Then, as one reviewed change to the auth flow (rule 2.15 governs it): fire GA4's recommended sign_up event with { method: 'email' } after a successful registration, mark it as a key event, and stop carrying the address in the URL (the verify-email page can show it from session state). Not changed in this pass: the registration flow is product code with its own tests and rules, outside the public-site scope.",
-      "implementation": "",
-      "files": [],
-      "verification": [],
+      "implementation": "register/page.tsx fires GA4's recommended sign_up event with { method: 'email' } only after /api/auth/register returns success, then hands the address to /verify-email through this tab's sessionStorage (features/auth/utils/pendingVerificationEmail.ts, a client-safe deep import over the fail-safe @/lib/client-state wrappers) and navigates to plain /verify-email. The verify page reads the address from that storage and no longer reads ?email= at all. Signup creates no session, so router.push stays (rule 2.15: not an auth-boundary navigation). If storage is unavailable, the resend field starts empty and the user types the address.",
+      "files": [
+        "src/app/(auth)/register/page.tsx",
+        "src/app/(auth)/verify-email/page.tsx",
+        "src/features/auth/utils/pendingVerificationEmail.ts",
+        "src/features/auth/utils/pendingVerificationEmail.test.ts",
+        "src/app/(auth)/register/__tests__/RegisterPage.test.tsx",
+        "src/app/(auth)/verify-email/__tests__/VerifyEmailPage.test.tsx"
+      ],
+      "verification": [
+        "Jest: the register, verify-email and pendingVerificationEmail suites pass (31 tests); the full suite passes 195 suites and 2,375 tests (7 skipped), with tsc as pretest, lint 0 errors (the same 11 warnings, none in touched files) and arch:check passing",
+        "Eight mutations, each caught by a named test: the address back in the push URL; the sign_up call deleted; the email added to the event params; sign_up moved before the response check; the verify page reading ?email= again; the verify page no longer reading storage; the module switched to localStorage; the module reading storage unguarded",
+        "Chromium via Playwright against next dev, with /api/auth/register and GA's /g/collect stubbed: after sign-up the URL is exactly /verify-email and the address (owner+probe@example.lk) is echoed; GA received one sign_up hit carrying ep.method=email; none of the 4 collect requests contained the address raw or URL-encoded; the address survives a reload at 390 and at 1366 with no console errors and 0 px horizontal overflow; screenshots reviewed",
+        "Not verified: delivery to the live GA4 property. Owner: mark sign_up as a key event and confirm it in DebugView after deploy, then this task can be marked verified"
+      ],
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-01T21:45:00Z",
-      "updatedAt": "2026-10-01T21:45:00Z",
+      "updatedAt": "2026-10-02T15:36:21Z",
       "completedAt": null
     },
     {
@@ -1589,6 +1605,34 @@
       "createdAt": "2026-10-01T22:20:00Z",
       "updatedAt": "2026-10-01T22:20:00Z",
       "completedAt": "2026-10-01T22:20:00Z"
+    },
+    {
+      "id": "SEO-059",
+      "title": "GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included",
+      "category": "measurement",
+      "priority": "P1",
+      "status": "discovered",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "GA4 is configured on every route in the root layout and sends the full page URL, query string included, as page_location (dl). Password-recovery links land on /reset-password?token_hash=…&type=recovery, and that page spends the token only when the form is submitted (rule 2.15), so a still-valid recovery token reaches Google Analytics on every reset visit. Anyone who can read the GA4 property's page_location before the token expires could use it to set the account's password. Email-change links (/verify-email?type=email_change&token_hash=…) send their token the same way, although that one is spent on load. Contentsquare, when NEXT_PUBLIC_ENABLE_ANALYTICS is on, also records URLs. Found while verifying SEO-056.",
+      "evidence": [
+        "Chromium via Playwright against next dev (2026-10-02), GA's /g/collect intercepted and stubbed: loading /reset-password?token_hash=PROBETOKEN0001&type=recovery produced a collect hit whose dl was that exact URL; loading /verify-email?type=email_change&token_hash=PROBETOKEN0002 did the same (the API it calls was stubbed so no real token was spent)",
+        "src/app/layout.tsx: gtag('config', 'G-D711W4RE25') with no page_location override, rendered for every route including (auth)",
+        "supabase/templates/recovery.html and rule 2.15: the recovery link carries token_hash to /reset-password, which makes no Supabase call until submit"
+      ],
+      "recommendedChange": "Owner, in GA4 now (no deploy needed): Admin → Data streams → the web stream → Redact data → turn on query-parameter redaction for token_hash, token, code and email. Then, as one reviewed change: stop sending auth query strings to analytics at all, either by setting a sanitised page_location in the gtag config (strip token_hash, token, code, type) or by not loading GA on the (auth) routes, with a test that fails if a token-bearing URL reaches gtag. Check Contentsquare's URL masking before NEXT_PUBLIC_ENABLE_ANALYTICS is turned on.",
+      "implementation": "",
+      "files": [
+        "src/app/layout.tsx",
+        "src/app/(auth)/reset-password/page.tsx",
+        "src/app/(auth)/verify-email/page.tsx"
+      ],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-02T15:36:21Z",
+      "updatedAt": "2026-10-02T15:36:21Z",
+      "completedAt": null
     }
   ]
 }
