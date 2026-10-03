@@ -18,6 +18,8 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
 - **SEO-055 implemented (P2).** Charts moved to their own barrel, `@/components/ui/charts`. Measured on production builds, the public pages' JS fell from 465 to 345 KB gzip (−26%), and recharts went from 102 references to 0. The chart pages still render, checked signed in as the E2E gym. The remaining root-layout providers are SEO-060 (P3).
 - **SEO-061 written (P2).** The first §8 guide is in the code at `/resources/overdue-gym-memberships`. Its timeline is computed from the product's own reminder, expiry and cancellation rules. It is linked from `/resources`, the payment-collection page, the reminders guide and the footer.
+- **SEO-063 written (P2).** The second §8 guide is in the code at `/resources/move-gym-members-from-register-book`. It covers what to collect, which date to enter, the welcome SMS every added member receives, 50-row batches, the plan limit and the QR route. It is linked from the membership page, `/resources` and the footer.
+- **SEO-062 fixed (P1).** The membership page and the hub said QR self-registrations wait for staff before counting as paid. In fact they are created active, with the payment recorded and a welcome SMS sent. Both pages now say so.
 - **SEO-024 extended.** The sign-in side panel (`AuthShell`) shows the same unconfirmed figures (25+ gyms, 7,900+ members, 99.99% uptime) on `/register` and the other auth pages.
 
 ## Evidence limits
@@ -156,6 +158,7 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [ ] **SEO-060:** public pages still load the signed-in app's providers (Supabase client, react-query, service-worker registration, AuthRecovery); rules 2.15 and 2.19 apply.
 - [ ] **Early payments shorten the period** (product, found 2026-10-02). Recording a payment always dates the next period from the payment date: `CollectPayment` with `deductOverduePeriod` defaulting to true, and the Mark Paid dialog always sending true. That is right for a late payer. But a member who pays three days early gets a due date three days earlier than their old one. Decide whether an early payment should extend from the current due date instead.
 - [ ] **The dashboard's "critical" overdue tier is never reached** (product, found 2026-10-02). `features/revenue/services/metrics.service.ts` counts expired members more than 14 days overdue as critical. But `MEMBER_CANCELLATION_OVERDUE_DAYS` cancels them at day 14, so the tier almost always shows 0. Re-cut the tiers, or retire "critical".
+- [ ] **The bulk grid says "WhatsApp"** (product wording, found 2026-10-03). The phone column in `BulkAddMemberModal` is headed "WhatsApp \*" and its validation says "WhatsApp number is required". But Metric sends SMS, and the public site makes no WhatsApp claims. Decide whether the field should read "Mobile number".
 
 **Branch**
 
@@ -166,9 +169,10 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 Ready now, in priority order:
 
 1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
-2. **New guides** from `SEO_AUDIT.md` §8, one at a time. Overdue memberships is done (SEO-061). Still to write: choosing gym management software in Sri Lanka (it needs PDPA facts confirmed by the owner); moving a gym from a register book or spreadsheet; Excel and WhatsApp vs dedicated software. Each one needs a registry entry, a `PUBLIC_ROUTES` entry, a link from its feature page and from `/resources`, and its own task.
+2. **New guides** from `SEO_AUDIT.md` §8, one at a time. Done: overdue memberships (SEO-061) and moving off a register book (SEO-063). Still to write: Excel and WhatsApp vs dedicated software; choosing gym management software in Sri Lanka (it needs PDPA facts confirmed by the owner). Each one needs a registry entry, a `PUBLIC_ROUTES` entry, a link from its feature page and from `/resources`, and its own task.
 3. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-053, SEO-060 — each needs the owner's decision noted above.
 4. **Stale comments, no decision needed.** `src/features/members/services/CancelMember.ts` says cancellation happens at "45+ days overdue" and is "a terminal state". But `StatusConfig.ts` cancels at 14 days, and `CollectPayment` reactivates a cancelled member on payment. Correct the comments.
+5. **Bulk grid accepts more than 50 rows; the server does not** (product bug, found 2026-10-03). `BulkAddMemberModal` lets a user add any number of rows. But `POST /api/members/bulk` validates `z.array(...).max(50)`, so a batch of 51 or more is refused whole as "Invalid input data". Cap the grid at 50, or send it in chunks of 50. The guide tells gyms to submit up to 50 at a time.
 
 Waiting on owner input:
 

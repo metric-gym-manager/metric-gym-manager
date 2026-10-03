@@ -42,6 +42,9 @@ import RevenueArticle, {
 import OverdueArticle, {
   metadata as overdueArticleMeta,
 } from '../resources/overdue-gym-memberships/page'
+import MoveArticle, {
+  metadata as moveArticleMeta,
+} from '../resources/move-gym-members-from-register-book/page'
 
 /**
  * Screen tests for the public marketing pages (UI3). jsdom has no layout, so
@@ -62,6 +65,7 @@ const PAGES: [string, ComponentType, Metadata][] = [
   ['/resources', ResourcesPage, resourcesMeta],
   [ARTICLE_PATHS.reminders, RemindersArticle, remindersMeta],
   [ARTICLE_PATHS.overdue, OverdueArticle, overdueArticleMeta],
+  [ARTICLE_PATHS.move, MoveArticle, moveArticleMeta],
   [ARTICLE_PATHS.revenue, RevenueArticle, revenueArticleMeta],
 ]
 

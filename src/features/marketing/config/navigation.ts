@@ -60,6 +60,7 @@ export const FOOTER_GROUPS: readonly FooterGroup[] = [
       link(RESOURCES_PATH, 'All resources'),
       link(ARTICLE_PATHS.reminders),
       link(ARTICLE_PATHS.overdue),
+      link(ARTICLE_PATHS.move),
       link(ARTICLE_PATHS.revenue),
     ],
   },

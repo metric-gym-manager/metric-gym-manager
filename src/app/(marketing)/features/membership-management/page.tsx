@@ -10,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui'
 import {
+  ARTICLE_PATHS,
   CallToAction,
   FEATURE_PATHS,
   FaqSection,
@@ -212,9 +213,11 @@ export default function MembershipManagementPage() {
             by Metric rather than typed by the member.
           </p>
           <p>
-            Self-registered members appear with a <strong>NEW</strong> badge
-            until your staff confirm them, so nobody is treated as a paid member
-            before they have paid.
+            The record is created as soon as they submit — active, with the
+            payment recorded and a welcome SMS sent — so take the money at the
+            desk straight away. Self-registered members carry a{' '}
+            <strong>NEW</strong> badge until your staff verify the entry, so the
+            desk can see which sign-ups to check against the cash.
           </p>
         </Prose>
       </MarketingSection>
@@ -233,6 +236,12 @@ export default function MembershipManagementPage() {
           <p>
             Member photos are stored with the record, so the desk can see who is
             who.
+          </p>
+          <p>
+            Moving from a register book or a spreadsheet? The{' '}
+            <Link href={ARTICLE_PATHS.move}>step-by-step guide</Link> covers
+            what to collect, which date to enter for each member, and what they
+            receive by SMS.
           </p>
         </Prose>
       </MarketingSection>

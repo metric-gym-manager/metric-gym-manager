@@ -227,7 +227,7 @@ export default function GymManagementSoftwarePage() {
           {[
             [
               'They register',
-              'At the desk, or by scanning your gym’s QR poster and filling in their name, phone number, plan and an optional selfie on their own phone. Self-registrations wait with a NEW badge until your staff confirm them.',
+              'At the desk, or by scanning your gym’s QR poster and filling in their name, phone number, plan and an optional selfie on their own phone. A self-registration is created straight away, with the payment recorded, and carries a NEW badge until your staff verify it.',
             ],
             [
               'Their membership starts',

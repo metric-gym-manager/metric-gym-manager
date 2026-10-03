@@ -7,12 +7,12 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-02T18:11:31Z |
-| Total tasks | 61 |
+| Last task update | 2026-10-03T01:03:38Z |
+| Total tasks | 63 |
 | P0 remaining (not verified/rejected) | 2 |
 | P1 remaining (not verified/rejected) | 5 |
 | Implemented (awaiting verification) | 4 |
-| Verified | 38 |
+| Verified | 40 |
 | In progress | 0 |
 | Open (discovered/planned) | 6 |
 | Blocked | 9 |
@@ -24,8 +24,8 @@
 | Priority | discovered | planned | in_progress | implemented | verified | blocked | rejected |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 9 | 2 | 0 |
-| P1 | 0 | 0 | 0 | 3 | 17 | 2 | 0 |
-| P2 | 0 | 0 | 0 | 1 | 10 | 3 | 0 |
+| P1 | 0 | 0 | 0 | 3 | 18 | 2 | 0 |
+| P2 | 0 | 0 | 0 | 1 | 11 | 3 | 0 |
 | P3 | 6 | 0 | 0 | 0 | 2 | 2 | 4 |
 
 ## All tasks
@@ -65,6 +65,7 @@
 | [SEO-048](#seo-048) | P1 | verified | technical | Design-system TableRow could not render in a Server Component | no |
 | [SEO-056](#seo-056) | P1 | implemented | measurement | Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL | yes |
 | [SEO-059](#seo-059) | P1 | implemented | measurement | GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included | yes |
+| [SEO-062](#seo-062) | P1 | verified | trust | Two public pages said QR self-registrations wait for staff before counting as paid; they are created active with the payment recorded | no |
 | [SEO-010](#seo-010) | P2 | verified | technical | Authenticated route groups have no defensive noindex | no |
 | [SEO-022](#seo-022) | P2 | verified | content | Resources hub with two first-party articles | no |
 | [SEO-027](#seo-027) | P2 | verified | technical | Unreferenced public images expose an old UI, the old brand and personal data | no |
@@ -79,6 +80,7 @@
 | [SEO-055](#seo-055) | P2 | implemented | performance | Every public page ships the chart library it never uses | no |
 | [SEO-057](#seo-057) | P2 | verified | schema | Every WebPage node claimed to be about the product, on pages that never describe it | no |
 | [SEO-061](#seo-061) | P2 | verified | content | Guide: overdue gym memberships — when to expire, when to cancel | no |
+| [SEO-063](#seo-063) | P2 | verified | content | Guide: moving a gym's members off a register book or spreadsheet | no |
 | [SEO-031](#seo-031) | P3 | rejected | schema | FAQPage structured data | no |
 | [SEO-032](#seo-032) | P3 | rejected | schema | LocalBusiness structured data | no |
 | [SEO-033](#seo-033) | P3 | rejected | technical | llms.txt or AI-specific markup | no |
@@ -1708,6 +1710,55 @@ src/lib/analytics/ga-init.ts gaInitScript() is now the only GA bootstrap; the ro
 - Chromium via Playwright against next dev, every Google request recorded: /reset-password?token_hash=…&type=recovery, /verify-email?type=email_change&token_hash=… and /join/tok_probe made 0 requests to Google and rendered normally; / and /pricing loaded gtag.js and sent page_view; the stubbed register flow still sent sign_up
 - Not verified: the live GA4 property. Owner, as defence in depth: GA4 → Admin → Data streams → Redact data → query parameters token_hash, token, code, email
 
+### SEO-062
+
+**Two public pages said QR self-registrations wait for staff before counting as paid; they are created active with the payment recorded**
+
+| Field | Value |
+| --- | --- |
+| Priority | P1 |
+| Status | verified |
+| Category | trust |
+| Intent | none |
+| External action | no |
+| Created | 2026-10-03T01:03:38Z |
+| Updated | 2026-10-03T01:03:38Z |
+| Completed | 2026-10-03T01:03:38Z |
+| Dependencies | — |
+
+**Target queries**
+
+- —
+
+**Finding**
+
+/features/membership-management said self-registered members carry a NEW badge 'until your staff confirm them, so nobody is treated as a paid member before they have paid', and the hub said 'Self-registrations wait with a NEW badge until your staff confirm them.' The code does otherwise. POST /api/public/registrations creates the member at once through RegisterMember: status active, initial payment recorded, welcome SMS sent. Verifying (/api/members/[id]/verify) only sets verified_at, which clears the badge (registration_source === 'qr' && !verified_at) and changes nothing else. Rule 2.23: public copy states only what the code does.
+
+**Evidence**
+
+- src/app/api/public/registrations/route.ts header: 'the member is created immediately (active, initial payment recorded, welcome SMS sent — the desk collects the cash right after) with registration_source='qr', which renders as a NEW badge until the gym verifies the entry'
+- src/features/members/components/MemberPhotoSection.tsx: isNew = member.registration_source === 'qr' && !member.verified_at
+- src/app/api/members/[id]/verify/route.ts: 'Marks a QR self-registered member as verified (clears the NEW badge)'
+
+**Recommended change**
+
+Say what happens: the record is created as soon as the member submits, active and with the payment recorded, so the desk takes the money straight away; the NEW badge marks entries staff have not yet verified.
+
+**Implementation**
+
+membership-management: the sentence now reads that the record is created as soon as they submit — active, with the payment recorded and a welcome SMS sent — so take the money at the desk straight away, and that self-registered members carry a NEW badge until staff verify the entry. Hub: 'A self-registration is created straight away, with the payment recorded, and carries a NEW badge until your staff verify it.' Both pages' lastModified moved to 2026-10-03.
+
+**Files**
+
+- `src/app/(marketing)/features/membership-management/page.tsx`
+- `src/app/(marketing)/gym-management-software-sri-lanka/page.tsx`
+- `src/features/marketing/config/pages.ts`
+
+**Verification**
+
+- next start on a production build: both pages render the corrected sentence, and neither contains the old wording ('nobody is treated as a paid member', 'wait with a NEW badge')
+- MarketingPages and pages suites pass for both pages
+
 ### SEO-010
 
 **Authenticated route groups have no defensive noindex**
@@ -2389,6 +2440,62 @@ src/app/(marketing)/resources/overdue-gym-memberships/page.tsx: Article page in 
 - Jest: the registry, public-route and MarketingPages suites pass for the new page (one H1, registered metadata, JSON-LD graph, links that resolve, heading outline, linked from another page); removing the path from PUBLIC_ROUTES fails pages.test; full suite 197 suites and 2,400 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes
 - next build prerenders /resources/overdue-gym-memberships as static. On next start: 200, one H1, self canonical https://www.metricgymos.com/resources/overdue-gym-memberships, no robots meta, title 'Overdue Gym Members: When to Expire or Cancel | Metric Gym OS', JSON-LD Organization, WebSite, WebPage, BreadcrumbList, Article; sitemap.xml has 17 <loc> including the guide; /resources, /features/payment-collection, the reminders guide and the footer link it; a vercel.app host gets X-Robots-Tag: noindex
 - Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; full-page screenshots and the timeline table at 320 read by eye. The timeline shows 12 Nov reminder, 15 Nov due-date SMS, 16 Nov expired, 16–28 Nov follow-up, 29 Nov cancelled, payment on 20 Nov → next due 20 Dec
+- Not verified: indexing or ranking (needs Search Console, SEO-036)
+
+### SEO-063
+
+**Guide: moving a gym's members off a register book or spreadsheet**
+
+| Field | Value |
+| --- | --- |
+| Priority | P2 |
+| Status | verified |
+| Category | content |
+| Intent | informational |
+| External action | no |
+| Created | 2026-10-03T01:03:38Z |
+| Updated | 2026-10-03T01:03:38Z |
+| Completed | 2026-10-03T01:03:38Z |
+| Dependencies | — |
+
+**Target queries**
+
+- `move gym members to software`
+- `gym register book to software`
+- `import gym members from excel`
+- `switch gym management software sri lanka`
+
+**Finding**
+
+The second guide from SEO_AUDIT.md §8, built on the real bulk-entry and QR self-registration flows. The facts that shape the advice: registration creates the member active, sets the next due date as start date + plan period, and records the first payment on the start date (RegisterMember); every added member gets a welcome SMS that does not name the gym; there is one member per mobile number (ConflictError), and only Sri Lankan mobiles are accepted; the bulk API takes at most 50 rows per submission; every new row counts as active against the plan limit (Lite 100); QR sign-ups are created active with the payment recorded and carry a NEW badge until verified.
+
+**Evidence**
+
+- docs/seo/SEO_AUDIT.md §8 item 3: 'Moving a gym from a register book or spreadsheet (the real bulk entry and QR self-registration flows)'
+
+**Recommended change**
+
+Publish a step-by-step guide that says which date to enter (the last payment), what members receive, the batch size and the plan limit, and the QR route for new members.
+
+**Implementation**
+
+src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx: Article page in the guide pattern. The worked example's next due date is computed with calculateNextDueDate, the sample welcome SMS is formatted with formatDateForDisplay (the SMS's own formatter), and the Lite limit comes from LITE_MEMBER_LIMIT. Registry entry ARTICLE_PATHS.move; the /resources description now names four guides; PUBLIC_ROUTES entry; body link from /features/membership-management; footer Resources link; added to the MarketingPages screen-test table.
+
+**Files**
+
+- `src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx`
+- `src/features/marketing/config/pages.ts`
+- `src/features/marketing/config/navigation.ts`
+- `src/lib/auth-config.ts`
+- `src/app/(marketing)/features/membership-management/page.tsx`
+- `src/app/(marketing)/__tests__/MarketingPages.test.tsx`
+
+**Verification**
+
+- Jest: the registry, public-route and MarketingPages suites pass for the new page; removing the path from PUBLIC_ROUTES fails pages.test; full suite 197 suites and 2,409 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes
+- next build prerenders the page as static. On next start: 200, one H1, self canonical, indexable, title 'How to Move Your Gym's Members into Software | Metric Gym OS', JSON-LD Organization, WebSite, WebPage, BreadcrumbList, Article; sitemap.xml has 18 <loc> including it; linked from /resources, /features/membership-management and the footer
+- The sample welcome SMS renders as 'Welcome to our gym, Nimal! Your monthly membership is active. Amount paid: Rs.4000.00. Next due: 20/10/2026. Thank you!', and the prose dates as 20 September → 20 October
+- Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; the 1366 screenshot read by eye
 - Not verified: indexing or ranking (needs Search Console, SEO-036)
 
 ### SEO-031

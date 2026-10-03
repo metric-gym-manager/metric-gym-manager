@@ -62,11 +62,13 @@ export const FEATURE_PATHS = {
 export const ARTICLE_PATHS = {
   reminders: '/resources/membership-renewal-reminders',
   overdue: '/resources/overdue-gym-memberships',
+  move: '/resources/move-gym-members-from-register-book',
   revenue: '/resources/billed-vs-collected-revenue',
 } as const
 
 const SITE_LAUNCH = '2026-10-01'
 const OVERDUE_GUIDE = '2026-10-02'
+const MOVE_GUIDE = '2026-10-03'
 
 export const MARKETING_PAGES: readonly MarketingPage[] = [
   {
@@ -86,7 +88,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'How Metric Gym OS manages members, renewals, SMS reminders, revenue and door access for Sri Lankan gyms — with LKR pricing, setup steps and data protection.',
     label: 'Gym management software',
     parent: HOME_PATH,
-    lastModified: SITE_LAUNCH,
+    lastModified: MOVE_GUIDE,
   },
   {
     path: FEATURE_PATHS.membership,
@@ -96,7 +98,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'Member records, seven plan types, QR self-registration from a member’s own phone, discounts and admission fees — membership management for Sri Lankan gyms.',
     label: 'Membership management',
     parent: HUB_PATH,
-    lastModified: SITE_LAUNCH,
+    lastModified: MOVE_GUIDE,
   },
   {
     path: FEATURE_PATHS.payments,
@@ -173,10 +175,10 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     kind: 'resources',
     title: 'Resources for Gym Owners | Metric Gym OS',
     description:
-      'Guides for running a gym in Sri Lanka: renewal reminder timing, overdue memberships, and measuring revenue owed against revenue collected.',
+      'Guides for running a gym in Sri Lanka: moving members off a register book, renewal reminders, overdue memberships, and revenue owed against collected.',
     label: 'Resources',
     parent: HOME_PATH,
-    lastModified: OVERDUE_GUIDE,
+    lastModified: MOVE_GUIDE,
   },
   {
     path: ARTICLE_PATHS.reminders,
@@ -199,6 +201,17 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     parent: RESOURCES_PATH,
     lastModified: OVERDUE_GUIDE,
     published: OVERDUE_GUIDE,
+  },
+  {
+    path: ARTICLE_PATHS.move,
+    kind: 'article',
+    title: "How to Move Your Gym's Members into Software | Metric Gym OS",
+    description:
+      'Moving members off a register book or spreadsheet: what to collect, which date to enter, what members receive by SMS, and letting new members register by QR.',
+    label: 'Moving off a register book',
+    parent: RESOURCES_PATH,
+    lastModified: MOVE_GUIDE,
+    published: MOVE_GUIDE,
   },
   {
     path: ARTICLE_PATHS.revenue,
