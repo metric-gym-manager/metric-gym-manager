@@ -1486,7 +1486,7 @@
       "title": "Every public page ships the chart library it never uses",
       "category": "performance",
       "priority": "P2",
-      "status": "implemented",
+      "status": "verified",
       "intent": "none",
       "targetQueries": [],
       "finding": "Lighthouse reports about 255 KiB of unused JavaScript on each public page. The largest chunk (637 KiB raw, 182 KiB transferred, 176 KiB unused) holds recharts and sonner and loads on /, the hub, /pricing and /login alike; a second (245 KiB raw, 52 KiB unused) holds the Supabase client, react-query, the service-worker registration and AuthRecovery. Likely cause: the root layout imports Toaster through the @/components/ui barrel, which re-exports the 'use client' Charts module, and Next includes every client module a server component's import graph reaches. /login reaches the barrel only through the root layout. Not confirmed by experiment.",
@@ -1514,13 +1514,14 @@
         "charts-entry.test.ts: the main barrel loads without evaluating recharts (a jest.doMock factory flag), @/components/ui/charts serves all seven chart components and CHART_SERIES, and the main barrel no longer exposes them. Three mutations, each caught: Charts re-exported from the main barrel, one chart symbol re-exported, a barrel primitive importing recharts",
         "arch:check UI4: a probe feature-local `export function Sparkline()` fails UI4 with the change; without the new dsNames line, UI4 misses it",
         "Full suite 197 suites and 2,391 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes",
-        "Rendered on next start with the after build, signed in as the seeded E2E Enterprise gym (read-only): /dashboard's bar chart and /member-analytics' trend line, year-over-year bars and at-risk bars draw, matching a capture of the HEAD build taken the same way; /revenue renders its chart surface. /design-system returns 404 under next start (development-only), so it was not checked"
+        "Rendered on next start with the after build, signed in as the seeded E2E Enterprise gym (read-only): /dashboard's bar chart and /member-analytics' trend line, year-over-year bars and at-risk bars draw, matching a capture of the HEAD build taken the same way; /revenue renders its chart surface. /design-system returns 404 under next start (development-only), so it was not checked",
+        "Production, after PR #83 deployed (2026-10-03): the 13 JS chunks www.metricgymos.com/ loads carry 0 recharts references"
       ],
       "dependencies": [],
       "externalActionRequired": false,
       "createdAt": "2026-10-01T21:30:00Z",
-      "updatedAt": "2026-10-02T16:47:44Z",
-      "completedAt": null
+      "updatedAt": "2026-10-03T05:39:31Z",
+      "completedAt": "2026-10-03T05:39:31Z"
     },
     {
       "id": "SEO-056",
@@ -1628,7 +1629,7 @@
       "title": "GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included",
       "category": "measurement",
       "priority": "P1",
-      "status": "implemented",
+      "status": "verified",
       "intent": "none",
       "targetQueries": [],
       "finding": "GA4 is configured on every route in the root layout and sends the full page URL, query string included, as page_location (dl). Password-recovery links land on /reset-password?token_hash=…&type=recovery, and that page spends the token only when the form is submitted (rule 2.15), so a still-valid recovery token reaches Google Analytics on every reset visit. Anyone who can read the GA4 property's page_location before the token expires could use it to set the account's password. Email-change links (/verify-email?type=email_change&token_hash=…) send their token the same way, although that one is spent on load. Contentsquare, when NEXT_PUBLIC_ENABLE_ANALYTICS is on, also records URLs. Found while verifying SEO-056.",
@@ -1650,13 +1651,14 @@
         "Seven mutations, each caught: token_hash removed from the list, path-prefix check removed, query guard inverted, config before the guard, script injected before the guard, prefix loosened to /join, raw gtag.js Script re-added to the layout",
         "Full suite 196 suites and 2,388 tests passed (7 skipped), with tsc as pretest; lint 0 errors (the same 11 warnings); arch:check passes",
         "Chromium via Playwright against next dev, every Google request recorded: /reset-password?token_hash=…&type=recovery, /verify-email?type=email_change&token_hash=… and /join/tok_probe made 0 requests to Google and rendered normally; / and /pricing loaded gtag.js and sent page_view; the stubbed register flow still sent sign_up",
-        "Not verified: the live GA4 property. Owner, as defence in depth: GA4 → Admin → Data streams → Redact data → query parameters token_hash, token, code, email"
+        "Not verified: the live GA4 property. Owner, as defence in depth: GA4 → Admin → Data streams → Redact data → query parameters token_hash, token, code, email",
+        "Production, after PR #83 deployed (2026-10-03), Chromium with every Google request recorded and /g/collect answered locally: /reset-password?token_hash=…&type=recovery, /verify-email?type=email_change&token_hash=… (its API stubbed) and /join/tok_probe made 0 requests to Google and rendered normally; / loaded gtag.js and sent page_view. The reset page's HTML carries the inline bootstrap with the credential list and no static gtag.js tag. GA4 query-parameter redaction remains a recommended second layer, tracked in the HANDOFF.md §6 checklist"
       ],
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-02T15:36:21Z",
-      "updatedAt": "2026-10-02T16:25:08Z",
-      "completedAt": null
+      "updatedAt": "2026-10-03T05:39:31Z",
+      "completedAt": "2026-10-03T05:39:31Z"
     },
     {
       "id": "SEO-060",
