@@ -21,23 +21,23 @@
  *   (single source of truth for revenue reports).
  */
 
-import { Member } from '@/features/members/domain/Member';
-import { Payment, PaymentType } from '@/features/payments/domain/Payment';
-import { IMemberRepository } from '@/features/members/services/IMemberRepository';
-import { IPaymentRepository } from './IPaymentRepository';
-import { ISMSRepository } from '@/features/sms/services/ISMSRepository';
-import { ISMSProvider } from '@/features/sms/services/ISMSProvider';
-import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository';
-import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate';
-import { formatDateForDisplay } from '@/utils/date/date';
-import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue';
-import { PlanType } from '@/features/members/config/PlanConfig';
-import { MemberStatus } from '@/features/members/config/StatusConfig';
+import { Member } from '@/features/members/domain/Member'
+import { Payment, PaymentType } from '@/features/payments/domain/Payment'
+import { IMemberRepository } from '@/features/members/services/IMemberRepository'
+import { IPaymentRepository } from './IPaymentRepository'
+import { ISMSRepository } from '@/features/sms/services/ISMSRepository'
+import { ISMSProvider } from '@/features/sms/services/ISMSProvider'
+import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository'
+import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
+import { formatDateForDisplay } from '@/utils/date/date'
+import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue'
+import { PlanType } from '@/features/members/config/PlanConfig'
+import { MemberStatus } from '@/features/members/config/StatusConfig'
 import {
   BusinessRuleViolationError,
   NotFoundError,
   ValidationError,
-} from '@/utils/errors';
+} from '@/utils/errors'
 
 /**
  * Input for issuing a day pass
@@ -46,22 +46,22 @@ export interface IssueDayPassInput {
   /**
    * Gym ID (for multi-tenancy)
    */
-  gymId: string;
+  gymId: string
 
   /**
    * Member ID
    */
-  memberId: string;
+  memberId: string
 
   /**
    * Day pass fee in LKR (typically the gym's daily plan default amount)
    */
-  amount: number;
+  amount: number
 
   /**
    * Payment date (defaults to today)
    */
-  paymentDate?: Date;
+  paymentDate?: Date
 }
 
 /**
@@ -71,12 +71,12 @@ export interface IssueDayPassOutput {
   /**
    * Updated member (active until tomorrow)
    */
-  member: Member;
+  member: Member
 
   /**
    * Day pass payment record
    */
-  payment: Payment;
+  payment: Payment
 }
 
 /**
@@ -115,13 +115,13 @@ export class IssueDayPass {
    */
   async execute(input: IssueDayPassInput): Promise<IssueDayPassOutput> {
     if (input.amount <= 0) {
-      throw new ValidationError('Day pass amount must be greater than zero');
+      throw new ValidationError('Day pass amount must be greater than zero')
     }
 
-    const member = await this.memberRepo.findById(input.memberId, input.gymId);
+    const member = await this.memberRepo.findById(input.memberId, input.gymId)
 
     if (!member) {
-      throw new NotFoundError(`Member ${input.memberId}`);
+      throw new NotFoundError(`Member ${input.memberId}`)
     }
 
     // Suspended/cancelled members must go through their dedicated flows
@@ -132,26 +132,26 @@ export class IssueDayPass {
       throw new BusinessRuleViolationError(
         `Cannot issue a day pass for a ${member.status} member`,
         'day_pass_member_status'
-      );
+      )
     }
 
     // Members still within their membership period don't need a day pass.
     // getDaysUntilDue > 0 means next_due_date is in the future; 0 (due today)
     // and negative (overdue/expired) are eligible.
-    const daysUntilDue = getDaysUntilDue(member.nextDueDate);
+    const daysUntilDue = getDaysUntilDue(member.nextDueDate)
     if (daysUntilDue > 0) {
       throw new BusinessRuleViolationError(
         `Member is active until ${formatDateForDisplay(member.nextDueDate)} — no day pass needed`,
         'day_pass_membership_active'
-      );
+      )
     }
 
-    const paymentDate = input.paymentDate ?? new Date();
+    const paymentDate = input.paymentDate ?? new Date()
 
     // Day pass expires the next day (same duration as the daily plan)
     const nextDueDate = calculateNextDueDate(paymentDate, PlanType.Daily, {
       deductOverduePeriod: true,
-    });
+    })
 
     // Record revenue as a day-pass payment
     const payment = Payment.create({
@@ -163,9 +163,9 @@ export class IssueDayPass {
       discountPercentage: null,
       nextDueDateCalculated: nextDueDate,
       paymentType: PaymentType.DayPass,
-    });
+    })
 
-    const savedPayment = await this.paymentRepo.create(payment);
+    const savedPayment = await this.paymentRepo.create(payment)
 
     // Move the member's access window to tomorrow WITHOUT touching plan_type.
     // Expired members transition back to active (state machine enforced);
@@ -173,22 +173,22 @@ export class IssueDayPass {
     const processedMember =
       member.status === MemberStatus.Active
         ? member.updateNextDueDate(nextDueDate)
-        : member.activate(nextDueDate);
+        : member.activate(nextDueDate)
 
-    const updatedMember = await this.memberRepo.update(processedMember);
+    const updatedMember = await this.memberRepo.update(processedMember)
 
     // Send receipt SMS before returning (serverless freeze would drop a
     // fire-and-forget sms_logs write). A failed SMS never fails the day pass.
     try {
-      await this.sendDayPassReceiptSMS(updatedMember, input.amount, nextDueDate);
+      await this.sendDayPassReceiptSMS(updatedMember, input.amount, nextDueDate)
     } catch (error) {
-      console.error('Failed to send day pass receipt SMS:', error);
+      console.error('Failed to send day pass receipt SMS:', error)
     }
 
     return {
       member: updatedMember,
       payment: savedPayment,
-    };
+    }
   }
 
   /**
@@ -205,13 +205,13 @@ export class IssueDayPass {
   ): Promise<void> {
     const message =
       `Dear ${member.name}, day pass payment of Rs.${amountPaid.toFixed(2)} received. ` +
-      `Valid until ${formatDateForDisplay(validUntil)}. Thank you!`;
+      `Valid until ${formatDateForDisplay(validUntil)}. Thank you!`
 
     try {
       const result = await this.smsProvider.send({
         to: member.phoneNumber,
         message,
-      });
+      })
 
       await this.smsRepo.create({
         memberId: member.id,
@@ -225,10 +225,10 @@ export class IssueDayPass {
           : SMSDeliveryStatus.Failed,
         textLkMessageId: result.success ? result.messageId || null : null,
         errorMessage: result.success ? null : result.error || 'Unknown error',
-      });
+      })
 
       if (!result.success) {
-        console.error('Day pass receipt SMS failed:', result.error);
+        console.error('Day pass receipt SMS failed:', result.error)
       }
     } catch (error) {
       try {
@@ -243,11 +243,11 @@ export class IssueDayPass {
           textLkMessageId: null,
           errorMessage:
             error instanceof Error ? error.message : 'Exception sending SMS',
-        });
+        })
       } catch (logError) {
-        console.error('Failed to log SMS failure:', logError);
+        console.error('Failed to log SMS failure:', logError)
       }
-      console.error('Exception sending day pass receipt SMS:', error);
+      console.error('Exception sending day pass receipt SMS:', error)
     }
   }
 }

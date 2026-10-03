@@ -15,12 +15,12 @@ export interface SMSMessage {
    * Recipient phone number (E.164 format with + prefix)
    * Example: +94771234567
    */
-  to: string;
+  to: string
 
   /**
    * Message body (max 160 characters for single SMS)
    */
-  message: string;
+  message: string
 }
 
 /**
@@ -30,24 +30,24 @@ export interface SMSSendResult {
   /**
    * Whether SMS was sent successfully
    */
-  success: boolean;
+  success: boolean
 
   /**
    * Provider's message ID (for tracking)
    * Only present if success is true
    */
-  messageId?: string;
+  messageId?: string
 
   /**
    * Error message if sending failed
    * Only present if success is false
    */
-  error?: string;
+  error?: string
 
   /**
    * Timestamp when SMS was sent
    */
-  sentAt?: Date;
+  sentAt?: Date
 }
 
 /**
@@ -83,7 +83,7 @@ export interface ISMSProvider {
    * @param message - SMS message to send
    * @returns Result of send operation
    */
-  send(message: SMSMessage): Promise<SMSSendResult>;
+  send(message: SMSMessage): Promise<SMSSendResult>
 
   /**
    * Send multiple SMS messages in batch
@@ -94,7 +94,7 @@ export interface ISMSProvider {
    * @param messages - Array of SMS messages to send
    * @returns Array of send results (same order as input)
    */
-  sendBatch(messages: SMSMessage[]): Promise<SMSSendResult[]>;
+  sendBatch(messages: SMSMessage[]): Promise<SMSSendResult[]>
 
   /**
    * Check if SMS sending is enabled
@@ -104,7 +104,7 @@ export interface ISMSProvider {
    *
    * @returns True if SMS sending is enabled
    */
-  isEnabled(): boolean;
+  isEnabled(): boolean
 
   /**
    * Get provider name
@@ -113,7 +113,7 @@ export interface ISMSProvider {
    *
    * @returns Provider name (e.g., 'Text.lk', 'Twilio', 'Mock')
    */
-  getProviderName(): string;
+  getProviderName(): string
 }
 
 /**
@@ -137,7 +137,7 @@ export interface ISMSTemplate {
     planType: string,
     nextDueDate: Date,
     amountPaid: number
-  ): string;
+  ): string
 
   /**
    * Generate payment receipt SMS message
@@ -151,7 +151,7 @@ export interface ISMSTemplate {
     memberName: string,
     amountPaid: number,
     nextDueDate: Date
-  ): string;
+  ): string
 
   /**
    * Generate payment reminder SMS message
@@ -167,7 +167,7 @@ export interface ISMSTemplate {
     daysUntilDue: number,
     dueDate: Date,
     amount: number
-  ): string;
+  ): string
 
   /**
    * Generate overdue SMS message
@@ -183,5 +183,5 @@ export interface ISMSTemplate {
     daysOverdue: number,
     dueDate: Date,
     amount: number
-  ): string;
+  ): string
 }
