@@ -13,6 +13,7 @@ import {
 import type { IMemberRepository } from '@/features/members/services/IMemberRepository'
 import type { ISMSRepository } from '@/features/sms/services/ISMSRepository'
 import type { ISMSProvider } from '@/features/sms/services/ISMSProvider'
+import type { IGymDirectory } from '@/features/sms/services/IGymDirectory'
 import type { Subscription } from '@/features/subscriptions/domain/Subscription'
 
 function makeMember(gymId: string, name: string): Member {
@@ -33,7 +34,11 @@ function makeMember(gymId: string, name: string): Member {
 }
 
 describe('SendAutomatedReminders — billing-status gate (reminders on every tier)', () => {
-  function build(members: Member[], subs: Record<string, Subscription>) {
+  function build(
+    members: Member[],
+    subs: Record<string, Subscription>,
+    gymNames: Record<string, string> = {}
+  ) {
     const memberRepo = {
       findAllActiveMembers: jest.fn().mockResolvedValue(members),
       findActiveMembers: jest.fn(async (gymId: string) =>
@@ -55,13 +60,28 @@ describe('SendAutomatedReminders — billing-status gate (reminders on every tie
       async (gymId: string) => subs[gymId] ?? null
     )
 
+    const gymDirectory: jest.Mocked<IGymDirectory> = {
+      findNamesByIds: jest.fn(
+        async (ids: string[]) =>
+          new Map(ids.map((id) => [id, gymNames[id] ?? `Gym ${id}`]))
+      ),
+    }
+
     const useCase = new SendAutomatedReminders(
       memberRepo,
       smsRepo,
       smsProvider,
-      subscriptionRepo
+      subscriptionRepo,
+      gymDirectory
     )
-    return { useCase, memberRepo, smsRepo, smsProvider, subscriptionRepo }
+    return {
+      useCase,
+      memberRepo,
+      smsRepo,
+      smsProvider,
+      subscriptionRepo,
+      gymDirectory,
+    }
   }
 
   it('sends for every tier — Lite, Pro and Enterprise members all get reminders', async () => {
@@ -191,6 +211,91 @@ describe('SendAutomatedReminders — billing-status gate (reminders on every tie
     await useCase.execute()
 
     expect(subscriptionRepo.findByGymId).toHaveBeenCalledTimes(2)
+  })
+
+  it("names each member's own gym, loading every gym name in one read per run", async () => {
+    const { useCase, smsProvider, smsRepo, gymDirectory } = build(
+      [
+        makeMember('gym-a', 'Member A'),
+        makeMember('gym-a', 'Member B'),
+        makeMember('gym-b', 'Member C'),
+      ],
+      {
+        'gym-a': makeSubscription({ gymId: 'gym-a' }),
+        'gym-b': makeSubscription({ gymId: 'gym-b' }),
+      },
+      { 'gym-a': 'Titan Fitness', 'gym-b': 'Atlas Fitness Center' }
+    )
+
+    await useCase.execute()
+
+    expect(gymDirectory.findNamesByIds).toHaveBeenCalledTimes(1)
+    expect(gymDirectory.findNamesByIds).toHaveBeenCalledWith(['gym-a', 'gym-b'])
+
+    const messages = smsProvider.send.mock.calls.map(([sms]) => sms.message)
+    expect(messages).toEqual([
+      expect.stringMatching(
+        /^Hi Member A, your monthly membership at Titan Fitness has expired/
+      ),
+      expect.stringMatching(
+        /^Hi Member B, your monthly membership at Titan Fitness has expired/
+      ),
+      expect.stringMatching(
+        /^Hi Member C, your monthly membership at Atlas Fitness Center has expired/
+      ),
+    ])
+    const logged = (smsRepo.create as jest.Mock).mock.calls.map(
+      ([log]) => log.messageBody
+    )
+    expect(logged).toEqual(messages)
+  })
+
+  it('asks only for the gyms that may receive reminders', async () => {
+    const { useCase, gymDirectory } = build(
+      [makeMember('gym-ok', 'Member A'), makeMember('gym-s', 'Member B')],
+      {
+        'gym-ok': makeSubscription({ gymId: 'gym-ok' }),
+        'gym-s': makeSubscription({
+          gymId: 'gym-s',
+          status: SaasStatus.Suspended,
+        }),
+      }
+    )
+
+    await useCase.execute()
+
+    expect(gymDirectory.findNamesByIds).toHaveBeenCalledWith(['gym-ok'])
+  })
+
+  it('reads no names when no gym may receive reminders', async () => {
+    const { useCase, gymDirectory } = build([makeMember('gym-s', 'Member B')], {
+      'gym-s': makeSubscription({
+        gymId: 'gym-s',
+        status: SaasStatus.Suspended,
+      }),
+    })
+
+    await useCase.execute()
+
+    expect(gymDirectory.findNamesByIds).not.toHaveBeenCalled()
+  })
+
+  it('sends nothing to a member whose gym name did not resolve, and reports it', async () => {
+    const { useCase, smsProvider, gymDirectory } = build(
+      [makeMember('gym-a', 'Member A')],
+      {
+        'gym-a': makeSubscription({ gymId: 'gym-a' }),
+      }
+    )
+    gymDirectory.findNamesByIds.mockResolvedValue(new Map())
+
+    const summary = await useCase.execute()
+
+    expect(smsProvider.send).not.toHaveBeenCalled()
+    expect(summary.totalSent).toBe(0)
+    expect(summary.errors).toEqual([
+      expect.stringContaining('Member A: gym name not found'),
+    ])
   })
 
   it('fails closed: a gym with no resolvable subscription row is treated as restricted', async () => {

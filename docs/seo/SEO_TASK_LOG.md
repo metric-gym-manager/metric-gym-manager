@@ -7,14 +7,14 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-03T05:39:31Z |
+| Last task update | 2026-10-03T17:25:40Z |
 | Total tasks | 64 |
 | P0 remaining (not verified/rejected) | 2 |
 | P1 remaining (not verified/rejected) | 4 |
-| Implemented (awaiting verification) | 2 |
+| Implemented (awaiting verification) | 3 |
 | Verified | 43 |
 | In progress | 0 |
-| Open (discovered/planned) | 6 |
+| Open (discovered/planned) | 5 |
 | Blocked | 9 |
 | Rejected | 4 |
 | External action required | 15 |
@@ -26,7 +26,7 @@
 | P0 | 0 | 0 | 0 | 0 | 9 | 2 | 0 |
 | P1 | 0 | 0 | 0 | 2 | 19 | 2 | 0 |
 | P2 | 0 | 0 | 0 | 0 | 13 | 3 | 0 |
-| P3 | 6 | 0 | 0 | 0 | 2 | 2 | 4 |
+| P3 | 5 | 0 | 0 | 1 | 2 | 2 | 4 |
 
 ## All tasks
 
@@ -93,7 +93,7 @@
 | [SEO-047](#seo-047) | P3 | discovered | content | Sinhala and Tamil content | yes |
 | [SEO-051](#seo-051) | P3 | discovered | on-page | Decorative dashboard preview on the homepage fails colour contrast | no |
 | [SEO-052](#seo-052) | P3 | discovered | trust | Weekly members get their '7 days before' reminder on the day they pay | yes |
-| [SEO-053](#seo-053) | P3 | discovered | trust | Automated reminders and receipts do not name the gym | yes |
+| [SEO-053](#seo-053) | P3 | implemented | trust | Automated reminders and receipts do not name the gym | yes |
 | [SEO-058](#seo-058) | P3 | verified | internal-linking | Seven related-page cards linked the hub with the same exact-match anchor | no |
 | [SEO-060](#seo-060) | P3 | discovered | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | no |
 
@@ -113,7 +113,7 @@
 - **SEO-041** (P3, blocked) — Founder and team information
 - **SEO-047** (P3, discovered) — Sinhala and Tamil content
 - **SEO-052** (P3, discovered) — Weekly members get their '7 days before' reminder on the day they pay
-- **SEO-053** (P3, discovered) — Automated reminders and receipts do not name the gym
+- **SEO-053** (P3, implemented) — Automated reminders and receipts do not name the gym
 
 ## Task detail
 
@@ -3051,12 +3051,12 @@ Product decision: drop the 7-day reminder for weekly plans (as monthly already d
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | discovered |
+| Status | implemented |
 | Category | trust |
 | Intent | none |
 | External action | required |
 | Created | 2026-10-01T18:24:04Z |
-| Updated | 2026-10-01T18:24:04Z |
+| Updated | 2026-10-03T17:25:40Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -3066,27 +3066,46 @@ Product decision: drop the 7-day reminder for weekly plans (as monthly already d
 
 **Finding**
 
-The sender ID is platform-wide (TEXT_LK_SENDER_ID) and the automated reminder and receipt texts omit the gym's name (the manual-send templates include it), so a member may not know which gym is texting. The public pages quote the real texts and make no 'names your gym' claim.
+The sender ID is platform-wide (TEXT_LK_SENDER_ID) and the automated reminder and receipt texts omitted the gym's name (the manual-send templates included it), so a member might not know which gym was texting. The public pages quoted the real texts, and the register-book guide said the welcome text does not name the gym.
 
 **Evidence**
 
 - SendAutomatedReminders.generateReminderMessage and CollectPayment.generateReceiptMessage have no gymName; sms.service formatSMSMessage does
+- RegisterMember.generateWelcomeMessage said "Welcome to our gym"; IssueDayPass built its own text, also without the gym
 
 **Recommended change**
 
-Product decision: include the gym name in automated reminder and receipt texts.
+Owner decision, 2026-10-03: every automated SMS names the gym, in warmer, purpose-specific wording (welcome enthusiastic, reminders friendly, receipts appreciative).
 
 **Implementation**
 
-—
+One pure template module, src/features/sms/config/SmsTemplates.ts, builds the welcome, welcome-back, receipt, four reminder and day-pass texts; every sender calls it (RegisterMember, CollectPayment, IssueDayPass, SendAutomatedReminders and the manual sms.service send). The routes pass gymProfile.gym_name; the QR route reads it with the admission fee (getGymRegistrationDetails); the reminders cron reads every gym's name once per run (IGymDirectory). Texts are GSM-7, the gym name is capped at 30 characters, and segment budgets are pinned (welcome 2; everything else 1 at typical values, at most 2 in the long tail). The public SMS samples on /features/sms-reminders, /resources/membership-renewal-reminders and /resources/move-gym-members-from-register-book render from the same templates (features/marketing/config/sms-samples.ts), with "Your Gym" as the example name.
 
 **Files**
 
-- —
+- `src/features/sms/config/SmsTemplates.ts`
+- `src/features/sms/services/IGymDirectory.ts`
+- `src/features/sms/services/SupabaseGymDirectory.ts`
+- `src/features/sms/services/SendAutomatedReminders.ts`
+- `src/features/sms/services/sms.service.ts`
+- `src/features/members/services/RegisterMember.ts`
+- `src/features/payments/services/CollectPayment.ts`
+- `src/features/payments/services/IssueDayPass.ts`
+- `src/features/registration/services/registration-link.service.ts`
+- `src/features/marketing/config/sms-samples.ts`
+- `src/app/(marketing)/features/sms-reminders/page.tsx`
+- `src/app/(marketing)/resources/membership-renewal-reminders/page.tsx`
+- `src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx`
+- `src/features/sms/tests/SmsTemplates.test.ts`
+- `src/features/members/tests/RegisterMember.test.ts`
+- `src/app/(marketing)/__tests__/MarketingPages.test.tsx`
 
 **Verification**
 
-- Not yet verified
+- SmsTemplates.test.ts: every template names the gym and the member, is GSM-7 and fits its segment budget for a 30-character gym name; dropping the gym from one template and adding an em dash to another each fail it
+- Use-case suites assert the gym name reaches the sent and logged text; the reminders suite asserts one name read per run across two gyms (a per-member read fails it)
+- MarketingPages.test.tsx: the three pages quote the template output verbatim (a hard-coded literal fails it) and no page says the text does not name the gym
+- Not yet verified in production: after deploy, the next registration's sms_logs welcome row names the gym, and the owner reads the new texts on a real phone (HANDOFF.md section 6)
 
 ### SEO-058
 

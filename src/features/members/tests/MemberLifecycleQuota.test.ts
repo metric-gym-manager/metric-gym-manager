@@ -179,6 +179,7 @@ describe('CollectPayment — quota block records nothing', () => {
     await expect(
       useCase.execute({
         gymId: GYM_ID,
+        gymName: 'Titan Fitness',
         memberId: expired.id,
         paymentDate: new Date(),
         paymentAmount: 2000,
@@ -220,6 +221,7 @@ describe('CollectPayment — quota block records nothing', () => {
       smsRepo
     ).execute({
       gymId: GYM_ID,
+      gymName: 'Titan Fitness',
       memberId: expired.id,
       paymentDate: new Date(),
       paymentAmount: 2000,

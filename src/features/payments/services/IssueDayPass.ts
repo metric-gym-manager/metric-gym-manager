@@ -29,6 +29,7 @@ import { ISMSRepository } from '@/features/sms/services/ISMSRepository'
 import { ISMSProvider } from '@/features/sms/services/ISMSProvider'
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository'
 import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
+import { dayPassSms } from '@/features/sms/config/SmsTemplates'
 import { formatDateForDisplay } from '@/utils/date/date'
 import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue'
 import { PlanType } from '@/features/members/config/PlanConfig'
@@ -47,6 +48,12 @@ export interface IssueDayPassInput {
    * Gym ID (for multi-tenancy)
    */
   gymId: string
+
+  /**
+   * The gym's name (`gyms.gym_name`), printed in the receipt SMS. Every
+   * automated text names the gym; the sender ID is platform-wide.
+   */
+  gymName: string
 
   /**
    * Member ID
@@ -92,6 +99,7 @@ export interface IssueDayPassOutput {
  *
  * const result = await issueDayPass.execute({
  *   gymId: 'gym-123',
+ *   gymName: 'Titan Fitness',
  *   memberId: 'member-456',
  *   amount: 500,
  * });
@@ -180,7 +188,12 @@ export class IssueDayPass {
     // Send receipt SMS before returning (serverless freeze would drop a
     // fire-and-forget sms_logs write). A failed SMS never fails the day pass.
     try {
-      await this.sendDayPassReceiptSMS(updatedMember, input.amount, nextDueDate)
+      await this.sendDayPassReceiptSMS(
+        updatedMember,
+        input.gymName,
+        input.amount,
+        nextDueDate
+      )
     } catch (error) {
       console.error('Failed to send day pass receipt SMS:', error)
     }
@@ -195,17 +208,22 @@ export class IssueDayPass {
    * Send day pass receipt SMS to member and log it
    *
    * @param member - Member who bought the day pass
+   * @param gymName - The gym's name, printed in the text
    * @param amountPaid - Day pass fee
    * @param validUntil - Day pass expiry date
    */
   private async sendDayPassReceiptSMS(
     member: Member,
+    gymName: string,
     amountPaid: number,
     validUntil: Date
   ): Promise<void> {
-    const message =
-      `Dear ${member.name}, day pass payment of Rs.${amountPaid.toFixed(2)} received. ` +
-      `Valid until ${formatDateForDisplay(validUntil)}. Thank you!`
+    const message = dayPassSms({
+      gymName,
+      memberName: member.name,
+      amountPaid,
+      validUntil,
+    })
 
     try {
       const result = await this.smsProvider.send({

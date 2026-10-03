@@ -76,6 +76,7 @@ describe('IssueDayPass', () => {
 
   const input = {
     gymId: 'gym-1',
+    gymName: 'Titan Fitness',
     memberId: 'member-1',
     amount: 500,
   }
@@ -160,6 +161,16 @@ describe('IssueDayPass', () => {
           deliveryStatus: SMSDeliveryStatus.Sent,
         })
       )
+    })
+
+    it('names the gym in the day pass text', async () => {
+      await buildUseCase().execute(input)
+
+      const { message } = smsProvider.send.mock.calls[0][0]
+      expect(message).toMatch(
+        /^Titan Fitness: thank you, Test Member! Day pass of Rs\.500 received, valid until /
+      )
+      expect(smsRepo.create.mock.calls[0][0].messageBody).toBe(message)
     })
   })
 

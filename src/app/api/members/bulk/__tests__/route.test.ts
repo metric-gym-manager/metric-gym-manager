@@ -6,7 +6,9 @@ import { NextRequest } from 'next/server'
 const execute = jest.fn()
 
 jest.mock('@/lib/middleware/auth', () => ({
-  getCurrentGymProfile: jest.fn(() => Promise.resolve({ id: 'gym-1' })),
+  getCurrentGymProfile: jest.fn(() =>
+    Promise.resolve({ id: 'gym-1', gym_name: 'Titan Fitness' })
+  ),
 }))
 jest.mock('@/lib/supabase/admin', () => ({ createAdminClient: jest.fn() }))
 jest.mock('@/features/members', () => ({
@@ -58,6 +60,8 @@ describe('POST /api/members/bulk', () => {
       expect(input.acceptedTermsAt).toBeInstanceOf(Date)
       expect(input.acceptedGymRulesAt).toBeInstanceOf(Date)
       expect(input.gymId).toBe('gym-1')
+      // Every member's welcome SMS names the gym.
+      expect(input.gymName).toBe('Titan Fitness')
     }
   })
 

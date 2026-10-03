@@ -19,7 +19,6 @@ export {
 // Ports (interfaces) owned by this feature
 export type {
   ISMSProvider,
-  ISMSTemplate,
   SMSMessage,
   SMSSendResult,
 } from './services/ISMSProvider'
@@ -34,6 +33,24 @@ export {
 
 // Providers
 export { TextLkSMSProvider, MockSMSProvider } from './services/providers'
+
+// SMS wording — the one source for every automated text. Pure: client and
+// marketing code deep-imports './config/SmsTemplates' (this barrel is
+// server-tainted).
+export {
+  welcomeSms,
+  welcomeBackSms,
+  receiptSms,
+  reminderSms,
+  dayPassSms,
+  smsGymName,
+  smsAmount,
+  isGsm7,
+  smsSegmentCount,
+  SMS_GYM_NAME_MAX,
+  SMS_DISCOUNT_NAME_MAX,
+} from './config/SmsTemplates'
+export type { IGymDirectory } from './services/IGymDirectory'
 
 // Reminder configuration (windows/types for automated reminders)
 export {
@@ -58,11 +75,7 @@ export {
 } from './services/reminder-queue.service'
 
 // Browser/server API-client services
-export {
-  sendSMS,
-  getReminderStatus,
-  formatReceiptSMS,
-} from './services/sms.service'
+export { sendSMS, getReminderStatus } from './services/sms.service'
 
 export { sendSmsViaTextLk, getTextLkBalance } from './services/textlk.service'
 

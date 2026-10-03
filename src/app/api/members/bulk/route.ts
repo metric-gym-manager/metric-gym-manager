@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
       validated.members.map(async (memberInput, index) => {
         const result = await registerMember.execute({
           gymId: gymProfile.id,
+          gymName: gymProfile.gym_name,
           name: memberInput.name,
           phoneNumber: memberInput.phoneNumber,
           planType: memberInput.planType as PlanType,

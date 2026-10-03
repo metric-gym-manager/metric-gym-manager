@@ -14,6 +14,14 @@ import {
   formatLkr,
   getMarketingPage,
 } from '@/features/marketing'
+import {
+  receiptSms,
+  reminderSms,
+  welcomeSms,
+} from '@/features/sms/config/SmsTemplates'
+import { ReminderType } from '@/features/sms/config/ReminderConfig'
+import { PlanType } from '@/features/members/config/PlanConfig'
+import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
 import MarketingLayout from '../layout'
 import HubPage, {
   metadata as hubMeta,
@@ -266,4 +274,64 @@ describe('the Excel and WhatsApp comparison', () => {
       expect(body).toContain(formatLkr(tier.monthlyPriceLkr))
     }
   })
+})
+
+/**
+ * The SMS samples on the public site are rendered from the same templates the
+ * product sends (rule 2.23), so a wording change cannot leave a page quoting a
+ * message no member receives. These expectations are computed from the
+ * templates, not copied: a page that hard-codes a literal fails here the
+ * moment the wording moves.
+ */
+describe('SMS samples on the public site', () => {
+  const party = { gymName: 'Your Gym', memberName: 'Nimal' }
+  const reminder = (type: ReminderType) =>
+    reminderSms(type, {
+      ...party,
+      planType: PlanType.Monthly,
+      amount: 4000,
+      dueDate: new Date(2026, 10, 15),
+    })
+  const receipt = receiptSms({
+    ...party,
+    amountPaid: 4000,
+    nextDueDate: new Date(2026, 11, 15),
+  })
+
+  it.each([
+    ['/features/sms-reminders', SmsPage],
+    ['/resources/membership-renewal-reminders', RemindersArticle],
+  ] as const)(
+    '%s quotes the reminders and the receipt verbatim',
+    (_path, Page) => {
+      const text = renderInShell(Page).container.textContent ?? ''
+      expect(text).toContain(reminder(ReminderType.SevenDay))
+      expect(text).toContain(reminder(ReminderType.DueToday))
+      expect(text).toContain(receipt)
+    }
+  )
+
+  it('the register-book guide quotes the welcome text verbatim', () => {
+    const text = renderInShell(MoveArticle).container.textContent ?? ''
+    expect(text).toContain(
+      welcomeSms({
+        ...party,
+        planType: PlanType.Monthly,
+        amountPaid: 4000,
+        nextDueDate: calculateNextDueDate(
+          new Date(2026, 8, 20),
+          PlanType.Monthly
+        ),
+      })
+    )
+  })
+
+  it.each(PAGES)(
+    '%s never says a text leaves the gym unnamed',
+    (_path, Page) => {
+      const text = renderInShell(Page).container.textContent ?? ''
+      expect(text).not.toMatch(/does not name your gym/i)
+      expect(text).not.toMatch(/welcome to our gym/i)
+    }
+  )
 })

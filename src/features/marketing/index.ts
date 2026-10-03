@@ -51,6 +51,13 @@ export {
   lowestMonthlyPriceLkr,
 } from './config/pricing'
 export {
+  SMS_SAMPLE,
+  SAMPLE_REMINDER_BEFORE_DUE,
+  SAMPLE_REMINDER_DUE_TODAY,
+  SAMPLE_RECEIPT,
+  sampleWelcomeSms,
+} from './config/sms-samples'
+export {
   HEADER_LINKS,
   FOOTER_GROUPS,
   SIGN_UP_PATH,

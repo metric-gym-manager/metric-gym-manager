@@ -1432,24 +1432,47 @@
     {
       "targetQueries": [],
       "evidence": [
-        "SendAutomatedReminders.generateReminderMessage and CollectPayment.generateReceiptMessage have no gymName; sms.service formatSMSMessage does"
+        "SendAutomatedReminders.generateReminderMessage and CollectPayment.generateReceiptMessage have no gymName; sms.service formatSMSMessage does",
+        "RegisterMember.generateWelcomeMessage said \"Welcome to our gym\"; IssueDayPass built its own text, also without the gym"
       ],
-      "recommendedChange": "Product decision: include the gym name in automated reminder and receipt texts.",
-      "implementation": "",
-      "files": [],
-      "verification": [],
+      "recommendedChange": "Owner decision, 2026-10-03: every automated SMS names the gym, in warmer, purpose-specific wording (welcome enthusiastic, reminders friendly, receipts appreciative).",
+      "implementation": "One pure template module, src/features/sms/config/SmsTemplates.ts, builds the welcome, welcome-back, receipt, four reminder and day-pass texts; every sender calls it (RegisterMember, CollectPayment, IssueDayPass, SendAutomatedReminders and the manual sms.service send). The routes pass gymProfile.gym_name; the QR route reads it with the admission fee (getGymRegistrationDetails); the reminders cron reads every gym's name once per run (IGymDirectory). Texts are GSM-7, the gym name is capped at 30 characters, and segment budgets are pinned (welcome 2; everything else 1 at typical values, at most 2 in the long tail). The public SMS samples on /features/sms-reminders, /resources/membership-renewal-reminders and /resources/move-gym-members-from-register-book render from the same templates (features/marketing/config/sms-samples.ts), with \"Your Gym\" as the example name.",
+      "files": [
+        "src/features/sms/config/SmsTemplates.ts",
+        "src/features/sms/services/IGymDirectory.ts",
+        "src/features/sms/services/SupabaseGymDirectory.ts",
+        "src/features/sms/services/SendAutomatedReminders.ts",
+        "src/features/sms/services/sms.service.ts",
+        "src/features/members/services/RegisterMember.ts",
+        "src/features/payments/services/CollectPayment.ts",
+        "src/features/payments/services/IssueDayPass.ts",
+        "src/features/registration/services/registration-link.service.ts",
+        "src/features/marketing/config/sms-samples.ts",
+        "src/app/(marketing)/features/sms-reminders/page.tsx",
+        "src/app/(marketing)/resources/membership-renewal-reminders/page.tsx",
+        "src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx",
+        "src/features/sms/tests/SmsTemplates.test.ts",
+        "src/features/members/tests/RegisterMember.test.ts",
+        "src/app/(marketing)/__tests__/MarketingPages.test.tsx"
+      ],
+      "verification": [
+        "SmsTemplates.test.ts: every template names the gym and the member, is GSM-7 and fits its segment budget for a 30-character gym name; dropping the gym from one template and adding an em dash to another each fail it",
+        "Use-case suites assert the gym name reaches the sent and logged text; the reminders suite asserts one name read per run across two gyms (a per-member read fails it)",
+        "MarketingPages.test.tsx: the three pages quote the template output verbatim (a hard-coded literal fails it) and no page says the text does not name the gym",
+        "Not yet verified in production: after deploy, the next registration's sms_logs welcome row names the gym, and the owner reads the new texts on a real phone (HANDOFF.md section 6)"
+      ],
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-01T18:24:04Z",
-      "updatedAt": "2026-10-01T18:24:04Z",
+      "updatedAt": "2026-10-03T17:25:40Z",
       "completedAt": null,
       "id": "SEO-053",
       "title": "Automated reminders and receipts do not name the gym",
       "category": "trust",
       "priority": "P3",
-      "status": "discovered",
+      "status": "implemented",
       "intent": "none",
-      "finding": "The sender ID is platform-wide (TEXT_LK_SENDER_ID) and the automated reminder and receipt texts omit the gym's name (the manual-send templates include it), so a member may not know which gym is texting. The public pages quote the real texts and make no 'names your gym' claim."
+      "finding": "The sender ID is platform-wide (TEXT_LK_SENDER_ID) and the automated reminder and receipt texts omitted the gym's name (the manual-send templates included it), so a member might not know which gym was texting. The public pages quoted the real texts, and the register-book guide said the welcome text does not name the gym."
     },
     {
       "targetQueries": [],

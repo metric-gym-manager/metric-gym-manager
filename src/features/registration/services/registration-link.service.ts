@@ -176,6 +176,50 @@ export async function getGymAdmissionFee(gymId: string): Promise<number> {
   return Number(data.admission_fee) || 0
 }
 
+/** The gym facts public registration needs, resolved server-side. */
+export interface GymRegistrationDetails {
+  /** `gyms.gym_name` — the welcome SMS names the gym. */
+  gymName: string
+  /** The fee to add to the first payment (0 when disabled). */
+  admissionFee: number
+}
+
+/**
+ * Name and admission fee of the gym a registration token resolved to, in one
+ * read. Like the plan amount, both come from the gym row, never from client
+ * input. Admin client — the public join flow has no session.
+ *
+ * Unlike {@link getGymAdmissionFee}, a failed read throws: registering a
+ * member without the fee they owe, or without a welcome text that names the
+ * gym, is worse than asking them to try again.
+ *
+ * @param gymId - Gym id from {@link resolveRegistrationToken}
+ * @returns The details, or null when no such gym exists
+ * @throws Error when the read fails
+ */
+export async function getGymRegistrationDetails(
+  gymId: string
+): Promise<GymRegistrationDetails | null> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('gyms')
+    .select('gym_name, admission_fee, admission_fee_enabled')
+    .eq('id', gymId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`Failed to load gym for registration: ${error.message}`)
+  }
+  if (!data) return null
+
+  return {
+    gymName: data.gym_name as string,
+    admissionFee: data.admission_fee_enabled
+      ? Number(data.admission_fee) || 0
+      : 0,
+  }
+}
+
 // ============================================================
 // SaaS-operator QR dashboard (extracted verbatim from api/admin/qr-codes)
 // ============================================================

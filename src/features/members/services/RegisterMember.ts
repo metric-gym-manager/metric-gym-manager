@@ -10,7 +10,8 @@
  * 2. Next due date calculation
  * 3. Member creation
  * 4. Initial payment recording
- * 5. Welcome SMS sending
+ * 5. Welcome SMS sending and logging (awaited, so a serverless freeze after
+ *    the response cannot drop the send or its sms_logs row)
  */
 
 import { Member } from '@/features/members/domain/Member'
@@ -29,7 +30,7 @@ import { calculateNextDueDate } from '../utils/calculateNextDueDate'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { RegistrationSource } from '@/features/members/config/RegistrationConfig'
-import { formatDateForDisplay } from '@/utils/date/date'
+import { welcomeSms } from '@/features/sms/config/SmsTemplates'
 import { ConflictError } from '@/utils/errors'
 
 /**
@@ -40,6 +41,14 @@ export interface RegisterMemberInput {
    * Gym ID (for multi-tenancy)
    */
   gymId: string
+
+  /**
+   * The gym's name (`gyms.gym_name`), printed in the welcome SMS. Every
+   * automated text names the gym, because the sender ID is platform-wide.
+   * Routes already hold it: the desk and bulk routes from the gym profile,
+   * the QR route from the gym its token resolves to.
+   */
+  gymName: string
 
   /**
    * Member name
@@ -151,6 +160,7 @@ export interface RegisterMemberOutput {
  *
  * const result = await registerMember.execute({
  *   gymId: 'gym-123',
+ *   gymName: 'Titan Fitness',
  *   name: 'John Doe',
  *   phoneNumber: '0771234567',
  *   planType: PlanType.Monthly,
@@ -238,12 +248,17 @@ export class RegisterMember {
 
     const savedPayment = await this.paymentRepo.create(payment)
 
-    // 7. Send welcome SMS (fire-and-forget)
-    // We don't await this to avoid blocking the response
-    this.sendWelcomeSMS(savedMember, input.paymentAmount).catch((error) => {
+    // 7. Send the welcome SMS and log it BEFORE returning.
+    // On serverless runtimes the function can be frozen as soon as the
+    // response is sent. This send used to be fire-and-forget, and about a
+    // third of registrations never logged it (rule 2.7). sendWelcomeSMS
+    // handles provider failures internally, so a failed SMS never fails the
+    // registration. Same pattern as CollectPayment.
+    try {
+      await this.sendWelcomeSMS(savedMember, input.gymName, input.paymentAmount)
+    } catch (error) {
       console.error('Failed to send welcome SMS:', error)
-      // TODO: Log to monitoring service
-    })
+    }
 
     return {
       member: savedMember,
@@ -255,13 +270,21 @@ export class RegisterMember {
    * Send welcome SMS to new member
    *
    * @param member - Registered member
+   * @param gymName - The gym's name, printed in the text
    * @param amountPaid - Initial payment amount
    */
   private async sendWelcomeSMS(
     member: Member,
+    gymName: string,
     amountPaid: number
   ): Promise<void> {
-    const message = this.generateWelcomeMessage(member, amountPaid)
+    const message = welcomeSms({
+      gymName,
+      memberName: member.name,
+      planType: member.planType,
+      amountPaid,
+      nextDueDate: member.nextDueDate,
+    })
 
     try {
       // Send SMS
@@ -319,27 +342,6 @@ export class RegisterMember {
       console.error('Exception sending welcome SMS:', error)
       // Don't throw - this is a non-critical operation
     }
-  }
-
-  /**
-   * Generate welcome SMS message
-   *
-   * @param member - Registered member
-   * @param amountPaid - Initial payment amount
-   * @returns SMS message body
-   */
-  private generateWelcomeMessage(member: Member, amountPaid: number): string {
-    const planTypeLabel = member.planType.replace('-', ' ')
-    const nextDueFormatted = formatDateForDisplay(member.nextDueDate)
-    const amountFormatted = `Rs.${amountPaid.toFixed(2)}`
-
-    return (
-      `Welcome to our gym, ${member.name}! ` +
-      `Your ${planTypeLabel} membership is active. ` +
-      `Amount paid: ${amountFormatted}. ` +
-      `Next due: ${nextDueFormatted}. ` +
-      `Thank you!`
-    )
   }
 
   /**

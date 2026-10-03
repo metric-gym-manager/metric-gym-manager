@@ -27,6 +27,33 @@
 updateDeliveryStatus` returns rows-affected precisely so that a no-op cannot
 > be mistaken for a write. See `docs/architecture/sms-delivery-tracking.md`.
 
+> **Updated 2026-10-03.** Two more changes on the send side.
+>
+> **1. Registration now awaits the welcome SMS.** `RegisterMember` sent it
+> fire-and-forget (`this.sendWelcomeSMS(...).catch(...)`). On Vercel the
+> function can be frozen once the response is sent, and about a third of
+> registrations had no `welcome` row in `sms_logs`. The desk, bulk and QR
+> routes all run this use case. It now follows `CollectPayment`:
+> `try { await this.sendWelcomeSMS(...) } catch { console.error }`, so the
+> send and its log row complete before `execute()` returns, and a failed SMS
+> still never fails the registration.
+>
+> With that change, every automated send path awaits its send and its log
+> write: welcome, receipt, welcome back, day pass and the four reminders.
+> `RegisterMember.test.ts` pins the welcome path. Its provider resolves on a
+> `setTimeout` tick, so an un-awaited send fails the suite. Past
+> registrations were **not** backfilled: whether those texts went out is
+> unknown, and a row written now would invent a record.
+>
+> **2. Every automated text comes from one template module**,
+> `src/features/sms/config/SmsTemplates.ts`, and names the gym (SEO-053). The
+> sender ID is platform-wide, so the text is the only place a member learns
+> which gym is writing. Do not build message strings in a use case.
+> `messageBody` in the log is exactly the text the provider was given.
+>
+> Known gap: the text.lk provider has no request timeout. A hung gateway now
+> holds a registration, as it already held a payment.
+
 ---
 
 ### 2.7 SMS Error Logging Pattern

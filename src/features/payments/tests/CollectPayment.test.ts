@@ -71,6 +71,7 @@ describe('CollectPayment', () => {
 
   const input = {
     gymId: 'gym-1',
+    gymName: 'Titan Fitness',
     memberId: 'member-1',
     paymentDate: daysFromToday(0),
     paymentAmount: 3500,
@@ -140,6 +141,30 @@ describe('CollectPayment', () => {
     )
   })
 
+  it('names the gym in the receipt text', async () => {
+    await buildUseCase().execute(input)
+
+    const { message } = smsProvider.send.mock.calls[0][0]
+    expect(message).toMatch(/^Titan Fitness: thank you, Test Member! /)
+    expect(message).toContain('Payment of Rs.3,500 received.')
+    expect(smsRepo.create.mock.calls[0][0].messageBody).toBe(message)
+  })
+
+  it('names the discount on the receipt when one applied', async () => {
+    await buildUseCase().execute({
+      ...input,
+      discount: {
+        discountId: 'disc-1',
+        discountName: 'Student',
+        discountPercentage: 10,
+      },
+    })
+
+    const { message } = smsProvider.send.mock.calls[0][0]
+    expect(message).toContain('received (Student 10% off).')
+    expect(message).toMatch(/^Titan Fitness: /)
+  })
+
   it('logs a failed receipt SMS when the provider reports failure', async () => {
     smsProvider.send.mockImplementation(
       () =>
@@ -206,7 +231,7 @@ describe('CollectPayment', () => {
         expect.objectContaining({ smsType: 'reactivation' })
       )
       const message = smsProvider.send.mock.calls[0][0].message as string
-      expect(message).toContain('reactivated')
+      expect(message).toMatch(/^Welcome back to Titan Fitness, Test Member! /)
     })
 
     it('sends the reactivation SMS when reactivating a suspended member', async () => {

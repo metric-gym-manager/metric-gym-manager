@@ -31,7 +31,7 @@ import {
   type SMSType,
 } from '@/features/sms/services/ISMSRepository'
 import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
-import { formatDateForDisplay } from '@/utils/date/date'
+import { receiptSms, welcomeBackSms } from '@/features/sms/config/SmsTemplates'
 import { NotFoundError, ValidationError } from '@/utils/errors'
 
 /**
@@ -62,6 +62,12 @@ export interface CollectPaymentInput {
    * Gym ID (for multi-tenancy)
    */
   gymId: string
+
+  /**
+   * The gym's name (`gyms.gym_name`), printed in the receipt or welcome-back
+   * SMS. Every automated text names the gym; the sender ID is platform-wide.
+   */
+  gymName: string
 
   /**
    * Member ID
@@ -147,6 +153,7 @@ export interface CollectPaymentOutput {
  *
  * const result = await collectPayment.execute({
  *   gymId: 'gym-123',
+ *   gymName: 'Titan Fitness',
  *   memberId: 'member-456',
  *   paymentDate: new Date(),
  *   paymentAmount: 2000,
@@ -268,6 +275,7 @@ export class CollectPayment {
     try {
       await this.sendPaymentSMS(
         updatedMember,
+        input.gymName,
         input.paymentAmount,
         nextDueDate,
         input.discount,
@@ -291,6 +299,7 @@ export class CollectPayment {
    * - otherwise: standard payment receipt
    *
    * @param member - Member who made payment
+   * @param gymName - The gym's name, printed in the text
    * @param amountPaid - Payment amount
    * @param nextDueDate - Next due date
    * @param discount - Discount information (optional)
@@ -298,6 +307,7 @@ export class CollectPayment {
    */
   private async sendPaymentSMS(
     member: Member,
+    gymName: string,
     amountPaid: number,
     nextDueDate: Date,
     discount: DiscountInfo | null | undefined,
@@ -305,8 +315,25 @@ export class CollectPayment {
   ): Promise<void> {
     const smsType: SMSType = isReactivation ? 'reactivation' : 'receipt'
     const message = isReactivation
-      ? this.generateReactivationMessage(member, amountPaid, nextDueDate)
-      : this.generateReceiptMessage(member, amountPaid, nextDueDate, discount)
+      ? welcomeBackSms({
+          gymName,
+          memberName: member.name,
+          amountPaid,
+          nextDueDate,
+        })
+      : receiptSms({
+          gymName,
+          memberName: member.name,
+          amountPaid,
+          nextDueDate,
+          discount:
+            discount?.discountName && discount.discountPercentage
+              ? {
+                  name: discount.discountName,
+                  percentage: discount.discountPercentage,
+                }
+              : null,
+        })
 
     try {
       // Send SMS
@@ -364,64 +391,5 @@ export class CollectPayment {
       console.error('Exception sending payment SMS:', error)
       // Don't throw - this is a non-critical operation
     }
-  }
-
-  /**
-   * Generate reactivation SMS message.
-   *
-   * Sent when a suspended or cancelled member is brought back to active status
-   * through a fresh payment.
-   *
-   * @param member - Member who was reactivated
-   * @param amountPaid - Payment amount
-   * @param nextDueDate - Next due date
-   * @returns SMS message body
-   */
-  private generateReactivationMessage(
-    member: Member,
-    amountPaid: number,
-    nextDueDate: Date
-  ): string {
-    const amountFormatted = `Rs.${amountPaid.toFixed(2)}`
-    const dueDateFormatted = formatDateForDisplay(nextDueDate)
-
-    return (
-      `Welcome back, ${member.name}! Your membership has been reactivated ` +
-      `(payment of ${amountFormatted} received). ` +
-      `Next due date: ${dueDateFormatted}. Thank you!`
-    )
-  }
-
-  /**
-   * Generate receipt SMS message
-   *
-   * @param member - Member who made payment
-   * @param amountPaid - Payment amount
-   * @param nextDueDate - Next due date
-   * @param discount - Discount information (optional)
-   * @returns SMS message body
-   */
-  private generateReceiptMessage(
-    member: Member,
-    amountPaid: number,
-    nextDueDate: Date,
-    discount?: DiscountInfo | null
-  ): string {
-    const amountFormatted = `Rs.${amountPaid.toFixed(2)}`
-    const dueDateFormatted = formatDateForDisplay(nextDueDate)
-
-    // Include discount in message if applied
-    if (discount?.discountName && discount?.discountPercentage) {
-      return (
-        `Dear ${member.name}, payment of ${amountFormatted} received ` +
-        `(Discount: ${discount.discountName} ${discount.discountPercentage}% applied). ` +
-        `Next due date: ${dueDateFormatted}. Thank you!`
-      )
-    }
-
-    return (
-      `Dear ${member.name}, payment of ${amountFormatted} received. ` +
-      `Next due date: ${dueDateFormatted}. Thank you!`
-    )
   }
 }

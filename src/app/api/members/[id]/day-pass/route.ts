@@ -53,6 +53,7 @@ export async function POST(
 
     const result = await issueDayPass.execute({
       gymId: gymProfile.id,
+      gymName: gymProfile.gym_name,
       memberId: id,
       amount: validated.amount,
       paymentDate: validated.paymentDate

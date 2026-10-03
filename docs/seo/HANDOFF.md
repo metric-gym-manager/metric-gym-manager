@@ -21,6 +21,8 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
 
   SEO-055 and SEO-059 are now `verified`. Bulk import still needs the owner's production check (§6).
 
+- **SMS overhaul (2026-10-03, branch `claude/sms-templates`).** Every automated text now names the gym (SEO-053), in warmer wording the owner approved, from one template module (`src/features/sms/config/SmsTemplates.ts`). The public SMS samples render from the same templates. Registration now awaits the welcome SMS: it was fire-and-forget, and about a third of registrations never logged one (both bulk test members included). Bulk import is confirmed in production. The new owner checks are in §6.
+
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
@@ -161,7 +163,7 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 **Product and design decisions** (recorded, not changed)
 
 - [ ] **SEO-052:** weekly members get their "7 days before" reminder on the day they pay.
-- [ ] **SEO-053:** automated reminders and receipts do not name the gym.
+- [x] **SEO-053:** automated reminders and receipts do not name the gym. **Decided 2026-10-03:** every automated SMS names the gym, with warmer, purpose-specific wording. Implemented on `claude/sms-templates`; the after-deploy checks are under **SMS overhaul** below.
 - [ ] **SEO-043:** the Inter font loads on pages that render Geist (measure first).
 - [ ] **SEO-051:** contrast of the decorative dashboard preview on the homepage.
 - [ ] **SEO-060:** public pages still load the signed-in app's providers (Supabase client, react-query, service-worker registration, AuthRecovery); rules 2.15 and 2.19 apply.
@@ -171,8 +173,15 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 
 **Branch**
 
-- [ ] **Confirm bulk import in production.** PR #83 carries the fix, and before it production refused every bulk import from 2026-07-25 ("Invalid input data"). Once the production deploy has finished, register a small batch in a gym that has plans set up in Membership Setup. Tick both consents, then confirm that the members appear and that no row reports "Invalid input data".
+- [x] **Confirm bulk import in production.** PR #83 carries the fix, and before it production refused every bulk import from 2026-07-25 ("Invalid input data"). **Verified 2026-10-03** (read-only SQL). "Test bulk 1" and "Test bulk 2" were registered in Titan Fitness at 10:57:57 UTC, each with both consent times recorded and one payment of 800. Both members' `reconcile_member` reader jobs succeeded on the 11:00 drain, at the first attempt.
 - [x] **Push and merge.** Pushed and merged into `master` through PR #83 on 2026-10-03.
+
+**SMS overhaul (`claude/sms-templates`)**
+
+- [ ] **Test members in Titan Fitness.** Remove or keep "Test bulk 1" and "Test bulk 2". Together they carry 1,600 in revenue, and both are on the door readers. Their welcome texts were never logged, and none will be backfilled: whether those texts went out is unknown.
+- [ ] **Welcome text after deploy.** Register one member, confirm the welcome text arrives, and confirm it has an `sms_logs` row that names the gym. The row can be read with `SELECT sent_at, delivery_status, message_body FROM sms_logs WHERE sms_type = 'welcome' ORDER BY sent_at DESC LIMIT 1`.
+- [ ] **New wording on a real phone.** Read the welcome, a receipt and a reminder on a handset. The welcome is deliberately two SMS segments; every other message is one at typical lengths.
+- [ ] **Push and merge.** Push `claude/sms-templates` and merge it into `master` through a PR.
 
 ### Repository, next work on this branch
 
@@ -180,13 +189,18 @@ Ready now, in priority order:
 
 1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
 2. **New guides** from `SEO_AUDIT.md` §8, one at a time. Done: overdue memberships (SEO-061), moving off a register book (SEO-063) and Excel and WhatsApp vs software (SEO-064). Still to write: choosing gym management software in Sri Lanka. It waits on the owner's data-protection facts (open item in the checklist above). Each one needs a registry entry, a `PUBLIC_ROUTES` entry, a link from its feature page and from `/resources`, and its own task.
-3. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-053, SEO-060 — each needs the owner's decision noted above.
+3. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-060 — each needs the owner's decision noted above. ~~SEO-053~~ was decided and implemented on 2026-10-03.
 4. ~~**Stale comments.**~~ Fixed 2026-10-03: `CancelMember.ts` now states the 14-day cron rule and that Cancelled → Active happens on payment.
 5. ~~**Bulk grid.**~~ Fixed 2026-10-03, with three more defects found in the same flow:
    - the grid now stops at `BULK_REGISTER_MAX_ROWS` (50, shared with the route);
    - results are applied by row identity, not grid position, so an invalid row no longer shifts every later result onto the wrong member;
    - retry no longer re-sends rows already registered;
    - every batch had been refused since 2026-07-25, because `addMemberSchema` began requiring two consents the grid never sent. The owner chose a batch attestation: the same two consents as single registration, ticked once per batch. Consent times are recorded per member.
+
+6. **SMS follow-ups** (found 2026-10-03, not changed):
+   - The text.lk provider has no request timeout. Registration now waits on the welcome SMS, as payments already wait on the receipt, so a hung gateway holds the request.
+   - `POST /api/sms/send` with `smsType: 'receipt'` sends an empty body: a receipt needs payment details that the manual send does not have. No screen sends it, but the schema accepts it.
+   - A Sinhala or Tamil gym or member name switches the text to UCS-2 (70 characters a segment). text.lk is called with `type: 'plain'`, and nobody has checked what it does with non-GSM characters. This ties to SEO-047.
 
 Waiting on owner input:
 
@@ -199,13 +213,13 @@ Waiting on owner input:
 
 ## 7. Task log status
 
-58 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes at `e2db9f7`.
+64 tasks in `SEO_TASKS.json`. `npm run seo:report -- --check` passes at `e2db9f7`, and again on `claude/sms-templates`. Counts recomputed from the JSON on 2026-10-03; the earlier table here still read 58 tasks.
 
 | Status      | Count | Tasks                                                                                                                |
 | ----------- | ----: | -------------------------------------------------------------------------------------------------------------------- |
-| Verified    |    37 | See `SEO_TASK_LOG.md`                                                                                                |
-| Implemented |     1 | SEO-035 (awaiting GA4 delivery confirmation)                                                                         |
-| Discovered  |     7 | SEO-056 (P1), SEO-055 (P2), SEO-043, SEO-047, SEO-051, SEO-052, SEO-053 (P3)                                         |
+| Verified    |    43 | See `SEO_TASK_LOG.md`                                                                                                |
+| Implemented |     3 | SEO-035, SEO-056 (P1, awaiting GA4 DebugView); SEO-053 (P3, awaiting the after-deploy welcome check)                 |
+| Discovered  |     5 | SEO-043, SEO-047, SEO-051, SEO-052, SEO-060 (P3)                                                                     |
 | Blocked     |     9 | SEO-024, SEO-036 (P0); SEO-026, SEO-038 (P1); SEO-037, SEO-039, SEO-042 (P2); SEO-040, SEO-041 (P3)                  |
 | Rejected    |     4 | SEO-031 FAQPage markup, SEO-032 LocalBusiness markup, SEO-033 `llms.txt`/AI-specific markup, SEO-034 mass city pages |
 
