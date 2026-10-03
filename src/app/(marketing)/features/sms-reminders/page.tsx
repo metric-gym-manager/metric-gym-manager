@@ -240,6 +240,13 @@ export default function SmsRemindersPage() {
             Messages go out through a Sri Lankan SMS gateway, to the mobile
             number on the member’s record.
           </p>
+          <p>
+            Why SMS rather than WhatsApp, and what each is better at, is set out
+            in{' '}
+            <Link href={ARTICLE_PATHS.compare}>
+              Excel and WhatsApp, or gym software?
+            </Link>
+          </p>
         </Prose>
       </MarketingSection>
 

@@ -7,9 +7,11 @@ import {
   FEATURE_PATHS,
   MARKETING_PAGES,
   ORGANIZATION_ID,
+  PRICING_TIERS,
   SOFTWARE_ID,
   buildPageMetadata,
   breadcrumbTrail,
+  formatLkr,
   getMarketingPage,
 } from '@/features/marketing'
 import MarketingLayout from '../layout'
@@ -45,6 +47,9 @@ import OverdueArticle, {
 import MoveArticle, {
   metadata as moveArticleMeta,
 } from '../resources/move-gym-members-from-register-book/page'
+import CompareArticle, {
+  metadata as compareArticleMeta,
+} from '../resources/excel-whatsapp-vs-gym-software/page'
 
 /**
  * Screen tests for the public marketing pages (UI3). jsdom has no layout, so
@@ -66,6 +71,7 @@ const PAGES: [string, ComponentType, Metadata][] = [
   [ARTICLE_PATHS.reminders, RemindersArticle, remindersMeta],
   [ARTICLE_PATHS.overdue, OverdueArticle, overdueArticleMeta],
   [ARTICLE_PATHS.move, MoveArticle, moveArticleMeta],
+  [ARTICLE_PATHS.compare, CompareArticle, compareArticleMeta],
   [ARTICLE_PATHS.revenue, RevenueArticle, revenueArticleMeta],
 ]
 
@@ -230,5 +236,34 @@ describe('what each page says it is about', () => {
     expect(subjectOf(AboutPage)).toEqual({ '@id': ORGANIZATION_ID })
     expect(subjectOf(SmsPage)).toBeUndefined()
     expect(subjectOf(RemindersArticle)).toBeUndefined()
+  })
+})
+
+/**
+ * The Excel-and-WhatsApp guide compares Metric with WhatsApp by name, so it is
+ * the page most likely to drift into a claim the product cannot keep: Metric
+ * has no WhatsApp sender (HomePage.test.tsx pins the same on the homepage).
+ * The guide must say so plainly, and quote prices from the pricing config.
+ */
+describe('the Excel and WhatsApp comparison', () => {
+  const text = () => renderInShell(CompareArticle).container.textContent ?? ''
+
+  it('says Metric sends SMS, not WhatsApp', () => {
+    expect(text()).toMatch(/sends SMS, not WhatsApp/)
+  })
+
+  it.each([
+    /WhatsApp (reminders|receipts|notifications|announcements)/i,
+    /(reminders|receipts|announcements|messages) (by|on|via|over|through) WhatsApp/i,
+    /Metric (sends|delivers)( your| its)?( reminders| receipts| messages)? (by |on |via |through )?WhatsApp/i,
+  ])('never claims WhatsApp delivery (%s)', (pattern) => {
+    expect(text()).not.toMatch(pattern)
+  })
+
+  it('quotes every plan price from the pricing config', () => {
+    const body = text()
+    for (const tier of PRICING_TIERS) {
+      expect(body).toContain(formatLkr(tier.monthlyPriceLkr))
+    }
   })
 })

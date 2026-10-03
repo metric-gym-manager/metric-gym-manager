@@ -7,12 +7,12 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-03T01:03:38Z |
-| Total tasks | 63 |
+| Last task update | 2026-10-03T01:47:17Z |
+| Total tasks | 64 |
 | P0 remaining (not verified/rejected) | 2 |
 | P1 remaining (not verified/rejected) | 5 |
 | Implemented (awaiting verification) | 4 |
-| Verified | 40 |
+| Verified | 41 |
 | In progress | 0 |
 | Open (discovered/planned) | 6 |
 | Blocked | 9 |
@@ -25,7 +25,7 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 9 | 2 | 0 |
 | P1 | 0 | 0 | 0 | 3 | 18 | 2 | 0 |
-| P2 | 0 | 0 | 0 | 1 | 11 | 3 | 0 |
+| P2 | 0 | 0 | 0 | 1 | 12 | 3 | 0 |
 | P3 | 6 | 0 | 0 | 0 | 2 | 2 | 4 |
 
 ## All tasks
@@ -81,6 +81,7 @@
 | [SEO-057](#seo-057) | P2 | verified | schema | Every WebPage node claimed to be about the product, on pages that never describe it | no |
 | [SEO-061](#seo-061) | P2 | verified | content | Guide: overdue gym memberships — when to expire, when to cancel | no |
 | [SEO-063](#seo-063) | P2 | verified | content | Guide: moving a gym's members off a register book or spreadsheet | no |
+| [SEO-064](#seo-064) | P2 | verified | content | Guide: Excel and WhatsApp vs gym management software, written honestly | no |
 | [SEO-031](#seo-031) | P3 | rejected | schema | FAQPage structured data | no |
 | [SEO-032](#seo-032) | P3 | rejected | schema | LocalBusiness structured data | no |
 | [SEO-033](#seo-033) | P3 | rejected | technical | llms.txt or AI-specific markup | no |
@@ -2495,6 +2496,63 @@ src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx: Arti
 - Jest: the registry, public-route and MarketingPages suites pass for the new page; removing the path from PUBLIC_ROUTES fails pages.test; full suite 197 suites and 2,409 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes
 - next build prerenders the page as static. On next start: 200, one H1, self canonical, indexable, title 'How to Move Your Gym's Members into Software | Metric Gym OS', JSON-LD Organization, WebSite, WebPage, BreadcrumbList, Article; sitemap.xml has 18 <loc> including it; linked from /resources, /features/membership-management and the footer
 - The sample welcome SMS renders as 'Welcome to our gym, Nimal! Your monthly membership is active. Amount paid: Rs.4000.00. Next due: 20/10/2026. Thank you!', and the prose dates as 20 September → 20 October
+- Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; the 1366 screenshot read by eye
+- Not verified: indexing or ranking (needs Search Console, SEO-036)
+
+### SEO-064
+
+**Guide: Excel and WhatsApp vs gym management software, written honestly**
+
+| Field | Value |
+| --- | --- |
+| Priority | P2 |
+| Status | verified |
+| Category | content |
+| Intent | commercial |
+| External action | no |
+| Created | 2026-10-03T01:47:17Z |
+| Updated | 2026-10-03T01:47:17Z |
+| Completed | 2026-10-03T01:47:17Z |
+| Dependencies | — |
+
+**Target queries**
+
+- `gym management excel vs software`
+- `manage gym members whatsapp`
+- `gym software vs spreadsheet`
+- `do I need gym management software`
+
+**Finding**
+
+The third guide from SEO_AUDIT.md §8, the 'whether to switch' page: 'Running a gym on Excel and WhatsApp vs dedicated software — written honestly, since Metric sends SMS, not WhatsApp.' Metric has no WhatsApp sender, no inbound SMS (the text.lk webhook carries delivery receipts only), no online member payments, no member app, no class booking or check-in, no Sinhala or Tamil interface, and one login per gym (rule 2.20). SMS reminders, receipts and announcements are included in every plan.
+
+**Evidence**
+
+- docs/seo/SEO_AUDIT.md §8 item 3
+- src/app/__tests__/HomePage.test.tsx pins /whatsapp/i off the homepage because no WhatsApp sender exists
+
+**Recommended change**
+
+Publish a comparison that concedes what a spreadsheet and WhatsApp do well, says where they break, states each Metric difference as a product fact, explains SMS vs WhatsApp with the trade-off, quotes prices from the pricing config, says when a spreadsheet is still enough, and lists what Metric does not do.
+
+**Implementation**
+
+src/app/(marketing)/resources/excel-whatsapp-vs-gym-software/page.tsx: Article page in the guide pattern; prices, the Lite limit and the trial length are rendered from PRICING_TIERS, LITE_MEMBER_LIMIT and TRIAL_DAYS. Registry entry ARTICLE_PATHS.compare, with the navigation and breadcrumb label 'Spreadsheet vs gym software': the footer is on the homepage, whose /whatsapp/i pin is deliberately blunt, so the label avoids the word rather than the pin being weakened. The /resources description names five guides. PUBLIC_ROUTES entry; body link from /features/sms-reminders (Delivery section); footer Resources link. MarketingPages.test.tsx: the page is in the screen-test table, plus three tests — it says 'sends SMS, not WhatsApp', never claims WhatsApp delivery (three patterns), and quotes every plan price from the pricing config.
+
+**Files**
+
+- `src/app/(marketing)/resources/excel-whatsapp-vs-gym-software/page.tsx`
+- `src/features/marketing/config/pages.ts`
+- `src/features/marketing/config/navigation.ts`
+- `src/lib/auth-config.ts`
+- `src/app/(marketing)/features/sms-reminders/page.tsx`
+- `src/app/(marketing)/__tests__/MarketingPages.test.tsx`
+
+**Verification**
+
+- Four mutations, each caught by a named test: the path removed from PUBLIC_ROUTES; 'Metric sends WhatsApp reminders too' added; the 'sends SMS, not WhatsApp' sentence removed; a price typed instead of read from the config. The homepage's /whatsapp/i pin caught the first draft's footer label, which led to the relabel
+- Full suite 197 suites and 2,423 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes
+- next build prerenders the page as static. On next start: 200, one H1, self canonical, indexable, title 'Excel and WhatsApp vs Gym Management Software | Metric Gym OS', JSON-LD Organization, WebSite, WebPage, BreadcrumbList, Article; prices on the page LKR 2,990, 4,990 and 6,990; sitemap.xml has 19 <loc>; linked from /resources, /features/sms-reminders and the footer on every page
 - Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; the 1366 screenshot read by eye
 - Not verified: indexing or ranking (needs Search Console, SEO-036)
 

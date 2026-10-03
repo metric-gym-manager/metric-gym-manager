@@ -1791,6 +1791,47 @@
       "createdAt": "2026-10-03T01:03:38Z",
       "updatedAt": "2026-10-03T01:03:38Z",
       "completedAt": "2026-10-03T01:03:38Z"
+    },
+    {
+      "id": "SEO-064",
+      "title": "Guide: Excel and WhatsApp vs gym management software, written honestly",
+      "category": "content",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym management excel vs software",
+        "manage gym members whatsapp",
+        "gym software vs spreadsheet",
+        "do I need gym management software"
+      ],
+      "finding": "The third guide from SEO_AUDIT.md §8, the 'whether to switch' page: 'Running a gym on Excel and WhatsApp vs dedicated software — written honestly, since Metric sends SMS, not WhatsApp.' Metric has no WhatsApp sender, no inbound SMS (the text.lk webhook carries delivery receipts only), no online member payments, no member app, no class booking or check-in, no Sinhala or Tamil interface, and one login per gym (rule 2.20). SMS reminders, receipts and announcements are included in every plan.",
+      "evidence": [
+        "docs/seo/SEO_AUDIT.md §8 item 3",
+        "src/app/__tests__/HomePage.test.tsx pins /whatsapp/i off the homepage because no WhatsApp sender exists"
+      ],
+      "recommendedChange": "Publish a comparison that concedes what a spreadsheet and WhatsApp do well, says where they break, states each Metric difference as a product fact, explains SMS vs WhatsApp with the trade-off, quotes prices from the pricing config, says when a spreadsheet is still enough, and lists what Metric does not do.",
+      "implementation": "src/app/(marketing)/resources/excel-whatsapp-vs-gym-software/page.tsx: Article page in the guide pattern; prices, the Lite limit and the trial length are rendered from PRICING_TIERS, LITE_MEMBER_LIMIT and TRIAL_DAYS. Registry entry ARTICLE_PATHS.compare, with the navigation and breadcrumb label 'Spreadsheet vs gym software': the footer is on the homepage, whose /whatsapp/i pin is deliberately blunt, so the label avoids the word rather than the pin being weakened. The /resources description names five guides. PUBLIC_ROUTES entry; body link from /features/sms-reminders (Delivery section); footer Resources link. MarketingPages.test.tsx: the page is in the screen-test table, plus three tests — it says 'sends SMS, not WhatsApp', never claims WhatsApp delivery (three patterns), and quotes every plan price from the pricing config.",
+      "files": [
+        "src/app/(marketing)/resources/excel-whatsapp-vs-gym-software/page.tsx",
+        "src/features/marketing/config/pages.ts",
+        "src/features/marketing/config/navigation.ts",
+        "src/lib/auth-config.ts",
+        "src/app/(marketing)/features/sms-reminders/page.tsx",
+        "src/app/(marketing)/__tests__/MarketingPages.test.tsx"
+      ],
+      "verification": [
+        "Four mutations, each caught by a named test: the path removed from PUBLIC_ROUTES; 'Metric sends WhatsApp reminders too' added; the 'sends SMS, not WhatsApp' sentence removed; a price typed instead of read from the config. The homepage's /whatsapp/i pin caught the first draft's footer label, which led to the relabel",
+        "Full suite 197 suites and 2,423 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes",
+        "next build prerenders the page as static. On next start: 200, one H1, self canonical, indexable, title 'Excel and WhatsApp vs Gym Management Software | Metric Gym OS', JSON-LD Organization, WebSite, WebPage, BreadcrumbList, Article; prices on the page LKR 2,990, 4,990 and 6,990; sitemap.xml has 19 <loc>; linked from /resources, /features/sms-reminders and the footer on every page",
+        "Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; the 1366 screenshot read by eye",
+        "Not verified: indexing or ranking (needs Search Console, SEO-036)"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-03T01:47:17Z",
+      "updatedAt": "2026-10-03T01:47:17Z",
+      "completedAt": "2026-10-03T01:47:17Z"
     }
   ]
 }

@@ -63,6 +63,7 @@ export const ARTICLE_PATHS = {
   reminders: '/resources/membership-renewal-reminders',
   overdue: '/resources/overdue-gym-memberships',
   move: '/resources/move-gym-members-from-register-book',
+  compare: '/resources/excel-whatsapp-vs-gym-software',
   revenue: '/resources/billed-vs-collected-revenue',
 } as const
 
@@ -175,7 +176,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     kind: 'resources',
     title: 'Resources for Gym Owners | Metric Gym OS',
     description:
-      'Guides for running a gym in Sri Lanka: moving members off a register book, renewal reminders, overdue memberships, and revenue owed against collected.',
+      'Guides for Sri Lankan gyms: Excel and WhatsApp vs software, moving off a register book, renewal reminders, overdue members and revenue owed vs collected.',
     label: 'Resources',
     parent: HOME_PATH,
     lastModified: MOVE_GUIDE,
@@ -201,6 +202,17 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     parent: RESOURCES_PATH,
     lastModified: OVERDUE_GUIDE,
     published: OVERDUE_GUIDE,
+  },
+  {
+    path: ARTICLE_PATHS.compare,
+    kind: 'article',
+    title: 'Excel and WhatsApp vs Gym Management Software | Metric Gym OS',
+    description:
+      'What a spreadsheet and WhatsApp do well for a gym, where they break, what gym software changes, and why Metric sends SMS rather than WhatsApp.',
+    label: 'Spreadsheet vs gym software',
+    parent: RESOURCES_PATH,
+    lastModified: MOVE_GUIDE,
+    published: MOVE_GUIDE,
   },
   {
     path: ARTICLE_PATHS.move,

@@ -86,6 +86,7 @@ export const PUBLIC_ROUTES = [
   '/resources/membership-renewal-reminders',
   '/resources/overdue-gym-memberships',
   '/resources/move-gym-members-from-register-book',
+  '/resources/excel-whatsapp-vs-gym-software',
   '/resources/billed-vs-collected-revenue',
 ] as const
 
