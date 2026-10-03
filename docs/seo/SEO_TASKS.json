@@ -1,0 +1,1838 @@
+{
+  "project": "Metric Gym OS",
+  "site": "https://www.metricgymos.com",
+  "auditDate": "2026-10-01",
+  "tasks": [
+    {
+      "id": "SEO-001",
+      "title": "Homepage title, description and H1 carry no category or geography signal",
+      "category": "on-page",
+      "priority": "P0",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym management software sri lanka",
+        "gym management system sri lanka",
+        "gym software sri lanka",
+        "gym management software"
+      ],
+      "finding": "The only indexable commercial page is titled 'Metric Gym OS' with H1 'The operating system for serious gyms.' and a generic meta description. The phrase 'gym management software' appears nowhere on the site; 'Sri Lanka' appears only in a trust-strip label and the footer.",
+      "evidence": [
+        "Production HTML (deployment dpl_5Vr1YJREqAiVCJ9nVLt7iibhZ3op, commit 75eff38) fetched via the Vercel connector: <title>Metric Gym OS</title>, meta description 'Modern gym and fitness center management platform for streamlined operations, member management, and business growth'.",
+        "src/app/layout.tsx metadata.title = 'Metric Gym OS'; src/components/landing/LandingPage.tsx H1 'The operating system for serious gyms.'",
+        "Competitor titles observed in the search index: 'Gym Management System in Sri Lanka - Fitnessx', 'Fitrobit — AI-Powered Gym Management Software', 'FitConnect Admin — Gym Management Software for Sri Lanka'."
+      ],
+      "recommendedChange": "Category + geography in the homepage <title> and meta description; keep the brand line as the visual headline but put a descriptive line inside the same <h1> element (eyebrow + headline), so the heading states what the product is without turning the hero into a keyword block.",
+      "implementation": "Homepage <title> 'Gym Management Software for Sri Lankan Gyms | Metric Gym OS' and a 153-character description from the page registry. The <h1> now holds two visible lines: the mono eyebrow 'Gym management software · Sri Lanka' and the unchanged brand display line, so the heading states category and geography without altering the hero's look. Subtitle rewritten to describe real capabilities.",
+      "files": [
+        "src/app/page.tsx",
+        "src/components/landing/LandingPage.tsx",
+        "src/features/marketing/config/pages.ts"
+      ],
+      "verification": [
+        "Crawl of the local production build (next build + next start, 2026-10-01): title 59 chars, one H1 whose text contains 'Gym management software · Sri Lanka' and the brand line",
+        "src/app/__tests__/HomePage.test.tsx asserts title/description/canonical and the H1 content",
+        "Screenshots at 1366/390 px: hero visually identical apart from the eyebrow text"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:22:49Z",
+      "completedAt": "2026-10-01T18:22:49Z"
+    },
+    {
+      "id": "SEO-002",
+      "title": "No robots.txt",
+      "category": "technical",
+      "priority": "P0",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "No app/robots.* and no public/robots.txt exist, so /robots.txt returns the app's 404 and no sitemap is advertised.",
+      "evidence": [
+        "find src/app public -name 'robots*' returns nothing at commit 75eff38."
+      ],
+      "recommendedChange": "Add src/app/robots.ts: allow all, disallow /api/, advertise https://www.metricgymos.com/sitemap.xml. Do not disallow /join/ — those pages carry noindex, which crawlers must be able to read.",
+      "implementation": "src/app/robots.ts → features/marketing buildRobots(): allow /, disallow /api/, Sitemap https://www.metricgymos.com/sitemap.xml. /join/ deliberately not disallowed (noindex pages must stay fetchable).",
+      "files": [
+        "src/app/robots.ts",
+        "src/features/marketing/services/crawl.ts"
+      ],
+      "verification": [
+        "GET /robots.txt on the local production build (next build + next start, 2026-10-01) returns the four expected lines",
+        "crawl.test.ts pins rules, sitemap URL and that /join/ is not blocked"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:22:49Z",
+      "completedAt": "2026-10-01T18:22:49Z"
+    },
+    {
+      "id": "SEO-003",
+      "title": "No XML sitemap",
+      "category": "technical",
+      "priority": "P0",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "No sitemap exists, so discovery depends entirely on links — and the homepage links to only four internal URLs.",
+      "evidence": [
+        "find src/app public -name 'sitemap*' returns nothing at commit 75eff38."
+      ],
+      "recommendedChange": "Generate src/app/sitemap.ts from a single public-page registry so a page cannot be published without a sitemap entry; use real per-page lastModified dates, not the build time.",
+      "implementation": "src/app/sitemap.ts → buildSitemap() from the page registry: 16 URLs, absolute www origin, per-page content dates (not build time), no changefreq/priority.",
+      "files": [
+        "src/app/sitemap.ts",
+        "src/features/marketing/services/crawl.ts",
+        "src/features/marketing/config/pages.ts"
+      ],
+      "verification": [
+        "GET /sitemap.xml on the local production build (next build + next start, 2026-10-01) parses as sitemaps.org XML with 16 <url> entries",
+        "Crawl from / reaches all 16 sitemap URLs (200, anonymous Googlebot UA); none orphaned",
+        "crawl.test.ts"
+      ],
+      "dependencies": ["SEO-011"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:22:49Z",
+      "completedAt": "2026-10-01T18:22:49Z"
+    },
+    {
+      "id": "SEO-004",
+      "title": "No canonical tags; metadataBase and og:url point at the apex host, which 308-redirects to www",
+      "category": "technical",
+      "priority": "P0",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "Vercel serves www.metricgymos.com as the primary domain (metricgymos.com, metricgymmanager.com and www.metricgymmanager.com all 308 to it), but metadataBase is https://metricgymos.com, so every absolute URL in metadata (og:url, og:image) points at a redirect. No page emits <link rel=canonical>.",
+      "evidence": [
+        "Vercel project domains (connector list_project_domains): metricgymos.com redirect -> www.metricgymos.com (308); www.metricgymos.com redirect null.",
+        "Production HTML: og:url https://metricgymos.com, og:image https://metricgymos.com/linkPreviewLogo.png, no canonical link."
+      ],
+      "recommendedChange": "Single SITE_URL constant = https://www.metricgymos.com used for metadataBase; per-page alternates.canonical; never set a canonical in the root layout (it would canonicalise every page to the homepage).",
+      "implementation": "SITE_URL = https://www.metricgymos.com drives metadataBase, canonicals, og:url, sitemap and JSON-LD @ids. Canonical and og:url set per page by buildPageMetadata(); the root layout sets neither (pinned by a test).",
+      "files": [
+        "src/app/layout.tsx",
+        "src/features/marketing/config/site.ts",
+        "src/features/marketing/utils/metadata.ts"
+      ],
+      "verification": [
+        "Crawl: every public page's canonical and og:url equal its own www URL (the root renders as https://www.metricgymos.com, Next's normalisation of the slash)",
+        "metadata.test.ts; mutation (canonical added to root layout) turns the test red"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:22:49Z",
+      "completedAt": "2026-10-01T18:22:49Z"
+    },
+    {
+      "id": "SEO-005",
+      "title": "Production .vercel.app alias serves an indexable duplicate of the site",
+      "category": "technical",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "gym-management-saas.vercel.app answers 200 with the full site, no X-Robots-Tag and no canonical, so it is a crawlable duplicate host. It cannot simply be redirected: vendor webhooks may be registered against it.",
+      "evidence": [
+        "Vercel connector fetch of https://gym-management-saas.vercel.app/: status 200, headers contain no x-robots-tag.",
+        "docs/architecture/access-control-master.md B5 discusses the project alias as a handover URL."
+      ],
+      "recommendedChange": "Absolute canonicals on every public page (SEO-004) plus an X-Robots-Tag: noindex header for any *.vercel.app host in next.config.js. Headers do not change webhook behaviour.",
+      "implementation": "next.config.js headers(): X-Robots-Tag: noindex for any request whose Host matches *.vercel.app; canonicals point at www regardless. No redirect, so vendor webhooks on the alias keep working.",
+      "files": ["next.config.js"],
+      "verification": [
+        "local production build (next build + next start, 2026-10-01): Host gym-management-saas.vercel.app → X-Robots-Tag: noindex; Host www.metricgymos.com → no header",
+        "Re-check on the real alias after deploy (curl -I https://gym-management-saas.vercel.app/)"
+      ],
+      "dependencies": ["SEO-004"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:22:49Z",
+      "completedAt": "2026-10-01T18:22:49Z"
+    },
+    {
+      "id": "SEO-006",
+      "title": "Every public page inherits the homepage title and description",
+      "category": "on-page",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "navigational",
+      "targetQueries": [],
+      "finding": "/contact, /privacy, /terms, /refund-policy, /login, /register and the password/verification pages export no metadata, so all of them render <title>Metric Gym OS</title> with the same description.",
+      "evidence": [
+        "grep for 'export const metadata' in src/app/contact, privacy, terms, refund-policy and (auth) returns nothing.",
+        "next build lists these routes as static (○) with the root layout's metadata."
+      ],
+      "recommendedChange": "Root title template '%s | Metric Gym OS'; unique title, description and canonical per public page via one metadata helper.",
+      "implementation": "Root title template '%s | Metric Gym OS'; unique registry titles/descriptions for every public page; segment layouts give /login and /register their own titles.",
+      "files": [
+        "src/app/layout.tsx",
+        "src/app/privacy/page.tsx",
+        "src/app/terms/page.tsx",
+        "src/app/refund-policy/page.tsx",
+        "src/app/(auth)/login/layout.tsx",
+        "src/app/(auth)/register/layout.tsx"
+      ],
+      "verification": [
+        "Crawl: 16 distinct titles and descriptions; pages.test.ts asserts uniqueness and length bounds"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:22:49Z",
+      "completedAt": "2026-10-01T18:22:49Z"
+    },
+    {
+      "id": "SEO-007",
+      "title": "Open Graph image has the wrong shape and the retired brand; og:url is the homepage on every page",
+      "category": "technical",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "linkPreviewLogo.png is 2000x2000 but declared as 1200x630 and reads 'metric gym manager' (the previous brand). Because openGraph.url is set in the root layout, every page claims the homepage as its URL when shared.",
+      "evidence": [
+        "public/linkPreviewLogo.png PNG header: 2000x2000.",
+        "src/app/layout.tsx openGraph.images width 1200 height 630; openGraph.url 'https://metricgymos.com'."
+      ],
+      "recommendedChange": "Ship a real 1200x630 card branded 'Metric Gym OS' as a static file in /public (static so the auth middleware never intercepts it — a dynamic /opengraph-image route has no file extension and would be redirected to /login), and set og:url per page.",
+      "implementation": "New 1200×630 public/og-image.png ('Metric Gym OS', generated by scripts/generate-og-image.mjs from the bundled Geist fonts); og:url per page; old 2000×2000 linkPreviewLogo.png removed.",
+      "files": [
+        "public/og-image.png",
+        "scripts/generate-og-image.mjs",
+        "src/features/marketing/config/site.ts",
+        "src/app/layout.tsx"
+      ],
+      "verification": [
+        "PNG header 1200×630; GET /og-image.png → 200 image/png (static, not intercepted by middleware)",
+        "Crawl: og:image https://www.metricgymos.com/og-image.png on every page"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:22:49Z",
+      "completedAt": "2026-10-01T18:22:49Z"
+    },
+    {
+      "id": "SEO-008",
+      "title": "Two page modules resolve to '/', and only Turbopack's tie-break keeps the homepage",
+      "category": "technical",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "src/app/page.tsx (landing) and src/app/(dashboard)/page.tsx (redirect('/dashboard')) both map to '/'. Turbopack silently keeps the landing; the webpack loader throws 'You cannot have two parallel pages that resolve to the same path'. If that tie-break ever flips, the homepage becomes a redirect chain to /login and drops out of the index.",
+      "evidence": [
+        "node_modules/next/dist/build/webpack/loaders/next-app-loader/index.js:576 throws on duplicate pages.",
+        "Production response for '/': x-matched-path '/', x-nextjs-prerender 1, landing HTML — the redirect page is dead code in production.",
+        "src/lib/middleware/auth.ts never redirects an authenticated visitor at '/', so no visitor reaches the (dashboard) root page."
+      ],
+      "recommendedChange": "Delete the unreachable src/app/(dashboard)/page.tsx and its test; add a structural test that exactly one page module maps to '/'.",
+      "implementation": "Deleted the unreachable src/app/(dashboard)/page.tsx and its test; pages.test.ts asserts exactly one page module per URL and that '/' is src/app/page.tsx.",
+      "files": [
+        "src/app/(dashboard)/page.tsx (deleted)",
+        "src/app/(dashboard)/__tests__/RootDashboardPage.test.tsx (deleted)",
+        "src/features/marketing/tests/pages.test.ts"
+      ],
+      "verification": [
+        "Build output lists a single '○ /'",
+        "Mutation: recreating (dashboard)/page.tsx turns pages.test.ts red"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:22:49Z",
+      "completedAt": "2026-10-01T18:22:49Z"
+    },
+    {
+      "id": "SEO-009",
+      "title": "Auth utility pages are indexable with the homepage title",
+      "category": "technical",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "navigational",
+      "targetQueries": ["metric gym os login"],
+      "finding": "/forgot-password, /reset-password and /verify-email are public, static and indexable with title 'Metric Gym OS'. /login and /register are legitimate navigational destinations but share the same title.",
+      "evidence": [
+        "src/app/(auth)/*/page.tsx are 'use client' pages with no metadata and no segment layout."
+      ],
+      "recommendedChange": "Segment layouts exporting metadata: unique titles for /login and /register (indexable, not in the sitemap); noindex for /forgot-password, /reset-password, /verify-email.",
+      "implementation": "Segment layouts export metadata: /login and /register indexable with canonicals (folding ?redirect= variants); /forgot-password, /reset-password, /verify-email noindex,nofollow.",
+      "files": [
+        "src/app/(auth)/login/layout.tsx",
+        "src/app/(auth)/register/layout.tsx",
+        "src/app/(auth)/forgot-password/layout.tsx",
+        "src/app/(auth)/reset-password/layout.tsx",
+        "src/app/(auth)/verify-email/layout.tsx"
+      ],
+      "verification": [
+        "local production build (next build + next start, 2026-10-01): /login and /login?redirect=/members both canonical https://www.metricgymos.com/login; utility pages render <meta name=robots content='noindex, nofollow'>"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:22:49Z",
+      "completedAt": "2026-10-01T18:22:49Z"
+    },
+    {
+      "id": "SEO-010",
+      "title": "Authenticated route groups have no defensive noindex",
+      "category": "technical",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "Workspace and admin routes are protected by middleware (307 to /login), which is correct, but nothing would keep one out of the index if a route were ever served without a session.",
+      "evidence": [
+        "src/app/(dashboard)/layout.tsx and src/app/(admin)/layout.tsx export no metadata."
+      ],
+      "recommendedChange": "metadata.robots = { index: false, follow: false } on the (dashboard), (admin) and (dev) layouts.",
+      "implementation": "robots noindex,nofollow metadata on the (dashboard), (admin) and new (dev) layouts.",
+      "files": [
+        "src/app/(dashboard)/layout.tsx",
+        "src/app/(admin)/layout.tsx",
+        "src/app/(dev)/layout.tsx",
+        "src/features/marketing/tests/metadata.test.ts"
+      ],
+      "verification": [
+        "type-check and build pass; not rendered here because every route needs a session (middleware answers 307 → /login)",
+        "metadata.test.ts 'signed-in route groups' pins robots { index: false, follow: false } on the (dashboard), (admin) and (dev) layouts; mutation (admin → index: true) fails it",
+        "Local production build, Googlebot UA: /dashboard, /members and /design-system answer 307 → /login, so no signed-in route is crawlable; the noindex is the second line for a route ever served without a session"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T21:29:53Z",
+      "completedAt": "2026-10-01T21:29:53Z"
+    },
+    {
+      "id": "SEO-011",
+      "title": "Any new public page is silently redirected to /login unless it is added to PUBLIC_ROUTES",
+      "category": "architecture",
+      "priority": "P0",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "authMiddleware sends every path that is not an exact PUBLIC_ROUTES match (or /join/ prefix) to /login with a 307. A marketing page added without that entry would be invisible to Googlebot while every unit test passes.",
+      "evidence": [
+        "src/lib/auth-config.ts PUBLIC_ROUTES (exact-match list); src/lib/middleware/auth.ts unauthenticated branch."
+      ],
+      "recommendedChange": "One registry of public marketing pages (features/marketing/config/pages.ts) that drives metadata, breadcrumbs and the sitemap, plus a test asserting every registry path passes isPublicRoute(). Keep PUBLIC_ROUTES explicit (exact matches) as auth-config documents.",
+      "implementation": "features/marketing/config/pages.ts registry drives metadata, breadcrumbs, navigation and the sitemap; 11 new exact-match PUBLIC_ROUTES; pages.test.ts asserts every registry path is public and has a page module; middleware test pins five marketing pages and guards unlisted paths.",
+      "files": [
+        "src/features/marketing/config/pages.ts",
+        "src/lib/auth-config.ts",
+        "src/features/marketing/tests/pages.test.ts",
+        "src/lib/middleware/__tests__/auth-middleware.test.ts"
+      ],
+      "verification": [
+        "Mutation: removing '/pricing' from PUBLIC_ROUTES fails both the registry test and the middleware test",
+        "Crawl as anonymous Googlebot UA: every public page 200"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:22:49Z",
+      "completedAt": "2026-10-01T18:22:49Z"
+    },
+    {
+      "id": "SEO-012",
+      "title": "The site is one page: no crawlable URL exists for any commercial sub-intent",
+      "category": "architecture",
+      "priority": "P0",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym management software sri lanka",
+        "gym management system sri lanka",
+        "gym software sri lanka",
+        "gym membership software sri lanka",
+        "gym billing software sri lanka",
+        "gym access control software sri lanka",
+        "gym sms software sri lanka",
+        "gym management software pricing sri lanka"
+      ],
+      "finding": "Everything lives on '/', with hash-anchor navigation. Internal links from the homepage reach only /login, /privacy, /terms and /refund-policy; /contact exists but nothing links to it. There is no page that can rank for pricing, access control, SMS, billing or membership intents.",
+      "evidence": [
+        "src/components/landing/LandingPage.tsx: nav links #platform, #pricing, #platform ('Resources'); footer About/Contact are mailto:founder@metric.lk.",
+        "GymMaster (search index) keeps separate URLs per intent: /gym-management-software/, /cloud-based-gym-management-software/, /gym-software/, /billing-management/, /gym-scheduling-software/ plus a blog."
+      ],
+      "recommendedChange": "One commercial hub (/gym-management-software-sri-lanka), five substantive feature pages, /pricing, /about, /resources with two first-party articles; deliberate internal link graph; no thin variants.",
+      "implementation": "New (marketing) route group with 11 pages (hub, 5 features, pricing, about, resources + 2 articles) plus /contact moved in; shared MarketingShell header/footer; every page statically prerendered.",
+      "files": [
+        "src/app/(marketing)/layout.tsx",
+        "src/features/marketing/**",
+        "src/app/(marketing)/**"
+      ],
+      "verification": [
+        "Build: all 16 public routes static (○)",
+        "Crawl from /: 16 sitemap URLs reached, 0 orphans, 0 broken internal links",
+        "MarketingPages.test.tsx: link-graph test (no orphans) and per-page broken-link test"
+      ],
+      "dependencies": ["SEO-011"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:11Z",
+      "completedAt": "2026-10-01T18:23:11Z"
+    },
+    {
+      "id": "SEO-013",
+      "title": "Build the commercial hub: /gym-management-software-sri-lanka",
+      "category": "content",
+      "priority": "P0",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym management software sri lanka",
+        "gym management system sri lanka",
+        "gym software sri lanka",
+        "gym management system for fitness centres",
+        "gym management software for fitness businesses",
+        "gym software for gyms in sri lanka"
+      ],
+      "finding": "No page answers the commercial query in depth: what the product is, who it is for, what it does day to day, what it costs in LKR, how setup works, how data is protected, who runs it.",
+      "evidence": [
+        "Fitrobit and FitnessX titles and snippets in the search index combine category + Sri Lanka + LKR pricing + contact details on a single crawlable page."
+      ],
+      "recommendedChange": "Long-form hub built from verified product behaviour (src/features/*): definitions, member lifecycle, feature summaries linking to feature pages, LKR pricing summary, onboarding steps, data protection (PDPA No. 9 of 2022), company details, visible FAQ.",
+      "implementation": "/gym-management-software-sri-lanka: definition, scope (what Metric does not do), seven-step member journey, feature grid, LKR pricing, onboarding steps, data protection (RLS isolation, fingerprints never pass through Metric, consent, PayHere tokens, PDPA No. 9 of 2022), company, visible FAQ, CTA. SoftwareApplication JSON-LD.",
+      "files": [
+        "src/app/(marketing)/gym-management-software-sri-lanka/page.tsx"
+      ],
+      "verification": [
+        "Render test (one H1, metadata, JSON-LD, links, heading order)",
+        "Lighthouse (local, mobile): SEO 100, accessibility 93, performance 92, CLS 0",
+        "Screenshots 1366/390 reviewed"
+      ],
+      "dependencies": ["SEO-011", "SEO-023"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:11Z",
+      "completedAt": "2026-10-01T18:23:11Z"
+    },
+    {
+      "id": "SEO-014",
+      "title": "Feature page: membership management",
+      "category": "content",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym membership management software",
+        "gym member management software sri lanka",
+        "gym membership tracking software",
+        "gym membership renewal software"
+      ],
+      "finding": "No page describes member records, plan types, statuses, QR self-registration, discounts or bulk import.",
+      "evidence": [
+        "src/features/members/config/PlanConfig.ts (daily, weekly, monthly, 3-months, 6-months, annual, custom); RegistrationConfig.ts (manual vs QR, NEW badge until verified); instructions.md member statuses."
+      ],
+      "recommendedChange": "/features/membership-management grounded in PlanConfig, member lifecycle and the QR join flow.",
+      "implementation": "/features/membership-management: plan table rendered from PLAN_CONFIGS, statuses, discounts and admission fee, QR self-registration flow, bulk entry, FAQ.",
+      "files": ["src/app/(marketing)/features/membership-management/page.tsx"],
+      "verification": ["Render test suite; crawl 200 with canonical"],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:12Z",
+      "completedAt": "2026-10-01T18:23:12Z"
+    },
+    {
+      "id": "SEO-015",
+      "title": "Feature page: payment collection and renewals",
+      "category": "content",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym billing software sri lanka",
+        "gym payment tracking software",
+        "gym payment collection software",
+        "gym overdue payment management",
+        "gym payment reminders"
+      ],
+      "finding": "No page explains how dues, renewals, receipts, overdue handling and day passes work.",
+      "evidence": [
+        "src/features/payments/services/CollectPayment.ts (renewal, next due date, receipt or reactivation SMS); IssueDayPass.ts; architecture rule 2.13 (expire immediately once past due, cancel at 14 days)."
+      ],
+      "recommendedChange": "/features/payment-collection — honest that fees are taken at the desk and recorded in Metric (Metric does not process members' card payments).",
+      "implementation": "/features/payment-collection: Renewals lists (Expired / Expires this week / Collected), what recording a payment does, no-grace expiry and 14-day auto-cancel, day passes, FAQ — states plainly that members pay at the desk.",
+      "files": ["src/app/(marketing)/features/payment-collection/page.tsx"],
+      "verification": [
+        "Render test suite; crawl 200 with canonical; copy checked against PaymentCollectionPageClient.tsx and CollectPayment.ts"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:12Z",
+      "completedAt": "2026-10-01T18:23:12Z"
+    },
+    {
+      "id": "SEO-016",
+      "title": "Feature page: SMS reminders and announcements",
+      "category": "content",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym sms software sri lanka",
+        "gym automated sms reminders",
+        "gym member notification software",
+        "gym payment reminders"
+      ],
+      "finding": "No page documents the reminder schedule, message content, receipts or delivery tracking.",
+      "evidence": [
+        "src/features/sms/config/ReminderConfig.ts (per-plan schedule); SendAutomatedReminders.ts (message texts); vercel.json send-reminders 03:30 UTC = 09:00 Sri Lanka time; SmsConfig.ts delivery statuses."
+      ],
+      "recommendedChange": "/features/sms-reminders with the real schedule table by plan type.",
+      "implementation": "/features/sms-reminders: schedule table rendered from REMINDER_RULES × PLAN_CONFIGS, the exact message texts, 9:00 run time, delivery statuses, announcements, FAQ (no WhatsApp).",
+      "files": ["src/app/(marketing)/features/sms-reminders/page.tsx"],
+      "verification": [
+        "Render test suite; 320 px render: table scrolls inside its container, page does not overflow"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:12Z",
+      "completedAt": "2026-10-01T18:23:12Z"
+    },
+    {
+      "id": "SEO-017",
+      "title": "Feature page: revenue and member analytics",
+      "category": "content",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym revenue management software",
+        "gym revenue dashboard",
+        "gym management reporting software",
+        "gym membership analytics",
+        "gym attendance analytics"
+      ],
+      "finding": "No page describes billed vs collected revenue, plan breakdowns, renewal/churn rates or cohort retention.",
+      "evidence": [
+        "architecture rule 2.22 (billed, not run-rate); src/app/(dashboard)/revenue/RevenuePageClient.tsx; src/features/analytics/components/MemberAnalyticsClient.tsx labels."
+      ],
+      "recommendedChange": "/features/revenue-reporting combining revenue and member analytics (one page, not two thin ones).",
+      "implementation": "/features/revenue-reporting: billed vs collected (rule 2.22), plan breakdown, dashboard tiles, member analytics (renewal, churn, at-risk, cohort retention), FAQ.",
+      "files": ["src/app/(marketing)/features/revenue-reporting/page.tsx"],
+      "verification": [
+        "Render test suite; labels checked against RevenuePageClient.tsx, dashboard and MemberAnalyticsClient.tsx"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:12Z",
+      "completedAt": "2026-10-01T18:23:12Z"
+    },
+    {
+      "id": "SEO-018",
+      "title": "Feature page: fingerprint access control and door attendance",
+      "category": "content",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym access control software sri lanka",
+        "gym biometric access control",
+        "gym fingerprint attendance system",
+        "gym attendance software sri lanka"
+      ],
+      "finding": "Access control is Metric's most differentiated capability (the reader enforces each member's paid-through date from its own clock) but it has two sentences on the homepage, one of them inaccurate.",
+      "evidence": [
+        "docs/architecture/access-control-master.md §1-§2 (ZKTeco terminals via VFT, validity windows, block-not-delete, outbox), §6 eighth audit (2026-09-23, real ZAM70 readers).",
+        "src/app/privacy/page.tsx: fingerprint template is created on the reader and held by the provider; never passes through Metric."
+      ],
+      "recommendedChange": "/features/access-control: how it works, what happens on lapse/cancel/return, outage behaviour, privacy, Enterprise availability, hardware via VFT.",
+      "implementation": "/features/access-control: step-by-step flow, reader-as-authority principle, outage and billing-lapse behaviour, activity log and remote actions, consent/retention (ACCESS_EVENT_RETENTION_DAYS), Enterprise and hardware terms, FAQ (fingerprint only; no other reader brands).",
+      "files": ["src/app/(marketing)/features/access-control/page.tsx"],
+      "verification": [
+        "Render test suite; copy checked against access-control-master.md §1–§2, §6 and DeviceEventCodes.ts"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:12Z",
+      "completedAt": "2026-10-01T18:23:12Z"
+    },
+    {
+      "id": "SEO-019",
+      "title": "Dedicated pricing page in LKR",
+      "category": "content",
+      "priority": "P0",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym management software pricing sri lanka",
+        "gym software price sri lanka",
+        "gym management system price"
+      ],
+      "finding": "Pricing exists only as a homepage section, under tier names (Starter/Growth) that differ from the product's (Lite/Pro), with a trial claim that does not apply to Enterprise.",
+      "evidence": [
+        "src/features/subscriptions/config/SubscriptionConfig.ts: TIER_DISPLAY_NAME Lite/Pro/Enterprise, LITE_TIER_MEMBER_LIMIT 100, TRIAL_PERIOD_DAYS 30 (Lite/Pro self-serve; Enterprise contact-sales only).",
+        ".env.example PAYHERE_LITE_PRICE_LKR=2990, PAYHERE_PRO_PRICE_LKR=4990, PAYHERE_ENTERPRISE_PRICE_LKR=6990.",
+        "Search-index snippets show competitors publishing LKR prices (FitnessX Rs. 6,000/15,000/45,000; Fitrobit LKR 8,000/15,000)."
+      ],
+      "recommendedChange": "/pricing driven by one pricing config shared with the homepage and SoftwareApplication offers.",
+      "implementation": "/pricing: PricingPlans from config, comparison table, active-member limit, trial (Lite limit, no card, pauses at end), billing (PayHere, saved card, banked days, 7-day grace with 2-day retries), FAQ, SoftwareApplication offers. Fulfils the refund policy's promise of a pricing page.",
+      "files": [
+        "src/app/(marketing)/pricing/page.tsx",
+        "src/features/marketing/config/pricing.ts",
+        "src/features/marketing/components/PricingPlans.tsx"
+      ],
+      "verification": [
+        "pricing.test.ts pins prices to .env.example and names/limits to SubscriptionConfig; mutation (Lite 2500) turns it red",
+        "Lighthouse (local, mobile): SEO 100, performance 93"
+      ],
+      "dependencies": ["SEO-023"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:12Z",
+      "completedAt": "2026-10-01T18:23:12Z"
+    },
+    {
+      "id": "SEO-020",
+      "title": "About page with verifiable company facts",
+      "category": "entity",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "navigational",
+      "targetQueries": ["metric gym os", "capitalist one pvt ltd"],
+      "finding": "No page says who builds Metric. 'About' in the footer is a mailto link; the operating company appears only in the footer copyright and the contact page.",
+      "evidence": [
+        "src/app/contact/page.tsx: Capitalist One (Pvt) Ltd, 150/1, 3rd Baptist Rd, Beddagana North, Kotte, Sri Lanka."
+      ],
+      "recommendedChange": "/about: company, product, operating principles taken from the codebase, support model, location. No invented founder biography.",
+      "implementation": "/about: company, what we build, five operating rules enforced in code, support channels/hours, company details. No founder biography invented (SEO-041).",
+      "files": ["src/app/(marketing)/about/page.tsx"],
+      "verification": ["Render test suite; crawl 200"],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:12Z",
+      "completedAt": "2026-10-01T18:23:12Z"
+    },
+    {
+      "id": "SEO-021",
+      "title": "Homepage navigation and footer use hash anchors and mailto links; /contact is orphaned",
+      "category": "internal-linking",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "navigational",
+      "targetQueries": [],
+      "finding": "Nav 'Resources' points at #platform; footer 'About' and 'Contact' are mailto:founder@metric.lk although /contact exists. Crawlers find no path from the homepage to any page except login and the three legal documents.",
+      "evidence": [
+        "src/components/landing/LandingPage.tsx lines ~198-257 (nav) and ~1398-1442 (footer)."
+      ],
+      "recommendedChange": "Real links: hub, features, pricing, resources, about, contact, legal — with descriptive, varied anchors.",
+      "implementation": "Homepage nav renders HEADER_LINKS (Product, Pricing, Resources, About); hero secondary CTA links the hub; new Capabilities section links all five feature pages and the hub; pricing links /pricing; CTA adds the trial; footer renders FOOTER_GROUPS and config contact details (no more mailto About/Contact).",
+      "files": [
+        "src/components/landing/LandingPage.tsx",
+        "src/features/marketing/config/navigation.ts"
+      ],
+      "verification": [
+        "HomePage.test.tsx asserts hub, pricing, every feature page, /contact and /about are linked and #platform is gone",
+        "Crawl: /contact now reachable from /"
+      ],
+      "dependencies": ["SEO-012"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:12Z",
+      "completedAt": "2026-10-01T18:23:12Z"
+    },
+    {
+      "id": "SEO-022",
+      "title": "Resources hub with two first-party articles",
+      "category": "content",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "informational",
+      "targetQueries": [
+        "gym membership renewal reminders",
+        "when to send gym payment reminders",
+        "gym revenue tracking",
+        "billed vs collected revenue gym"
+      ],
+      "finding": "No informational content exists. Generic articles would add nothing; Metric's own product rules (reminder timing by plan length, billed-vs-collected revenue) are original, verifiable knowledge.",
+      "evidence": [
+        "src/features/sms/config/ReminderConfig.ts; docs/architecture/revenue-billing-model.md."
+      ],
+      "recommendedChange": "/resources plus two articles written from those rules, each linking to the relevant feature page. No blog engine, no bulk content.",
+      "implementation": "/resources index and two articles written from Metric's own rules: renewal reminder timing by plan length; billed vs collected revenue (worked example computed from labelled illustrative inputs). Article JSON-LD with dates.",
+      "files": [
+        "src/app/(marketing)/resources/page.tsx",
+        "src/app/(marketing)/resources/membership-renewal-reminders/page.tsx",
+        "src/app/(marketing)/resources/billed-vs-collected-revenue/page.tsx"
+      ],
+      "verification": ["Render test suite; crawl 200; Article node present"],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:12Z",
+      "completedAt": "2026-10-01T18:23:12Z"
+    },
+    {
+      "id": "SEO-023",
+      "title": "Homepage claims contradicted by the codebase",
+      "category": "trust",
+      "priority": "P0",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [],
+      "finding": "The homepage advertises things the product does not do: a HIKVISION integration badge; RFID and facial-recognition entry; WhatsApp sends in the reminder log; 'QR code check-in'; a 30-day trial 'on every tier'; tier names Starter/Growth that do not exist in the product; 'automated fee collection' (members pay at the desk; Metric automates reminders and records payments); a RETRY line implying automatic SMS retries.",
+      "evidence": [
+        "docs/architecture/access-control-integration.md:299 — 'a future ZKTeco/Hikvision provider' (not built).",
+        "Enrolment is fingerprint (enrollfinger); no WhatsApp provider exists (src/features/sms/services/providers); no check-in feature exists (grep check-in returns only access-control and the landing page).",
+        "SubscriptionConfig.ts: Enterprise is contact-sales only and never enters the trial flow; TIER_DISPLAY_NAME Lite/Pro/Enterprise.",
+        "SendAutomatedReminders.ts sends once and logs; there is no retry loop."
+      ],
+      "recommendedChange": "Correct every contradicted claim in place; source tier names, limits and trial terms from SubscriptionConfig through the marketing pricing config.",
+      "implementation": "Removed or corrected every contradicted claim: HIKVISION badge → 'ZKTECO · FINGERPRINT'; RFID/face wording and log lines → fingerprint; WhatsApp and RETRY log lines → real SMS statuses; 'QR code check-in' → QR self-registration; 'trial on every tier' → trial for new accounts, Enterprise via our team; Starter/Growth → Lite/Pro from TIER_DISPLAY_NAME (also in the demo form, mapped to the unchanged LeadInterest values); 'automated fee collection' → accurate subtitle; 'Escalation ladders' → the real reminder schedule.",
+      "files": [
+        "src/components/landing/LandingPage.tsx",
+        "src/components/landing/DemoModal.tsx",
+        "src/features/marketing/config/pricing.ts"
+      ],
+      "verification": [
+        "HomePage.test.tsx forbids hikvision, rfid, facial recognition, whatsapp, check-in, 'trial on every tier', −95%, 'automated fee collection'; mutation (HIKVISION restored) turns it red"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:33Z",
+      "completedAt": "2026-10-01T18:23:33Z"
+    },
+    {
+      "id": "SEO-024",
+      "title": "Unverifiable proof claims need owner evidence",
+      "category": "trust",
+      "priority": "P0",
+      "status": "blocked",
+      "intent": "commercial",
+      "targetQueries": [],
+      "finding": "The homepage shows a 'Trusted by leading gyms across Sri Lanka' strip naming six businesses, a testimonial attributed to 'Zulfi Ahamath — Owner, Fitness Empire, Wattala' claiming 80% less admin time, a '−95% late payments' badge and 'Running nationwide'. Nothing in the repository supports or refutes them. They were left in place, are not repeated on any new page and are excluded from structured data.",
+      "evidence": [
+        "src/components/landing/LandingPage.tsx trust strip, quote section, feature badge, hero eyebrow.",
+        "Search index still shows older, larger claims from metricgymmanager.com ('25+ gyms', '7.9K+ active members', '99.99% uptime') that also have no evidence in the repository.",
+        "Found 2026-10-02: the same figures are live in the product, not only in the old index. src/components/auth/AuthShell.tsx renders 'Gyms on platform 25+', 'Members managed 7,900+' and 'Uptime, trailing 12 mo 99.99%', plus a 'metricgym.lk' domain label, beside every auth form: /register (indexable, canonicalised), /login, /forgot-password, /reset-password and /verify-email. Seen in a 1366 px screenshot of /verify-email."
+      ],
+      "recommendedChange": "Owner to confirm: each named gym is a current customer that agreed to be shown; the testimonial is real, attributed with consent and its 80% figure is the customer's own; the −95% figure has a dataset behind it; and the auth panel's 25+ gyms, 7,900+ members and 99.99% uptime have evidence behind them (and whether 'metricgym.lk' is a domain Metric uses, against the canonical www.metricgymos.com). Remove anything that cannot be confirmed. Once confirmed, consider real case studies (SEO-042).",
+      "implementation": "Partially actioned: the '−95% LATE PAYMENTS' statistic and 'RUNNING NATIONWIDE' were replaced with verifiable text (reminder schedule badge; descriptive eyebrow). The six named gyms in the trust strip and the Zulfi Ahamath / Fitness Empire testimonial remain unchanged pending owner confirmation, are repeated nowhere else, and are excluded from structured data.",
+      "files": [
+        "src/components/landing/LandingPage.tsx",
+        "src/components/auth/AuthShell.tsx"
+      ],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-02T15:36:21Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-025",
+      "title": "Contact details are inconsistent across the site",
+      "category": "local",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "navigational",
+      "targetQueries": [],
+      "finding": "Footer: 'Colombo, Sri Lanka' plus coordinates and mailto:founder@metric.lk. Contact page: Kotte postal address, support@ and privacy@metricgymos.com, +94 70 437 9967. Support hours (Mon–Sun 08:00–22:00) appear only inside the authenticated app.",
+      "evidence": [
+        "src/components/landing/LandingPage.tsx footer; src/app/contact/page.tsx; src/app/(dashboard)/support/page.tsx line 85."
+      ],
+      "recommendedChange": "One site config (features/marketing/config/site.ts) for name, legal name, address, phone, emails and hours, consumed by footer, contact, about and Organization schema.",
+      "implementation": "features/marketing/config/site.ts is the single source for name, legal name, Kotte address, phone, emails and support hours; consumed by the homepage footer, marketing footer, /contact, /about and Organization JSON-LD. The off-domain founder@metric.lk mailto and the Colombo coordinates are gone.",
+      "files": [
+        "src/features/marketing/config/site.ts",
+        "src/features/marketing/components/MarketingFooter.tsx",
+        "src/app/(marketing)/contact/page.tsx",
+        "src/components/landing/LandingPage.tsx"
+      ],
+      "verification": [
+        "structured-data.test.ts asserts Organization email/telephone/address equal the config printed on /contact"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:33Z",
+      "completedAt": "2026-10-01T18:23:33Z"
+    },
+    {
+      "id": "SEO-026",
+      "title": "Retired domain metricgymmanager.com is still indexed with stale claims",
+      "category": "off-site",
+      "priority": "P1",
+      "status": "blocked",
+      "intent": "navigational",
+      "targetQueries": ["metric gym manager", "metric gym os"],
+      "finding": "A search for '\"Metric Gym OS\" gym management' returns https://www.metricgymmanager.com/ titled 'Metric Gym Manager' with a cached snippet claiming '25+ gyms', '7.9K+ active members', '99.99% uptime', Hikvision/RFID/face access and multi-location features. The domain already 308-redirects to www.metricgymos.com.",
+      "evidence": [
+        "WebSearch (US index, not google.lk) 2026-10-01.",
+        "Vercel project domains: metricgymmanager.com and www.metricgymmanager.com redirect 308 to www.metricgymos.com."
+      ],
+      "recommendedChange": "Verify both domains in Google Search Console and file a Change of Address from metricgymmanager.com to metricgymos.com; keep the 308s permanently; re-check the snippet after recrawl.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": ["SEO-036"],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-027",
+      "title": "Unreferenced public images expose an old UI, the old brand and personal data",
+      "category": "technical",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "public/screenshots/*.png show the retired light 'Metric Gym Manager' UI including an owner email address and member phone numbers; public/david.png and public/yaka.jpg are unreferenced. Everything in /public is served and crawlable (Google Images).",
+      "evidence": [
+        "grep -rn 'screenshots/|david.png|yaka.jpg' src scripts returns no references.",
+        "public/screenshots/member-directory.png visibly contains an email address and phone numbers."
+      ],
+      "recommendedChange": "Delete the unreferenced images.",
+      "implementation": "Deleted public/screenshots/* (old light UI with an email address and phone numbers), public/david.png, public/yaka.jpg and public/linkPreviewLogo.png — all unreferenced.",
+      "files": [
+        "public/screenshots/ (deleted)",
+        "public/david.png (deleted)",
+        "public/yaka.jpg (deleted)",
+        "public/linkPreviewLogo.png (deleted)"
+      ],
+      "verification": [
+        "grep finds no reference in src, scripts or the service-worker generator",
+        "Local build: /screenshots/member-directory.png and /linkPreviewLogo.png → 404"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:33Z",
+      "completedAt": "2026-10-01T18:23:33Z"
+    },
+    {
+      "id": "SEO-028",
+      "title": "No Organization or WebSite structured data",
+      "category": "schema",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "navigational",
+      "targetQueries": ["metric gym os"],
+      "finding": "No JSON-LD anywhere, so the brand/company relationship (Metric Gym OS, operated by Capitalist One (Pvt) Ltd, Kotte, Sri Lanka) is not stated in machine-readable form.",
+      "evidence": ["Production HTML contains no application/ld+json."],
+      "recommendedChange": "Organization (name, legalName, url, logo, email, telephone, address, contactPoint) and WebSite with stable @id values, emitted from the site config so they always match visible text.",
+      "implementation": "Organization (name, legalName, url, logo, email, telephone, PostalAddress, areaServed LK, ContactPoint with hours) and WebSite with stable @ids on every public page via StructuredData.",
+      "files": [
+        "src/features/marketing/utils/structured-data.ts",
+        "src/features/marketing/components/StructuredData.tsx"
+      ],
+      "verification": [
+        "Crawl: every marketing page's JSON-LD parses and contains Organization + WebSite + WebPage",
+        "structured-data.test.ts",
+        "Not run through Google's Rich Results Test — the tool's host is outside this environment's network allow-list; do it after deploy"
+      ],
+      "dependencies": ["SEO-025"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:33Z",
+      "completedAt": "2026-10-01T18:23:33Z"
+    },
+    {
+      "id": "SEO-029",
+      "title": "SoftwareApplication structured data with LKR offers",
+      "category": "schema",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym management software sri lanka",
+        "gym management system sri lanka",
+        "gym software sri lanka"
+      ],
+      "finding": "The product is not described as software anywhere in structured data.",
+      "evidence": [
+        "Google's software-app rich result requires a rating or review; Metric has none it can honestly mark up."
+      ],
+      "recommendedChange": "SoftwareApplication (BusinessApplication, web browser) with three Offers from the pricing config. No aggregateRating or review — the rich result will not appear, but the entity and prices are stated accurately.",
+      "implementation": "SoftwareApplication (BusinessApplication, Web browser) with three LKR Offers + UnitPriceSpecification per month, on /, the hub and /pricing; no rating or review.",
+      "files": ["src/features/marketing/utils/structured-data.ts"],
+      "verification": [
+        "structured-data.test.ts: offers equal PRICING_TIERS, no aggregateRating/review"
+      ],
+      "dependencies": ["SEO-019"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:33Z",
+      "completedAt": "2026-10-01T18:23:33Z"
+    },
+    {
+      "id": "SEO-030",
+      "title": "BreadcrumbList on subpages and Article on resources",
+      "category": "schema",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "Subpages need a stated position in the hierarchy; articles need dates and publisher.",
+      "evidence": ["None of these pages exist yet."],
+      "recommendedChange": "Visible breadcrumbs mirrored by BreadcrumbList; Article with datePublished/dateModified and Organization author/publisher.",
+      "implementation": "Visible breadcrumbs (DS Breadcrumb primitives) mirrored by BreadcrumbList from the same trail; Article with datePublished/dateModified, Organization author/publisher on both articles; WebPage on every page.",
+      "files": [
+        "src/features/marketing/components/MarketingBreadcrumbs.tsx",
+        "src/features/marketing/utils/structured-data.ts"
+      ],
+      "verification": [
+        "MarketingPages.test.tsx checks BreadcrumbList length equals the visible trail on every page"
+      ],
+      "dependencies": ["SEO-012"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:33Z",
+      "completedAt": "2026-10-01T18:23:33Z"
+    },
+    {
+      "id": "SEO-031",
+      "title": "FAQPage structured data",
+      "category": "schema",
+      "priority": "P3",
+      "status": "rejected",
+      "intent": "informational",
+      "targetQueries": [],
+      "finding": "Considered for the hub and pricing FAQs.",
+      "evidence": [
+        "Google limits FAQ rich results to well-known authoritative government and health sites (Search Central, FAQPage documentation)."
+      ],
+      "recommendedChange": "Rejected: keep visible FAQ sections for people and for AI features that read indexed text; do not add FAQPage markup that cannot produce a result.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": "2026-10-01T17:40:00Z"
+    },
+    {
+      "id": "SEO-032",
+      "title": "LocalBusiness structured data",
+      "category": "schema",
+      "priority": "P3",
+      "status": "rejected",
+      "intent": "navigational",
+      "targetQueries": [],
+      "finding": "Considered for local relevance.",
+      "evidence": [
+        "Metric is software sold to gyms; its Kotte address is a registered office, not premises customers visit. Google's LocalBusiness markup describes a physical business customers visit."
+      ],
+      "recommendedChange": "Rejected: use Organization with a PostalAddress instead.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": "2026-10-01T17:40:00Z"
+    },
+    {
+      "id": "SEO-033",
+      "title": "llms.txt or AI-specific markup",
+      "category": "technical",
+      "priority": "P3",
+      "status": "rejected",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "Considered because AI search visibility is a stated goal.",
+      "evidence": [
+        "Google Search Central (AI features and your website): AI Overviews and AI Mode use the same index; no special file, markup or schema is required."
+      ],
+      "recommendedChange": "Rejected: AI-search readiness is handled by crawlable text, clear headings, answer-first sections and accurate structured data.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": "2026-10-01T17:40:00Z"
+    },
+    {
+      "id": "SEO-034",
+      "title": "Mass location pages (Colombo, Kandy, Galle …)",
+      "category": "local",
+      "priority": "P3",
+      "status": "rejected",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym management software colombo",
+        "gym management software western province"
+      ],
+      "finding": "The Colombo query shows no Sri Lankan vendor targeting it, which tempts city pages.",
+      "evidence": [
+        "No repository or business evidence of which cities Metric's customers are in; a page per city with swapped names is a doorway page under Google's spam policies."
+      ],
+      "recommendedChange": "Rejected: state the true location once (company based in Kotte, Colombo District) on the hub, about and contact pages. Revisit only with real local customers and city-specific information.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": "2026-10-01T17:40:00Z"
+    },
+    {
+      "id": "SEO-035",
+      "title": "No analytics event for demo requests",
+      "category": "measurement",
+      "priority": "P1",
+      "status": "implemented",
+      "intent": "transactional",
+      "targetQueries": [],
+      "finding": "GA4 (G-D711W4RE25) loads sitewide but the demo form fires no conversion event, so organic landing pages cannot be tied to leads.",
+      "evidence": [
+        "src/app/layout.tsx gtag config; src/components/landing/DemoModal.tsx posts to /api/public/leads with no gtag call."
+      ],
+      "recommendedChange": "Fire GA4's recommended generate_lead event after a successful submission (no personal data in the event); mark it as a key event in GA4 (external).",
+      "implementation": "src/lib/analytics/gtag.ts trackEvent(); DemoModal fires GA4 'generate_lead' with { form: 'demo_request', interest } after a successful submission — no personal data.",
+      "files": [
+        "src/lib/analytics/gtag.ts",
+        "src/components/landing/DemoModal.tsx",
+        "src/components/landing/__tests__/DemoModal.test.tsx"
+      ],
+      "verification": [
+        "type-check and lint pass; event delivery cannot be observed without GA access — confirm in GA4 DebugView after deploy and mark generate_lead as a key event",
+        "DemoModal.test.tsx: generate_lead fires once, only after /api/public/leads returns success, with { form, interest } and no name, email or phone; three mutations (call removed, email added to params, call moved before the response check) each fail it",
+        "Not verified end to end: delivery to GA4 needs the property (SEO-036 owner) — confirm in DebugView after deploy and mark generate_lead as a key event"
+      ],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T21:29:53Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-036",
+      "title": "Google Search Console access and sitemap submission",
+      "category": "measurement",
+      "priority": "P0",
+      "status": "blocked",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "No Search Console verification exists in the repository and this environment has no Search Console access, so indexing, queries, CTR and AI-feature traffic cannot be read.",
+      "evidence": [
+        "No google-site-verification meta tag or file in the repository."
+      ],
+      "recommendedChange": "Owner: verify a Domain property for metricgymos.com via DNS, submit /sitemap.xml, inspect '/', '/gym-management-software-sri-lanka' and '/pricing', then follow the measurement plan in SEO_AUDIT.md.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-037",
+      "title": "Google Business Profile eligibility",
+      "category": "local",
+      "priority": "P2",
+      "status": "blocked",
+      "intent": "navigational",
+      "targetQueries": ["metric gym os"],
+      "finding": "A profile would strengthen the entity in Sri Lankan results, but Google's guidelines require in-person contact with customers at the address or a service area.",
+      "evidence": ["Google Business Profile guidelines (eligibility)."],
+      "recommendedChange": "Owner decides eligibility; if eligible, create the profile with exactly the NAP in features/marketing/config/site.ts.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-038",
+      "title": "Partner citation from VFT Holdings",
+      "category": "off-site",
+      "priority": "P1",
+      "status": "blocked",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym access control system sri lanka",
+        "gym management system sri lanka"
+      ],
+      "finding": "VFT Holdings — Metric's access-control hardware partner — ranks for gym-management queries in Sri Lanka with its own gym solution page.",
+      "evidence": [
+        "Search index: vftholdings.lk/Gym_Management_solution_sri_lanka.php appears for 'gym access control system Sri Lanka fingerprint membership' and 'fitnessx.lk \"Sri Lanka's smart gym management system\"'."
+      ],
+      "recommendedChange": "Ask VFT to list Metric Gym OS as compatible membership software on that page, linking to /features/access-control.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-039",
+      "title": "Software directories and review profiles",
+      "category": "off-site",
+      "priority": "P2",
+      "status": "blocked",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym management software sri lanka",
+        "gym management system sri lanka",
+        "gym software sri lanka"
+      ],
+      "finding": "GymMaster has Capterra and SoftwareAdvice profiles; local competitors appear in Sri Lankan directories. Metric has no third-party profiles found in the search index.",
+      "evidence": [
+        "Search index results for GymMaster (capterra.com/p/57469/GymMaster/, softwareadvice.com)."
+      ],
+      "recommendedChange": "List Metric on relevant software directories with consistent NAP; collect genuine reviews from real customers (never incentivised fake reviews).",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-040",
+      "title": "Social and entity profiles",
+      "category": "entity",
+      "priority": "P3",
+      "status": "blocked",
+      "intent": "navigational",
+      "targetQueries": ["metric gym os"],
+      "finding": "No social profile URLs exist in the repository, so Organization.sameAs cannot be populated.",
+      "evidence": [
+        "grep for linkedin/facebook/instagram/youtube in src returns no company profile."
+      ],
+      "recommendedChange": "Create or confirm official profiles; then add them to site.ts sameAs.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-041",
+      "title": "Founder and team information",
+      "category": "entity",
+      "priority": "P3",
+      "status": "blocked",
+      "intent": "navigational",
+      "targetQueries": [],
+      "finding": "The about page can state company facts but not who runs Metric; nothing in the repository identifies the team.",
+      "evidence": ["No founder or team data in the repository."],
+      "recommendedChange": "Owner supplies names, roles and photos with consent; add to /about.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": ["SEO-020"],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-042",
+      "title": "Real case studies and first-party data content",
+      "category": "content",
+      "priority": "P2",
+      "status": "blocked",
+      "intent": "informational",
+      "targetQueries": [
+        "gym membership renewal sri lanka",
+        "gym payment collection sri lanka"
+      ],
+      "finding": "Fitconnect's strongest content is original local data. Metric holds anonymisable aggregate data (reminder delivery outcomes, renewal timing) that no competitor can copy.",
+      "evidence": [
+        "src/features/sms (sms_logs delivery statuses); revenue and analytics features."
+      ],
+      "recommendedChange": "Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": ["SEO-022"],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-043",
+      "title": "Marketing pages preload a font they do not render",
+      "category": "performance",
+      "priority": "P3",
+      "status": "discovered",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "The root layout loads Inter, Geist and Geist Mono for every route; the landing and marketing surfaces render in Geist, so Inter's preload is unused there.",
+      "evidence": [
+        "Production HTML preloads three woff2 files; .landing-root sets font-family Geist."
+      ],
+      "recommendedChange": "Measure first; if confirmed, scope Inter to the surfaces that use it. Not changed in this pass (root-layout font changes affect the whole product).",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-044",
+      "title": "Lab performance check of public pages",
+      "category": "performance",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "Public pages are statically prerendered (fast TTFB) but no lab numbers exist for LCP/CLS/TBT.",
+      "evidence": ["next build: '/' and the legal pages are static (○)."],
+      "recommendedChange": "Run Lighthouse against a local production build for '/', the hub and /pricing; record the numbers in SEO_AUDIT.md.",
+      "implementation": "Lighthouse 12 (mobile, simulated throttling) against the local production build.",
+      "files": [],
+      "verification": [
+        "/: performance 91, accessibility 92, best practices 96, SEO 100, LCP 3.3 s, CLS 0, TBT 130 ms",
+        "Hub: 92/93/96/100, LCP 3.3 s, CLS 0",
+        "/pricing: 93/93/96/100, LCP 3.0 s, CLS 0",
+        "Caveats: sandbox font mock serves unsubsetted .woff and GA is blocked, so LCP is overstated vs production; LCP element is text, 86% render delay — measure real users with PageSpeed Insights/CrUX after deploy",
+        "Re-run on a fresh build after the accessibility fixes (warm server, same settings): / 94 and 95 / 96 / 96 / 100, LCP 2.9 s, CLS 0, TBT 50–140 ms; hub 92 / 100 / 96 / 100, LCP 3.3 s; /pricing 96 / 100 / 96 / 100, LCP 2.6 s. A first, cold-server run of / scored 82 (LCP 4.5 s) and is not counted",
+        "Best practices 96 everywhere = one console error: the sandbox proxy refuses the GA script (ERR_TUNNEL_CONNECTION_FAILED); not a site defect",
+        "Largest remaining opportunity: about 255 KiB of unused JavaScript per page, recorded as SEO-055"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T21:29:53Z",
+      "completedAt": "2026-10-01T18:23:33Z"
+    },
+    {
+      "id": "SEO-045",
+      "title": "Unknown public-looking paths redirect to /login",
+      "category": "technical",
+      "priority": "P3",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "Any path outside PUBLIC_ROUTES (for example /features) answers 307 to /login?redirect=… for an anonymous visitor rather than a 404, which can be read as a soft 404.",
+      "evidence": ["src/lib/middleware/auth.ts unauthenticated branch."],
+      "recommendedChange": "Add a permanent redirect for /features to the hub (the one path the new URL scheme invites). A general 404 for unknown anonymous paths is a middleware change outside this pass.",
+      "implementation": "next.config.js permanent redirect /features → /gym-management-software-sri-lanka. The general case (any unknown anonymous path → 307 /login) is unchanged: a middleware change outside this pass.",
+      "files": ["next.config.js"],
+      "verification": [
+        "Local build: GET /features → 308 location /gym-management-software-sri-lanka"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T18:23:33Z",
+      "completedAt": "2026-10-01T18:23:33Z"
+    },
+    {
+      "id": "SEO-046",
+      "title": "Measurement plan",
+      "category": "measurement",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [
+        "gym management software sri lanka",
+        "gym management system sri lanka",
+        "gym software sri lanka",
+        "gym management software colombo",
+        "gym membership software sri lanka",
+        "gym billing software sri lanka"
+      ],
+      "finding": "There is no written plan for what to measure once Search Console is connected.",
+      "evidence": ["No measurement documentation in docs/."],
+      "recommendedChange": "SEO_AUDIT.md §Measurement: query set, KPIs, segmentation (branded vs non-branded), cadence, and what not to claim.",
+      "implementation": "SEO_AUDIT.md §17: Search Console Domain-property setup, Change of Address, GA4 linking and redaction check; the brief's six core queries plus cluster and brand queries; KPIs (indexed pages, impressions, clicks, CTR, average position, landing pages, branded vs non-branded, conversions, AI features); weekly/monthly/quarterly cadence; a list of claims not to make. Executing it needs SEO-036.",
+      "files": ["docs/seo/SEO_AUDIT.md"],
+      "verification": [
+        "Checked §17 against brief §19: all six core queries and all nine measures are present (scripted string check, 0 missing)",
+        "The conversion it relies on exists: generate_lead fires after a stored demo request (DemoModal.test.tsx); sign_up is recorded as missing (SEO-056)"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T22:20:00Z",
+      "completedAt": "2026-10-01T22:20:00Z"
+    },
+    {
+      "id": "SEO-047",
+      "title": "Sinhala and Tamil content",
+      "category": "content",
+      "priority": "P3",
+      "status": "discovered",
+      "intent": "commercial",
+      "targetQueries": [],
+      "finding": "Fitconnect offers Sinhala; Metric's product UI and SMS templates are English only.",
+      "evidence": [
+        "SMS templates in SendAutomatedReminders.ts and sms.service.ts are English."
+      ],
+      "recommendedChange": "Only translate marketing pages once the product, SMS and support can serve those languages; otherwise the pages over-promise.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-01T17:40:00Z",
+      "completedAt": null
+    },
+    {
+      "targetQueries": [],
+      "evidence": [
+        "next build prerender error on /resources/billed-vs-collected-revenue: {…, onKeyDown: function onKeyDown, …}"
+      ],
+      "recommendedChange": "Attach the key handler only when the row is interactive or a handler was supplied.",
+      "implementation": "src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static rows; interactive rows unchanged.",
+      "files": [
+        "src/components/ui/primitives/Table.tsx",
+        "src/components/ui/__tests__/feedback.test.tsx"
+      ],
+      "verification": [
+        "feedback.test.tsx asserts a static row has no onKeyDown/tabIndex and a clickable row keeps both; mutation (always attach) turns it red",
+        "next build passes; DataTable suites (51 tests) pass"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T18:24:04Z",
+      "updatedAt": "2026-10-01T18:24:04Z",
+      "completedAt": "2026-10-01T18:24:04Z",
+      "id": "SEO-048",
+      "title": "Design-system TableRow could not render in a Server Component",
+      "category": "technical",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "none",
+      "finding": "TableRow attached an onKeyDown handler to every row, interactive or not. A function on a host element cannot cross a Server Component render, so the first static page using a DS table (/resources/billed-vs-collected-revenue) failed `next build` with 'Event handlers cannot be passed to Client Component props'."
+    },
+    {
+      "targetQueries": [],
+      "evidence": [
+        "Chromium at 320 px: documentElement.scrollWidth 378 vs clientWidth 320; widest unclipped elements were #platform-grid children (362 px)"
+      ],
+      "recommendedChange": "min-width:0 on the grid items so the code block's own horizontal scroll and ellipsis take over.",
+      "implementation": "LandingPage.tsx mobile CSS: #platform-grid > div gains min-width:0.",
+      "files": ["src/components/landing/LandingPage.tsx"],
+      "verification": [
+        "Overflow sweep of 13 public pages at 1366/1024/768/430/390/360/320 px: no page wider than its viewport"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T18:24:04Z",
+      "updatedAt": "2026-10-01T18:24:04Z",
+      "completedAt": "2026-10-01T18:24:04Z",
+      "id": "SEO-049",
+      "title": "Homepage overflowed a 320 px viewport",
+      "category": "technical",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "none",
+      "finding": "At 320 px the platform grid's columns took the min-content width of the nowrap log lines (362 px), so the whole page scrolled sideways — a mobile-usability defect. The longest line before this change ('RETRY … carrier timeout') was as long, so the pattern predates the copy changes."
+    },
+    {
+      "targetQueries": [],
+      "evidence": [
+        "Lighthouse 12 accessibility audits on the local build: link-in-text-block (4 on the hub, 1 on /), target-size (2 on the hub)"
+      ],
+      "recommendedChange": "Underline in-text links by default; give the footer contact links a 24 px inline-block box.",
+      "implementation": "Prose, FAQ, About principles and section-intro links underlined; MarketingFooter tel/mailto links inline-block leading-6; homepage capabilities link underlined.",
+      "files": [
+        "src/features/marketing/components/MarketingSection.tsx",
+        "src/features/marketing/components/FaqSection.tsx",
+        "src/features/marketing/components/MarketingFooter.tsx",
+        "src/app/(marketing)/about/page.tsx",
+        "src/components/landing/LandingPage.tsx"
+      ],
+      "verification": [
+        "Lighthouse re-run on a fresh build: link-in-text-block and target-size no longer reported on /, the hub or /pricing",
+        "Accessibility: hub 93 → 100, /pricing 93 → 100, / 92 → 96; the only remaining failure on / is color-contrast inside the decorative dashboard preview (SEO-051)"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T18:24:04Z",
+      "updatedAt": "2026-10-01T21:29:53Z",
+      "completedAt": "2026-10-01T18:24:04Z",
+      "id": "SEO-050",
+      "title": "In-text links relied on colour alone; footer contact links below 24 px",
+      "category": "on-page",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "none",
+      "finding": "Lighthouse flagged link-in-text-block (links distinguishable only by colour, WCAG 1.4.1) on the new pages and the homepage capabilities intro, and target-size on the footer phone/email links (20 px line boxes, adjacent)."
+    },
+    {
+      "targetQueries": [],
+      "evidence": [
+        "Lighthouse color-contrast audit on /: 32 nodes, all inside the preview mock"
+      ],
+      "recommendedChange": "Lift those labels to #8b8b93, or mark the mock as decorative (aria-hidden) — a design decision for the owner.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T18:24:04Z",
+      "updatedAt": "2026-10-01T18:24:04Z",
+      "completedAt": null,
+      "id": "SEO-051",
+      "title": "Decorative dashboard preview on the homepage fails colour contrast",
+      "category": "on-page",
+      "priority": "P3",
+      "status": "discovered",
+      "intent": "none",
+      "finding": "The hero's mock dashboard uses 10–11 px #5c5c64 labels on black (about 3:1), which Lighthouse counts as 32 contrast failures on '/'. It is decorative, pre-existing and the owner's design."
+    },
+    {
+      "targetQueries": [],
+      "evidence": [
+        "src/features/sms/config/ReminderConfig.ts PlanType.Weekly reminderDays [7, 3, 0]; SendAutomatedReminders.determineSMSType sends SevenDay at 7 ≤ daysUntilDue < 8"
+      ],
+      "recommendedChange": "Product decision: drop the 7-day reminder for weekly plans (as monthly already does). Update the reminders page table automatically by changing the config.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T18:24:04Z",
+      "updatedAt": "2026-10-01T18:24:04Z",
+      "completedAt": null,
+      "id": "SEO-052",
+      "title": "Weekly members get their '7 days before' reminder on the day they pay",
+      "category": "trust",
+      "priority": "P3",
+      "status": "discovered",
+      "intent": "none",
+      "finding": "REMINDER_RULES gives weekly plans the 7-day reminder, but a weekly period is seven days long, so the 7-days-before date is the payment day itself. The SMS reminders page shows the schedule exactly as the product runs it; the guide article does not recommend it."
+    },
+    {
+      "targetQueries": [],
+      "evidence": [
+        "SendAutomatedReminders.generateReminderMessage and CollectPayment.generateReceiptMessage have no gymName; sms.service formatSMSMessage does"
+      ],
+      "recommendedChange": "Product decision: include the gym name in automated reminder and receipt texts.",
+      "implementation": "",
+      "files": [],
+      "verification": [],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T18:24:04Z",
+      "updatedAt": "2026-10-01T18:24:04Z",
+      "completedAt": null,
+      "id": "SEO-053",
+      "title": "Automated reminders and receipts do not name the gym",
+      "category": "trust",
+      "priority": "P3",
+      "status": "discovered",
+      "intent": "none",
+      "finding": "The sender ID is platform-wide (TEXT_LK_SENDER_ID) and the automated reminder and receipt texts omit the gym's name (the manual-send templates include it), so a member may not know which gym is texting. The public pages quote the real texts and make no 'names your gym' claim."
+    },
+    {
+      "targetQueries": [],
+      "evidence": [
+        "docs/architecture/feature-first-growth-rules.md and .claude/rules/architecture.md predate the marketing feature"
+      ],
+      "recommendedChange": "A Pattern Index row (2.23) pointing at docs/seo/SEO_AUDIT.md; add docs/seo/ to the documented docs taxonomy.",
+      "implementation": "Pattern Index row 2.23 in .claude/rules/architecture.md (registry + PUBLIC_ROUTES, static public pages, no canonical in the root layout, canonical origin, published pricing source, claims policy, task log); docs/seo/ added to docs/README.md and the docs taxonomy in feature-first-growth-rules.md; marketing/ added to the CLAUDE.md feature map",
+      "files": [
+        ".claude/rules/architecture.md",
+        "docs/README.md",
+        "docs/architecture/feature-first-growth-rules.md",
+        "CLAUDE.md"
+      ],
+      "verification": [
+        "npm run arch:check passes, including UI7 (no unescaped pipe drops a Pattern Index cell)",
+        "Row 2.23 is the last row of the table and names docs/seo/SEO_AUDIT.md as its reference"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T18:24:04Z",
+      "updatedAt": "2026-10-01T21:29:53Z",
+      "completedAt": "2026-10-01T21:29:53Z",
+      "id": "SEO-054",
+      "title": "Record the public-site rules where future work will find them",
+      "category": "architecture",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "none",
+      "finding": "Nothing in the rulebook says a public page must be registered, listed in PUBLIC_ROUTES and statically rendered, or that the root layout must not set a canonical — the two mistakes most likely to undo this work silently."
+    },
+    {
+      "id": "SEO-055",
+      "title": "Every public page ships the chart library it never uses",
+      "category": "performance",
+      "priority": "P2",
+      "status": "implemented",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "Lighthouse reports about 255 KiB of unused JavaScript on each public page. The largest chunk (637 KiB raw, 182 KiB transferred, 176 KiB unused) holds recharts and sonner and loads on /, the hub, /pricing and /login alike; a second (245 KiB raw, 52 KiB unused) holds the Supabase client, react-query, the service-worker registration and AuthRecovery. Likely cause: the root layout imports Toaster through the @/components/ui barrel, which re-exports the 'use client' Charts module, and Next includes every client module a server component's import graph reaches. /login reaches the barrel only through the root layout. Not confirmed by experiment.",
+      "evidence": [
+        "Lighthouse 12 unused-javascript audit on the hub (fresh local build, 2026-10-01)",
+        "Chunk contents by string search: 0xj4tltvcl4no.js has 102 recharts and 126 sonner references; it is in the HTML of /, /pricing, /login and the hub",
+        "src/app/layout.tsx imports { Toaster } from '@/components/ui'; src/components/ui/index.ts has export * from './primitives/Charts'"
+      ],
+      "recommendedChange": "A design-system decision, not an SEO one: the DS contract requires barrel imports ('always the barrel, never a deep path'), so the fix belongs in the barrel — e.g. move Charts to its own entry point (@/components/ui/charts) or stop re-exporting it from the main barrel — then confirm with a build that recharts leaves the public pages. Separately, consider mounting QueryProvider and AuthRecovery in the signed-in layouts rather than the root. Measure before and after; lab scores are already 92–96, so the benefit is data cost and main-thread time on mobile, not a ranking lever by itself.",
+      "implementation": "Charts moved to their own design-system barrel, src/components/ui/charts/index.ts, and the main @/components/ui barrel no longer re-exports them. Cause, confirmed from the 23 September production build: the main barrel's export * of the 'use client' Charts module, which imports recharts at module scope, put a 638 KB chunk into every page that imported any primitive, and the root layout's Toaster import made that every page. The four chart consumers (DashboardClient, RevenuePageClient, MemberAnalyticsClient, the dev design-system page) import chart symbols from @/components/ui/charts. arch:check UI4 now reads both barrels so a chart fork is still flagged. DESIGN_SYSTEM.md §3 and rule 2.17 record the exception and its reason. The second chunk the audit named (Supabase client, react-query, service-worker registration, AuthRecovery on public pages) is SEO-060.",
+      "files": [
+        "src/components/ui/charts/index.ts",
+        "src/components/ui/index.ts",
+        "src/components/ui/__tests__/charts-entry.test.ts",
+        "src/app/(dashboard)/dashboard/DashboardClient.tsx",
+        "src/app/(dashboard)/revenue/RevenuePageClient.tsx",
+        "src/features/analytics/components/MemberAnalyticsClient.tsx",
+        "src/app/(dev)/design-system/page.tsx",
+        "scripts/check-architecture.mjs",
+        ".claude/DESIGN_SYSTEM.md",
+        ".claude/rules/architecture.md"
+      ],
+      "verification": [
+        "Production builds (next build, Turbopack) before and after, JS each page loads summed from its prerendered HTML or its client reference manifest, gzip -9: /, the hub and /pricing 465.0 → 344.9 KB; /login 468.3 → 348.3 KB; /register 468.9 → 348.8 KB (−120 KB, −26%); recharts references 102 → 0 on all five. Chart pages keep recharts in their own 419 KB chunk: /dashboard 492.7 → 489.9 KB, /revenue 451.8 → 449.0 KB, /member-analytics 452.3 → 449.5 KB",
+        "charts-entry.test.ts: the main barrel loads without evaluating recharts (a jest.doMock factory flag), @/components/ui/charts serves all seven chart components and CHART_SERIES, and the main barrel no longer exposes them. Three mutations, each caught: Charts re-exported from the main barrel, one chart symbol re-exported, a barrel primitive importing recharts",
+        "arch:check UI4: a probe feature-local `export function Sparkline()` fails UI4 with the change; without the new dsNames line, UI4 misses it",
+        "Full suite 197 suites and 2,391 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes",
+        "Rendered on next start with the after build, signed in as the seeded E2E Enterprise gym (read-only): /dashboard's bar chart and /member-analytics' trend line, year-over-year bars and at-risk bars draw, matching a capture of the HEAD build taken the same way; /revenue renders its chart surface. /design-system returns 404 under next start (development-only), so it was not checked"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T21:30:00Z",
+      "updatedAt": "2026-10-02T16:47:44Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-056",
+      "title": "Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL",
+      "category": "measurement",
+      "priority": "P1",
+      "status": "implemented",
+      "intent": "transactional",
+      "targetQueries": [],
+      "finding": "'Start free trial' is the call to action on every public page, but registration fires no analytics event, so organic landing pages cannot be tied to trials. After a successful sign-up the register page navigates to /verify-email?email=<address>. GA4 is loaded on every route with a plain config call; if the web stream's enhanced measurement counts history changes as page views (GA4's default) and email redaction is not on, that URL — with the address in it — reaches Google Analytics as page_location.",
+      "evidence": [
+        "src/app/(auth)/register/page.tsx: POST /api/auth/register, then router.push(`/verify-email?email=${encodeURIComponent(email)}`)",
+        "src/app/layout.tsx: gtag('config', 'G-D711W4RE25') on every route; no sign_up event anywhere in src/",
+        "The GA4 stream's enhanced-measurement and data-redaction settings are not visible from the repository"
+      ],
+      "recommendedChange": "Owner, in GA4 now: check Admin → Data streams → web stream → Redact data → Email is on. Then, as one reviewed change to the auth flow (rule 2.15 governs it): fire GA4's recommended sign_up event with { method: 'email' } after a successful registration, mark it as a key event, and stop carrying the address in the URL (the verify-email page can show it from session state). Not changed in this pass: the registration flow is product code with its own tests and rules, outside the public-site scope.",
+      "implementation": "register/page.tsx fires GA4's recommended sign_up event with { method: 'email' } only after /api/auth/register returns success, then hands the address to /verify-email through this tab's sessionStorage (features/auth/utils/pendingVerificationEmail.ts, a client-safe deep import over the fail-safe @/lib/client-state wrappers) and navigates to plain /verify-email. The verify page reads the address from that storage and no longer reads ?email= at all. Signup creates no session, so router.push stays (rule 2.15: not an auth-boundary navigation). If storage is unavailable, the resend field starts empty and the user types the address.",
+      "files": [
+        "src/app/(auth)/register/page.tsx",
+        "src/app/(auth)/verify-email/page.tsx",
+        "src/features/auth/utils/pendingVerificationEmail.ts",
+        "src/features/auth/utils/pendingVerificationEmail.test.ts",
+        "src/app/(auth)/register/__tests__/RegisterPage.test.tsx",
+        "src/app/(auth)/verify-email/__tests__/VerifyEmailPage.test.tsx"
+      ],
+      "verification": [
+        "Jest: the register, verify-email and pendingVerificationEmail suites pass (31 tests); the full suite passes 195 suites and 2,375 tests (7 skipped), with tsc as pretest, lint 0 errors (the same 11 warnings, none in touched files) and arch:check passing",
+        "Eight mutations, each caught by a named test: the address back in the push URL; the sign_up call deleted; the email added to the event params; sign_up moved before the response check; the verify page reading ?email= again; the verify page no longer reading storage; the module switched to localStorage; the module reading storage unguarded",
+        "Chromium via Playwright against next dev, with /api/auth/register and GA's /g/collect stubbed: after sign-up the URL is exactly /verify-email and the address (owner+probe@example.lk) is echoed; GA received one sign_up hit carrying ep.method=email; none of the 4 collect requests contained the address raw or URL-encoded; the address survives a reload at 390 and at 1366 with no console errors and 0 px horizontal overflow; screenshots reviewed",
+        "Not verified: delivery to the live GA4 property. Owner: mark sign_up as a key event and confirm it in DebugView after deploy, then this task can be marked verified"
+      ],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-01T21:45:00Z",
+      "updatedAt": "2026-10-02T15:36:21Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-057",
+      "title": "Every WebPage node claimed to be about the product, on pages that never describe it",
+      "category": "schema",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "webPageJsonLd() set about → #software on every public page, but only /, the hub and /pricing include the SoftwareApplication node. On the other ten pages the reference pointed at an entity absent from the graph, and on the contact page and the guides it asserted a subject the visible page does not have — against the component's own rule that every @id resolves inside the page's graph.",
+      "evidence": [
+        "src/features/marketing/utils/structured-data.ts webPageJsonLd(): about: { '@id': SOFTWARE_ID } unconditionally",
+        "Rendered graphs of the 12 marketing pages: 10 referenced https://www.metricgymos.com/#software without defining it"
+      ],
+      "recommendedChange": "Set about only when the subject is in the graph and on the page: the product where the SoftwareApplication node (and its prices) is present, the Organization on /about, nothing elsewhere.",
+      "implementation": "webPageJsonLd(path, about?) emits about only when given; StructuredData passes SOFTWARE_ID when the page includes the SoftwareApplication node, ORGANIZATION_ID on /about, nothing otherwise. ORGANIZATION_ID, WEBSITE_ID and SOFTWARE_ID exported from the marketing barrel.",
+      "files": [
+        "src/features/marketing/utils/structured-data.ts",
+        "src/features/marketing/components/StructuredData.tsx",
+        "src/features/marketing/index.ts",
+        "src/app/(marketing)/__tests__/MarketingPages.test.tsx"
+      ],
+      "verification": [
+        "New test 'references only entities defined in its own graph' failed on 10 of 12 marketing pages before the fix and passes on all 12 after",
+        "New test pins the subject: product on the hub and /pricing, company on /about, none on /features/sms-reminders and the reminders guide",
+        "Mutations each fail the suite: about → product on every page (11 failures), about never set (1), /about not about the company (1)"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T22:05:00Z",
+      "updatedAt": "2026-10-01T22:05:00Z",
+      "completedAt": "2026-10-01T22:05:00Z"
+    },
+    {
+      "id": "SEO-058",
+      "title": "Seven related-page cards linked the hub with the same exact-match anchor",
+      "category": "internal-linking",
+      "priority": "P3",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": ["gym management software sri lanka"],
+      "finding": "Every feature page and both guides closed with a related card titled 'Gym management software for Sri Lanka' linking the hub — the same exact-match anchor seven times, which the brief asks to avoid and which tells a reader nothing about why to click.",
+      "evidence": [
+        "Contextual-anchor extraction from the served build: 7× 'Gym management software for Sri Lanka' → /gym-management-software-sri-lanka"
+      ],
+      "recommendedChange": "Give each card a title and summary that say what the hub adds from that page's point of view.",
+      "implementation": "Seven card titles and summaries rewritten per page (e.g. 'From registration to the door: the full system' on access control, 'A gym management system that does this arithmetic' on the revenue guide).",
+      "files": [
+        "src/app/(marketing)/features/membership-management/page.tsx",
+        "src/app/(marketing)/features/payment-collection/page.tsx",
+        "src/app/(marketing)/features/sms-reminders/page.tsx",
+        "src/app/(marketing)/features/revenue-reporting/page.tsx",
+        "src/app/(marketing)/features/access-control/page.tsx",
+        "src/app/(marketing)/resources/membership-renewal-reminders/page.tsx",
+        "src/app/(marketing)/resources/billed-vs-collected-revenue/page.tsx"
+      ],
+      "verification": [
+        "Served build: contextual anchors to the hub are the five-page breadcrumb label plus 13 distinct anchors; none repeated outside the breadcrumb",
+        "No horizontal overflow at 7 widths; the access-control and revenue-guide cards inspected at 320 px"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-01T22:20:00Z",
+      "updatedAt": "2026-10-01T22:20:00Z",
+      "completedAt": "2026-10-01T22:20:00Z"
+    },
+    {
+      "id": "SEO-059",
+      "title": "GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included",
+      "category": "measurement",
+      "priority": "P1",
+      "status": "implemented",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "GA4 is configured on every route in the root layout and sends the full page URL, query string included, as page_location (dl). Password-recovery links land on /reset-password?token_hash=…&type=recovery, and that page spends the token only when the form is submitted (rule 2.15), so a still-valid recovery token reaches Google Analytics on every reset visit. Anyone who can read the GA4 property's page_location before the token expires could use it to set the account's password. Email-change links (/verify-email?type=email_change&token_hash=…) send their token the same way, although that one is spent on load. Contentsquare, when NEXT_PUBLIC_ENABLE_ANALYTICS is on, also records URLs. Found while verifying SEO-056.",
+      "evidence": [
+        "Chromium via Playwright against next dev (2026-10-02), GA's /g/collect intercepted and stubbed: loading /reset-password?token_hash=PROBETOKEN0001&type=recovery produced a collect hit whose dl was that exact URL; loading /verify-email?type=email_change&token_hash=PROBETOKEN0002 did the same (the API it calls was stubbed so no real token was spent)",
+        "src/app/layout.tsx: gtag('config', 'G-D711W4RE25') with no page_location override, rendered for every route including (auth)",
+        "supabase/templates/recovery.html and rule 2.15: the recovery link carries token_hash to /reset-password, which makes no Supabase call until submit"
+      ],
+      "recommendedChange": "Owner, in GA4 now (no deploy needed): Admin → Data streams → the web stream → Redact data → turn on query-parameter redaction for token_hash, token, code and email. Then, as one reviewed change: stop sending auth query strings to analytics at all, either by setting a sanitised page_location in the gtag config (strip token_hash, token, code, type) or by not loading GA on the (auth) routes, with a test that fails if a token-bearing URL reaches gtag. Check Contentsquare's URL masking before NEXT_PUBLIC_ENABLE_ANALYTICS is turned on.",
+      "implementation": "src/lib/analytics/ga-init.ts gaInitScript() is now the only GA bootstrap; the root layout renders it as one inline afterInteractive Script, in place of the raw gtag.js Script and inline config. It always defines dataLayer and gtag, so trackEvent() stays a no-op, then returns before loading anything when the URL has a token_hash, token, code or email query parameter or a path under /join/. Otherwise it runs the standard snippet: js, config G-D711W4RE25, and an async gtag.js. The check runs at document load, which is enough because every credential URL arrives by a full page load (email link, QR scan, pasted link) and none is reachable by in-app navigation; the JSDoc says the rule must move if that changes. Rule 2.23 records the invariant. Contentsquare is unchanged: it is off in production (NEXT_PUBLIC_ENABLE_ANALYTICS=false) and needs URL masking checked before it is turned on.",
+      "files": [
+        "src/lib/analytics/ga-init.ts",
+        "src/lib/analytics/__tests__/ga-init.test.ts",
+        "src/app/layout.tsx",
+        ".claude/rules/architecture.md"
+      ],
+      "verification": [
+        "ga-init.test.ts runs the generated script at global scope, as a browser runs an inline script: six credential URLs (recovery token_hash and token, email-change token_hash, PKCE code, email, /join/tok_abc) leave no config and no gtag.js; six ordinary URLs (/, /pricing, /register, /verify-email, /login?redirect=, /joinery) get exactly one config and one gtag.js; and a source check holds the layout to gaInitScript() with no raw googletagmanager.com or gtag('config')",
+        "Seven mutations, each caught: token_hash removed from the list, path-prefix check removed, query guard inverted, config before the guard, script injected before the guard, prefix loosened to /join, raw gtag.js Script re-added to the layout",
+        "Full suite 196 suites and 2,388 tests passed (7 skipped), with tsc as pretest; lint 0 errors (the same 11 warnings); arch:check passes",
+        "Chromium via Playwright against next dev, every Google request recorded: /reset-password?token_hash=…&type=recovery, /verify-email?type=email_change&token_hash=… and /join/tok_probe made 0 requests to Google and rendered normally; / and /pricing loaded gtag.js and sent page_view; the stubbed register flow still sent sign_up",
+        "Not verified: the live GA4 property. Owner, as defence in depth: GA4 → Admin → Data streams → Redact data → query parameters token_hash, token, code, email"
+      ],
+      "dependencies": [],
+      "externalActionRequired": true,
+      "createdAt": "2026-10-02T15:36:21Z",
+      "updatedAt": "2026-10-02T16:25:08Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-060",
+      "title": "Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery",
+      "category": "performance",
+      "priority": "P3",
+      "status": "discovered",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "Split from SEO-055. After the chart library left the public pages, they still load about 345 KB of gzipped JS. A chunk the audit measured at 245 KB raw (52 KB unused) carries the Supabase client, @tanstack/react-query, the service-worker registration and AuthRecovery, all mounted by the root layout for every route. They sit in the root on purpose: AuthRecovery is the hard-navigation escape for a broken session (rule 2.15), and the service worker's single-reload rule (2.19) assumes it runs on every full-document navigation. So moving them is an auth and PWA decision, not a bundle tweak.",
+      "evidence": [
+        "src/app/layout.tsx mounts QueryProvider, ServiceWorkerRegistration and AuthRecovery around every route, the (marketing) group included",
+        "SEO-055's after-build: / still loads 344.9 KB gzip over 12 chunks with no recharts"
+      ],
+      "recommendedChange": "Measure first: which of these modules the public pages actually execute, and what each costs. Then decide with rules 2.15 and 2.19 in hand whether QueryProvider can move to the signed-in layouts, and whether AuthRecovery and the service-worker registration can load lazily on public routes. Lab scores are already 92–96, so this is a data and main-thread cost on mobile, not a ranking lever.",
+      "implementation": "",
+      "files": ["src/app/layout.tsx"],
+      "verification": [],
+      "dependencies": ["SEO-055"],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-02T16:47:44Z",
+      "updatedAt": "2026-10-02T16:47:44Z",
+      "completedAt": null
+    },
+    {
+      "id": "SEO-061",
+      "title": "Guide: overdue gym memberships — when to expire, when to cancel",
+      "category": "content",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "informational",
+      "targetQueries": [
+        "gym membership grace period",
+        "when to cancel an unpaid gym membership",
+        "overdue gym members",
+        "gym membership expired what to do"
+      ],
+      "finding": "SEO_AUDIT.md §8 lists four buying and switching guides built on product facts. Overdue memberships was written first because every claim in it traces to code: no-grace expiry (StatusConfig, update-expired-status), cancellation 14 days after the due date (MEMBER_CANCELLATION_OVERDUE_DAYS), late payments dated from the payment day (CollectPayment), expired members still billable and cancelled ones not (rule 2.22), reactivation with a welcome-back SMS, and readers that block on cancel and restore on return (rule 2.20).",
+      "evidence": [
+        "docs/seo/SEO_AUDIT.md §8 item 3: 'Overdue memberships: when to expire, when to cancel (Metric's no-grace expiry and 14-day cancellation rules)'"
+      ],
+      "recommendedChange": "Publish the guide at /resources/overdue-gym-memberships, with its timeline derived from the product's own constants, and link it from /resources, the payment-collection page, the reminders guide and the footer.",
+      "implementation": "src/app/(marketing)/resources/overdue-gym-memberships/page.tsx: Article page in the reminders guide's pattern (MarketingHero, MarketingSection, Prose, RelatedPages, Article + BreadcrumbList JSON-LD, buildPageMetadata). Its worked timeline is computed from REMINDER_RULES[Monthly], MEMBER_CANCELLATION_OVERDUE_DAYS and calculateNextDueDate, so it cannot drift from the product. Registry entry and ARTICLE_PATHS.overdue in features/marketing/config/pages.ts (the /resources description now names three guides); PUBLIC_ROUTES entry; body links from /features/payment-collection and the reminders guide; footer Resources link; added to the MarketingPages screen-test table. Left out on purpose: suspension (it does not pause the clock and Metric has no freeze) and the dashboard's >14-day 'critical' tier.",
+      "files": [
+        "src/app/(marketing)/resources/overdue-gym-memberships/page.tsx",
+        "src/features/marketing/config/pages.ts",
+        "src/features/marketing/config/navigation.ts",
+        "src/lib/auth-config.ts",
+        "src/app/(marketing)/features/payment-collection/page.tsx",
+        "src/app/(marketing)/resources/membership-renewal-reminders/page.tsx",
+        "src/app/(marketing)/__tests__/MarketingPages.test.tsx"
+      ],
+      "verification": [
+        "Jest: the registry, public-route and MarketingPages suites pass for the new page (one H1, registered metadata, JSON-LD graph, links that resolve, heading outline, linked from another page); removing the path from PUBLIC_ROUTES fails pages.test; full suite 197 suites and 2,400 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes",
+        "next build prerenders /resources/overdue-gym-memberships as static. On next start: 200, one H1, self canonical https://www.metricgymos.com/resources/overdue-gym-memberships, no robots meta, title 'Overdue Gym Members: When to Expire or Cancel | Metric Gym OS', JSON-LD Organization, WebSite, WebPage, BreadcrumbList, Article; sitemap.xml has 17 <loc> including the guide; /resources, /features/payment-collection, the reminders guide and the footer link it; a vercel.app host gets X-Robots-Tag: noindex",
+        "Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; full-page screenshots and the timeline table at 320 read by eye. The timeline shows 12 Nov reminder, 15 Nov due-date SMS, 16 Nov expired, 16–28 Nov follow-up, 29 Nov cancelled, payment on 20 Nov → next due 20 Dec",
+        "Not verified: indexing or ranking (needs Search Console, SEO-036)"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-02T18:11:31Z",
+      "updatedAt": "2026-10-02T18:11:31Z",
+      "completedAt": "2026-10-02T18:11:31Z"
+    },
+    {
+      "id": "SEO-062",
+      "title": "Two public pages said QR self-registrations wait for staff before counting as paid; they are created active with the payment recorded",
+      "category": "trust",
+      "priority": "P1",
+      "status": "verified",
+      "intent": "none",
+      "targetQueries": [],
+      "finding": "/features/membership-management said self-registered members carry a NEW badge 'until your staff confirm them, so nobody is treated as a paid member before they have paid', and the hub said 'Self-registrations wait with a NEW badge until your staff confirm them.' The code does otherwise. POST /api/public/registrations creates the member at once through RegisterMember: status active, initial payment recorded, welcome SMS sent. Verifying (/api/members/[id]/verify) only sets verified_at, which clears the badge (registration_source === 'qr' && !verified_at) and changes nothing else. Rule 2.23: public copy states only what the code does.",
+      "evidence": [
+        "src/app/api/public/registrations/route.ts header: 'the member is created immediately (active, initial payment recorded, welcome SMS sent — the desk collects the cash right after) with registration_source='qr', which renders as a NEW badge until the gym verifies the entry'",
+        "src/features/members/components/MemberPhotoSection.tsx: isNew = member.registration_source === 'qr' && !member.verified_at",
+        "src/app/api/members/[id]/verify/route.ts: 'Marks a QR self-registered member as verified (clears the NEW badge)'"
+      ],
+      "recommendedChange": "Say what happens: the record is created as soon as the member submits, active and with the payment recorded, so the desk takes the money straight away; the NEW badge marks entries staff have not yet verified.",
+      "implementation": "membership-management: the sentence now reads that the record is created as soon as they submit — active, with the payment recorded and a welcome SMS sent — so take the money at the desk straight away, and that self-registered members carry a NEW badge until staff verify the entry. Hub: 'A self-registration is created straight away, with the payment recorded, and carries a NEW badge until your staff verify it.' Both pages' lastModified moved to 2026-10-03.",
+      "files": [
+        "src/app/(marketing)/features/membership-management/page.tsx",
+        "src/app/(marketing)/gym-management-software-sri-lanka/page.tsx",
+        "src/features/marketing/config/pages.ts"
+      ],
+      "verification": [
+        "next start on a production build: both pages render the corrected sentence, and neither contains the old wording ('nobody is treated as a paid member', 'wait with a NEW badge')",
+        "MarketingPages and pages suites pass for both pages"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-03T01:03:38Z",
+      "updatedAt": "2026-10-03T01:03:38Z",
+      "completedAt": "2026-10-03T01:03:38Z"
+    },
+    {
+      "id": "SEO-063",
+      "title": "Guide: moving a gym's members off a register book or spreadsheet",
+      "category": "content",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "informational",
+      "targetQueries": [
+        "move gym members to software",
+        "gym register book to software",
+        "import gym members from excel",
+        "switch gym management software sri lanka"
+      ],
+      "finding": "The second guide from SEO_AUDIT.md §8, built on the real bulk-entry and QR self-registration flows. The facts that shape the advice: registration creates the member active, sets the next due date as start date + plan period, and records the first payment on the start date (RegisterMember); every added member gets a welcome SMS that does not name the gym; there is one member per mobile number (ConflictError), and only Sri Lankan mobiles are accepted; the bulk API takes at most 50 rows per submission; every new row counts as active against the plan limit (Lite 100); QR sign-ups are created active with the payment recorded and carry a NEW badge until verified.",
+      "evidence": [
+        "docs/seo/SEO_AUDIT.md §8 item 3: 'Moving a gym from a register book or spreadsheet (the real bulk entry and QR self-registration flows)'"
+      ],
+      "recommendedChange": "Publish a step-by-step guide that says which date to enter (the last payment), what members receive, the batch size and the plan limit, and the QR route for new members.",
+      "implementation": "src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx: Article page in the guide pattern. The worked example's next due date is computed with calculateNextDueDate, the sample welcome SMS is formatted with formatDateForDisplay (the SMS's own formatter), and the Lite limit comes from LITE_MEMBER_LIMIT. Registry entry ARTICLE_PATHS.move; the /resources description now names four guides; PUBLIC_ROUTES entry; body link from /features/membership-management; footer Resources link; added to the MarketingPages screen-test table. Revised 2026-10-03 after the bulk-grid fix: the batch size is read from BULK_REGISTER_MAX_ROWS, the constant the grid and POST /api/members/bulk share, and the guide describes the batch's consent step (the same two confirmations as single registration). The fix itself is product work outside this task: bulk import had refused every batch since 2026-07-25 because the grid never sent the two required consents.",
+      "files": [
+        "src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx",
+        "src/features/marketing/config/pages.ts",
+        "src/features/marketing/config/navigation.ts",
+        "src/lib/auth-config.ts",
+        "src/app/(marketing)/features/membership-management/page.tsx",
+        "src/app/(marketing)/__tests__/MarketingPages.test.tsx"
+      ],
+      "verification": [
+        "Jest: the registry, public-route and MarketingPages suites pass for the new page; removing the path from PUBLIC_ROUTES fails pages.test; full suite 197 suites and 2,409 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes",
+        "next build prerenders the page as static. On next start: 200, one H1, self canonical, indexable, title 'How to Move Your Gym's Members into Software | Metric Gym OS', JSON-LD Organization, WebSite, WebPage, BreadcrumbList, Article; sitemap.xml has 18 <loc> including it; linked from /resources, /features/membership-management and the footer",
+        "The sample welcome SMS renders as 'Welcome to our gym, Nimal! Your monthly membership is active. Amount paid: Rs.4000.00. Next due: 20/10/2026. Thank you!', and the prose dates as 20 September → 20 October",
+        "Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; the 1366 screenshot read by eye",
+        "Not verified: indexing or ranking (needs Search Console, SEO-036)",
+        "After the bulk-grid fix: the guide still renders 'up to 50' from the shared constant; the marketing suites pass"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-03T01:03:38Z",
+      "updatedAt": "2026-10-03T05:28:00Z",
+      "completedAt": "2026-10-03T01:03:38Z"
+    },
+    {
+      "id": "SEO-064",
+      "title": "Guide: Excel and WhatsApp vs gym management software, written honestly",
+      "category": "content",
+      "priority": "P2",
+      "status": "verified",
+      "intent": "commercial",
+      "targetQueries": [
+        "gym management excel vs software",
+        "manage gym members whatsapp",
+        "gym software vs spreadsheet",
+        "do I need gym management software"
+      ],
+      "finding": "The third guide from SEO_AUDIT.md §8, the 'whether to switch' page: 'Running a gym on Excel and WhatsApp vs dedicated software — written honestly, since Metric sends SMS, not WhatsApp.' Metric has no WhatsApp sender, no inbound SMS (the text.lk webhook carries delivery receipts only), no online member payments, no member app, no class booking or check-in, no Sinhala or Tamil interface, and one login per gym (rule 2.20). SMS reminders, receipts and announcements are included in every plan.",
+      "evidence": [
+        "docs/seo/SEO_AUDIT.md §8 item 3",
+        "src/app/__tests__/HomePage.test.tsx pins /whatsapp/i off the homepage because no WhatsApp sender exists"
+      ],
+      "recommendedChange": "Publish a comparison that concedes what a spreadsheet and WhatsApp do well, says where they break, states each Metric difference as a product fact, explains SMS vs WhatsApp with the trade-off, quotes prices from the pricing config, says when a spreadsheet is still enough, and lists what Metric does not do.",
+      "implementation": "src/app/(marketing)/resources/excel-whatsapp-vs-gym-software/page.tsx: Article page in the guide pattern; prices, the Lite limit and the trial length are rendered from PRICING_TIERS, LITE_MEMBER_LIMIT and TRIAL_DAYS. Registry entry ARTICLE_PATHS.compare, with the navigation and breadcrumb label 'Spreadsheet vs gym software': the footer is on the homepage, whose /whatsapp/i pin is deliberately blunt, so the label avoids the word rather than the pin being weakened. The /resources description names five guides. PUBLIC_ROUTES entry; body link from /features/sms-reminders (Delivery section); footer Resources link. MarketingPages.test.tsx: the page is in the screen-test table, plus three tests — it says 'sends SMS, not WhatsApp', never claims WhatsApp delivery (three patterns), and quotes every plan price from the pricing config.",
+      "files": [
+        "src/app/(marketing)/resources/excel-whatsapp-vs-gym-software/page.tsx",
+        "src/features/marketing/config/pages.ts",
+        "src/features/marketing/config/navigation.ts",
+        "src/lib/auth-config.ts",
+        "src/app/(marketing)/features/sms-reminders/page.tsx",
+        "src/app/(marketing)/__tests__/MarketingPages.test.tsx"
+      ],
+      "verification": [
+        "Four mutations, each caught by a named test: the path removed from PUBLIC_ROUTES; 'Metric sends WhatsApp reminders too' added; the 'sends SMS, not WhatsApp' sentence removed; a price typed instead of read from the config. The homepage's /whatsapp/i pin caught the first draft's footer label, which led to the relabel",
+        "Full suite 197 suites and 2,423 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes",
+        "next build prerenders the page as static. On next start: 200, one H1, self canonical, indexable, title 'Excel and WhatsApp vs Gym Management Software | Metric Gym OS', JSON-LD Organization, WebSite, WebPage, BreadcrumbList, Article; prices on the page LKR 2,990, 4,990 and 6,990; sitemap.xml has 19 <loc>; linked from /resources, /features/sms-reminders and the footer on every page",
+        "Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; the 1366 screenshot read by eye",
+        "Not verified: indexing or ranking (needs Search Console, SEO-036)"
+      ],
+      "dependencies": [],
+      "externalActionRequired": false,
+      "createdAt": "2026-10-03T01:47:17Z",
+      "updatedAt": "2026-10-03T01:47:17Z",
+      "completedAt": "2026-10-03T01:47:17Z"
+    }
+  ]
+}

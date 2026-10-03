@@ -4,11 +4,8 @@ import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  AreaChart,
-  BarChart,
   Button,
   EmptyState,
-  LineChart,
   ListRow,
   Select,
   Table,
@@ -18,6 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui'
+import { AreaChart, BarChart, LineChart } from '@/components/ui/charts'
 import {
   PageHeader,
   StatCard,

@@ -1,6 +1,54 @@
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
+import {
+  CONTACT,
+  FEATURE_PATHS,
+  FOOTER_GROUPS,
+  HEADER_LINKS,
+  HUB_PATH,
+  LEGAL_NAME,
+  POSTAL_ADDRESS,
+  PRICING_PATH,
+  PRICING_TIERS,
+  SIGN_UP_PATH,
+  SITE_NAME,
+  TRIAL_DAYS,
+  formatLkr,
+} from '@/features/marketing'
 import { DemoModal } from './DemoModal'
+
+/**
+ * The five capability areas, each linking to its own page. This is the
+ * homepage's crawlable map of the product: before it existed, the only
+ * internal links on the page went to /login and the three legal documents.
+ */
+const CAPABILITIES = [
+  {
+    href: FEATURE_PATHS.membership,
+    label: 'Membership management',
+    text: 'Seven plan types, statuses that update themselves, and QR self-registration from the member’s own phone.',
+  },
+  {
+    href: FEATURE_PATHS.payments,
+    label: 'Payment collection',
+    text: 'Who is expired, who expires this week, and a desk payment recorded with an SMS receipt.',
+  },
+  {
+    href: FEATURE_PATHS.sms,
+    label: 'SMS reminders',
+    text: 'Reminders timed to each plan length, with every message tracked to delivered or failed.',
+  },
+  {
+    href: FEATURE_PATHS.revenue,
+    label: 'Revenue & analytics',
+    text: 'What members owe this month against what you collected, plus renewal, churn and retention.',
+  },
+  {
+    href: FEATURE_PATHS.access,
+    label: 'Access control',
+    text: 'ZKTeco fingerprint readers that admit members until their paid-through date — even offline.',
+  },
+] as const
 
 const sans = 'var(--font-geist), system-ui, sans-serif'
 const mono = 'var(--font-geist-mono), monospace'
@@ -101,6 +149,10 @@ html:has(.landing-root){scroll-behavior:smooth}
 .l-btn-solid:hover{background:#fff!important}
 .l-btn-ghost:hover{border-color:rgba(255,255,255,0.3)!important}
 .l-trust:hover{opacity:1!important}
+@media (max-width:1024px){
+  #capabilities-grid{grid-template-columns:repeat(2,1fr)!important}
+  #footer-grid{grid-template-columns:repeat(3,1fr)!important}
+}
 @media (max-width:768px){
   #nav-links a.txt{display:none!important}
   #nav-links{gap:10px!important}
@@ -113,13 +165,15 @@ html:has(.landing-root){scroll-behavior:smooth}
   #preview-stats{grid-template-columns:repeat(2,1fr)!important}
   #platform-section{padding:64px 16px!important;gap:40px!important}
   #platform-grid{grid-template-columns:1fr!important;gap:0!important}
-  #platform-grid > div{padding:28px 0!important;border-bottom:1px solid rgba(255,255,255,0.07)!important}
+  #platform-grid > div{padding:28px 0!important;border-bottom:1px solid rgba(255,255,255,0.07)!important;min-width:0!important}
   #platform-grid > div:last-child{border-bottom:none!important}
   #platform-grid .feature-header{flex-direction:column!important;align-items:flex-start!important;gap:8px!important}
   #platform-grid .feature-badge{margin-top:0!important}
   #platform-grid h3{font-size:20px!important}
   #platform-grid .feature-desc{font-size:14px!important;line-height:22px!important}
   #platform-grid .code-block{font-size:10px!important;overflow-x:auto!important;-webkit-overflow-scrolling:touch!important;margin-top:16px!important}
+  #capabilities-section{padding:64px 20px!important;gap:32px!important}
+  #capabilities-grid{grid-template-columns:1fr!important}
   #pricing-section{padding:64px 20px!important}
   #pricing-grid{grid-template-columns:1fr!important}
   #trust-section .trust-inner{padding:40px 20px!important}
@@ -151,6 +205,7 @@ export function LandingPage() {
 
       {/* NAV */}
       <nav
+        aria-label="Main"
         style={{
           position: 'sticky',
           top: 0,
@@ -186,7 +241,9 @@ export function LandingPage() {
           >
             <img
               src="/logo.svg"
-              alt="Metric"
+              alt=""
+              width={22}
+              height={22}
               style={{ width: '22px', height: '22px' }}
             />
             Metric
@@ -195,27 +252,16 @@ export function LandingPage() {
             id="nav-links"
             style={{ display: 'flex', alignItems: 'center', gap: '24px' }}
           >
-            <a
-              className="txt"
-              href="#platform"
-              style={{ fontSize: '13px', whiteSpace: 'nowrap' }}
-            >
-              Platform
-            </a>
-            <a
-              className="txt"
-              href="#pricing"
-              style={{ fontSize: '13px', whiteSpace: 'nowrap' }}
-            >
-              Pricing
-            </a>
-            <a
-              className="txt"
-              href="#platform"
-              style={{ fontSize: '13px', whiteSpace: 'nowrap' }}
-            >
-              Resources
-            </a>
+            {HEADER_LINKS.map((l) => (
+              <Link
+                key={l.href}
+                className="txt"
+                href={l.href}
+                style={{ fontSize: '13px', whiteSpace: 'nowrap' }}
+              >
+                {l.label}
+              </Link>
+            ))}
             <Link
               id="nav-login"
               className="l-btn-ghost"
@@ -281,41 +327,58 @@ export function LandingPage() {
               paddingBottom: '64px',
             }}
           >
-            <div
+            {/* One <h1>, two visible lines: the descriptive line says what
+                the product is and where (the page's search intent), the
+                display line keeps the brand voice. Both are real, visible
+                text — the eyebrow was a separate div before, which left the
+                heading saying nothing about gym software or Sri Lanka. */}
+            <h1
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                width: 'fit-content',
-                fontFamily: mono,
-                fontSize: '11px',
-                letterSpacing: '0.06em',
-                color: '#5c5c64',
+                margin: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '24px',
               }}
             >
               <span
                 style={{
-                  width: '7px',
-                  height: '7px',
-                  borderRadius: '50%',
-                  background: '#fff',
-                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  width: 'fit-content',
+                  fontFamily: mono,
+                  fontSize: '11px',
+                  fontWeight: 400,
+                  letterSpacing: '0.06em',
+                  lineHeight: 1.6,
+                  textTransform: 'uppercase',
+                  color: '#8b8b93',
                 }}
-              />
-              RUNNING NATIONWIDE · ENGINEERED FOR PRECISION
-            </div>
-            <h1
-              id="hero-h1"
-              style={{
-                margin: 0,
-                fontSize: 'clamp(48px,7.5vw,92px)',
-                fontWeight: 600,
-                letterSpacing: '-0.04em',
-                lineHeight: 0.98,
-                textWrap: 'pretty',
-              }}
-            >
-              The operating system for serious gyms.
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: '#fff',
+                    flexShrink: 0,
+                  }}
+                />
+                Gym management software · Sri Lanka
+              </span>{' '}
+              <span
+                id="hero-h1"
+                style={{
+                  fontSize: 'clamp(48px,7.5vw,92px)',
+                  fontWeight: 600,
+                  letterSpacing: '-0.04em',
+                  lineHeight: 0.98,
+                  textWrap: 'pretty',
+                }}
+              >
+                The operating system for serious gyms.
+              </span>
             </h1>
             <p
               id="hero-subtitle"
@@ -324,12 +387,13 @@ export function LandingPage() {
                 fontSize: '19px',
                 lineHeight: '28px',
                 color: '#8b8b93',
-                maxWidth: '540px',
+                maxWidth: '560px',
                 textWrap: 'pretty',
               }}
             >
-              Member records, automated fee collection, SMS infrastructure,
-              revenue tracking, and biometric access control.
+              Member records, renewals, automated SMS reminders, revenue
+              reporting and fingerprint door access — in one system built for
+              gyms in Sri Lanka.
             </p>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <a
@@ -351,9 +415,9 @@ export function LandingPage() {
               >
                 Request a demo
               </a>
-              <a
+              <Link
                 className="l-btn-ghost"
-                href="#platform"
+                href={HUB_PATH}
                 style={{
                   whiteSpace: 'nowrap',
                   display: 'inline-flex',
@@ -368,8 +432,8 @@ export function LandingPage() {
                   border: '1px solid rgba(255,255,255,0.12)',
                 }}
               >
-                See the platform
-              </a>
+                See how it works
+              </Link>
             </div>
           </div>
 
@@ -860,7 +924,7 @@ export function LandingPage() {
                       padding: '1px 6px',
                     }}
                   >
-                    −95% LATE PAYMENTS
+                    T−7 · T−3 · DUE DATE
                   </span>
                 </div>
                 <p
@@ -872,9 +936,20 @@ export function LandingPage() {
                     textWrap: 'pretty',
                   }}
                 >
-                  Branded SMS reminders fire automatically before every renewal.
-                  Escalation ladders for overdue accounts.
+                  SMS reminders go out automatically before every renewal and on
+                  the due date, timed to each plan’s length — and every message
+                  is tracked to delivered or failed.
                 </p>
+                <Link
+                  href={FEATURE_PATHS.sms}
+                  style={{
+                    fontSize: '13px',
+                    color: '#9694f5',
+                    width: 'fit-content',
+                  }}
+                >
+                  How the reminder schedule works →
+                </Link>
               </div>
               <div className="code-block" style={logBox}>
                 <div style={logLine}>
@@ -884,8 +959,8 @@ export function LandingPage() {
                 </div>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>07-15 09:00:01</span>{' '}
-                  <span style={{ color: '#3fb950' }}>SENT</span> whatsapp → 071
-                  220 8845 · renewal T−3
+                  <span style={{ color: '#3fb950' }}>SENT</span> sms → 071 220
+                  8845 · renewal T−7
                 </div>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>07-15 09:00:02</span>{' '}
@@ -894,13 +969,13 @@ export function LandingPage() {
                 </div>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>07-15 09:00:04</span>{' '}
-                  <span style={{ color: '#8b8b93' }}>RETRY</span> sms → 076 903
-                  1177 · carrier timeout
+                  <span style={{ color: '#3fb950' }}>SENT</span> sms → 076 903
+                  1177 · due today
                 </div>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>07-15 09:00:06</span>{' '}
                   <span style={{ color: '#3fb950' }}>DLVR</span> sms ← 076 903
-                  1177 · attempt 2
+                  1177 · 2.1s
                 </div>
               </div>
             </div>
@@ -942,7 +1017,7 @@ export function LandingPage() {
                       padding: '1px 6px',
                     }}
                   >
-                    HIKVISION · ZKTECO
+                    ZKTECO · FINGERPRINT
                   </span>
                 </div>
                 <p
@@ -954,26 +1029,36 @@ export function LandingPage() {
                     textWrap: 'pretty',
                   }}
                 >
-                  Seamless integration with access control hardware. RFID,
-                  facial recognition and fingerprint entry wired to membership
-                  status. Lapsed account, closed gate.
+                  ZKTeco fingerprint readers, wired to each member’s
+                  paid-through date and enforced by the reader’s own clock —
+                  even when the internet is down. Lapsed account, closed gate.
                 </p>
+                <Link
+                  href={FEATURE_PATHS.access}
+                  style={{
+                    fontSize: '13px',
+                    color: '#9694f5',
+                    width: 'fit-content',
+                  }}
+                >
+                  How fingerprint access control works →
+                </Link>
               </div>
               <div className="code-block" style={logBox}>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>18:02:11</span>{' '}
-                  <span style={{ color: '#3fb950' }}>GRANT</span> face · M-0087
-                  Jayawardena · gate A
+                  <span style={{ color: '#3fb950' }}>GRANT</span> finger ·
+                  M-0087 Jayawardena · gate A
                 </div>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>18:04:56</span>{' '}
-                  <span style={{ color: '#3fb950' }}>GRANT</span> rfid · M-0163
-                  Herath · gate A
+                  <span style={{ color: '#3fb950' }}>GRANT</span> finger ·
+                  M-0163 Herath · gate A
                 </div>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>18:07:33</span>{' '}
-                  <span style={{ color: '#f85149' }}>DENY </span> rfid · M-0102
-                  Silva · membership lapsed
+                  <span style={{ color: '#f85149' }}>DENY </span> finger ·
+                  M-0102 Silva · membership expired
                 </div>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>18:07:41</span>{' '}
@@ -982,8 +1067,8 @@ export function LandingPage() {
                 </div>
                 <div style={logLine}>
                   <span style={{ color: '#5c5c64' }}>18:09:20</span>{' '}
-                  <span style={{ color: '#3fb950' }}>GRANT</span> face · M-0170
-                  Rathnayake · gate A
+                  <span style={{ color: '#3fb950' }}>GRANT</span> finger ·
+                  M-0170 Rathnayake · gate A
                 </div>
               </div>
             </div>
@@ -991,26 +1076,118 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* WHY METRIC */}
+      {/* CAPABILITIES — replaces three empty placeholder sections that
+          rendered as stacked hairlines. Every capability links to its page. */}
       <section
-        id="why"
+        id="capabilities"
         style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
-      />
-
-      {/* ENTERPRISE */}
-      <section
-        id="enterprise"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
-      />
-
-      {/* SECURITY */}
-      <section
-        id="security"
-        style={{
-          borderBottom: '1px solid rgba(255,255,255,0.07)',
-          background: '#000',
-        }}
-      />
+      >
+        <div
+          id="capabilities-section"
+          style={{
+            maxWidth: '1120px',
+            margin: '0 auto',
+            padding: '96px 24px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '48px',
+          }}
+        >
+          <div
+            style={{
+              maxWidth: '640px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: mono,
+                fontSize: '11px',
+                letterSpacing: '0.08em',
+                color: '#8b8b93',
+              }}
+            >
+              CAPABILITIES
+            </span>
+            <h2
+              style={{
+                margin: 0,
+                fontSize: 'clamp(34px,4.4vw,52px)',
+                fontWeight: 600,
+                letterSpacing: '-0.028em',
+                lineHeight: 1.04,
+              }}
+            >
+              Everything a gym runs on.
+            </h2>
+            <p
+              style={{
+                margin: 0,
+                fontSize: '15px',
+                color: '#8b8b93',
+                textWrap: 'pretty',
+              }}
+            >
+              One member record drives all five. Read how{' '}
+              <Link
+                href={HUB_PATH}
+                style={{
+                  color: '#9694f5',
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '4px',
+                }}
+              >
+                gym management software works for Sri Lankan gyms
+              </Link>
+              , or go straight to the part you need.
+            </p>
+          </div>
+          <ul
+            id="capabilities-grid"
+            style={{
+              listStyle: 'none',
+              margin: 0,
+              padding: 0,
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3,1fr)',
+              gap: '12px',
+            }}
+          >
+            {CAPABILITIES.map((c) => (
+              <li
+                key={c.href}
+                style={{
+                  background: '#0c0c0d',
+                  border: '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: '6px',
+                  padding: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                }}
+              >
+                <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 600 }}>
+                  <Link href={c.href} style={{ color: '#ededf0' }}>
+                    {c.label}
+                  </Link>
+                </h3>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: '13px',
+                    color: '#8b8b93',
+                    textWrap: 'pretty',
+                  }}
+                >
+                  {c.text}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
 
       {/* PRICING */}
       <section
@@ -1059,7 +1236,8 @@ export function LandingPage() {
               Three tiers. No surprises.
             </h2>
             <p style={{ margin: 0, fontSize: '15px', color: '#8b8b93' }}>
-              30-day free trial on every tier.
+              Every new account starts with a {TRIAL_DAYS}-day free trial — no
+              payment details needed. Enterprise is set up with our team.
             </p>
           </div>
           <div
@@ -1071,211 +1249,122 @@ export function LandingPage() {
               alignItems: 'stretch',
             }}
           >
-            {/* Starter */}
-            <div
-              style={{
-                background: '#0c0c0d',
-                border: '1px solid rgba(255,255,255,0.07)',
-                borderRadius: '6px',
-                padding: '24px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '20px',
-                position: 'relative',
-              }}
-            >
+            {/* Rendered from features/marketing/config/pricing.ts — the same
+                list as /pricing and the SoftwareApplication offers. */}
+            {PRICING_TIERS.map((t) => (
               <div
-                style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
-              >
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                  Starter
-                </span>
-                <span style={{ fontSize: '12px', color: '#8b8b93' }}>
-                  Everything you need to run your gym
-                </span>
-              </div>
-              <div
-                style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}
-              >
-                <span style={priceTag}>2,990</span>
-                <span
-                  style={{
-                    fontFamily: mono,
-                    fontSize: '12px',
-                    color: '#5c5c64',
-                  }}
-                >
-                  LKR/MO
-                </span>
-              </div>
-              <div
+                key={t.tier}
                 style={{
+                  background: '#0c0c0d',
+                  border: t.highlighted
+                    ? '1px solid rgba(255,255,255,0.24)'
+                    : '1px solid rgba(255,255,255,0.07)',
+                  borderRadius: '6px',
+                  padding: '24px',
                   display: 'flex',
                   flexDirection: 'column',
-                  borderTop: '1px solid rgba(255,255,255,0.07)',
+                  gap: '20px',
+                  position: 'relative',
                 }}
               >
-                <div style={featureRow}>
-                  <span style={check}>✓</span>Up to 100 active members
-                </div>
-                <div style={featureRow}>
-                  <span style={check}>✓</span>Member registration &amp;
-                  directory
-                </div>
-                <div style={featureRow}>
-                  <span style={check}>✓</span>Payment tracking &amp; receipts
-                </div>
-                <div style={featureRow}>
-                  <span style={check}>✓</span>Today&apos;s revenue, live
-                </div>
-                <div style={featureRow}>
-                  <span style={check}>✓</span>Automated SMS reminders
-                </div>
-                <div style={featureRow}>
-                  <span style={check}>✓</span>Bulk SMS announcements
-                </div>
-                <div style={featureRowLast}>
-                  <span style={check}>✓</span>QR code check-in
-                </div>
-              </div>
-            </div>
-
-            {/* Growth */}
-            <div
-              style={{
-                background: '#0c0c0d',
-                border: '1px solid rgba(255,255,255,0.24)',
-                borderRadius: '6px',
-                padding: '24px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '20px',
-                position: 'relative',
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '-9px',
-                  left: '24px',
-                  background: '#ededf0',
-                  color: '#000',
-                  fontFamily: mono,
-                  fontSize: '10px',
-                  letterSpacing: '0.08em',
-                  borderRadius: '4px',
-                  padding: '2px 8px',
-                  fontWeight: 500,
-                }}
-              >
-                MOST POPULAR
-              </div>
-              <div
-                style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
-              >
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                  Growth
-                </span>
-                <span style={{ fontSize: '12px', color: '#8b8b93' }}>
-                  For growing gyms with larger member bases
-                </span>
-              </div>
-              <div
-                style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}
-              >
-                <span style={priceTag}>4,990</span>
-                <span
+                {t.highlighted && (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: '-9px',
+                      left: '24px',
+                      background: '#ededf0',
+                      color: '#000',
+                      fontFamily: mono,
+                      fontSize: '10px',
+                      letterSpacing: '0.08em',
+                      borderRadius: '4px',
+                      padding: '2px 8px',
+                      fontWeight: 500,
+                    }}
+                  >
+                    MOST POPULAR
+                  </div>
+                )}
+                <div
                   style={{
-                    fontFamily: mono,
-                    fontSize: '12px',
-                    color: '#5c5c64',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
                   }}
                 >
-                  LKR/MO
-                </span>
-              </div>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  borderTop: '1px solid rgba(255,255,255,0.07)',
-                }}
-              >
-                <div style={featureRow}>
-                  <span style={check}>✓</span>Everything in Starter
+                  <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600 }}>
+                    {t.name}
+                  </h3>
+                  <span style={{ fontSize: '12px', color: '#8b8b93' }}>
+                    {t.summary}
+                  </span>
                 </div>
-                <div style={featureRowLast}>
-                  <span style={check}>✓</span>Unlimited active members
-                </div>
-              </div>
-            </div>
-
-            {/* Enterprise */}
-            <div
-              style={{
-                background: '#0c0c0d',
-                border: '1px solid rgba(255,255,255,0.07)',
-                borderRadius: '6px',
-                padding: '24px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '20px',
-                position: 'relative',
-              }}
-            >
-              <div
-                style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}
-              >
-                <span style={{ fontSize: '14px', fontWeight: 600 }}>
-                  Enterprise
-                </span>
-                <span style={{ fontSize: '12px', color: '#8b8b93' }}>
-                  Full automation with access control hardware
-                </span>
-              </div>
-              <div
-                style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}
-              >
-                <span style={priceTag}>6,990</span>
-                <span
+                <div
                   style={{
-                    fontFamily: mono,
-                    fontSize: '12px',
-                    color: '#5c5c64',
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    gap: '6px',
                   }}
                 >
-                  LKR/MO
-                </span>
+                  <span style={priceTag}>{formatLkr(t.monthlyPriceLkr)}</span>
+                  <span
+                    style={{
+                      fontFamily: mono,
+                      fontSize: '12px',
+                      color: '#5c5c64',
+                    }}
+                  >
+                    LKR/MO
+                  </span>
+                </div>
+                <ul
+                  style={{
+                    listStyle: 'none',
+                    margin: 0,
+                    padding: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderTop: '1px solid rgba(255,255,255,0.07)',
+                  }}
+                >
+                  {t.inclusions.map((item, i) => (
+                    <li
+                      key={item}
+                      style={
+                        i === t.inclusions.length - 1
+                          ? featureRowLast
+                          : featureRow
+                      }
+                    >
+                      <span aria-hidden="true" style={check}>
+                        ✓
+                      </span>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                {t.note && (
+                  <div
+                    style={{
+                      fontFamily: mono,
+                      fontSize: '11px',
+                      color: '#5c5c64',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {t.note}
+                  </div>
+                )}
               </div>
-              <div
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  borderTop: '1px solid rgba(255,255,255,0.07)',
-                }}
-              >
-                <div style={featureRow}>
-                  <span style={check}>✓</span>Everything in Growth
-                </div>
-                <div style={featureRow}>
-                  <span style={check}>✓</span>Access control hardware
-                  integration
-                </div>
-                <div style={featureRow}>
-                  <span style={check}>✓</span>Automated gatekeeping &amp;
-                  attendance
-                </div>
-                <div style={featureRowLast}>
-                  <span style={check}>✓</span>Priority support
-                </div>
-              </div>
-              <div
-                style={{ fontFamily: mono, fontSize: '11px', color: '#5c5c64' }}
-              >
-                INSTALLATION &amp; HARDWARE FEES APPLIED
-              </div>
-            </div>
+            ))}
           </div>
+          <Link
+            href={PRICING_PATH}
+            style={{ fontSize: '13px', color: '#9694f5', width: 'fit-content' }}
+          >
+            Compare plans, billing and the free trial →
+          </Link>
         </div>
       </section>
 
@@ -1326,6 +1415,25 @@ export function LandingPage() {
             }}
           >
             <DemoModal />
+            <Link
+              className="l-btn-ghost"
+              href={SIGN_UP_PATH}
+              style={{
+                whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                height: '36px',
+                padding: '0 16px',
+                borderRadius: '5px',
+                background: 'transparent',
+                color: '#ededf0',
+                fontSize: '13px',
+                fontWeight: 500,
+                border: '1px solid rgba(255,255,255,0.12)',
+              }}
+            >
+              Start {TRIAL_DAYS}-day free trial
+            </Link>
           </div>
         </div>
       </section>
@@ -1352,7 +1460,7 @@ export function LandingPage() {
             id="footer-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns: '1.7fr 1fr 1fr 1fr',
+              gridTemplateColumns: '1.7fr 1fr 1fr 1fr 1fr',
               gap: '40px',
             }}
           >
@@ -1377,93 +1485,63 @@ export function LandingPage() {
               >
                 <img
                   src="/logo.svg"
-                  alt="Metric"
+                  alt=""
+                  width={22}
+                  height={22}
                   style={{ width: '22px', height: '22px' }}
                 />
-                Metric Gym OS
+                {SITE_NAME}
               </div>
-              <p
+              {/* Same address, phone and email as /contact and the
+                  Organization structured data (features/marketing/config/site.ts). */}
+              <address
                 style={{
                   margin: 0,
+                  fontStyle: 'normal',
                   fontSize: '13px',
                   color: '#8b8b93',
                   lineHeight: '21px',
                 }}
               >
-                Colombo, Sri Lanka
+                {LEGAL_NAME}
                 <br />
-                6.9271° N, 79.8612° E
-              </p>
+                {POSTAL_ADDRESS.lines.join(' ')}
+                <br />
+                <a href={`tel:${CONTACT.phoneE164}`}>{CONTACT.phoneDisplay}</a>
+                <br />
+                <a href={`mailto:${CONTACT.supportEmail}`}>
+                  {CONTACT.supportEmail}
+                </a>
+              </address>
             </div>
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-            >
-              <span
+            {FOOTER_GROUPS.map((group) => (
+              <nav
+                key={group.heading}
+                aria-label={group.heading}
                 style={{
-                  fontSize: '11px',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: '#5c5c64',
-                  fontWeight: 500,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px',
                 }}
               >
-                Product
-              </span>
-              <a href="#platform" style={{ fontSize: '13px' }}>
-                Platform
-              </a>
-              <a href="#pricing" style={{ fontSize: '13px' }}>
-                Pricing
-              </a>
-              <Link href="/login" style={{ fontSize: '13px' }}>
-                Log in
-              </Link>
-            </div>
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-            >
-              <span
-                style={{
-                  fontSize: '11px',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: '#5c5c64',
-                  fontWeight: 500,
-                }}
-              >
-                Company
-              </span>
-              <a href="mailto:founder@metric.lk" style={{ fontSize: '13px' }}>
-                About
-              </a>
-              <a href="mailto:founder@metric.lk" style={{ fontSize: '13px' }}>
-                Contact
-              </a>
-            </div>
-            <div
-              style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}
-            >
-              <span
-                style={{
-                  fontSize: '11px',
-                  letterSpacing: '0.08em',
-                  textTransform: 'uppercase',
-                  color: '#5c5c64',
-                  fontWeight: 500,
-                }}
-              >
-                Legal
-              </span>
-              <Link href="/privacy" style={{ fontSize: '13px' }}>
-                Privacy policy
-              </Link>
-              <Link href="/terms" style={{ fontSize: '13px' }}>
-                Terms of service
-              </Link>
-              <Link href="/refund-policy" style={{ fontSize: '13px' }}>
-                Refund &amp; cancellation policy
-              </Link>
-            </div>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    letterSpacing: '0.08em',
+                    textTransform: 'uppercase',
+                    color: '#5c5c64',
+                    fontWeight: 500,
+                  }}
+                >
+                  {group.heading}
+                </span>
+                {group.links.map((l) => (
+                  <Link key={l.href} href={l.href} style={{ fontSize: '13px' }}>
+                    {l.label}
+                  </Link>
+                ))}
+              </nav>
+            ))}
           </div>
           <div
             style={{
@@ -1479,7 +1557,7 @@ export function LandingPage() {
             <span
               style={{ fontFamily: mono, fontSize: '11px', color: '#5c5c64' }}
             >
-              © 2026 CAPITALIST ONE (PVT) LTD
+              © {new Date().getFullYear()} {LEGAL_NAME.toUpperCase()}
             </span>
             <div
               style={{ display: 'flex', alignItems: 'center', gap: '20px' }}

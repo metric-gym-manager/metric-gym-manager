@@ -68,21 +68,30 @@ export const TableRow = React.forwardRef<HTMLTableRowElement, TableRowProps>(
     // overridden role would break table semantics); it gains a tab stop and
     // Enter/Space, which is the accessible pattern for an activatable row.
     const interactive = clickable && !!onClick
+    // A static row gets NO key handler. A function prop on a host element
+    // cannot cross into a Server Component render, so attaching one to every
+    // row made the primitive unusable in a static page (the public pricing and
+    // feature tables) with "Event handlers cannot be passed to Client Component
+    // props". Rows that are interactive, or were given a handler, are unchanged.
+    const handleKeyDown =
+      interactive || onKeyDown
+        ? (event: React.KeyboardEvent<HTMLTableRowElement>) => {
+            onKeyDown?.(event)
+            if (!interactive || event.defaultPrevented) return
+            if (event.key !== 'Enter' && event.key !== ' ') return
+            // Ignore keystrokes aimed at a control inside the row.
+            if (event.target !== event.currentTarget) return
+            event.preventDefault()
+            onClick?.(event as unknown as React.MouseEvent<HTMLTableRowElement>)
+          }
+        : undefined
     return (
       <tr
         ref={ref}
         data-selected={selected || undefined}
         tabIndex={interactive ? 0 : undefined}
         onClick={onClick}
-        onKeyDown={(event) => {
-          onKeyDown?.(event)
-          if (!interactive || event.defaultPrevented) return
-          if (event.key !== 'Enter' && event.key !== ' ') return
-          // Ignore keystrokes aimed at a control inside the row.
-          if (event.target !== event.currentTarget) return
-          event.preventDefault()
-          onClick?.(event as unknown as React.MouseEvent<HTMLTableRowElement>)
-        }}
+        onKeyDown={handleKeyDown}
         className={cn(
           'border-b border-line-subtle transition-colors duration-fast last:border-0',
           // Persistent row selection uses the same token as the sidebar and sub-nav.

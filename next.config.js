@@ -61,8 +61,32 @@ const nextConfig = {
       '@radix-ui/react-slot',
     ],
   },
+  async redirects() {
+    return [
+      {
+        // Feature pages live at /features/<name>, which invites visitors to
+        // trim the URL. There is no index page: the commercial hub is the
+        // parent of every feature page, so send them there instead of letting
+        // the auth middleware answer 307 → /login (a soft 404 for crawlers).
+        source: '/features',
+        destination: '/gym-management-software-sri-lanka',
+        permanent: true,
+      },
+    ]
+  },
   async headers() {
     return [
+      {
+        // The production deployment also answers on gym-management-saas.vercel.app
+        // (and every deployment on its own *.vercel.app URL) with the full site
+        // and no robots header — an indexable duplicate of www.metricgymos.com.
+        // It cannot simply redirect: vendor webhooks may be registered against
+        // it. A response header changes nothing for a webhook and keeps the
+        // duplicate out of the index; canonicals point at www regardless.
+        source: '/:path*',
+        has: [{ type: 'host', value: '(?<vercelHost>.+)\\.vercel\\.app' }],
+        headers: [{ key: 'X-Robots-Tag', value: 'noindex' }],
+      },
       {
         // HTML entry points (all app pages): never reuse a cached copy
         // without revalidating with the server. This prevents "zombie"

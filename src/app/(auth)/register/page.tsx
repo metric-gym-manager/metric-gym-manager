@@ -8,12 +8,19 @@ import {
   registrationSchema,
   type RegistrationInput,
 } from '@/features/auth/schemas/auth.schemas'
+import { rememberPendingVerificationEmail } from '@/features/auth/utils/pendingVerificationEmail'
+import { trackEvent } from '@/lib/analytics/gtag'
 
 /**
  * Register — dark 2-step design ("Auth Pages.dc.html").
  * Step 01 ACCOUNT (username / email / password) → step 02 GYM PROFILE
  * (gym name / address / website). Same registrationSchema + POST
  * /api/auth/register, then on to /verify-email.
+ *
+ * On success: GA4 `sign_up` (no personal data), and the address is handed to
+ * /verify-email through sessionStorage — never the URL, which GA4 records
+ * (SEO-056). Signup creates no session, so this is not an auth-boundary
+ * navigation and `router.push` is correct (rule 2.15).
  */
 export default function RegisterPage() {
   const router = useRouter()
@@ -124,9 +131,9 @@ export default function RegisterPage() {
         setIsLoading(false)
         return
       }
-      router.push(
-        `/verify-email?email=${encodeURIComponent(validatedData.email)}`
-      )
+      trackEvent('sign_up', { method: 'email' })
+      rememberPendingVerificationEmail(validatedData.email)
+      router.push('/verify-email')
     } catch (err) {
       setIsLoading(false)
       if (err instanceof z.ZodError) {

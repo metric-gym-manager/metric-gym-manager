@@ -11,6 +11,10 @@ public/manifest.json
 public/service-worker.js
 src/lib/pwa-version.ts
 
+# Generated from docs/seo/SEO_TASKS.json by scripts/seo-report.mjs — same
+# reasoning as above: edit the source JSON, regenerate, never reformat the output.
+docs/seo/SEO_TASK_LOG.md
+
 # Build artefacts and test reports. Not source, not reviewed, frequently huge.
 .next/
 out/

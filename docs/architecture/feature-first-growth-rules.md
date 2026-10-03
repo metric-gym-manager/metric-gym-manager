@@ -49,7 +49,7 @@ src/
   contexts/       # Shared React contexts
   types/          # Shared TS types (create a file here ONLY when a type is genuinely cross-feature)
 tests/            # Integration (live-stack) + e2e. Unit tests live in features/<domain>/tests/.
-docs/             # product/ reference/ setup/ ops/ architecture/ integrations/ legal/
+docs/             # product/ reference/ setup/ ops/ architecture/ integrations/ legal/ seo/
 ```
 
 Each feature has this internal shape — **six mandated folders plus three optional
@@ -214,7 +214,7 @@ errors, and edge cases (see `.claude/rules/testing.md`). TDD is the workflow
   `tsc` output dumps, one-off `*_ANALYSIS` notes, scratch `.sql`, or throwaway
   scripts at the root.
 - Documentation lives under `docs/<taxonomy>/`: `product/`, `reference/`, `setup/`,
-  `ops/`, `architecture/`, `integrations/`, `legal/`. A new doc goes in the right
+  `ops/`, `architecture/`, `integrations/`, `legal/`, `seo/`. A new doc goes in the right
   bucket, never at the root.
 - Historical, one-off, or superseded docs are deleted (git history preserves them),
   not left to rot in the tree.

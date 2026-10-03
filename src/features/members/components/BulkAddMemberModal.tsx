@@ -3,10 +3,19 @@
 import { useState, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { Modal, Button, Input, Badge, Alert } from '@/components/ui'
+import {
+  Modal,
+  Button,
+  Input,
+  Badge,
+  Alert,
+  Checkbox,
+  Label,
+} from '@/components/ui'
 import { Trash2, Plus, CheckCircle, XCircle, HelpCircle } from 'lucide-react'
 import { parseApiError } from '@/utils/api-error'
 import QuotaReachedUpsell from '@/features/subscriptions/components/QuotaReachedUpsell'
+import { BULK_REGISTER_MAX_ROWS } from '@/features/members/schemas/member.schemas'
 
 interface Discount {
   id: string
@@ -75,6 +84,10 @@ export default function BulkAddMemberModal({
   ])
   const [submitted, setSubmitted] = useState(false)
   const [limitReached, setLimitReached] = useState(false)
+  // One attestation for the batch: the same two consents single registration
+  // records, ticked by staff on the members' behalf. Required by the route.
+  const [acceptedTerms, setAcceptedTerms] = useState(false)
+  const [acceptedGymRules, setAcceptedGymRules] = useState(false)
   const tableEndRef = useRef<HTMLDivElement>(null)
 
   // Apply-to-all: plan
@@ -171,6 +184,8 @@ export default function BulkAddMemberModal({
           membershipStartDate: row.membershipStartDate,
           discountId: row.discountId || null,
           recurringDiscount: row.recurringDiscount,
+          acceptedTerms,
+          acceptedGymRules,
         }
       })
 
@@ -187,15 +202,28 @@ export default function BulkAddMemberModal({
 
       return response.json()
     },
-    onSuccess: (result) => {
+    onSuccess: (result, submittedRows) => {
       const { results, summary } = result.data
 
+      // The server answers by position in the batch it was SENT, not by
+      // position in the grid (invalid and registered rows are not sent), so
+      // each result is resolved to the row it belongs to by id.
+      const resultById = new Map<
+        string,
+        { index: number; success: boolean; error?: string }
+      >()
+      for (const r of results as {
+        index: number
+        success: boolean
+        error?: string
+      }[]) {
+        const submitted = submittedRows[r.index]
+        if (submitted) resultById.set(submitted.id, r)
+      }
+
       setRows((prev) =>
-        prev.map((row, i) => {
-          const match = results.find(
-            (r: { index: number; success: boolean; error?: string }) =>
-              r.index === i
-          )
+        prev.map((row) => {
+          const match = resultById.get(row.id)
           if (!match) return row
           return {
             ...row,
@@ -289,6 +317,7 @@ export default function BulkAddMemberModal({
   }
 
   const handleAddRow = () => {
+    if (pendingRowCount >= BULK_REGISTER_MAX_ROWS) return
     const activePlan =
       planTypesData?.find(
         (pt) => pt.is_active && pt.plan_type === globalPlanType
@@ -320,13 +349,25 @@ export default function BulkAddMemberModal({
     return null
   }
 
-  const validRows = rows.filter((r) => !validateRow(r))
+  // Rows not yet registered: the batch the next submission can carry.
+  const pendingRowCount = rows.filter((r) => r.status !== 'success').length
+  const atBatchLimit = pendingRowCount >= BULK_REGISTER_MAX_ROWS
+  const consentGiven = acceptedTerms && acceptedGymRules
+  const validRows = rows.filter(
+    (r) => r.status !== 'success' && !validateRow(r)
+  )
   const hasAnyFilledRow = rows.some(
     (r) => r.name.trim() || r.phoneNumber.trim()
   )
 
   const handleRegisterAll = () => {
+    if (!consentGiven) {
+      toast.error('Confirm both consents for this batch before registering.')
+      return
+    }
     const updatedRows = rows.map((row) => {
+      // A registered row is done: never re-validate or re-send it.
+      if (row.status === 'success') return row
       const err = validateRow(row)
       if (err) return { ...row, status: 'error' as const, errorMessage: err }
       return { ...row, status: 'idle' as const, errorMessage: undefined }
@@ -334,7 +375,7 @@ export default function BulkAddMemberModal({
     setRows(updatedRows)
 
     const toSubmit = updatedRows.filter(
-      (r) => r.status !== 'error' && validateRow(r) === null
+      (r) => r.status === 'idle' && validateRow(r) === null
     )
     if (toSubmit.length === 0) {
       toast.error('No valid rows to submit. Fix errors and try again.')
@@ -367,6 +408,8 @@ export default function BulkAddMemberModal({
     setGlobalStartDate(TODAY)
     setGlobalDiscountId('')
     setGlobalRecurring(false)
+    setAcceptedTerms(false)
+    setAcceptedGymRules(false)
     onClose()
   }
 
@@ -424,14 +467,16 @@ export default function BulkAddMemberModal({
             variant="secondary"
             size="sm"
             onClick={handleAddRow}
-            disabled={isPending}
+            disabled={isPending || atBatchLimit}
             className="gap-1"
           >
             <Plus className="h-4 w-4" />
             Add Row
           </Button>
           <span className="text-xs text-ink-muted">
-            {validRows.length} of {rows.length} rows valid
+            {atBatchLimit
+              ? `${BULK_REGISTER_MAX_ROWS} rows per batch — register these, then add the next batch.`
+              : `${validRows.length} of ${pendingRowCount} rows valid`}
           </span>
         </div>
       }
@@ -452,6 +497,7 @@ export default function BulkAddMemberModal({
             onClick={handleRegisterAll}
             disabled={
               !hasAnyFilledRow ||
+              !consentGiven ||
               isPending ||
               (submitted && errorCount === 0 && successCount > 0) ||
               !planTypesData ||
@@ -644,6 +690,61 @@ export default function BulkAddMemberModal({
         This grid is not optimised for phones — swipe sideways to reach every
         column.
       </Alert>
+
+      {/* Consents — one attestation for the whole batch, the same two that
+          single registration records. Without both the route refuses every
+          row (addMemberSchema), which is how this grid failed every
+          submission from July to October 2026. The label WRAPS its checkbox
+          so the whole line is the hit area (§15.1). */}
+      <div className="mb-4 space-y-2 rounded-sm border border-line-1 bg-surface-input px-4 py-3">
+        <Label
+          htmlFor="bulkAcceptedTerms"
+          className="flex items-start gap-2 text-sm font-normal leading-snug phone:min-h-touch"
+        >
+          <Checkbox
+            id="bulkAcceptedTerms"
+            checked={acceptedTerms}
+            onChange={(e) => setAcceptedTerms(e.target.checked)}
+            disabled={isPending}
+          />
+          <span>
+            Every member in this batch accepts Metric Gym OS&apos;s{' '}
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block leading-6 text-brand-link underline"
+            >
+              privacy policy
+            </a>{' '}
+            and{' '}
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block leading-6 text-brand-link underline"
+            >
+              terms of service
+            </a>
+            .
+          </span>
+        </Label>
+        <Label
+          htmlFor="bulkAcceptedGymRules"
+          className="flex items-start gap-2 text-sm font-normal leading-snug phone:min-h-touch"
+        >
+          <Checkbox
+            id="bulkAcceptedGymRules"
+            checked={acceptedGymRules}
+            onChange={(e) => setAcceptedGymRules(e.target.checked)}
+            disabled={isPending}
+          />
+          <span>
+            Every member in this batch agrees to the gym&apos;s guidelines and
+            rules.
+          </span>
+        </Label>
+      </div>
 
       {/* Scrollable table */}
       {/*
