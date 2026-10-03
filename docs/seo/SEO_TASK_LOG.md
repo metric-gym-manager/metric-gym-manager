@@ -7,12 +7,12 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-03T05:28:00Z |
+| Last task update | 2026-10-03T05:39:31Z |
 | Total tasks | 64 |
 | P0 remaining (not verified/rejected) | 2 |
-| P1 remaining (not verified/rejected) | 5 |
-| Implemented (awaiting verification) | 4 |
-| Verified | 41 |
+| P1 remaining (not verified/rejected) | 4 |
+| Implemented (awaiting verification) | 2 |
+| Verified | 43 |
 | In progress | 0 |
 | Open (discovered/planned) | 6 |
 | Blocked | 9 |
@@ -24,8 +24,8 @@
 | Priority | discovered | planned | in_progress | implemented | verified | blocked | rejected |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 9 | 2 | 0 |
-| P1 | 0 | 0 | 0 | 3 | 18 | 2 | 0 |
-| P2 | 0 | 0 | 0 | 1 | 12 | 3 | 0 |
+| P1 | 0 | 0 | 0 | 2 | 19 | 2 | 0 |
+| P2 | 0 | 0 | 0 | 0 | 13 | 3 | 0 |
 | P3 | 6 | 0 | 0 | 0 | 2 | 2 | 4 |
 
 ## All tasks
@@ -64,7 +64,7 @@
 | [SEO-046](#seo-046) | P1 | verified | measurement | Measurement plan | no |
 | [SEO-048](#seo-048) | P1 | verified | technical | Design-system TableRow could not render in a Server Component | no |
 | [SEO-056](#seo-056) | P1 | implemented | measurement | Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL | yes |
-| [SEO-059](#seo-059) | P1 | implemented | measurement | GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included | yes |
+| [SEO-059](#seo-059) | P1 | verified | measurement | GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included | yes |
 | [SEO-062](#seo-062) | P1 | verified | trust | Two public pages said QR self-registrations wait for staff before counting as paid; they are created active with the payment recorded | no |
 | [SEO-010](#seo-010) | P2 | verified | technical | Authenticated route groups have no defensive noindex | no |
 | [SEO-022](#seo-022) | P2 | verified | content | Resources hub with two first-party articles | no |
@@ -77,7 +77,7 @@
 | [SEO-049](#seo-049) | P2 | verified | technical | Homepage overflowed a 320 px viewport | no |
 | [SEO-050](#seo-050) | P2 | verified | on-page | In-text links relied on colour alone; footer contact links below 24 px | no |
 | [SEO-054](#seo-054) | P2 | verified | architecture | Record the public-site rules where future work will find them | no |
-| [SEO-055](#seo-055) | P2 | implemented | performance | Every public page ships the chart library it never uses | no |
+| [SEO-055](#seo-055) | P2 | verified | performance | Every public page ships the chart library it never uses | no |
 | [SEO-057](#seo-057) | P2 | verified | schema | Every WebPage node claimed to be about the product, on pages that never describe it | no |
 | [SEO-061](#seo-061) | P2 | verified | content | Guide: overdue gym memberships — when to expire, when to cancel | no |
 | [SEO-063](#seo-063) | P2 | verified | content | Guide: moving a gym's members off a register book or spreadsheet | no |
@@ -105,7 +105,7 @@
 - **SEO-035** (P1, implemented) — No analytics event for demo requests
 - **SEO-038** (P1, blocked) — Partner citation from VFT Holdings
 - **SEO-056** (P1, implemented) — Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL
-- **SEO-059** (P1, implemented) — GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included
+- **SEO-059** (P1, verified) — GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included
 - **SEO-037** (P2, blocked) — Google Business Profile eligibility
 - **SEO-039** (P2, blocked) — Software directories and review profiles
 - **SEO-042** (P2, blocked) — Real case studies and first-party data content
@@ -1665,13 +1665,13 @@ register/page.tsx fires GA4's recommended sign_up event with { method: 'email' }
 | Field | Value |
 | --- | --- |
 | Priority | P1 |
-| Status | implemented |
+| Status | verified |
 | Category | measurement |
 | Intent | none |
 | External action | required |
 | Created | 2026-10-02T15:36:21Z |
-| Updated | 2026-10-02T16:25:08Z |
-| Completed | — |
+| Updated | 2026-10-03T05:39:31Z |
+| Completed | 2026-10-03T05:39:31Z |
 | Dependencies | — |
 
 **Target queries**
@@ -1710,6 +1710,7 @@ src/lib/analytics/ga-init.ts gaInitScript() is now the only GA bootstrap; the ro
 - Full suite 196 suites and 2,388 tests passed (7 skipped), with tsc as pretest; lint 0 errors (the same 11 warnings); arch:check passes
 - Chromium via Playwright against next dev, every Google request recorded: /reset-password?token_hash=…&type=recovery, /verify-email?type=email_change&token_hash=… and /join/tok_probe made 0 requests to Google and rendered normally; / and /pricing loaded gtag.js and sent page_view; the stubbed register flow still sent sign_up
 - Not verified: the live GA4 property. Owner, as defence in depth: GA4 → Admin → Data streams → Redact data → query parameters token_hash, token, code, email
+- Production, after PR #83 deployed (2026-10-03), Chromium with every Google request recorded and /g/collect answered locally: /reset-password?token_hash=…&type=recovery, /verify-email?type=email_change&token_hash=… (its API stubbed) and /join/tok_probe made 0 requests to Google and rendered normally; / loaded gtag.js and sent page_view. The reset page's HTML carries the inline bootstrap with the credential list and no static gtag.js tag. GA4 query-parameter redaction remains a recommended second layer, tracked in the HANDOFF.md §6 checklist
 
 ### SEO-062
 
@@ -2285,13 +2286,13 @@ Pattern Index row 2.23 in .claude/rules/architecture.md (registry + PUBLIC_ROUTE
 | Field | Value |
 | --- | --- |
 | Priority | P2 |
-| Status | implemented |
+| Status | verified |
 | Category | performance |
 | Intent | none |
 | External action | no |
 | Created | 2026-10-01T21:30:00Z |
-| Updated | 2026-10-02T16:47:44Z |
-| Completed | — |
+| Updated | 2026-10-03T05:39:31Z |
+| Completed | 2026-10-03T05:39:31Z |
 | Dependencies | — |
 
 **Target queries**
@@ -2336,6 +2337,7 @@ Charts moved to their own design-system barrel, src/components/ui/charts/index.t
 - arch:check UI4: a probe feature-local `export function Sparkline()` fails UI4 with the change; without the new dsNames line, UI4 misses it
 - Full suite 197 suites and 2,391 tests passed (7 skipped), with tsc as pretest; lint 0 errors; arch:check passes
 - Rendered on next start with the after build, signed in as the seeded E2E Enterprise gym (read-only): /dashboard's bar chart and /member-analytics' trend line, year-over-year bars and at-risk bars draw, matching a capture of the HEAD build taken the same way; /revenue renders its chart surface. /design-system returns 404 under next start (development-only), so it was not checked
+- Production, after PR #83 deployed (2026-10-03): the 13 JS chunks www.metricgymos.com/ loads carry 0 recharts references
 
 ### SEO-057
 

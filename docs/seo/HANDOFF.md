@@ -13,7 +13,14 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
 
 **Progress since the snapshot (2026-10-02, terminal session):**
 
-- **Merged into `master` through PR #83 on 2026-10-03.**
+- **Merged into `master` through PR #83 on 2026-10-03.** Production deploy confirmed the same day:
+  - the three new guides answer 200, and the sitemap lists 19 URLs;
+  - the corrected QR sentence is live;
+  - the homepage's 13 JS chunks carry no recharts;
+  - credential URLs make no requests to Google, while `/` still sends `page_view`.
+
+  SEO-055 and SEO-059 are now `verified`. Bulk import still needs the owner's production check (§6).
+
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
