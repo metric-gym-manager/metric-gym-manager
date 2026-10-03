@@ -1770,7 +1770,7 @@
         "docs/seo/SEO_AUDIT.md §8 item 3: 'Moving a gym from a register book or spreadsheet (the real bulk entry and QR self-registration flows)'"
       ],
       "recommendedChange": "Publish a step-by-step guide that says which date to enter (the last payment), what members receive, the batch size and the plan limit, and the QR route for new members.",
-      "implementation": "src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx: Article page in the guide pattern. The worked example's next due date is computed with calculateNextDueDate, the sample welcome SMS is formatted with formatDateForDisplay (the SMS's own formatter), and the Lite limit comes from LITE_MEMBER_LIMIT. Registry entry ARTICLE_PATHS.move; the /resources description now names four guides; PUBLIC_ROUTES entry; body link from /features/membership-management; footer Resources link; added to the MarketingPages screen-test table.",
+      "implementation": "src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx: Article page in the guide pattern. The worked example's next due date is computed with calculateNextDueDate, the sample welcome SMS is formatted with formatDateForDisplay (the SMS's own formatter), and the Lite limit comes from LITE_MEMBER_LIMIT. Registry entry ARTICLE_PATHS.move; the /resources description now names four guides; PUBLIC_ROUTES entry; body link from /features/membership-management; footer Resources link; added to the MarketingPages screen-test table. Revised 2026-10-03 after the bulk-grid fix: the batch size is read from BULK_REGISTER_MAX_ROWS, the constant the grid and POST /api/members/bulk share, and the guide describes the batch's consent step (the same two confirmations as single registration). The fix itself is product work outside this task: bulk import had refused every batch since 2026-07-25 because the grid never sent the two required consents.",
       "files": [
         "src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx",
         "src/features/marketing/config/pages.ts",
@@ -1784,12 +1784,13 @@
         "next build prerenders the page as static. On next start: 200, one H1, self canonical, indexable, title 'How to Move Your Gym's Members into Software | Metric Gym OS', JSON-LD Organization, WebSite, WebPage, BreadcrumbList, Article; sitemap.xml has 18 <loc> including it; linked from /resources, /features/membership-management and the footer",
         "The sample welcome SMS renders as 'Welcome to our gym, Nimal! Your monthly membership is active. Amount paid: Rs.4000.00. Next due: 20/10/2026. Thank you!', and the prose dates as 20 September → 20 October",
         "Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; the 1366 screenshot read by eye",
-        "Not verified: indexing or ranking (needs Search Console, SEO-036)"
+        "Not verified: indexing or ranking (needs Search Console, SEO-036)",
+        "After the bulk-grid fix: the guide still renders 'up to 50' from the shared constant; the marketing suites pass"
       ],
       "dependencies": [],
       "externalActionRequired": false,
       "createdAt": "2026-10-03T01:03:38Z",
-      "updatedAt": "2026-10-03T01:03:38Z",
+      "updatedAt": "2026-10-03T05:28:00Z",
       "completedAt": "2026-10-03T01:03:38Z"
     },
     {

@@ -18,6 +18,7 @@ import {
   getMarketingPage,
 } from '@/features/marketing'
 import { PlanType } from '@/features/members/config/PlanConfig'
+import { BULK_REGISTER_MAX_ROWS } from '@/features/members/schemas/member.schemas'
 import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
 import { formatDateForDisplay } from '@/utils/date/date'
 
@@ -44,9 +45,6 @@ const nextDue = PROSE_DATE.format(NEXT_DUE)
 
 /** RegisterMember's welcome text, filled in for the example member. */
 const WELCOME_SMS = `Welcome to our gym, Nimal! Your monthly membership is active. Amount paid: Rs.4000.00. Next due: ${formatDateForDisplay(NEXT_DUE)}. Thank you!`
-
-/** The most rows one bulk submission accepts (api/members/bulk). */
-const BULK_BATCH_LIMIT = 50
 
 export default function MoveMembersArticle() {
   return (
@@ -154,9 +152,16 @@ export default function MoveMembersArticle() {
             — a number already in use, for example.
           </p>
           <p>
-            Submit up to {BULK_BATCH_LIMIT} members at a time. The grid works
-            best on a computer; on a phone, Metric suggests a larger screen and
-            still lets you open it.
+            Before a batch can be registered, you confirm two things for it —
+            that every member in it accepts Metric’s privacy policy and terms,
+            and agrees to your gym’s rules — the same two confirmations as
+            adding a single member. Collect that agreement from your members
+            before you type them in.
+          </p>
+          <p>
+            Submit up to {BULK_REGISTER_MAX_ROWS} members at a time. The grid
+            works best on a computer; on a phone, Metric suggests a larger
+            screen and still lets you open it.
           </p>
         </Prose>
       </MarketingSection>
@@ -229,7 +234,12 @@ export default function MoveMembersArticle() {
               member.
             </li>
             <li>Start date = the date of their last payment.</li>
-            <li>Up to {BULK_BATCH_LIMIT} members per batch, on a computer.</li>
+            <li>
+              Up to {BULK_REGISTER_MAX_ROWS} members per batch, on a computer.
+            </li>
+            <li>
+              Members’ agreement to the terms and your gym rules collected.
+            </li>
             <li>Members told that a welcome text is coming.</li>
             <li>Plan limit checked before a large import.</li>
             <li>QR poster up for new members; NEW entries checked daily.</li>

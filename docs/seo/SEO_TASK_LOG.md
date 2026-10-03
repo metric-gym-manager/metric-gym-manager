@@ -7,7 +7,7 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-03T01:47:17Z |
+| Last task update | 2026-10-03T05:28:00Z |
 | Total tasks | 64 |
 | P0 remaining (not verified/rejected) | 2 |
 | P1 remaining (not verified/rejected) | 5 |
@@ -2455,7 +2455,7 @@ src/app/(marketing)/resources/overdue-gym-memberships/page.tsx: Article page in 
 | Intent | informational |
 | External action | no |
 | Created | 2026-10-03T01:03:38Z |
-| Updated | 2026-10-03T01:03:38Z |
+| Updated | 2026-10-03T05:28:00Z |
 | Completed | 2026-10-03T01:03:38Z |
 | Dependencies | — |
 
@@ -2480,7 +2480,7 @@ Publish a step-by-step guide that says which date to enter (the last payment), w
 
 **Implementation**
 
-src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx: Article page in the guide pattern. The worked example's next due date is computed with calculateNextDueDate, the sample welcome SMS is formatted with formatDateForDisplay (the SMS's own formatter), and the Lite limit comes from LITE_MEMBER_LIMIT. Registry entry ARTICLE_PATHS.move; the /resources description now names four guides; PUBLIC_ROUTES entry; body link from /features/membership-management; footer Resources link; added to the MarketingPages screen-test table.
+src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx: Article page in the guide pattern. The worked example's next due date is computed with calculateNextDueDate, the sample welcome SMS is formatted with formatDateForDisplay (the SMS's own formatter), and the Lite limit comes from LITE_MEMBER_LIMIT. Registry entry ARTICLE_PATHS.move; the /resources description now names four guides; PUBLIC_ROUTES entry; body link from /features/membership-management; footer Resources link; added to the MarketingPages screen-test table. Revised 2026-10-03 after the bulk-grid fix: the batch size is read from BULK_REGISTER_MAX_ROWS, the constant the grid and POST /api/members/bulk share, and the guide describes the batch's consent step (the same two confirmations as single registration). The fix itself is product work outside this task: bulk import had refused every batch since 2026-07-25 because the grid never sent the two required consents.
 
 **Files**
 
@@ -2498,6 +2498,7 @@ src/app/(marketing)/resources/move-gym-members-from-register-book/page.tsx: Arti
 - The sample welcome SMS renders as 'Welcome to our gym, Nimal! Your monthly membership is active. Amount paid: Rs.4000.00. Next due: 20/10/2026. Thank you!', and the prose dates as 20 September → 20 October
 - Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; the 1366 screenshot read by eye
 - Not verified: indexing or ranking (needs Search Console, SEO-036)
+- After the bulk-grid fix: the guide still renders 'up to 50' from the shared constant; the marketing suites pass
 
 ### SEO-064
 

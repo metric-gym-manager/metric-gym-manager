@@ -10,15 +10,19 @@
  * 4. Returning the updated member
  *
  * Valid transitions:
- * - Expired → Cancelled (45+ days overdue)
+ * - Expired → Cancelled — normally done by the `cancel-overdue-members` cron
+ *   once a member is MEMBER_CANCELLATION_OVERDUE_DAYS (14) past their due date
+ *   (StatusConfig.ts); this use case is the manual path.
  * - Suspended → Cancelled (permanent ban)
  *
- * Note: Cancelled is a terminal state with no outgoing transitions.
+ * Cancelled is not terminal: a cancelled member returns to Active through a
+ * fresh payment (CollectPayment's reactivation; Cancelled → Active in
+ * VALID_TRANSITIONS).
  */
 
-import { Member } from '@/features/members/domain/Member';
-import { IMemberRepository } from './IMemberRepository';
-import { NotFoundError } from '@/utils/errors';
+import { Member } from '@/features/members/domain/Member'
+import { IMemberRepository } from './IMemberRepository'
+import { NotFoundError } from '@/utils/errors'
 
 /**
  * Input for cancelling a member
@@ -27,12 +31,12 @@ export interface CancelMemberInput {
   /**
    * Member ID to cancel
    */
-  memberId: string;
+  memberId: string
 
   /**
    * Gym ID (for multi-tenant isolation)
    */
-  gymId: string;
+  gymId: string
 }
 
 /**
@@ -59,21 +63,21 @@ export class CancelMember {
    * @throws InvalidStatusTransitionError if transition not allowed
    */
   async execute(input: CancelMemberInput): Promise<Member> {
-    const { memberId, gymId } = input;
+    const { memberId, gymId } = input
 
     // Find the member
-    const member = await this.memberRepo.findById(memberId, gymId);
+    const member = await this.memberRepo.findById(memberId, gymId)
 
     if (!member) {
-      throw new NotFoundError(`Member with ID ${memberId} not found`);
+      throw new NotFoundError(`Member with ID ${memberId} not found`)
     }
 
     // Cancel the member (state machine validates the transition)
-    const cancelledMember = member.cancel();
+    const cancelledMember = member.cancel()
 
     // Persist the update
-    const saved = await this.memberRepo.update(cancelledMember);
+    const saved = await this.memberRepo.update(cancelledMember)
 
-    return saved;
+    return saved
   }
 }

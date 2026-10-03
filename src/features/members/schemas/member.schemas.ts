@@ -108,6 +108,14 @@ export const addMemberSchema = z.object({
 
 export type AddMemberInput = z.infer<typeof addMemberSchema>
 
+/** The most members one bulk registration may carry (grid and route agree). */
+export const BULK_REGISTER_MAX_ROWS = 50
+
+/** POST /api/members/bulk — a batch of rows from the bulk-entry grid. */
+export const bulkRegisterSchema = z.object({
+  members: z.array(addMemberSchema).min(1).max(BULK_REGISTER_MAX_ROWS),
+})
+
 // ============================================================
 // UPDATE MEMBER SCHEMA
 // ============================================================

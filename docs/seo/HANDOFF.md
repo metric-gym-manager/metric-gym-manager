@@ -159,10 +159,11 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [ ] **SEO-060:** public pages still load the signed-in app's providers (Supabase client, react-query, service-worker registration, AuthRecovery); rules 2.15 and 2.19 apply.
 - [ ] **Early payments shorten the period** (product, found 2026-10-02). Recording a payment always dates the next period from the payment date: `CollectPayment` with `deductOverduePeriod` defaulting to true, and the Mark Paid dialog always sending true. That is right for a late payer. But a member who pays three days early gets a due date three days earlier than their old one. Decide whether an early payment should extend from the current due date instead.
 - [ ] **The dashboard's "critical" overdue tier is never reached** (product, found 2026-10-02). `features/revenue/services/metrics.service.ts` counts expired members more than 14 days overdue as critical. But `MEMBER_CANCELLATION_OVERDUE_DAYS` cancels them at day 14, so the tier almost always shows 0. Re-cut the tiers, or retire "critical".
-- [ ] **The bulk grid says "WhatsApp"** (product wording, found 2026-10-03). The phone column in `BulkAddMemberModal` is headed "WhatsApp \*" and its validation says "WhatsApp number is required". But Metric sends SMS, and the public site makes no WhatsApp claims. Decide whether the field should read "Mobile number".
+- [ ] **The member forms say "WhatsApp"** (product wording, found 2026-10-03). The bulk grid's phone column is headed "WhatsApp \*" and says "WhatsApp number is required"; the single add form labels the field "WhatsApp Number". But Metric sends SMS, and the public site makes no WhatsApp claims. Decide whether the field should read "Mobile number".
 
 **Branch**
 
+- [ ] **Deploy the bulk-import fix.** In production every bulk import has been refused since 2026-07-25 ("Invalid input data"); gyms adding members one at a time are unaffected. The fix is on this branch only, so it reaches gyms when the branch is merged and deployed. Until then the register-book guide (`/resources/move-gym-members-from-register-book`), also on this branch, describes the fixed flow.
 - [ ] **Push and review.** The commits listed in the progress note at the top are local until this branch is pushed. Push, then open a pull request against `master` when ready.
 
 ### Repository, next work on this branch
@@ -172,8 +173,12 @@ Ready now, in priority order:
 1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
 2. **New guides** from `SEO_AUDIT.md` §8, one at a time. Done: overdue memberships (SEO-061), moving off a register book (SEO-063) and Excel and WhatsApp vs software (SEO-064). Still to write: choosing gym management software in Sri Lanka. It waits on the owner's data-protection facts (open item in the checklist above). Each one needs a registry entry, a `PUBLIC_ROUTES` entry, a link from its feature page and from `/resources`, and its own task.
 3. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-053, SEO-060 — each needs the owner's decision noted above.
-4. **Stale comments, no decision needed.** `src/features/members/services/CancelMember.ts` says cancellation happens at "45+ days overdue" and is "a terminal state". But `StatusConfig.ts` cancels at 14 days, and `CollectPayment` reactivates a cancelled member on payment. Correct the comments.
-5. **Bulk grid accepts more than 50 rows; the server does not** (product bug, found 2026-10-03). `BulkAddMemberModal` lets a user add any number of rows. But `POST /api/members/bulk` validates `z.array(...).max(50)`, so a batch of 51 or more is refused whole as "Invalid input data". Cap the grid at 50, or send it in chunks of 50. The guide tells gyms to submit up to 50 at a time.
+4. ~~**Stale comments.**~~ Fixed 2026-10-03: `CancelMember.ts` now states the 14-day cron rule and that Cancelled → Active happens on payment.
+5. ~~**Bulk grid.**~~ Fixed 2026-10-03, with three more defects found in the same flow:
+   - the grid now stops at `BULK_REGISTER_MAX_ROWS` (50, shared with the route);
+   - results are applied by row identity, not grid position, so an invalid row no longer shifts every later result onto the wrong member;
+   - retry no longer re-sends rows already registered;
+   - every batch had been refused since 2026-07-25, because `addMemberSchema` began requiring two consents the grid never sent. The owner chose a batch attestation: the same two consents as single registration, ticked once per batch. Consent times are recorded per member.
 
 Waiting on owner input:
 
