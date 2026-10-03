@@ -2,7 +2,7 @@
 
 |                       |                                                                                                                                                                                                   |
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Branch                | `claude/optimistic-albattani-vryaf7`, pushed to `origin`                                                                                                                                          |
+| Branch                | `claude/optimistic-albattani-vryaf7`; `origin` has it up to `11d5d60`, and later commits are local until pushed                                                                                   |
 | Work commit           | `e2db9f7` — feat(seo): public website, indexing and SEO task log for Sri Lankan search                                                                                                            |
 | Base                  | `master` at `75eff38`                                                                                                                                                                             |
 | Pull request          | None opened                                                                                                                                                                                       |
@@ -13,6 +13,7 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
 
 **Progress since the snapshot (2026-10-02, terminal session):**
 
+- **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
 - **SEO-055 implemented (P2).** Charts moved to their own barrel, `@/components/ui/charts`. Measured on production builds, the public pages' JS fell from 465 to 345 KB gzip (−26%), and recharts went from 102 references to 0. The chart pages still render, checked signed in as the E2E gym. The remaining root-layout providers are SEO-060 (P3).
@@ -120,21 +121,45 @@ All nine wait on the owner or a third party.
 
 ### Owner, outside the repository
 
-1. **Search Console.** Verify metricgymos.com as a Domain property (DNS TXT record); submit `https://www.metricgymos.com/sitemap.xml`; inspect `/`, `/gym-management-software-sri-lanka` and `/pricing`.
-2. **Old domain.** Verify metricgymmanager.com too and file a Change of Address to metricgymos.com. Keep its 308 redirects permanently.
-3. **GA4.** Turn on email redaction for the web stream (Admin → Data streams → the web stream → Redact data → Email), and query-parameter redaction for `token_hash`, `token`, `code` and `email` (SEO-059). Confirm `generate_lead` and `sign_up` arrive in DebugView, and mark both as key events.
-4. **Homepage proof.** Confirm each of the six named gyms is a current customer that agreed to be shown, and the Zulfi Ahamath / Fitness Empire testimonial with consent and its 80% figure — or have them removed.
-5. **VFT.** Confirm VFT is content to be named on `/features/access-control`, then ask for a "compatible software" mention linking to it.
-6. **Directories.** List Metric on software directories (Capterra, G2 and similar) and collect genuine reviews only.
-7. **Google Business Profile.** Decide eligibility: Google requires in-person contact with customers at the address or in a service area.
-8. **Confirm for public use.** Founder and team facts, the Kotte address, and the support hours (every day, 08:00–22:00).
-9. **Product and design decisions** recorded but not changed:
-   - SEO-052: weekly members get their "7 days before" reminder on the day they pay.
-   - SEO-053: automated reminders and receipts do not name the gym.
-   - SEO-055: the charting library reaches every page through the design system's shared import file (fixing it is a design-system decision, because the DS requires barrel imports).
-   - SEO-056: a sign-up event and an email-free post-sign-up URL (an auth-flow change governed by rule 2.15).
-   - SEO-043: the Inter font loads on pages that render Geist.
-   - SEO-051: contrast of the decorative dashboard preview on the homepage.
+Every item below is **open**. It is the owner's to do or decide, and each one stays unchecked until it is done. The linked task in `SEO_TASKS.json` is updated at the same time.
+
+**Measurement**
+
+- [ ] **Search Console (SEO-036, P0).** Verify metricgymos.com as a Domain property (DNS TXT record). Submit `https://www.metricgymos.com/sitemap.xml` and inspect `/`, `/gym-management-software-sri-lanka`, `/pricing` and `/resources/overdue-gym-memberships`. About four weeks later, record the first baseline following `SEO_AUDIT.md` §17.
+- [ ] **GA4 redaction (SEO-056, SEO-059).** Under Admin → Data streams → the web stream → Redact data, turn on Email, and turn on query parameters for `token_hash`, `token`, `code` and `email`. The code already keeps both out of GA; redaction is the second layer.
+- [ ] **GA4 key events (SEO-035, SEO-056).** After deploy, confirm `generate_lead` (demo request) and `sign_up` (registration) arrive in DebugView, and mark both as key events. Both tasks move to `verified` after that.
+- [ ] **Old domain (SEO-026, P1).** Verify metricgymmanager.com too and file a Change of Address to metricgymos.com. Keep its 308 redirects permanently.
+
+**Claims shown on the site**
+
+- [ ] **Proof (SEO-024, P0).** Confirm, with evidence, or have removed:
+  - on the homepage: the six named gyms in "Trusted by" (each a current customer that agreed to be shown); the Zulfi Ahamath / Fitness Empire testimonial and its 80% figure; the "−95% late payments" badge; "Running nationwide";
+  - on the sign-in side panel (`src/components/auth/AuthShell.tsx`, shown on `/register`, `/login` and the other sign-in pages): "Gyms on platform 25+", "Members managed 7,900+", "Uptime, trailing 12 mo 99.99%", and the "metricgym.lk" label (the canonical domain is www.metricgymos.com).
+- [ ] **Company facts (SEO-041, P3).** Confirm founder and team facts for `/about`, the Kotte address, and the support hours (every day, 08:00–22:00).
+- [ ] **Data protection facts for the next buying guide.** "Choosing gym management software in Sri Lanka" needs a short, correct account of a gym's duties under the Personal Data Protection Act. The owner or a lawyer should confirm it before the page is written; nothing in the repository can confirm it.
+
+**Off-site authority**
+
+- [ ] **VFT (SEO-038, P1).** Confirm VFT is content to be named on `/features/access-control`, then ask for a "compatible software" mention linking to it.
+- [ ] **Directories and reviews (SEO-039, P2).** List Metric on software directories (Capterra, G2 and similar) and collect genuine reviews only.
+- [ ] **Google Business Profile (SEO-037, P2).** Decide eligibility: Google requires in-person contact with customers at the address or in a service area.
+- [ ] **Social profiles (SEO-040, P3).** Create or confirm the official profiles; they then go into `sameAs` in the Organization markup.
+- [ ] **Case studies (SEO-042, P2).** Customer consent for case studies, and approval for an anonymised data study from Metric's own records.
+- [ ] **Sinhala and Tamil (SEO-047, P3).** Decide when the product, SMS and support serve those languages; pages follow only after that.
+
+**Product and design decisions** (recorded, not changed)
+
+- [ ] **SEO-052:** weekly members get their "7 days before" reminder on the day they pay.
+- [ ] **SEO-053:** automated reminders and receipts do not name the gym.
+- [ ] **SEO-043:** the Inter font loads on pages that render Geist (measure first).
+- [ ] **SEO-051:** contrast of the decorative dashboard preview on the homepage.
+- [ ] **SEO-060:** public pages still load the signed-in app's providers (Supabase client, react-query, service-worker registration, AuthRecovery); rules 2.15 and 2.19 apply.
+- [ ] **Early payments shorten the period** (product, found 2026-10-02). Recording a payment always dates the next period from the payment date: `CollectPayment` with `deductOverduePeriod` defaulting to true, and the Mark Paid dialog always sending true. That is right for a late payer. But a member who pays three days early gets a due date three days earlier than their old one. Decide whether an early payment should extend from the current due date instead.
+- [ ] **The dashboard's "critical" overdue tier is never reached** (product, found 2026-10-02). `features/revenue/services/metrics.service.ts` counts expired members more than 14 days overdue as critical. But `MEMBER_CANCELLATION_OVERDUE_DAYS` cancels them at day 14, so the tier almost always shows 0. Re-cut the tiers, or retire "critical".
+
+**Branch**
+
+- [ ] **Push and review.** The commits listed in the progress note at the top are local until this branch is pushed. Push, then open a pull request against `master` when ready.
 
 ### Repository, next work on this branch
 
@@ -143,14 +168,15 @@ Ready now, in priority order:
 1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
 2. **New guides** from `SEO_AUDIT.md` §8, one at a time. Overdue memberships is done (SEO-061). Still to write: choosing gym management software in Sri Lanka (it needs PDPA facts confirmed by the owner); moving a gym from a register book or spreadsheet; Excel and WhatsApp vs dedicated software. Each one needs a registry entry, a `PUBLIC_ROUTES` entry, a link from its feature page and from `/resources`, and its own task.
 3. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-053, SEO-060 — each needs the owner's decision noted above.
+4. **Stale comments, no decision needed.** `src/features/members/services/CancelMember.ts` says cancellation happens at "45+ days overdue" and is "a terminal state". But `StatusConfig.ts` cancels at 14 days, and `CollectPayment` reactivates a cancelled member on payment. Correct the comments.
 
 Waiting on owner input:
 
-- SEO-024 → edit or remove the trust strip and testimonial in `src/components/landing/LandingPage.tsx`.
+- SEO-024 → edit or remove the trust strip and testimonial in `src/components/landing/LandingPage.tsx`, and the side-panel figures in `src/components/auth/AuthShell.tsx`.
 - SEO-040 → add `sameAs` in `features/marketing/config/site.ts` and `organizationJsonLd()`.
 - SEO-041 → founder and team facts on `/about`.
 - SEO-042 → case-study and data-study pages.
-- SEO-035 → mark `verified` once GA4 DebugView shows the event.
+- SEO-035, SEO-056 → mark `verified` once GA4 DebugView shows `generate_lead` and `sign_up`.
 - SEO-036 → once Search Console has data, record the first baseline (about four weeks after sitemap submission) following `SEO_AUDIT.md` §17.
 
 ## 7. Task log status
