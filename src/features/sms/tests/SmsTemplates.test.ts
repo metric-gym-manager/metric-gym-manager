@@ -13,6 +13,7 @@
  */
 
 import {
+  SMS_DISCOUNT_NAME_MAX,
   SMS_GYM_NAME_MAX,
   dayPassSms,
   isGsm7,
@@ -253,12 +254,42 @@ describe('smsGymName', () => {
     expect(smsGymName('  LifeLine   Fitness ')).toBe('LifeLine Fitness')
   })
 
-  it(`caps a long name at ${SMS_GYM_NAME_MAX} characters`, () => {
+  it(`caps a long name at ${SMS_GYM_NAME_MAX} characters, at the last whole word`, () => {
     const name = smsGymName(
       'The Kotte Royal Fitness and Health Centre of Excellence'
     )
     expect(name.length).toBeLessThanOrEqual(SMS_GYM_NAME_MAX)
-    expect(name).toBe('The Kotte Royal Fitness and He')
+    expect(name).toBe('The Kotte Royal Fitness and')
+  })
+
+  it('keeps the whole cap when it falls exactly on a word boundary', () => {
+    expect(smsGymName('Kotte Royal Fitness and Health Gym')).toBe(
+      'Kotte Royal Fitness and Health'
+    )
+  })
+
+  it('drops a dangling symbol left at the cut', () => {
+    expect(smsGymName('Iron Paradise Fitness Centre & Spa')).toBe(
+      'Iron Paradise Fitness Centre'
+    )
+  })
+
+  it('keeps closing punctuation that belongs to the name', () => {
+    expect(smsGymName('Royal Fitness Centre (Kandy) Main Branch')).toBe(
+      'Royal Fitness Centre (Kandy)'
+    )
+  })
+
+  it('hard-cuts rather than keep less than half the cap', () => {
+    expect(smsGymName(`Gym ${'Y'.repeat(40)}`)).toBe(`Gym ${'Y'.repeat(26)}`)
+  })
+
+  it('never splits an emoji in half', () => {
+    const name = smsGymName(`${'X'.repeat(29)}💪💪`)
+    expect(Array.from(name)).toHaveLength(SMS_GYM_NAME_MAX)
+    expect(name).toBe(`${'X'.repeat(29)}💪`)
+    // No lone surrogate: every high surrogate is followed by a low one.
+    expect(name).not.toMatch(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])/)
   })
 
   it('does not leave a trailing space where the cap falls on one', () => {
@@ -285,6 +316,24 @@ describe('smsGymName', () => {
     })
     expect(text).toContain(
       "thank you, Ruwan D'Silva Jayasuriya Wickramasinghe Bandara!"
+    )
+  })
+})
+
+describe('discount names on a receipt', () => {
+  const receipt = (name: string) =>
+    TEMPLATES[3][1]({ ...TYPICAL, discount: { name, percentage: 10 } })
+
+  it(`keeps a production name that the ${SMS_DISCOUNT_NAME_MAX}-character cap ends on a word`, () => {
+    // The longest discount name in production on 2026-10-04 (40 characters).
+    expect(receipt('Long-Standing Member Loyalty Reward Rate')).toContain(
+      'received (Long-Standing Member 10% off).'
+    )
+  })
+
+  it('cuts a long name at the last whole word', () => {
+    expect(receipt('Early Bird Student Discount')).toContain(
+      'received (Early Bird Student 10% off).'
     )
   })
 })

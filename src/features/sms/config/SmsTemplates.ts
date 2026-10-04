@@ -27,7 +27,10 @@ import { PLAN_CONFIGS, PlanType } from '@/features/members/config/PlanConfig'
 import { formatDateForDisplay } from '@/utils/date/date'
 import { ReminderType } from './ReminderConfig'
 
-/** Longest gym name an SMS carries; longer names are cut, not ellipsised. */
+/**
+ * Longest gym name an SMS carries. A longer name is cut at its last whole
+ * word, not ellipsised (an ellipsis costs three characters).
+ */
 export const SMS_GYM_NAME_MAX = 30
 
 /** Longest discount name a receipt carries. */
@@ -101,9 +104,30 @@ function cleanSmsText(raw: string): string {
     .trim()
 }
 
-/** Clean a value and cut it to `max` characters, never ending on a space. */
+/**
+ * Clean a value and cut it to at most `max` characters, at a word boundary.
+ *
+ * - Counts code points, so an emoji is never split into a lone surrogate.
+ * - When the cut lands mid-word, backs up to the last whole word — unless
+ *   that would keep half the cap or less, where a hard cut says more.
+ * - Never ends on a space or a dangling symbol (`&`, `-`, `,`).
+ *
+ * @param raw - The stored value
+ * @param max - Cap in characters
+ * @returns The cleaned, capped value
+ * @example
+ * capped('The Kotte Royal Fitness and Health Centre', 30) // 'The Kotte Royal Fitness and'
+ */
 function capped(raw: string, max: number): string {
-  return cleanSmsText(raw).slice(0, max).trimEnd()
+  const chars = Array.from(cleanSmsText(raw))
+  if (chars.length <= max) return chars.join('')
+
+  let cut = chars.slice(0, max).join('')
+  if (chars[max] !== ' ') {
+    const lastSpace = cut.lastIndexOf(' ')
+    if (lastSpace > max / 2) cut = cut.slice(0, lastSpace)
+  }
+  return cut.replace(/[\s&,+/:;-]+$/, '')
 }
 
 /**
