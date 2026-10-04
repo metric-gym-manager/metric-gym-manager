@@ -12,6 +12,12 @@
  */
 export interface SMSMessage {
   /**
+   * The gym the text is for. Required: the send layer refuses any gym on the
+   * operator's SMS_DISABLED_GYM_IDS list, and must always be able to check.
+   */
+  gymId: string
+
+  /**
    * Recipient phone number (E.164 format with + prefix)
    * Example: +94771234567
    */

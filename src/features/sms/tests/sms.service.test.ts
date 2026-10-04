@@ -535,6 +535,8 @@ describe('SMS Service - Real SMS Integration', () => {
     await sendSMS('gym_123', 'member_123', 'welcome', undefined, 5000.0)
 
     expect(mockSendSmsViaTextLk).toHaveBeenCalledWith({
+      // The gym, so the send layer can refuse one on SMS_DISABLED_GYM_IDS.
+      gymId: 'gym_123',
       to: '+94771234567',
       message: expect.stringContaining('Welcome to FitLife Gym'),
     })

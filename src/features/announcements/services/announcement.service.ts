@@ -240,6 +240,7 @@ async function sendAnnouncementSmsInBackground(
         try {
           if (useRealSms) {
             const result = await sendSmsViaTextLk({
+              gymId,
               to: member.phone_number,
               message: messageBody,
             })
@@ -440,6 +441,7 @@ export async function retryFailedAnnouncements(
         try {
           if (useRealSms) {
             const result = await sendSmsViaTextLk({
+              gymId: announcement.gym_id,
               to: failure.phone_number,
               message: messageBody,
             })

@@ -61,7 +61,10 @@ describe('POST /api/demo/send-sms', () => {
     jest.useFakeTimers({ now: NOW, doNotFake: ['nextTick', 'queueMicrotask'] })
     process.env.DEMO_TOOLS_ALLOWED_EMAIL = DEMO_EMAIL
     process.env.ENABLE_REAL_SMS = 'true'
-    getCurrentGymProfile.mockResolvedValue({ email: DEMO_EMAIL })
+    getCurrentGymProfile.mockResolvedValue({
+      id: 'demo-gym',
+      email: DEMO_EMAIL,
+    })
     sendSmsViaTextLk.mockReset()
     sendSmsViaTextLk.mockResolvedValue({ success: true, message_id: 'm-1' })
   })
@@ -76,6 +79,7 @@ describe('POST /api/demo/send-sms', () => {
 
     expect(res.status).toBe(200)
     expect(sendSmsViaTextLk).toHaveBeenCalledWith({
+      gymId: 'demo-gym',
       to: '+94771234567',
       message: welcomeSms({
         ...party,
@@ -93,6 +97,7 @@ describe('POST /api/demo/send-sms', () => {
     await post(body('due'))
 
     expect(sendSmsViaTextLk).toHaveBeenCalledWith({
+      gymId: 'demo-gym',
       to: '+94771234567',
       message: reminderSms(ReminderType.SevenDay, {
         ...party,
@@ -107,6 +112,7 @@ describe('POST /api/demo/send-sms', () => {
     await post(body('receipt'))
 
     expect(sendSmsViaTextLk).toHaveBeenCalledWith({
+      gymId: 'demo-gym',
       to: '+94771234567',
       message: receiptSms({
         ...party,

@@ -23,6 +23,7 @@ import type { ISMSProvider, SMSSendResult } from './ISMSProvider'
 import type { IGymDirectory } from './IGymDirectory'
 import type { IDiscountDirectory } from './IDiscountDirectory'
 import { effectivePlanAmount } from '@/features/members/utils/effectivePlanAmount'
+import { isSmsDisabledForGym } from '@/features/sms/config/SmsSuppression'
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig'
 import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue'
 import {
@@ -78,6 +79,13 @@ export interface ReminderSummary {
    * on EVERY tier — only the account status gates them.
    */
   membersSkippedBillingRestricted: number
+
+  /**
+   * Members skipped because their gym is on the operator's never-text list
+   * (`SMS_DISABLED_GYM_IDS`, e.g. the E2E test gyms). Not attempted, so they
+   * leave no failed row and no run error.
+   */
+  membersSkippedSmsDisabled: number
 }
 
 /**
@@ -158,6 +166,7 @@ export class SendAutomatedReminders {
       membersProcessed: 0,
       membersSkipped: 0,
       membersSkippedBillingRestricted: 0,
+      membersSkippedSmsDisabled: 0,
     }
 
     try {
@@ -173,12 +182,25 @@ export class SendAutomatedReminders {
       const allowedGyms = await this.resolveAllowedGyms(
         allMembers.map((m) => m.gymId)
       )
-      const members = allMembers.filter((m) => allowedGyms.has(m.gymId))
+      const billable = allMembers.filter((m) => allowedGyms.has(m.gymId))
       summary.membersSkippedBillingRestricted =
-        allMembers.length - members.length
+        allMembers.length - billable.length
       if (summary.membersSkippedBillingRestricted > 0) {
         console.log(
           `⏭  Skipping ${summary.membersSkippedBillingRestricted} member(s) of billing-restricted (suspended/lapsed) gyms`
+        )
+      }
+
+      // The operator's never-text list (SMS_DISABLED_GYM_IDS): the E2E test
+      // gyms run in production with valid-format seeded numbers. Skipped up
+      // front rather than refused at the send layer, so a test gym leaves no
+      // daily batch of failed rows and run errors. sendSmsViaTextLk refuses
+      // them too, for every other path.
+      const members = billable.filter((m) => !isSmsDisabledForGym(m.gymId))
+      summary.membersSkippedSmsDisabled = billable.length - members.length
+      if (summary.membersSkippedSmsDisabled > 0) {
+        console.log(
+          `⏭  Skipping ${summary.membersSkippedSmsDisabled} member(s) of gyms with texts disabled`
         )
       }
 
@@ -189,9 +211,10 @@ export class SendAutomatedReminders {
       // Every reminder names the member's gym (the sender ID is
       // platform-wide). One read for every gym this run can send for —
       // never one per member.
+      const textableGyms = new Set(members.map((m) => m.gymId))
       const gymNames =
-        allowedGyms.size > 0
-          ? await this.gymDirectory.findNamesByIds([...allowedGyms])
+        textableGyms.size > 0
+          ? await this.gymDirectory.findNamesByIds([...textableGyms])
           : new Map<string, string>()
 
       // A reminder quotes what the desk will charge: the plan amount less a
@@ -386,6 +409,7 @@ export class SendAutomatedReminders {
         dueDate: member.nextDueDate,
       })
       result = await this.smsProvider.send({
+        gymId: member.gymId,
         to: member.phoneNumber,
         message,
       })

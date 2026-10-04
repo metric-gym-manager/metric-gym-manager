@@ -294,6 +294,7 @@ export class RegisterMember {
 
       // Send SMS
       const result = await this.smsProvider.send({
+        gymId: member.gymId,
         to: member.phoneNumber,
         message,
       })

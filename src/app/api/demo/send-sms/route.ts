@@ -110,6 +110,7 @@ export async function POST(request: NextRequest) {
       console.log(`   Message: ${message}`)
 
       const result = await sendSmsViaTextLk({
+        gymId: gymProfile.id,
         to: phone,
         message: message,
       })

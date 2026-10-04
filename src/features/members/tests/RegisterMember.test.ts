@@ -99,7 +99,8 @@ describe('RegisterMember', () => {
     // function as soon as the response is returned.
     expect(smsProvider.send).toHaveBeenCalledTimes(1)
     expect(smsProvider.send).toHaveBeenCalledWith(
-      expect.objectContaining({ to: '+94775093333' })
+      // gymId lets the send layer refuse a gym on SMS_DISABLED_GYM_IDS.
+      expect.objectContaining({ to: '+94775093333', gymId: 'gym-1' })
     )
     expect(smsRepo.create).toHaveBeenCalledTimes(1)
     expect(smsRepo.create).toHaveBeenCalledWith(

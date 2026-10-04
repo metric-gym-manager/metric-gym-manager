@@ -50,6 +50,7 @@ export class TextLkSMSProvider implements ISMSProvider {
     console.log(`📱 [TEXT.LK] Sending SMS to ${message.to}...`)
 
     const result = await sendSmsViaTextLk({
+      gymId: message.gymId,
       to: message.to,
       message: message.message,
     })

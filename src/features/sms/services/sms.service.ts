@@ -55,6 +55,7 @@ export async function sendSMS(
     console.log(`   Message: ${messageBody}`)
 
     const result = await sendSmsViaTextLk({
+      gymId,
       to: member.phone_number,
       message: messageBody,
     })

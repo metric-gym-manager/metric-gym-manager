@@ -127,7 +127,9 @@ Built by `src/features/sms/config/SmsTemplates.ts`, the single source of the
 wording (updated 2026-10-04). Every text names the gym, and the amount is what
 the desk will charge: the plan amount less a recurring discount
 (`effectivePlanAmount`). Gym names and discount percentages are each read once
-per run, in batches of 100. Suspended gyms get no reminders.
+per run, in batches of 100. Suspended gyms get no reminders, and neither do gyms
+on `SMS_DISABLED_GYM_IDS` (the E2E test gyms): they are skipped up front and
+counted in `membersSkippedSmsDisabled`.
 
 **7-Day/3-Day:**
 

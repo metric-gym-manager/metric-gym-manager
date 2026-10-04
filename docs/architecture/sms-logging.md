@@ -54,6 +54,15 @@ updateDeliveryStatus` returns rows-affected precisely so that a no-op cannot
 > registrations were **not** backfilled: whether those texts went out is
 > unknown, and a row written now would invent a record.
 >
+> **Gyms that must never be texted (2026-10-04).** `SMS_DISABLED_GYM_IDS`
+> (comma-separated gym ids, set in Vercel) is enforced in `sendSmsViaTextLk`,
+> the one function every real text passes through. `gymId` is a required field
+> of `SendSmsParams` and `SMSMessage`, so no caller can skip the check. A
+> refused text returns `SMS disabled for this gym`, which the caller logs as
+> `failed`. The reminders cron skips those gyms up front so they leave no daily
+> failed rows. It exists for the E2E test gyms: they live in production with
+> valid-format seeded numbers, and the cron sent them 310 real texts.
+>
 > **Announcements have their own type (2026-10-04).** `announcement.service`
 > logged every announcement as `welcome`, because `sms_type` had no value for
 > it. 401 announcement texts therefore sat in members' histories as welcomes:

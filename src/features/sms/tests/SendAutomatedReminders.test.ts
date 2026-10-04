@@ -547,4 +547,55 @@ describe('SendAutomatedReminders — billing-status gate (reminders on every tie
       expect(sent(smsProvider)[0]).toContain('Rs.2,000)')
     })
   })
+
+  /**
+   * The operator's never-text list (SMS_DISABLED_GYM_IDS): the E2E test gyms
+   * run in production with valid-format seeded numbers. Their members are
+   * skipped up front — no send, no failed row, no run error — and counted.
+   */
+  describe('gyms with texts disabled', () => {
+    const env = { ...process.env }
+    afterEach(() => {
+      process.env = { ...env }
+    })
+
+    it('sends nothing to members of a disabled gym and counts them', async () => {
+      process.env.SMS_DISABLED_GYM_IDS = 'gym-e2e'
+      const { useCase, smsProvider, smsRepo } = build(
+        [
+          makeMember('gym-e2e', 'Seeded Member A'),
+          makeMember('gym-e2e', 'Seeded Member B'),
+          makeMember('gym-a', 'Customer Member'),
+        ],
+        {
+          'gym-e2e': makeSubscription({ gymId: 'gym-e2e' }),
+          'gym-a': makeSubscription({ gymId: 'gym-a' }),
+        }
+      )
+
+      const summary = await useCase.execute()
+
+      expect(smsProvider.send).toHaveBeenCalledTimes(1)
+      expect(smsProvider.send).toHaveBeenCalledWith(
+        expect.objectContaining({ gymId: 'gym-a' })
+      )
+      expect(smsRepo.create).toHaveBeenCalledTimes(1)
+      expect(summary.membersSkippedSmsDisabled).toBe(2)
+      expect(summary.errors).toEqual([])
+      expect(summary.totalSent).toBe(1)
+    })
+
+    it('skips nobody when no gym is disabled', async () => {
+      delete process.env.SMS_DISABLED_GYM_IDS
+      const { useCase, smsProvider } = build(
+        [makeMember('gym-e2e', 'Seeded Member A')],
+        { 'gym-e2e': makeSubscription({ gymId: 'gym-e2e' }) }
+      )
+
+      const summary = await useCase.execute()
+
+      expect(smsProvider.send).toHaveBeenCalledTimes(1)
+      expect(summary.membersSkippedSmsDisabled).toBe(0)
+    })
+  })
 })
