@@ -29,6 +29,12 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
   - Reminders, the manual send and the dashboard's reminder queue now quote the **recurring-discount amount**, from one formula (`effectivePlanAmount`) shared with revenue and the renewals list.
   - Announcements get their own **`announcement` SMS type**. Migrations `20261004000001` and `20261004000002` were applied to production and relabelled 401 announcement rows that had been logged as `welcome`.
 
+- **Owner decisions (2026-10-04, branch `claude/seo-owner-decisions`, not yet pushed).** The owner answered the §6 checklist; every answer is recorded there. Work it unlocked:
+  - an early payer keeps their due date (`62910a2`); weekly plans get no automated reminders (`bbb1720`); the unreachable "critical" overdue tier is retired (`c34bcec`);
+  - the sign-in panel names the real domain and the real 9:00 reminder run (`2e545a6`); the hardware partner is no longer named (`2bdaa26`); the Facebook page is in `sameAs` and on `/contact` (`3476d69`);
+  - the homepage preview is rebuilt from the real dashboard (`40d4d3b`); Inter, which no screen rendered, is no longer loaded (`2c53ad5`);
+  - guide 4, "Choosing gym management software in Sri Lanka" (SEO-065), is written and tested but uncommitted until the owner has read it.
+
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
@@ -144,38 +150,59 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 
 **Measurement**
 
-- [ ] **Search Console (SEO-036, P0).** Verify metricgymos.com as a Domain property (DNS TXT record). Submit `https://www.metricgymos.com/sitemap.xml` and inspect `/`, `/gym-management-software-sri-lanka`, `/pricing` and `/resources/overdue-gym-memberships`. About four weeks later, record the first baseline following `SEO_AUDIT.md` §17.
-- [ ] **GA4 redaction (SEO-056, SEO-059).** Under Admin → Data streams → the web stream → Redact data, turn on Email, and turn on query parameters for `token_hash`, `token`, `code` and `email`. The code already keeps both out of GA; redaction is the second layer.
-- [ ] **GA4 key events (SEO-035, SEO-056).** After deploy, confirm `generate_lead` (demo request) and `sign_up` (registration) arrive in DebugView, and mark both as key events. Both tasks move to `verified` after that.
-- [ ] **Old domain (SEO-026, P1).** Verify metricgymmanager.com too and file a Change of Address to metricgymos.com. Keep its 308 redirects permanently.
+- [ ] **Search Console (SEO-036, P0).** On 2026-10-04 metricgymos.com had no Google verification record. Its DNS is on Cloudflare (`asa` and `jaziel.ns.cloudflare.com`).
+  1. At search.google.com/search-console choose Add property → **Domain**, enter `metricgymos.com`, and copy the TXT value Google shows. Use the Google account that verified metricgymmanager.com, which already carries a `google-site-verification` record; the Change of Address below needs both properties under one account.
+  2. If Search Console offers to add the record through Cloudflare, accept. Otherwise, in the Cloudflare dashboard open metricgymos.com → DNS → Records → Add record: type `TXT`, name `@`, content the copied value, TTL Auto. Save, then press Verify in Search Console. It can take a few minutes.
+  3. Sitemaps → enter `sitemap.xml` → Submit.
+  4. URL Inspection → request indexing for `/`, `/gym-management-software-sri-lanka`, `/pricing` and `/resources/overdue-gym-memberships`.
+  5. About four weeks later, record the first baseline following `SEO_AUDIT.md` §17.
+- [ ] **GA4 redaction (SEO-056, SEO-059).** At analytics.google.com: Admin → Data collection and modification → Data streams → the `www.metricgymos.com` web stream → Redact data. Turn on email redaction and query-parameter redaction, add `token_hash`, `token`, `code` and `email`, then save. The code already keeps both out of GA; this is the second layer.
+- [ ] **GA4 key events (SEO-035, SEO-056).**
+  1. At tagassistant.google.com add the domain `https://www.metricgymos.com` and connect. The site opens in a tab that reports to DebugView.
+  2. In that tab, submit the demo request form once (it stores one demo request). GA4 Admin → DebugView should show `generate_lead`.
+  3. In the same tab, register a throwaway gym at `/register`. DebugView should show `sign_up`. Remove that gym afterwards.
+  4. Admin → Key events → New key event: `generate_lead`, then `sign_up`.
+  5. Tell the repository session; SEO-035 and SEO-056 then move to `verified`.
+- [ ] **Old domain (SEO-026, P1).** In the same Google account, add `metricgymmanager.com` as a Domain property (its verification record already exists in Cloudflare, so it may verify at once). Open that property → Settings → Change of address → choose metricgymos.com → Validate & update. Google requires the old homepage to redirect to the new one: on 2026-10-04 `https://metricgymmanager.com/` and its `www` answered 308 to `https://www.metricgymos.com/`. The tool's effect lasts 180 days; keep the redirects permanently.
 
 **Claims shown on the site**
 
-- [ ] **Proof (SEO-024, P0).** Confirm, with evidence, or have removed:
-  - on the homepage: the six named gyms in "Trusted by" (each a current customer that agreed to be shown); the Zulfi Ahamath / Fitness Empire testimonial and its 80% figure; the "−95% late payments" badge; "Running nationwide";
-  - on the sign-in side panel (`src/components/auth/AuthShell.tsx`, shown on `/register`, `/login` and the other sign-in pages): "Gyms on platform 25+", "Members managed 7,900+", "Uptime, trailing 12 mo 99.99%", and the "metricgym.lk" label (the canonical domain is www.metricgymos.com).
-- [ ] **Company facts (SEO-041, P3).** Confirm founder and team facts for `/about`, the Kotte address, and the support hours (every day, 08:00–22:00).
-- [ ] **Data protection facts for the next buying guide.** "Choosing gym management software in Sri Lanka" needs a short, correct account of a gym's duties under the Personal Data Protection Act. The owner or a lawyer should confirm it before the page is written; nothing in the repository can confirm it.
+- [x] **Proof (SEO-024, P0).** **Confirmed by the owner 2026-10-04:** the six trust-strip gyms, the Zulfi Ahamath / Fitness Empire testimonial and its 80% figure, and the sign-in panel's 25+ gyms, 7,900+ members and 99.99% uptime. They stay. (The "−95% late payments" badge and "Running nationwide" had already been removed.) The panel's "metricgym.lk" label now reads "metricgymos.com", and its headline "Your first reminder batch goes out tonight." — wrong, the run is at 9:00 — now reads "Your reminders go out every morning at 9:00." (`2e545a6`).
+- [x] **Company facts (SEO-041, P3).** **Confirmed 2026-10-04:** the Kotte address and the support hours (every day, 08:00–22:00).
+- [ ] **Founder and team names for `/about` (SEO-041, optional).** Names and roles, and photos if wanted, with each person's consent. Until then `/about` names only the company.
+- [x] **Data protection facts for the buying guide.** **Confirmed 2026-10-04:** the guide states only what Metric's published privacy policy already says, and links to it.
+- [ ] **Read guide 4 before it is committed (SEO-065).** "Choosing gym management software in Sri Lanka" is written and tested on `claude/seo-owner-decisions` but deliberately uncommitted until you have read its text, the data-protection section above all. A full-page screenshot was sent in the session; say "commit it" or name the changes.
+- [ ] **Privacy policy statements the product does not match** (found 2026-10-04, not changed — legal text is yours to change). `/privacy` says "Every SMS we send includes information on how to stop receiving it", but no SMS template carries opt-out wording (`src/features/sms/config/SmsTemplates.ts`). It also lists "fingerprint or face scan" and "face scans", but the readers are fingerprint only. Decide: add opt-out wording to the texts (it costs characters in every SMS), or have the policy changed; and have "face scan" removed.
 
 **Off-site authority**
 
-- [ ] **VFT (SEO-038, P1).** Confirm VFT is content to be named on `/features/access-control`, then ask for a "compatible software" mention linking to it.
-- [ ] **Directories and reviews (SEO-039, P2).** List Metric on software directories (Capterra, G2 and similar) and collect genuine reviews only.
-- [ ] **Google Business Profile (SEO-037, P2).** Decide eligibility: Google requires in-person contact with customers at the address or in a service area.
-- [ ] **Social profiles (SEO-040, P3).** Create or confirm the official profiles; they then go into `sameAs` in the Organization markup.
-- [ ] **Case studies (SEO-042, P2).** Customer consent for case studies, and approval for an anonymised data study from Metric's own records.
-- [ ] **Sinhala and Tamil (SEO-047, P3).** Decide when the product, SMS and support serve those languages; pages follow only after that.
+- [x] **VFT (SEO-038, P1).** **Decided 2026-10-04: do not name VFT.** Removed from `/features/access-control` and its registry description, which now say "our hardware partner" (`2bdaa26`). SEO-038 is rejected.
+- [ ] **Directories and reviews (SEO-039, P2).**
+  1. Create free vendor listings on Capterra (the same listing feeds GetApp and Software Advice), on G2, and on Sri Lankan business directories.
+  2. Use exactly the name, Kotte address, phone, email and URL in `src/features/marketing/config/site.ts` everywhere; mismatched details weaken the listings.
+  3. Ask real customers to review — Fitness Empire, whose quote is already confirmed, is the obvious first. Never pay for, incentivise or write reviews. Review markup stays off our own site.
+  4. Send the profile URLs to the repository session; they go into `SOCIAL_PROFILES`, which feeds `sameAs`.
+- [ ] **Google Business Profile (SEO-037, P2).** Google allows a profile only if the business "has a physical location that customers can visit, or travels to customers where they are", and can be contacted there during its stated hours; a virtual office is not eligible.
+  - If gyms visit the Kotte office during the published hours, Metric qualifies at that address.
+  - If Metric's people go to gyms (setup, training), Metric qualifies as a service-area business, with the address hidden and Sri Lanka as the service area.
+  - If all contact is by phone, WhatsApp and email, Metric does not qualify, and a profile risks suspension.
+  - Decide which describes Metric. If it qualifies, create the profile with the `site.ts` details and tell the repository session.
+- [x] **Social profiles (SEO-040, P3).** **Confirmed 2026-10-04:** the Facebook page `https://www.facebook.com/people/Metric-Gym-OS/61593409007692/`. It is in the Organization `sameAs` and linked on `/contact` (`3476d69`).
+- [x] **Case studies (SEO-042, P2).** **Consent given 2026-10-04:** one named case study, Fitness Empire only, and an anonymised data study from Metric's own records. Next is a separate round: a read-only data probe and a plan.
+- [ ] **Approve the case-study and data-study figures (SEO-042).** Every figure on either page is shown to you before it is published.
+- [x] **Sinhala and Tamil (SEO-047, P3).** **Decided 2026-10-04: English only.** No Sinhala or Tamil pages; SEO-047 is rejected.
 
-**Product and design decisions** (recorded, not changed)
+**Product and design decisions**
 
-- [ ] **SEO-052:** weekly members get their "7 days before" reminder on the day they pay.
+- [x] **SEO-052: weekly reminders.** **Decided 2026-10-04: weekly members get no automated reminders of any kind**, as daily members already do; the manual Remind button stays (`bbb1720`). In production that day: 16 weekly members, all cancelled; the 9 weekly reminders of the previous 30 days were all in the E2E test gym.
 - [x] **SEO-053:** automated reminders and receipts do not name the gym. **Decided 2026-10-03:** every automated SMS names the gym, with warmer, purpose-specific wording. Implemented on `claude/sms-templates`; the after-deploy checks are under **SMS overhaul** below.
-- [ ] **SEO-043:** the Inter font loads on pages that render Geist (measure first).
-- [ ] **SEO-051:** contrast of the decorative dashboard preview on the homepage.
-- [ ] **SEO-060:** public pages still load the signed-in app's providers (Supabase client, react-query, service-worker registration, AuthRecovery); rules 2.15 and 2.19 apply.
-- [ ] **Early payments shorten the period** (product, found 2026-10-02). Recording a payment always dates the next period from the payment date: `CollectPayment` with `deductOverduePeriod` defaulting to true, and the Mark Paid dialog always sending true. That is right for a late payer. But a member who pays three days early gets a due date three days earlier than their old one. Decide whether an early payment should extend from the current due date instead.
-- [ ] **The dashboard's "critical" overdue tier is never reached** (product, found 2026-10-02). `features/revenue/services/metrics.service.ts` counts expired members more than 14 days overdue as critical. But `MEMBER_CANCELLATION_OVERDUE_DAYS` cancels them at day 14, so the tier almost always shows 0. Re-cut the tiers, or retire "critical".
-- [ ] **The member forms say "WhatsApp"** (product wording, found 2026-10-03). The bulk grid's phone column is headed "WhatsApp \*" and says "WhatsApp number is required"; the single add form labels the field "WhatsApp Number". But Metric sends SMS, and the public site makes no WhatsApp claims. Decide whether the field should read "Mobile number".
+- [x] **SEO-043: the Inter font.** Measured 2026-10-04: no screen rendered it, yet its 48 KB file was preloaded on every page. Removed; Geist is the default face (`2c53ad5`).
+- [x] **SEO-051: the homepage dashboard preview.** **Decided 2026-10-04: show the true dashboard.** Rebuilt from the dashboard's own parts; every text node at least 5.07:1 (`40d4d3b`).
+- [ ] **SEO-060: the app's providers on public pages.** **Measured 2026-10-04** (your choice was to measure first): public pages load 316–320 KB of gzipped JavaScript; the three chunks that carry the Supabase client, react-query, the service-worker registration and AuthRecovery come to 87 KB of it, and 217 KB of the largest chunk's 241 KB of raw code never runs on a public page. Moving them touches rules 2.15 (session recovery) and 2.19 (service-worker reload). Decide: leave it, or plan the move.
+- [x] **Early payments shorten the period.** **Decided 2026-10-04: an early payer keeps their due date.** The new period starts from the later of the payment date and the current due date, in the payment, the Mark Paid and Reactivation previews, and the overdue guide (`62910a2`).
+- [ ] **Check one early payment in production** (after the deploy of `claude/seo-owner-decisions`). Record a payment for a member a few days before their due date and confirm the new due date is the old one plus one period. Read-only check: `SELECT name, next_due_date, updated_at FROM members WHERE id = '<member id>'`.
+- [x] **The dashboard's "critical" overdue tier is never reached.** **Decided 2026-10-04: retire it.** The tile reads "N warning · N mild" (`c34bcec`). Production showed "0 critical · 52 warning · 53 mild" that day.
+- [x] **The member forms say "WhatsApp".** **Decided 2026-10-04: keep the label.** No change.
 
 **Branch**
 
@@ -214,16 +241,17 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 Ready now, in priority order:
 
 1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
-2. **New guides** from `SEO_AUDIT.md` §8, one at a time. Done: overdue memberships (SEO-061), moving off a register book (SEO-063) and Excel and WhatsApp vs software (SEO-064). Still to write: choosing gym management software in Sri Lanka. It waits on the owner's data-protection facts (open item in the checklist above). Each one needs a registry entry, a `PUBLIC_ROUTES` entry, a link from its feature page and from `/resources`, and its own task.
-3. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-060 — each needs the owner's decision noted above. ~~SEO-053~~ was decided and implemented on 2026-10-03.
-4. ~~**Stale comments.**~~ Fixed 2026-10-03: `CancelMember.ts` now states the 14-day cron rule and that Cancelled → Active happens on payment.
-5. ~~**Bulk grid.**~~ Fixed 2026-10-03, with three more defects found in the same flow:
+2. **New guides** from `SEO_AUDIT.md` §8. Done: overdue memberships (SEO-061), moving off a register book (SEO-063), Excel and WhatsApp vs software (SEO-064), and choosing gym management software in Sri Lanka (SEO-065, written 2026-10-04, awaiting the owner's reading before it is committed). All four §8 guides are written.
+3. **Case study and data study (SEO-042).** Consent given 2026-10-04 (Fitness Empire; anonymised study). Start with a read-only data probe and a plan; the owner approves every figure.
+4. **P3 items.** ~~SEO-043~~, ~~SEO-051~~, ~~SEO-052~~ and ~~SEO-053~~ are done. SEO-060 is measured (§6) and waits on the owner's decision.
+5. ~~**Stale comments.**~~ Fixed 2026-10-03: `CancelMember.ts` now states the 14-day cron rule and that Cancelled → Active happens on payment.
+6. ~~**Bulk grid.**~~ Fixed 2026-10-03, with three more defects found in the same flow:
    - the grid now stops at `BULK_REGISTER_MAX_ROWS` (50, shared with the route);
    - results are applied by row identity, not grid position, so an invalid row no longer shifts every later result onto the wrong member;
    - retry no longer re-sends rows already registered;
    - every batch had been refused since 2026-07-25, because `addMemberSchema` began requiring two consents the grid never sent. The owner chose a batch attestation: the same two consents as single registration, ticked once per batch. Consent times are recorded per member.
 
-6. **SMS follow-ups** (found 2026-10-03 and 2026-10-04, not changed):
+7. **SMS follow-ups** (found 2026-10-03 and 2026-10-04, not changed):
    - The text.lk provider has no request timeout. Registration now waits on the welcome SMS, as payments already wait on the receipt, so a hung gateway holds the request. Bulk import is hit hardest: a batch waits on up to 50 sends at once, so a slow gateway can time the request out after the members are saved. The grid then cannot tell which rows succeeded, and a retry reports those rows as "already exists". No member is duplicated.
    - ~~On 2026-09-13, 350 members each got a second `welcome` row.~~ **Explained and fixed 2026-10-04.** Those rows were an announcement, logged in mock mode in the E2E Enterprise gym, because `announcement.service` hard-coded `smsType: 'welcome'`. 50 real announcements in Titan Fitness (2026-03-01) were logged the same way. Announcements now log as `announcement`, and migrations `20261004000001` (enum value) and `20261004000002` (relabel) were applied to production: 401 rows relabelled, and 514 `welcome` rows remain, every one starting "Welcome". The member SMS history had labelled every `welcome` row "Announcement"; it now says "Welcome".
    - **Announcement sends are fire-and-forget.** `createAndSendAnnouncement` calls `sendAnnouncementSmsInBackground(...)` without `await` and without `after()`, so on Vercel a bulk send can be cut off once the response returns. Production: 3 of 9 announcements never finished, with 2 stuck `pending` (52 recipients) and 1 stuck `sending` (213 recipients), none of their recipients accounted for. Same class as the welcome SMS (rule 2.7).
@@ -237,28 +265,31 @@ Ready now, in priority order:
 
 Waiting on owner input:
 
-- SEO-024 → edit or remove the trust strip and testimonial in `src/components/landing/LandingPage.tsx`, and the side-panel figures in `src/components/auth/AuthShell.tsx`.
-- SEO-040 → add `sameAs` in `features/marketing/config/site.ts` and `organizationJsonLd()`.
-- SEO-041 → founder and team facts on `/about`.
-- SEO-042 → case-study and data-study pages.
+- SEO-065 → commit guide 4 once the owner has read it.
+- SEO-039 → add each directory profile to `SOCIAL_PROFILES` in `features/marketing/config/site.ts`.
+- SEO-041 → founder and team names on `/about`, if the owner supplies them.
+- SEO-060 → plan the provider move only if the owner asks for it.
 - SEO-035, SEO-056 → mark `verified` once GA4 DebugView shows `generate_lead` and `sign_up`.
+- SEO-040, SEO-043, SEO-051, SEO-052 → mark `verified` after the deploy: production `sameAs`, two font preloads on `/`, no hero contrast failure in Lighthouse, the weekly row on `/features/sms-reminders`.
 - SEO-036 → once Search Console has data, record the first baseline (about four weeks after sitemap submission) following `SEO_AUDIT.md` §17.
 
 ## 7. Task log status
 
-64 tasks in `SEO_TASKS.json`. `npm run seo:report -- --check` passes at `e2db9f7`, and again on `claude/sms-templates`. Counts recomputed from the JSON on 2026-10-03; the earlier table here still read 58 tasks.
+65 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes on `claude/seo-owner-decisions`. Counts recomputed from the JSON on 2026-10-04.
 
-| Status      | Count | Tasks                                                                                                                |
-| ----------- | ----: | -------------------------------------------------------------------------------------------------------------------- |
-| Verified    |    43 | See `SEO_TASK_LOG.md`                                                                                                |
-| Implemented |     3 | SEO-035, SEO-056 (P1, awaiting GA4 DebugView); SEO-053 (P3, awaiting the after-deploy welcome check)                 |
-| Discovered  |     5 | SEO-043, SEO-047, SEO-051, SEO-052, SEO-060 (P3)                                                                     |
-| Blocked     |     9 | SEO-024, SEO-036 (P0); SEO-026, SEO-038 (P1); SEO-037, SEO-039, SEO-042 (P2); SEO-040, SEO-041 (P3)                  |
-| Rejected    |     4 | SEO-031 FAQPage markup, SEO-032 LocalBusiness markup, SEO-033 `llms.txt`/AI-specific markup, SEO-034 mass city pages |
+| Status      | Count | Tasks                                                                                                                                                |
+| ----------- | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Verified    |    44 | See `SEO_TASK_LOG.md`                                                                                                                                |
+| Implemented |     7 | SEO-035, SEO-056 (P1, awaiting GA4 DebugView); SEO-040, SEO-043, SEO-051, SEO-052 (P3, awaiting production checks); SEO-053 (P3, after-deploy check) |
+| In progress |     1 | SEO-065 (P2, guide 4, awaiting the owner's reading)                                                                                                  |
+| Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                              |
+| Discovered  |     1 | SEO-060 (P3, measured, owner decision)                                                                                                               |
+| Blocked     |     5 | SEO-036 (P0); SEO-026 (P1); SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                      |
+| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                          |
 
-- P0 remaining: 2 (SEO-024, SEO-036), both blocked on the owner.
-- P1 remaining: 4 (SEO-026, SEO-035, SEO-038, SEO-056).
-- External action required: 14 tasks.
+- P0 remaining: 1 (SEO-036), blocked on the owner.
+- P1 remaining: 3 (SEO-026, SEO-035, SEO-056), all owner actions.
+- External action required: 12 tasks.
 
 ## 8. Files changed
 

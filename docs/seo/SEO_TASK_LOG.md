@@ -7,26 +7,26 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-03T17:25:40Z |
-| Total tasks | 64 |
-| P0 remaining (not verified/rejected) | 2 |
-| P1 remaining (not verified/rejected) | 4 |
-| Implemented (awaiting verification) | 3 |
-| Verified | 43 |
-| In progress | 0 |
-| Open (discovered/planned) | 5 |
-| Blocked | 9 |
-| Rejected | 4 |
-| External action required | 15 |
+| Last task update | 2026-10-04T15:48:40Z |
+| Total tasks | 65 |
+| P0 remaining (not verified/rejected) | 1 |
+| P1 remaining (not verified/rejected) | 3 |
+| Implemented (awaiting verification) | 7 |
+| Verified | 44 |
+| In progress | 1 |
+| Open (discovered/planned) | 2 |
+| Blocked | 5 |
+| Rejected | 6 |
+| External action required | 12 |
 
 ## Status by priority
 
 | Priority | discovered | planned | in_progress | implemented | verified | blocked | rejected |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| P0 | 0 | 0 | 0 | 0 | 9 | 2 | 0 |
-| P1 | 0 | 0 | 0 | 2 | 19 | 2 | 0 |
-| P2 | 0 | 0 | 0 | 0 | 13 | 3 | 0 |
-| P3 | 5 | 0 | 0 | 1 | 2 | 2 | 4 |
+| P0 | 0 | 0 | 0 | 0 | 10 | 1 | 0 |
+| P1 | 0 | 0 | 0 | 2 | 19 | 1 | 1 |
+| P2 | 0 | 1 | 1 | 0 | 13 | 2 | 0 |
+| P3 | 1 | 0 | 0 | 5 | 2 | 1 | 5 |
 
 ## All tasks
 
@@ -41,7 +41,7 @@
 | [SEO-013](#seo-013) | P0 | verified | content | Build the commercial hub: /gym-management-software-sri-lanka | no |
 | [SEO-019](#seo-019) | P0 | verified | content | Dedicated pricing page in LKR | no |
 | [SEO-023](#seo-023) | P0 | verified | trust | Homepage claims contradicted by the codebase | no |
-| [SEO-024](#seo-024) | P0 | blocked | trust | Unverifiable proof claims need owner evidence | yes |
+| [SEO-024](#seo-024) | P0 | verified | trust | Unverifiable proof claims need owner evidence | no |
 | [SEO-036](#seo-036) | P0 | blocked | measurement | Google Search Console access and sitemap submission | yes |
 | [SEO-005](#seo-005) | P1 | verified | technical | Production .vercel.app alias serves an indexable duplicate of the site | no |
 | [SEO-006](#seo-006) | P1 | verified | on-page | Every public page inherits the homepage title and description | no |
@@ -60,7 +60,7 @@
 | [SEO-028](#seo-028) | P1 | verified | schema | No Organization or WebSite structured data | no |
 | [SEO-029](#seo-029) | P1 | verified | schema | SoftwareApplication structured data with LKR offers | no |
 | [SEO-035](#seo-035) | P1 | implemented | measurement | No analytics event for demo requests | yes |
-| [SEO-038](#seo-038) | P1 | blocked | off-site | Partner citation from VFT Holdings | yes |
+| [SEO-038](#seo-038) | P1 | rejected | off-site | Partner citation from VFT Holdings | no |
 | [SEO-046](#seo-046) | P1 | verified | measurement | Measurement plan | no |
 | [SEO-048](#seo-048) | P1 | verified | technical | Design-system TableRow could not render in a Server Component | no |
 | [SEO-056](#seo-056) | P1 | implemented | measurement | Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL | yes |
@@ -72,7 +72,7 @@
 | [SEO-030](#seo-030) | P2 | verified | schema | BreadcrumbList on subpages and Article on resources | no |
 | [SEO-037](#seo-037) | P2 | blocked | local | Google Business Profile eligibility | yes |
 | [SEO-039](#seo-039) | P2 | blocked | off-site | Software directories and review profiles | yes |
-| [SEO-042](#seo-042) | P2 | blocked | content | Real case studies and first-party data content | yes |
+| [SEO-042](#seo-042) | P2 | planned | content | Real case studies and first-party data content | yes |
 | [SEO-044](#seo-044) | P2 | verified | performance | Lab performance check of public pages | no |
 | [SEO-049](#seo-049) | P2 | verified | technical | Homepage overflowed a 320 px viewport | no |
 | [SEO-050](#seo-050) | P2 | verified | on-page | In-text links relied on colour alone; footer contact links below 24 px | no |
@@ -82,38 +82,36 @@
 | [SEO-061](#seo-061) | P2 | verified | content | Guide: overdue gym memberships — when to expire, when to cancel | no |
 | [SEO-063](#seo-063) | P2 | verified | content | Guide: moving a gym's members off a register book or spreadsheet | no |
 | [SEO-064](#seo-064) | P2 | verified | content | Guide: Excel and WhatsApp vs gym management software, written honestly | no |
+| [SEO-065](#seo-065) | P2 | in_progress | content | Guide: choosing gym management software in Sri Lanka | yes |
 | [SEO-031](#seo-031) | P3 | rejected | schema | FAQPage structured data | no |
 | [SEO-032](#seo-032) | P3 | rejected | schema | LocalBusiness structured data | no |
 | [SEO-033](#seo-033) | P3 | rejected | technical | llms.txt or AI-specific markup | no |
 | [SEO-034](#seo-034) | P3 | rejected | local | Mass location pages (Colombo, Kandy, Galle …) | no |
-| [SEO-040](#seo-040) | P3 | blocked | entity | Social and entity profiles | yes |
+| [SEO-040](#seo-040) | P3 | implemented | entity | Social and entity profiles | no |
 | [SEO-041](#seo-041) | P3 | blocked | entity | Founder and team information | yes |
-| [SEO-043](#seo-043) | P3 | discovered | performance | Marketing pages preload a font they do not render | no |
+| [SEO-043](#seo-043) | P3 | implemented | performance | Marketing pages preload a font they do not render | no |
 | [SEO-045](#seo-045) | P3 | verified | technical | Unknown public-looking paths redirect to /login | no |
-| [SEO-047](#seo-047) | P3 | discovered | content | Sinhala and Tamil content | yes |
-| [SEO-051](#seo-051) | P3 | discovered | on-page | Decorative dashboard preview on the homepage fails colour contrast | no |
-| [SEO-052](#seo-052) | P3 | discovered | trust | Weekly members get their '7 days before' reminder on the day they pay | yes |
+| [SEO-047](#seo-047) | P3 | rejected | content | Sinhala and Tamil content | no |
+| [SEO-051](#seo-051) | P3 | implemented | on-page | Decorative dashboard preview on the homepage fails colour contrast | no |
+| [SEO-052](#seo-052) | P3 | implemented | trust | Weekly members get their '7 days before' reminder on the day they pay | no |
 | [SEO-053](#seo-053) | P3 | implemented | trust | Automated reminders and receipts do not name the gym | yes |
 | [SEO-058](#seo-058) | P3 | verified | internal-linking | Seven related-page cards linked the hub with the same exact-match anchor | no |
-| [SEO-060](#seo-060) | P3 | discovered | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | no |
+| [SEO-060](#seo-060) | P3 | discovered | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | yes |
 
 ## External tasks (cannot be completed in code)
 
-- **SEO-024** (P0, blocked) — Unverifiable proof claims need owner evidence
 - **SEO-036** (P0, blocked) — Google Search Console access and sitemap submission
 - **SEO-026** (P1, blocked) — Retired domain metricgymmanager.com is still indexed with stale claims
 - **SEO-035** (P1, implemented) — No analytics event for demo requests
-- **SEO-038** (P1, blocked) — Partner citation from VFT Holdings
 - **SEO-056** (P1, implemented) — Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL
 - **SEO-059** (P1, verified) — GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included
 - **SEO-037** (P2, blocked) — Google Business Profile eligibility
 - **SEO-039** (P2, blocked) — Software directories and review profiles
-- **SEO-042** (P2, blocked) — Real case studies and first-party data content
-- **SEO-040** (P3, blocked) — Social and entity profiles
+- **SEO-042** (P2, planned) — Real case studies and first-party data content
+- **SEO-065** (P2, in_progress) — Guide: choosing gym management software in Sri Lanka
 - **SEO-041** (P3, blocked) — Founder and team information
-- **SEO-047** (P3, discovered) — Sinhala and Tamil content
-- **SEO-052** (P3, discovered) — Weekly members get their '7 days before' reminder on the day they pay
 - **SEO-053** (P3, implemented) — Automated reminders and receipts do not name the gym
+- **SEO-060** (P3, discovered) — Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery
 
 ## Task detail
 
@@ -574,13 +572,13 @@ Removed or corrected every contradicted claim: HIKVISION badge → 'ZKTECO · FI
 | Field | Value |
 | --- | --- |
 | Priority | P0 |
-| Status | blocked |
+| Status | verified |
 | Category | trust |
 | Intent | commercial |
-| External action | required |
+| External action | no |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-02T15:36:21Z |
-| Completed | — |
+| Updated | 2026-10-04T15:48:40Z |
+| Completed | 2026-10-04T15:48:40Z |
 | Dependencies | — |
 
 **Target queries**
@@ -603,16 +601,19 @@ Owner to confirm: each named gym is a current customer that agreed to be shown; 
 
 **Implementation**
 
-Partially actioned: the '−95% LATE PAYMENTS' statistic and 'RUNNING NATIONWIDE' were replaced with verifiable text (reminder schedule badge; descriptive eyebrow). The six named gyms in the trust strip and the Zulfi Ahamath / Fitness Empire testimonial remain unchanged pending owner confirmation, are repeated nowhere else, and are excluded from structured data.
+Partially actioned: the '−95% LATE PAYMENTS' statistic and 'RUNNING NATIONWIDE' were replaced with verifiable text (reminder schedule badge; descriptive eyebrow). The six named gyms in the trust strip and the Zulfi Ahamath / Fitness Empire testimonial remain unchanged pending owner confirmation, are repeated nowhere else, and are excluded from structured data. Resolved 2026-10-04: the owner confirmed every remaining claim, so the trust strip, the testimonial and the panel figures stay. The panel's "metricgym.lk" label now reads the canonical host from SITE_URL ("metricgymos.com"), and its headline "Your first reminder batch goes out tonight." — contradicted by the 03:30 UTC (9:00 Sri Lanka) send-reminders run — now reads "Your reminders go out every morning at 9:00." (commit 2e545a6).
 
 **Files**
 
 - `src/components/landing/LandingPage.tsx`
 - `src/components/auth/AuthShell.tsx`
+- `src/components/auth/__tests__/AuthShell.test.tsx`
 
 **Verification**
 
-- Not yet verified
+- Owner confirmation, 2026-10-04: the six trust-strip gyms, the Zulfi Ahamath / Fitness Empire testimonial and its 80% figure, and the sign-in panel's 25+ gyms, 7,900+ members and 99.99% uptime. The evidence is the owner's and is not in the repository.
+- AuthShell.test.tsx pins the domain label and the 9:00 headline; both tests failed against the old text.
+- Chromium, local production build, 2026-10-04: the /register side panel at 1366 shows "metricgymos.com" and the 9:00 line.
 
 ### SEO-036
 
@@ -1470,13 +1471,13 @@ src/lib/analytics/gtag.ts trackEvent(); DemoModal fires GA4 'generate_lead' with
 | Field | Value |
 | --- | --- |
 | Priority | P1 |
-| Status | blocked |
+| Status | rejected |
 | Category | off-site |
 | Intent | commercial |
-| External action | required |
+| External action | no |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T17:40:00Z |
-| Completed | — |
+| Updated | 2026-10-04T15:48:40Z |
+| Completed | 2026-10-04T15:48:40Z |
 | Dependencies | — |
 
 **Target queries**
@@ -1494,15 +1495,16 @@ VFT Holdings — Metric's access-control hardware partner — ranks for gym-mana
 
 **Recommended change**
 
-Ask VFT to list Metric Gym OS as compatible membership software on that page, linking to /features/access-control.
+Rejected 2026-10-04: the owner decided not to name the access-control hardware partner publicly, so no partner citation is sought.
 
 **Implementation**
 
-—
+The partner's name was removed from /features/access-control (hero and first step) and from its registry description, which now say "our hardware partner"; ZKTeco is still named. MarketingPages.test.tsx rejects /\bVFT\b/i on every public page and registry entry, and HomePage.test.tsx on the homepage (commit 2bdaa26).
 
 **Files**
 
-- —
+- `src/app/(marketing)/features/access-control/page.tsx`
+- `src/features/marketing/config/pages.ts`
 
 **Verification**
 
@@ -2050,12 +2052,12 @@ List Metric on relevant software directories with consistent NAP; collect genuin
 | Field | Value |
 | --- | --- |
 | Priority | P2 |
-| Status | blocked |
+| Status | planned |
 | Category | content |
 | Intent | informational |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T17:40:00Z |
+| Updated | 2026-10-04T15:48:40Z |
 | Completed | — |
 | Dependencies | SEO-022 |
 
@@ -2074,7 +2076,7 @@ Fitconnect's strongest content is original local data. Metric holds anonymisable
 
 **Recommended change**
 
-Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies.
+Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies. Owner consent, 2026-10-04: one named case study (Fitness Empire only) and an anonymised aggregate study from Metric's own records. Next: a read-only data probe and a plan; the owner approves every published figure.
 
 **Implementation**
 
@@ -2559,6 +2561,60 @@ src/app/(marketing)/resources/excel-whatsapp-vs-gym-software/page.tsx: Article p
 - Chromium at 1366, 390 and 320: 0 px horizontal overflow, no page errors; the 1366 screenshot read by eye
 - Not verified: indexing or ranking (needs Search Console, SEO-036)
 
+### SEO-065
+
+**Guide: choosing gym management software in Sri Lanka**
+
+| Field | Value |
+| --- | --- |
+| Priority | P2 |
+| Status | in_progress |
+| Category | content |
+| Intent | commercial |
+| External action | required |
+| Created | 2026-10-04T15:48:40Z |
+| Updated | 2026-10-04T15:48:40Z |
+| Completed | — |
+| Dependencies | — |
+
+**Target queries**
+
+- `choosing gym management software sri lanka`
+- `gym management software checklist`
+- `what to look for in gym software`
+- `gym software data protection sri lanka`
+
+**Finding**
+
+The fourth SEO_AUDIT.md §8 guide: how to choose gym management software in Sri Lanka (rupee pricing, desk payments vs online, SMS sender IDs, PDPA obligations). It waited on the owner's data-protection facts; on 2026-10-04 the owner confirmed them and chose to have the section say only what Metric's published privacy policy already says.
+
+**Evidence**
+
+- docs/seo/SEO_AUDIT.md §8 item 3
+- src/app/privacy/page.tsx: the PDPA rights (Sections 13–16, 18), special-category biometric data, data minimisation, Section 26 safeguards and the Data Protection Authority, which the guide restates
+
+**Recommended change**
+
+A buying checklist with Metric's own answers beside each point: how the gym runs, prices in rupees, how members pay, whether reminders reach members, member data under the PDPA, door access, questions for every vendor, and what Metric does not do. Prices from the pricing config; data-protection statements only from /privacy, linked; a note that the guide is not legal advice.
+
+**Implementation**
+
+src/app/(marketing)/resources/choosing-gym-management-software-sri-lanka/page.tsx in the guide pattern. Registry entry ARTICLE_PATHS.choose (title 61 characters, description 143), label "Choosing gym software"; PUBLIC_ROUTES entry; footer Resources link; body link from the data-protection section of /gym-management-software-sri-lanka; /resources lists it from the registry and its description names it. Prices, the Lite limit, the trial tiers and length come from the pricing config; scan retention from ACCESS_EVENT_RETENTION_DAYS. Awaiting the owner's reading of the text before it is committed.
+
+**Files**
+
+- `src/app/(marketing)/resources/choosing-gym-management-software-sri-lanka/page.tsx`
+- `src/features/marketing/config/pages.ts`
+- `src/features/marketing/config/navigation.ts`
+- `src/lib/auth-config.ts`
+- `src/app/(marketing)/gym-management-software-sri-lanka/page.tsx`
+- `src/app/(marketing)/__tests__/MarketingPages.test.tsx`
+
+**Verification**
+
+- Five mutations, each caught: the path removed from PUBLIC_ROUTES; the /privacy link removed; the product page's body link removed; the fingerprint-consent sentence weakened; "Metric sends reminders by WhatsApp." added (two patterns).
+- Chromium, local production build, 2026-10-04: 200 for a signed-out visitor, in the sitemap (20 URLs), one h1, no horizontal overflow at seven widths from 1366 to 320.
+
 ### SEO-031
 
 **FAQPage structured data**
@@ -2743,12 +2799,12 @@ Rejected: state the true location once (company based in Kotte, Colombo District
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | blocked |
+| Status | implemented |
 | Category | entity |
 | Intent | navigational |
-| External action | required |
+| External action | no |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T17:40:00Z |
+| Updated | 2026-10-04T15:48:40Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -2770,15 +2826,17 @@ Create or confirm official profiles; then add them to site.ts sameAs.
 
 **Implementation**
 
-—
+The owner confirmed the official Facebook page on 2026-10-04 (https://www.facebook.com/people/Metric-Gym-OS/61593409007692/, answered 200). SOCIAL_PROFILES in features/marketing/config/site.ts is the one list; organizationJsonLd() emits it as sameAs and /contact links each profile under "Follow us" (commit 3476d69). Further profiles (directories, SEO-039) are added to the same list.
 
 **Files**
 
-- —
+- `src/features/marketing/config/site.ts`
+- `src/features/marketing/utils/structured-data.ts`
+- `src/app/(marketing)/contact/page.tsx`
 
 **Verification**
 
-- Not yet verified
+- structured-data.test.ts: sameAs equals SOCIAL_PROFILES and contains the confirmed URL. MarketingPages.test.tsx: /contact links every listed profile; removing the links fails it. Verified once the production Organization markup shows sameAs.
 
 ### SEO-041
 
@@ -2792,7 +2850,7 @@ Create or confirm official profiles; then add them to site.ts sameAs.
 | Intent | navigational |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T17:40:00Z |
+| Updated | 2026-10-04T15:48:40Z |
 | Completed | — |
 | Dependencies | SEO-020 |
 
@@ -2807,6 +2865,7 @@ The about page can state company facts but not who runs Metric; nothing in the r
 **Evidence**
 
 - No founder or team data in the repository.
+- Owner confirmed on 2026-10-04 the Kotte address and the support hours (every day, 08:00–22:00), as published. Founder and team names have not been supplied; adding them is optional.
 
 **Recommended change**
 
@@ -2831,12 +2890,12 @@ Owner supplies names, roles and photos with consent; add to /about.
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | discovered |
+| Status | implemented |
 | Category | performance |
 | Intent | none |
 | External action | no |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T17:40:00Z |
+| Updated | 2026-10-04T15:48:40Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -2858,15 +2917,19 @@ Measure first; if confirmed, scope Inter to the surfaces that use it. Not change
 
 **Implementation**
 
-—
+Measured first, then removed (commit 2c53ad5). Geist is now the Tailwind sans default and the html font, matching the L1 token, and Inter is no longer loaded. font-family.test.ts pins the token, the Tailwind default and the absence of Inter.
 
 **Files**
 
-- —
+- `src/app/layout.tsx`
+- `src/app/globals.css`
+- `tailwind.config.ts`
+- `src/components/ui/__tests__/font-family.test.ts`
 
 **Verification**
 
-- Not yet verified
+- Local production build, 2026-10-04, before: 30 screens (every public and auth page, the signed-in workspace as the E2E gym, a portalled member modal) rendered no visible text in Inter, yet next/font preloaded its 48,432-byte file on every page, the largest of the three. Its one reader was recharts' off-screen measuring span.
+- After: 4,028 text nodes on the same 30 screens, all Geist or Geist Mono; the homepage preloads two font files instead of three. Chart pages: every axis label, bar and curve count identical; /revenue pixel-identical; /dashboard differs only in its clock; /member-analytics in 203 anti-aliased pixels of its curve. Verified once production preloads two fonts.
 
 ### SEO-045
 
@@ -2919,13 +2982,13 @@ next.config.js permanent redirect /features → /gym-management-software-sri-lan
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | discovered |
+| Status | rejected |
 | Category | content |
 | Intent | commercial |
-| External action | required |
+| External action | no |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T17:40:00Z |
-| Completed | — |
+| Updated | 2026-10-04T15:48:40Z |
+| Completed | 2026-10-04T15:48:40Z |
 | Dependencies | — |
 
 **Target queries**
@@ -2942,7 +3005,7 @@ Fitconnect offers Sinhala; Metric's product UI and SMS templates are English onl
 
 **Recommended change**
 
-Only translate marketing pages once the product, SMS and support can serve those languages; otherwise the pages over-promise.
+Rejected 2026-10-04: the owner decided Metric supports English only, so no Sinhala or Tamil pages are planned. Public pages already say the app is in English.
 
 **Implementation**
 
@@ -2963,12 +3026,12 @@ Only translate marketing pages once the product, SMS and support can serve those
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | discovered |
+| Status | implemented |
 | Category | on-page |
 | Intent | none |
 | External action | no |
 | Created | 2026-10-01T18:24:04Z |
-| Updated | 2026-10-01T18:24:04Z |
+| Updated | 2026-10-04T15:48:40Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -2990,15 +3053,17 @@ Lift those labels to #8b8b93, or mark the mock as decorative (aria-hidden) — a
 
 **Implementation**
 
-—
+The owner asked for the true dashboard (2026-10-04). src/components/landing/DashboardPreview.tsx draws /dashboard with its own parts under data-theme="dark": WORKSPACE_NAV for the sidebar, StatCard tiles with the dashboard's labels, the dashboard's queue and table markup, CSS bars (no recharts). Decorative: aria-hidden, no headings, links or controls (commit 40d4d3b).
 
 **Files**
 
-- —
+- `src/components/landing/DashboardPreview.tsx`
+- `src/components/landing/__tests__/DashboardPreview.test.tsx`
+- `src/components/landing/LandingPage.tsx`
 
 **Verification**
 
-- Not yet verified
+- Chromium, local production build, 2026-10-04: every text node in the preview at least 5.07:1 (none below 4.5); no horizontal overflow at 1366, 1024, 768, 430, 390, 360 and 320; one h1. DashboardPreview.test.tsx compares nav and tiles with the real DashboardClient; six mutations each fail a test. Verified once Lighthouse on production reports no contrast failure in the hero.
 
 ### SEO-052
 
@@ -3007,12 +3072,12 @@ Lift those labels to #8b8b93, or mark the mock as decorative (aria-hidden) — a
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | discovered |
+| Status | implemented |
 | Category | trust |
 | Intent | none |
-| External action | required |
+| External action | no |
 | Created | 2026-10-01T18:24:04Z |
-| Updated | 2026-10-01T18:24:04Z |
+| Updated | 2026-10-04T15:48:40Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -3034,15 +3099,17 @@ Product decision: drop the 7-day reminder for weekly plans (as monthly already d
 
 **Implementation**
 
-—
+Owner decision 2026-10-04: weekly plans get no automated reminders of any kind, as daily plans already do; the manual Remind button stays. REMINDER_RULES[Weekly] is empty, so the cron, overdue texts and the dashboard queue all follow. /features/sms-reminders names the silent plans from the rules; the reminders guide says the same (commit bbb1720).
 
 **Files**
 
-- —
+- `src/features/sms/config/ReminderConfig.ts`
+- `src/app/(marketing)/features/sms-reminders/page.tsx`
+- `src/app/(marketing)/resources/membership-renewal-reminders/page.tsx`
 
 **Verification**
 
-- Not yet verified
+- Restoring the old weekly rule fails five tests. Production, read-only SQL 2026-10-04: 16 weekly members, all cancelled, in two gyms; the 9 weekly reminders of the previous 30 days were all in the E2E test gym.
 
 ### SEO-053
 
@@ -3168,9 +3235,9 @@ Seven card titles and summaries rewritten per page (e.g. 'From registration to t
 | Status | discovered |
 | Category | performance |
 | Intent | none |
-| External action | no |
+| External action | required |
 | Created | 2026-10-02T16:47:44Z |
-| Updated | 2026-10-02T16:47:44Z |
+| Updated | 2026-10-04T15:48:40Z |
 | Completed | — |
 | Dependencies | SEO-055 |
 
@@ -3186,6 +3253,7 @@ Split from SEO-055. After the chart library left the public pages, they still lo
 
 - src/app/layout.tsx mounts QueryProvider, ServiceWorkerRegistration and AuthRecovery around every route, the (marketing) group included
 - SEO-055's after-build: / still loads 344.9 KB gzip over 12 chunks with no recharts
+- Measured 2026-10-04 on a local production build at 390 px with Chromium JS coverage: "/", "/pricing" and the new guide load 316–320 KB of gzipped JavaScript in 14–15 scripts. Three chunks carry the providers' code, 87.1 KB gzipped together; the largest (62.8 KB gzipped, 241 KB raw) holds the Supabase client, react-query, the service-worker registration and AuthRecovery, and 217 KB of its raw code never executes on the page. A marker shows which chunk carries a provider, not that the chunk holds nothing else.
 
 **Recommended change**
 

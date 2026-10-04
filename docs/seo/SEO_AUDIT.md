@@ -373,13 +373,13 @@ Gaps that remain, in order of value:
 
 1. **Proof** — confirmed customer names, counts, case studies (SEO-024, SEO-042). Owner.
 2. **First-party data** — an aggregate, anonymised study from Metric's own records (SEO-042). Owner approval, then repository.
-3. **Buying and switching guides**, each built on product facts rather than generic advice:
-   - How to choose gym management software in Sri Lanka (rupee pricing, desk payments vs online, SMS sender IDs, PDPA obligations).
-   - Moving a gym from a register book or spreadsheet (the real bulk entry and QR self-registration flows).
-   - Overdue memberships: when to expire, when to cancel (Metric's no-grace expiry and 14-day cancellation rules).
-   - Running a gym on Excel and WhatsApp vs dedicated software — written honestly, since Metric sends SMS, not WhatsApp.
+3. **Buying and switching guides**, each built on product facts rather than generic advice. All four are written:
+   - How to choose gym management software in Sri Lanka (rupee pricing, desk payments vs online, SMS sender IDs, PDPA obligations) — SEO-065, 2026-10-04; its data-protection section says only what `/privacy` publishes (owner decision).
+   - Moving a gym from a register book or spreadsheet (the real bulk entry and QR self-registration flows) — SEO-063.
+   - Overdue memberships: when to expire, when to cancel (Metric's no-grace expiry and 14-day cancellation rules) — SEO-061.
+   - Running a gym on Excel and WhatsApp vs dedicated software — written honestly, since Metric sends SMS, not WhatsApp — SEO-064.
 4. **Video walkthroughs** of the real product, titled for what they show.
-5. **Sinhala and Tamil** pages — only once the product, SMS and support serve those languages (SEO-047).
+5. ~~**Sinhala and Tamil** pages~~ — rejected 2026-10-04: the owner decided Metric supports English only (SEO-047).
 
 Not gaps: QR check-in, facial recognition, member apps, class booking, multi-branch — the product does not do them, so content about them would mislead.
 
@@ -499,7 +499,7 @@ Rejected: `llms.txt`, AI-specific schema, hidden summaries, keyword repetition (
 
 All external; none is done. Listed by expected value.
 
-1. **VFT Holdings** — Metric's access-control hardware partner — has a gym solution page that ranks for gym access control in Sri Lanka. Ask for a "compatible membership software" mention linking to `/features/access-control` (SEO-038).
+1. ~~**VFT Holdings**~~ — rejected 2026-10-04: the owner decided not to name the hardware partner publicly, so no citation is sought (SEO-038).
 2. **Search Console Change of Address** from metricgymmanager.com, and a recrawl request, to retire the stale snippet (SEO-026).
 3. **Software directories with real reviews** — Capterra, GetApp, Software Advice, G2, and the category pages that rank for "gym management software Colombo" (techjockey). Genuine customer reviews only (SEO-039).
 4. **Sri Lankan startup and tech listings** — e.g. the Tracxn list of Sri Lankan fitness-tech startups surfaced during research (Index-T).
@@ -643,7 +643,9 @@ Found while writing the public pages from the code; recorded so they are not los
 
 ## 20. Assumptions the owner must confirm
 
-- **Naming VFT publicly.** The access-control page says readers are "supplied and supported by VFT", based on `docs/integrations/vft/` and `docs/architecture/access-control-master.md`. Confirm VFT is content to be named.
-- **The homepage trust strip and testimonial** (SEO-024).
-- **The Kotte address** as the public business address in text and Organization markup (already on `/contact` before this pass).
-- **Support hours** (every day, 08:00–22:00), taken from the in-app support page, now shown publicly.
+All four were settled by the owner on 2026-10-04:
+
+- **Naming VFT publicly.** Not to be named; the public pages now say "our hardware partner" (SEO-038 rejected).
+- **The homepage trust strip and testimonial** (SEO-024). Confirmed, along with the sign-in panel's figures.
+- **The Kotte address** as the public business address in text and Organization markup. Confirmed.
+- **Support hours** (every day, 08:00–22:00). Confirmed.
