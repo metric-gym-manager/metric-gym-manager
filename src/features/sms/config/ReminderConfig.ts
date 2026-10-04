@@ -10,7 +10,7 @@
  * CRITICAL: This is the ONLY place where reminder rules should be defined.
  */
 
-import { PlanType } from '@/features/members/config/PlanConfig';
+import { PlanType } from '@/features/members/config/PlanConfig'
 
 /**
  * SMS reminder types
@@ -34,12 +34,12 @@ export interface ReminderRule {
    *
    * Example: [7, 3, 0] means send at 7 days before, 3 days before, and on due date
    */
-  readonly reminderDays: readonly number[];
+  readonly reminderDays: readonly number[]
 
   /**
    * Enabled reminder types for this plan
    */
-  readonly enabledReminders: readonly ReminderType[];
+  readonly enabledReminders: readonly ReminderType[]
 }
 
 /**
@@ -120,7 +120,7 @@ export const REMINDER_RULES: Readonly<Record<PlanType, ReminderRule>> = {
     ],
     // Custom plans get all reminders by default
   },
-} as const;
+} as const
 
 /**
  * Get reminder rule for a plan type
@@ -130,11 +130,11 @@ export const REMINDER_RULES: Readonly<Record<PlanType, ReminderRule>> = {
  * @throws Error if plan type is invalid
  */
 export function getReminderRule(planType: PlanType | string): ReminderRule {
-  const rule = REMINDER_RULES[planType as PlanType];
+  const rule = REMINDER_RULES[planType as PlanType]
   if (!rule) {
-    throw new Error(`Invalid plan type for reminder rules: ${planType}`);
+    throw new Error(`Invalid plan type for reminder rules: ${planType}`)
   }
-  return rule;
+  return rule
 }
 
 /**
@@ -156,22 +156,22 @@ export function shouldSendReminder(
   planType: PlanType | string,
   daysUntilDue: number
 ): boolean {
-  const rule = getReminderRule(planType);
+  const rule = getReminderRule(planType)
 
   // Special case: Overdue reminders (negative days)
   if (daysUntilDue < 0) {
-    return rule.enabledReminders.includes(ReminderType.Overdue);
+    return rule.enabledReminders.includes(ReminderType.Overdue)
   }
 
   // Use range-based checks for idempotency (handles cron timing issues)
   // Check if daysUntilDue falls within any of the configured reminder ranges
   for (const reminderDay of rule.reminderDays) {
     if (daysUntilDue >= reminderDay && daysUntilDue < reminderDay + 1) {
-      return true;
+      return true
     }
   }
 
-  return false;
+  return false
 }
 
 /**
@@ -189,15 +189,15 @@ export function shouldSendReminder(
  */
 export function getReminderType(daysUntilDue: number): ReminderType | null {
   if (daysUntilDue >= 7 && daysUntilDue < 8) {
-    return ReminderType.SevenDay;
+    return ReminderType.SevenDay
   } else if (daysUntilDue >= 3 && daysUntilDue < 4) {
-    return ReminderType.ThreeDay;
+    return ReminderType.ThreeDay
   } else if (daysUntilDue >= 0 && daysUntilDue < 1) {
-    return ReminderType.DueToday;
+    return ReminderType.DueToday
   } else if (daysUntilDue < 0) {
-    return ReminderType.Overdue;
+    return ReminderType.Overdue
   }
-  return null;
+  return null
 }
 
 /**
@@ -206,8 +206,10 @@ export function getReminderType(daysUntilDue: number): ReminderType | null {
  * @param planType - The plan type
  * @returns Array of enabled reminder types
  */
-export function getEnabledReminders(planType: PlanType | string): readonly ReminderType[] {
-  return getReminderRule(planType).enabledReminders;
+export function getEnabledReminders(
+  planType: PlanType | string
+): readonly ReminderType[] {
+  return getReminderRule(planType).enabledReminders
 }
 
 /**
@@ -216,8 +218,10 @@ export function getEnabledReminders(planType: PlanType | string): readonly Remin
  * @param planType - The plan type
  * @returns Array of days when reminders should be sent
  */
-export function getReminderDays(planType: PlanType | string): readonly number[] {
-  return getReminderRule(planType).reminderDays;
+export function getReminderDays(
+  planType: PlanType | string
+): readonly number[] {
+  return getReminderRule(planType).reminderDays
 }
 
 /**
@@ -227,7 +231,7 @@ export function getReminderDays(planType: PlanType | string): readonly number[] 
  * @returns True if plan has reminders
  */
 export function hasReminders(planType: PlanType | string): boolean {
-  return getReminderRule(planType).reminderDays.length > 0;
+  return getReminderRule(planType).reminderDays.length > 0
 }
 
 /**
@@ -239,14 +243,14 @@ export function hasReminders(planType: PlanType | string): boolean {
 export function getReminderTypeLabel(reminderType: ReminderType): string {
   switch (reminderType) {
     case ReminderType.SevenDay:
-      return '7-Day Reminder';
+      return '7-Day Reminder'
     case ReminderType.ThreeDay:
-      return '3-Day Reminder';
+      return '3-Day Reminder'
     case ReminderType.DueToday:
-      return 'Due Today';
+      return 'Due Today'
     case ReminderType.Overdue:
-      return 'Overdue Reminder';
+      return 'Overdue Reminder'
     default:
-      return reminderType;
+      return reminderType
   }
 }
