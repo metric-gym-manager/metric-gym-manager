@@ -60,7 +60,7 @@ jest.mock('@/components/ui/primitives/Charts', () => ({
 const metrics = {
   activeMembers: 312,
   revenueThisMonth: 486500,
-  overdueMembers: { count: 14, critical: 3, warning: 5, mild: 6 },
+  overdueMembers: { count: 14, warning: 8, mild: 6 },
   membersDueThisWeek: { count: 23, totalAmount: 92000 },
 }
 

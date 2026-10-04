@@ -33,7 +33,7 @@ jest.mock('@/components/ui/primitives/Charts', () => ({
 const metrics = (over: Record<string, unknown> = {}) => ({
   activeMembers: 312,
   revenueThisMonth: 486500,
-  overdueMembers: { count: 14, critical: 3, warning: 5, mild: 6 },
+  overdueMembers: { count: 14, warning: 8, mild: 6 },
   membersDueThisWeek: { count: 23, totalAmount: 92000 },
   ...over,
 })
@@ -77,9 +77,7 @@ describe('DashboardClient', () => {
     expect(screen.getByText('486,500')).toBeInTheDocument()
     expect(screen.getByText('14')).toBeInTheDocument()
     expect(screen.getByText('23')).toBeInTheDocument()
-    expect(
-      screen.getByText('3 critical · 5 warning · 6 mild')
-    ).toBeInTheDocument()
+    expect(screen.getByText('8 warning · 6 mild')).toBeInTheDocument()
     expect(screen.getByText('LKR 92,000 expected')).toBeInTheDocument()
   })
 

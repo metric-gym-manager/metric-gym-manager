@@ -34,7 +34,6 @@ import { formatDate } from '@/utils/date/date'
 interface DashboardMetrics {
   overdueMembers: {
     count: number
-    critical: number
     warning: number
     mild: number
   }
@@ -238,7 +237,7 @@ export default function DashboardClient() {
         </span>
       ),
       sub: m
-        ? `${m.overdueMembers.critical} critical · ${m.overdueMembers.warning} warning · ${m.overdueMembers.mild} mild`
+        ? `${m.overdueMembers.warning} warning · ${m.overdueMembers.mild} mild`
         : ' ',
       href: '/payment-collection',
     },

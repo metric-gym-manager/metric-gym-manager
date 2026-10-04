@@ -5,14 +5,13 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import {
+  countOverdueTiers,
+  type OverdueTierCounts,
+} from '../domain/OverdueTiers'
 
 export interface DashboardMetrics {
-  overdueMembers: {
-    count: number
-    critical: number
-    warning: number
-    mild: number
-  }
+  overdueMembers: OverdueTierCounts
   revenueThisMonth: number
   membersDueThisWeek: {
     count: number
@@ -56,27 +55,10 @@ export async function getDashboardMetrics(
     throw new Error('Failed to fetch members')
   }
 
-  // Calculate overdue members with urgency breakdown
+  // Overdue members, split warning (7+ days) / mild (see OverdueTiers).
   // Note: System automatically updates members to 'expired' when overdue
   const today = new Date().toISOString().split('T')[0]
-  const overdueMembers = members.filter(
-    (m) => m.status === 'expired' && m.next_due_date < today
-  )
-
-  let critical = 0
-  let warning = 0
-  let mild = 0
-
-  overdueMembers.forEach((member) => {
-    const daysOverdue = Math.floor(
-      (new Date(today).getTime() - new Date(member.next_due_date).getTime()) /
-        (1000 * 60 * 60 * 24)
-    )
-
-    if (daysOverdue > 14) critical++
-    else if (daysOverdue >= 7) warning++
-    else mild++
-  })
+  const overdueMembers = countOverdueTiers(members, today)
 
   // Get revenue this month
   const { data: payments } = await supabase
@@ -106,12 +88,7 @@ export async function getDashboardMetrics(
   const activeMembers = members.filter((m) => m.status === 'active').length
 
   return {
-    overdueMembers: {
-      count: overdueMembers.length,
-      critical,
-      warning,
-      mild,
-    },
+    overdueMembers,
     revenueThisMonth,
     membersDueThisWeek: {
       count: membersDueThisWeek.length,
