@@ -76,6 +76,7 @@ describe('IssueDayPass', () => {
 
   const input = {
     gymId: 'gym-1',
+    gymName: 'Titan Fitness',
     memberId: 'member-1',
     amount: 500,
   }
@@ -152,7 +153,8 @@ describe('IssueDayPass', () => {
       await buildUseCase().execute(input)
 
       expect(smsProvider.send).toHaveBeenCalledWith(
-        expect.objectContaining({ to: '+94775093333' })
+        // gymId lets the send layer refuse a gym on SMS_DISABLED_GYM_IDS.
+        expect.objectContaining({ to: '+94775093333', gymId: 'gym-1' })
       )
       expect(smsRepo.create).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -160,6 +162,35 @@ describe('IssueDayPass', () => {
           deliveryStatus: SMSDeliveryStatus.Sent,
         })
       )
+    })
+
+    it('logs a failed day pass SMS when its text cannot be built, and still issues the pass', async () => {
+      const result = await buildUseCase().execute({
+        ...input,
+        gymName: undefined as unknown as string,
+      })
+
+      expect(result.payment).toBeDefined()
+      expect(smsProvider.send).not.toHaveBeenCalled()
+      expect(smsRepo.create).toHaveBeenCalledTimes(1)
+      expect(smsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          smsType: 'receipt',
+          messageBody: '',
+          deliveryStatus: SMSDeliveryStatus.Failed,
+          errorMessage: expect.stringMatching(/.+/),
+        })
+      )
+    })
+
+    it('names the gym in the day pass text', async () => {
+      await buildUseCase().execute(input)
+
+      const { message } = smsProvider.send.mock.calls[0][0]
+      expect(message).toMatch(
+        /^Titan Fitness: thank you, Test Member! Day pass of Rs\.500 received, valid until /
+      )
+      expect(smsRepo.create.mock.calls[0][0].messageBody).toBe(message)
     })
   })
 

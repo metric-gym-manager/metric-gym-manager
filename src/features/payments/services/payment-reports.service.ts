@@ -6,6 +6,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { effectivePlanAmount } from '@/features/members/utils/effectivePlanAmount'
 
 // ============================================================
 // Collected payments (monthly report)
@@ -250,9 +251,11 @@ export async function getRegularPayments(
     } | null
     const discountPct =
       m.recurring_discount && discountObj ? discountObj.discount_percentage : 0
-    const effectiveAmount =
-      Math.round((m.plan_amount as number) * (1 - discountPct / 100) * 100) /
-      100
+    const effectiveAmount = effectivePlanAmount({
+      planAmount: m.plan_amount as number,
+      recurringDiscount: Boolean(m.recurring_discount),
+      discountPercentage: discountObj?.discount_percentage ?? null,
+    })
 
     return {
       id: m.id as string,

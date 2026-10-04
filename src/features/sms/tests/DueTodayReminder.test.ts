@@ -26,6 +26,8 @@ import {
 import type { IMemberRepository } from '@/features/members/services/IMemberRepository'
 import type { ISMSRepository } from '@/features/sms/services/ISMSRepository'
 import type { ISMSProvider } from '@/features/sms/services/ISMSProvider'
+import type { IGymDirectory } from '@/features/sms/services/IGymDirectory'
+import type { IDiscountDirectory } from '@/features/sms/services/IDiscountDirectory'
 
 const GYM_ID = 'gym-1'
 
@@ -72,11 +74,25 @@ function build(members: Member[]) {
     makeSubscription({ gymId: GYM_ID })
   )
 
+  const gymDirectory: jest.Mocked<IGymDirectory> = {
+    findNamesByIds: jest.fn(
+      async (ids: string[]) => new Map(ids.map((id) => [id, 'Titan Fitness']))
+    ),
+  }
+
+  const discountDirectory: jest.Mocked<IDiscountDirectory> = {
+    findPercentagesByIds: jest.fn(
+      async (_ids: string[]) => new Map<string, number>()
+    ),
+  }
+
   const useCase = new SendAutomatedReminders(
     memberRepo,
     smsRepo,
     smsProvider,
-    subscriptionRepo
+    subscriptionRepo,
+    gymDirectory,
+    discountDirectory
   )
   return { useCase, smsRepo, smsProvider }
 }
@@ -90,8 +106,9 @@ describe('Due-today reminder — "membership expires today"', () => {
     expect(summary.byType[ReminderType.DueToday]).toBe(1)
     expect(smsProvider.send).toHaveBeenCalledTimes(1)
     const { message } = smsProvider.send.mock.calls[0][0]
-    expect(message).toContain('expires today')
-    expect(message).toContain('Rs.2000.00')
+    expect(message).toBe(
+      'Hi Test Member, your monthly membership at Titan Fitness expires today (Rs.2,000). Renew today and stay consistent!'
+    )
   })
 
   it('logs the due-today SMS under the due_today type', async () => {
@@ -163,6 +180,6 @@ describe('Reminder branch ordering — day 0 belongs to DueToday', () => {
 
     expect(summary.byType[ReminderType.Overdue]).toBe(1)
     const { message } = smsProvider.send.mock.calls[0][0]
-    expect(message).toContain('was due on')
+    expect(message).toContain('at Titan Fitness has expired (due ')
   })
 })

@@ -288,6 +288,9 @@ export class SupabaseSMSRepository implements ISMSRepository {
       .eq('member_id', memberId)
       .eq('sms_type', smsType)
       .gte('sent_at', todayStart)
+      // A failed send is logged too (rule 2.7) but is not "already sent":
+      // counting it would stop a same-day re-run from retrying the member.
+      .neq('delivery_status', SMSDeliveryStatus.Failed)
       .limit(1)
       .single()
 

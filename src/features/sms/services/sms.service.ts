@@ -1,9 +1,13 @@
 import { createClient } from '@/lib/supabase/server'
 import type { SMSType, SMSLog, MemberReminderStatus } from '../types'
+import type { ManualSmsType } from '../config/SmsConfig'
 import type { ReminderFiltersInput } from '../schemas/sms.schemas'
 import { sendSmsViaTextLk } from './textlk.service'
 import { createSMSRepository } from './factory'
 import { SMSDeliveryStatus } from './ISMSRepository'
+import { ReminderType } from '../config/ReminderConfig'
+import { effectivePlanAmount } from '@/features/members/utils/effectivePlanAmount'
+import { reminderSms, welcomeBackSms, welcomeSms } from '../config/SmsTemplates'
 
 // ============================================================
 // SEND SMS (WITH REAL SMS INTEGRATION VIA text.lk)
@@ -12,7 +16,7 @@ import { SMSDeliveryStatus } from './ISMSRepository'
 export async function sendSMS(
   gymId: string,
   memberId: string,
-  smsType: SMSType,
+  smsType: ManualSmsType,
   customMessage?: string,
   paymentAmount?: number
 ): Promise<SMSLog> {
@@ -21,7 +25,7 @@ export async function sendSMS(
   // Get member details including gym name via join
   const { data: member } = await supabase
     .from('members')
-    .select('*, gyms(gym_name)')
+    .select('*, gyms(gym_name), discount:discounts(discount_percentage)')
     .eq('id', memberId)
     .eq('gym_id', gymId)
     .single()
@@ -51,6 +55,7 @@ export async function sendSMS(
     console.log(`   Message: ${messageBody}`)
 
     const result = await sendSmsViaTextLk({
+      gymId,
       to: member.phone_number,
       message: messageBody,
     })
@@ -278,73 +283,57 @@ interface SMSMemberFields {
   next_due_date: string
   plan_amount: number
   plan_type: string
+  recurring_discount?: boolean | null
+  discount?: { discount_percentage: number } | null
 }
 
+/**
+ * Text for a manual send (the "Send reminder" button on Payment Collection).
+ *
+ * Worded by the same `SmsTemplates` as the automated sends, so a reminder
+ * reads the same whether the cron or the desk sent it.
+ */
 function formatSMSMessage(
-  smsType: SMSType,
+  smsType: ManualSmsType,
   member: SMSMemberFields,
   gymName: string,
   paymentAmount?: number
 ): string {
-  const dueDate = new Date(member.next_due_date).toLocaleDateString('en-GB')
-  const amount = `Rs.${member.plan_amount.toFixed(2)}`
-  const planType =
-    member.plan_type.charAt(0).toUpperCase() + member.plan_type.slice(1)
+  const dueDate = new Date(member.next_due_date)
+  const party = { gymName, memberName: member.name }
 
   switch (smsType) {
-    case 'welcome': {
-      const paid = paymentAmount
-        ? `Rs.${paymentAmount.toFixed(2)}`
-        : `Rs.${member.plan_amount.toFixed(2)}`
-      return `Welcome to ${gymName}, ${member.name}! Your ${planType} membership is now active. Amount paid: ${paid}. Thank you for joining us!`
-    }
+    case 'welcome':
+      return welcomeSms({
+        ...party,
+        planType: member.plan_type,
+        amountPaid: paymentAmount || member.plan_amount,
+        nextDueDate: dueDate,
+      })
 
-    case 'reminder_7day':
-    case 'reminder_3day':
-      return `Dear ${member.name}, your ${planType} membership at ${gymName} is due on ${dueDate}. Amount: ${amount}. Thank you.`
+    case ReminderType.SevenDay:
+    case ReminderType.ThreeDay:
+    case ReminderType.DueToday:
+    case ReminderType.Overdue:
+      // The amount the desk will charge: plan less a recurring discount.
+      return reminderSms(smsType, {
+        ...party,
+        planType: member.plan_type,
+        amount: effectivePlanAmount({
+          planAmount: member.plan_amount,
+          recurringDiscount: Boolean(member.recurring_discount),
+          discountPercentage: member.discount?.discount_percentage ?? null,
+        }),
+        dueDate,
+      })
 
-    // Membership expiry is immediate once the due date passes, so a manual
-    // due-today SMS carries the same "last day" wording as the automated one.
-    case 'due_today':
-      return `Dear ${member.name}, your ${planType} membership at ${gymName} expires today. Amount: ${amount}. Please pay today to stay active. Thank you.`
-
-    case 'overdue':
-      return `Dear ${member.name}, your ${planType} membership at ${gymName} was due on ${dueDate}. Amount: ${amount}. Please make payment. Thank you.`
-
-    case 'reactivation': {
-      const paid = paymentAmount ? `Rs.${paymentAmount.toFixed(2)}` : amount
-      return `Welcome back to ${gymName}, ${member.name}! Your ${planType} membership has been reactivated (payment of ${paid} received). Next due date: ${dueDate}. Thank you!`
-    }
-
-    case 'receipt':
-      // This will be formatted in the payment service with actual payment details
-      return ''
-
-    default:
-      return `Reminder from ${gymName}`
+    case 'reactivation':
+      return welcomeBackSms({
+        ...party,
+        amountPaid: paymentAmount || member.plan_amount,
+        nextDueDate: dueDate,
+      })
   }
-}
-
-// ============================================================
-// FORMAT RECEIPT SMS
-// ============================================================
-
-export function formatReceiptSMS(
-  memberName: string,
-  gymName: string,
-  amountPaid: number,
-  nextDueDate: string,
-  discountName?: string | null,
-  discountPercentage?: number | null
-): string {
-  const amount = `Rs.${amountPaid.toFixed(2)}`
-  const dueDate = new Date(nextDueDate).toLocaleDateString('en-GB')
-
-  if (discountName && discountPercentage) {
-    return `Dear ${memberName}, payment of ${amount} received (Discount: ${discountName} ${discountPercentage}% applied). Next due date: ${dueDate}. Thank you - ${gymName}`
-  }
-
-  return `Dear ${memberName}, payment of ${amount} received. Next due date: ${dueDate}. Thank you - ${gymName}`
 }
 
 // ============================================================

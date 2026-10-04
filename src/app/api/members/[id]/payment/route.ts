@@ -45,6 +45,7 @@ export async function POST(
 
     const result = await collectPayment.execute({
       gymId: gymProfile.id,
+      gymName: gymProfile.gym_name,
       memberId: id,
       paymentDate: new Date(validatedData.paymentDate),
       paymentAmount: validatedData.paymentAmount,

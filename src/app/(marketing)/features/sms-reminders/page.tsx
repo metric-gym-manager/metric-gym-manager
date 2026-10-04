@@ -21,6 +21,9 @@ import {
   PRICING_PATH,
   Prose,
   RelatedPages,
+  SAMPLE_RECEIPT,
+  SAMPLE_REMINDER_BEFORE_DUE,
+  SAMPLE_REMINDER_DUE_TODAY,
   StructuredData,
   buildPageMetadata,
   type FaqItem,
@@ -59,8 +62,8 @@ const FAQ: FaqItem[] = [
     answer: (
       <p>
         Reminders and receipts use fixed wording so that every member gets the
-        same clear message with their own plan, due date and amount.
-        Announcements are written by you.
+        same clear message, with your gym’s name and their own plan, due date
+        and amount. Announcements are written by you.
       </p>
     ),
   },
@@ -188,25 +191,16 @@ export default function SmsRemindersPage() {
         title="What members receive"
         intro={
           <p>
-            Short, plain messages with the member’s own plan, date and amount.
-            These are the actual texts.
+            Short, friendly messages that name your gym and carry the member’s
+            own plan, date and amount. These are the actual texts.
           </p>
         }
       >
         <ul className="flex flex-col gap-3">
           {[
-            [
-              'Before the due date',
-              'Dear Nimal, your Monthly membership payment is due on 15/11/2026. Amount: Rs.4000.00. Thank you.',
-            ],
-            [
-              'On the due date',
-              'Dear Nimal, your Monthly membership expires today. Amount: Rs.4000.00. Please pay today to stay active. Thank you.',
-            ],
-            [
-              'When a payment is recorded',
-              'Dear Nimal, payment of Rs.4000.00 received. Next due date: 15/12/2026. Thank you!',
-            ],
+            ['Before the due date', SAMPLE_REMINDER_BEFORE_DUE],
+            ['On the due date', SAMPLE_REMINDER_DUE_TODAY],
+            ['When a payment is recorded', SAMPLE_RECEIPT],
           ].map(([when, text]) => (
             <li
               key={when}
@@ -220,9 +214,9 @@ export default function SmsRemindersPage() {
           ))}
         </ul>
         <p className="pt-4 text-sm text-ink-muted">
-          Example member, plan and amounts. A member returning after
-          cancellation gets a welcome-back message with their new due date
-          instead of a plain receipt.
+          Example member, plan and amounts; your gym’s name appears where “Your
+          Gym” does. A member returning after cancellation gets a welcome-back
+          message with their new due date instead of a plain receipt.
         </p>
       </MarketingSection>
 

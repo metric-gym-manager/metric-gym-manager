@@ -9,6 +9,9 @@ import {
   MarketingSection,
   Prose,
   RelatedPages,
+  SAMPLE_RECEIPT,
+  SAMPLE_REMINDER_BEFORE_DUE,
+  SAMPLE_REMINDER_DUE_TODAY,
   StructuredData,
   articleJsonLd,
   buildPageMetadata,
@@ -88,21 +91,19 @@ export default function RenewalRemindersArticle() {
       <MarketingSection title="What a reminder should say">
         <Prose>
           <p>
-            Short, specific and impossible to misread. Every reminder needs four
-            things: the member’s name, their plan, the date, and the amount. The
-            message on the due date should also state the consequence plainly.
-            These are the texts Metric sends:
+            Short, specific and impossible to misread. Every reminder needs five
+            things: your gym’s name, the member’s name, their plan, the date,
+            and the amount. A member should never have to guess who is texting
+            them. The message on the due date should also state the consequence
+            plainly. These are the texts Metric sends:
           </p>
           <ul>
             <li>
-              <strong>Before the due date:</strong> “Dear Nimal, your Monthly
-              membership payment is due on 15/11/2026. Amount: Rs.4000.00. Thank
-              you.”
+              <strong>Before the due date:</strong> “
+              {SAMPLE_REMINDER_BEFORE_DUE}”
             </li>
             <li>
-              <strong>On the due date:</strong> “Dear Nimal, your Monthly
-              membership expires today. Amount: Rs.4000.00. Please pay today to
-              stay active. Thank you.”
+              <strong>On the due date:</strong> “{SAMPLE_REMINDER_DUE_TODAY}”
             </li>
           </ul>
           <p>
@@ -153,10 +154,9 @@ export default function RenewalRemindersArticle() {
         <Prose>
           <p>
             When the member pays, confirm it. A receipt that states the amount
-            and the next due date — “Dear Nimal, payment of Rs.4000.00 received.
-            Next due date: 15/12/2026. Thank you!” — settles any later question
-            about whether they paid, and tells them when the next reminder will
-            come.
+            and the next due date — “{SAMPLE_RECEIPT}” — settles any later
+            question about whether they paid, and tells them when the next
+            reminder will come.
           </p>
         </Prose>
       </MarketingSection>

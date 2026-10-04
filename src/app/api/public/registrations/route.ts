@@ -14,7 +14,7 @@ import { publicRegistrationSchema } from '@/features/registration/schemas/regist
 import {
   resolveRegistrationToken,
   getActivePlanForGym,
-  getGymAdmissionFee,
+  getGymRegistrationDetails,
 } from '@/features/registration/services/registration-link.service'
 import { checkRateLimit } from '@/lib/rate-limit'
 import {
@@ -101,9 +101,16 @@ export async function POST(request: NextRequest) {
 
     const planAmount = Number(plan.default_amount)
 
-    // Admission fee is resolved server-side from the gym row (0 when disabled)
-    // and added to the first payment only — never influenced by client input.
-    const admissionFee = await getGymAdmissionFee(gymId)
+    // The gym's name (for the welcome SMS) and admission fee come from the gym
+    // row the token resolved to (fee 0 when disabled). The fee is added to the
+    // first payment only — never influenced by client input.
+    const gym = await getGymRegistrationDetails(gymId)
+    if (!gym) {
+      return NextResponse.json(ResponseBuilder.notFound('Registration link'), {
+        status: 404,
+      })
+    }
+    const { gymName, admissionFee } = gym
     const amountDue = planAmount + admissionFee
 
     // Create the member through the standard registration use case
@@ -114,6 +121,7 @@ export async function POST(request: NextRequest) {
     const now = new Date()
     const result = await registerMember.execute({
       gymId,
+      gymName,
       name: input.name,
       phoneNumber: input.phoneNumber,
       planType: input.planType as PlanType,

@@ -12,15 +12,21 @@
  */
 export interface SMSMessage {
   /**
+   * The gym the text is for. Required: the send layer refuses any gym on the
+   * operator's SMS_DISABLED_GYM_IDS list, and must always be able to check.
+   */
+  gymId: string
+
+  /**
    * Recipient phone number (E.164 format with + prefix)
    * Example: +94771234567
    */
-  to: string;
+  to: string
 
   /**
    * Message body (max 160 characters for single SMS)
    */
-  message: string;
+  message: string
 }
 
 /**
@@ -30,24 +36,24 @@ export interface SMSSendResult {
   /**
    * Whether SMS was sent successfully
    */
-  success: boolean;
+  success: boolean
 
   /**
    * Provider's message ID (for tracking)
    * Only present if success is true
    */
-  messageId?: string;
+  messageId?: string
 
   /**
    * Error message if sending failed
    * Only present if success is false
    */
-  error?: string;
+  error?: string
 
   /**
    * Timestamp when SMS was sent
    */
-  sentAt?: Date;
+  sentAt?: Date
 }
 
 /**
@@ -83,7 +89,7 @@ export interface ISMSProvider {
    * @param message - SMS message to send
    * @returns Result of send operation
    */
-  send(message: SMSMessage): Promise<SMSSendResult>;
+  send(message: SMSMessage): Promise<SMSSendResult>
 
   /**
    * Send multiple SMS messages in batch
@@ -94,7 +100,7 @@ export interface ISMSProvider {
    * @param messages - Array of SMS messages to send
    * @returns Array of send results (same order as input)
    */
-  sendBatch(messages: SMSMessage[]): Promise<SMSSendResult[]>;
+  sendBatch(messages: SMSMessage[]): Promise<SMSSendResult[]>
 
   /**
    * Check if SMS sending is enabled
@@ -104,7 +110,7 @@ export interface ISMSProvider {
    *
    * @returns True if SMS sending is enabled
    */
-  isEnabled(): boolean;
+  isEnabled(): boolean
 
   /**
    * Get provider name
@@ -113,75 +119,5 @@ export interface ISMSProvider {
    *
    * @returns Provider name (e.g., 'Text.lk', 'Twilio', 'Mock')
    */
-  getProviderName(): string;
-}
-
-/**
- * SMS Template Interface
- *
- * Defines methods for generating SMS message bodies.
- * This keeps message templates separate from business logic.
- */
-export interface ISMSTemplate {
-  /**
-   * Generate welcome SMS message
-   *
-   * @param memberName - Member's name
-   * @param planType - Plan type
-   * @param nextDueDate - Next due date
-   * @param amountPaid - Amount paid
-   * @returns SMS message body
-   */
-  generateWelcomeMessage(
-    memberName: string,
-    planType: string,
-    nextDueDate: Date,
-    amountPaid: number
-  ): string;
-
-  /**
-   * Generate payment receipt SMS message
-   *
-   * @param memberName - Member's name
-   * @param amountPaid - Amount paid
-   * @param nextDueDate - Next due date
-   * @returns SMS message body
-   */
-  generateReceiptMessage(
-    memberName: string,
-    amountPaid: number,
-    nextDueDate: Date
-  ): string;
-
-  /**
-   * Generate payment reminder SMS message
-   *
-   * @param memberName - Member's name
-   * @param daysUntilDue - Days until payment is due
-   * @param dueDate - Due date
-   * @param amount - Amount due
-   * @returns SMS message body
-   */
-  generateReminderMessage(
-    memberName: string,
-    daysUntilDue: number,
-    dueDate: Date,
-    amount: number
-  ): string;
-
-  /**
-   * Generate overdue SMS message
-   *
-   * @param memberName - Member's name
-   * @param daysOverdue - Days overdue
-   * @param dueDate - Original due date
-   * @param amount - Amount due
-   * @returns SMS message body
-   */
-  generateOverdueMessage(
-    memberName: string,
-    daysOverdue: number,
-    dueDate: Date,
-    amount: number
-  ): string;
+  getProviderName(): string
 }

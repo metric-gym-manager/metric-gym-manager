@@ -21,6 +21,13 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
 
   SEO-055 and SEO-059 are now `verified`. Bulk import still needs the owner's production check (§6).
 
+- **SMS overhaul (2026-10-03, branch `claude/sms-templates`).** Every automated text now names the gym (SEO-053), in warmer wording the owner approved, from one template module (`src/features/sms/config/SmsTemplates.ts`). The public SMS samples render from the same templates. Registration now awaits the welcome SMS: it was fire-and-forget, and 15 of 46 registrations at customer gyms between 2026-08-19 and 2026-10-03 never logged one, both bulk test members included (test gyms excluded). Bulk import is confirmed in production. The new owner checks are in §6.
+
+- **SMS round 3 (2026-10-04, same branch).**
+  - Both E2E gyms were **suspended in production**: the reminders cron had been texting the E2E gym's seeded members, which have valid-format numbers.
+  - Reminders, the manual send and the dashboard's reminder queue now quote the **recurring-discount amount**, from one formula (`effectivePlanAmount`) shared with revenue and the renewals list.
+  - Announcements get their own **`announcement` SMS type**. Migrations `20261004000001` and `20261004000002` were applied to production and relabelled 401 announcement rows that had been logged as `welcome`.
+
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
@@ -161,7 +168,7 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 **Product and design decisions** (recorded, not changed)
 
 - [ ] **SEO-052:** weekly members get their "7 days before" reminder on the day they pay.
-- [ ] **SEO-053:** automated reminders and receipts do not name the gym.
+- [x] **SEO-053:** automated reminders and receipts do not name the gym. **Decided 2026-10-03:** every automated SMS names the gym, with warmer, purpose-specific wording. Implemented on `claude/sms-templates`; the after-deploy checks are under **SMS overhaul** below.
 - [ ] **SEO-043:** the Inter font loads on pages that render Geist (measure first).
 - [ ] **SEO-051:** contrast of the decorative dashboard preview on the homepage.
 - [ ] **SEO-060:** public pages still load the signed-in app's providers (Supabase client, react-query, service-worker registration, AuthRecovery); rules 2.15 and 2.19 apply.
@@ -171,8 +178,31 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 
 **Branch**
 
-- [ ] **Confirm bulk import in production.** PR #83 carries the fix, and before it production refused every bulk import from 2026-07-25 ("Invalid input data"). Once the production deploy has finished, register a small batch in a gym that has plans set up in Membership Setup. Tick both consents, then confirm that the members appear and that no row reports "Invalid input data".
+- [x] **Confirm bulk import in production.** PR #83 carries the fix, and before it production refused every bulk import from 2026-07-25 ("Invalid input data"). **Verified 2026-10-03** (read-only SQL). "Test bulk 1" and "Test bulk 2" were registered in Titan Fitness at 10:57:57 UTC, each with both consent times recorded and one payment of 800. Both members' `reconcile_member` reader jobs succeeded on the 11:00 drain, at the first attempt.
 - [x] **Push and merge.** Pushed and merged into `master` through PR #83 on 2026-10-03.
+
+**SMS overhaul (`claude/sms-templates`)**
+
+- [ ] **Test members in Titan Fitness.** Remove or keep "Test bulk 1" and "Test bulk 2". Together they carry 1,600 in revenue, and both are on the door readers. Their welcome texts were never logged, and none will be backfilled: whether those texts went out is unknown.
+- [ ] **Welcome text after deploy.** Register one member, confirm the welcome text arrives, and confirm it has an `sms_logs` row that names the gym. The row can be read with `SELECT sent_at, delivery_status, message_body FROM sms_logs WHERE sms_type = 'welcome' ORDER BY sent_at DESC LIMIT 1`.
+- [ ] **New wording on a real phone.** Read the welcome, a receipt and a reminder on a handset. The welcome is deliberately two SMS segments; every other message is one at typical lengths.
+- [ ] **Delivery reports never arrive** (found 2026-10-04, not changed by this branch).
+  - **The data.** No `sms_logs` row has ever been updated by a delivery report: rows are only ever `sent`, or `failed` at the moment of sending. Since 2026-02-14, 1,763 messages carry a real text.lk message id, 648 of them sent after the 2026-09-05 webhook fix, and none is `delivered`. (An earlier note said 2,094 and 979. Those counted 362 `mock_` ids from test runs.)
+  - **No report has arrived.** In the 24 hours to 2026-10-04 00:49 UTC, 34 messages went out and Vercel logged no request to any `/api/webhooks/*` path.
+  - **The webhook may not exist.** text.lk's public API docs (`/docs/sms-api-endpoints/`, `/docs/view-sms/`, read 2026-10-04) describe no delivery-report webhook at all, only `GET /api/v3/sms/{uid}` to look a message up. So there may be no dashboard setting to change.
+  - **Your action.** Ask text.lk support whether delivery reports can be pushed, to which URL, and how they are signed. Our route expects an `x-textlk-signature` HMAC of `TEXT_LK_WEBHOOK_SECRET`, a scheme nobody has confirmed with the vendor.
+  - **If they cannot be pushed**, the repository needs a cron that polls `GET /api/v3/sms/{uid}` for recent `sent` rows (see the repository list).
+  - **Public claim.** Until reports arrive, `/features/sms-reminders` says the gateway's delivery reports update each message, which production does not show (rule 2.23). Fix the reports, or have the sentence changed.
+- [x] **Reminder amount for a discounted member.** **Decided 2026-10-04:** quote the discounted amount. Reminders (cron and manual send) and the dashboard's reminder queue now use `effectivePlanAmount`, the formula revenue and the renewals list already used: plan amount less a _recurring_ discount, whether or not the discount is still active. No member was affected that day: 3 members have ever had a recurring discount, and none is active.
+- [x] **E2E gyms texted real numbers — suspended 2026-10-04.**
+  - **What happened.** The production reminders cron treated "E2E Enterprise Gym" as a customer (subscription `active`) and sent 310 real reminders to its seeded members between 2026-09-13 and 2026-10-04 03:31 UTC, about 15 a day. 310 of its 350 seeded numbers are valid-format Sri Lankan mobiles.
+  - **The suspension.** Both E2E gyms were suspended with the product's own statement (`subscription_status = 'suspended', next_charge_at = NULL`), so the cron skips them.
+  - E2E Lite Gym had sent nothing real.
+- [ ] **Review the 310 texts sent from the E2E gym.** In the text.lk dashboard, check the delivered numbers for 2026-09-13 to 2026-10-04. Decide whether any recipient needs contacting.
+- [ ] **How the E2E gyms run from now.** **Decided 2026-10-04:** reactivate both, with texts disabled. The block is `SMS_DISABLED_GYM_IDS` (both E2E gym ids), set in Vercel and enforced in `sendSmsViaTextLk`, the one function every real text passes through; the reminders cron also skips those gyms up front. Order: the block deploys first, then the gyms are reactivated (Enterprise `active`, Lite `trialing` as before). Tick this once the reactivation is done and recorded.
+- [ ] **Trials past their end date (decision).** 7 gyms are still `trialing` after `trial_ends_at`: 5 customer gyms and 2 test gyms, the oldest ended 2026-07-26. The `process-trial-expiry`, `process-dunning` and `charge-renewals` crons have **no rows in `cron_logs`, ever**, while the other seven crons log daily. Check in the Vercel cron dashboard whether those three run at all. Then decide whether the 5 customer gyms should be suspended or have their trials extended; this branch changes nothing there.
+- [ ] **Re-run the announcement relabel once after deploy.** Production code writes new announcements as `welcome` until this branch ships. Running `20261004000002_relabel_announcement_sms_logs.sql` again after the deploy relabels any sent in between. It is idempotent: a re-run before the deploy changed 0 rows.
+- [ ] **Push and merge.** Push `claude/sms-templates` and merge it into `master` through a PR.
 
 ### Repository, next work on this branch
 
@@ -180,13 +210,25 @@ Ready now, in priority order:
 
 1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
 2. **New guides** from `SEO_AUDIT.md` §8, one at a time. Done: overdue memberships (SEO-061), moving off a register book (SEO-063) and Excel and WhatsApp vs software (SEO-064). Still to write: choosing gym management software in Sri Lanka. It waits on the owner's data-protection facts (open item in the checklist above). Each one needs a registry entry, a `PUBLIC_ROUTES` entry, a link from its feature page and from `/resources`, and its own task.
-3. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-053, SEO-060 — each needs the owner's decision noted above.
+3. **P3 items:** SEO-043 (measure first), SEO-051, SEO-052, SEO-060 — each needs the owner's decision noted above. ~~SEO-053~~ was decided and implemented on 2026-10-03.
 4. ~~**Stale comments.**~~ Fixed 2026-10-03: `CancelMember.ts` now states the 14-day cron rule and that Cancelled → Active happens on payment.
 5. ~~**Bulk grid.**~~ Fixed 2026-10-03, with three more defects found in the same flow:
    - the grid now stops at `BULK_REGISTER_MAX_ROWS` (50, shared with the route);
    - results are applied by row identity, not grid position, so an invalid row no longer shifts every later result onto the wrong member;
    - retry no longer re-sends rows already registered;
    - every batch had been refused since 2026-07-25, because `addMemberSchema` began requiring two consents the grid never sent. The owner chose a batch attestation: the same two consents as single registration, ticked once per batch. Consent times are recorded per member.
+
+6. **SMS follow-ups** (found 2026-10-03 and 2026-10-04, not changed):
+   - The text.lk provider has no request timeout. Registration now waits on the welcome SMS, as payments already wait on the receipt, so a hung gateway holds the request. Bulk import is hit hardest: a batch waits on up to 50 sends at once, so a slow gateway can time the request out after the members are saved. The grid then cannot tell which rows succeeded, and a retry reports those rows as "already exists". No member is duplicated.
+   - ~~On 2026-09-13, 350 members each got a second `welcome` row.~~ **Explained and fixed 2026-10-04.** Those rows were an announcement, logged in mock mode in the E2E Enterprise gym, because `announcement.service` hard-coded `smsType: 'welcome'`. 50 real announcements in Titan Fitness (2026-03-01) were logged the same way. Announcements now log as `announcement`, and migrations `20261004000001` (enum value) and `20261004000002` (relabel) were applied to production: 401 rows relabelled, and 514 `welcome` rows remain, every one starting "Welcome". The member SMS history had labelled every `welcome` row "Announcement"; it now says "Welcome".
+   - **Announcement sends are fire-and-forget.** `createAndSendAnnouncement` calls `sendAnnouncementSmsInBackground(...)` without `await` and without `after()`, so on Vercel a bulk send can be cut off once the response returns. Production: 3 of 9 announcements never finished, with 2 stuck `pending` (52 recipients) and 1 stuck `sending` (213 recipients), none of their recipients accounted for. Same class as the welcome SMS (rule 2.7).
+   - **Mock mode writes `sent` rows.** With `ENABLE_REAL_SMS` off, the announcements path and the manual `sendSMS` path log `sent` for texts never sent. A local run uses `.env.local`, which points at production, so test runs land in production `sms_logs` (the 351 E2E rows).
+   - ~~**No block on texting test gyms.**~~ **Fixed 2026-10-04:** `SMS_DISABLED_GYM_IDS`, enforced in `sendSmsViaTextLk` with `gymId` required at every send; the reminders cron skips listed gyms (`membersSkippedSmsDisabled`). A new test gym must be added to the list in Vercel.
+   - **No delivery-status polling.** If text.lk cannot push delivery reports (owner item above), add a cron that polls `GET /api/v3/sms/{uid}` for recent `sent` rows and moves them to `delivered` or `failed`.
+   - `src/app/api/members/__tests__/route.test.ts` is `describe.skip`: it tests a retired `createMember` + `sendSMS` path. Those are the 7 skipped tests in every run. The live desk route is covered by `register.route.test.ts`; the old suite should be deleted.
+   - `docs/reference/USE_CASES.md` and `docs/product/PRD.md` are stale outside their SMS sections (updated 2026-10-04). Examples call the retired DI container, PRD §4.5.1 says overdue reminders are "sent daily until payment", and a six-hourly reminder run is described.
+   - ~~`POST /api/sms/send` with `smsType: 'receipt'` sends an empty body.~~ **Fixed 2026-10-04:** the manual send accepts only `MANUAL_SMS_TYPES` (the four reminders, welcome and reactivation); receipt and announcement get a 400.
+   - A Sinhala or Tamil gym or member name switches the text to UCS-2 (70 characters a segment). text.lk is called with `type: 'plain'`, and nobody has checked what it does with non-GSM characters. This ties to SEO-047.
 
 Waiting on owner input:
 
@@ -199,13 +241,13 @@ Waiting on owner input:
 
 ## 7. Task log status
 
-58 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes at `e2db9f7`.
+64 tasks in `SEO_TASKS.json`. `npm run seo:report -- --check` passes at `e2db9f7`, and again on `claude/sms-templates`. Counts recomputed from the JSON on 2026-10-03; the earlier table here still read 58 tasks.
 
 | Status      | Count | Tasks                                                                                                                |
 | ----------- | ----: | -------------------------------------------------------------------------------------------------------------------- |
-| Verified    |    37 | See `SEO_TASK_LOG.md`                                                                                                |
-| Implemented |     1 | SEO-035 (awaiting GA4 delivery confirmation)                                                                         |
-| Discovered  |     7 | SEO-056 (P1), SEO-055 (P2), SEO-043, SEO-047, SEO-051, SEO-052, SEO-053 (P3)                                         |
+| Verified    |    43 | See `SEO_TASK_LOG.md`                                                                                                |
+| Implemented |     3 | SEO-035, SEO-056 (P1, awaiting GA4 DebugView); SEO-053 (P3, awaiting the after-deploy welcome check)                 |
+| Discovered  |     5 | SEO-043, SEO-047, SEO-051, SEO-052, SEO-060 (P3)                                                                     |
 | Blocked     |     9 | SEO-024, SEO-036 (P0); SEO-026, SEO-038 (P1); SEO-037, SEO-039, SEO-042 (P2); SEO-040, SEO-041 (P3)                  |
 | Rejected    |     4 | SEO-031 FAQPage markup, SEO-032 LocalBusiness markup, SEO-033 `llms.txt`/AI-specific markup, SEO-034 mass city pages |
 

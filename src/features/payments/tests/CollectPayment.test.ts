@@ -71,6 +71,7 @@ describe('CollectPayment', () => {
 
   const input = {
     gymId: 'gym-1',
+    gymName: 'Titan Fitness',
     memberId: 'member-1',
     paymentDate: daysFromToday(0),
     paymentAmount: 3500,
@@ -128,7 +129,8 @@ describe('CollectPayment', () => {
     // the function as soon as the response is returned.
     expect(smsProvider.send).toHaveBeenCalledTimes(1)
     expect(smsProvider.send).toHaveBeenCalledWith(
-      expect.objectContaining({ to: '+94775093333' })
+      // gymId lets the send layer refuse a gym on SMS_DISABLED_GYM_IDS.
+      expect.objectContaining({ to: '+94775093333', gymId: 'gym-1' })
     )
     expect(smsRepo.create).toHaveBeenCalledTimes(1)
     expect(smsRepo.create).toHaveBeenCalledWith(
@@ -138,6 +140,30 @@ describe('CollectPayment', () => {
         textLkMessageId: 'msg-1',
       })
     )
+  })
+
+  it('names the gym in the receipt text', async () => {
+    await buildUseCase().execute(input)
+
+    const { message } = smsProvider.send.mock.calls[0][0]
+    expect(message).toMatch(/^Titan Fitness: thank you, Test Member! /)
+    expect(message).toContain('Payment of Rs.3,500 received.')
+    expect(smsRepo.create.mock.calls[0][0].messageBody).toBe(message)
+  })
+
+  it('names the discount on the receipt when one applied', async () => {
+    await buildUseCase().execute({
+      ...input,
+      discount: {
+        discountId: 'disc-1',
+        discountName: 'Student',
+        discountPercentage: 10,
+      },
+    })
+
+    const { message } = smsProvider.send.mock.calls[0][0]
+    expect(message).toContain('received (Student 10% off).')
+    expect(message).toMatch(/^Titan Fitness: /)
   })
 
   it('logs a failed receipt SMS when the provider reports failure', async () => {
@@ -180,6 +206,25 @@ describe('CollectPayment', () => {
     )
   })
 
+  it('logs a failed receipt SMS when its text cannot be built, and still collects the payment', async () => {
+    const result = await buildUseCase().execute({
+      ...input,
+      gymName: undefined as unknown as string,
+    })
+
+    expect(result.payment).toBeDefined()
+    expect(smsProvider.send).not.toHaveBeenCalled()
+    expect(smsRepo.create).toHaveBeenCalledTimes(1)
+    expect(smsRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        smsType: 'receipt',
+        messageBody: '',
+        deliveryStatus: SMSDeliveryStatus.Failed,
+        errorMessage: expect.stringMatching(/.+/),
+      })
+    )
+  })
+
   it('throws NotFoundError when the member does not exist', async () => {
     memberRepo.findById.mockResolvedValue(null)
 
@@ -206,7 +251,7 @@ describe('CollectPayment', () => {
         expect.objectContaining({ smsType: 'reactivation' })
       )
       const message = smsProvider.send.mock.calls[0][0].message as string
-      expect(message).toContain('reactivated')
+      expect(message).toMatch(/^Welcome back to Titan Fitness, Test Member! /)
     })
 
     it('sends the reactivation SMS when reactivating a suspended member', async () => {

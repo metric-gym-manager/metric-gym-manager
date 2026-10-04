@@ -60,6 +60,7 @@ function harness(updateImpl?: jest.Mock) {
 
 const input = {
   gymId: 'g-1',
+  gymName: 'Titan Fitness',
   memberId: 'm-1',
   paymentDate: DUE,
   paymentAmount: 5000,

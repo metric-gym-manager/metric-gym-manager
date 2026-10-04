@@ -9,6 +9,8 @@
  * @module textlk.service
  */
 
+import { isSmsDisabledForGym } from '../config/SmsSuppression'
+
 /**
  * Response from text.lk API for sending SMS
  */
@@ -35,6 +37,11 @@ export type DeliveryStatus = 'sent' | 'delivered' | 'failed'
  * Parameters for sending SMS via text.lk
  */
 export interface SendSmsParams {
+  /**
+   * The gym the text is for. Required so no caller can bypass the
+   * SMS_DISABLED_GYM_IDS check below.
+   */
+  gymId: string
   to: string // Phone number in +94XXXXXXXXX format
   message: string // SMS message content (max 160 chars for single SMS)
 }
@@ -65,6 +72,13 @@ export interface SendSmsParams {
 export async function sendSmsViaTextLk(
   params: SendSmsParams
 ): Promise<TextLkResponse> {
+  // Every real text passes through here, so this is where the operator's
+  // list of never-text gyms holds (the E2E test gyms). Refused before any
+  // network call; callers log it as a failed send with this reason.
+  if (isSmsDisabledForGym(params.gymId)) {
+    return { success: false, error: 'SMS disabled for this gym' }
+  }
+
   try {
     // Validate environment variables
     if (!process.env.TEXT_LK_API_KEY) {

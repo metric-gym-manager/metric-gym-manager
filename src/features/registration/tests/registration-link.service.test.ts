@@ -25,7 +25,10 @@ jest.mock('@/lib/supabase/admin', () => ({
 // buildJoinUrl reads this — set before importing the module under test.
 process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com'
 
-import { rotateRegistrationToken } from '../services/registration-link.service'
+import {
+  getGymRegistrationDetails,
+  rotateRegistrationToken,
+} from '../services/registration-link.service'
 
 describe('rotateRegistrationToken', () => {
   afterEach(() => {
@@ -116,5 +119,72 @@ describe('rotateRegistrationToken', () => {
     await expect(
       rotateRegistrationToken('33333333-3333-3333-3333-333333333333')
     ).rejects.toThrow('Failed to rotate registration link: db down')
+  })
+})
+
+/**
+ * getGymRegistrationDetails — what the public QR registration needs from the
+ * gym row the token resolved to: the name (the welcome SMS names the gym) and
+ * the admission fee to charge. Both come from the database, never the client.
+ */
+describe('getGymRegistrationDetails', () => {
+  function mockGymRow(result: { data: unknown; error: unknown }) {
+    const maybeSingle = jest.fn().mockResolvedValue(result)
+    const eq = jest.fn(() => ({ maybeSingle }))
+    const select = jest.fn(() => ({ eq }))
+    const from = jest.fn(() => ({ select }))
+    mockAdminClient = { from }
+    return { from, select, eq }
+  }
+
+  it('returns the gym name and the admission fee when the fee is enabled', async () => {
+    const { from, select, eq } = mockGymRow({
+      data: {
+        gym_name: 'Titan Fitness',
+        admission_fee: '1500.00',
+        admission_fee_enabled: true,
+      },
+      error: null,
+    })
+
+    await expect(getGymRegistrationDetails('gym-1')).resolves.toEqual({
+      gymName: 'Titan Fitness',
+      admissionFee: 1500,
+    })
+    expect(from).toHaveBeenCalledWith('gyms')
+    expect(select).toHaveBeenCalledWith(
+      'gym_name, admission_fee, admission_fee_enabled'
+    )
+    expect(eq).toHaveBeenCalledWith('id', 'gym-1')
+  })
+
+  it('charges no admission fee when the gym has it switched off', async () => {
+    mockGymRow({
+      data: {
+        gym_name: 'Titan Fitness',
+        admission_fee: '1500.00',
+        admission_fee_enabled: false,
+      },
+      error: null,
+    })
+
+    await expect(getGymRegistrationDetails('gym-1')).resolves.toEqual({
+      gymName: 'Titan Fitness',
+      admissionFee: 0,
+    })
+  })
+
+  it('returns null when the gym row does not exist', async () => {
+    mockGymRow({ data: null, error: null })
+
+    await expect(getGymRegistrationDetails('gym-1')).resolves.toBeNull()
+  })
+
+  it('throws when the read fails, rather than registering without a fee', async () => {
+    mockGymRow({ data: null, error: { message: 'db down' } })
+
+    await expect(getGymRegistrationDetails('gym-1')).rejects.toThrow(
+      'Failed to load gym for registration: db down'
+    )
   })
 })

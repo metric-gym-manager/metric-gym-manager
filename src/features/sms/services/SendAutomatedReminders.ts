@@ -10,7 +10,7 @@
  * 2. Calculating days until due for each member
  * 3. Determining if reminder should be sent (using centralized rules)
  * 4. Checking for duplicate reminders (already sent today)
- * 5. Sending reminder SMS
+ * 5. Sending reminder SMS, naming the member's gym (names read once per run)
  * 6. Logging to database
  * 7. Aggregating results
  */
@@ -19,16 +19,19 @@ import { Member } from '@/features/members/domain/Member'
 import { IMemberRepository } from '@/features/members/services/IMemberRepository'
 import { ISMSRepository } from './ISMSRepository'
 import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository'
-import { ISMSProvider } from './ISMSProvider'
+import type { ISMSProvider, SMSSendResult } from './ISMSProvider'
+import type { IGymDirectory } from './IGymDirectory'
+import type { IDiscountDirectory } from './IDiscountDirectory'
+import { effectivePlanAmount } from '@/features/members/utils/effectivePlanAmount'
+import { isSmsDisabledForGym } from '@/features/sms/config/SmsSuppression'
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig'
 import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue'
-import { formatDateForDisplay } from '@/utils/date/date'
 import {
   shouldSendReminder,
   ReminderType,
 } from '@/features/sms/config/ReminderConfig'
+import { reminderSms } from '@/features/sms/config/SmsTemplates'
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository'
-import { PlanType } from '@/features/members/config/PlanConfig'
 
 /**
  * Input for sending automated reminders
@@ -76,6 +79,13 @@ export interface ReminderSummary {
    * on EVERY tier — only the account status gates them.
    */
   membersSkippedBillingRestricted: number
+
+  /**
+   * Members skipped because their gym is on the operator's never-text list
+   * (`SMS_DISABLED_GYM_IDS`, e.g. the E2E test gyms). Not attempted, so they
+   * leave no failed row and no run error.
+   */
+  membersSkippedSmsDisabled: number
 }
 
 /**
@@ -90,7 +100,9 @@ export interface ReminderSummary {
  * const sendReminders = new SendAutomatedReminders(
  *   memberRepository,
  *   smsRepository,
- *   smsProvider
+ *   smsProvider,
+ *   gymSubscriptionRepository,
+ *   gymDirectory
  * );
  *
  * const summary = await sendReminders.execute({ gymId: 'gym-123' });
@@ -101,7 +113,9 @@ export class SendAutomatedReminders {
     private readonly memberRepo: IMemberRepository,
     private readonly smsRepo: ISMSRepository,
     private readonly smsProvider: ISMSProvider,
-    private readonly gymSubscriptionRepo: IGymSubscriptionRepository
+    private readonly gymSubscriptionRepo: IGymSubscriptionRepository,
+    private readonly gymDirectory: IGymDirectory,
+    private readonly discountDirectory: IDiscountDirectory
   ) {}
 
   /**
@@ -152,6 +166,7 @@ export class SendAutomatedReminders {
       membersProcessed: 0,
       membersSkipped: 0,
       membersSkippedBillingRestricted: 0,
+      membersSkippedSmsDisabled: 0,
     }
 
     try {
@@ -167,12 +182,25 @@ export class SendAutomatedReminders {
       const allowedGyms = await this.resolveAllowedGyms(
         allMembers.map((m) => m.gymId)
       )
-      const members = allMembers.filter((m) => allowedGyms.has(m.gymId))
+      const billable = allMembers.filter((m) => allowedGyms.has(m.gymId))
       summary.membersSkippedBillingRestricted =
-        allMembers.length - members.length
+        allMembers.length - billable.length
       if (summary.membersSkippedBillingRestricted > 0) {
         console.log(
           `⏭  Skipping ${summary.membersSkippedBillingRestricted} member(s) of billing-restricted (suspended/lapsed) gyms`
+        )
+      }
+
+      // The operator's never-text list (SMS_DISABLED_GYM_IDS): the E2E test
+      // gyms run in production with valid-format seeded numbers. Skipped up
+      // front rather than refused at the send layer, so a test gym leaves no
+      // daily batch of failed rows and run errors. sendSmsViaTextLk refuses
+      // them too, for every other path.
+      const members = billable.filter((m) => !isSmsDisabledForGym(m.gymId))
+      summary.membersSkippedSmsDisabled = billable.length - members.length
+      if (summary.membersSkippedSmsDisabled > 0) {
+        console.log(
+          `⏭  Skipping ${summary.membersSkippedSmsDisabled} member(s) of gyms with texts disabled`
         )
       }
 
@@ -180,12 +208,55 @@ export class SendAutomatedReminders {
         `📊 Processing ${members.length} active members for reminders`
       )
 
+      // Every reminder names the member's gym (the sender ID is
+      // platform-wide). One read for every gym this run can send for —
+      // never one per member.
+      const textableGyms = new Set(members.map((m) => m.gymId))
+      const gymNames =
+        textableGyms.size > 0
+          ? await this.gymDirectory.findNamesByIds([...textableGyms])
+          : new Map<string, string>()
+
+      // A reminder quotes what the desk will charge: the plan amount less a
+      // recurring discount. One read for every discount this run needs.
+      const recurringDiscountIds = [
+        ...new Set(
+          members
+            .filter((m) => m.recurringDiscount && m.discountId)
+            .map((m) => m.discountId as string)
+        ),
+      ]
+      const discountPercentages =
+        recurringDiscountIds.length > 0
+          ? await this.discountDirectory.findPercentagesByIds(
+              recurringDiscountIds
+            )
+          : new Map<string, number>()
+
       // Process each member
       for (const member of members) {
         summary.membersProcessed++
 
         try {
-          const sent = await this.processMemberReminder(member, summary)
+          const gymName = gymNames.get(member.gymId)
+          if (!gymName) {
+            // gyms.gym_name is NOT NULL, so this means the read missed the
+            // row. Fail closed: a reminder must name the gym.
+            throw new Error('gym name not found')
+          }
+          const amount = effectivePlanAmount({
+            planAmount: member.planAmount,
+            recurringDiscount: member.recurringDiscount,
+            discountPercentage: member.discountId
+              ? (discountPercentages.get(member.discountId) ?? null)
+              : null,
+          })
+          const sent = await this.processMemberReminder(
+            member,
+            gymName,
+            amount,
+            summary
+          )
           if (!sent) {
             summary.membersSkipped++
           }
@@ -221,11 +292,15 @@ export class SendAutomatedReminders {
    * Process reminder for a single member
    *
    * @param member - Member to process
+   * @param gymName - The member's gym, printed in the text
+   * @param amount - The amount the reminder quotes (after a recurring discount)
    * @param summary - Summary object to update
    * @returns True if reminder was sent, false if skipped
    */
   private async processMemberReminder(
     member: Member,
+    gymName: string,
+    amount: number,
     summary: ReminderSummary
   ): Promise<boolean> {
     // Calculate days until due
@@ -261,7 +336,7 @@ export class SendAutomatedReminders {
     }
 
     // Send reminder
-    await this.sendReminder(member, smsType)
+    await this.sendReminder(member, gymName, amount, smsType)
 
     // Update summary
     summary.totalSent++
@@ -304,101 +379,95 @@ export class SendAutomatedReminders {
   }
 
   /**
-   * Send reminder SMS to member
+   * Send a reminder SMS and log the outcome — success AND failure (rule 2.7).
+   *
+   * A failed send is written to sms_logs as `failed` with its reason, then
+   * re-thrown so the run counts it in `summary.errors` and not as sent. The
+   * failure used to throw before any insert, so no failed reminder ever reached
+   * the member's history or the system-health failures table.
    *
    * @param member - Member to send reminder to
+   * @param gymName - The member's gym, printed in the text
+   * @param amount - The amount the reminder quotes (after a recurring discount)
    * @param smsType - Type of reminder
+   * @throws Error when the text cannot be built or the provider fails
    */
   private async sendReminder(
     member: Member,
+    gymName: string,
+    amount: number,
     smsType: ReminderType
   ): Promise<void> {
+    let message = ''
+    let result: SMSSendResult
     try {
-      // Generate reminder message
-      const message = this.generateReminderMessage(member, smsType)
-
-      // Send SMS
-      const result = await this.smsProvider.send({
+      message = reminderSms(smsType, {
+        gymName,
+        memberName: member.name,
+        planType: member.planType,
+        amount,
+        dueDate: member.nextDueDate,
+      })
+      result = await this.smsProvider.send({
+        gymId: member.gymId,
         to: member.phoneNumber,
         message,
       })
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'Exception sending SMS'
+      await this.logFailedReminder(member, smsType, message, reason)
+      console.error(`Failed to send ${smsType} to ${member.name}:`, error)
+      throw error
+    }
 
-      if (!result.success) {
-        throw new Error(result.error || 'SMS sending failed')
-      }
+    if (!result.success) {
+      const reason = result.error || 'SMS sending failed'
+      await this.logFailedReminder(member, smsType, message, reason)
+      console.error(`Failed to send ${smsType} to ${member.name}:`, reason)
+      throw new Error(reason)
+    }
 
-      // Log to database
+    await this.smsRepo.create({
+      memberId: member.id,
+      gymId: member.gymId,
+      smsType,
+      phoneNumber: member.phoneNumber,
+      messageBody: message,
+      sentAt: new Date(),
+      deliveryStatus: SMSDeliveryStatus.Sent,
+      textLkMessageId: result.messageId || null,
+      errorMessage: null,
+    })
+  }
+
+  /**
+   * Record a failed reminder. Never throws: if the log write itself fails,
+   * the original send failure must still reach the run's summary.
+   *
+   * @param messageBody - The text, or '' when it could not be built
+   * @param reason - Why the send failed
+   */
+  private async logFailedReminder(
+    member: Member,
+    smsType: ReminderType,
+    messageBody: string,
+    reason: string
+  ): Promise<void> {
+    try {
       await this.smsRepo.create({
         memberId: member.id,
         gymId: member.gymId,
         smsType,
         phoneNumber: member.phoneNumber,
-        messageBody: message,
+        messageBody,
         sentAt: new Date(),
-        deliveryStatus: result.success
-          ? SMSDeliveryStatus.Sent
-          : SMSDeliveryStatus.Failed,
-        textLkMessageId: result.messageId || null,
-        errorMessage: result.success ? null : result.error || 'Unknown error',
+        deliveryStatus: SMSDeliveryStatus.Failed,
+        textLkMessageId: null,
+        errorMessage: reason,
       })
-    } catch (error) {
-      console.error(`Failed to send ${smsType} to ${member.name}:`, error)
-      throw error
+    } catch (logError) {
+      console.error('Failed to log reminder failure:', logError)
     }
-  }
-
-  /**
-   * Generate reminder message based on SMS type
-   *
-   * @param member - Member receiving reminder
-   * @param smsType - Type of reminder
-   * @returns SMS message body
-   */
-  private generateReminderMessage(
-    member: Member,
-    smsType: ReminderType
-  ): string {
-    const planType = this.formatPlanType(member.planType)
-    const dueDate = formatDateForDisplay(member.nextDueDate)
-    const amount = `Rs.${member.planAmount.toFixed(2)}`
-
-    // Different messages based on reminder type
-    switch (smsType) {
-      case ReminderType.Overdue:
-        return (
-          `Dear ${member.name}, your ${planType} membership payment was due on ${dueDate}. ` +
-          `Amount: ${amount}. Please make payment. Thank you.`
-        )
-
-      // Instant expiry (no grace period) makes the due date the LAST day the
-      // member is Active — tomorrow's update-expired-status run expires them.
-      // So this is the final message they receive while still a member, and it
-      // says so explicitly rather than just "payment is due".
-      case ReminderType.DueToday:
-        return (
-          `Dear ${member.name}, your ${planType} membership expires today. ` +
-          `Amount: ${amount}. Please pay today to stay active. Thank you.`
-        )
-
-      case ReminderType.ThreeDay:
-      case ReminderType.SevenDay:
-      default:
-        return (
-          `Dear ${member.name}, your ${planType} membership payment is due on ${dueDate}. ` +
-          `Amount: ${amount}. Thank you.`
-        )
-    }
-  }
-
-  /**
-   * Format plan type for display
-   *
-   * @param planType - Plan type enum
-   * @returns Formatted plan type (e.g., "Monthly", "3-Months")
-   */
-  private formatPlanType(planType: PlanType): string {
-    return (
-      planType.charAt(0).toUpperCase() + planType.slice(1).replace('-', '-')
-    )
   }
 }

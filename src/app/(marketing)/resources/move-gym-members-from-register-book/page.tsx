@@ -16,11 +16,11 @@ import {
   buildPageMetadata,
   formatDisplayDate,
   getMarketingPage,
+  sampleWelcomeSms,
 } from '@/features/marketing'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { BULK_REGISTER_MAX_ROWS } from '@/features/members/schemas/member.schemas'
 import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
-import { formatDateForDisplay } from '@/utils/date/date'
 
 const PATH = ARTICLE_PATHS.move
 const PAGE = getMarketingPage(PATH)
@@ -29,10 +29,11 @@ export const metadata: Metadata = buildPageMetadata(PATH, { type: 'article' })
 
 /**
  * The worked example. The next due date comes from the same calculation
- * registration uses, and the dates are formatted the way the SMS formats them,
- * so the sample message matches what a member receives. Local dates on both
- * sides: `calculateNextDueDate` and `formatDateForDisplay` both work in local
- * time, so the example reads the same whatever zone the build runs in.
+ * registration uses, and the welcome text from the same template registration
+ * sends, so the sample message matches what a member receives. Local dates on
+ * both sides: `calculateNextDueDate` and the template's date formatting both
+ * work in local time, so the example reads the same whatever zone the build
+ * runs in.
  */
 const LAST_PAID = new Date(2026, 8, 20) // 20 September 2026
 const NEXT_DUE = calculateNextDueDate(LAST_PAID, PlanType.Monthly)
@@ -44,7 +45,7 @@ const lastPaid = PROSE_DATE.format(LAST_PAID)
 const nextDue = PROSE_DATE.format(NEXT_DUE)
 
 /** RegisterMember's welcome text, filled in for the example member. */
-const WELCOME_SMS = `Welcome to our gym, Nimal! Your monthly membership is active. Amount paid: Rs.4000.00. Next due: ${formatDateForDisplay(NEXT_DUE)}. Thank you!`
+const WELCOME_SMS = sampleWelcomeSms(NEXT_DUE)
 
 export default function MoveMembersArticle() {
   return (
@@ -173,8 +174,8 @@ export default function MoveMembersArticle() {
             <p>“{WELCOME_SMS}”</p>
           </blockquote>
           <p>
-            The message does not name your gym, and it comes from a shared
-            sender name rather than yours. Tell them before you start — a notice
+            The message names your gym, but it comes from a shared sender name
+            rather than your own number. Tell them before you start — a notice
             at the desk, or a message from the gym’s own phone — so the text is
             expected rather than suspicious.
           </p>

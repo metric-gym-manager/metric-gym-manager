@@ -10,14 +10,15 @@ This document describes the comprehensive testing strategy for the Payment Remin
 
 **Rule:** Daily members should receive NO automatic payment reminders.
 
-| Scenario | Days Until Due | Expected SMS | Reason |
-|----------|---------------|--------------|---------|
-| Daily - 7 Days | +7 | NONE | Daily members excluded from all auto-reminders |
-| Daily - 3 Days | +3 | NONE | Daily members excluded from all auto-reminders |
-| Daily - Due Today | 0 | NONE | Daily members excluded from all auto-reminders |
-| Daily - Overdue | -2 | NONE | Daily members excluded from all auto-reminders |
+| Scenario          | Days Until Due | Expected SMS | Reason                                         |
+| ----------------- | -------------- | ------------ | ---------------------------------------------- |
+| Daily - 7 Days    | +7             | NONE         | Daily members excluded from all auto-reminders |
+| Daily - 3 Days    | +3             | NONE         | Daily members excluded from all auto-reminders |
+| Daily - Due Today | 0              | NONE         | Daily members excluded from all auto-reminders |
+| Daily - Overdue   | -2             | NONE         | Daily members excluded from all auto-reminders |
 
 **Frontend Display:**
+
 - All 3 status columns (7-day, 3-day, due-date) should show: ❌ **N/A**
 
 ---
@@ -26,14 +27,15 @@ This document describes the comprehensive testing strategy for the Payment Remin
 
 **Rule:** Monthly members receive 3-day and due-date reminders only (NO 7-day reminder).
 
-| Scenario | Days Until Due | Expected SMS | Reason |
-|----------|---------------|--------------|---------|
-| Monthly - 7 Days | +7 | NONE | Monthly members don't get 7-day reminder |
-| Monthly - 3 Days | +3 | `reminder_3day` | Monthly members get 3-day reminder |
-| Monthly - Due Today | 0 | `due_today` | Monthly members get due-date reminder |
-| Monthly - Overdue | -5 | `overdue` | Monthly members get overdue reminder |
+| Scenario            | Days Until Due | Expected SMS    | Reason                                   |
+| ------------------- | -------------- | --------------- | ---------------------------------------- |
+| Monthly - 7 Days    | +7             | NONE            | Monthly members don't get 7-day reminder |
+| Monthly - 3 Days    | +3             | `reminder_3day` | Monthly members get 3-day reminder       |
+| Monthly - Due Today | 0              | `due_today`     | Monthly members get due-date reminder    |
+| Monthly - Overdue   | -5             | `overdue`       | Monthly members get overdue reminder     |
 
 **Frontend Display:**
+
 - **7-day column:** ❌ **N/A** (not applicable for monthly)
 - **3-day column:**
   - Before 3-day mark: ⚠️ **Not sent**
@@ -48,14 +50,15 @@ This document describes the comprehensive testing strategy for the Payment Remin
 
 **Rule:** Annual members receive all 3 reminders: 7-day, 3-day, and due-date.
 
-| Scenario | Days Until Due | Expected SMS | Reason |
-|----------|---------------|--------------|---------|
-| Annual - 7 Days | +7 | `reminder_7day` | Annual members get 7-day reminder |
-| Annual - 3 Days | +3 | `reminder_3day` | Annual members get 3-day reminder |
-| Annual - Due Today | 0 | `due_today` | Annual members get due-date reminder |
-| Annual - Overdue | -3 | `overdue` | Annual members get overdue reminder |
+| Scenario           | Days Until Due | Expected SMS    | Reason                               |
+| ------------------ | -------------- | --------------- | ------------------------------------ |
+| Annual - 7 Days    | +7             | `reminder_7day` | Annual members get 7-day reminder    |
+| Annual - 3 Days    | +3             | `reminder_3day` | Annual members get 3-day reminder    |
+| Annual - Due Today | 0              | `due_today`     | Annual members get due-date reminder |
+| Annual - Overdue   | -3             | `overdue`       | Annual members get overdue reminder  |
 
 **Frontend Display:**
+
 - **7-day column:**
   - Before 7-day mark: ⚠️ **Not sent**
   - At 7-day mark: ✅ **Sent**
@@ -69,11 +72,11 @@ This document describes the comprehensive testing strategy for the Payment Remin
 
 **Rule:** Same as annual - receive all 3 reminders.
 
-| Scenario | Days Until Due | Expected SMS |
-|----------|---------------|--------------|
-| 3-Month - 7 Days | +7 | `reminder_7day` |
-| 3-Month - 3 Days | +3 | `reminder_3day` |
-| 6-Month - Due Today | 0 | `due_today` |
+| Scenario            | Days Until Due | Expected SMS    |
+| ------------------- | -------------- | --------------- |
+| 3-Month - 7 Days    | +7             | `reminder_7day` |
+| 3-Month - 3 Days    | +3             | `reminder_3day` |
+| 6-Month - Due Today | 0              | `due_today`     |
 
 ---
 
@@ -84,6 +87,7 @@ This document describes the comprehensive testing strategy for the Payment Remin
 **Endpoint:** `POST /api/cron/send-reminders`
 
 **Process:**
+
 1. Fetch all gyms
 2. For each gym:
    - Fetch all active members (excluding installment plan members)
@@ -97,6 +101,7 @@ This document describes the comprehensive testing strategy for the Payment Remin
 5. Return summary statistics
 
 **Expected Output:**
+
 ```json
 {
   "success": true,
@@ -120,6 +125,7 @@ This document describes the comprehensive testing strategy for the Payment Remin
 ### 2. SMS Logs Verification
 
 **Query:**
+
 ```sql
 SELECT * FROM sms_logs
 WHERE member_id = '<member_id>'
@@ -128,6 +134,7 @@ ORDER BY sent_at DESC;
 ```
 
 **Expected Fields:**
+
 - `id`: UUID
 - `member_id`: UUID of member
 - `gym_id`: UUID of gym
@@ -139,6 +146,7 @@ ORDER BY sent_at DESC;
 - `text_lk_message_id`: External provider ID (if real SMS enabled)
 
 **Verification Checklist:**
+
 - ✅ Daily members: 0 SMS logs (no reminders)
 - ✅ Monthly at 7 days: 0 SMS logs (no 7-day reminder)
 - ✅ Monthly at 3 days: 1 SMS log (`reminder_3day`)
@@ -156,6 +164,7 @@ ORDER BY sent_at DESC;
 **Test Cases:**
 
 #### TC1: Daily Member Display
+
 ```
 Member: "Daily Test - 3 Days"
 Plan: Daily
@@ -168,6 +177,7 @@ Expected Display:
 ```
 
 #### TC2: Monthly Member (Before 3-Day Mark)
+
 ```
 Member: "Monthly Test - 7 Days"
 Plan: Monthly
@@ -180,6 +190,7 @@ Expected Display:
 ```
 
 #### TC3: Monthly Member (At 3-Day Mark, After Cron)
+
 ```
 Member: "Monthly Test - 3 Days"
 Plan: Monthly
@@ -193,6 +204,7 @@ Expected Display:
 ```
 
 #### TC4: Annual Member (At 7-Day Mark)
+
 ```
 Member: "Annual Test - 7 Days"
 Plan: Annual
@@ -210,50 +222,51 @@ Expected Display:
 ### 2. Status Badge Logic
 
 **Implementation:**
+
 ```typescript
 function getSMSTypeStatus(
   reminder: MemberReminderStatus,
   targetDays: number,
   expectedType: string
 ): 'sent' | 'not_sent' | 'not_applicable' {
-  const { days_until_due, last_reminder_type, plan_type } = reminder;
+  const { days_until_due, last_reminder_type, plan_type } = reminder
 
   // Daily members: no automatic reminders
   if (plan_type === 'daily') {
-    return 'not_applicable';
+    return 'not_applicable'
   }
 
   // Monthly members: no 7-day reminder
   if (plan_type === 'monthly' && expectedType === 'reminder_7day') {
-    return 'not_applicable';
+    return 'not_applicable'
   }
 
   // Check if this reminder was sent
   if (days_until_due === targetDays && last_reminder_type === expectedType) {
-    return 'sent';
+    return 'sent'
   }
 
   // If we're past this reminder window and it wasn't sent
   if (days_until_due < targetDays) {
-    return 'not_sent';
+    return 'not_sent'
   }
 
   // Not yet time for this reminder
-  return 'not_applicable';
+  return 'not_applicable'
 }
 ```
 
 **Test Matrix:**
 
 | Plan Type | Days Until | Target: 7 | Target: 3 | Target: 0 |
-|-----------|-----------|-----------|-----------|-----------|
-| Daily | Any | N/A | N/A | N/A |
-| Monthly | 7 | N/A | - | - |
-| Monthly | 3 | N/A | ✅ | - |
-| Monthly | 0 | N/A | ⚠️ | ✅ |
-| Annual | 7 | ✅ | - | - |
-| Annual | 3 | ⚠️ | ✅ | - |
-| Annual | 0 | ⚠️ | ⚠️ | ✅ |
+| --------- | ---------- | --------- | --------- | --------- |
+| Daily     | Any        | N/A       | N/A       | N/A       |
+| Monthly   | 7          | N/A       | -         | -         |
+| Monthly   | 3          | N/A       | ✅        | -         |
+| Monthly   | 0          | N/A       | ⚠️        | ✅        |
+| Annual    | 7          | ✅        | -         | -         |
+| Annual    | 3          | ⚠️        | ✅        | -         |
+| Annual    | 0          | ⚠️        | ⚠️        | ✅        |
 
 ---
 
@@ -262,6 +275,7 @@ function getSMSTypeStatus(
 **Endpoint:** `GET /api/members/:id/sms-history`
 
 **Expected Response:**
+
 ```json
 {
   "success": true,
@@ -276,7 +290,7 @@ function getSMSTypeStatus(
         "id": "uuid",
         "sms_type": "reminder_3day",
         "phone_number": "+94771234567",
-        "message_body": "Dear Monthly Test - 3 Days...",
+        "message_body": "Hi Monthly Test - 3 Days, your monthly membership at Test Gym is due on...",
         "sent_at": "2026-03-09T03:30:00Z",
         "delivery_status": "sent",
         "text_lk_message_id": null
@@ -288,6 +302,7 @@ function getSMSTypeStatus(
 ```
 
 **Modal Display:**
+
 - Shows only payment reminder SMS (filters out receipt, welcome)
 - Table columns: Type | Sent At | Status | Message
 - Type badge color-coded (7-day: blue, 3-day: amber, due: orange, overdue: red)
@@ -301,6 +316,7 @@ function getSMSTypeStatus(
 **Endpoint:** `POST /api/sms/send`
 
 **Request:**
+
 ```json
 {
   "memberId": "uuid",
@@ -309,6 +325,7 @@ function getSMSTypeStatus(
 ```
 
 **Test Case:**
+
 1. Click "Send Now" button on "Monthly Test - 7 Days"
 2. System determines SMS type based on `days_until_due`
 3. SMS sent manually (bypasses cron logic)
@@ -317,6 +334,7 @@ function getSMSTypeStatus(
 6. History modal shows the manually sent SMS
 
 **Verification:**
+
 - ✅ SMS log created with correct type
 - ✅ "Sent Xm ago" indicator shows in table
 - ✅ Indicator updates to "Sent Xh ago" after time passes
@@ -330,6 +348,7 @@ function getSMSTypeStatus(
 ### Prerequisites
 
 1. **Start development server:**
+
    ```bash
    npm run dev
    ```
@@ -491,6 +510,7 @@ Fetching SMS history for: Monthly Test - 3 Days
 ### Issue: Cron job returns 0 reminders sent
 
 **Possible causes:**
+
 1. No test members created
 2. Test members not in correct due date windows
 3. Test members have installment plans (excluded from regular reminders)
@@ -514,6 +534,7 @@ Fetching SMS history for: Monthly Test - 3 Days
 **Cause:** API filtering incorrectly or RLS policies blocking
 
 **Solution:**
+
 1. Check `/api/members/[id]/sms-history` returns data
 2. Verify gym_id matches in both members and sms_logs
 3. Check Supabase RLS policies on sms_logs table
@@ -525,23 +546,27 @@ Fetching SMS history for: Monthly Test - 3 Days
 This comprehensive test suite validates:
 
 ✅ **Backend Logic:**
+
 - Daily members excluded from all automatic reminders
 - Monthly members excluded from 7-day reminders
 - Annual/3-month/6-month members receive all reminders
 - SMS correctly logged to database
 
 ✅ **Frontend Display:**
+
 - Status badges show correct states
 - N/A displayed for excluded reminder types
 - "Sent X ago" indicator works
 - Filters and sorting function properly
 
 ✅ **SMS History:**
+
 - Modal shows complete payment reminder history
 - Only payment reminders displayed (no receipts)
 - Delivery status accurately shown
 
 ✅ **Manual Sending:**
+
 - Manual reminders bypass plan restrictions
 - SMS logs created correctly
 - UI updates in real-time

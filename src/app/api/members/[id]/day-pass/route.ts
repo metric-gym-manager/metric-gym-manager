@@ -1,15 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { z } from 'zod';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { createClient } from '@/lib/supabase/server';
-import { createIssueDayPass } from '@/features/payments';
-import { ResponseBuilder } from '@/utils/api/ApiResponse';
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { getCurrentGymProfile } from '@/lib/middleware/auth'
+import { createClient } from '@/lib/supabase/server'
+import { createIssueDayPass } from '@/features/payments'
+import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import {
   BusinessRuleViolationError,
   InvalidStatusTransitionError,
   NotFoundError,
   ValidationError,
-} from '@/utils/errors';
+} from '@/utils/errors'
 
 // ============================================================
 // POST /api/members/[id]/day-pass - Issue a day pass
@@ -25,7 +25,7 @@ const dayPassSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format')
     .optional(),
-});
+})
 
 /**
  * Day Pass Endpoint
@@ -43,22 +43,23 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const gymProfile = await getCurrentGymProfile();
-    const body = await request.json();
+    const { id } = await params
+    const gymProfile = await getCurrentGymProfile()
+    const body = await request.json()
 
-    const validated = dayPassSchema.parse(body);
+    const validated = dayPassSchema.parse(body)
 
-    const issueDayPass = createIssueDayPass(await createClient());
+    const issueDayPass = createIssueDayPass(await createClient())
 
     const result = await issueDayPass.execute({
       gymId: gymProfile.id,
+      gymName: gymProfile.gym_name,
       memberId: id,
       amount: validated.amount,
       paymentDate: validated.paymentDate
         ? new Date(validated.paymentDate)
         : undefined,
-    });
+    })
 
     return NextResponse.json(
       ResponseBuilder.success(
@@ -72,14 +73,14 @@ export async function POST(
         { message: 'Day pass issued successfully' }
       ),
       { status: 201 }
-    );
+    )
   } catch (error) {
-    console.error('Issue day pass API error:', error);
+    console.error('Issue day pass API error:', error)
 
     if (error instanceof NotFoundError) {
       return NextResponse.json(ResponseBuilder.notFound('Member'), {
         status: 404,
-      });
+      })
     }
 
     if (
@@ -90,23 +91,23 @@ export async function POST(
       return NextResponse.json(
         ResponseBuilder.validationError({ general: [error.message] }),
         { status: 400 }
-      );
+      )
     }
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         ResponseBuilder.validationError({ general: ['Invalid input data'] }),
         { status: 400 }
-      );
+      )
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 });
+      return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 })
     }
 
     return NextResponse.json(
       ResponseBuilder.error('Failed to issue day pass', 'DAY_PASS_ERROR'),
       { status: 500 }
-    );
+    )
   }
 }

@@ -170,8 +170,9 @@ describe('MemberSmsHistory', () => {
           entry({ id: '4', smsType: 'receipt' }),
           entry({ id: '5', smsType: 'welcome' }),
           entry({ id: '6', smsType: 'reactivation' }),
+          entry({ id: '7', smsType: 'announcement' }),
         ],
-        totalCount: 6,
+        totalCount: 7,
       }),
     })
     renderScreen(<MemberSmsHistory memberId="m-1" />)
@@ -184,8 +185,12 @@ describe('MemberSmsHistory', () => {
       'Due today',
       'Overdue notice',
       'Payment receipt',
-      'Announcement',
+      // A registration welcome is a welcome. Until 2026-10-04 announcements
+      // were logged as `welcome`, so this label read "Announcement" and every
+      // real welcome text was shown to the gym as an announcement.
+      'Welcome',
       'Reactivation',
+      'Announcement',
     ]) {
       expect(table.getByText(label)).toBeInTheDocument()
     }

@@ -27,6 +27,63 @@
 updateDeliveryStatus` returns rows-affected precisely so that a no-op cannot
 > be mistaken for a write. See `docs/architecture/sms-delivery-tracking.md`.
 
+> **Updated 2026-10-03.** Two more changes on the send side.
+>
+> **1. Registration now awaits the welcome SMS.** `RegisterMember` sent it
+> fire-and-forget (`this.sendWelcomeSMS(...).catch(...)`). On Vercel the
+> function can be frozen once the response is sent, and about a third of
+> registrations had no `welcome` row in `sms_logs`: 15 of 46 registrations at
+> customer gyms between 2026-08-19 and 2026-10-03 (test gyms left out, as they
+> register through mock SMS). The desk, bulk and QR
+> routes all run this use case. It now follows `CollectPayment`:
+> `try { await this.sendWelcomeSMS(...) } catch { console.error }`, so the
+> send and its log row complete before `execute()` returns, and a failed SMS
+> still never fails the registration.
+>
+> With that change, every automated send path awaits its send and its log
+> write: welcome, receipt, welcome back, day pass and the four reminders.
+> **Correction, 2026-10-04:** until that date a _failed_ reminder was never
+> logged. `SendAutomatedReminders.sendReminder` threw before its insert, so
+> its `failed` branch was dead code. It now logs `failed` with the reason
+> before re-throwing, and `existsForToday` counts only rows that did not fail,
+> so a same-day re-run still retries the member. The welcome, receipt and
+> day-pass senders now also build their text inside the `try`: a template
+> that throws is logged as `failed` (with an empty `message_body`), never a
+> silently skipped text. `RegisterMember.test.ts` pins the welcome path. Its provider resolves on a
+> `setTimeout` tick, so an un-awaited send fails the suite. Past
+> registrations were **not** backfilled: whether those texts went out is
+> unknown, and a row written now would invent a record.
+>
+> **Gyms that must never be texted (2026-10-04).** `SMS_DISABLED_GYM_IDS`
+> (comma-separated gym ids, set in Vercel) is enforced in `sendSmsViaTextLk`,
+> the one function every real text passes through. `gymId` is a required field
+> of `SendSmsParams` and `SMSMessage`, so no caller can skip the check. A
+> refused text returns `SMS disabled for this gym`, which the caller logs as
+> `failed`. The reminders cron skips those gyms up front so they leave no daily
+> failed rows. It exists for the E2E test gyms: they live in production with
+> valid-format seeded numbers, and the cron sent them 310 real texts.
+>
+> **Announcements have their own type (2026-10-04).** `announcement.service`
+> logged every announcement as `welcome`, because `sms_type` had no value for
+> it. 401 announcement texts therefore sat in members' histories as welcomes:
+> 50 real ones in one gym, and 351 mock-mode rows in an E2E gym. The member
+> history screen, meanwhile, labelled every `welcome` row "Announcement".
+> Migration `20261004000001` adds `announcement`, and `20261004000002`
+> relabels the old rows. A welcome always starts "Welcome" and names one
+> member; an announcement's body is shared across members. Both signatures
+> selected the same 401 rows. The enum contract (`supabase/expected-enums.json`,
+> `enum-parity.test.ts`, `npm run db:audit`) carries the value on all three
+> sides. Announcement _sends_ are still fire-and-forget: see HANDOFF §6.
+>
+> **2. Every automated text comes from one template module**,
+> `src/features/sms/config/SmsTemplates.ts`, and names the gym (SEO-053). The
+> sender ID is platform-wide, so the text is the only place a member learns
+> which gym is writing. Do not build message strings in a use case.
+> `messageBody` in the log is exactly the text the provider was given.
+>
+> Known gap: the text.lk provider has no request timeout. A hung gateway now
+> holds a registration, as it already held a payment.
+
 ---
 
 ### 2.7 SMS Error Logging Pattern

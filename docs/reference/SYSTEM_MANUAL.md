@@ -691,8 +691,8 @@ sequenceDiagram
     DB-->>MemberRepo: updated member row
     MemberRepo-->>UseCase: Member entity (processed)
 
-    UseCase->>SMSProvider: send(receipt SMS) [fire-and-forget]
-    SMSProvider-->>UseCase: [async, no wait]
+    UseCase->>SMSProvider: send(receipt SMS) [awaited]
+    SMSProvider-->>UseCase: result (logged to sms_logs, sent or failed)
 
     UseCase-->>API: {member, payment}
     API-->>UI: 201 Created {member, payment}
@@ -745,7 +745,7 @@ SET
 WHERE id = ? AND gym_id = ?;
 ```
 
-**Table**: `sms_logs` (async, fire-and-forget)
+**Table**: `sms_logs` (awaited before the response; a failed SMS is logged as `failed` and never fails the request)
 
 ```sql
 INSERT INTO sms_logs (
@@ -846,8 +846,8 @@ sequenceDiagram
         DB-->>PaymentRepo: payment row
         PaymentRepo-->>UseCase: Payment entity
 
-        UseCase->>SMSProvider: send(welcome SMS) [fire-and-forget]
-        SMSProvider-->>UseCase: [async, no wait]
+        UseCase->>SMSProvider: send(welcome SMS) [awaited]
+        SMSProvider-->>UseCase: result (logged to sms_logs, sent or failed)
 
         UseCase-->>API: {member, payment}
         API-->>UI: 201 Created {member}
@@ -872,7 +872,7 @@ sequenceDiagram
 | 9    | `src/features/members/domain/Member.ts`                       | 100-107    | `Member.create()`        | Domain entity creation |
 | 10   | `src/features/members/services/SupabaseMemberRepository.ts`   | 271-288    | `create()`               | Member insert          |
 | 11   | `src/features/payments/services/SupabasePaymentRepository.ts` | -          | `create()`               | Initial payment record |
-| 12   | `src/features/sms/services/providers/TextLkSMSProvider.ts`    | -          | `send()`                 | Welcome SMS (async)    |
+| 12   | `src/features/sms/services/providers/TextLkSMSProvider.ts`    | -          | `send()`                 | Welcome SMS (awaited)  |
 
 ### Database Mutations
 
@@ -911,7 +911,7 @@ INSERT INTO payments (
 ) VALUES (?, ?, ?, ?, ?, ?, ?, NOW());
 ```
 
-**Table**: `sms_logs` (async, fire-and-forget)
+**Table**: `sms_logs` (awaited before the response; a failed SMS is logged as `failed` and never fails the request)
 
 ```sql
 INSERT INTO sms_logs (
@@ -1085,7 +1085,7 @@ INSERT INTO sms_logs (
 6. Database Updates:
    - `INSERT INTO payments (...)`
    - `UPDATE members SET status='active', next_due_date=?, updated_at=NOW()`
-7. SMS: Fire-and-forget receipt SMS
+7. SMS: receipt (or welcome-back) SMS, awaited and logged before the response
 
 #### POST /api/members/[id]/payment/preview
 

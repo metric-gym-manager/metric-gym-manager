@@ -140,6 +140,7 @@ export async function POST(request: NextRequest) {
 
     const result = await registerMember.execute({
       gymId: gymProfile.id,
+      gymName: gymProfile.gym_name,
       name: validatedData.name,
       phoneNumber: validatedData.phoneNumber,
       planType: validatedData.planType as PlanType,

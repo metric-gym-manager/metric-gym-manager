@@ -4,6 +4,21 @@
 > the log. This one covers what happens to a row **after** the send: the delivery
 > receipt, the member-facing history, and the constraints that make both work.
 
+> **Still not working, 2026-10-04.** The 2026-09-05 fix below made the webhook
+> _able_ to apply a report; no report has arrived since. Since 2026-02-14,
+> 1,763 messages carry a real text.lk message id, 648 of them after the fix,
+> and none is `delivered`. In the 24 hours to 2026-10-04 00:49 UTC, 34 messages
+> went out and Vercel logged no request to any `/api/webhooks/*` path.
+>
+> text.lk's public API docs (`/docs/sms-api-endpoints/`, `/docs/view-sms/`)
+> describe no delivery-report webhook. They describe only
+> `GET /api/v3/sms/{uid}` to look a message up, and the `x-textlk-signature`
+> scheme this route checks is not documented there either. So either text.lk
+> pushes reports through a channel its public docs omit (ask support), or
+> delivery status has to be **polled**: a cron that looks up recent `sent` rows
+> by `text_lk_message_id`. Until one of the two exists, `delivered` cannot
+> appear. HANDOFF §6 carries both the owner item and the repository item.
+
 ---
 
 ## 1. What was wrong (audit, 2026-09-05)
