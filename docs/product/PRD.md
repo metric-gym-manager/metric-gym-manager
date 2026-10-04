@@ -456,7 +456,7 @@ Hi [Member Name], your [plan] membership at [Gym Name] has expired (due [Due Dat
 - [plan]: Plan label in lower case (monthly, 3-month, annual …); a custom plan prints just "membership"
 - [Gym Name]: Gym's registered name, cut at its last whole word within 30 characters
 - [Due Date]: Next due date (DD/MM/YYYY format)
-- [Amount]: Plan amount (excluding discounts), thousands-separated, cents only when non-zero (e.g. 4,000)
+- [Amount]: What the desk will charge: the plan amount less a _recurring_ discount (`effectivePlanAmount`, the formula revenue and the renewals list use; changed 2026-10-04 from "excluding discounts"). Thousands-separated, cents only when non-zero (e.g. 4,000; 3,600 with a recurring 10%)
 
 #### 4.5.3 SMS Receipt Format
 

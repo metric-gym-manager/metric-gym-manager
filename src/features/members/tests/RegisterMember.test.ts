@@ -3,12 +3,12 @@
  *
  * The welcome SMS must be sent AND logged to sms_logs before execute()
  * resolves. It used to be fire-and-forget, and on Vercel the function can be
- * frozen as soon as the response is sent: 16 of 48 desk registrations in the
- * 45 days to 2026-10-03 had no `welcome` log (0 of 2 on 2026-09-28; neither
- * bulk test member in Titan Fitness on 2026-10-03). That count leaves out a
- * 350-member import on 2026-09-13, whose rows are not clean evidence: each of
- * those members has two welcome rows, one with no text.lk message id. CollectPayment had the same defect and was fixed by
- * awaiting; this suite mirrors `payments/tests/CollectPayment.test.ts`.
+ * frozen as soon as the response is sent: 15 of 46 registrations at customer
+ * gyms between 2026-08-19 and 2026-10-03 had no `welcome` log (0 of 2 on
+ * 2026-09-28; neither bulk test member in Titan Fitness on 2026-10-03). Test
+ * gyms are left out of that count: they register through mock SMS.
+ * CollectPayment had the same defect and was fixed by awaiting; this suite
+ * mirrors `payments/tests/CollectPayment.test.ts`.
  *
  * All three registration routes — desk, bulk and QR — run this use case.
  */

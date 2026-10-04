@@ -124,8 +124,10 @@ Automatically sends payment reminders to all active members based on their due d
 ### SMS Message Formats
 
 Built by `src/features/sms/config/SmsTemplates.ts`, the single source of the
-wording (updated 2026-10-04). Every text names the gym; the gym names are read
-once per run, in batches of 100.
+wording (updated 2026-10-04). Every text names the gym, and the amount is what
+the desk will charge: the plan amount less a recurring discount
+(`effectivePlanAmount`). Gym names and discount percentages are each read once
+per run, in batches of 100. Suspended gyms get no reminders.
 
 **7-Day/3-Day:**
 

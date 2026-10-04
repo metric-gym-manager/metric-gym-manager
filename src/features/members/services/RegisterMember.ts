@@ -250,9 +250,9 @@ export class RegisterMember {
 
     // 7. Send the welcome SMS and log it BEFORE returning.
     // On serverless runtimes the function can be frozen as soon as the
-    // response is sent. This send used to be fire-and-forget, and 16 of 48
-    // desk registrations in the 45 days to 2026-10-03 never logged it
-    // (rule 2.7). sendWelcomeSMS
+    // response is sent. This send used to be fire-and-forget, and 15 of 46
+    // registrations at customer gyms between 2026-08-19 and 2026-10-03 never
+    // logged it (rule 2.7). sendWelcomeSMS
     // handles provider failures internally, so a failed SMS never fails the
     // registration. Same pattern as CollectPayment.
     try {

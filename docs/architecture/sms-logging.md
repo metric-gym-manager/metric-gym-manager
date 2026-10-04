@@ -32,10 +32,9 @@ updateDeliveryStatus` returns rows-affected precisely so that a no-op cannot
 > **1. Registration now awaits the welcome SMS.** `RegisterMember` sent it
 > fire-and-forget (`this.sendWelcomeSMS(...).catch(...)`). On Vercel the
 > function can be frozen once the response is sent, and about a third of
-> registrations had no `welcome` row in `sms_logs`: 16 of 48 desk
-> registrations in the 45 days to 2026-10-03. That count leaves out a
-> 350-member import on 2026-09-13, which is not clean evidence: each of those
-> members has two welcome rows, one with no text.lk message id. The desk, bulk and QR
+> registrations had no `welcome` row in `sms_logs`: 15 of 46 registrations at
+> customer gyms between 2026-08-19 and 2026-10-03 (test gyms left out, as they
+> register through mock SMS). The desk, bulk and QR
 > routes all run this use case. It now follows `CollectPayment`:
 > `try { await this.sendWelcomeSMS(...) } catch { console.error }`, so the
 > send and its log row complete before `execute()` returns, and a failed SMS
@@ -54,6 +53,18 @@ updateDeliveryStatus` returns rows-affected precisely so that a no-op cannot
 > `setTimeout` tick, so an un-awaited send fails the suite. Past
 > registrations were **not** backfilled: whether those texts went out is
 > unknown, and a row written now would invent a record.
+>
+> **Announcements have their own type (2026-10-04).** `announcement.service`
+> logged every announcement as `welcome`, because `sms_type` had no value for
+> it. 401 announcement texts therefore sat in members' histories as welcomes:
+> 50 real ones in one gym, and 351 mock-mode rows in an E2E gym. The member
+> history screen, meanwhile, labelled every `welcome` row "Announcement".
+> Migration `20261004000001` adds `announcement`, and `20261004000002`
+> relabels the old rows. A welcome always starts "Welcome" and names one
+> member; an announcement's body is shared across members. Both signatures
+> selected the same 401 rows. The enum contract (`supabase/expected-enums.json`,
+> `enum-parity.test.ts`, `npm run db:audit`) carries the value on all three
+> sides. Announcement _sends_ are still fire-and-forget: see HANDOFF §6.
 >
 > **2. Every automated text comes from one template module**,
 > `src/features/sms/config/SmsTemplates.ts`, and names the gym (SEO-053). The
