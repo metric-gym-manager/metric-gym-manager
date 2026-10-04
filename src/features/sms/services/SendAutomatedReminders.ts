@@ -21,6 +21,8 @@ import { ISMSRepository } from './ISMSRepository'
 import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository'
 import type { ISMSProvider, SMSSendResult } from './ISMSProvider'
 import type { IGymDirectory } from './IGymDirectory'
+import type { IDiscountDirectory } from './IDiscountDirectory'
+import { effectivePlanAmount } from '@/features/members/utils/effectivePlanAmount'
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig'
 import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue'
 import {
@@ -104,7 +106,8 @@ export class SendAutomatedReminders {
     private readonly smsRepo: ISMSRepository,
     private readonly smsProvider: ISMSProvider,
     private readonly gymSubscriptionRepo: IGymSubscriptionRepository,
-    private readonly gymDirectory: IGymDirectory
+    private readonly gymDirectory: IGymDirectory,
+    private readonly discountDirectory: IDiscountDirectory
   ) {}
 
   /**
@@ -191,6 +194,22 @@ export class SendAutomatedReminders {
           ? await this.gymDirectory.findNamesByIds([...allowedGyms])
           : new Map<string, string>()
 
+      // A reminder quotes what the desk will charge: the plan amount less a
+      // recurring discount. One read for every discount this run needs.
+      const recurringDiscountIds = [
+        ...new Set(
+          members
+            .filter((m) => m.recurringDiscount && m.discountId)
+            .map((m) => m.discountId as string)
+        ),
+      ]
+      const discountPercentages =
+        recurringDiscountIds.length > 0
+          ? await this.discountDirectory.findPercentagesByIds(
+              recurringDiscountIds
+            )
+          : new Map<string, number>()
+
       // Process each member
       for (const member of members) {
         summary.membersProcessed++
@@ -202,9 +221,17 @@ export class SendAutomatedReminders {
             // row. Fail closed: a reminder must name the gym.
             throw new Error('gym name not found')
           }
+          const amount = effectivePlanAmount({
+            planAmount: member.planAmount,
+            recurringDiscount: member.recurringDiscount,
+            discountPercentage: member.discountId
+              ? (discountPercentages.get(member.discountId) ?? null)
+              : null,
+          })
           const sent = await this.processMemberReminder(
             member,
             gymName,
+            amount,
             summary
           )
           if (!sent) {
@@ -243,12 +270,14 @@ export class SendAutomatedReminders {
    *
    * @param member - Member to process
    * @param gymName - The member's gym, printed in the text
+   * @param amount - The amount the reminder quotes (after a recurring discount)
    * @param summary - Summary object to update
    * @returns True if reminder was sent, false if skipped
    */
   private async processMemberReminder(
     member: Member,
     gymName: string,
+    amount: number,
     summary: ReminderSummary
   ): Promise<boolean> {
     // Calculate days until due
@@ -284,7 +313,7 @@ export class SendAutomatedReminders {
     }
 
     // Send reminder
-    await this.sendReminder(member, gymName, smsType)
+    await this.sendReminder(member, gymName, amount, smsType)
 
     // Update summary
     summary.totalSent++
@@ -336,12 +365,14 @@ export class SendAutomatedReminders {
    *
    * @param member - Member to send reminder to
    * @param gymName - The member's gym, printed in the text
+   * @param amount - The amount the reminder quotes (after a recurring discount)
    * @param smsType - Type of reminder
    * @throws Error when the text cannot be built or the provider fails
    */
   private async sendReminder(
     member: Member,
     gymName: string,
+    amount: number,
     smsType: ReminderType
   ): Promise<void> {
     let message = ''
@@ -351,7 +382,7 @@ export class SendAutomatedReminders {
         gymName,
         memberName: member.name,
         planType: member.planType,
-        amount: member.planAmount,
+        amount,
         dueDate: member.nextDueDate,
       })
       result = await this.smsProvider.send({

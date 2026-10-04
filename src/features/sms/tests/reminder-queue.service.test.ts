@@ -1,4 +1,24 @@
-import { computeReminderQueue } from '../services/reminder-queue.service'
+const select = jest.fn()
+jest.mock('@/lib/supabase/server', () => ({
+  createClient: jest.fn(async () => ({
+    from: () => ({
+      select: (cols: string) => {
+        select(cols)
+        const chain = {
+          eq: () => chain,
+          then: (resolve: (v: unknown) => unknown) =>
+            resolve({ data: [], error: null }),
+        }
+        return chain
+      },
+    }),
+  })),
+}))
+
+import {
+  computeReminderQueue,
+  getReminderQueue,
+} from '../services/reminder-queue.service'
 import { ReminderType } from '../config/ReminderConfig'
 import { PlanType } from '@/features/members/config/PlanConfig'
 
@@ -112,5 +132,54 @@ describe('computeReminderQueue', () => {
     expect(res.total).toBe(3)
     expect(res.entries).toHaveLength(2)
     expect(res.entries.map((e) => e.memberId)).toEqual(['b', 'a'])
+  })
+})
+
+/**
+ * The queue shows the amount the reminder will quote, and a reminder quotes
+ * what the desk will charge: the plan amount less a recurring discount.
+ */
+describe('reminder queue amounts', () => {
+  it('shows the discounted amount for a recurring discount', () => {
+    const res = computeReminderQueue(
+      [
+        {
+          ...member({ plan_amount: 3500, next_due_date: dueIn(NOW, 3) }),
+          recurring_discount: true,
+          discount: { discount_percentage: 10 },
+        },
+      ],
+      opts,
+      NOW
+    )
+
+    expect(res.entries[0].amount).toBe(3150)
+  })
+
+  it('shows the full amount when the discount does not recur', () => {
+    const res = computeReminderQueue(
+      [
+        {
+          ...member({ plan_amount: 3500, next_due_date: dueIn(NOW, 3) }),
+          recurring_discount: false,
+          discount: { discount_percentage: 10 },
+        },
+      ],
+      opts,
+      NOW
+    )
+
+    expect(res.entries[0].amount).toBe(3500)
+  })
+
+  it("reads each member's recurring flag and discount percentage", async () => {
+    await getReminderQueue('gym-1')
+
+    expect(select).toHaveBeenCalledWith(
+      expect.stringContaining('recurring_discount')
+    )
+    expect(select).toHaveBeenCalledWith(
+      expect.stringContaining('discount:discounts(discount_percentage)')
+    )
   })
 })

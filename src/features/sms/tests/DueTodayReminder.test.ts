@@ -27,6 +27,7 @@ import type { IMemberRepository } from '@/features/members/services/IMemberRepos
 import type { ISMSRepository } from '@/features/sms/services/ISMSRepository'
 import type { ISMSProvider } from '@/features/sms/services/ISMSProvider'
 import type { IGymDirectory } from '@/features/sms/services/IGymDirectory'
+import type { IDiscountDirectory } from '@/features/sms/services/IDiscountDirectory'
 
 const GYM_ID = 'gym-1'
 
@@ -79,12 +80,19 @@ function build(members: Member[]) {
     ),
   }
 
+  const discountDirectory: jest.Mocked<IDiscountDirectory> = {
+    findPercentagesByIds: jest.fn(
+      async (_ids: string[]) => new Map<string, number>()
+    ),
+  }
+
   const useCase = new SendAutomatedReminders(
     memberRepo,
     smsRepo,
     smsProvider,
     subscriptionRepo,
-    gymDirectory
+    gymDirectory,
+    discountDirectory
   )
   return { useCase, smsRepo, smsProvider }
 }

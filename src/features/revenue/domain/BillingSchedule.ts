@@ -41,6 +41,7 @@
 
 import { PlanType, PLAN_CONFIGS } from '@/features/members/config/PlanConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
+import { effectivePlanAmount } from '@/features/members/utils/effectivePlanAmount'
 
 /**
  * Statuses that owe money.
@@ -79,15 +80,11 @@ export interface BillableMember {
  * to a past payment must not reduce what is owed next period. The old revenue
  * model summed raw `plan_amount` and so over-billed every discounted member.
  *
- * Same formula as the renewals read model (`payment-reports.service.ts`),
- * deliberately — two ways of computing what a member owes is one too many.
+ * One formula, `effectivePlanAmount`, shared with the renewals read model and
+ * the reminder SMS — two ways of computing what a member owes is one too many.
  */
 export function effectiveAmountFor(member: BillableMember): number {
-  const pct = member.recurringDiscount ? (member.discountPercentage ?? 0) : 0
-  // Rounded to cents: 3333 * 0.67 is 2233.1099999999997 in IEEE-754, and money
-  // that drifts by a fraction of a cent per member is money that fails to
-  // reconcile across a few hundred of them.
-  return Math.round(member.planAmount * (1 - pct / 100) * 100) / 100
+  return effectivePlanAmount(member)
 }
 
 /** Parse `YYYY-MM-DD` without letting a timezone shift the calendar day. */

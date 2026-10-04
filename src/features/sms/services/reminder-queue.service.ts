@@ -12,6 +12,7 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
+import { effectivePlanAmount } from '@/features/members/utils/effectivePlanAmount'
 import {
   getReminderDays,
   getReminderType,
@@ -28,7 +29,10 @@ export interface ReminderQueueEntry {
   scheduledInDays: number
   /** The member's next due date (YYYY-MM-DD). */
   nextDueDate: string
-  /** Amount the reminder will quote (the member's plan amount, LKR). */
+  /**
+   * Amount the reminder will quote (LKR): the plan amount less a recurring
+   * discount, exactly as the SMS states it (`effectivePlanAmount`).
+   */
   amount: number
 }
 
@@ -46,6 +50,8 @@ interface ActiveMemberRow {
   plan_type: string
   plan_amount: number
   next_due_date: string
+  recurring_discount?: boolean | null
+  discount?: { discount_percentage: number } | null
 }
 
 const DEFAULT_LOOKAHEAD_DAYS = 7
@@ -99,7 +105,11 @@ export function computeReminderQueue(
       reminderType,
       scheduledInDays: best.inDays,
       nextDueDate: m.next_due_date,
-      amount: m.plan_amount,
+      amount: effectivePlanAmount({
+        planAmount: m.plan_amount,
+        recurringDiscount: Boolean(m.recurring_discount),
+        discountPercentage: m.discount?.discount_percentage ?? null,
+      }),
     })
   }
 
@@ -122,13 +132,18 @@ export async function getReminderQueue(
 
   const { data, error } = await supabase
     .from('members')
-    .select('id, name, plan_type, plan_amount, next_due_date')
+    .select(
+      'id, name, plan_type, plan_amount, next_due_date, recurring_discount, discount:discounts(discount_percentage)'
+    )
     .eq('gym_id', gymId)
     .eq('status', 'active')
 
   if (error) throw new Error(error.message)
 
-  return computeReminderQueue((data ?? []) as ActiveMemberRow[], {
+  // Without generated types supabase-js types every embed as an array, but
+  // `discount` is many-to-one (members.discount_id → discounts.id), which
+  // PostgREST returns as a single object — as payment-reports.service relies on.
+  return computeReminderQueue((data ?? []) as unknown as ActiveMemberRow[], {
     lookaheadDays: opts?.lookaheadDays ?? DEFAULT_LOOKAHEAD_DAYS,
     limit: opts?.limit ?? DEFAULT_LIMIT,
   })

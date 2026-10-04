@@ -14,10 +14,15 @@ import type { IMemberRepository } from '@/features/members/services/IMemberRepos
 import type { ISMSRepository } from '@/features/sms/services/ISMSRepository'
 import type { ISMSProvider } from '@/features/sms/services/ISMSProvider'
 import type { IGymDirectory } from '@/features/sms/services/IGymDirectory'
+import type { IDiscountDirectory } from '@/features/sms/services/IDiscountDirectory'
 import type { Subscription } from '@/features/subscriptions/domain/Subscription'
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository'
 
-function makeMember(gymId: string, name: string): Member {
+function makeMember(
+  gymId: string,
+  name: string,
+  overrides: Partial<Parameters<typeof Member.create>[0]> = {}
+): Member {
   return Member.create({
     gymId,
     name,
@@ -31,6 +36,7 @@ function makeMember(gymId: string, name: string): Member {
     membershipStartDate: new Date('2026-01-01'),
     // Yesterday -> deterministic Overdue reminder for monthly plans
     nextDueDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    ...overrides,
   })
 }
 
@@ -38,7 +44,8 @@ describe('SendAutomatedReminders — billing-status gate (reminders on every tie
   function build(
     members: Member[],
     subs: Record<string, Subscription>,
-    gymNames: Record<string, string> = {}
+    gymNames: Record<string, string> = {},
+    discountPercentages: Record<string, number> = {}
   ) {
     const memberRepo = {
       findAllActiveMembers: jest.fn().mockResolvedValue(members),
@@ -68,12 +75,24 @@ describe('SendAutomatedReminders — billing-status gate (reminders on every tie
       ),
     }
 
+    const discountDirectory: jest.Mocked<IDiscountDirectory> = {
+      findPercentagesByIds: jest.fn(
+        async (ids: string[]) =>
+          new Map(
+            ids
+              .filter((id) => id in discountPercentages)
+              .map((id) => [id, discountPercentages[id]])
+          )
+      ),
+    }
+
     const useCase = new SendAutomatedReminders(
       memberRepo,
       smsRepo,
       smsProvider,
       subscriptionRepo,
-      gymDirectory
+      gymDirectory,
+      discountDirectory
     )
     return {
       useCase,
@@ -82,6 +101,7 @@ describe('SendAutomatedReminders — billing-status gate (reminders on every tie
       smsProvider,
       subscriptionRepo,
       gymDirectory,
+      discountDirectory,
     }
   }
 
@@ -412,6 +432,119 @@ describe('SendAutomatedReminders — billing-status gate (reminders on every tie
         })
       )
       expect(summary.totalSent).toBe(1)
+    })
+  })
+
+  /**
+   * A reminder quotes what the desk will charge: the plan amount less a
+   * recurring discount (effectivePlanAmount), never the raw plan amount.
+   */
+  describe('recurring discounts', () => {
+    const gym = { 'gym-a': makeSubscription({ gymId: 'gym-a' }) }
+    const sent = (smsProvider: jest.Mocked<ISMSProvider>) =>
+      smsProvider.send.mock.calls.map(([sms]) => sms.message)
+
+    it('quotes the discounted amount to a member with a recurring discount', async () => {
+      const { useCase, smsProvider } = build(
+        [
+          makeMember('gym-a', 'Member A', {
+            discountId: 'disc-10',
+            recurringDiscount: true,
+          }),
+        ],
+        gym,
+        {},
+        { 'disc-10': 10 }
+      )
+
+      await useCase.execute()
+
+      expect(sent(smsProvider)).toHaveLength(1)
+      expect(sent(smsProvider)[0]).toContain('Rs.1,800)')
+      expect(sent(smsProvider)[0]).not.toContain('Rs.2,000')
+    })
+
+    it('quotes the full amount when the discount does not recur', async () => {
+      const { useCase, smsProvider, discountDirectory } = build(
+        [
+          makeMember('gym-a', 'Member A', {
+            discountId: 'disc-10',
+            recurringDiscount: false,
+          }),
+        ],
+        gym,
+        {},
+        { 'disc-10': 10 }
+      )
+
+      await useCase.execute()
+
+      expect(sent(smsProvider)[0]).toContain('Rs.2,000)')
+      expect(discountDirectory.findPercentagesByIds).not.toHaveBeenCalled()
+    })
+
+    it('reads every discount it needs once per run, distinct ids only', async () => {
+      const { useCase, smsProvider, discountDirectory } = build(
+        [
+          makeMember('gym-a', 'Member A', {
+            discountId: 'disc-10',
+            recurringDiscount: true,
+          }),
+          makeMember('gym-a', 'Member B', {
+            discountId: 'disc-10',
+            recurringDiscount: true,
+          }),
+          makeMember('gym-a', 'Member C', {
+            discountId: 'disc-25',
+            recurringDiscount: true,
+          }),
+          makeMember('gym-a', 'Member D'),
+        ],
+        gym,
+        {},
+        { 'disc-10': 10, 'disc-25': 25 }
+      )
+
+      await useCase.execute()
+
+      expect(discountDirectory.findPercentagesByIds).toHaveBeenCalledTimes(1)
+      expect(discountDirectory.findPercentagesByIds).toHaveBeenCalledWith([
+        'disc-10',
+        'disc-25',
+      ])
+      expect(sent(smsProvider)).toEqual([
+        expect.stringContaining('Rs.1,800)'),
+        expect.stringContaining('Rs.1,800)'),
+        expect.stringContaining('Rs.1,500)'),
+        expect.stringContaining('Rs.2,000)'),
+      ])
+    })
+
+    it('reads no discounts when no member has a recurring one', async () => {
+      const { useCase, discountDirectory } = build(
+        [makeMember('gym-a', 'Member A')],
+        gym
+      )
+
+      await useCase.execute()
+
+      expect(discountDirectory.findPercentagesByIds).not.toHaveBeenCalled()
+    })
+
+    it('quotes the full amount when the discount row is gone', async () => {
+      const { useCase, smsProvider } = build(
+        [
+          makeMember('gym-a', 'Member A', {
+            discountId: 'disc-deleted',
+            recurringDiscount: true,
+          }),
+        ],
+        gym
+      )
+
+      await useCase.execute()
+
+      expect(sent(smsProvider)[0]).toContain('Rs.2,000)')
     })
   })
 })

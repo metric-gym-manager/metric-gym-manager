@@ -15,6 +15,7 @@ import { MockSMSProvider } from './providers/MockSMSProvider'
 import { SendAutomatedReminders } from './SendAutomatedReminders'
 import { RecordSmsDeliveryReceipt } from './RecordSmsDeliveryReceipt'
 import { SupabaseGymDirectory } from './SupabaseGymDirectory'
+import { SupabaseDiscountDirectory } from './SupabaseDiscountDirectory'
 import { SupabaseMemberRepository } from '@/features/members/services/SupabaseMemberRepository'
 import { SupabaseGymSubscriptionRepository } from '@/features/subscriptions/services/SupabaseGymSubscriptionRepository'
 
@@ -55,7 +56,8 @@ export function createMemberSmsHistoryReader(
 /**
  * SendAutomatedReminders use case (send-reminders cron).
  * Billing-status source: suspended/canceled gyms are skipped.
- * Gym names (every reminder names the gym) are read once per run.
+ * Gym names (every reminder names the gym) and recurring-discount
+ * percentages (a reminder quotes the discounted amount) are read once per run.
  */
 export function createSendAutomatedReminders(
   supabase: SupabaseClient
@@ -65,7 +67,8 @@ export function createSendAutomatedReminders(
     createSMSRepository(supabase),
     createSMSProvider(),
     new SupabaseGymSubscriptionRepository(supabase),
-    new SupabaseGymDirectory(supabase)
+    new SupabaseGymDirectory(supabase),
+    new SupabaseDiscountDirectory(supabase)
   )
 }
 
