@@ -15,6 +15,7 @@ import {
   TRIAL_DAYS,
   formatLkr,
 } from '@/features/marketing'
+import { DashboardPreview } from './DashboardPreview'
 import { DemoModal } from './DemoModal'
 
 /**
@@ -90,39 +91,6 @@ const logBox: CSSProperties = {
   lineHeight: '19px',
   color: '#8b8b93',
 }
-const statCard: CSSProperties = {
-  background: '#0c0c0d',
-  border: '1px solid rgba(255,255,255,0.07)',
-  borderRadius: '6px',
-  padding: '12px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px',
-}
-const statLabel: CSSProperties = {
-  fontSize: '10px',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  color: '#5c5c64',
-  fontWeight: 500,
-}
-const sidebarItem: CSSProperties = {
-  height: '26px',
-  display: 'flex',
-  alignItems: 'center',
-  padding: '0 8px',
-  borderRadius: '4px',
-  fontSize: '12px',
-  color: '#8b8b93',
-}
-const sidebarHeading: CSSProperties = {
-  fontSize: '10px',
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-  color: '#5c5c64',
-  fontWeight: 500,
-  padding: '10px 8px 4px',
-}
 const priceTag: CSSProperties = {
   fontFamily: mono,
   fontSize: '32px',
@@ -159,10 +127,6 @@ html:has(.landing-root){scroll-behavior:smooth}
   #hero-section .hero-inner{padding:64px 20px 0!important}
   #hero-h1{font-size:clamp(32px,9vw,48px)!important}
   #hero-subtitle{font-size:16px!important;line-height:24px!important}
-  #preview-body{flex-direction:column!important;height:auto!important}
-  #preview-sidebar{width:100%!important;border-right:none!important;border-bottom:1px solid rgba(255,255,255,0.07)!important;flex-direction:row!important;overflow-x:auto!important;gap:4px!important;padding:8px!important}
-  #preview-brand,#preview-primary-label{display:none!important}
-  #preview-stats{grid-template-columns:repeat(2,1fr)!important}
   #platform-section{padding:64px 16px!important;gap:40px!important}
   #platform-grid{grid-template-columns:1fr!important;gap:0!important}
   #platform-grid > div{padding:28px 0!important;border-bottom:1px solid rgba(255,255,255,0.07)!important;min-width:0!important}
@@ -189,10 +153,8 @@ html:has(.landing-root){scroll-behavior:smooth}
   #footer-inner{padding:56px 20px 32px!important;gap:40px!important}
   #footer-grid{grid-template-columns:1fr 1fr!important}
   #footer-watermark{font-size:clamp(56px,18vw,120px)!important}
-  .payment-row span:nth-child(2){display:none!important}
 }
 @media (max-width:480px){
-  #preview-stats{grid-template-columns:1fr!important}
   #footer-grid{grid-template-columns:1fr!important}
   #trust-logos span{font-size:16px!important}
 }
@@ -437,272 +399,8 @@ export function LandingPage() {
             </div>
           </div>
 
-          {/* Dashboard preview */}
-          <div
-            style={{
-              border: '1px solid rgba(255,255,255,0.12)',
-              borderBottom: 'none',
-              borderRadius: '8px 8px 0 0',
-              overflow: 'hidden',
-              background: '#000',
-            }}
-          >
-            <div
-              style={{
-                height: '36px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '0 14px',
-                borderBottom: '1px solid rgba(255,255,255,0.07)',
-              }}
-            >
-              <div style={{ display: 'flex', gap: '6px' }}>
-                <span
-                  style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.12)',
-                  }}
-                />
-                <span
-                  style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.12)',
-                  }}
-                />
-                <span
-                  style={{
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.12)',
-                  }}
-                />
-              </div>
-              <div
-                style={{
-                  flex: 1,
-                  maxWidth: '360px',
-                  margin: '0 auto',
-                  height: '22px',
-                  background: '#000',
-                  border: '1px solid rgba(255,255,255,0.07)',
-                  borderRadius: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontFamily: mono,
-                  fontSize: '11px',
-                  color: '#5c5c64',
-                }}
-              >
-                metricgymOS.com/dashboard
-              </div>
-              <div style={{ width: '46px' }} />
-            </div>
-            <div
-              id="preview-body"
-              style={{ display: 'flex', height: '500px', overflow: 'hidden' }}
-            >
-              <div
-                id="preview-sidebar"
-                style={{
-                  width: '180px',
-                  borderRight: '1px solid rgba(255,255,255,0.07)',
-                  padding: '12px 8px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '2px',
-                  background: '#000',
-                  flexShrink: 0,
-                }}
-              >
-                <div
-                  id="preview-brand"
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '0 8px 10px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  <img
-                    src="/logo.svg"
-                    alt=""
-                    style={{ width: '16px', height: '16px' }}
-                  />
-                  Prime Fitness
-                </div>
-                <div id="preview-primary-label" style={sidebarHeading}>
-                  Primary
-                </div>
-                <div
-                  style={{
-                    height: '26px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    padding: '0 8px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    background: 'rgba(255,255,255,0.07)',
-                    fontWeight: 500,
-                    color: '#ededf0',
-                  }}
-                >
-                  Dashboard
-                </div>
-                <div style={sidebarItem}>Members</div>
-                <div style={sidebarItem}>Revenue</div>
-                <div style={sidebarItem}>Renewals</div>
-                <div style={sidebarHeading}>Operations</div>
-                <div style={sidebarItem}>Announcements</div>
-                <div style={sidebarItem}>Billing Setup</div>
-              </div>
-              <div
-                style={{
-                  flex: 1,
-                  padding: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '12px',
-                  minWidth: 0,
-                  background: '#000',
-                }}
-              >
-                <div
-                  id="preview-stats"
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(4,1fr)',
-                    gap: '10px',
-                  }}
-                >
-                  <div style={statCard}>
-                    <span style={statLabel}>Expired</span>
-                    <span
-                      style={{
-                        fontFamily: mono,
-                        fontSize: '18px',
-                        fontWeight: 600,
-                        color: '#f85149',
-                      }}
-                    >
-                      14
-                    </span>
-                  </div>
-                  <div style={statCard}>
-                    <span style={statLabel}>Revenue · Jul</span>
-                    <span
-                      style={{
-                        fontFamily: mono,
-                        fontSize: '18px',
-                        fontWeight: 600,
-                      }}
-                    >
-                      486,500
-                    </span>
-                  </div>
-                  <div style={statCard}>
-                    <span style={statLabel}>Forecast · Jul</span>
-                    <span
-                      style={{
-                        fontFamily: mono,
-                        fontSize: '18px',
-                        fontWeight: 600,
-                        color: '#8b8b93',
-                      }}
-                    >
-                      73,500
-                    </span>
-                  </div>
-                  <div style={statCard}>
-                    <span style={statLabel}>Active</span>
-                    <span
-                      style={{
-                        fontFamily: mono,
-                        fontSize: '18px',
-                        fontWeight: 600,
-                        color: '#3fb950',
-                      }}
-                    >
-                      312
-                    </span>
-                  </div>
-                </div>
-                <div
-                  style={{
-                    background: '#0c0c0d',
-                    border: '1px solid rgba(255,255,255,0.07)',
-                    borderRadius: '6px',
-                    overflow: 'hidden',
-                    flex: 1,
-                  }}
-                >
-                  <div
-                    style={{
-                      padding: '8px 12px',
-                      borderBottom: '1px solid rgba(255,255,255,0.07)',
-                      fontSize: '10px',
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                      color: '#5c5c64',
-                      fontWeight: 500,
-                    }}
-                  >
-                    Recent payments
-                  </div>
-                  {[
-                    {
-                      name: 'Nuwan Perera',
-                      date: '2026-07-14',
-                      amount: '3,500',
-                    },
-                    {
-                      name: 'Ishara Gunasekara',
-                      date: '2026-07-13',
-                      amount: '3,500',
-                    },
-                    {
-                      name: 'Anushka Weerasinghe',
-                      date: '2026-07-12',
-                      amount: '15,500',
-                    },
-                    {
-                      name: 'Malith Rathnayake',
-                      date: '2026-07-10',
-                      amount: '36,000',
-                    },
-                  ].map((row, i, arr) => (
-                    <div
-                      key={row.name}
-                      className="payment-row"
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        padding: '7px 12px',
-                        borderBottom:
-                          i < arr.length - 1
-                            ? '1px solid rgba(255,255,255,0.05)'
-                            : undefined,
-                        fontSize: '12px',
-                      }}
-                    >
-                      <span>{row.name}</span>
-                      <span style={{ color: '#8b8b93' }}>{row.date}</span>
-                      <span style={{ fontFamily: mono }}>{row.amount}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* Dashboard preview — the real /dashboard, drawn with its own parts */}
+          <DashboardPreview />
         </div>
       </section>
 
