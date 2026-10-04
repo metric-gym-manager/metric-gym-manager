@@ -1734,14 +1734,14 @@
         "SEO-055's after-build: / still loads 344.9 KB gzip over 12 chunks with no recharts",
         "Measured 2026-10-04 on a local production build at 390 px with Chromium JS coverage: \"/\", \"/pricing\" and the new guide load 316–320 KB of gzipped JavaScript in 14–15 scripts. Three chunks carry the providers' code, 87.1 KB gzipped together; the largest (62.8 KB gzipped, 241 KB raw) holds the Supabase client, react-query, the service-worker registration and AuthRecovery, and 217 KB of its raw code never executes on the page. A marker shows which chunk carries a provider, not that the chunk holds nothing else."
       ],
-      "recommendedChange": "Measure first: which of these modules the public pages actually execute, and what each costs. Then decide with rules 2.15 and 2.19 in hand whether QueryProvider can move to the signed-in layouts, and whether AuthRecovery and the service-worker registration can load lazily on public routes. Lab scores are already 92–96, so this is a data and main-thread cost on mobile, not a ranking lever.",
+      "recommendedChange": "Measure first: which of these modules the public pages actually execute, and what each costs. Then decide with rules 2.15 and 2.19 in hand whether QueryProvider can move to the signed-in layouts, and whether AuthRecovery and the service-worker registration can load lazily on public routes. Lab scores are already 92–96, so this is a data and main-thread cost on mobile, not a ranking lever. Owner decision, 2026-10-04: keep the signed-in app's code off public pages; the move is planned with rules 2.15 and 2.19 in hand.",
       "implementation": "",
       "files": ["src/app/layout.tsx"],
       "verification": [],
       "dependencies": ["SEO-055"],
       "externalActionRequired": true,
       "createdAt": "2026-10-02T16:47:44Z",
-      "updatedAt": "2026-10-04T15:48:40Z",
+      "updatedAt": "2026-10-04T17:01:12Z",
       "completedAt": null
     },
     {
@@ -1902,7 +1902,7 @@
       "title": "Guide: choosing gym management software in Sri Lanka",
       "category": "content",
       "priority": "P2",
-      "status": "in_progress",
+      "status": "implemented",
       "intent": "commercial",
       "targetQueries": [
         "choosing gym management software sri lanka",
@@ -1916,7 +1916,7 @@
         "src/app/privacy/page.tsx: the PDPA rights (Sections 13–16, 18), special-category biometric data, data minimisation, Section 26 safeguards and the Data Protection Authority, which the guide restates"
       ],
       "recommendedChange": "A buying checklist with Metric's own answers beside each point: how the gym runs, prices in rupees, how members pay, whether reminders reach members, member data under the PDPA, door access, questions for every vendor, and what Metric does not do. Prices from the pricing config; data-protection statements only from /privacy, linked; a note that the guide is not legal advice.",
-      "implementation": "src/app/(marketing)/resources/choosing-gym-management-software-sri-lanka/page.tsx in the guide pattern. Registry entry ARTICLE_PATHS.choose (title 61 characters, description 143), label \"Choosing gym software\"; PUBLIC_ROUTES entry; footer Resources link; body link from the data-protection section of /gym-management-software-sri-lanka; /resources lists it from the registry and its description names it. Prices, the Lite limit, the trial tiers and length come from the pricing config; scan retention from ACCESS_EVENT_RETENTION_DAYS. Awaiting the owner's reading of the text before it is committed.",
+      "implementation": "src/app/(marketing)/resources/choosing-gym-management-software-sri-lanka/page.tsx in the guide pattern. Registry entry ARTICLE_PATHS.choose (title 61 characters, description 143), label \"Choosing gym software\"; PUBLIC_ROUTES entry; footer Resources link; body link from the data-protection section of /gym-management-software-sri-lanka; /resources lists it from the registry and its description names it. Prices, the Lite limit, the trial tiers and length come from the pricing config; scan retention from ACCESS_EVENT_RETENTION_DAYS. The owner read the page and it was committed on 2026-10-04 (61abe36). The reminder-run time it states is tied to the send-reminders cron by MarketingPages.test.tsx (46d1f74).",
       "files": [
         "src/app/(marketing)/resources/choosing-gym-management-software-sri-lanka/page.tsx",
         "src/features/marketing/config/pages.ts",
@@ -1930,9 +1930,9 @@
         "Chromium, local production build, 2026-10-04: 200 for a signed-out visitor, in the sitemap (20 URLs), one h1, no horizontal overflow at seven widths from 1366 to 320."
       ],
       "dependencies": [],
-      "externalActionRequired": true,
+      "externalActionRequired": false,
       "createdAt": "2026-10-04T15:48:40Z",
-      "updatedAt": "2026-10-04T15:48:40Z",
+      "updatedAt": "2026-10-04T17:01:12Z",
       "completedAt": null
     }
   ]

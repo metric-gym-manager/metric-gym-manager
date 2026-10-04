@@ -33,7 +33,8 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
   - an early payer keeps their due date (`62910a2`); weekly plans get no automated reminders (`bbb1720`); the unreachable "critical" overdue tier is retired (`c34bcec`);
   - the sign-in panel names the real domain and the real 9:00 reminder run (`2e545a6`); the hardware partner is no longer named (`2bdaa26`); the Facebook page is in `sameAs` and on `/contact` (`3476d69`);
   - the homepage preview is rebuilt from the real dashboard (`40d4d3b`); Inter, which no screen rendered, is no longer loaded (`2c53ad5`);
-  - guide 4, "Choosing gym management software in Sri Lanka" (SEO-065), is written and tested but uncommitted until the owner has read it.
+  - guide 4, "Choosing gym management software in Sri Lanka" (SEO-065), approved by the owner and committed (`61abe36`);
+  - the privacy policy no longer promises an SMS opt-out and lists every kind of text (`0110b0d`); the public reminder time is tied to the cron by tests (`46d1f74`).
 
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
@@ -171,8 +172,10 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [x] **Company facts (SEO-041, P3).** **Confirmed 2026-10-04:** the Kotte address and the support hours (every day, 08:00–22:00).
 - [ ] **Founder and team names for `/about` (SEO-041, optional).** Names and roles, and photos if wanted, with each person's consent. Until then `/about` names only the company.
 - [x] **Data protection facts for the buying guide.** **Confirmed 2026-10-04:** the guide states only what Metric's published privacy policy already says, and links to it.
-- [ ] **Read guide 4 before it is committed (SEO-065).** "Choosing gym management software in Sri Lanka" is written and tested on `claude/seo-owner-decisions` but deliberately uncommitted until you have read its text, the data-protection section above all. A full-page screenshot was sent in the session; say "commit it" or name the changes.
-- [ ] **Privacy policy statements the product does not match** (found 2026-10-04, not changed — legal text is yours to change). `/privacy` says "Every SMS we send includes information on how to stop receiving it", but no SMS template carries opt-out wording (`src/features/sms/config/SmsTemplates.ts`). It also lists "fingerprint or face scan" and "face scans", but the readers are fingerprint only. Decide: add opt-out wording to the texts (it costs characters in every SMS), or have the policy changed; and have "face scan" removed.
+- [x] **Read guide 4 (SEO-065).** **Approved by the owner 2026-10-04** and committed (`61abe36`).
+- [x] **SMS opt-out in the privacy policy.** **Decided 2026-10-04: the texts are a necessary part of the product and will not carry opt-out wording.** The policy's claim that every SMS says how to stop receiving it is removed, and its list of texts now names the welcome text, receipts and the gym's announcements as well as reminders and expiry alerts (`0110b0d`). Withdrawing consent through the gym is unchanged.
+- [ ] **"Face scan" in the privacy policy.** `/privacy` lists "fingerprint or face scan" and "face scans", but the readers are fingerprint only. Have the words removed, or say they stay.
+- [ ] **Legal basis for SMS (for your lawyer).** `/privacy` gives consent at registration as the basis for reminder texts. If the texts are a necessary part of the membership, a lawyer may prefer contract performance as the basis. The repository cannot decide this.
 
 **Off-site authority**
 
@@ -198,7 +201,7 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [x] **SEO-053:** automated reminders and receipts do not name the gym. **Decided 2026-10-03:** every automated SMS names the gym, with warmer, purpose-specific wording. Implemented on `claude/sms-templates`; the after-deploy checks are under **SMS overhaul** below.
 - [x] **SEO-043: the Inter font.** Measured 2026-10-04: no screen rendered it, yet its 48 KB file was preloaded on every page. Removed; Geist is the default face (`2c53ad5`).
 - [x] **SEO-051: the homepage dashboard preview.** **Decided 2026-10-04: show the true dashboard.** Rebuilt from the dashboard's own parts; every text node at least 5.07:1 (`40d4d3b`).
-- [ ] **SEO-060: the app's providers on public pages.** **Measured 2026-10-04** (your choice was to measure first): public pages load 316–320 KB of gzipped JavaScript; the three chunks that carry the Supabase client, react-query, the service-worker registration and AuthRecovery come to 87 KB of it, and 217 KB of the largest chunk's 241 KB of raw code never runs on a public page. Moving them touches rules 2.15 (session recovery) and 2.19 (service-worker reload). Decide: leave it, or plan the move.
+- [ ] **SEO-060: the app's providers on public pages.** **Measured 2026-10-04** (your choice was to measure first): public pages load 316–320 KB of gzipped JavaScript; the three chunks that carry the Supabase client, react-query, the service-worker registration and AuthRecovery come to 87 KB of it, and 217 KB of the largest chunk's 241 KB of raw code never runs on a public page. Moving them touches rules 2.15 (session recovery) and 2.19 (service-worker reload). **Decided 2026-10-04: keep the signed-in app's code off public pages.** A plan follows; this stays open until it ships.
 - [x] **Early payments shorten the period.** **Decided 2026-10-04: an early payer keeps their due date.** The new period starts from the later of the payment date and the current due date, in the payment, the Mark Paid and Reactivation previews, and the overdue guide (`62910a2`).
 - [ ] **Check one early payment in production** (after the deploy of `claude/seo-owner-decisions`). Record a payment for a member a few days before their due date and confirm the new due date is the old one plus one period. Read-only check: `SELECT name, next_due_date, updated_at FROM members WHERE id = '<member id>'`.
 - [x] **The dashboard's "critical" overdue tier is never reached.** **Decided 2026-10-04: retire it.** The tile reads "N warning · N mild" (`c34bcec`). Production showed "0 critical · 52 warning · 53 mild" that day.
@@ -241,17 +244,21 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 Ready now, in priority order:
 
 1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
-2. **New guides** from `SEO_AUDIT.md` §8. Done: overdue memberships (SEO-061), moving off a register book (SEO-063), Excel and WhatsApp vs software (SEO-064), and choosing gym management software in Sri Lanka (SEO-065, written 2026-10-04, awaiting the owner's reading before it is committed). All four §8 guides are written.
+2. **New guides** from `SEO_AUDIT.md` §8. All four are written: overdue memberships (SEO-061), moving off a register book (SEO-063), Excel and WhatsApp vs software (SEO-064), and choosing gym management software in Sri Lanka (SEO-065, 2026-10-04).
 3. **Case study and data study (SEO-042).** Consent given 2026-10-04 (Fitness Empire; anonymised study). Start with a read-only data probe and a plan; the owner approves every figure.
-4. **P3 items.** ~~SEO-043~~, ~~SEO-051~~, ~~SEO-052~~ and ~~SEO-053~~ are done. SEO-060 is measured (§6) and waits on the owner's decision.
-5. ~~**Stale comments.**~~ Fixed 2026-10-03: `CancelMember.ts` now states the 14-day cron rule and that Cancelled → Active happens on payment.
-6. ~~**Bulk grid.**~~ Fixed 2026-10-03, with three more defects found in the same flow:
+4. **P3 items.** ~~SEO-043~~, ~~SEO-051~~, ~~SEO-052~~ and ~~SEO-053~~ are done. **SEO-060**: the owner decided to keep the signed-in app's code off public pages; it needs a plan with rules 2.15 and 2.19 in hand.
+5. **Found by the inverted check of 2026-10-04** (not changed):
+   - The homepage canonical renders as `https://www.metricgymos.com` while `metadata.test.ts` asserts `https://www.metricgymos.com/`: the test checks the metadata object, not the HTML Next emits. Production is the same, and the two forms are one URL, so it is harmless; a rendered-HTML test would close the gap.
+   - The member detail's Door Access panel prints dates raw: "until 20261013, from 20260913".
+   - `tests/e2e/desktop-regression.spec.ts`: the dashboard tile now reads "N warning · N mild", a change of about 0.1% of the frame, inside its 2% tolerance. Re-baseline it with the two baselines the mobile closeout (§1) already lists.
+6. ~~**Stale comments.**~~ Fixed 2026-10-03: `CancelMember.ts` now states the 14-day cron rule and that Cancelled → Active happens on payment.
+7. ~~**Bulk grid.**~~ Fixed 2026-10-03, with three more defects found in the same flow:
    - the grid now stops at `BULK_REGISTER_MAX_ROWS` (50, shared with the route);
    - results are applied by row identity, not grid position, so an invalid row no longer shifts every later result onto the wrong member;
    - retry no longer re-sends rows already registered;
    - every batch had been refused since 2026-07-25, because `addMemberSchema` began requiring two consents the grid never sent. The owner chose a batch attestation: the same two consents as single registration, ticked once per batch. Consent times are recorded per member.
 
-7. **SMS follow-ups** (found 2026-10-03 and 2026-10-04, not changed):
+8. **SMS follow-ups** (found 2026-10-03 and 2026-10-04, not changed):
    - The text.lk provider has no request timeout. Registration now waits on the welcome SMS, as payments already wait on the receipt, so a hung gateway holds the request. Bulk import is hit hardest: a batch waits on up to 50 sends at once, so a slow gateway can time the request out after the members are saved. The grid then cannot tell which rows succeeded, and a retry reports those rows as "already exists". No member is duplicated.
    - ~~On 2026-09-13, 350 members each got a second `welcome` row.~~ **Explained and fixed 2026-10-04.** Those rows were an announcement, logged in mock mode in the E2E Enterprise gym, because `announcement.service` hard-coded `smsType: 'welcome'`. 50 real announcements in Titan Fitness (2026-03-01) were logged the same way. Announcements now log as `announcement`, and migrations `20261004000001` (enum value) and `20261004000002` (relabel) were applied to production: 401 rows relabelled, and 514 `welcome` rows remain, every one starting "Welcome". The member SMS history had labelled every `welcome` row "Announcement"; it now says "Welcome".
    - **Announcement sends are fire-and-forget.** `createAndSendAnnouncement` calls `sendAnnouncementSmsInBackground(...)` without `await` and without `after()`, so on Vercel a bulk send can be cut off once the response returns. Production: 3 of 9 announcements never finished, with 2 stuck `pending` (52 recipients) and 1 stuck `sending` (213 recipients), none of their recipients accounted for. Same class as the welcome SMS (rule 2.7).
@@ -265,7 +272,6 @@ Ready now, in priority order:
 
 Waiting on owner input:
 
-- SEO-065 → commit guide 4 once the owner has read it.
 - SEO-039 → add each directory profile to `SOCIAL_PROFILES` in `features/marketing/config/site.ts`.
 - SEO-041 → founder and team names on `/about`, if the owner supplies them.
 - SEO-060 → plan the provider move only if the owner asks for it.
@@ -277,19 +283,18 @@ Waiting on owner input:
 
 65 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes on `claude/seo-owner-decisions`. Counts recomputed from the JSON on 2026-10-04.
 
-| Status      | Count | Tasks                                                                                                                                                |
-| ----------- | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Verified    |    44 | See `SEO_TASK_LOG.md`                                                                                                                                |
-| Implemented |     7 | SEO-035, SEO-056 (P1, awaiting GA4 DebugView); SEO-040, SEO-043, SEO-051, SEO-052 (P3, awaiting production checks); SEO-053 (P3, after-deploy check) |
-| In progress |     1 | SEO-065 (P2, guide 4, awaiting the owner's reading)                                                                                                  |
-| Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                              |
-| Discovered  |     1 | SEO-060 (P3, measured, owner decision)                                                                                                               |
-| Blocked     |     5 | SEO-036 (P0); SEO-026 (P1); SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                      |
-| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                          |
+| Status      | Count | Tasks                                                                                                                                                              |
+| ----------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Verified    |    44 | See `SEO_TASK_LOG.md`                                                                                                                                              |
+| Implemented |     8 | SEO-035, SEO-056 (P1, awaiting GA4 DebugView); SEO-065 (P2); SEO-040, SEO-043, SEO-051, SEO-052 (P3, awaiting production checks); SEO-053 (P3, after-deploy check) |
+| Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                                            |
+| Discovered  |     1 | SEO-060 (P3, measured; owner decided to move the providers off public pages)                                                                                       |
+| Blocked     |     5 | SEO-036 (P0); SEO-026 (P1); SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                    |
+| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                                        |
 
 - P0 remaining: 1 (SEO-036), blocked on the owner.
 - P1 remaining: 3 (SEO-026, SEO-035, SEO-056), all owner actions.
-- External action required: 12 tasks.
+- External action required: 11 tasks.
 
 ## 8. Files changed
 

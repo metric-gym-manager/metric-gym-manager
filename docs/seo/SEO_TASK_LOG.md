@@ -7,17 +7,17 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-04T15:48:40Z |
+| Last task update | 2026-10-04T17:01:12Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 3 |
-| Implemented (awaiting verification) | 7 |
+| Implemented (awaiting verification) | 8 |
 | Verified | 44 |
-| In progress | 1 |
+| In progress | 0 |
 | Open (discovered/planned) | 2 |
 | Blocked | 5 |
 | Rejected | 6 |
-| External action required | 12 |
+| External action required | 11 |
 
 ## Status by priority
 
@@ -25,7 +25,7 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 0 | 0 | 10 | 1 | 0 |
 | P1 | 0 | 0 | 0 | 2 | 19 | 1 | 1 |
-| P2 | 0 | 1 | 1 | 0 | 13 | 2 | 0 |
+| P2 | 0 | 1 | 0 | 1 | 13 | 2 | 0 |
 | P3 | 1 | 0 | 0 | 5 | 2 | 1 | 5 |
 
 ## All tasks
@@ -82,7 +82,7 @@
 | [SEO-061](#seo-061) | P2 | verified | content | Guide: overdue gym memberships — when to expire, when to cancel | no |
 | [SEO-063](#seo-063) | P2 | verified | content | Guide: moving a gym's members off a register book or spreadsheet | no |
 | [SEO-064](#seo-064) | P2 | verified | content | Guide: Excel and WhatsApp vs gym management software, written honestly | no |
-| [SEO-065](#seo-065) | P2 | in_progress | content | Guide: choosing gym management software in Sri Lanka | yes |
+| [SEO-065](#seo-065) | P2 | implemented | content | Guide: choosing gym management software in Sri Lanka | no |
 | [SEO-031](#seo-031) | P3 | rejected | schema | FAQPage structured data | no |
 | [SEO-032](#seo-032) | P3 | rejected | schema | LocalBusiness structured data | no |
 | [SEO-033](#seo-033) | P3 | rejected | technical | llms.txt or AI-specific markup | no |
@@ -108,7 +108,6 @@
 - **SEO-037** (P2, blocked) — Google Business Profile eligibility
 - **SEO-039** (P2, blocked) — Software directories and review profiles
 - **SEO-042** (P2, planned) — Real case studies and first-party data content
-- **SEO-065** (P2, in_progress) — Guide: choosing gym management software in Sri Lanka
 - **SEO-041** (P3, blocked) — Founder and team information
 - **SEO-053** (P3, implemented) — Automated reminders and receipts do not name the gym
 - **SEO-060** (P3, discovered) — Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery
@@ -2568,12 +2567,12 @@ src/app/(marketing)/resources/excel-whatsapp-vs-gym-software/page.tsx: Article p
 | Field | Value |
 | --- | --- |
 | Priority | P2 |
-| Status | in_progress |
+| Status | implemented |
 | Category | content |
 | Intent | commercial |
-| External action | required |
+| External action | no |
 | Created | 2026-10-04T15:48:40Z |
-| Updated | 2026-10-04T15:48:40Z |
+| Updated | 2026-10-04T17:01:12Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -2599,7 +2598,7 @@ A buying checklist with Metric's own answers beside each point: how the gym runs
 
 **Implementation**
 
-src/app/(marketing)/resources/choosing-gym-management-software-sri-lanka/page.tsx in the guide pattern. Registry entry ARTICLE_PATHS.choose (title 61 characters, description 143), label "Choosing gym software"; PUBLIC_ROUTES entry; footer Resources link; body link from the data-protection section of /gym-management-software-sri-lanka; /resources lists it from the registry and its description names it. Prices, the Lite limit, the trial tiers and length come from the pricing config; scan retention from ACCESS_EVENT_RETENTION_DAYS. Awaiting the owner's reading of the text before it is committed.
+src/app/(marketing)/resources/choosing-gym-management-software-sri-lanka/page.tsx in the guide pattern. Registry entry ARTICLE_PATHS.choose (title 61 characters, description 143), label "Choosing gym software"; PUBLIC_ROUTES entry; footer Resources link; body link from the data-protection section of /gym-management-software-sri-lanka; /resources lists it from the registry and its description names it. Prices, the Lite limit, the trial tiers and length come from the pricing config; scan retention from ACCESS_EVENT_RETENTION_DAYS. The owner read the page and it was committed on 2026-10-04 (61abe36). The reminder-run time it states is tied to the send-reminders cron by MarketingPages.test.tsx (46d1f74).
 
 **Files**
 
@@ -3237,7 +3236,7 @@ Seven card titles and summaries rewritten per page (e.g. 'From registration to t
 | Intent | none |
 | External action | required |
 | Created | 2026-10-02T16:47:44Z |
-| Updated | 2026-10-04T15:48:40Z |
+| Updated | 2026-10-04T17:01:12Z |
 | Completed | — |
 | Dependencies | SEO-055 |
 
@@ -3257,7 +3256,7 @@ Split from SEO-055. After the chart library left the public pages, they still lo
 
 **Recommended change**
 
-Measure first: which of these modules the public pages actually execute, and what each costs. Then decide with rules 2.15 and 2.19 in hand whether QueryProvider can move to the signed-in layouts, and whether AuthRecovery and the service-worker registration can load lazily on public routes. Lab scores are already 92–96, so this is a data and main-thread cost on mobile, not a ranking lever.
+Measure first: which of these modules the public pages actually execute, and what each costs. Then decide with rules 2.15 and 2.19 in hand whether QueryProvider can move to the signed-in layouts, and whether AuthRecovery and the service-worker registration can load lazily on public routes. Lab scores are already 92–96, so this is a data and main-thread cost on mobile, not a ranking lever. Owner decision, 2026-10-04: keep the signed-in app's code off public pages; the move is planned with rules 2.15 and 2.19 in hand.
 
 **Implementation**
 
