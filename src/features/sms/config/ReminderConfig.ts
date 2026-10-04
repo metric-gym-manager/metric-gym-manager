@@ -46,10 +46,13 @@ export interface ReminderRule {
  * SINGLE SOURCE OF TRUTH for reminder rules
  *
  * ⚠️ CRITICAL Business Rules:
- * - Daily members: NO automatic reminders (too frequent)
+ * - Daily and weekly members: NO automatic reminders of any kind, overdue
+ *   included (too frequent; weekly since the owner's decision of 2026-10-04 —
+ *   a seven-day period put the "7 days before" text on the day they paid).
+ *   Staff can still send one by hand from Renewals.
  * - Monthly members: SKIP 7-day reminder (only 3-day and due-day)
- * - Weekly, 3-months, 6-months, Annual: All reminders (7-day, 3-day, due-day)
- * - Overdue reminders: Sent for ALL plan types when payment is late
+ * - 3-months, 6-months, Annual, Custom: All reminders (7-day, 3-day, due-day)
+ * - Overdue reminders: Sent for every plan type that has reminders at all
  *
  * DO NOT hardcode these rules elsewhere!
  */
@@ -61,13 +64,9 @@ export const REMINDER_RULES: Readonly<Record<PlanType, ReminderRule>> = {
   },
 
   [PlanType.Weekly]: {
-    reminderDays: [7, 3, 0],
-    enabledReminders: [
-      ReminderType.SevenDay,
-      ReminderType.ThreeDay,
-      ReminderType.DueToday,
-      ReminderType.Overdue,
-    ],
+    reminderDays: [],
+    enabledReminders: [],
+    // NO automatic reminders for weekly members (owner decision, 2026-10-04)
   },
 
   [PlanType.Monthly]: {

@@ -41,13 +41,14 @@ describe('ReminderConfig', () => {
       expect(rule.enabledReminders).not.toContain(ReminderType.SevenDay)
     })
 
-    it('should define all reminders for weekly plans', () => {
+    // Owner decision, 2026-10-04: a weekly period is seven days long, so the
+    // "7 days before" text landed on the day the member paid, and the rest
+    // came every few days. Weekly plans now get no automated reminders of any
+    // kind, like daily plans. Staff can still send one by hand (Renewals).
+    it('should define no reminders for weekly plans', () => {
       const rule = REMINDER_RULES[PlanType.Weekly]
-      expect(rule.reminderDays).toContain(7)
-      expect(rule.reminderDays).toContain(3)
-      expect(rule.reminderDays).toContain(0)
-      // 4 types: 7-day, 3-day, due-today, and overdue
-      expect(rule.enabledReminders).toHaveLength(4)
+      expect(rule.reminderDays).toEqual([])
+      expect(rule.enabledReminders).toEqual([])
     })
 
     it('should define all reminders for 3-month plans', () => {
@@ -124,24 +125,10 @@ describe('ReminderConfig', () => {
     })
 
     describe('Weekly Plans', () => {
-      it('should send reminder 7 days before', () => {
-        expect(shouldSendReminder(PlanType.Weekly, 7)).toBe(true)
-      })
-
-      it('should send reminder 3 days before', () => {
-        expect(shouldSendReminder(PlanType.Weekly, 3)).toBe(true)
-      })
-
-      it('should send reminder on due date', () => {
-        expect(shouldSendReminder(PlanType.Weekly, 0)).toBe(true)
-      })
-
-      it('should not send reminder on other days', () => {
-        expect(shouldSendReminder(PlanType.Weekly, 1)).toBe(false)
-        expect(shouldSendReminder(PlanType.Weekly, 2)).toBe(false)
-        expect(shouldSendReminder(PlanType.Weekly, 4)).toBe(false)
-        expect(shouldSendReminder(PlanType.Weekly, 5)).toBe(false)
-        expect(shouldSendReminder(PlanType.Weekly, 6)).toBe(false)
+      it('should never send a reminder before or on the due date', () => {
+        for (let days = 0; days <= 10; days++) {
+          expect(shouldSendReminder(PlanType.Weekly, days)).toBe(false)
+        }
       })
     })
 
@@ -190,10 +177,10 @@ describe('ReminderConfig', () => {
         expect(shouldSendReminder(PlanType.Monthly, -10)).toBe(true)
       })
 
-      it('should send overdue reminder for weekly plans', () => {
-        // Weekly plans have Overdue enabled
-        expect(shouldSendReminder(PlanType.Weekly, -1)).toBe(true)
-        expect(shouldSendReminder(PlanType.Weekly, -7)).toBe(true)
+      it('should NOT send overdue reminder for weekly plans', () => {
+        // Weekly plans have no reminders enabled (owner decision, 2026-10-04)
+        expect(shouldSendReminder(PlanType.Weekly, -1)).toBe(false)
+        expect(shouldSendReminder(PlanType.Weekly, -7)).toBe(false)
       })
 
       it('should NOT send overdue reminder for daily plans', () => {
@@ -307,7 +294,7 @@ describe('ReminderConfig', () => {
 
     it('should handle multiple rapid calls without side effects', () => {
       for (let i = 0; i < 1000; i++) {
-        expect(shouldSendReminder(PlanType.Weekly, 7)).toBe(true)
+        expect(shouldSendReminder(PlanType.Annual, 7)).toBe(true)
       }
     })
   })

@@ -277,6 +277,26 @@ describe('the Excel and WhatsApp comparison', () => {
 })
 
 /**
+ * Daily and weekly plans get no automated reminders (REMINDER_RULES; weekly
+ * since the owner's decision of 2026-10-04). The SMS page's table renders
+ * from the rules, and its sentence must name the same plans; the reminders
+ * guide says Metric "applies exactly these rules", so it must agree too.
+ */
+describe('plans that get no reminders', () => {
+  it('the SMS reminders page names daily and weekly', () => {
+    const text = renderInShell(SmsPage).container.textContent ?? ''
+    expect(text).toMatch(/Daily and weekly members get no reminders/)
+  })
+
+  it('the reminders guide names daily and weekly', () => {
+    const text = renderInShell(RemindersArticle).container.textContent ?? ''
+    expect(text).toMatch(/Daily and weekly members: no reminders/)
+    expect(text).toMatch(/Daily and weekly plans: no reminders\./)
+    expect(text).not.toMatch(/Daily passes: no reminders/)
+  })
+})
+
+/**
  * The overdue guide's dates are computed by the product's own payment rule
  * (calculateNextDueDateFromPayment), so the guide cannot describe a rule the
  * product does not run. Due 15 Nov: a late payer on 20 Nov is next due

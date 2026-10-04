@@ -70,10 +70,10 @@ export const ARTICLE_PATHS = {
 const SITE_LAUNCH = '2026-10-01'
 const OVERDUE_GUIDE = '2026-10-02'
 const MOVE_GUIDE = '2026-10-03'
-/** SMS samples re-rendered from the templates, which now name the gym (SEO-053). */
-const SMS_WORDING = '2026-10-03'
 /** The overdue guide gained the early-payment rule (owner decision). */
 const EARLY_PAYMENT_RULE = '2026-10-04'
+/** Weekly plans stopped receiving automated reminders (owner decision). */
+const WEEKLY_REMINDERS = '2026-10-04'
 
 export const MARKETING_PAGES: readonly MarketingPage[] = [
   {
@@ -123,7 +123,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'Automatic renewal reminders timed to each plan, SMS receipts and bulk announcements — with every message logged as sent, delivered or failed.',
     label: 'SMS reminders',
     parent: HUB_PATH,
-    lastModified: SMS_WORDING,
+    lastModified: WEEKLY_REMINDERS,
   },
   {
     path: FEATURE_PATHS.revenue,
@@ -193,7 +193,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'A renewal reminder schedule by plan length: why monthly members need fewer messages than annual ones, what each SMS should say, and what follows the due date.',
     label: 'Renewal reminder timing',
     parent: RESOURCES_PATH,
-    lastModified: SMS_WORDING,
+    lastModified: WEEKLY_REMINDERS,
     published: SITE_LAUNCH,
   },
   {
