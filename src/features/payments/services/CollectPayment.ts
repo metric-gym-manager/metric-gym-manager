@@ -314,28 +314,32 @@ export class CollectPayment {
     isReactivation: boolean
   ): Promise<void> {
     const smsType: SMSType = isReactivation ? 'reactivation' : 'receipt'
-    const message = isReactivation
-      ? welcomeBackSms({
-          gymName,
-          memberName: member.name,
-          amountPaid,
-          nextDueDate,
-        })
-      : receiptSms({
-          gymName,
-          memberName: member.name,
-          amountPaid,
-          nextDueDate,
-          discount:
-            discount?.discountName && discount.discountPercentage
-              ? {
-                  name: discount.discountName,
-                  percentage: discount.discountPercentage,
-                }
-              : null,
-        })
+    let message = ''
 
     try {
+      // Built inside the try: a template that throws is a logged failure,
+      // never a silently skipped text (rule 2.7).
+      message = isReactivation
+        ? welcomeBackSms({
+            gymName,
+            memberName: member.name,
+            amountPaid,
+            nextDueDate,
+          })
+        : receiptSms({
+            gymName,
+            memberName: member.name,
+            amountPaid,
+            nextDueDate,
+            discount:
+              discount?.discountName && discount.discountPercentage
+                ? {
+                    name: discount.discountName,
+                    percentage: discount.discountPercentage,
+                  }
+                : null,
+          })
+
       // Send SMS
       const result = await this.smsProvider.send({
         to: member.phoneNumber,

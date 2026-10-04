@@ -19,7 +19,7 @@ import { Member } from '@/features/members/domain/Member'
 import { IMemberRepository } from '@/features/members/services/IMemberRepository'
 import { ISMSRepository } from './ISMSRepository'
 import type { IGymSubscriptionRepository } from '@/features/subscriptions/services/IGymSubscriptionRepository'
-import { ISMSProvider } from './ISMSProvider'
+import type { ISMSProvider, SMSSendResult } from './ISMSProvider'
 import type { IGymDirectory } from './IGymDirectory'
 import { SaasStatus } from '@/features/subscriptions/config/SubscriptionConfig'
 import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue'
@@ -327,53 +327,92 @@ export class SendAutomatedReminders {
   }
 
   /**
-   * Send reminder SMS to member
+   * Send a reminder SMS and log the outcome — success AND failure (rule 2.7).
+   *
+   * A failed send is written to sms_logs as `failed` with its reason, then
+   * re-thrown so the run counts it in `summary.errors` and not as sent. The
+   * failure used to throw before any insert, so no failed reminder ever reached
+   * the member's history or the system-health failures table.
    *
    * @param member - Member to send reminder to
    * @param gymName - The member's gym, printed in the text
    * @param smsType - Type of reminder
+   * @throws Error when the text cannot be built or the provider fails
    */
   private async sendReminder(
     member: Member,
     gymName: string,
     smsType: ReminderType
   ): Promise<void> {
+    let message = ''
+    let result: SMSSendResult
     try {
-      const message = reminderSms(smsType, {
+      message = reminderSms(smsType, {
         gymName,
         memberName: member.name,
         planType: member.planType,
         amount: member.planAmount,
         dueDate: member.nextDueDate,
       })
-
-      // Send SMS
-      const result = await this.smsProvider.send({
+      result = await this.smsProvider.send({
         to: member.phoneNumber,
         message,
       })
+    } catch (error) {
+      const reason =
+        error instanceof Error ? error.message : 'Exception sending SMS'
+      await this.logFailedReminder(member, smsType, message, reason)
+      console.error(`Failed to send ${smsType} to ${member.name}:`, error)
+      throw error
+    }
 
-      if (!result.success) {
-        throw new Error(result.error || 'SMS sending failed')
-      }
+    if (!result.success) {
+      const reason = result.error || 'SMS sending failed'
+      await this.logFailedReminder(member, smsType, message, reason)
+      console.error(`Failed to send ${smsType} to ${member.name}:`, reason)
+      throw new Error(reason)
+    }
 
-      // Log to database
+    await this.smsRepo.create({
+      memberId: member.id,
+      gymId: member.gymId,
+      smsType,
+      phoneNumber: member.phoneNumber,
+      messageBody: message,
+      sentAt: new Date(),
+      deliveryStatus: SMSDeliveryStatus.Sent,
+      textLkMessageId: result.messageId || null,
+      errorMessage: null,
+    })
+  }
+
+  /**
+   * Record a failed reminder. Never throws: if the log write itself fails,
+   * the original send failure must still reach the run's summary.
+   *
+   * @param messageBody - The text, or '' when it could not be built
+   * @param reason - Why the send failed
+   */
+  private async logFailedReminder(
+    member: Member,
+    smsType: ReminderType,
+    messageBody: string,
+    reason: string
+  ): Promise<void> {
+    try {
       await this.smsRepo.create({
         memberId: member.id,
         gymId: member.gymId,
         smsType,
         phoneNumber: member.phoneNumber,
-        messageBody: message,
+        messageBody,
         sentAt: new Date(),
-        deliveryStatus: result.success
-          ? SMSDeliveryStatus.Sent
-          : SMSDeliveryStatus.Failed,
-        textLkMessageId: result.messageId || null,
-        errorMessage: result.success ? null : result.error || 'Unknown error',
+        deliveryStatus: SMSDeliveryStatus.Failed,
+        textLkMessageId: null,
+        errorMessage: reason,
       })
-    } catch (error) {
-      console.error(`Failed to send ${smsType} to ${member.name}:`, error)
-      throw error
+    } catch (logError) {
+      console.error('Failed to log reminder failure:', logError)
     }
   }
 }

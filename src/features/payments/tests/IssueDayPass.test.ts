@@ -163,6 +163,25 @@ describe('IssueDayPass', () => {
       )
     })
 
+    it('logs a failed day pass SMS when its text cannot be built, and still issues the pass', async () => {
+      const result = await buildUseCase().execute({
+        ...input,
+        gymName: undefined as unknown as string,
+      })
+
+      expect(result.payment).toBeDefined()
+      expect(smsProvider.send).not.toHaveBeenCalled()
+      expect(smsRepo.create).toHaveBeenCalledTimes(1)
+      expect(smsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          smsType: 'receipt',
+          messageBody: '',
+          deliveryStatus: SMSDeliveryStatus.Failed,
+          errorMessage: expect.stringMatching(/.+/),
+        })
+      )
+    })
+
     it('names the gym in the day pass text', async () => {
       await buildUseCase().execute(input)
 

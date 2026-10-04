@@ -15,6 +15,7 @@ import type { ISMSRepository } from '@/features/sms/services/ISMSRepository'
 import type { ISMSProvider } from '@/features/sms/services/ISMSProvider'
 import type { IGymDirectory } from '@/features/sms/services/IGymDirectory'
 import type { Subscription } from '@/features/subscriptions/domain/Subscription'
+import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository'
 
 function makeMember(gymId: string, name: string): Member {
   return Member.create({
@@ -323,5 +324,94 @@ describe('SendAutomatedReminders — billing-status gate (reminders on every tie
     expect(summary.membersSkippedBillingRestricted).toBe(1)
     expect(summary.totalSent).toBe(0)
     expect(smsProvider.send).not.toHaveBeenCalled()
+  })
+
+  /**
+   * Rule 2.7: every send logs success AND failure. A failed reminder used to
+   * throw before its sms_logs insert, so no failure ever reached the member's
+   * history or the system-health failures table.
+   */
+  describe('a failed send is logged', () => {
+    const gym = { 'gym-a': makeSubscription({ gymId: 'gym-a' }) }
+
+    it('logs the provider failure with its reason, and counts no send', async () => {
+      const { useCase, smsProvider, smsRepo } = build(
+        [makeMember('gym-a', 'Member A')],
+        gym,
+        { 'gym-a': 'Titan Fitness' }
+      )
+      smsProvider.send.mockResolvedValue({
+        success: false,
+        error: 'Insufficient credits',
+      })
+
+      const summary = await useCase.execute()
+
+      expect(smsRepo.create).toHaveBeenCalledTimes(1)
+      expect(smsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          smsType: 'overdue',
+          deliveryStatus: SMSDeliveryStatus.Failed,
+          textLkMessageId: null,
+          errorMessage: 'Insufficient credits',
+          messageBody: expect.stringContaining('at Titan Fitness'),
+        })
+      )
+      expect(summary.totalSent).toBe(0)
+      expect(summary.errors).toEqual([
+        expect.stringContaining('Insufficient credits'),
+      ])
+    })
+
+    it('logs a thrown provider error', async () => {
+      const { useCase, smsProvider, smsRepo } = build(
+        [makeMember('gym-a', 'Member A')],
+        gym
+      )
+      smsProvider.send.mockRejectedValue(new Error('network down'))
+
+      const summary = await useCase.execute()
+
+      expect(smsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deliveryStatus: SMSDeliveryStatus.Failed,
+          errorMessage: 'network down',
+        })
+      )
+      expect(summary.totalSent).toBe(0)
+      expect(summary.errors).toHaveLength(1)
+    })
+
+    it('still reports the send failure when the failure log itself fails', async () => {
+      const { useCase, smsProvider, smsRepo } = build(
+        [makeMember('gym-a', 'Member A')],
+        gym
+      )
+      smsProvider.send.mockResolvedValue({ success: false, error: 'No route' })
+      ;(smsRepo.create as jest.Mock).mockRejectedValue(
+        new Error('insert refused')
+      )
+
+      const summary = await useCase.execute()
+
+      expect(summary.totalSent).toBe(0)
+      expect(summary.errors).toEqual([expect.stringContaining('No route')])
+    })
+
+    it('logs a successful send once, as sent', async () => {
+      const { useCase, smsRepo } = build([makeMember('gym-a', 'Member A')], gym)
+
+      const summary = await useCase.execute()
+
+      expect(smsRepo.create).toHaveBeenCalledTimes(1)
+      expect(smsRepo.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deliveryStatus: SMSDeliveryStatus.Sent,
+          textLkMessageId: 'msg-1',
+          errorMessage: null,
+        })
+      )
+      expect(summary.totalSent).toBe(1)
+    })
   })
 })

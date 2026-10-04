@@ -210,9 +210,12 @@ export interface ISMSRepository {
    * This is CRITICAL for preventing duplicate reminders.
    * Used by reminder cron job before sending each SMS.
    *
+   * Counts only rows that are not `failed`: failed sends are logged too, and
+   * a failure must stay retryable by a same-day re-run.
+   *
    * @param memberId - Member ID
    * @param smsType - Type of SMS
-   * @returns True if SMS was already sent today
+   * @returns True if a non-failed SMS of this type was logged today
    */
   existsForToday(memberId: string, smsType: SMSType): Promise<boolean>
 

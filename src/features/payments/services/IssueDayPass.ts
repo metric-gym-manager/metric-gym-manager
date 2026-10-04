@@ -218,14 +218,18 @@ export class IssueDayPass {
     amountPaid: number,
     validUntil: Date
   ): Promise<void> {
-    const message = dayPassSms({
-      gymName,
-      memberName: member.name,
-      amountPaid,
-      validUntil,
-    })
+    let message = ''
 
     try {
+      // Built inside the try: a template that throws is a logged failure,
+      // never a silently skipped text (rule 2.7).
+      message = dayPassSms({
+        gymName,
+        memberName: member.name,
+        amountPaid,
+        validUntil,
+      })
+
       const result = await this.smsProvider.send({
         to: member.phoneNumber,
         message,

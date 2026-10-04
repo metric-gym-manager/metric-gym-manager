@@ -205,6 +205,25 @@ describe('CollectPayment', () => {
     )
   })
 
+  it('logs a failed receipt SMS when its text cannot be built, and still collects the payment', async () => {
+    const result = await buildUseCase().execute({
+      ...input,
+      gymName: undefined as unknown as string,
+    })
+
+    expect(result.payment).toBeDefined()
+    expect(smsProvider.send).not.toHaveBeenCalled()
+    expect(smsRepo.create).toHaveBeenCalledTimes(1)
+    expect(smsRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        smsType: 'receipt',
+        messageBody: '',
+        deliveryStatus: SMSDeliveryStatus.Failed,
+        errorMessage: expect.stringMatching(/.+/),
+      })
+    )
+  })
+
   it('throws NotFoundError when the member does not exist', async () => {
     memberRepo.findById.mockResolvedValue(null)
 

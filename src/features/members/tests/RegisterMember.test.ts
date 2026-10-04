@@ -3,9 +3,11 @@
  *
  * The welcome SMS must be sent AND logged to sms_logs before execute()
  * resolves. It used to be fire-and-forget, and on Vercel the function can be
- * frozen as soon as the response is sent: about a third of registrations had
- * no `welcome` log (0 of 2 on 2026-09-28; neither bulk test member in Titan
- * Fitness on 2026-10-03). CollectPayment had the same defect and was fixed by
+ * frozen as soon as the response is sent: 16 of 48 desk registrations in the
+ * 45 days to 2026-10-03 had no `welcome` log (0 of 2 on 2026-09-28; neither
+ * bulk test member in Titan Fitness on 2026-10-03). That count leaves out a
+ * 350-member import on 2026-09-13, whose rows are not clean evidence: each of
+ * those members has two welcome rows, one with no text.lk message id. CollectPayment had the same defect and was fixed by
  * awaiting; this suite mirrors `payments/tests/CollectPayment.test.ts`.
  *
  * All three registration routes — desk, bulk and QR — run this use case.
@@ -158,6 +160,30 @@ describe('RegisterMember', () => {
         smsType: 'welcome',
         deliveryStatus: SMSDeliveryStatus.Failed,
         errorMessage: 'network down',
+      })
+    )
+  })
+
+  it('logs a failed welcome SMS when its text cannot be built, and still registers', async () => {
+    // gymName reaches the use case from an untyped Supabase row; if it were
+    // ever missing, the template throws. That must be a logged failure, not a
+    // silently skipped text.
+    const result = await buildUseCase().execute({
+      ...input,
+      gymName: undefined as unknown as string,
+    })
+
+    expect(result.member).toBeDefined()
+    expect(result.payment).toBeDefined()
+    expect(smsProvider.send).not.toHaveBeenCalled()
+    expect(smsRepo.create).toHaveBeenCalledTimes(1)
+    expect(smsRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        smsType: 'welcome',
+        messageBody: '',
+        deliveryStatus: SMSDeliveryStatus.Failed,
+        textLkMessageId: null,
+        errorMessage: expect.stringMatching(/.+/),
       })
     )
   })
