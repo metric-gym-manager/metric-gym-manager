@@ -15,7 +15,7 @@ import {
 /** Title, description and canonical come from the public page registry. */
 export const metadata: Metadata = buildPageMetadata('/privacy')
 
-const LAST_UPDATED = 'September 2026'
+const LAST_UPDATED = 'October 2026'
 
 const sections: LegalSection[] = [
   {
@@ -304,17 +304,23 @@ const sections: LegalSection[] = [
           operators. These messages are limited to:
         </LegalP>
         <LegalList>
-          <LegalLI>Payment due reminders</LegalLI>
-          <LegalLI>Membership renewal notifications</LegalLI>
+          <LegalLI>
+            A welcome message when a member is registered, or returns after a
+            cancellation or suspension
+          </LegalLI>
+          <LegalLI>Payment receipts, with the next due date</LegalLI>
+          <LegalLI>
+            Payment due reminders and membership renewal notifications
+          </LegalLI>
           <LegalLI>Expiry alerts</LegalLI>
+          <LegalLI>Announcements the gym sends to its own members</LegalLI>
         </LegalList>
         <LegalP>
           By registering with a gym that uses Metric Gym OS, members consent to
           receive these essential SMS notifications as part of the
-          platform&apos;s core functionality. Every SMS we send includes
-          information on how to stop receiving it, free of charge, and a member
-          may withdraw consent at any time by contacting their gym directly,
-          which will action the request at no cost.
+          platform&apos;s core functionality. A member may withdraw consent at
+          any time by contacting their gym directly, which will action the
+          request at no cost.
         </LegalP>
       </>
     ),
