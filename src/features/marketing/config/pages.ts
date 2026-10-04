@@ -74,6 +74,8 @@ const MOVE_GUIDE = '2026-10-03'
 const EARLY_PAYMENT_RULE = '2026-10-04'
 /** Weekly plans stopped receiving automated reminders (owner decision). */
 const WEEKLY_REMINDERS = '2026-10-04'
+/** The access-control page stopped naming the hardware partner (owner). */
+const PARTNER_UNNAMED = '2026-10-04'
 
 export const MARKETING_PAGES: readonly MarketingPage[] = [
   {
@@ -140,10 +142,10 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     kind: 'feature',
     title: 'Gym Access Control Software in Sri Lanka | Metric Gym OS',
     description:
-      'Fingerprint door access that follows each member’s paid-through date. ZKTeco readers supplied by VFT enforce expiry even if the internet is down.',
+      'Fingerprint door access that follows each member’s paid-through date. ZKTeco readers from our hardware partner enforce expiry even offline.',
     label: 'Access control',
     parent: HUB_PATH,
-    lastModified: SITE_LAUNCH,
+    lastModified: PARTNER_UNNAMED,
   },
   {
     path: PRICING_PATH,

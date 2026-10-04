@@ -87,10 +87,10 @@ export default function AccessControlPage() {
         lead={
           <p>
             On the Enterprise plan, Metric connects to ZKTeco fingerprint
-            readers supplied and supported by VFT. Each member’s paid-through
-            date is sent to the reader, and the reader itself refuses entry once
-            it passes — so the door follows payments without anyone checking at
-            the desk.
+            readers supplied and supported by our hardware partner. Each
+            member’s paid-through date is sent to the reader, and the reader
+            itself refuses entry once it passes — so the door follows payments
+            without anyone checking at the desk.
           </p>
         }
       />
@@ -102,9 +102,9 @@ export default function AccessControlPage() {
         <Prose>
           <ol>
             <li>
-              <strong>Readers are installed and linked.</strong> VFT installs
-              the readers; you connect each one to your gym in Metric by its
-              serial number.
+              <strong>Readers are installed and linked.</strong> Our hardware
+              partner installs the readers; you connect each one to your gym in
+              Metric by its serial number.
             </li>
             <li>
               <strong>Members are enrolled at the reader.</strong> Their consent

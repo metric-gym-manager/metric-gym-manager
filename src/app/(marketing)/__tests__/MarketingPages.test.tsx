@@ -277,6 +277,24 @@ describe('the Excel and WhatsApp comparison', () => {
 })
 
 /**
+ * The owner decided (2026-10-04, SEO-038) not to name the access-control
+ * hardware partner publicly. ZKTeco, the reader maker, may be named; the
+ * partner is "our hardware partner" everywhere, registry text included.
+ */
+describe('the hardware partner is not named', () => {
+  it.each(PAGES)('%s', (_path, Page) => {
+    const text = renderInShell(Page).container.textContent ?? ''
+    expect(text).not.toMatch(/\bVFT\b/i)
+  })
+
+  it('in any registry title or description', () => {
+    for (const page of MARKETING_PAGES) {
+      expect(`${page.title} ${page.description}`).not.toMatch(/\bVFT\b/i)
+    }
+  })
+})
+
+/**
  * Daily and weekly plans get no automated reminders (REMINDER_RULES; weekly
  * since the owner's decision of 2026-10-04). The SMS page's table renders
  * from the rules, and its sentence must name the same plans; the reminders
