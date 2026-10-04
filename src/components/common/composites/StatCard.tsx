@@ -126,8 +126,9 @@ export function StatCard({
             // §25.4: "sub `text-caption` `line-clamp-2`". Scoped for the same
             // reason as the tile floor above: a clamp that never triggers at
             // 1366 is still a class the baseline comparison would have to
-            // absorb, and this one CAN trigger — "3 critical · 5 warning ·
-            // 6 mild" wraps to two lines at 320 and must not reach three.
+            // absorb, and this one CAN trigger — "LKR 224,000 expected" or
+            // "52 warning · 53 mild" wrap to two lines at 320 and must not
+            // reach three.
             <span className="text-caption text-ink-secondary phone:line-clamp-2">
               {sub}
             </span>

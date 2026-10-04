@@ -26,6 +26,7 @@ import { ReminderType } from '@/features/sms/config/ReminderConfig'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
 import { ACCESS_EVENT_RETENTION_DAYS } from '@/features/access-control/config/AccessControlConfig'
+import { reminderRunTimeSriLanka } from '@/test-utils/reminderRunTime'
 import MarketingLayout from '../layout'
 import HubPage, {
   metadata as hubMeta,
@@ -390,6 +391,29 @@ describe('plans that get no reminders', () => {
     expect(text).toMatch(/Daily and weekly members: no reminders/)
     expect(text).toMatch(/Daily and weekly plans: no reminders\./)
     expect(text).not.toMatch(/Daily passes: no reminders/)
+  })
+})
+
+/**
+ * The reminder run's time is stated on three public pages (and the sign-in
+ * panel, pinned in AuthShell.test.tsx). It is derived here from the
+ * send-reminders cron in vercel.json, so moving the cron fails these until
+ * the copy follows.
+ */
+describe('the reminder run time', () => {
+  const time = reminderRunTimeSriLanka()
+
+  it.each([
+    ['/features/sms-reminders', SmsPage, `starts at ${time} every morning`],
+    [
+      'the reminders guide',
+      RemindersArticle,
+      `starts at ${time} in the morning`,
+    ],
+    ['the buying guide', ChooseArticle, `starts at ${time} every morning`],
+  ] as const)('%s states it', (_name, Page, phrase) => {
+    const text = renderInShell(Page).container.textContent ?? ''
+    expect(text.replace(/\s+/g, ' ')).toContain(phrase)
   })
 })
 

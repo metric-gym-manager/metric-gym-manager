@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react'
 import '@testing-library/jest-dom'
+import { reminderRunTimeSriLanka } from '@/test-utils/reminderRunTime'
 import AuthShell from '../AuthShell'
 
 /**
@@ -25,7 +26,9 @@ describe('AuthShell side panel', () => {
   // 9:00 in the morning in Sri Lanka, as the public SMS pages say. The
   // panel used to promise the first batch "tonight".
   it('gives the reminder run its real time', () => {
-    expect(text()).toContain('Your reminders go out every morning at 9:00.')
+    expect(text()).toContain(
+      `Your reminders go out every morning at ${reminderRunTimeSriLanka()}.`
+    )
     expect(text()).not.toMatch(/tonight/i)
   })
 })
