@@ -32,7 +32,10 @@ updateDeliveryStatus` returns rows-affected precisely so that a no-op cannot
 > **1. Registration now awaits the welcome SMS.** `RegisterMember` sent it
 > fire-and-forget (`this.sendWelcomeSMS(...).catch(...)`). On Vercel the
 > function can be frozen once the response is sent, and about a third of
-> registrations had no `welcome` row in `sms_logs`. The desk, bulk and QR
+> registrations had no `welcome` row in `sms_logs`: 16 of 48 desk
+> registrations in the 45 days to 2026-10-03. That count leaves out a
+> 350-member import on 2026-09-13, which is not clean evidence: each of those
+> members has two welcome rows, one with no text.lk message id. The desk, bulk and QR
 > routes all run this use case. It now follows `CollectPayment`:
 > `try { await this.sendWelcomeSMS(...) } catch { console.error }`, so the
 > send and its log row complete before `execute()` returns, and a failed SMS
@@ -40,7 +43,14 @@ updateDeliveryStatus` returns rows-affected precisely so that a no-op cannot
 >
 > With that change, every automated send path awaits its send and its log
 > write: welcome, receipt, welcome back, day pass and the four reminders.
-> `RegisterMember.test.ts` pins the welcome path. Its provider resolves on a
+> **Correction, 2026-10-04:** until that date a _failed_ reminder was never
+> logged. `SendAutomatedReminders.sendReminder` threw before its insert, so
+> its `failed` branch was dead code. It now logs `failed` with the reason
+> before re-throwing, and `existsForToday` counts only rows that did not fail,
+> so a same-day re-run still retries the member. The welcome, receipt and
+> day-pass senders now also build their text inside the `try`: a template
+> that throws is logged as `failed` (with an empty `message_body`), never a
+> silently skipped text. `RegisterMember.test.ts` pins the welcome path. Its provider resolves on a
 > `setTimeout` tick, so an un-awaited send fails the suite. Past
 > registrations were **not** backfilled: whether those texts went out is
 > unknown, and a row written now would invent a record.

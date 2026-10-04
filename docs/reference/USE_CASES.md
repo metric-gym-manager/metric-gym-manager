@@ -4,6 +4,12 @@
 
 This document provides detailed documentation for all use cases in the Gym Management SaaS Clean Architecture implementation.
 
+> **Partly out of date (noted 2026-10-04).** The SMS steps, templates and Pattern 1 below
+> were brought up to date on 2026-10-04: every automated text is awaited, logged and worded
+> by `src/features/sms/config/SmsTemplates.ts`, which outranks this file. Other examples
+> still describe the retired DI container (`container.get…UseCase()`, replaced by each
+> feature's `services/factory.ts`) and a six-hourly reminder run; trust the code there.
+
 ## Table of Contents
 
 1. [Member Use Cases](#member-use-cases)
@@ -154,12 +160,19 @@ graph TD
    const savedPayment = await this.paymentRepo.create(payment)
    ```
 
-7. **Send Welcome SMS** (fire-and-forget)
+7. **Send Welcome SMS** (awaited and logged)
+
    ```typescript
-   this.sendWelcomeSMS(savedMember, input.paymentAmount).catch((error) => {
-     console.error('Welcome SMS failed:', error)
-   })
+   try {
+     await this.sendWelcomeSMS(savedMember, input.gymName, input.paymentAmount)
+   } catch (error) {
+     console.error('Failed to send welcome SMS:', error)
+   }
    ```
+
+   Awaited so the send and its `sms_logs` row complete before `execute()` returns: a
+   serverless function can freeze once the response is sent. A failed SMS is logged as
+   `failed` and never fails the registration.
 
 #### Usage Example
 
@@ -173,6 +186,7 @@ export async function POST(request: NextRequest) {
 
   const result = await registerMember.execute({
     gymId: gymProfile.id,
+    gymName: gymProfile.gym_name,
     name: validatedData.name,
     phoneNumber: validatedData.phoneNumber,
     planType: validatedData.planType as PlanType,
@@ -200,14 +214,10 @@ export async function POST(request: NextRequest) {
 
 #### SMS Template (Welcome)
 
+`welcomeSms` in `src/features/sms/config/SmsTemplates.ts` (two SMS segments, by design):
+
 ```
-Welcome to [GYM_NAME]! 🎉
-
-Your membership is now active.
-Next payment due: [DD/MM/YYYY]
-Amount: LKR [AMOUNT]
-
-Thank you for joining us!
+Welcome to [GYM_NAME], [NAME]! Your [plan] membership is active and we can't wait to see you training. Paid Rs.[AMOUNT]. Next due [DD/MM/YYYY]. Have a great time!
 ```
 
 ---
@@ -669,14 +679,26 @@ graph TD
    const savedMember = await this.memberRepo.update(updatedMember)
    ```
 
-8. **Send Receipt SMS** (fire-and-forget)
+8. **Send Receipt SMS** (awaited and logged)
+
    ```typescript
-   this.sendReceiptSMS(savedMember, input.paymentAmount, nextDueDate).catch(
-     (error) => {
-       console.error('Receipt SMS failed:', error)
-     }
-   )
+   try {
+     await this.sendPaymentSMS(
+       updatedMember,
+       input.gymName,
+       input.paymentAmount,
+       nextDueDate,
+       input.discount,
+       wasReactivation
+     )
+   } catch (error) {
+     console.error('Failed to send payment SMS:', error)
+   }
    ```
+
+   A member returning from suspended or cancelled gets the welcome-back text instead of
+   the receipt. Awaited and logged like the welcome SMS; a failed SMS never fails the
+   payment.
 
 #### Usage Example
 
@@ -694,6 +716,7 @@ export async function POST(
 
   const result = await collectPayment.execute({
     gymId: gymProfile.id,
+    gymName: gymProfile.gym_name,
     memberId: id,
     paymentDate: new Date(validatedData.paymentDate),
     paymentAmount: validatedData.paymentAmount,
@@ -722,14 +745,17 @@ export async function POST(
 
 #### SMS Template (Receipt)
 
+`receiptSms` in `src/features/sms/config/SmsTemplates.ts`; with a discount it adds
+`([DISCOUNT_NAME] [PERCENT]% off)` after "received":
+
 ```
-Payment Received! 💳
+[GYM_NAME]: thank you, [NAME]! Payment of Rs.[AMOUNT] received. Next due [DD/MM/YYYY]. Keep up the great work!
+```
 
-Amount: LKR [AMOUNT]
-Next Due Date: [DD/MM/YYYY]
+Welcome back (`welcomeBackSms`), for a reactivation:
 
-Thank you for your payment!
-- [GYM_NAME]
+```
+Welcome back to [GYM_NAME], [NAME]! Great to have you training again. Paid Rs.[AMOUNT]. Next due [DD/MM/YYYY].
 ```
 
 #### Business Rules
@@ -964,44 +990,28 @@ export async function POST(request: NextRequest) {
 
 #### SMS Templates
 
-**7-Day Reminder**:
+`reminderSms` in `src/features/sms/config/SmsTemplates.ts`. No emoji: one emoji switches a
+text to UCS-2 and multiplies its cost.
+
+**7-Day and 3-Day Reminder** (one text for both):
 
 ```
-Hi [NAME]! 📅
-
-Your membership payment is due in 7 days.
-Due Date: [DD/MM/YYYY]
-Amount: LKR [AMOUNT]
-
-Please renew on time to avoid interruption.
-- [GYM_NAME]
+Hi [NAME], your [plan] membership at [GYM_NAME] is due on [DD/MM/YYYY] (Rs.[AMOUNT]). Do not forget to renew and stay consistent!
 ```
 
-**3-Day Reminder**:
+**Due Today Reminder** (the member's last active day):
 
 ```
-Hi [NAME]! ⏰
-
-Your membership payment is due in 3 days.
-Due Date: [DD/MM/YYYY]
-Amount: LKR [AMOUNT]
-
-Please renew soon to continue your membership.
-- [GYM_NAME]
+Hi [NAME], your [plan] membership at [GYM_NAME] expires today (Rs.[AMOUNT]). Renew today and stay consistent!
 ```
 
-**Due Today Reminder**:
+**Overdue Reminder** (a safety net for a skipped expiry run):
 
 ```
-Hi [NAME]! 🔔
-
-Your membership payment is due TODAY.
-Due Date: [DD/MM/YYYY]
-Amount: LKR [AMOUNT]
-
-Please renew today to avoid expiration.
-- [GYM_NAME]
+Hi [NAME], your [plan] membership at [GYM_NAME] has expired (due [DD/MM/YYYY], Rs.[AMOUNT]). Renew soon and get back to training!
 ```
+
+A failed send is logged as `failed` with its reason and retried by a same-day re-run.
 
 #### Business Rules
 
@@ -1032,16 +1042,21 @@ Track these metrics:
 
 ## Common Patterns
 
-### Pattern 1: Fire-and-Forget SMS
+### Pattern 1: Awaited, Logged SMS
 
-Many use cases send SMS notifications as a side effect. These are **non-blocking** and failures don't stop the main workflow:
+Many use cases send an SMS as a side effect. A failed SMS never fails the main workflow, but
+the send is **awaited** and its outcome **logged** (rule 2.7, `docs/architecture/sms-logging.md`):
+on serverless hosting the function can freeze once the response is sent, so a fire-and-forget
+send loses its `sms_logs` row, and sometimes the SMS itself.
 
 ```typescript
-// Send SMS without awaiting
-this.sendWelcomeSMS(member, amount).catch((error) => {
-  console.error('SMS failed:', error)
-  // Continue execution - SMS failure is not critical
-})
+// The sender builds the text, sends it and logs sent or failed, all inside its own try;
+// the caller only guards against the unexpected.
+try {
+  await this.sendWelcomeSMS(member, input.gymName, amount)
+} catch (error) {
+  console.error('Failed to send welcome SMS:', error)
+}
 ```
 
 ### Pattern 2: Idempotency

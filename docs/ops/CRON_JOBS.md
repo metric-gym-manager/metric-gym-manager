@@ -123,10 +123,14 @@ Automatically sends payment reminders to all active members based on their due d
 
 ### SMS Message Formats
 
+Built by `src/features/sms/config/SmsTemplates.ts`, the single source of the
+wording (updated 2026-10-04). Every text names the gym; the gym names are read
+once per run, in batches of 100.
+
 **7-Day/3-Day:**
 
 ```
-Dear John Doe, your Monthly membership at PowerFit Gym is due on 20/02/2026. Amount: Rs.5000.00. Thank you.
+Hi John Doe, your monthly membership at PowerFit Gym is due on 20/02/2026 (Rs.5,000). Do not forget to renew and stay consistent!
 ```
 
 **Due Today** — the due date is the member's last active day (expiry is
@@ -134,14 +138,18 @@ immediate the following day), so this is the final automated message they
 receive while still a member:
 
 ```
-Dear John Doe, your Monthly membership expires today. Amount: Rs.5000.00. Please pay today to stay active. Thank you.
+Hi John Doe, your monthly membership at PowerFit Gym expires today (Rs.5,000). Renew today and stay consistent!
 ```
 
 **Overdue:**
 
 ```
-Dear John Doe, your Monthly membership at PowerFit Gym was due on 13/02/2026. Amount: Rs.5000.00. Please make payment. Thank you.
+Hi John Doe, your monthly membership at PowerFit Gym has expired (due 13/02/2026, Rs.5,000). Renew soon and get back to training!
 ```
+
+A failed send is logged to `sms_logs` as `failed` with its reason, and a
+same-day re-run retries it: the duplicate check counts only rows that did not
+fail.
 
 > **Note:** with no grace period, an overdue member is flipped to "Expired" at
 > 00:00 before the 03:30 reminder run, and reminders only go to Active members.
@@ -520,7 +528,7 @@ Currently, SMS sending is in **mock mode**:
 📱 [MOCK SMS] Sending SMS:
    To: +94771234567
    Type: reminder_7day
-   Message: Dear John Doe, your Monthly membership...
+   Message: Hi John Doe, your monthly membership at PowerFit Gym is due on...
    ✓ SMS logged to database (ID: abc-123)
 ```
 

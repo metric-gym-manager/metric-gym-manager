@@ -290,7 +290,7 @@ function getSMSTypeStatus(
         "id": "uuid",
         "sms_type": "reminder_3day",
         "phone_number": "+94771234567",
-        "message_body": "Dear Monthly Test - 3 Days...",
+        "message_body": "Hi Monthly Test - 3 Days, your monthly membership at Test Gym is due on...",
         "sent_at": "2026-03-09T03:30:00Z",
         "delivery_status": "sent",
         "text_lk_message_id": null

@@ -428,44 +428,58 @@ A streamlined gym management SaaS platform designed for Sri Lankan gyms to manag
 
 #### 4.5.2 SMS Reminder Format
 
-**7-Day / 3-Day / Due Today Notice:**
+> **Updated 2026-10-04.** This is the wording the product sends. The source of truth is
+> `src/features/sms/config/SmsTemplates.ts`: when this document and the code disagree,
+> the code wins. Every automated text names the gym (SEO-053).
+
+**7-Day / 3-Day Notice:**
 
 ```
-Dear [Member Name], your [Plan Type] membership at [Gym Name] is due on [Due Date]. Amount: Rs.[Amount]. Thank you.
+Hi [Member Name], your [plan] membership at [Gym Name] is due on [Due Date] (Rs.[Amount]). Do not forget to renew and stay consistent!
 ```
 
-**Overdue Notice:**
+**Due Today Notice** (the member's last active day):
 
 ```
-Dear [Member Name], your [Plan Type] membership at [Gym Name] was due on [Due Date]. Amount: Rs.[Amount]. Please make payment. Thank you.
+Hi [Member Name], your [plan] membership at [Gym Name] expires today (Rs.[Amount]). Renew today and stay consistent!
+```
+
+**Overdue Notice** (a safety net for a skipped expiry run):
+
+```
+Hi [Member Name], your [plan] membership at [Gym Name] has expired (due [Due Date], Rs.[Amount]). Renew soon and get back to training!
 ```
 
 **Variables:**
 
 - [Member Name]: Member's registered name
-- [Plan Type]: Monthly/Daily/Annual
-- [Gym Name]: Gym's registered name
+- [plan]: Plan label in lower case (monthly, 3-month, annual …); a custom plan prints just "membership"
+- [Gym Name]: Gym's registered name, cut at its last whole word within 30 characters
 - [Due Date]: Next due date (DD/MM/YYYY format)
-- [Amount]: Plan amount (excluding discounts)
+- [Amount]: Plan amount (excluding discounts), thousands-separated, cents only when non-zero (e.g. 4,000)
 
 #### 4.5.3 SMS Receipt Format
+
+> **Updated 2026-10-04.** This is the wording the product sends. The source of truth is
+> `src/features/sms/config/SmsTemplates.ts`: when this document and the code disagree,
+> the code wins. Every automated text names the gym (SEO-053).
 
 **Without Discount:**
 
 ```
-Dear [Member Name], payment of Rs.[Amount] received. Next due date: [Next Due Date]. Thank you - [Gym Name]
+[Gym Name]: thank you, [Member Name]! Payment of Rs.[Amount] received. Next due [Next Due Date]. Keep up the great work!
 ```
 
 **With Discount:**
 
 ```
-Dear [Member Name], payment of Rs.[Amount] received (Discount: [Discount Name] [Discount %]% applied). Next due date: [Next Due Date]. Thank you - [Gym Name]
+[Gym Name]: thank you, [Member Name]! Payment of Rs.[Amount] received ([Discount Name] [Discount %]% off). Next due [Next Due Date]. Keep up the great work!
 ```
 
 **Variables:**
 
 - [Amount]: Actual amount paid
-- [Discount Name]: e.g., 'Student Discount'
+- [Discount Name]: e.g., 'Student Discount', cut at its last whole word within 20 characters
 - [Discount %]: e.g., '10'
 - [Next Due Date]: Calculated next due date (DD/MM/YYYY)
 
@@ -1079,47 +1093,77 @@ Dear [Member Name], payment of Rs.[Amount] received (Discount: [Discount Name] [
 
 ### 9.2 SMS Templates (Detailed)
 
-**Reminder SMS (No Discount):**
+> **Updated 2026-10-04.** This is the wording the product sends. The source of truth is
+> `src/features/sms/config/SmsTemplates.ts`: when this document and the code disagree,
+> the code wins. Every automated text names the gym (SEO-053).
+
+**Welcome SMS (registration):**
 
 ```
-Dear [Member Name], your [Plan Type] membership at [Gym Name] is due on [Due Date]. Amount: Rs.[Amount]. Thank you.
+Welcome to [Gym Name], [Member Name]! Your [plan] membership is active and we can't wait to see you training. Paid Rs.[Amount]. Next due [Next Due Date]. Have a great time!
+```
+
+**Welcome Back SMS (a suspended or cancelled member paying to return):**
+
+```
+Welcome back to [Gym Name], [Member Name]! Great to have you training again. Paid Rs.[Amount]. Next due [Next Due Date].
+```
+
+**Reminder SMS (7 and 3 days before the due date):**
+
+```
+Hi [Member Name], your [plan] membership at [Gym Name] is due on [Due Date] (Rs.[Amount]). Do not forget to renew and stay consistent!
 ```
 
 Example:
 
 ```
-Dear Rajesh Perera, your Monthly membership at FitZone Gym is due on 15/03/2026. Amount: Rs.3000. Thank you.
+Hi Rajesh Perera, your monthly membership at FitZone Gym is due on 15/03/2026 (Rs.3,000). Do not forget to renew and stay consistent!
+```
+
+**Due Today SMS:**
+
+```
+Hi [Member Name], your [plan] membership at [Gym Name] expires today (Rs.[Amount]). Renew today and stay consistent!
 ```
 
 **Overdue SMS:**
 
 ```
-Dear [Member Name], your [Plan Type] membership at [Gym Name] was due on [Due Date]. Amount: Rs.[Amount]. Please make payment. Thank you.
+Hi [Member Name], your [plan] membership at [Gym Name] has expired (due [Due Date], Rs.[Amount]). Renew soon and get back to training!
 ```
 
 **Receipt SMS (No Discount):**
 
 ```
-Dear [Member Name], payment of Rs.[Amount] received. Next due date: [Next Due Date]. Thank you - [Gym Name]
+[Gym Name]: thank you, [Member Name]! Payment of Rs.[Amount] received. Next due [Next Due Date]. Keep up the great work!
 ```
 
 Example:
 
 ```
-Dear Rajesh Perera, payment of Rs.3000 received. Next due date: 15/04/2026. Thank you - FitZone Gym
+FitZone Gym: thank you, Rajesh Perera! Payment of Rs.3,000 received. Next due 15/04/2026. Keep up the great work!
 ```
 
 **Receipt SMS (With Discount):**
 
 ```
-Dear [Member Name], payment of Rs.[Amount] received (Discount: [Discount Name] [Discount %]% applied). Next due date: [Next Due Date]. Thank you - [Gym Name]
+[Gym Name]: thank you, [Member Name]! Payment of Rs.[Amount] received ([Discount Name] [Discount %]% off). Next due [Next Due Date]. Keep up the great work!
 ```
 
 Example:
 
 ```
-Dear Rajesh Perera, payment of Rs.2700 received (Discount: Student Discount 10% applied). Next due date: 15/04/2026. Thank you - FitZone Gym
+FitZone Gym: thank you, Rajesh Perera! Payment of Rs.2,700 received (Student Discount 10% off). Next due 15/04/2026. Keep up the great work!
 ```
+
+**Day Pass SMS:**
+
+```
+[Gym Name]: thank you, [Member Name]! Day pass of Rs.[Amount] received, valid until [Date]. Enjoy your workout!
+```
+
+**Length:** every text is GSM-7 (no emoji, em dash or curly quote). The welcome is two SMS segments; every other text is one at typical lengths and at most two in the long tail. `SmsTemplates.test.ts` pins both.
 
 ### 9.3 SMS Sending Schedule
 
