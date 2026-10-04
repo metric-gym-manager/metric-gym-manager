@@ -88,6 +88,7 @@ export const PUBLIC_ROUTES = [
   '/resources/move-gym-members-from-register-book',
   '/resources/excel-whatsapp-vs-gym-software',
   '/resources/billed-vs-collected-revenue',
+  '/resources/choosing-gym-management-software-sri-lanka',
 ] as const
 
 /**

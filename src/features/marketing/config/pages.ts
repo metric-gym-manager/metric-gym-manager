@@ -65,6 +65,7 @@ export const ARTICLE_PATHS = {
   move: '/resources/move-gym-members-from-register-book',
   compare: '/resources/excel-whatsapp-vs-gym-software',
   revenue: '/resources/billed-vs-collected-revenue',
+  choose: '/resources/choosing-gym-management-software-sri-lanka',
 } as const
 
 const SITE_LAUNCH = '2026-10-01'
@@ -78,6 +79,8 @@ const WEEKLY_REMINDERS = '2026-10-04'
 const PARTNER_UNNAMED = '2026-10-04'
 /** /contact links the official Facebook page (SEO-040). */
 const SOCIAL_LINKED = '2026-10-04'
+/** The buying guide (SEO-065), written once the owner confirmed its facts. */
+const CHOOSE_GUIDE = '2026-10-04'
 
 export const MARKETING_PAGES: readonly MarketingPage[] = [
   {
@@ -97,7 +100,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'How Metric Gym OS manages members, renewals, SMS reminders, revenue and door access for Sri Lankan gyms — with LKR pricing, setup steps and data protection.',
     label: 'Gym management software',
     parent: HOME_PATH,
-    lastModified: MOVE_GUIDE,
+    lastModified: CHOOSE_GUIDE,
   },
   {
     path: FEATURE_PATHS.membership,
@@ -184,10 +187,10 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     kind: 'resources',
     title: 'Resources for Gym Owners | Metric Gym OS',
     description:
-      'Guides for Sri Lankan gyms: Excel and WhatsApp vs software, moving off a register book, renewal reminders, overdue members and revenue owed vs collected.',
+      'Guides for Sri Lankan gyms: choosing software, Excel and WhatsApp vs software, moving off a register book, reminders, overdue members and revenue.',
     label: 'Resources',
     parent: HOME_PATH,
-    lastModified: MOVE_GUIDE,
+    lastModified: CHOOSE_GUIDE,
   },
   {
     path: ARTICLE_PATHS.reminders,
@@ -210,6 +213,17 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     parent: RESOURCES_PATH,
     lastModified: EARLY_PAYMENT_RULE,
     published: OVERDUE_GUIDE,
+  },
+  {
+    path: ARTICLE_PATHS.choose,
+    kind: 'article',
+    title: 'Choosing Gym Management Software in Sri Lanka | Metric Gym OS',
+    description:
+      'What to check before choosing gym software in Sri Lanka: rupee prices, desk payments, SMS, door access and your members’ rights under the PDPA.',
+    label: 'Choosing gym software',
+    parent: RESOURCES_PATH,
+    lastModified: CHOOSE_GUIDE,
+    published: CHOOSE_GUIDE,
   },
   {
     path: ARTICLE_PATHS.compare,

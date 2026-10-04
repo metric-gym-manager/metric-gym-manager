@@ -7,8 +7,10 @@ import {
   FEATURE_PATHS,
   MARKETING_PAGES,
   ORGANIZATION_ID,
+  LITE_MEMBER_LIMIT,
   PRICING_TIERS,
   SOCIAL_PROFILES,
+  TRIAL_DAYS,
   SOFTWARE_ID,
   buildPageMetadata,
   breadcrumbTrail,
@@ -23,6 +25,7 @@ import {
 import { ReminderType } from '@/features/sms/config/ReminderConfig'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
+import { ACCESS_EVENT_RETENTION_DAYS } from '@/features/access-control/config/AccessControlConfig'
 import MarketingLayout from '../layout'
 import HubPage, {
   metadata as hubMeta,
@@ -59,6 +62,9 @@ import MoveArticle, {
 import CompareArticle, {
   metadata as compareArticleMeta,
 } from '../resources/excel-whatsapp-vs-gym-software/page'
+import ChooseArticle, {
+  metadata as chooseArticleMeta,
+} from '../resources/choosing-gym-management-software-sri-lanka/page'
 
 /**
  * Screen tests for the public marketing pages (UI3). jsdom has no layout, so
@@ -81,6 +87,7 @@ const PAGES: [string, ComponentType, Metadata][] = [
   [ARTICLE_PATHS.overdue, OverdueArticle, overdueArticleMeta],
   [ARTICLE_PATHS.move, MoveArticle, moveArticleMeta],
   [ARTICLE_PATHS.compare, CompareArticle, compareArticleMeta],
+  [ARTICLE_PATHS.choose, ChooseArticle, chooseArticleMeta],
   [ARTICLE_PATHS.revenue, RevenueArticle, revenueArticleMeta],
 ]
 
@@ -274,6 +281,61 @@ describe('the Excel and WhatsApp comparison', () => {
     for (const tier of PRICING_TIERS) {
       expect(body).toContain(formatLkr(tier.monthlyPriceLkr))
     }
+  })
+})
+
+/**
+ * The buying guide (SEO-065) states product facts and data-protection facts.
+ * Prices, the Lite limit and the trial come from the pricing config; the data
+ * protection section says only what /privacy already publishes (owner
+ * decision, 2026-10-04), and links there. Like the comparison guide it must
+ * never claim WhatsApp delivery.
+ */
+describe('the choosing-software guide', () => {
+  const text = () => renderInShell(ChooseArticle).container.textContent ?? ''
+
+  it('quotes every price, the Lite limit and the trial from the pricing config', () => {
+    const body = text()
+    for (const tier of PRICING_TIERS) {
+      expect(body).toContain(
+        `${tier.name} LKR ${formatLkr(tier.monthlyPriceLkr)}`
+      )
+    }
+    expect(body).toContain(`up to ${LITE_MEMBER_LIMIT} active members`)
+    expect(body).toContain(`free for ${TRIAL_DAYS} days`)
+  })
+
+  it('names the Act and links the privacy policy', () => {
+    const { container } = renderInShell(ChooseArticle)
+    expect(container.textContent).toContain(
+      'Personal Data Protection Act, No. 9 of 2022'
+    )
+    expect(container.querySelector('main a[href="/privacy"]')).not.toBeNull()
+  })
+
+  it('states the fingerprint consent and scan-retention facts the product enforces', () => {
+    const body = text()
+    expect(body).toMatch(/consent is recorded before a fingerprint is enrolled/)
+    expect(body).toContain(`deleted after ${ACCESS_EVENT_RETENTION_DAYS} days`)
+  })
+
+  it('says members pay at the desk', () => {
+    expect(text()).toMatch(/Members do not pay online/)
+  })
+
+  it.each([
+    /WhatsApp (reminders|receipts|notifications|announcements)/i,
+    /(reminders|receipts|announcements|messages) (by|on|via|over|through) WhatsApp/i,
+    /Metric (sends|delivers)( your| its)?( reminders| receipts| messages)? (by |on |via |through )?WhatsApp/i,
+  ])('never claims WhatsApp delivery (%s)', (pattern) => {
+    expect(text()).not.toMatch(pattern)
+  })
+
+  it('is linked from the body of the product page', () => {
+    const { container } = renderInShell(HubPage)
+    expect(
+      container.querySelector(`main a[href="${ARTICLE_PATHS.choose}"]`)
+    ).not.toBeNull()
   })
 })
 
