@@ -1,6 +1,12 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { cn } from '@/lib/utils'
+// Deep import: the marketing barrel carries page components this client
+// surface has no use for.
+import { SITE_URL } from '@/features/marketing/config/site'
+
+/** "metricgymos.com" — the canonical host without its www. */
+const DOMAIN_LABEL = new URL(SITE_URL).host.replace(/^www\./, '')
 
 /**
  * Dark two-column auth surface (Enterprise UI/UX overhaul, "Auth Pages.dc.html").
@@ -47,7 +53,7 @@ export default function AuthShell({
               whiteSpace: 'nowrap',
             }}
           >
-            metricgym.lk
+            {DOMAIN_LABEL}
           </span>
         </Link>
 
@@ -62,7 +68,8 @@ export default function AuthShell({
               textWrap: 'pretty',
             }}
           >
-            Your first reminder batch goes out tonight.
+            {/* The send-reminders cron runs at 03:30 UTC (vercel.json). */}
+            Your reminders go out every morning at 9:00.
           </h2>
           <div
             className="flex flex-col"
