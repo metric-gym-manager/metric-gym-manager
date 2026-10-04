@@ -24,6 +24,7 @@ export {
   POSTAL_ADDRESS,
   CONTACT,
   SUPPORT_HOURS,
+  SOCIAL_PROFILES,
   OG_IMAGE,
   absoluteUrl,
 } from './config/site'

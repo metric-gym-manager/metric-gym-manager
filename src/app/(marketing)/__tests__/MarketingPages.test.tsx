@@ -8,6 +8,7 @@ import {
   MARKETING_PAGES,
   ORGANIZATION_ID,
   PRICING_TIERS,
+  SOCIAL_PROFILES,
   SOFTWARE_ID,
   buildPageMetadata,
   breadcrumbTrail,
@@ -273,6 +274,22 @@ describe('the Excel and WhatsApp comparison', () => {
     for (const tier of PRICING_TIERS) {
       expect(body).toContain(formatLkr(tier.monthlyPriceLkr))
     }
+  })
+})
+
+/**
+ * Every profile the Organization markup lists in sameAs is also a visible
+ * link on /contact, so the markup claims nothing the page does not show.
+ */
+describe('social profiles', () => {
+  it('/contact links every profile listed in sameAs', () => {
+    const { container } = renderInShell(ContactPage)
+    for (const profile of SOCIAL_PROFILES) {
+      expect(
+        container.querySelector(`a[href="${profile.url}"]`)
+      ).toHaveTextContent(profile.name)
+    }
+    expect(SOCIAL_PROFILES.length).toBeGreaterThan(0)
   })
 })
 

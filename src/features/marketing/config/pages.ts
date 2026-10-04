@@ -76,6 +76,8 @@ const EARLY_PAYMENT_RULE = '2026-10-04'
 const WEEKLY_REMINDERS = '2026-10-04'
 /** The access-control page stopped naming the hardware partner (owner). */
 const PARTNER_UNNAMED = '2026-10-04'
+/** /contact links the official Facebook page (SEO-040). */
+const SOCIAL_LINKED = '2026-10-04'
 
 export const MARKETING_PAGES: readonly MarketingPage[] = [
   {
@@ -175,7 +177,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'Call or WhatsApp +94 70 437 9967, email support@metricgymos.com, or write to Capitalist One (Pvt) Ltd in Kotte. Support every day, 08:00–22:00.',
     label: 'Contact',
     parent: HOME_PATH,
-    lastModified: SITE_LAUNCH,
+    lastModified: SOCIAL_LINKED,
   },
   {
     path: RESOURCES_PATH,

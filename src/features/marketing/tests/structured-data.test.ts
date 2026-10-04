@@ -9,6 +9,7 @@ import {
   POSTAL_ADDRESS,
   SITE_NAME,
   SITE_URL,
+  SOCIAL_PROFILES,
 } from '../config/site'
 import {
   ORGANIZATION_ID,
@@ -43,8 +44,13 @@ describe('Organization', () => {
     })
   })
 
-  it('claims no social profiles that do not exist (SEO-040)', () => {
-    expect(org).not.toHaveProperty('sameAs')
+  // The official Facebook page, confirmed by the owner on 2026-10-04.
+  // sameAs lists only profiles recorded in SOCIAL_PROFILES (SEO-040).
+  it('lists exactly the official social profiles in sameAs (SEO-040)', () => {
+    expect(org.sameAs).toEqual(SOCIAL_PROFILES.map((p) => p.url))
+    expect(org.sameAs).toContain(
+      'https://www.facebook.com/people/Metric-Gym-OS/61593409007692/'
+    )
   })
 })
 
