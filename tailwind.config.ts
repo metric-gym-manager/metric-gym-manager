@@ -202,8 +202,9 @@ const config: Config = {
         full: '9999px',
       },
       fontFamily: {
-        // Legacy default kept for marketing/body; Geist powers the design system.
-        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        // The default face, as the L1 token says. Inter used to sit here: no
+        // screen rendered it, but next/font preloaded it everywhere (SEO-043).
+        sans: ['var(--font-geist)', 'system-ui', 'sans-serif'],
         geist: [
           'var(--font-geist)',
           'system-ui',

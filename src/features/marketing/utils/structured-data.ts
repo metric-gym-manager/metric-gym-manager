@@ -12,6 +12,7 @@ import {
   POSTAL_ADDRESS,
   SITE_NAME,
   SITE_URL,
+  SOCIAL_PROFILES,
   SUPPORT_HOURS,
   absoluteUrl,
 } from '../config/site'
@@ -20,14 +21,13 @@ import {
  * schema.org JSON-LD for the public site.
  *
  * Every value is read from the same config the visible pages render, so the
- * markup cannot state something the page does not. Two things are absent on
- * purpose, and must stay absent until real evidence exists:
+ * markup cannot state something the page does not. `sameAs` lists only the
+ * profiles in SOCIAL_PROFILES, each also linked from /contact (SEO-040). One
+ * thing is absent on purpose, and must stay absent until real evidence exists:
  *
  * - `aggregateRating` / `review` on SoftwareApplication. Google's software-app
  *   rich result requires one of them, so the result will not show — which is
  *   correct while there are no genuine, collected reviews to mark up.
- * - `sameAs`. No official social profile is recorded anywhere in the product;
- *   an invented one is worse than none (SEO-040).
  *
  * FAQPage and LocalBusiness were considered and rejected (SEO-031, SEO-032).
  */
@@ -59,6 +59,7 @@ export function organizationJsonLd(): JsonLd {
       addressLocality: POSTAL_ADDRESS.addressLocality,
       addressCountry: POSTAL_ADDRESS.addressCountry,
     },
+    sameAs: SOCIAL_PROFILES.map((profile) => profile.url),
     areaServed: { '@type': 'Country', name: 'Sri Lanka' },
     contactPoint: [
       {

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
-import { Inter, Geist, Geist_Mono } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
 import { QueryProvider } from '@/components/providers/QueryProvider'
 import { Toaster } from '@/components/ui'
@@ -9,12 +9,6 @@ import { AuthRecovery } from '@/features/auth/components/AuthRecovery'
 import { gaInitScript } from '@/lib/analytics/ga-init'
 import { PWA_VERSION } from '@/lib/pwa-version'
 import { OG_IMAGE, SITE_NAME, SITE_URL } from '@/features/marketing'
-
-const inter = Inter({
-  subsets: ['latin'],
-  variable: '--font-inter',
-  display: 'swap',
-})
 
 // Geist / Geist Mono power the enterprise surfaces — the light "App Workspace"
 // (`.mws-root`), the dark auth pages (`.mauth-root`) and the marketing landing
@@ -117,10 +111,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${geist.variable} ${geistMono.variable}`}
-    >
+    <html lang="en" className={`${geist.variable} ${geistMono.variable}`}>
       <body className="font-sans">
         {/* GA4, never on a URL that carries a credential (SEO-059). */}
         <Script id="google-analytics" strategy="afterInteractive">

@@ -96,6 +96,15 @@ export default function SmsRemindersPage() {
     label: PLAN_CONFIGS[type].label.replace(/ Plan$/, ''),
     days: REMINDER_RULES[type].reminderDays,
   }))
+  // The plans the rules leave silent ("Daily and weekly"), named from the
+  // same rules the table renders, so the sentence cannot drift from it.
+  const silentPlans = new Intl.ListFormat('en-GB', {
+    type: 'conjunction',
+  }).format(
+    plans
+      .filter((p) => p.days.length === 0)
+      .map((p, i) => (i === 0 ? p.label : p.label.toLowerCase()))
+  )
 
   return (
     <>
@@ -122,9 +131,9 @@ export default function SmsRemindersPage() {
           <p>
             Reminders are timed to the length of the plan. A monthly member
             hears from you twice; an annual member, who has a larger amount to
-            plan for, hears a week ahead. Daily members get no reminders — their
-            plan renews too often for reminders to help. The reminder run starts
-            at 9:00 every morning, Sri Lanka time.
+            plan for, hears a week ahead. {silentPlans} members get no reminders
+            — their plans renew too often for reminders to help. The reminder
+            run starts at 9:00 every morning, Sri Lanka time.
           </p>
         }
         width="wide"

@@ -10,6 +10,7 @@ import {
   POSTAL_ADDRESS,
   PRICING_PATH,
   Prose,
+  SOCIAL_PROFILES,
   SUPPORT_HOURS,
   StructuredData,
   buildPageMetadata,
@@ -89,6 +90,20 @@ export default function ContactPage() {
             Already a customer? You can also raise a support ticket from inside
             Metric.
           </p>
+        </Prose>
+      </MarketingSection>
+
+      <MarketingSection eyebrow="Social" title="Follow us">
+        <Prose>
+          <ul>
+            {SOCIAL_PROFILES.map((profile) => (
+              <li key={profile.url}>
+                <a href={profile.url} target="_blank" rel="noopener noreferrer">
+                  {profile.name}
+                </a>
+              </li>
+            ))}
+          </ul>
         </Prose>
       </MarketingSection>
 

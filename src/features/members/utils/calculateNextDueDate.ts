@@ -12,15 +12,15 @@
  * - Feb 29 + 1 year = Feb 28 in non-leap year
  */
 
-import { PlanType, PLAN_CONFIGS } from '../config/PlanConfig';
+import { PlanType, PLAN_CONFIGS } from '../config/PlanConfig'
 
 export interface CalculateNextDueDateOptions {
   /**
-   * If true, calculate from startDate (deduct overdue period)
-   * If false, calculate from current next due date (preserve grace period)
+   * Carried for callers' records only; it does not change this calculation.
+   * Which date to start from is decided by `calculateNextDueDateFromPayment`.
    * Default: true
    */
-  deductOverduePeriod?: boolean;
+  deductOverduePeriod?: boolean
 }
 
 /**
@@ -61,24 +61,24 @@ export interface CalculateNextDueDateOptions {
  * @returns New date with months added
  */
 function addMonthsSafe(date: Date, months: number): Date {
-  const result = new Date(date);
-  const originalDay = result.getDate();
+  const result = new Date(date)
+  const originalDay = result.getDate()
 
   // Move to first of month to avoid overflow during setMonth
-  result.setDate(1);
-  result.setMonth(result.getMonth() + months);
+  result.setDate(1)
+  result.setMonth(result.getMonth() + months)
 
   // Get last day of target month
   const lastDayOfMonth = new Date(
     result.getFullYear(),
     result.getMonth() + 1,
     0
-  ).getDate();
+  ).getDate()
 
   // Set day to original day or last day of month, whichever is smaller
-  result.setDate(Math.min(originalDay, lastDayOfMonth));
+  result.setDate(Math.min(originalDay, lastDayOfMonth))
 
-  return result;
+  return result
 }
 
 /**
@@ -91,26 +91,26 @@ function addMonthsSafe(date: Date, months: number): Date {
  * @returns New date with years added
  */
 function addYearsSafe(date: Date, years: number): Date {
-  const result = new Date(date);
-  const originalDay = result.getDate();
-  const originalMonth = result.getMonth();
+  const result = new Date(date)
+  const originalDay = result.getDate()
+  const originalMonth = result.getMonth()
 
   // Set to first of month to avoid overflow
-  result.setDate(1);
-  result.setFullYear(result.getFullYear() + years);
+  result.setDate(1)
+  result.setFullYear(result.getFullYear() + years)
 
   // Get last day of target month in target year
   const lastDayOfMonth = new Date(
     result.getFullYear(),
     originalMonth + 1,
     0
-  ).getDate();
+  ).getDate()
 
   // Restore month and set day
-  result.setMonth(originalMonth);
-  result.setDate(Math.min(originalDay, lastDayOfMonth));
+  result.setMonth(originalMonth)
+  result.setDate(Math.min(originalDay, lastDayOfMonth))
 
-  return result;
+  return result
 }
 
 export function calculateNextDueDate(
@@ -119,49 +119,68 @@ export function calculateNextDueDate(
   _options: CalculateNextDueDateOptions = {}
 ): Date {
   // Get plan configuration
-  const config = PLAN_CONFIGS[planType as PlanType];
+  const config = PLAN_CONFIGS[planType as PlanType]
 
   // Handle custom plans (default to monthly behavior)
   if (!config) {
-    return addMonthsSafe(startDate, 1);
+    return addMonthsSafe(startDate, 1)
   }
 
   // Create new Date to avoid mutating input
-  const result = new Date(startDate);
+  const result = new Date(startDate)
 
   switch (config.durationMethod) {
     case 'day':
-      result.setDate(result.getDate() + config.durationValue);
-      return result;
+      result.setDate(result.getDate() + config.durationValue)
+      return result
 
     case 'month':
-      return addMonthsSafe(startDate, config.durationValue);
+      return addMonthsSafe(startDate, config.durationValue)
 
     case 'year':
-      return addYearsSafe(startDate, config.durationValue);
+      return addYearsSafe(startDate, config.durationValue)
 
     default:
-      throw new Error(`Invalid duration method for plan type: ${planType}`);
+      throw new Error(`Invalid duration method for plan type: ${planType}`)
   }
 }
 
 /**
- * Calculate next due date from payment date
+ * Calculate the next due date a payment buys.
  *
- * This is a convenience wrapper for payment collection scenarios.
+ * The SINGLE rule for every payment (desk payment, Mark Paid, reactivation,
+ * and the previews those dialogs show): the new period starts from the LATER
+ * of the payment date and the current due date.
+ *
+ * - A late payer's period starts on the payment day, so the days the
+ *   membership sat expired are not billed (`deductOverduePeriod`).
+ * - An early payer keeps their due date: paying three days early never costs
+ *   them three days (owner decision, 2026-10-04). Before this, every payment
+ *   was dated from the payment day, and an early payment moved the due date
+ *   earlier.
  *
  * @param paymentDate - The date payment was made
- * @param currentDueDate - The current next due date
- * @param planType - The type of membership plan
- * @param deductOverduePeriod - Whether to deduct overdue period
+ * @param currentDueDate - The member's next due date before this payment
+ * @param planType - The plan whose period the payment buys
+ * @param deductOverduePeriod - true (default): skip the overdue days, if any.
+ *   false: always extend from the current due date, overdue days included.
  * @returns The calculated next due date
+ *
+ * @example
+ * // Due 15 Feb, paid 12 Feb (early) → 15 Mar
+ * calculateNextDueDateFromPayment(new Date('2024-02-12'), new Date('2024-02-15'), PlanType.Monthly)
+ * // Due 15 Feb, paid 20 Feb (late) → 20 Mar
+ * calculateNextDueDateFromPayment(new Date('2024-02-20'), new Date('2024-02-15'), PlanType.Monthly)
  */
 export function calculateNextDueDateFromPayment(
   paymentDate: Date,
   currentDueDate: Date,
-  planType: PlanType,
+  planType: PlanType | string,
   deductOverduePeriod: boolean = true
 ): Date {
-  const baseDate = deductOverduePeriod ? paymentDate : currentDueDate;
-  return calculateNextDueDate(baseDate, planType, { deductOverduePeriod });
+  const baseDate =
+    deductOverduePeriod && paymentDate.getTime() > currentDueDate.getTime()
+      ? paymentDate
+      : currentDueDate
+  return calculateNextDueDate(baseDate, planType, { deductOverduePeriod })
 }

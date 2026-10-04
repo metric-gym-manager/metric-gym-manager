@@ -81,6 +81,7 @@ describe('Homepage', () => {
     /trial on every tier/i,
     /−95%|-95%/,
     /automated fee collection/i,
+    /\bVFT\b/i,
   ])('makes no claim matching %s', (pattern) => {
     const { container } = render(<HomePage />)
     expect(container.textContent ?? '').not.toMatch(pattern)

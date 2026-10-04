@@ -16,20 +16,20 @@
  */
 export function formatDate(dateInput: string | Date): string {
   try {
-    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
 
     // Check if date is valid
     if (isNaN(date.getTime())) {
-      return 'Invalid Date';
+      return 'Invalid Date'
     }
 
     return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
-    });
+    })
   } catch {
-    return 'Invalid Date';
+    return 'Invalid Date'
   }
 }
 
@@ -46,69 +46,20 @@ export function formatDate(dateInput: string | Date): string {
  */
 export function formatDateShort(dateInput: string | Date): string {
   try {
-    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+    const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput
 
     // Check if date is valid
     if (isNaN(date.getTime())) {
-      return 'Invalid Date';
+      return 'Invalid Date'
     }
 
     return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: 'short',
-    });
+    })
   } catch {
-    return 'Invalid Date';
+    return 'Invalid Date'
   }
-}
-
-/**
- * Client-side next-due-date estimate using CALENDAR arithmetic
- * (e.g. 'monthly' = +1 calendar month: 03-15 -> 04-15).
- *
- * NOT the billing authority. The server computes the actual due date with
- * `features/members/utils/calculateNextDueDate.ts`, which uses per-plan
- * cycle configuration from PlanConfig and can produce different results.
- * This helper only pre-fills UI previews; the value persisted always comes
- * from the API response.
- *
- * @param paymentDate - Payment date in YYYY-MM-DD format
- * @param planType - Plan type ('daily' | 'weekly' | 'monthly' | '3-months' | '6-months' | 'annual')
- * @returns Next due date in YYYY-MM-DD format
- *
- * @example
- * calculateNextDueDate('2026-03-15', 'monthly') // "2026-04-15"
- * calculateNextDueDate('2026-03-15', 'daily') // "2026-03-16"
- * calculateNextDueDate('2026-03-15', 'annual') // "2027-03-15"
- */
-export function calculateNextDueDate(
-  paymentDate: string,
-  planType: string
-): string {
-  const date = new Date(paymentDate);
-
-  switch (planType) {
-    case 'daily':
-      date.setDate(date.getDate() + 1);
-      break;
-    case 'weekly':
-      date.setDate(date.getDate() + 7);
-      break;
-    case 'monthly':
-      date.setMonth(date.getMonth() + 1);
-      break;
-    case '3-months':
-      date.setMonth(date.getMonth() + 3);
-      break;
-    case '6-months':
-      date.setMonth(date.getMonth() + 6);
-      break;
-    case 'annual':
-      date.setFullYear(date.getFullYear() + 1);
-      break;
-  }
-
-  return date.toISOString().split('T')[0];
 }
 
 /**
@@ -119,6 +70,6 @@ export function calculateNextDueDate(
  * formatDateForDisplay(new Date('2024-01-15')) // '15/01/2024'
  */
 export function formatDateForDisplay(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.toLocaleDateString('en-GB') // DD/MM/YYYY format
 }

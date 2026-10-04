@@ -37,9 +37,9 @@ export default function RenewalRemindersArticle() {
           <p>
             Remind members on long plans a week before their due date, members
             on monthly plans three days before, and everyone once more on the
-            due date itself. Do not remind members on daily passes at all. The
-            reasoning below is what Metric’s own reminder schedule is built on,
-            and it applies whatever system — or notebook — you use.
+            due date itself. Do not remind members on daily or weekly plans at
+            all. The reasoning below is what Metric’s own reminder schedule is
+            built on, and it applies whatever system — or notebook — you use.
           </p>
         }
       >
@@ -75,10 +75,14 @@ export default function RenewalRemindersArticle() {
             out catches anyone who put it off; the due-date message makes the
             deadline explicit.
           </p>
-          <h3>Daily members: no reminders</h3>
+          <h3>Daily and weekly members: no reminders</h3>
           <p>
             A daily pass renews every day. Reminding someone the day before they
-            pay for one session is noise, so Metric sends none.
+            pay for one session is noise, so Metric sends none. A weekly member
+            is in the same position: their whole period is seven days, so a
+            reminder a week ahead would land on the day they paid, and the rest
+            would arrive every few days. Metric sends weekly members none
+            either; when one needs a nudge, a person at the desk does it better.
           </p>
           <p>
             Metric applies exactly these rules automatically. The full table for
@@ -177,7 +181,7 @@ export default function RenewalRemindersArticle() {
               Long plans: remind seven and three days ahead, and on the day.
             </li>
             <li>Monthly plans: three days ahead, and on the day.</li>
-            <li>Daily passes: no reminders.</li>
+            <li>Daily and weekly plans: no reminders.</li>
             <li>Name, plan, date and amount in every message; no links.</li>
             <li>The same sending time every day.</li>
             <li>After expiry, a person follows up — not another text.</li>

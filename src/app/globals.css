@@ -1,6 +1,7 @@
-/* Inter is loaded via next/font (`--font-inter`) in app/layout.tsx — no second
-   network fetch here. Geist / Geist Mono (the design-system fonts) load the same
-   way. Spec §17 Performance: fonts use next/font with display=swap. */
+/* Geist / Geist Mono (the design-system fonts) are loaded via next/font in
+   app/layout.tsx (`--font-geist`, `--font-geist-mono`) — no second network
+   fetch here. Spec §17 Performance: fonts use next/font with display=swap.
+   Inter was retired (SEO-043): no screen rendered it, yet it was preloaded. */
 
 @tailwind base;
 @tailwind components;
@@ -214,7 +215,7 @@
   html {
     scroll-behavior: smooth;
     font-family:
-      'Inter',
+      var(--font-geist),
       -apple-system,
       BlinkMacSystemFont,
       'SF Pro Display',

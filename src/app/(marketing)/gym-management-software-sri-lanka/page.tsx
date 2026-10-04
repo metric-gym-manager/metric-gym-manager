@@ -377,7 +377,11 @@ export default function GymManagementSoftwarePage() {
           <p>
             Our <Link href="/privacy">privacy policy</Link> explains how data is
             handled under Sri Lanka’s Personal Data Protection Act, No. 9 of
-            2022.
+            2022. If you are comparing systems, our{' '}
+            <Link href={ARTICLE_PATHS.choose}>
+              guide to choosing gym management software
+            </Link>{' '}
+            lists what to ask every vendor, data protection included.
           </p>
         </Prose>
       </MarketingSection>

@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Modal, Button, Input, Label, Select } from '@/components/ui'
 import { AlertCircle, Info, RotateCcw } from 'lucide-react'
-import { calculateNextDueDate, formatDate } from '@/utils/date/date'
+import { formatDate } from '@/utils/date/date'
+import { calculateNextDueDateFromPayment } from '@/features/members/utils/calculateNextDueDate'
 import type { MemberPlanType } from '@/features/members/schemas/member.schemas'
 
 /**
@@ -32,6 +33,12 @@ interface ReactivationDialogProps {
   currentPlanType: MemberPlanType
   /** Member's current plan amount (pre-filled). */
   currentPlanAmount: number
+  /**
+   * The member's next due date before this payment (YYYY-MM-DD). A member
+   * cancelled by hand while still paid through keeps those days: the preview
+   * uses the same rule as CollectPayment.
+   */
+  currentDueDate: string
   onConfirm: (values: ReactivationConfirm) => void
 }
 
@@ -48,6 +55,7 @@ export default function ReactivationDialog({
   memberName,
   currentPlanType,
   currentPlanAmount,
+  currentDueDate,
   onConfirm,
 }: ReactivationDialogProps) {
   const today = new Date().toISOString().split('T')[0]
@@ -93,7 +101,11 @@ export default function ReactivationDialog({
     }
   }
 
-  const nextDueDate = calculateNextDueDate(selectedDate, planType)
+  const nextDueDate = calculateNextDueDateFromPayment(
+    new Date(selectedDate),
+    new Date(currentDueDate),
+    planType
+  )
   const isFutureDate = new Date(selectedDate) > new Date(today)
   const isValid = paymentAmount > 0 && planAmount > 0 && selectedDate !== ''
 

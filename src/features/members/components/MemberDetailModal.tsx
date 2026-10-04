@@ -859,6 +859,7 @@ export default function MemberDetailModal({
             : member.plan_amount
         }
         planType={member.plan_type}
+        currentDueDate={member.next_due_date}
         onConfirm={handleMarkPaidConfirm}
       />
 
@@ -869,6 +870,7 @@ export default function MemberDetailModal({
         memberName={member.name}
         currentPlanType={member.plan_type}
         currentPlanAmount={member.plan_amount}
+        currentDueDate={member.next_due_date}
         onConfirm={(values) => reactivateMutation.mutate(values)}
       />
 

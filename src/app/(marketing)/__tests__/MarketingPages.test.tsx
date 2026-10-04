@@ -7,7 +7,10 @@ import {
   FEATURE_PATHS,
   MARKETING_PAGES,
   ORGANIZATION_ID,
+  LITE_MEMBER_LIMIT,
   PRICING_TIERS,
+  SOCIAL_PROFILES,
+  TRIAL_DAYS,
   SOFTWARE_ID,
   buildPageMetadata,
   breadcrumbTrail,
@@ -22,6 +25,8 @@ import {
 import { ReminderType } from '@/features/sms/config/ReminderConfig'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
+import { ACCESS_EVENT_RETENTION_DAYS } from '@/features/access-control/config/AccessControlConfig'
+import { reminderRunTimeSriLanka } from '@/test-utils/reminderRunTime'
 import MarketingLayout from '../layout'
 import HubPage, {
   metadata as hubMeta,
@@ -58,6 +63,9 @@ import MoveArticle, {
 import CompareArticle, {
   metadata as compareArticleMeta,
 } from '../resources/excel-whatsapp-vs-gym-software/page'
+import ChooseArticle, {
+  metadata as chooseArticleMeta,
+} from '../resources/choosing-gym-management-software-sri-lanka/page'
 
 /**
  * Screen tests for the public marketing pages (UI3). jsdom has no layout, so
@@ -80,6 +88,7 @@ const PAGES: [string, ComponentType, Metadata][] = [
   [ARTICLE_PATHS.overdue, OverdueArticle, overdueArticleMeta],
   [ARTICLE_PATHS.move, MoveArticle, moveArticleMeta],
   [ARTICLE_PATHS.compare, CompareArticle, compareArticleMeta],
+  [ARTICLE_PATHS.choose, ChooseArticle, chooseArticleMeta],
   [ARTICLE_PATHS.revenue, RevenueArticle, revenueArticleMeta],
 ]
 
@@ -273,6 +282,156 @@ describe('the Excel and WhatsApp comparison', () => {
     for (const tier of PRICING_TIERS) {
       expect(body).toContain(formatLkr(tier.monthlyPriceLkr))
     }
+  })
+})
+
+/**
+ * The buying guide (SEO-065) states product facts and data-protection facts.
+ * Prices, the Lite limit and the trial come from the pricing config; the data
+ * protection section says only what /privacy already publishes (owner
+ * decision, 2026-10-04), and links there. Like the comparison guide it must
+ * never claim WhatsApp delivery.
+ */
+describe('the choosing-software guide', () => {
+  const text = () => renderInShell(ChooseArticle).container.textContent ?? ''
+
+  it('quotes every price, the Lite limit and the trial from the pricing config', () => {
+    const body = text()
+    for (const tier of PRICING_TIERS) {
+      expect(body).toContain(
+        `${tier.name} LKR ${formatLkr(tier.monthlyPriceLkr)}`
+      )
+    }
+    expect(body).toContain(`up to ${LITE_MEMBER_LIMIT} active members`)
+    expect(body).toContain(`free for ${TRIAL_DAYS} days`)
+  })
+
+  it('names the Act and links the privacy policy', () => {
+    const { container } = renderInShell(ChooseArticle)
+    expect(container.textContent).toContain(
+      'Personal Data Protection Act, No. 9 of 2022'
+    )
+    expect(container.querySelector('main a[href="/privacy"]')).not.toBeNull()
+  })
+
+  it('states the fingerprint consent and scan-retention facts the product enforces', () => {
+    const body = text()
+    expect(body).toMatch(/consent is recorded before a fingerprint is enrolled/)
+    expect(body).toContain(`deleted after ${ACCESS_EVENT_RETENTION_DAYS} days`)
+  })
+
+  it('says members pay at the desk', () => {
+    expect(text()).toMatch(/Members do not pay online/)
+  })
+
+  it.each([
+    /WhatsApp (reminders|receipts|notifications|announcements)/i,
+    /(reminders|receipts|announcements|messages) (by|on|via|over|through) WhatsApp/i,
+    /Metric (sends|delivers)( your| its)?( reminders| receipts| messages)? (by |on |via |through )?WhatsApp/i,
+  ])('never claims WhatsApp delivery (%s)', (pattern) => {
+    expect(text()).not.toMatch(pattern)
+  })
+
+  it('is linked from the body of the product page', () => {
+    const { container } = renderInShell(HubPage)
+    expect(
+      container.querySelector(`main a[href="${ARTICLE_PATHS.choose}"]`)
+    ).not.toBeNull()
+  })
+})
+
+/**
+ * Every profile the Organization markup lists in sameAs is also a visible
+ * link on /contact, so the markup claims nothing the page does not show.
+ */
+describe('social profiles', () => {
+  it('/contact links every profile listed in sameAs', () => {
+    const { container } = renderInShell(ContactPage)
+    for (const profile of SOCIAL_PROFILES) {
+      expect(
+        container.querySelector(`a[href="${profile.url}"]`)
+      ).toHaveTextContent(profile.name)
+    }
+    expect(SOCIAL_PROFILES.length).toBeGreaterThan(0)
+  })
+})
+
+/**
+ * The owner decided (2026-10-04, SEO-038) not to name the access-control
+ * hardware partner publicly. ZKTeco, the reader maker, may be named; the
+ * partner is "our hardware partner" everywhere, registry text included.
+ */
+describe('the hardware partner is not named', () => {
+  it.each(PAGES)('%s', (_path, Page) => {
+    const text = renderInShell(Page).container.textContent ?? ''
+    expect(text).not.toMatch(/\bVFT\b/i)
+  })
+
+  it('in any registry title or description', () => {
+    for (const page of MARKETING_PAGES) {
+      expect(`${page.title} ${page.description}`).not.toMatch(/\bVFT\b/i)
+    }
+  })
+})
+
+/**
+ * Daily and weekly plans get no automated reminders (REMINDER_RULES; weekly
+ * since the owner's decision of 2026-10-04). The SMS page's table renders
+ * from the rules, and its sentence must name the same plans; the reminders
+ * guide says Metric "applies exactly these rules", so it must agree too.
+ */
+describe('plans that get no reminders', () => {
+  it('the SMS reminders page names daily and weekly', () => {
+    const text = renderInShell(SmsPage).container.textContent ?? ''
+    expect(text).toMatch(/Daily and weekly members get no reminders/)
+  })
+
+  it('the reminders guide names daily and weekly', () => {
+    const text = renderInShell(RemindersArticle).container.textContent ?? ''
+    expect(text).toMatch(/Daily and weekly members: no reminders/)
+    expect(text).toMatch(/Daily and weekly plans: no reminders\./)
+    expect(text).not.toMatch(/Daily passes: no reminders/)
+  })
+})
+
+/**
+ * The reminder run's time is stated on three public pages (and the sign-in
+ * panel, pinned in AuthShell.test.tsx). It is derived here from the
+ * send-reminders cron in vercel.json, so moving the cron fails these until
+ * the copy follows.
+ */
+describe('the reminder run time', () => {
+  const time = reminderRunTimeSriLanka()
+
+  it.each([
+    ['/features/sms-reminders', SmsPage, `starts at ${time} every morning`],
+    [
+      'the reminders guide',
+      RemindersArticle,
+      `starts at ${time} in the morning`,
+    ],
+    ['the buying guide', ChooseArticle, `starts at ${time} every morning`],
+  ] as const)('%s states it', (_name, Page, phrase) => {
+    const text = renderInShell(Page).container.textContent ?? ''
+    expect(text.replace(/\s+/g, ' ')).toContain(phrase)
+  })
+})
+
+/**
+ * The overdue guide's dates are computed by the product's own payment rule
+ * (calculateNextDueDateFromPayment), so the guide cannot describe a rule the
+ * product does not run. Due 15 Nov: a late payer on 20 Nov is next due
+ * 20 Dec; an early payer on 12 Nov keeps 15 Dec (owner decision, 2026-10-04).
+ */
+describe('the overdue memberships guide', () => {
+  const text = () => renderInShell(OverdueArticle).container.textContent ?? ''
+
+  it('dates a late payment from the payment day', () => {
+    expect(text()).toMatch(/pays on 20 Nov is next due on 20 Dec/)
+  })
+
+  it('says an early payer keeps their due date', () => {
+    expect(text()).toMatch(/pays early, on 12 Nov, is still next due on 15 Dec/)
   })
 })
 

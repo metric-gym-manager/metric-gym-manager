@@ -70,9 +70,14 @@ describe('computeReminderQueue', () => {
     expect(res.entries[0].scheduledInDays).toBe(7)
   })
 
-  it('picks the soonest non-elapsed threshold (weekly due in 5 → 3-day in 2)', () => {
+  it('picks the soonest non-elapsed threshold (3-month due in 5 → 3-day in 2)', () => {
     const res = computeReminderQueue(
-      [member({ plan_type: PlanType.Weekly, next_due_date: dueIn(NOW, 5) })],
+      [
+        member({
+          plan_type: PlanType.ThreeMonths,
+          next_due_date: dueIn(NOW, 5),
+        }),
+      ],
       opts,
       NOW
     )
@@ -93,6 +98,17 @@ describe('computeReminderQueue', () => {
   it('excludes daily members (no automated reminders)', () => {
     const res = computeReminderQueue(
       [member({ plan_type: PlanType.Daily, next_due_date: dueIn(NOW, 1) })],
+      opts,
+      NOW
+    )
+    expect(res.total).toBe(0)
+  })
+
+  it('excludes weekly members (no automated reminders)', () => {
+    const res = computeReminderQueue(
+      [0, 3, 5, 7].map((d) =>
+        member({ plan_type: PlanType.Weekly, next_due_date: dueIn(NOW, d) })
+      ),
       opts,
       NOW
     )

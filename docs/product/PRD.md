@@ -936,7 +936,7 @@ Hi [Member Name], your [plan] membership at [Gym Name] has expired (due [Due Dat
 5. Admin clicks "Confirm Payment"
 6. System records payment with all details
 7. System calculates next due date:
-   - If "Deduct overdue period" checked: Payment date + cycle duration
+   - If "Deduct overdue period" checked: the later of the payment date and the original due date, + cycle duration. A late payer starts from the payment date; an early payer keeps their due date (owner decision, 2026-10-04; `calculateNextDueDateFromPayment`)
    - If unchecked: Original due date + cycle duration
 8. Member status changes to "Active"
 9. System sends payment receipt SMS (with or without discount format)
@@ -949,7 +949,7 @@ Hi [Member Name], your [plan] membership at [Gym Name] has expired (due [Due Dat
 
 1. System cron job triggers
 2. Queries all active members
-3. For each member, checks next due date:
+3. For each member, checks next due date against the plan's rules (`REMINDER_RULES`: daily and weekly plans get no reminders; monthly plans skip the 7-day notice):
    - If due date is 7 days away: Send "7-Day Notice" SMS
    - If due date is 3 days away: Send "3-Day Notice" SMS
    - If due date is today: Send "Due Today" SMS

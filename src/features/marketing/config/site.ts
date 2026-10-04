@@ -53,6 +53,18 @@ export const SUPPORT_HOURS = {
   responseNote: 'We usually reply within a few hours.',
 } as const
 
+/**
+ * Official social profiles — the Organization's `sameAs`, and visible links
+ * on /contact. Only profiles the owner has confirmed belong here; an invented
+ * one is worse than none (SEO-040). Facebook confirmed 2026-10-04.
+ */
+export const SOCIAL_PROFILES = [
+  {
+    name: 'Facebook',
+    url: 'https://www.facebook.com/people/Metric-Gym-OS/61593409007692/',
+  },
+] as const
+
 /** Square brand mark used as the Organization logo (≥ 112 px, PNG). */
 export const LOGO_PATH = '/icon-512.png'
 

@@ -583,7 +583,7 @@ graph TD
     B --> C{Member Exists?}
     C -->|No| D[Throw NotFoundError]
     C -->|Yes| E{deductOverduePeriod?}
-    E -->|true| F[Base Date = Payment Date]
+    E -->|true| F[Base Date = later of Payment Date and Current Due Date]
     E -->|false| G[Base Date = Current Due Date]
     F --> H[Calculate Next Due Date]
     G --> H
@@ -609,10 +609,18 @@ graph TD
 
 2. **Determine Base Date for Calculation**
 
+   One rule, `calculateNextDueDateFromPayment` in `features/members/utils/calculateNextDueDate.ts`: with `deductOverduePeriod = true` (the default) the base date is the **later** of the payment date and the current due date, so a late payer is not billed the overdue days and an early payer keeps their due date (owner decision, 2026-10-04). With `false` the base is always the current due date.
+
    ```typescript
-   const deductOverdue = input.deductOverduePeriod ?? true
-   const baseDate = deductOverdue ? input.paymentDate : member.nextDueDate
+   const nextDueDate = calculateNextDueDateFromPayment(
+     input.paymentDate,
+     member.nextDueDate,
+     member.planType,
+     input.deductOverduePeriod ?? true
+   )
    ```
+
+   **Early payment** (default): due 2024-01-15, paid 2024-01-12 → base 2024-01-15 → next due 2024-02-15.
 
    **Example**:
    - Original due date: 2024-01-15

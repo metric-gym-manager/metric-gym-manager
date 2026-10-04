@@ -65,13 +65,24 @@ export const ARTICLE_PATHS = {
   move: '/resources/move-gym-members-from-register-book',
   compare: '/resources/excel-whatsapp-vs-gym-software',
   revenue: '/resources/billed-vs-collected-revenue',
+  choose: '/resources/choosing-gym-management-software-sri-lanka',
 } as const
 
 const SITE_LAUNCH = '2026-10-01'
 const OVERDUE_GUIDE = '2026-10-02'
 const MOVE_GUIDE = '2026-10-03'
-/** SMS samples re-rendered from the templates, which now name the gym (SEO-053). */
-const SMS_WORDING = '2026-10-03'
+/** The overdue guide gained the early-payment rule (owner decision). */
+const EARLY_PAYMENT_RULE = '2026-10-04'
+/** Weekly plans stopped receiving automated reminders (owner decision). */
+const WEEKLY_REMINDERS = '2026-10-04'
+/** The access-control page stopped naming the hardware partner (owner). */
+const PARTNER_UNNAMED = '2026-10-04'
+/** /contact links the official Facebook page (SEO-040). */
+const SOCIAL_LINKED = '2026-10-04'
+/** The buying guide (SEO-065), written once the owner confirmed its facts. */
+const CHOOSE_GUIDE = '2026-10-04'
+/** The privacy policy's SMS section now lists what the product sends. */
+const PRIVACY_SMS = '2026-10-04'
 
 export const MARKETING_PAGES: readonly MarketingPage[] = [
   {
@@ -91,7 +102,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'How Metric Gym OS manages members, renewals, SMS reminders, revenue and door access for Sri Lankan gyms — with LKR pricing, setup steps and data protection.',
     label: 'Gym management software',
     parent: HOME_PATH,
-    lastModified: MOVE_GUIDE,
+    lastModified: CHOOSE_GUIDE,
   },
   {
     path: FEATURE_PATHS.membership,
@@ -121,7 +132,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'Automatic renewal reminders timed to each plan, SMS receipts and bulk announcements — with every message logged as sent, delivered or failed.',
     label: 'SMS reminders',
     parent: HUB_PATH,
-    lastModified: SMS_WORDING,
+    lastModified: WEEKLY_REMINDERS,
   },
   {
     path: FEATURE_PATHS.revenue,
@@ -138,10 +149,10 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     kind: 'feature',
     title: 'Gym Access Control Software in Sri Lanka | Metric Gym OS',
     description:
-      'Fingerprint door access that follows each member’s paid-through date. ZKTeco readers supplied by VFT enforce expiry even if the internet is down.',
+      'Fingerprint door access that follows each member’s paid-through date. ZKTeco readers from our hardware partner enforce expiry even offline.',
     label: 'Access control',
     parent: HUB_PATH,
-    lastModified: SITE_LAUNCH,
+    lastModified: PARTNER_UNNAMED,
   },
   {
     path: PRICING_PATH,
@@ -171,17 +182,17 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'Call or WhatsApp +94 70 437 9967, email support@metricgymos.com, or write to Capitalist One (Pvt) Ltd in Kotte. Support every day, 08:00–22:00.',
     label: 'Contact',
     parent: HOME_PATH,
-    lastModified: SITE_LAUNCH,
+    lastModified: SOCIAL_LINKED,
   },
   {
     path: RESOURCES_PATH,
     kind: 'resources',
     title: 'Resources for Gym Owners | Metric Gym OS',
     description:
-      'Guides for Sri Lankan gyms: Excel and WhatsApp vs software, moving off a register book, renewal reminders, overdue members and revenue owed vs collected.',
+      'Guides for Sri Lankan gyms: choosing software, Excel and WhatsApp vs software, moving off a register book, reminders, overdue members and revenue.',
     label: 'Resources',
     parent: HOME_PATH,
-    lastModified: MOVE_GUIDE,
+    lastModified: CHOOSE_GUIDE,
   },
   {
     path: ARTICLE_PATHS.reminders,
@@ -191,7 +202,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'A renewal reminder schedule by plan length: why monthly members need fewer messages than annual ones, what each SMS should say, and what follows the due date.',
     label: 'Renewal reminder timing',
     parent: RESOURCES_PATH,
-    lastModified: SMS_WORDING,
+    lastModified: WEEKLY_REMINDERS,
     published: SITE_LAUNCH,
   },
   {
@@ -202,8 +213,19 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'When an unpaid gym membership should expire, how long to wait before cancelling it, and what to do when a member pays late — the rules Metric runs on.',
     label: 'Overdue memberships',
     parent: RESOURCES_PATH,
-    lastModified: OVERDUE_GUIDE,
+    lastModified: EARLY_PAYMENT_RULE,
     published: OVERDUE_GUIDE,
+  },
+  {
+    path: ARTICLE_PATHS.choose,
+    kind: 'article',
+    title: 'Choosing Gym Management Software in Sri Lanka | Metric Gym OS',
+    description:
+      'What to check before choosing gym software in Sri Lanka: rupee prices, desk payments, SMS, door access and your members’ rights under the PDPA.',
+    label: 'Choosing gym software',
+    parent: RESOURCES_PATH,
+    lastModified: CHOOSE_GUIDE,
+    published: CHOOSE_GUIDE,
   },
   {
     path: ARTICLE_PATHS.compare,
@@ -246,7 +268,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'How Metric Gym OS collects, uses and protects gym and member data, including biometric access data, under Sri Lanka’s Personal Data Protection Act.',
     label: 'Privacy policy',
     parent: HOME_PATH,
-    lastModified: '2026-09-01',
+    lastModified: PRIVACY_SMS,
   },
   {
     path: '/terms',
