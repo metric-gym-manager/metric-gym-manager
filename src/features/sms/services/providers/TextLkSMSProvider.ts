@@ -12,8 +12,12 @@
  * - TEXT_LK_SENDER_ID: Your registered sender ID (default: "GymSaaS")
  */
 
-import { ISMSProvider, type SMSMessage, type SMSSendResult } from '../ISMSProvider';
-import { sendSmsViaTextLk } from '../textlk.service';
+import {
+  ISMSProvider,
+  type SMSMessage,
+  type SMSSendResult,
+} from '../ISMSProvider'
+import { sendSmsViaTextLk } from '../textlk.service'
 
 /**
  * Text.lk SMS Provider
@@ -27,13 +31,15 @@ import { sendSmsViaTextLk } from '../textlk.service';
  * });
  */
 export class TextLkSMSProvider implements ISMSProvider {
-  private readonly apiKey: string;
+  private readonly apiKey: string
 
   constructor() {
-    this.apiKey = process.env.TEXT_LK_API_KEY || '';
+    this.apiKey = process.env.TEXT_LK_API_KEY || ''
 
     if (!this.apiKey) {
-      console.warn('⚠️  TEXT_LK_API_KEY environment variable is not set. SMS sending will fail.');
+      console.warn(
+        '⚠️  TEXT_LK_API_KEY environment variable is not set. SMS sending will fail.'
+      )
     }
   }
 
@@ -41,26 +47,26 @@ export class TextLkSMSProvider implements ISMSProvider {
    * Send a single SMS message via the shared text.lk transport
    */
   async send(message: SMSMessage): Promise<SMSSendResult> {
-    console.log(`📱 [TEXT.LK] Sending SMS to ${message.to}...`);
+    console.log(`📱 [TEXT.LK] Sending SMS to ${message.to}...`)
 
     const result = await sendSmsViaTextLk({
       to: message.to,
       message: message.message,
-    });
+    })
 
     if (result.success) {
-      console.log(`✓ SMS sent successfully (ID: ${result.message_id || 'N/A'})`);
+      console.log(`✓ SMS sent successfully (ID: ${result.message_id || 'N/A'})`)
       return {
         success: true,
         messageId: result.message_id,
         sentAt: new Date(),
-      };
+      }
     }
 
     return {
       success: false,
       error: result.error || 'SMS sending failed',
-    };
+    }
   }
 
   /**
@@ -68,29 +74,33 @@ export class TextLkSMSProvider implements ISMSProvider {
    */
   async sendBatch(messages: SMSMessage[]): Promise<SMSSendResult[]> {
     // Text.lk doesn't have a native batch API, so we send individually
-    console.log(`📱 [TEXT.LK] Sending batch of ${messages.length} SMS messages...`);
+    console.log(
+      `📱 [TEXT.LK] Sending batch of ${messages.length} SMS messages...`
+    )
 
     const results = await Promise.all(
       messages.map((message) => this.send(message))
-    );
+    )
 
-    const successCount = results.filter((r) => r.success).length;
-    console.log(`✓ Batch complete: ${successCount}/${messages.length} sent successfully`);
+    const successCount = results.filter((r) => r.success).length
+    console.log(
+      `✓ Batch complete: ${successCount}/${messages.length} sent successfully`
+    )
 
-    return results;
+    return results
   }
 
   /**
    * Check if SMS sending is enabled
    */
   isEnabled(): boolean {
-    return !!this.apiKey;
+    return !!this.apiKey
   }
 
   /**
    * Get provider name
    */
   getProviderName(): string {
-    return 'Text.lk';
+    return 'Text.lk'
   }
 }
