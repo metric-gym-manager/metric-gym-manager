@@ -72,6 +72,8 @@ const OVERDUE_GUIDE = '2026-10-02'
 const MOVE_GUIDE = '2026-10-03'
 /** SMS samples re-rendered from the templates, which now name the gym (SEO-053). */
 const SMS_WORDING = '2026-10-03'
+/** The overdue guide gained the early-payment rule (owner decision). */
+const EARLY_PAYMENT_RULE = '2026-10-04'
 
 export const MARKETING_PAGES: readonly MarketingPage[] = [
   {
@@ -202,7 +204,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'When an unpaid gym membership should expire, how long to wait before cancelling it, and what to do when a member pays late — the rules Metric runs on.',
     label: 'Overdue memberships',
     parent: RESOURCES_PATH,
-    lastModified: OVERDUE_GUIDE,
+    lastModified: EARLY_PAYMENT_RULE,
     published: OVERDUE_GUIDE,
   },
   {

@@ -26,7 +26,7 @@ import {
 } from '@/features/marketing'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { MEMBER_CANCELLATION_OVERDUE_DAYS } from '@/features/members/config/StatusConfig'
-import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
+import { calculateNextDueDateFromPayment } from '@/features/members/utils/calculateNextDueDate'
 import { REMINDER_RULES } from '@/features/sms/config/ReminderConfig'
 
 const PATH = ARTICLE_PATHS.overdue
@@ -42,6 +42,7 @@ export const metadata: Metadata = buildPageMetadata(PATH, { type: 'article' })
 const DAY_MS = 86_400_000
 const EXAMPLE_DUE = Date.UTC(2026, 10, 15) // 15 November 2026
 const LATE_PAYMENT_OFFSET = 5 // pays on the fifth day after the due date
+const EARLY_PAYMENT_OFFSET = -3 // pays three days before the due date
 
 const SHORT_DATE = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',
@@ -51,10 +52,17 @@ const SHORT_DATE = new Intl.DateTimeFormat('en-GB', {
 const day = (offset: number) =>
   SHORT_DATE.format(new Date(EXAMPLE_DUE + offset * DAY_MS))
 
-const latePaymentDay = new Date(EXAMPLE_DUE + LATE_PAYMENT_OFFSET * DAY_MS)
-const nextDueAfterLatePayment = SHORT_DATE.format(
-  calculateNextDueDate(latePaymentDay, PlanType.Monthly)
-)
+/** The date the product stores after a payment on `offset` days from due. */
+const nextDueAfterPaymentOn = (offset: number) =>
+  SHORT_DATE.format(
+    calculateNextDueDateFromPayment(
+      new Date(EXAMPLE_DUE + offset * DAY_MS),
+      new Date(EXAMPLE_DUE),
+      PlanType.Monthly
+    )
+  )
+const nextDueAfterLatePayment = nextDueAfterPaymentOn(LATE_PAYMENT_OFFSET)
+const nextDueAfterEarlyPayment = nextDueAfterPaymentOn(EARLY_PAYMENT_OFFSET)
 
 const advanceReminders = REMINDER_RULES[PlanType.Monthly].reminderDays.filter(
   (d) => d > 0
@@ -172,6 +180,12 @@ export default function OverdueMembershipsArticle() {
             When an expired member pays, Metric starts their new period on the
             day they pay. A monthly member who was due on {day(0)} and pays on{' '}
             {day(LATE_PAYMENT_OFFSET)} is next due on {nextDueAfterLatePayment}.
+          </p>
+          <p>
+            Paying early works the other way: the member keeps their due date. A
+            monthly member due on {day(0)} who pays early, on{' '}
+            {day(EARLY_PAYMENT_OFFSET)}, is still next due on{' '}
+            {nextDueAfterEarlyPayment} — paying ahead never costs them days.
           </p>
           <p>
             The alternative — dating the new period from the missed due date —

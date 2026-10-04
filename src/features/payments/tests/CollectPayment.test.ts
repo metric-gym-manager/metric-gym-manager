@@ -10,6 +10,7 @@
 import { CollectPayment } from '../services/CollectPayment'
 import { Member, MemberStatus } from '@/features/members/domain/Member'
 import { PlanType } from '@/features/members/config/PlanConfig'
+import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository'
 import { NotFoundError, ValidationError } from '@/utils/errors'
 
@@ -119,6 +120,46 @@ describe('CollectPayment', () => {
     expect(memberRepo.update).toHaveBeenCalledTimes(1)
     expect(result.member).toBeDefined()
     expect(result.payment).toBeDefined()
+  })
+
+  /**
+   * An early payer keeps their due date: a member due in 3 days who pays
+   * today is next due one month after the OLD due date, not one month after
+   * today. Dating every payment from the payment day cost early payers the
+   * days they had already paid for (owner decision, 2026-10-04).
+   */
+  describe('next due date', () => {
+    function persistedDueDate(): string {
+      const persisted = memberRepo.update.mock.calls[0][0] as Member
+      return persisted.nextDueDate.toDateString()
+    }
+
+    it('extends an early payment from the current due date', async () => {
+      const currentDue = daysFromToday(3)
+      member = buildMember({ nextDueDate: currentDue })
+      memberRepo.findById.mockResolvedValue(member)
+
+      const result = await buildUseCase().execute(input)
+
+      const expected = calculateNextDueDate(currentDue, PlanType.Monthly)
+      expect(persistedDueDate()).toBe(expected.toDateString())
+      expect(result.payment.nextDueDateCalculated.toDateString()).toBe(
+        expected.toDateString()
+      )
+    })
+
+    it('dates a late payment from the payment day', async () => {
+      member = buildMember({
+        status: MemberStatus.Expired,
+        nextDueDate: daysFromToday(-5),
+      })
+      memberRepo.findById.mockResolvedValue(member)
+
+      await buildUseCase().execute(input)
+
+      const expected = calculateNextDueDate(input.paymentDate, PlanType.Monthly)
+      expect(persistedDueDate()).toBe(expected.toDateString())
+    })
   })
 
   it('sends and logs the receipt SMS before execute() resolves', async () => {

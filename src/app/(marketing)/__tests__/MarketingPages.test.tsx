@@ -277,6 +277,24 @@ describe('the Excel and WhatsApp comparison', () => {
 })
 
 /**
+ * The overdue guide's dates are computed by the product's own payment rule
+ * (calculateNextDueDateFromPayment), so the guide cannot describe a rule the
+ * product does not run. Due 15 Nov: a late payer on 20 Nov is next due
+ * 20 Dec; an early payer on 12 Nov keeps 15 Dec (owner decision, 2026-10-04).
+ */
+describe('the overdue memberships guide', () => {
+  const text = () => renderInShell(OverdueArticle).container.textContent ?? ''
+
+  it('dates a late payment from the payment day', () => {
+    expect(text()).toMatch(/pays on 20 Nov is next due on 20 Dec/)
+  })
+
+  it('says an early payer keeps their due date', () => {
+    expect(text()).toMatch(/pays early, on 12 Nov, is still next due on 15 Dec/)
+  })
+})
+
+/**
  * The SMS samples on the public site are rendered from the same templates the
  * product sends (rule 2.23), so a wording change cannot leave a page quoting a
  * message no member receives. These expectations are computed from the

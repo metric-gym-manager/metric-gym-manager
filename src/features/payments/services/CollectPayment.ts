@@ -30,7 +30,7 @@ import {
   SMSDeliveryStatus,
   type SMSType,
 } from '@/features/sms/services/ISMSRepository'
-import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
+import { calculateNextDueDateFromPayment } from '@/features/members/utils/calculateNextDueDate'
 import { receiptSms, welcomeBackSms } from '@/features/sms/config/SmsTemplates'
 import { NotFoundError, ValidationError } from '@/utils/errors'
 
@@ -97,8 +97,10 @@ export interface CollectPaymentInput {
   /**
    * Whether to deduct overdue period when calculating next due date
    *
-   * - true (default): Calculate from payment date (recommended)
-   * - false: Calculate from current next_due_date (legacy behavior)
+   * - true (default): from the later of the payment date and the current
+   *   next_due_date — a late payer is not billed the overdue days, and an
+   *   early payer keeps their due date
+   * - false: always from the current next_due_date
    *
    * @default true
    */
@@ -208,20 +210,14 @@ export class CollectPayment {
           )
         : member
 
-    // 4. Calculate next due date
-    // If deductOverduePeriod is true (default), calculate from payment date
-    // If false, calculate from current next_due_date (allows members to pay early)
-    const baseDate =
-      (input.deductOverduePeriod ?? true)
-        ? input.paymentDate
-        : planChangedMember.nextDueDate
-
-    const nextDueDate = calculateNextDueDate(
-      baseDate,
+    // 4. Calculate next due date: from the later of the payment date and the
+    // current due date. A late payer starts from the payment day; an early
+    // payer keeps their due date (see calculateNextDueDateFromPayment).
+    const nextDueDate = calculateNextDueDateFromPayment(
+      input.paymentDate,
+      planChangedMember.nextDueDate,
       planChangedMember.planType,
-      {
-        deductOverduePeriod: input.deductOverduePeriod ?? true,
-      }
+      input.deductOverduePeriod ?? true
     )
 
     // 5. Activate or renew member based on current status (state machine enforced)

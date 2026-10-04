@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { Modal, Button, Input, Label } from '@/components/ui'
 import { AlertCircle, Info } from 'lucide-react'
-import { calculateNextDueDate, formatDate } from '@/utils/date/date'
+import { formatDate } from '@/utils/date/date'
+import { calculateNextDueDateFromPayment } from '@/features/members/utils/calculateNextDueDate'
 
 interface MarkPaidDialogProps {
   open: boolean
@@ -11,6 +12,12 @@ interface MarkPaidDialogProps {
   memberName: string
   amount: number
   planType: string
+  /**
+   * The member's next due date before this payment (YYYY-MM-DD). The preview
+   * dates the new period from the later of this and the payment date — the
+   * rule CollectPayment applies — so an early payer keeps their due date.
+   */
+  currentDueDate: string
   onConfirm: (paymentDate: string) => void
 }
 
@@ -20,6 +27,7 @@ export default function MarkPaidDialog({
   memberName,
   amount,
   planType,
+  currentDueDate,
   onConfirm,
 }: MarkPaidDialogProps) {
   const today = new Date().toISOString().split('T')[0]
@@ -35,7 +43,11 @@ export default function MarkPaidDialog({
     }
   }
 
-  const nextDueDate = calculateNextDueDate(selectedDate, planType)
+  const nextDueDate = calculateNextDueDateFromPayment(
+    new Date(selectedDate),
+    new Date(currentDueDate),
+    planType
+  )
   const isFutureDate = new Date(selectedDate) > new Date(today)
 
   const handleConfirm = () => {

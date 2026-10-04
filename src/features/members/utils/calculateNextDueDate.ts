@@ -16,8 +16,8 @@ import { PlanType, PLAN_CONFIGS } from '../config/PlanConfig'
 
 export interface CalculateNextDueDateOptions {
   /**
-   * If true, calculate from startDate (deduct overdue period)
-   * If false, calculate from current next due date (preserve grace period)
+   * Carried for callers' records only; it does not change this calculation.
+   * Which date to start from is decided by `calculateNextDueDateFromPayment`.
    * Default: true
    */
   deductOverduePeriod?: boolean
@@ -146,22 +146,41 @@ export function calculateNextDueDate(
 }
 
 /**
- * Calculate next due date from payment date
+ * Calculate the next due date a payment buys.
  *
- * This is a convenience wrapper for payment collection scenarios.
+ * The SINGLE rule for every payment (desk payment, Mark Paid, reactivation,
+ * and the previews those dialogs show): the new period starts from the LATER
+ * of the payment date and the current due date.
+ *
+ * - A late payer's period starts on the payment day, so the days the
+ *   membership sat expired are not billed (`deductOverduePeriod`).
+ * - An early payer keeps their due date: paying three days early never costs
+ *   them three days (owner decision, 2026-10-04). Before this, every payment
+ *   was dated from the payment day, and an early payment moved the due date
+ *   earlier.
  *
  * @param paymentDate - The date payment was made
- * @param currentDueDate - The current next due date
- * @param planType - The type of membership plan
- * @param deductOverduePeriod - Whether to deduct overdue period
+ * @param currentDueDate - The member's next due date before this payment
+ * @param planType - The plan whose period the payment buys
+ * @param deductOverduePeriod - true (default): skip the overdue days, if any.
+ *   false: always extend from the current due date, overdue days included.
  * @returns The calculated next due date
+ *
+ * @example
+ * // Due 15 Feb, paid 12 Feb (early) → 15 Mar
+ * calculateNextDueDateFromPayment(new Date('2024-02-12'), new Date('2024-02-15'), PlanType.Monthly)
+ * // Due 15 Feb, paid 20 Feb (late) → 20 Mar
+ * calculateNextDueDateFromPayment(new Date('2024-02-20'), new Date('2024-02-15'), PlanType.Monthly)
  */
 export function calculateNextDueDateFromPayment(
   paymentDate: Date,
   currentDueDate: Date,
-  planType: PlanType,
+  planType: PlanType | string,
   deductOverduePeriod: boolean = true
 ): Date {
-  const baseDate = deductOverduePeriod ? paymentDate : currentDueDate
+  const baseDate =
+    deductOverduePeriod && paymentDate.getTime() > currentDueDate.getTime()
+      ? paymentDate
+      : currentDueDate
   return calculateNextDueDate(baseDate, planType, { deductOverduePeriod })
 }

@@ -5,7 +5,10 @@
  * duplicated across member.service.ts, payment.service.ts, and PaymentCollectionModal.tsx
  */
 
-import { calculateNextDueDate } from '../utils/calculateNextDueDate'
+import {
+  calculateNextDueDate,
+  calculateNextDueDateFromPayment,
+} from '../utils/calculateNextDueDate'
 import { PlanType } from '../config/PlanConfig'
 
 describe('calculateNextDueDate', () => {
@@ -160,6 +163,69 @@ describe('calculateNextDueDate', () => {
         deductOverduePeriod: false,
       })
       expect(result).toEqual(new Date('2024-02-15T00:00:00.000Z'))
+    })
+  })
+
+  /**
+   * Which date a payment's new period starts from. A late payer's period
+   * starts on the payment day (the overdue days are not billed); an early
+   * payer keeps their due date, so paying three days early never costs them
+   * three days. Owner decision, 2026-10-04.
+   */
+  describe('calculateNextDueDateFromPayment', () => {
+    const due = new Date('2024-02-15T00:00:00.000Z')
+
+    it('extends an early payment from the current due date', () => {
+      const result = calculateNextDueDateFromPayment(
+        new Date('2024-02-12T00:00:00.000Z'),
+        due,
+        PlanType.Monthly
+      )
+      expect(result).toEqual(new Date('2024-03-15T00:00:00.000Z'))
+    })
+
+    it('dates a late payment from the payment day', () => {
+      const result = calculateNextDueDateFromPayment(
+        new Date('2024-02-20T00:00:00.000Z'),
+        due,
+        PlanType.Monthly
+      )
+      expect(result).toEqual(new Date('2024-03-20T00:00:00.000Z'))
+    })
+
+    it('treats a payment on the due date like either', () => {
+      const result = calculateNextDueDateFromPayment(due, due, PlanType.Monthly)
+      expect(result).toEqual(new Date('2024-03-15T00:00:00.000Z'))
+    })
+
+    it('extends an early weekly payment by a week from the due date', () => {
+      const result = calculateNextDueDateFromPayment(
+        new Date('2024-02-13T00:00:00.000Z'),
+        due,
+        PlanType.Weekly
+      )
+      expect(result).toEqual(new Date('2024-02-22T00:00:00.000Z'))
+    })
+
+    it('clamps an early payment against a month-end due date', () => {
+      const result = calculateNextDueDateFromPayment(
+        // Dated from the payment this would be Feb 28; from the due date, Feb
+        // 31 clamps to the leap day.
+        new Date('2024-01-28T00:00:00.000Z'),
+        new Date('2024-01-31T00:00:00.000Z'),
+        PlanType.Monthly
+      )
+      expect(result).toEqual(new Date('2024-02-29T00:00:00.000Z'))
+    })
+
+    it('keeps the due date for a late payment when deductOverduePeriod is false', () => {
+      const result = calculateNextDueDateFromPayment(
+        new Date('2024-02-20T00:00:00.000Z'),
+        due,
+        PlanType.Monthly,
+        false
+      )
+      expect(result).toEqual(new Date('2024-03-15T00:00:00.000Z'))
     })
   })
 

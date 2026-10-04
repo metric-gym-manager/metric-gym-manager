@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createMemberRepository } from '@/features/members'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { NotFoundError } from '@/utils/errors'
-import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
+import { calculateNextDueDateFromPayment } from '@/features/members/utils/calculateNextDueDate'
 
 // ============================================================
 // POST /api/members/[id]/payment/preview - Preview payment calculation
@@ -41,15 +41,14 @@ export async function POST(
       })
     }
 
-    // Calculate next due date using centralized utility
-    const paymentDate = new Date(validatedData.paymentDate)
-    const baseDate = validatedData.deductOverduePeriod
-      ? paymentDate
-      : member.nextDueDate
-
-    const nextDueDate = calculateNextDueDate(baseDate, member.planType, {
-      deductOverduePeriod: validatedData.deductOverduePeriod,
-    })
+    // Same rule CollectPayment applies: from the later of the payment date
+    // and the current due date.
+    const nextDueDate = calculateNextDueDateFromPayment(
+      new Date(validatedData.paymentDate),
+      member.nextDueDate,
+      member.planType,
+      validatedData.deductOverduePeriod
+    )
 
     return NextResponse.json(
       ResponseBuilder.success({

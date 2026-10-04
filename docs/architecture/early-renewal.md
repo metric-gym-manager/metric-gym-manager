@@ -192,6 +192,15 @@ export async function POST(request: NextRequest) {
 | Overdue Payment | Expired        | Reactivate membership | `activate()` | Active                 |
 | Reactivation    | Suspended      | Lift suspension       | `activate()` | Active                 |
 
+#### Which date the new period starts from (owner decision, 2026-10-04)
+
+`calculateNextDueDateFromPayment` (`features/members/utils/calculateNextDueDate.ts`) is the one rule for every payment, and the Mark Paid and Reactivation previews call it too. The new period starts from the **later** of the payment date and the current due date:
+
+- **Late payer:** the period starts on the payment day. Due 15 Nov, paid 20 Nov → next due 20 Dec. The overdue days are not billed.
+- **Early payer:** the member keeps the due date. Due 15 Nov, paid 12 Nov → next due 15 Dec.
+
+Before this decision every payment was dated from the payment day, so an early payer was moved three days earlier for paying three days ahead. The rule applies to every status, so a member cancelled by hand while still paid through keeps those days when reactivated. `deductOverduePeriod: false` still means "always from the current due date".
+
 #### When to Use This Pattern
 
 - ✅ State machine entities with property updates that don't change state
