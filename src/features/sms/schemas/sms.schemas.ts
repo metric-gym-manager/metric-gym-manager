@@ -1,5 +1,11 @@
 import { z } from 'zod'
-import { SMS_TYPES, SmsDeliveryStatus, type SmsType } from '../config/SmsConfig'
+import {
+  MANUAL_SMS_TYPES,
+  SMS_TYPES,
+  SmsDeliveryStatus,
+  type ManualSmsType,
+  type SmsType,
+} from '../config/SmsConfig'
 
 // ============================================================
 // SMS ENUMS
@@ -19,9 +25,15 @@ export type DeliveryStatus = z.infer<typeof DeliveryStatus>
 // SEND SMS SCHEMA
 // ============================================================
 
+// Only the kinds the manual send can word from a member id (see
+// MANUAL_SMS_TYPES): no receipt, no announcement.
+export const ManualSMSType = z.enum(
+  MANUAL_SMS_TYPES as unknown as [ManualSmsType, ...ManualSmsType[]]
+)
+
 export const sendSMSSchema = z.object({
   memberId: z.string().uuid('Invalid member ID'),
-  smsType: SMSType,
+  smsType: ManualSMSType,
   customMessage: z
     .string()
     .max(160, 'SMS message must not exceed 160 characters')

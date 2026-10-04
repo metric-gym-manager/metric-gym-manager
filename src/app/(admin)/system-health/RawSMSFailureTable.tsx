@@ -59,6 +59,8 @@ const smsTypeVariant = (smsType: string): BadgeTone => {
       return 'success'
     case 'welcome':
       return 'accent'
+    case 'announcement':
+      return 'neutral'
     default:
       return 'neutral'
   }

@@ -246,6 +246,59 @@ describe('SMS Service - Welcome SMS', () => {
     expect(capturedMessage).toContain('Your annual membership is active')
   })
 
+  it('quotes the recurring-discount amount in a manual reminder', async () => {
+    const mockMember = {
+      id: 'member_123',
+      name: 'Alex Brown',
+      phone_number: '+94771234569',
+      plan_type: 'monthly',
+      plan_amount: 9000.0,
+      recurring_discount: true,
+      discount: { discount_percentage: 10 },
+      next_due_date: '2025-02-21',
+      gyms: { gym_name: 'Elite Fitness' },
+    }
+
+    let capturedMessage: string | undefined
+    const memberSelect = jest.fn().mockReturnThis()
+
+    mockSupabaseClient = {
+      from: jest.fn((table: string) => {
+        if (table === 'members') {
+          return {
+            select: memberSelect,
+            eq: jest.fn().mockReturnThis(),
+            single: jest
+              .fn()
+              .mockResolvedValue({ data: mockMember, error: null }),
+          }
+        }
+        if (table === 'sms_logs') {
+          return {
+            insert: jest.fn((data: { message_body: string }) => {
+              capturedMessage = data.message_body
+              return {
+                select: jest.fn().mockReturnThis(),
+                single: jest.fn().mockResolvedValue({
+                  data: { id: 'sms_log_123', ...data },
+                  error: null,
+                }),
+              }
+            }),
+          }
+        }
+        return {}
+      }),
+    }
+
+    await sendSMS('gym_123', 'member_123', ReminderType.DueToday)
+
+    expect(memberSelect).toHaveBeenCalledWith(
+      expect.stringContaining('discount:discounts(discount_percentage)')
+    )
+    expect(capturedMessage).toContain('expires today (Rs.8,100).')
+  })
+
   it('sends the shared due-today reminder template, naming the gym', async () => {
     const mockMember = {
       id: 'member_123',

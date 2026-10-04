@@ -42,7 +42,7 @@ interface SessionFailureEntry {
  * A logging failure must not fail the send: the message has already left. It is
  * reported and swallowed, which is a different thing from never being noticed.
  */
-async function logAnnouncementSms(
+export async function logAnnouncementSms(
   smsRepo: ISMSRepository,
   entry: {
     memberId: string
@@ -58,7 +58,9 @@ async function logAnnouncementSms(
     await smsRepo.create({
       memberId: entry.memberId,
       gymId: entry.gymId,
-      smsType: 'welcome',
+      // Its own type since 2026-10-04 — announcements used to be logged as
+      // `welcome`, which showed them as welcome texts in member histories.
+      smsType: 'announcement',
       phoneNumber: entry.phoneNumber,
       messageBody: entry.messageBody,
       sentAt: new Date(),

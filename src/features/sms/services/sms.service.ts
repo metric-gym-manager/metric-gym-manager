@@ -1,10 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import type { SMSType, SMSLog, MemberReminderStatus } from '../types'
+import type { ManualSmsType } from '../config/SmsConfig'
 import type { ReminderFiltersInput } from '../schemas/sms.schemas'
 import { sendSmsViaTextLk } from './textlk.service'
 import { createSMSRepository } from './factory'
 import { SMSDeliveryStatus } from './ISMSRepository'
 import { ReminderType } from '../config/ReminderConfig'
+import { effectivePlanAmount } from '@/features/members/utils/effectivePlanAmount'
 import { reminderSms, welcomeBackSms, welcomeSms } from '../config/SmsTemplates'
 
 // ============================================================
@@ -14,7 +16,7 @@ import { reminderSms, welcomeBackSms, welcomeSms } from '../config/SmsTemplates'
 export async function sendSMS(
   gymId: string,
   memberId: string,
-  smsType: SMSType,
+  smsType: ManualSmsType,
   customMessage?: string,
   paymentAmount?: number
 ): Promise<SMSLog> {
@@ -23,7 +25,7 @@ export async function sendSMS(
   // Get member details including gym name via join
   const { data: member } = await supabase
     .from('members')
-    .select('*, gyms(gym_name)')
+    .select('*, gyms(gym_name), discount:discounts(discount_percentage)')
     .eq('id', memberId)
     .eq('gym_id', gymId)
     .single()
@@ -280,6 +282,8 @@ interface SMSMemberFields {
   next_due_date: string
   plan_amount: number
   plan_type: string
+  recurring_discount?: boolean | null
+  discount?: { discount_percentage: number } | null
 }
 
 /**
@@ -289,7 +293,7 @@ interface SMSMemberFields {
  * reads the same whether the cron or the desk sent it.
  */
 function formatSMSMessage(
-  smsType: SMSType,
+  smsType: ManualSmsType,
   member: SMSMemberFields,
   gymName: string,
   paymentAmount?: number
@@ -310,10 +314,15 @@ function formatSMSMessage(
     case ReminderType.ThreeDay:
     case ReminderType.DueToday:
     case ReminderType.Overdue:
+      // The amount the desk will charge: plan less a recurring discount.
       return reminderSms(smsType, {
         ...party,
         planType: member.plan_type,
-        amount: member.plan_amount,
+        amount: effectivePlanAmount({
+          planAmount: member.plan_amount,
+          recurringDiscount: Boolean(member.recurring_discount),
+          discountPercentage: member.discount?.discount_percentage ?? null,
+        }),
         dueDate,
       })
 
@@ -323,13 +332,6 @@ function formatSMSMessage(
         amountPaid: paymentAmount || member.plan_amount,
         nextDueDate: dueDate,
       })
-
-    case 'receipt':
-      // This will be formatted in the payment service with actual payment details
-      return ''
-
-    default:
-      return `Reminder from ${gymName}`
   }
 }
 

@@ -18,7 +18,11 @@
     "",
     "Changing an enum means changing all three: the migration, the TS owner, and",
     "this file. If that feels like friction, it is the friction that was missing",
-    "the four times above."
+    "the four times above.",
+    "",
+    "Added 2026-10-04: sms_type 'announcement' (20261004000001). Until then",
+    "announcements were logged as 'welcome', because the enum had no value for",
+    "them; 20261004000002 relabels those rows."
   ],
   "enums": {
     "member_status": {
@@ -34,7 +38,8 @@
         "overdue",
         "receipt",
         "welcome",
-        "reactivation"
+        "reactivation",
+        "announcement"
       ]
     },
     "delivery_status": {

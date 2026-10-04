@@ -53,6 +53,10 @@ export const NON_REMINDER_SMS_TYPES = [
   'receipt',
   'welcome',
   'reactivation',
+  // A gym-written bulk message. Until 2026-10-04 these were logged as
+  // `welcome`, because the enum had no value for them (migrations
+  // 20261004000001 adds it, 20261004000002 relabels the old rows).
+  'announcement',
 ] as const
 
 export type NonReminderSmsType = (typeof NON_REMINDER_SMS_TYPES)[number]
@@ -65,6 +69,19 @@ export const SMS_TYPES: readonly SmsType[] = [
   ...Object.values(ReminderType),
   ...NON_REMINDER_SMS_TYPES,
 ]
+
+/**
+ * The kinds the manual send (`POST /api/sms/send`) can word from a member id
+ * alone. A receipt needs the payment's details and an announcement is written
+ * by the gym, so neither is here — a manual receipt used to send an empty body.
+ */
+export const MANUAL_SMS_TYPES = [
+  ...Object.values(ReminderType),
+  'welcome',
+  'reactivation',
+] as const satisfies readonly SmsType[]
+
+export type ManualSmsType = (typeof MANUAL_SMS_TYPES)[number]
 
 /**
  * Terminal states — a delivery report can never move a row out of one of these.

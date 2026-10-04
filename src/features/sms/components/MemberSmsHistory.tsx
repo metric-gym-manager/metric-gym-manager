@@ -41,8 +41,9 @@ const TYPE_LABEL: Record<SmsType, string> = {
   due_today: 'Due today',
   overdue: 'Overdue notice',
   receipt: 'Payment receipt',
-  welcome: 'Announcement',
+  welcome: 'Welcome',
   reactivation: 'Reactivation',
+  announcement: 'Announcement',
 }
 
 /**
