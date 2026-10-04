@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentGymProfile } from '@/lib/middleware/auth'
 import { sendSmsViaTextLk } from '@/features/sms/services/textlk.service'
+import {
+  receiptSms,
+  reminderSms,
+  welcomeSms,
+} from '@/features/sms/config/SmsTemplates'
+import { ReminderType } from '@/features/sms/config/ReminderConfig'
+import { PlanType } from '@/features/members/config/PlanConfig'
+import { calculateNextDueDate } from '@/features/members/utils/calculateNextDueDate'
 
 // ============================================================
 // POST /api/demo/send-sms - Demo SMS Sending (demo account only)
@@ -154,32 +162,48 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Format demo SMS messages with custom amounts and dates
+ * The demo text for each type, built by the product's own templates so a gym
+ * sees exactly what its members will receive. The example member is on an
+ * annual plan: paid today, next due a year from today; the reminder is the
+ * 7-day notice an annual member gets.
+ *
+ * @param type - Which message to demonstrate
+ * @param name - Example member name
+ * @param gymName - The visited gym's name
+ * @param fee - Example amount in LKR
+ * @returns The SMS text
  */
 function formatDemoMessage(
-  type: string,
+  type: 'welcome' | 'due' | 'receipt',
   name: string,
   gymName: string,
   fee: number
 ): string {
-  // Format amount with thousands separator and 2 decimal places
-  const amount = `Rs.${fee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-
-  const dueDate = new Date()
-  dueDate.setMonth(dueDate.getMonth() + 1)
-  const dueDateStr = dueDate.toLocaleDateString('en-GB')
+  const party = { gymName, memberName: name }
+  const today = new Date()
+  const nextDueDate = calculateNextDueDate(today, PlanType.Annual)
 
   switch (type) {
     case 'welcome':
-      return `Welcome to ${gymName}, ${name}! Your Annual membership is now active. Amount paid: ${amount}. Thank you for joining us!`
+      return welcomeSms({
+        ...party,
+        planType: PlanType.Annual,
+        amountPaid: fee,
+        nextDueDate,
+      })
 
-    case 'due':
-      return `Dear ${name}, your Annual membership at ${gymName} is due on ${dueDateStr}. Amount: ${amount}. Thank you.`
+    case 'due': {
+      const dueDate = new Date(today)
+      dueDate.setDate(dueDate.getDate() + 7)
+      return reminderSms(ReminderType.SevenDay, {
+        ...party,
+        planType: PlanType.Annual,
+        amount: fee,
+        dueDate,
+      })
+    }
 
     case 'receipt':
-      return `Dear ${name}, payment of ${amount} received. Next due date: ${dueDateStr}. Thank you - ${gymName}`
-
-    default:
-      return `Message from ${gymName}`
+      return receiptSms({ ...party, amountPaid: fee, nextDueDate })
   }
 }
