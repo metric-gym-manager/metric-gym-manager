@@ -81,8 +81,11 @@ const PARTNER_UNNAMED = '2026-10-04'
 const SOCIAL_LINKED = '2026-10-04'
 /** The buying guide (SEO-065), written once the owner confirmed its facts. */
 const CHOOSE_GUIDE = '2026-10-04'
-/** The privacy policy's SMS section now lists what the product sends. */
-const PRIVACY_SMS = '2026-10-04'
+/**
+ * The privacy policy gained Email Communications (UTC date; 06 Oct in Sri
+ * Lanka). Its previous change, 2026-10-04, listed the SMS the product sends.
+ */
+const PRIVACY_EMAIL = '2026-10-05'
 
 export const MARKETING_PAGES: readonly MarketingPage[] = [
   {
@@ -268,7 +271,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'How Metric Gym OS collects, uses and protects gym and member data, including biometric access data, under Sri Lanka’s Personal Data Protection Act.',
     label: 'Privacy policy',
     parent: HOME_PATH,
-    lastModified: PRIVACY_SMS,
+    lastModified: PRIVACY_EMAIL,
   },
   {
     path: '/terms',

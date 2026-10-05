@@ -12,6 +12,7 @@ interface LeadRow {
   message: string | null
   interest: string
   source: string
+  marketing_consent_at: string | null
   created_at: string
 }
 
@@ -25,6 +26,7 @@ function toLead(row: LeadRow): Lead {
     message: row.message,
     interest: row.interest as LeadInterest,
     source: row.source,
+    marketingConsentAt: row.marketing_consent_at,
     createdAt: row.created_at,
   }
 }
@@ -48,6 +50,7 @@ export class SupabaseLeadRepository implements ILeadRepository {
         message: lead.message,
         interest: lead.interest,
         source: lead.source,
+        marketing_consent_at: lead.marketingConsentAt,
       })
       .select()
       .single()

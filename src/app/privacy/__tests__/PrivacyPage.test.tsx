@@ -2,6 +2,7 @@ import { render } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import type { SmsType } from '@/features/sms/config/SmsConfig'
 import { SMS_TYPES } from '@/features/sms/config/SmsConfig'
+import { ALWAYS_SENT_EMAILS } from '@/features/mailing/config/MailingConfig'
 import PrivacyPolicyPage from '../page'
 
 /**
@@ -36,5 +37,61 @@ describe('privacy policy — SMS communications', () => {
 
   it('does not claim the texts carry opt-out instructions', () => {
     expect(text()).not.toMatch(/how to stop receiving it/i)
+  })
+})
+
+/**
+ * Email communications (owner decision, 2026-10-06): two kinds of email, each
+ * stoppable on its own from /unsubscribe, and a fixed list of emails that keep
+ * arriving. The list is imported from the config the /unsubscribe page shows,
+ * so the page and the policy cannot drift apart.
+ */
+describe('privacy policy — email communications', () => {
+  const text = () => render(<PrivacyPolicyPage />).container.textContent ?? ''
+
+  it('names both kinds of email', () => {
+    expect(text()).toMatch(/marketing emails/i)
+    expect(text()).toMatch(/product and security updates/i)
+  })
+
+  it('says each kind can be stopped separately', () => {
+    expect(text()).toMatch(/stop either kind, or both/i)
+  })
+
+  it('emails demo-request visitors only with their consent', () => {
+    expect(text()).toMatch(/only if you ticked the box/i)
+  })
+
+  it.each([...ALWAYS_SENT_EMAILS])(
+    'lists "%s" among the emails that keep arriving',
+    (line) => {
+      expect(text()).toContain(line)
+    }
+  )
+
+  it('points the rights section at the Contact Us section by its real number', () => {
+    const { container } = render(<PrivacyPolicyPage />)
+    const headings = Array.from(container.querySelectorAll('.legal-sec')).map(
+      (section) => section.textContent ?? ''
+    )
+    const contact = headings.findIndex((h) => /^\d+\.\s*Contact Us/.test(h))
+    expect(contact).toBeGreaterThan(-1)
+    expect(container.textContent).toContain(
+      `contact details in Section ${contact + 1}`
+    )
+  })
+
+  it('points the uses section at Email Communications by its real number', () => {
+    const { container } = render(<PrivacyPolicyPage />)
+    const headings = Array.from(container.querySelectorAll('.legal-sec')).map(
+      (section) => section.textContent ?? ''
+    )
+    const email = headings.findIndex((h) =>
+      /^\d+\.\s*Email Communications/.test(h)
+    )
+    expect(email).toBeGreaterThan(-1)
+    expect(container.textContent).toContain(
+      `stop either kind at any time (Section ${email + 1})`
+    )
   })
 })

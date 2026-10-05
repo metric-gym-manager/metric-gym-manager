@@ -34,6 +34,8 @@ export const createLeadSchema = z.object({
     .optional()
     .or(z.literal('')),
   interest: z.nativeEnum(LeadInterest),
+  /** The marketing consent checkbox. Unticked (or absent) is no consent. */
+  marketingConsent: z.boolean().optional().default(false),
   /** Honeypot — must be empty. Hidden from real users. */
   website: z.string().max(0, 'Invalid submission').optional(),
 })

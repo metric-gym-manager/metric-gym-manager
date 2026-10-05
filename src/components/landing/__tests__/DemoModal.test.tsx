@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom'
-import { LeadInterest } from '@/features/leads'
+import { LeadInterest } from '@/features/leads/config/LeadConfig'
 import { DemoModal } from '../DemoModal'
 
 /**
@@ -29,7 +29,7 @@ describe('DemoModal analytics', () => {
     fireEvent.change(screen.getByLabelText(/name/i), {
       target: { value: 'Nimal Perera' },
     })
-    fireEvent.change(screen.getByLabelText(/email/i), {
+    fireEvent.change(screen.getByLabelText(/^email$/i), {
       target: { value: 'nimal@example.lk' },
     })
     fireEvent.change(screen.getByLabelText(/phone/i), {
@@ -66,7 +66,7 @@ describe('DemoModal analytics', () => {
     fireEvent.change(screen.getByLabelText(/name/i), {
       target: { value: 'Nimal Perera' },
     })
-    fireEvent.change(screen.getByLabelText(/email/i), {
+    fireEvent.change(screen.getByLabelText(/^email$/i), {
       target: { value: 'nimal@example.lk' },
     })
     fireEvent.change(screen.getByLabelText(/phone/i), {
@@ -94,5 +94,81 @@ describe('DemoModal analytics', () => {
 
     expect(await screen.findByText('Too many requests')).toBeInTheDocument()
     expect(gtag).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Marketing consent (owner decision, 2026-10-06): an UNTICKED box, so only a
+ * visitor who chooses it is emailed product news. The request carries the
+ * choice either way; the server stores its time as the consent record.
+ */
+describe('DemoModal marketing consent', () => {
+  const fetchMock = jest.fn()
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    })
+    global.fetch = fetchMock as unknown as typeof fetch
+  })
+
+  function open() {
+    render(<DemoModal />)
+    fireEvent.click(screen.getByRole('button', { name: 'Request a demo' }))
+    fireEvent.change(screen.getByLabelText(/name/i), {
+      target: { value: 'Nimal Perera' },
+    })
+    fireEvent.change(screen.getByLabelText(/^email$/i), {
+      target: { value: 'nimal@example.lk' },
+    })
+    fireEvent.change(screen.getByLabelText(/phone/i), {
+      target: { value: '+94 77 123 4567' },
+    })
+  }
+
+  const consentBox = () =>
+    screen.getByRole('checkbox', { name: /product news and offers/i })
+
+  it('starts unticked', () => {
+    open()
+    expect(consentBox()).not.toBeChecked()
+  })
+
+  it('sends no consent when the box is left alone', async () => {
+    open()
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }))
+    await screen.findByText(/be in touch/i)
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).marketingConsent).toBe(
+      false
+    )
+  })
+
+  it('sends consent when the visitor ticks the box', async () => {
+    open()
+    fireEvent.click(consentBox())
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }))
+    await screen.findByText(/be in touch/i)
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).marketingConsent).toBe(
+      true
+    )
+  })
+
+  it('links to the privacy policy beside the box', () => {
+    open()
+    expect(
+      screen.getByRole('link', { name: /privacy policy/i })
+    ).toHaveAttribute('href', '/privacy')
+  })
+
+  it('clears the box when the form is opened again', async () => {
+    open()
+    fireEvent.click(consentBox())
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }))
+    await screen.findByText(/be in touch/i)
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Request a demo' }))
+    expect(consentBox()).not.toBeChecked()
   })
 })

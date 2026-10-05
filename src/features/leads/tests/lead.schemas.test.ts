@@ -62,4 +62,21 @@ describe('createLeadSchema', () => {
     })
     expect(result.success).toBe(false)
   })
+
+  it('treats a missing marketing consent as no consent', () => {
+    expect(createLeadSchema.parse(valid).marketingConsent).toBe(false)
+  })
+
+  it('accepts a ticked marketing consent box', () => {
+    expect(
+      createLeadSchema.parse({ ...valid, marketingConsent: true })
+        .marketingConsent
+    ).toBe(true)
+  })
+
+  it('rejects a marketing consent that is not a boolean', () => {
+    expect(
+      createLeadSchema.safeParse({ ...valid, marketingConsent: 'yes' }).success
+    ).toBe(false)
+  })
 })

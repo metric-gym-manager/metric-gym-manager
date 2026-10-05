@@ -18,12 +18,14 @@
 // ============================================================
 export {
   createLeadRepository,
+  createLeadMarketingAudience,
   createLeadNotifier,
   createSubmitLead,
 } from './services/factory'
 export { SubmitLead, type SubmitLeadInput } from './services/SubmitLead'
 export type { ILeadRepository } from './services/ILeadRepository'
 export type { ILeadNotifier } from './services/ILeadNotifier'
+export type { ILeadMarketingAudience } from './services/ILeadMarketingAudience'
 
 // ============================================================
 // SCHEMAS

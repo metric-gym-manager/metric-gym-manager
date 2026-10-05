@@ -13,6 +13,10 @@ process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'test-anon-key-1234567890'
 process.env.ENABLE_REAL_SMS = 'false'
 process.env.NEXT_PUBLIC_APP_URL = 'http://localhost:3000'
+// The marketing-email key is full-access on the live Resend account: no unit
+// test may reach it. Tests that need mailing configured pass a double.
+delete process.env.RESEND_API_KEY
+delete process.env.MARKETING_UNSUBSCRIBE_SECRET
 
 // Mock Next.js server-side functions that require request context
 // These are not available in Jest test environment

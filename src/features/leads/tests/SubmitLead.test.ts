@@ -1,6 +1,7 @@
 import { SubmitLead } from '../services/SubmitLead'
 import type { ILeadRepository } from '../services/ILeadRepository'
 import type { ILeadNotifier } from '../services/ILeadNotifier'
+import type { ILeadMarketingAudience } from '../services/ILeadMarketingAudience'
 import type { Lead, LeadNotificationOutcome, NewLead } from '../types'
 import { LeadInterest } from '../config/LeadConfig'
 
@@ -140,6 +141,74 @@ describe('SubmitLead', () => {
       const repo = new FakeLeadRepository()
       repo.failRecording = true
       const lead = await new SubmitLead(repo, notifier('sent')).execute(base)
+      expect(lead.id).toBe('lead-1')
+    })
+  })
+
+  /**
+   * The demo form's marketing checkbox (owner decision, 2026-10-06). Consent
+   * is recorded on the row with its time, and a consenting lead joins the
+   * Demo leads mailing audience. Unticked means neither.
+   */
+  describe('marketing consent', () => {
+    function audience(
+      fail = false
+    ): ILeadMarketingAudience & { added: Lead[] } {
+      const added: Lead[] = []
+      return {
+        added,
+        add: async (lead) => {
+          if (fail) throw new Error('Resend unavailable')
+          added.push(lead)
+        },
+      }
+    }
+
+    it('records when consent was given', async () => {
+      const repo = new FakeLeadRepository()
+      const before = Date.now()
+      await new SubmitLead(repo, null).execute({
+        ...base,
+        marketingConsent: true,
+      })
+      const stamped = repo.lastCreated?.marketingConsentAt
+      expect(stamped).toEqual(expect.any(String))
+      expect(Date.parse(stamped as string)).toBeGreaterThanOrEqual(before)
+    })
+
+    it('records no consent when the box was not ticked', async () => {
+      const repo = new FakeLeadRepository()
+      await new SubmitLead(repo, null).execute(base)
+      expect(repo.lastCreated?.marketingConsentAt).toBeNull()
+      await new SubmitLead(repo, null).execute({
+        ...base,
+        marketingConsent: false,
+      })
+      expect(repo.lastCreated?.marketingConsentAt).toBeNull()
+    })
+
+    it('adds a consenting lead to the mailing audience', async () => {
+      const list = audience()
+      const lead = await new SubmitLead(
+        new FakeLeadRepository(),
+        null,
+        list
+      ).execute({ ...base, marketingConsent: true })
+      expect(list.added).toEqual([lead])
+    })
+
+    it('never adds a lead who did not consent', async () => {
+      const list = audience()
+      await new SubmitLead(new FakeLeadRepository(), null, list).execute(base)
+      expect(list.added).toEqual([])
+    })
+
+    it('still returns the lead when the mailing list fails', async () => {
+      const lead = await new SubmitLead(
+        new FakeLeadRepository(),
+        null,
+        audience(true)
+      ).execute({ ...base, marketingConsent: true })
       expect(lead.id).toBe('lead-1')
     })
   })

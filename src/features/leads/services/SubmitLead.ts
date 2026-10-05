@@ -1,5 +1,6 @@
 import type { LeadInterest } from '../config/LeadConfig'
 import type { Lead, LeadNotificationOutcome } from '../types'
+import type { ILeadMarketingAudience } from './ILeadMarketingAudience'
 import type { ILeadNotifier } from './ILeadNotifier'
 import type { ILeadRepository } from './ILeadRepository'
 
@@ -16,6 +17,8 @@ export interface SubmitLeadInput {
   interest: LeadInterest
   /** Origin of the lead; defaults to 'landing'. */
   source?: string
+  /** The demo form's marketing checkbox; absent means not ticked. */
+  marketingConsent?: boolean
 }
 
 /**
@@ -32,12 +35,19 @@ export interface SubmitLeadInput {
  * `notified_at`, or `notification_error` — and a failure never fails the
  * request: the lead is already stored, and the visitor still gets their
  * thank-you.
+ *
+ * A ticked marketing box is stored with its time (`marketing_consent_at`, the
+ * consent record) and the lead joins the Demo leads mailing audience. Joining
+ * is best-effort like the email: the lead is stored either way, and
+ * `scripts/sync-marketing-contacts.ts` adds anyone a failure missed.
  */
 export class SubmitLead {
   constructor(
     private readonly leads: ILeadRepository,
     /** `null` when no sender is configured (SMTP_USER / SMTP_PASS unset). */
-    private readonly notifier: ILeadNotifier | null
+    private readonly notifier: ILeadNotifier | null,
+    /** `null` when mailing is not configured (RESEND_API_KEY unset). */
+    private readonly audience: ILeadMarketingAudience | null = null
   ) {}
 
   /**
@@ -59,6 +69,9 @@ export class SubmitLead {
       message: trimmedMessage ? trimmedMessage : null,
       interest: input.interest,
       source: input.source?.trim() || 'landing',
+      marketingConsentAt: input.marketingConsent
+        ? new Date().toISOString()
+        : null,
     })
 
     const outcome = await this.notify(lead)
@@ -66,6 +79,15 @@ export class SubmitLead {
       await this.leads.recordNotification(lead.id, outcome)
     } catch (error) {
       console.error('Lead notification outcome not recorded:', error)
+    }
+
+    if (lead.marketingConsentAt && this.audience) {
+      try {
+        await this.audience.add(lead)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        console.error('Lead not added to the mailing list:', message)
+      }
     }
 
     return lead

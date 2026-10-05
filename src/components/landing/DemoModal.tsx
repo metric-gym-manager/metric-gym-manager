@@ -62,6 +62,9 @@ export function DemoModal() {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [website, setWebsite] = useState('') // honeypot
+  // Marketing consent: unticked by default, so only a visitor who chooses it
+  // is emailed product news (owner decision, 2026-10-06).
+  const [marketingConsent, setMarketingConsent] = useState(false)
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success'>(
     'idle'
   )
@@ -75,6 +78,7 @@ export function DemoModal() {
     setEmail('')
     setPhone('')
     setWebsite('')
+    setMarketingConsent(false)
     setStatus('idle')
     setError(null)
   }
@@ -98,7 +102,14 @@ export function DemoModal() {
       const response = await fetch('/api/public/leads', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, phone, interest, website }),
+        body: JSON.stringify({
+          name,
+          email,
+          phone,
+          interest,
+          website,
+          marketingConsent,
+        }),
       })
       const result = await response.json()
       if (!response.ok || !result.success) {
@@ -467,6 +478,47 @@ export function DemoModal() {
                     )}
                   </div>
                 </div>
+
+                {/* The label wraps the box, so the whole line is the hit area. */}
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '10px',
+                    fontSize: '13px',
+                    lineHeight: '20px',
+                    color: '#8b8b93',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={marketingConsent}
+                    onChange={(e) => setMarketingConsent(e.target.checked)}
+                    style={{
+                      marginTop: '3px',
+                      width: '14px',
+                      height: '14px',
+                      flexShrink: 0,
+                      accentColor: '#ededf0',
+                      cursor: 'pointer',
+                    }}
+                  />
+                  <span>
+                    Email me product news and offers from Metric Gym OS. You can
+                    unsubscribe at any time. See our{' '}
+                    <a
+                      href="/privacy"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#ededf0', textDecoration: 'underline' }}
+                    >
+                      privacy policy
+                    </a>
+                    .
+                  </span>
+                </label>
 
                 {/* Honeypot — visually hidden, must stay empty */}
                 <input

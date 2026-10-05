@@ -14,6 +14,8 @@ export interface Lead {
   interest: LeadInterest
   /** Where the lead came from, e.g. 'landing'. */
   source: string
+  /** When the marketing consent box was ticked; null when it was not. */
+  marketingConsentAt: string | null
   createdAt: string
 }
 
@@ -29,4 +31,5 @@ export interface NewLead {
   message: string | null
   interest: LeadInterest
   source: string
+  marketingConsentAt: string | null
 }
