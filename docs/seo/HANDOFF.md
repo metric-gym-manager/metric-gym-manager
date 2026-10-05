@@ -53,6 +53,11 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
 
   SEO-042 had its read-only data probe; the decisions it needs are in §6.
 
+  Later the same day, on the owner's instructions:
+  - the three stuck announcements were marked `failed`;
+  - every workspace date now reads `27 Aug 2026`;
+  - the homepage preview's revenue tile reads 548,000.
+
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
@@ -282,10 +287,32 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   - **What happened.** The production reminders cron treated "E2E Enterprise Gym" as a customer (subscription `active`) and sent 310 real reminders to its seeded members between 2026-09-13 and 2026-10-04 03:31 UTC, about 15 a day. 310 of its 350 seeded numbers are valid-format Sri Lankan mobiles.
   - **The suspension.** Both E2E gyms were suspended with the product's own statement (`subscription_status = 'suspended', next_charge_at = NULL`), so the cron skips them.
   - E2E Lite Gym had sent nothing real.
-- [ ] **Allow the desktop screenshot re-baseline (decision).** `desktop-regression.spec.ts --update-snapshots` signs in to the production E2E Enterprise gym, and its `beforeAll` seeds fixtures there through the app's own APIs. They are idempotent, but the NEW-badge member ages out weekly and is then deleted and re-registered. That writes a member, a mock `sent` SMS row and reader sync jobs. Say yes and the repository session runs it, re-taking the dashboard and revenue baselines (mobile closeout §1) and checking the rest.
-- [ ] **Three stuck announcement rows (decision).** Fitness Empire's 2026-06-27 announcement is still `sending`, and two Titan Fitness ones from 2026-03-01 are still `pending`. Leave them, or have them marked `failed`. Whether Fitness Empire's 213 texts went out is unknown; the text.lk dashboard for 2026-06-27 would show it.
+- [ ] **Allow the desktop screenshot re-baseline (decision).**
+  - **What it does.** `desktop-regression.spec.ts --update-snapshots` signs in to the production E2E Enterprise gym (`.env.local` points at production). Its `beforeAll` seeds fixtures there through the app's own APIs.
+  - **What it writes.** The fixtures are idempotent, but the NEW-badge member ages out weekly; the current one was created 2026-09-13, so the next run deletes and re-registers it. That writes one member, its payment and a mock `sent` SMS row. No real text is sent (local runs are in mock mode), and no door hardware is reached (the E2E gym has no readers).
+  - **What it re-takes.**
+    - the dashboard and revenue axes (mobile closeout §1);
+    - the dashboard tile "N warning · N mild";
+    - since 2026-10-05, the members list and the member detail, whose dates now read `27 Aug 2026`.
+  - **How it runs.** First without updating, to confirm every difference sits where expected. Then it re-takes the pictures; each is looked at before it is committed.
+  - Say yes and the repository session runs it.
+- [x] **Three stuck announcement rows (decision).** **Decided 2026-10-05: mark them `failed`. Done the same day** (Supabase MCP, guarded on id and on the old status, checked with `RETURNING`):
+  - `8b54ef2f-…` (Fitness Empire, 2026-06-27, was `sending`);
+  - `69221cca-…` and `258ca9b5-…` (Titan Fitness, 2026-03-01, were `pending`).
+
+  No announcement is left pending or sending: 6 `completed`, 3 `failed`. Their counts are unchanged, so the delivery log shows "sent 0/26" for the Titan rows although 25 texts each are logged; say if those counts should be set from the logs. Whether Fitness Empire's 213 texts went out is still unknown; the text.lk dashboard for 2026-06-27 would show it. None of the three can show a Retry button, because the progress panel appears only for an announcement sent in the current browser session.
+
 - [ ] **One announcement after the deploy** (of `claude/site-followups-2026-10-05`). Send a real announcement to a small audience, then check that it reaches `completed` with counts that match its recipients. Read-only: `SELECT created_at, status, recipient_count, sent_count, failed_count FROM announcements ORDER BY created_at DESC LIMIT 1`.
-- [ ] **Date format (decision).** The member detail shows `27/08/2026`, most other screens `27 Aug 2026`, and the members list `2026-10-26`. Pick one; the recommendation is `27 Aug 2026` (`formatDate`), which never confuses day and month.
+- [x] **Date format (decision).** **Decided 2026-10-05: `27 Aug 2026` (`formatDate`) everywhere in the workspace. Done on `claude/site-followups-2026-10-05`:**
+  - the members list (both tiers);
+  - member detail and Edit member;
+  - the announcements delivery log;
+  - the trial and past-due banners, the plan card, the cancel dialog and billing history;
+  - the door-hardware account card, which now prints `05 Oct 2026, 09:00`.
+
+  Chrome's English (UK) data prints September as `Sept` (`21 Sept 2026`); every other month has three letters. A bare `YYYY-MM-DD` also no longer shows the day before in a browser west of UTC.
+
+- [ ] **Dates inside SMS texts (decision).** The welcome, welcome-back, receipt, reminder and day-pass texts still print `DD/MM/YYYY` ("Next due 26/10/2026"), from the approved templates in `SmsTemplates.ts`. Keep it, or switch the texts to `26 Oct 2026` too (two characters longer per date).
 - [ ] **Review the 310 texts sent from the E2E gym.** In the text.lk dashboard, check the delivered numbers for 2026-09-13 to 2026-10-04. Decide whether any recipient needs contacting.
 - [x] **How the E2E gyms run from now.** **Decided 2026-10-04:** reactivate both, with texts disabled. **Done 2026-10-04:**
   - **The block.** `SMS_DISABLED_GYM_IDS` (both E2E gym ids) was created in Vercel (production and preview) at 11:34:10 UTC. It is enforced in `sendSmsViaTextLk`, the one function every real text passes through; the reminders cron also skips those gyms up front.
@@ -308,10 +335,8 @@ Ready now, in priority order:
    - ~~The homepage canonical test checks the metadata object, not the HTML.~~ **Fixed 2026-10-05:** `metadata.test.ts` runs every registry page through Next's own `resolveAlternates` and `resolveOpenGraph`, in the node environment (jsdom lacks `URLSearchParams.size`, which Next's root-path branch reads). A production build's 20 sitemap pages matched it exactly.
    - ~~The member detail's Door Access panel prints dates raw: "until 20261013, from 20260913".~~ **Fixed 2026-10-05:** the status payload carries ISO dates, and the panel prints them with `formatDate`. It was checked in Chromium at 1366 and 390 on the E2E Enterprise gym, read-only.
    - `tests/e2e/desktop-regression.spec.ts`: the dashboard tile now reads "N warning · N mild", a change of about 0.1% of the frame, inside its 2% tolerance. Re-baseline it with the two baselines the mobile closeout (§1) already lists. **Waits on the owner (§6):** the spec's `beforeAll` seeds fixtures into the production E2E gym.
-   - **New, 2026-10-05: dates in the members list.**
-     - The members table's "Next due" column and the phone member rows print raw ISO dates (`2026-10-26`). On a 390 px phone, "2026-10-09" breaks across two lines.
-     - The member detail prints `27/08/2026`, while the Door Access panel and the screens fixed by the mobile closeout's MO-37 print `27 Aug 2026` (`formatDate`).
-     - One format is the fix. A change to the members table moves a desktop baseline, so it travels with the re-baseline above.
+   - ~~**New, 2026-10-05: dates in the members list.**~~ **Fixed 2026-10-05** with the owner's date decision (§6). Every workspace date now goes through `formatDate`; a phone row never splits a date (measured at 320, 360, 390 and 430). The members and member-detail desktop baselines move with it, which is the re-baseline above.
+   - **New, 2026-10-05: a seven-digit figure in a dashboard tile at 320 px.** `StatCard` lets a figure that does not fit wrap inside its tile (§27). "548,000" therefore split as "548,00 / 0" in the homepage preview, which now breaks after the comma with `<wbr>`. The real dashboard's tiles use the same component and would split the same way for a gym collecting LKR 100,000 or more in a month. A `<wbr>` after each thousands separator in `StatCard` would fix every tile, with no change wherever the figure fits.
 6. ~~**Stale comments.**~~ Fixed 2026-10-03: `CancelMember.ts` now states the 14-day cron rule and that Cancelled → Active happens on payment.
 7. ~~**Bulk grid.**~~ Fixed 2026-10-03, with three more defects found in the same flow:
    - the grid now stops at `BULK_REGISTER_MAX_ROWS` (50, shared with the route);
