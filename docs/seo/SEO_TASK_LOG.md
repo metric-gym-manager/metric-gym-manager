@@ -7,17 +7,17 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-04T17:01:12Z |
+| Last task update | 2026-10-05T00:42:18Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 3 |
-| Implemented (awaiting verification) | 8 |
+| Implemented (awaiting verification) | 9 |
 | Verified | 44 |
 | In progress | 0 |
-| Open (discovered/planned) | 2 |
+| Open (discovered/planned) | 1 |
 | Blocked | 5 |
 | Rejected | 6 |
-| External action required | 11 |
+| External action required | 10 |
 
 ## Status by priority
 
@@ -26,7 +26,7 @@
 | P0 | 0 | 0 | 0 | 0 | 10 | 1 | 0 |
 | P1 | 0 | 0 | 0 | 2 | 19 | 1 | 1 |
 | P2 | 0 | 1 | 0 | 1 | 13 | 2 | 0 |
-| P3 | 1 | 0 | 0 | 5 | 2 | 1 | 5 |
+| P3 | 0 | 0 | 0 | 6 | 2 | 1 | 5 |
 
 ## All tasks
 
@@ -96,7 +96,7 @@
 | [SEO-052](#seo-052) | P3 | implemented | trust | Weekly members get their '7 days before' reminder on the day they pay | no |
 | [SEO-053](#seo-053) | P3 | implemented | trust | Automated reminders and receipts do not name the gym | yes |
 | [SEO-058](#seo-058) | P3 | verified | internal-linking | Seven related-page cards linked the hub with the same exact-match anchor | no |
-| [SEO-060](#seo-060) | P3 | discovered | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | yes |
+| [SEO-060](#seo-060) | P3 | implemented | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | no |
 
 ## External tasks (cannot be completed in code)
 
@@ -110,7 +110,6 @@
 - **SEO-042** (P2, planned) — Real case studies and first-party data content
 - **SEO-041** (P3, blocked) — Founder and team information
 - **SEO-053** (P3, implemented) — Automated reminders and receipts do not name the gym
-- **SEO-060** (P3, discovered) — Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery
 
 ## Task detail
 
@@ -3231,12 +3230,12 @@ Seven card titles and summaries rewritten per page (e.g. 'From registration to t
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | discovered |
+| Status | implemented |
 | Category | performance |
 | Intent | none |
-| External action | required |
+| External action | no |
 | Created | 2026-10-02T16:47:44Z |
-| Updated | 2026-10-04T17:01:12Z |
+| Updated | 2026-10-05T00:42:18Z |
 | Completed | — |
 | Dependencies | SEO-055 |
 
@@ -3260,13 +3259,22 @@ Measure first: which of these modules the public pages actually execute, and wha
 
 **Implementation**
 
-—
+The four pieces moved out of the root layout into AppProviders (src/components/providers/AppProviders.tsx), mounted by the (dashboard), (admin), (auth), (dev) and demo-sms layouts; the (auth) group gained a layout for it. Public pages also stopped prefetching /login and /register, whose route code carries the providers: prefetchFor() in features/marketing/config/navigation.ts and prefetch={false} on every public sign-in link. Rule 2.19 docs updated; the rule text itself was changed in the owner's uncommitted architecture.md rework.
 
 **Files**
 
 - `src/app/layout.tsx`
+- `src/components/providers/AppProviders.tsx`
+- `src/app/(auth)/layout.tsx`
+- `src/app/(dashboard)/layout.tsx`
+- `src/features/marketing/config/navigation.ts`
+- `src/app/__tests__/providers-placement.test.ts`
+- `src/app/__tests__/auth-link-prefetch.test.tsx`
 
 **Verification**
 
-- Not yet verified
+- Local production build, 2026-10-05, Chromium JS coverage at 390 px: /, /pricing, the buying guide, /privacy and /terms went from 316–320 KB of gzipped JavaScript with 87 KB of provider chunks to 236 KB with none; /join to 234 KB with none. /login and /register still carry them. Moving the providers alone left 77 KB arriving through prefetches of /login and /register; prefetch opt-outs removed them (hovering the sign-in links fetched nothing).
+- Behaviour, read-only: client navigation to /login works; the auth_failed cookie shows the session-expired toast; six signed-in screens render with zero console errors; the app registers its service worker and a public visit registers none.
+- Secrets: 64 client files in .next/static held none of the 23 server-only variable values and no service_role JWT.
+- providers-placement.test.ts, AppProviders.test.tsx and auth-link-prefetch.test.tsx; five mutations (AuthRecovery back in the root layout, AppProviders dropped from (auth), QueryProvider removed, one header opt-out removed, prefetchFor made a no-op) each fail one.
 
