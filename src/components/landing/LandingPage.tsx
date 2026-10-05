@@ -6,6 +6,7 @@ import {
   FOOTER_GROUPS,
   HEADER_LINKS,
   HUB_PATH,
+  LOG_IN_PATH,
   LEGAL_NAME,
   POSTAL_ADDRESS,
   PRICING_PATH,
@@ -14,6 +15,7 @@ import {
   SITE_NAME,
   TRIAL_DAYS,
   formatLkr,
+  prefetchFor,
 } from '@/features/marketing'
 import { DashboardPreview } from './DashboardPreview'
 import { DemoModal } from './DemoModal'
@@ -227,7 +229,8 @@ export function LandingPage() {
             <Link
               id="nav-login"
               className="l-btn-ghost"
-              href="/login"
+              href={LOG_IN_PATH}
+              prefetch={false}
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
@@ -1116,6 +1119,7 @@ export function LandingPage() {
             <Link
               className="l-btn-ghost"
               href={SIGN_UP_PATH}
+              prefetch={false}
               style={{
                 whiteSpace: 'nowrap',
                 display: 'inline-flex',
@@ -1234,7 +1238,12 @@ export function LandingPage() {
                   {group.heading}
                 </span>
                 {group.links.map((l) => (
-                  <Link key={l.href} href={l.href} style={{ fontSize: '13px' }}>
+                  <Link
+                    key={l.href}
+                    href={l.href}
+                    prefetch={prefetchFor(l.href)}
+                    style={{ fontSize: '13px' }}
+                  >
                     {l.label}
                   </Link>
                 ))}

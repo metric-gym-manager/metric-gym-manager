@@ -159,7 +159,9 @@ export default function GymManagementSoftwarePage() {
       >
         <div className="flex flex-wrap gap-3 pt-2">
           <Button asChild variant="primary" size="lg">
-            <Link href={SIGN_UP_PATH}>Start {TRIAL_DAYS}-day free trial</Link>
+            <Link href={SIGN_UP_PATH} prefetch={false}>
+              Start {TRIAL_DAYS}-day free trial
+            </Link>
           </Button>
           <Button asChild variant="secondary" size="lg">
             <Link href={PRICING_PATH}>See pricing</Link>

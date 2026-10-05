@@ -78,3 +78,17 @@ export const FOOTER_GROUPS: readonly FooterGroup[] = [
 
 export const SIGN_UP_PATH = '/register'
 export const LOG_IN_PATH = '/login'
+
+/**
+ * The `prefetch` prop for a link on a public page. Links to the sign-in
+ * routes opt out: /login and /register carry the signed-in app's providers
+ * (AppProviders), and a <Link> prefetches the code of the route it points at,
+ * so a default link would download them onto every public page (SEO-060).
+ * Every other link keeps Next's default.
+ *
+ * @param href - The link's destination
+ * @returns `false` for a sign-in route, otherwise `undefined` (the default)
+ */
+export function prefetchFor(href: string): false | undefined {
+  return href === LOG_IN_PATH || href === SIGN_UP_PATH ? false : undefined
+}

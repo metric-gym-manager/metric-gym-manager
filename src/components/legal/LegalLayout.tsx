@@ -152,6 +152,7 @@ export function LegalLayout({
             </Link>
             <Link
               href="/login"
+              prefetch={false}
               className="legal-login"
               style={{
                 display: 'inline-flex',

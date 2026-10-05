@@ -49,7 +49,7 @@ export function PricingPlans({
                 variant={t.highlighted ? 'primary' : 'secondary'}
                 size="lg"
               >
-                <Link href={SIGN_UP_PATH}>
+                <Link href={SIGN_UP_PATH} prefetch={false}>
                   Start {TRIAL_DAYS}-day free trial
                 </Link>
               </Button>

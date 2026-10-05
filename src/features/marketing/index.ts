@@ -63,6 +63,7 @@ export {
   FOOTER_GROUPS,
   SIGN_UP_PATH,
   LOG_IN_PATH,
+  prefetchFor,
 } from './config/navigation'
 
 // ============================================================
