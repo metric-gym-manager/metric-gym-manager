@@ -2,10 +2,6 @@ import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
-import { QueryProvider } from '@/components/providers/QueryProvider'
-import { Toaster } from '@/components/ui'
-import { ServiceWorkerRegistration } from '@/components/pwa/ServiceWorkerRegistration'
-import { AuthRecovery } from '@/features/auth/components/AuthRecovery'
 import { gaInitScript } from '@/lib/analytics/ga-init'
 import { PWA_VERSION } from '@/lib/pwa-version'
 import { OG_IMAGE, SITE_NAME, SITE_URL } from '@/features/marketing'
@@ -117,12 +113,9 @@ export default function RootLayout({
         <Script id="google-analytics" strategy="afterInteractive">
           {gaInitScript()}
         </Script>
-        <QueryProvider>
-          {children}
-          <Toaster />
-        </QueryProvider>
-        <ServiceWorkerRegistration />
-        <AuthRecovery />
+        {/* The signed-in app's providers are mounted by the app and sign-in
+            layouts, never here: public pages use none of them (SEO-060). */}
+        {children}
         {process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true' && (
           <Script
             src="https://t.contentsquare.net/uxa/2337d6ffa89d1.js"

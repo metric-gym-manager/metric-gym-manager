@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
+import { AppProviders } from '@/components/providers/AppProviders'
 
 /** Development-only showcase routes: never indexable. */
 export const metadata: Metadata = {
@@ -7,5 +8,5 @@ export const metadata: Metadata = {
 }
 
 export default function DevLayout({ children }: { children: ReactNode }) {
-  return children
+  return <AppProviders>{children}</AppProviders>
 }

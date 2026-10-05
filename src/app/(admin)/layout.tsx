@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
 import { getSaasAdmin } from '@/lib/auth/requireSaasAdmin'
+import { AppProviders } from '@/components/providers/AppProviders'
 
 interface AdminLayoutProps {
   children: ReactNode
@@ -35,11 +36,13 @@ export default async function AdminLayout({ children }: AdminLayoutProps) {
   // navigation: adding one would be a navigation-architecture change, which the
   // UI directive (§4.10) puts out of scope for a visual correction.
   return (
-    <div
-      data-theme="dark"
-      className="min-h-screen bg-surface-base p-6 font-geist text-body text-ink antialiased"
-    >
-      {children}
-    </div>
+    <AppProviders>
+      <div
+        data-theme="dark"
+        className="min-h-screen bg-surface-base p-6 font-geist text-body text-ink antialiased"
+      >
+        {children}
+      </div>
+    </AppProviders>
   )
 }

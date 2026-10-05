@@ -1,5 +1,6 @@
 import { ReactNode } from 'react'
 import { redirect } from 'next/navigation'
+import { AppProviders } from '@/components/providers/AppProviders'
 import { getCurrentGymProfile } from '@/lib/middleware/auth'
 
 /**
@@ -35,5 +36,5 @@ export default async function DemoSmsLayout({
     redirect('/dashboard')
   }
 
-  return <>{children}</>
+  return <AppProviders>{children}</AppProviders>
 }
