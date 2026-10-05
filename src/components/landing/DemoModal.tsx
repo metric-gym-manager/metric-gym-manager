@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { LeadInterest } from '@/features/leads'
+// Deep import: the @/features/leads barrel is server-tainted (it reaches
+// nodemailer), so a client component must not import it.
+import { LeadInterest } from '@/features/leads/config/LeadConfig'
 import { trackEvent } from '@/lib/analytics/gtag'
 
 const css = `

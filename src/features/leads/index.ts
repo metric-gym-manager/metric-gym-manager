@@ -6,6 +6,11 @@
  * deletable: consumers are the `/api/public/leads` route and the landing
  * `DemoModal`. This feature has no UI of its own — the modal lives in the
  * shared landing components and calls the public API.
+ *
+ * NOTE: this barrel is **server-tainted**: the factory reaches nodemailer
+ * (`node:net`) through `lib/email/smtp.ts`. Client components deep-import
+ * what they need (e.g. `./config/LeadConfig`); `tests/barrel.test.ts` fails
+ * if one imports the barrel, which would break the production build.
  */
 
 // ============================================================
