@@ -56,7 +56,7 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
   Later the same day, on the owner's instructions:
   - the three stuck announcements were marked `failed`;
   - every workspace date now reads `27 Aug 2026`;
-  - the homepage preview's revenue tile reads 548,000.
+  - the homepage preview's revenue tile reads 1,164,000 (owner, revised the same day: 312 active members at about LKR 4,000 a month; Fitness Empire's 136 bring in about 600k), with the six-month bars rescaled to match.
 
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.

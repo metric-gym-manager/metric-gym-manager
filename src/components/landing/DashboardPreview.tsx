@@ -47,12 +47,14 @@ const TILES = [
   },
   {
     label: 'Revenue · July',
-    // A 320 px tile is too narrow for seven readout digits, so StatCard lets
-    // the figure wrap (§27); <wbr> makes it wrap after the comma, never
-    // mid-group as "548,00 / 0".
+    // A phone tile is too narrow for this many readout digits, so StatCard
+    // lets the figure wrap (§27); <wbr> makes it wrap after a comma, never
+    // mid-group as "1,164,00 / 0".
     value: (
       <>
-        548,
+        1,
+        <wbr />
+        164,
         <wbr />
         000
       </>
@@ -71,19 +73,22 @@ const TILES = [
   },
 ] as const
 
-// Late in the month, as the stamp says: July is the month so far, as the
-// real chart's current-month bar is, and it equals the Revenue tile.
-// 548,000 is the owner's figure (2026-10-05).
+// Sized to the gym the tiles describe: 312 active members at about LKR 4,000
+// a month could collect about 1.25M (owner, 2026-10-05). Late in the month, as
+// the stamp says, so July is the month so far, as the real chart's
+// current-month bar is, and it equals the Revenue tile.
 const REVENUE = [
-  { month: 'Feb', lkr: 312_000 },
-  { month: 'Mar', lkr: 356_000 },
-  { month: 'Apr', lkr: 341_000 },
-  { month: 'May', lkr: 398_000 },
-  { month: 'Jun', lkr: 455_000 },
-  { month: 'Jul', lkr: 548_000 },
+  { month: 'Feb', lkr: 905_000 },
+  { month: 'Mar', lkr: 962_000 },
+  { month: 'Apr', lkr: 948_000 },
+  { month: 'May', lkr: 1_031_000 },
+  { month: 'Jun', lkr: 1_092_000 },
+  { month: 'Jul', lkr: 1_164_000 },
 ]
-const AXIS = ['600k', '300k', '0']
-const AXIS_MAX = 600_000
+// What the real chart's compactAxisTick prints at this scale; written out
+// because importing it would bring recharts onto the homepage (SEO-055).
+const AXIS = ['1.2M', '600k', '0']
+const AXIS_MAX = 1_200_000
 
 const QUEUE = [
   {
