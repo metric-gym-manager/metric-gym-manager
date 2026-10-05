@@ -50,7 +50,7 @@ Unit tests: `src/features/auth/utils/getSafeRedirect.test.ts`.
 - ❌ Never `router.push`/`replace` to land on a route whose access depends on a session that was just changed server-side.
 - ❌ Never `router.prefetch()` a middleware-guarded route from an unauthenticated page — it caches the login redirect and poisons the destination.
 - ✅ Always run a user-supplied `?redirect=` value through `getSafeRedirect` before navigating to it.
-- ❌ Never import the `@/features/auth` **barrel** from a client component — it re-exports server-only services (`next/headers`), so Turbopack fails the client build. The login page (a client component) deep-imports the pure helper from `@/features/auth/utils/getSafeRedirect` instead. The barrel is safe only from Server Components (e.g. `AuthRecovery` in `src/app/layout.tsx`).
+- ❌ Never import the `@/features/auth` **barrel** from a client component — it re-exports server-only services (`next/headers`), so Turbopack fails the client build. The login page (a client component) deep-imports the pure helper from `@/features/auth/utils/getSafeRedirect` instead. The barrel is safe only from Server Components. `AuthRecovery` itself is deep-imported by `src/components/providers/AppProviders.tsx`, which the sign-in and app layouts mount (SEO-060; it is no longer in the root layout).
 
 > **Note on plain in-app navigation.** This rule is about the **auth boundary**. Ordinary links between already-authenticated pages (the sidebar `<Link>`s, `router.push` within the dashboard) stay client-side — they don't change the session, so the Router Cache is correct for them.
 

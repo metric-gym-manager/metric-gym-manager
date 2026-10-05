@@ -12,11 +12,17 @@
 ### 2.19 Service Worker Update & Reload Discipline
 
 `ServiceWorkerRegistration` (`src/components/pwa/ServiceWorkerRegistration.tsx`)
-is mounted once in the root layout, so it runs on **every full-document page
-load** — including the auth-boundary hard navigations mandated by §2.15
+is mounted by `AppProviders` (`src/components/providers/AppProviders.tsx`) in
+the layouts of the workspace, the SaaS admin, the sign-in pages, the demo SMS
+tool and the dev showcase — never on public pages (SEO-060, 2026-10-04; until
+then it sat in the root layout and registered a worker for every marketing
+visitor). It runs on **every full-document load of those surfaces** —
+including the auth-boundary hard navigations mandated by §2.15
 (`window.location.assign`/`replace` on login, logout, and `AuthRecovery`). That
 makes the update flow adjacent to the auth flow: any reload misbehaviour
-surfaces _right when the user signs in_.
+surfaces _right when the user signs in_. An installed worker still controls
+public pages (scope `/`); only the registration and update prompt are
+confined to the app.
 
 #### Invariants
 

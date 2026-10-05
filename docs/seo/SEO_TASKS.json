@@ -1003,7 +1003,8 @@
       "targetQueries": [],
       "finding": "GA4 (G-D711W4RE25) loads sitewide but the demo form fires no conversion event, so organic landing pages cannot be tied to leads.",
       "evidence": [
-        "src/app/layout.tsx gtag config; src/components/landing/DemoModal.tsx posts to /api/public/leads with no gtag call."
+        "src/app/layout.tsx gtag config; src/components/landing/DemoModal.tsx posts to /api/public/leads with no gtag call.",
+        "2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property."
       ],
       "recommendedChange": "Fire GA4's recommended generate_lead event after a successful submission (no personal data in the event); mark it as a key event in GA4 (external).",
       "implementation": "src/lib/analytics/gtag.ts trackEvent(); DemoModal fires GA4 'generate_lead' with { form: 'demo_request', interest } after a successful submission — no personal data.",
@@ -1020,7 +1021,7 @@
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-01T17:40:00Z",
-      "updatedAt": "2026-10-01T21:29:53Z",
+      "updatedAt": "2026-10-05T04:09:00Z",
       "completedAt": null
     },
     {
@@ -1028,21 +1029,22 @@
       "title": "Google Search Console access and sitemap submission",
       "category": "measurement",
       "priority": "P0",
-      "status": "blocked",
+      "status": "in_progress",
       "intent": "none",
       "targetQueries": [],
       "finding": "No Search Console verification exists in the repository and this environment has no Search Console access, so indexing, queries, CTR and AI-feature traffic cannot be read.",
       "evidence": [
-        "No google-site-verification meta tag or file in the repository."
+        "No google-site-verification meta tag or file in the repository.",
+        "Owner set up the Domain property, submitted the sitemap and requested indexing on 2026-10-05. Checked from outside that day: the google-site-verification TXT record is on metricgymos.com; /sitemap.xml answers 200 as application/xml with no X-Robots-Tag (apex and http forms 308 to it); robots.txt names it; all 20 listed URLs answer 200 to a Googlebot user agent with self canonicals and no noindex; the Vercel project has no firewall configuration."
       ],
       "recommendedChange": "Owner: verify a Domain property for metricgymos.com via DNS, submit /sitemap.xml, inspect '/', '/gym-management-software-sri-lanka' and '/pricing', then follow the measurement plan in SEO_AUDIT.md.",
-      "implementation": "",
+      "implementation": "Search Console Domain property verified and the sitemap submitted by the owner (2026-10-05). Remaining: the Sitemaps report reading Success with 20 discovered pages, then the first baseline about four weeks later (SEO_AUDIT.md §17).",
       "files": [],
       "verification": [],
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-01T17:40:00Z",
-      "updatedAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-05T03:17:31Z",
       "completedAt": null
     },
     {
@@ -1595,7 +1597,8 @@
       "evidence": [
         "src/app/(auth)/register/page.tsx: POST /api/auth/register, then router.push(`/verify-email?email=${encodeURIComponent(email)}`)",
         "src/app/layout.tsx: gtag('config', 'G-D711W4RE25') on every route; no sign_up event anywhere in src/",
-        "The GA4 stream's enhanced-measurement and data-redaction settings are not visible from the repository"
+        "The GA4 stream's enhanced-measurement and data-redaction settings are not visible from the repository",
+        "2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property."
       ],
       "recommendedChange": "Owner, in GA4 now: check Admin → Data streams → web stream → Redact data → Email is on. Then, as one reviewed change to the auth flow (rule 2.15 governs it): fire GA4's recommended sign_up event with { method: 'email' } after a successful registration, mark it as a key event, and stop carrying the address in the URL (the verify-email page can show it from session state). Not changed in this pass: the registration flow is product code with its own tests and rules, outside the public-site scope.",
       "implementation": "register/page.tsx fires GA4's recommended sign_up event with { method: 'email' } only after /api/auth/register returns success, then hands the address to /verify-email through this tab's sessionStorage (features/auth/utils/pendingVerificationEmail.ts, a client-safe deep import over the fail-safe @/lib/client-state wrappers) and navigates to plain /verify-email. The verify page reads the address from that storage and no longer reads ?email= at all. Signup creates no session, so router.push stays (rule 2.15: not an auth-boundary navigation). If storage is unavailable, the resend field starts empty and the user types the address.",
@@ -1616,7 +1619,7 @@
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-01T21:45:00Z",
-      "updatedAt": "2026-10-02T15:36:21Z",
+      "updatedAt": "2026-10-05T04:09:00Z",
       "completedAt": null
     },
     {
@@ -1725,7 +1728,7 @@
       "title": "Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery",
       "category": "performance",
       "priority": "P3",
-      "status": "discovered",
+      "status": "implemented",
       "intent": "none",
       "targetQueries": [],
       "finding": "Split from SEO-055. After the chart library left the public pages, they still load about 345 KB of gzipped JS. A chunk the audit measured at 245 KB raw (52 KB unused) carries the Supabase client, @tanstack/react-query, the service-worker registration and AuthRecovery, all mounted by the root layout for every route. They sit in the root on purpose: AuthRecovery is the hard-navigation escape for a broken session (rule 2.15), and the service worker's single-reload rule (2.19) assumes it runs on every full-document navigation. So moving them is an auth and PWA decision, not a bundle tweak.",
@@ -1735,13 +1738,26 @@
         "Measured 2026-10-04 on a local production build at 390 px with Chromium JS coverage: \"/\", \"/pricing\" and the new guide load 316–320 KB of gzipped JavaScript in 14–15 scripts. Three chunks carry the providers' code, 87.1 KB gzipped together; the largest (62.8 KB gzipped, 241 KB raw) holds the Supabase client, react-query, the service-worker registration and AuthRecovery, and 217 KB of its raw code never executes on the page. A marker shows which chunk carries a provider, not that the chunk holds nothing else."
       ],
       "recommendedChange": "Measure first: which of these modules the public pages actually execute, and what each costs. Then decide with rules 2.15 and 2.19 in hand whether QueryProvider can move to the signed-in layouts, and whether AuthRecovery and the service-worker registration can load lazily on public routes. Lab scores are already 92–96, so this is a data and main-thread cost on mobile, not a ranking lever. Owner decision, 2026-10-04: keep the signed-in app's code off public pages; the move is planned with rules 2.15 and 2.19 in hand.",
-      "implementation": "",
-      "files": ["src/app/layout.tsx"],
-      "verification": [],
+      "implementation": "The four pieces moved out of the root layout into AppProviders (src/components/providers/AppProviders.tsx), mounted by the (dashboard), (admin), (auth), (dev) and demo-sms layouts; the (auth) group gained a layout for it. Public pages also stopped prefetching /login and /register, whose route code carries the providers: prefetchFor() in features/marketing/config/navigation.ts and prefetch={false} on every public sign-in link. Rule 2.19 docs updated; the rule text itself was changed in the owner's uncommitted architecture.md rework.",
+      "files": [
+        "src/app/layout.tsx",
+        "src/components/providers/AppProviders.tsx",
+        "src/app/(auth)/layout.tsx",
+        "src/app/(dashboard)/layout.tsx",
+        "src/features/marketing/config/navigation.ts",
+        "src/app/__tests__/providers-placement.test.ts",
+        "src/app/__tests__/auth-link-prefetch.test.tsx"
+      ],
+      "verification": [
+        "Local production build, 2026-10-05, Chromium JS coverage at 390 px: /, /pricing, the buying guide, /privacy and /terms went from 316–320 KB of gzipped JavaScript with 87 KB of provider chunks to 236 KB with none; /join to 234 KB with none. /login and /register still carry them. Moving the providers alone left 77 KB arriving through prefetches of /login and /register; prefetch opt-outs removed them (hovering the sign-in links fetched nothing).",
+        "Behaviour, read-only: client navigation to /login works; the auth_failed cookie shows the session-expired toast; six signed-in screens render with zero console errors; the app registers its service worker and a public visit registers none.",
+        "Secrets: 64 client files in .next/static held none of the 23 server-only variable values and no service_role JWT.",
+        "providers-placement.test.ts, AppProviders.test.tsx and auth-link-prefetch.test.tsx; five mutations (AuthRecovery back in the root layout, AppProviders dropped from (auth), QueryProvider removed, one header opt-out removed, prefetchFor made a no-op) each fail one."
+      ],
       "dependencies": ["SEO-055"],
-      "externalActionRequired": true,
+      "externalActionRequired": false,
       "createdAt": "2026-10-02T16:47:44Z",
-      "updatedAt": "2026-10-04T17:01:12Z",
+      "updatedAt": "2026-10-05T00:42:18Z",
       "completedAt": null
     },
     {

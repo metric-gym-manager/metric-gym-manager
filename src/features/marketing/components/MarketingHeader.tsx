@@ -39,10 +39,14 @@ export function MarketingHeader() {
             </Link>
           ))}
           <Button asChild variant="secondary" size="md">
-            <Link href={LOG_IN_PATH}>Log in</Link>
+            <Link href={LOG_IN_PATH} prefetch={false}>
+              Log in
+            </Link>
           </Button>
           <Button asChild variant="primary" size="md">
-            <Link href={SIGN_UP_PATH}>Start free trial</Link>
+            <Link href={SIGN_UP_PATH} prefetch={false}>
+              Start free trial
+            </Link>
           </Button>
         </nav>
       </div>

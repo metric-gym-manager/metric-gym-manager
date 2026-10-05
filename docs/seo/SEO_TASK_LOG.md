@@ -7,26 +7,26 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-04T17:01:12Z |
+| Last task update | 2026-10-05T04:09:00Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 3 |
-| Implemented (awaiting verification) | 8 |
+| Implemented (awaiting verification) | 9 |
 | Verified | 44 |
-| In progress | 0 |
-| Open (discovered/planned) | 2 |
-| Blocked | 5 |
+| In progress | 1 |
+| Open (discovered/planned) | 1 |
+| Blocked | 4 |
 | Rejected | 6 |
-| External action required | 11 |
+| External action required | 10 |
 
 ## Status by priority
 
 | Priority | discovered | planned | in_progress | implemented | verified | blocked | rejected |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| P0 | 0 | 0 | 0 | 0 | 10 | 1 | 0 |
+| P0 | 0 | 0 | 1 | 0 | 10 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 2 | 19 | 1 | 1 |
 | P2 | 0 | 1 | 0 | 1 | 13 | 2 | 0 |
-| P3 | 1 | 0 | 0 | 5 | 2 | 1 | 5 |
+| P3 | 0 | 0 | 0 | 6 | 2 | 1 | 5 |
 
 ## All tasks
 
@@ -42,7 +42,7 @@
 | [SEO-019](#seo-019) | P0 | verified | content | Dedicated pricing page in LKR | no |
 | [SEO-023](#seo-023) | P0 | verified | trust | Homepage claims contradicted by the codebase | no |
 | [SEO-024](#seo-024) | P0 | verified | trust | Unverifiable proof claims need owner evidence | no |
-| [SEO-036](#seo-036) | P0 | blocked | measurement | Google Search Console access and sitemap submission | yes |
+| [SEO-036](#seo-036) | P0 | in_progress | measurement | Google Search Console access and sitemap submission | yes |
 | [SEO-005](#seo-005) | P1 | verified | technical | Production .vercel.app alias serves an indexable duplicate of the site | no |
 | [SEO-006](#seo-006) | P1 | verified | on-page | Every public page inherits the homepage title and description | no |
 | [SEO-007](#seo-007) | P1 | verified | technical | Open Graph image has the wrong shape and the retired brand; og:url is the homepage on every page | no |
@@ -96,11 +96,11 @@
 | [SEO-052](#seo-052) | P3 | implemented | trust | Weekly members get their '7 days before' reminder on the day they pay | no |
 | [SEO-053](#seo-053) | P3 | implemented | trust | Automated reminders and receipts do not name the gym | yes |
 | [SEO-058](#seo-058) | P3 | verified | internal-linking | Seven related-page cards linked the hub with the same exact-match anchor | no |
-| [SEO-060](#seo-060) | P3 | discovered | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | yes |
+| [SEO-060](#seo-060) | P3 | implemented | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | no |
 
 ## External tasks (cannot be completed in code)
 
-- **SEO-036** (P0, blocked) — Google Search Console access and sitemap submission
+- **SEO-036** (P0, in_progress) — Google Search Console access and sitemap submission
 - **SEO-026** (P1, blocked) — Retired domain metricgymmanager.com is still indexed with stale claims
 - **SEO-035** (P1, implemented) — No analytics event for demo requests
 - **SEO-056** (P1, implemented) — Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL
@@ -110,7 +110,6 @@
 - **SEO-042** (P2, planned) — Real case studies and first-party data content
 - **SEO-041** (P3, blocked) — Founder and team information
 - **SEO-053** (P3, implemented) — Automated reminders and receipts do not name the gym
-- **SEO-060** (P3, discovered) — Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery
 
 ## Task detail
 
@@ -621,12 +620,12 @@ Partially actioned: the '−95% LATE PAYMENTS' statistic and 'RUNNING NATIONWIDE
 | Field | Value |
 | --- | --- |
 | Priority | P0 |
-| Status | blocked |
+| Status | in_progress |
 | Category | measurement |
 | Intent | none |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T17:40:00Z |
+| Updated | 2026-10-05T03:17:31Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -641,6 +640,7 @@ No Search Console verification exists in the repository and this environment has
 **Evidence**
 
 - No google-site-verification meta tag or file in the repository.
+- Owner set up the Domain property, submitted the sitemap and requested indexing on 2026-10-05. Checked from outside that day: the google-site-verification TXT record is on metricgymos.com; /sitemap.xml answers 200 as application/xml with no X-Robots-Tag (apex and http forms 308 to it); robots.txt names it; all 20 listed URLs answer 200 to a Googlebot user agent with self canonicals and no noindex; the Vercel project has no firewall configuration.
 
 **Recommended change**
 
@@ -648,7 +648,7 @@ Owner: verify a Domain property for metricgymos.com via DNS, submit /sitemap.xml
 
 **Implementation**
 
-—
+Search Console Domain property verified and the sitemap submitted by the owner (2026-10-05). Remaining: the Sitemaps report reading Success with 20 discovered pages, then the first baseline about four weeks later (SEO_AUDIT.md §17).
 
 **Files**
 
@@ -1427,7 +1427,7 @@ SoftwareApplication (BusinessApplication, Web browser) with three LKR Offers + U
 | Intent | transactional |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T21:29:53Z |
+| Updated | 2026-10-05T04:09:00Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1442,6 +1442,7 @@ GA4 (G-D711W4RE25) loads sitewide but the demo form fires no conversion event, s
 **Evidence**
 
 - src/app/layout.tsx gtag config; src/components/landing/DemoModal.tsx posts to /api/public/leads with no gtag call.
+- 2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.
 
 **Recommended change**
 
@@ -1617,7 +1618,7 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 | Intent | transactional |
 | External action | required |
 | Created | 2026-10-01T21:45:00Z |
-| Updated | 2026-10-02T15:36:21Z |
+| Updated | 2026-10-05T04:09:00Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1634,6 +1635,7 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 - src/app/(auth)/register/page.tsx: POST /api/auth/register, then router.push(`/verify-email?email=${encodeURIComponent(email)}`)
 - src/app/layout.tsx: gtag('config', 'G-D711W4RE25') on every route; no sign_up event anywhere in src/
 - The GA4 stream's enhanced-measurement and data-redaction settings are not visible from the repository
+- 2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.
 
 **Recommended change**
 
@@ -3231,12 +3233,12 @@ Seven card titles and summaries rewritten per page (e.g. 'From registration to t
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | discovered |
+| Status | implemented |
 | Category | performance |
 | Intent | none |
-| External action | required |
+| External action | no |
 | Created | 2026-10-02T16:47:44Z |
-| Updated | 2026-10-04T17:01:12Z |
+| Updated | 2026-10-05T00:42:18Z |
 | Completed | — |
 | Dependencies | SEO-055 |
 
@@ -3260,13 +3262,22 @@ Measure first: which of these modules the public pages actually execute, and wha
 
 **Implementation**
 
-—
+The four pieces moved out of the root layout into AppProviders (src/components/providers/AppProviders.tsx), mounted by the (dashboard), (admin), (auth), (dev) and demo-sms layouts; the (auth) group gained a layout for it. Public pages also stopped prefetching /login and /register, whose route code carries the providers: prefetchFor() in features/marketing/config/navigation.ts and prefetch={false} on every public sign-in link. Rule 2.19 docs updated; the rule text itself was changed in the owner's uncommitted architecture.md rework.
 
 **Files**
 
 - `src/app/layout.tsx`
+- `src/components/providers/AppProviders.tsx`
+- `src/app/(auth)/layout.tsx`
+- `src/app/(dashboard)/layout.tsx`
+- `src/features/marketing/config/navigation.ts`
+- `src/app/__tests__/providers-placement.test.ts`
+- `src/app/__tests__/auth-link-prefetch.test.tsx`
 
 **Verification**
 
-- Not yet verified
+- Local production build, 2026-10-05, Chromium JS coverage at 390 px: /, /pricing, the buying guide, /privacy and /terms went from 316–320 KB of gzipped JavaScript with 87 KB of provider chunks to 236 KB with none; /join to 234 KB with none. /login and /register still carry them. Moving the providers alone left 77 KB arriving through prefetches of /login and /register; prefetch opt-outs removed them (hovering the sign-in links fetched nothing).
+- Behaviour, read-only: client navigation to /login works; the auth_failed cookie shows the session-expired toast; six signed-in screens render with zero console errors; the app registers its service worker and a public visit registers none.
+- Secrets: 64 client files in .next/static held none of the 23 server-only variable values and no service_role JWT.
+- providers-placement.test.ts, AppProviders.test.tsx and auth-link-prefetch.test.tsx; five mutations (AuthRecovery back in the root layout, AppProviders dropped from (auth), QueryProvider removed, one header opt-out removed, prefetchFor made a no-op) each fail one.
 

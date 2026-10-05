@@ -151,13 +151,14 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 
 **Measurement**
 
-- [ ] **Search Console (SEO-036, P0).** On 2026-10-04 metricgymos.com had no Google verification record. Its DNS is on Cloudflare (`asa` and `jaziel.ns.cloudflare.com`).
-  1. At search.google.com/search-console choose Add property → **Domain**, enter `metricgymos.com`, and copy the TXT value Google shows. Use the Google account that verified metricgymmanager.com, which already carries a `google-site-verification` record; the Change of Address below needs both properties under one account.
-  2. If Search Console offers to add the record through Cloudflare, accept. Otherwise, in the Cloudflare dashboard open metricgymos.com → DNS → Records → Add record: type `TXT`, name `@`, content the copied value, TTL Auto. Save, then press Verify in Search Console. It can take a few minutes.
-  3. Sitemaps → enter `sitemap.xml` → Submit.
-  4. URL Inspection → request indexing for `/`, `/gym-management-software-sri-lanka`, `/pricing` and `/resources/overdue-gym-memberships`.
-  5. About four weeks later, record the first baseline following `SEO_AUDIT.md` §17.
-- [ ] **GA4 redaction (SEO-056, SEO-059).** At analytics.google.com: Admin → Data collection and modification → Data streams → the `www.metricgymos.com` web stream → Redact data. Turn on email redaction and query-parameter redaction, add `token_hash`, `token`, `code` and `email`, then save. The code already keeps both out of GA; this is the second layer.
+- [x] **Search Console set up (SEO-036, P0).** **Done by the owner 2026-10-05:** the Domain property for metricgymos.com, the sitemap submitted, and indexing requested. Checked from outside the same day: metricgymos.com carries the `google-site-verification` TXT record; `https://www.metricgymos.com/sitemap.xml` answers 200 as `application/xml` with no `X-Robots-Tag`, and the apex and `http://` forms 308 to it; `robots.txt` names it; all 20 listed URLs answer 200 to a Googlebot user agent with a self-referencing canonical and no noindex; the Vercel project has no firewall configuration that could challenge Google's crawler.
+- [ ] **Sitemap status in Search Console (SEO-036).** On 2026-10-05 it still read "not detected". Two places say that, and both lag the submission:
+  - URL Inspection's "Sitemaps: No referring sitemaps detected" comes from Google's index, which is updated only when Google recrawls the page after reading the sitemap — usually days, sometimes a couple of weeks for a new property. Requesting indexing does not change that line.
+  - The Sitemaps report can show "Couldn't fetch" for a day or two on a new property before it reads "Success". In a Domain property the field takes the **full URL**: if the listed sitemap is anything other than `https://www.metricgymos.com/sitemap.xml`, remove it and submit that URL.
+  - Done when the Sitemaps report reads **Success** with **20 discovered pages**. If it still reads "Couldn't fetch" after three days with that exact URL, note the date and the message here.
+- [ ] **First baseline (SEO-036).** About four weeks after the sitemap reads Success, record the first baseline following `SEO_AUDIT.md` §17.
+- [x] **GA4 stream (SEO-035, SEO-056).** **Decided 2026-10-05:** the site reports to the owner's stream **G-6C0BXYD101**. Until this change it reported to G-D711W4RE25 (since 2026-09-20), which the owner's account did not show, so GA said the tag was not detected. Data already in G-D711W4RE25 stays in that property. The ID changed in `src/lib/analytics/ga-init.ts`; GA still loads only through `gaInitScript()`, so credential URLs stay out of it (SEO-059). The two items below apply to the G-6C0BXYD101 stream. Quick check after the deploy: GA → Reports → Realtime shows a visit within a minute or two; the stream page's "not detected" notice can take up to 48 hours to clear.
+- [ ] **GA4 redaction (SEO-056, SEO-059).** At analytics.google.com: Admin → Data collection and modification → Data streams → the `www.metricgymos.com` web stream (G-6C0BXYD101) → Redact data. Turn on email redaction and query-parameter redaction, add `token_hash`, `token`, `code` and `email`, then save. The code already keeps both out of GA; this is the second layer.
 - [ ] **GA4 key events (SEO-035, SEO-056).**
   1. At tagassistant.google.com add the domain `https://www.metricgymos.com` and connect. The site opens in a tab that reports to DebugView.
   2. In that tab, submit the demo request form once (it stores one demo request). GA4 Admin → DebugView should show `generate_lead`.
@@ -201,8 +202,9 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [x] **SEO-053:** automated reminders and receipts do not name the gym. **Decided 2026-10-03:** every automated SMS names the gym, with warmer, purpose-specific wording. Implemented on `claude/sms-templates`; the after-deploy checks are under **SMS overhaul** below.
 - [x] **SEO-043: the Inter font.** Measured 2026-10-04: no screen rendered it, yet its 48 KB file was preloaded on every page. Removed; Geist is the default face (`2c53ad5`).
 - [x] **SEO-051: the homepage dashboard preview.** **Decided 2026-10-04: show the true dashboard.** Rebuilt from the dashboard's own parts; every text node at least 5.07:1 (`40d4d3b`).
-- [ ] **SEO-060: the app's providers on public pages.** **Measured 2026-10-04** (your choice was to measure first): public pages load 316–320 KB of gzipped JavaScript; the three chunks that carry the Supabase client, react-query, the service-worker registration and AuthRecovery come to 87 KB of it, and 217 KB of the largest chunk's 241 KB of raw code never runs on a public page. Moving them touches rules 2.15 (session recovery) and 2.19 (service-worker reload). **Decided 2026-10-04: keep the signed-in app's code off public pages.** A plan follows; this stays open until it ships.
+- [x] **SEO-060: the app's providers on public pages.** **Decided 2026-10-04: keep the signed-in app's code off public pages.** Done on `claude/seo-060-app-providers`: the providers moved into `AppProviders` in the app and sign-in layouts, and public links to `/login` and `/register` stopped prefetching their code. Public pages now load 236 KB of gzipped JavaScript instead of 316–320 KB, none of it the app's. Client code is never secret — the sign-in pages' chunks stay fetchable by URL — so the build was also scanned: no server-only secret is in any client file.
 - [x] **Early payments shorten the period.** **Decided 2026-10-04: an early payer keeps their due date.** The new period starts from the later of the payment date and the current due date, in the payment, the Mark Paid and Reactivation previews, and the overdue guide (`62910a2`).
+- [ ] **Commit rule 2.19's new wording with your `.claude/rules` rework.** Your uncommitted `architecture.md` now says `ServiceWorkerRegistration` is mounted by `AppProviders` in the app, sign-in and dev layouts, never on public pages. It could not be committed separately: either Prettier config would rewrite the whole Pattern Index table.
 - [ ] **Check one early payment in production** (after the deploy of `claude/seo-owner-decisions`). Record a payment for a member a few days before their due date and confirm the new due date is the old one plus one period. Read-only check: `SELECT name, next_due_date, updated_at FROM members WHERE id = '<member id>'`.
 - [x] **The dashboard's "critical" overdue tier is never reached.** **Decided 2026-10-04: retire it.** The tile reads "N warning · N mild" (`c34bcec`). Production showed "0 critical · 52 warning · 53 mild" that day.
 - [x] **The member forms say "WhatsApp".** **Decided 2026-10-04: keep the label.** No change.
@@ -246,7 +248,7 @@ Ready now, in priority order:
 1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
 2. **New guides** from `SEO_AUDIT.md` §8. All four are written: overdue memberships (SEO-061), moving off a register book (SEO-063), Excel and WhatsApp vs software (SEO-064), and choosing gym management software in Sri Lanka (SEO-065, 2026-10-04).
 3. **Case study and data study (SEO-042).** Consent given 2026-10-04 (Fitness Empire; anonymised study). Start with a read-only data probe and a plan; the owner approves every figure.
-4. **P3 items.** ~~SEO-043~~, ~~SEO-051~~, ~~SEO-052~~ and ~~SEO-053~~ are done. **SEO-060**: the owner decided to keep the signed-in app's code off public pages; it needs a plan with rules 2.15 and 2.19 in hand.
+4. **P3 items.** ~~SEO-043~~, ~~SEO-051~~, ~~SEO-052~~, ~~SEO-053~~ and ~~SEO-060~~ are done (SEO-060 on `claude/seo-060-app-providers`, 2026-10-05).
 5. **Found by the inverted check of 2026-10-04** (not changed):
    - The homepage canonical renders as `https://www.metricgymos.com` while `metadata.test.ts` asserts `https://www.metricgymos.com/`: the test checks the metadata object, not the HTML Next emits. Production is the same, and the two forms are one URL, so it is harmless; a rendered-HTML test would close the gap.
    - The member detail's Door Access panel prints dates raw: "until 20261013, from 20260913".
@@ -274,7 +276,7 @@ Waiting on owner input:
 
 - SEO-039 → add each directory profile to `SOCIAL_PROFILES` in `features/marketing/config/site.ts`.
 - SEO-041 → founder and team names on `/about`, if the owner supplies them.
-- SEO-060 → plan the provider move only if the owner asks for it.
+- SEO-060 → mark `verified` after the deploy: public pages load no provider chunk in production.
 - SEO-035, SEO-056 → mark `verified` once GA4 DebugView shows `generate_lead` and `sign_up`.
 - SEO-040, SEO-043, SEO-051, SEO-052 → mark `verified` after the deploy: production `sameAs`, two font preloads on `/`, no hero contrast failure in Lighthouse, the weekly row on `/features/sms-reminders`.
 - SEO-036 → once Search Console has data, record the first baseline (about four weeks after sitemap submission) following `SEO_AUDIT.md` §17.
@@ -283,18 +285,18 @@ Waiting on owner input:
 
 65 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes on `claude/seo-owner-decisions`. Counts recomputed from the JSON on 2026-10-04.
 
-| Status      | Count | Tasks                                                                                                                                                              |
-| ----------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Verified    |    44 | See `SEO_TASK_LOG.md`                                                                                                                                              |
-| Implemented |     8 | SEO-035, SEO-056 (P1, awaiting GA4 DebugView); SEO-065 (P2); SEO-040, SEO-043, SEO-051, SEO-052 (P3, awaiting production checks); SEO-053 (P3, after-deploy check) |
-| Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                                            |
-| Discovered  |     1 | SEO-060 (P3, measured; owner decided to move the providers off public pages)                                                                                       |
-| Blocked     |     5 | SEO-036 (P0); SEO-026 (P1); SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                    |
-| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                                        |
+| Status      | Count | Tasks                                                                                                                                                                       |
+| ----------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Verified    |    44 | See `SEO_TASK_LOG.md`                                                                                                                                                       |
+| Implemented |     9 | SEO-035, SEO-056 (P1, awaiting GA4 DebugView); SEO-065 (P2); SEO-040, SEO-043, SEO-051, SEO-052, SEO-060 (P3, awaiting production checks); SEO-053 (P3, after-deploy check) |
+| In progress |     1 | SEO-036 (P0, Search Console set up; waiting for the sitemap to read Success, then the baseline)                                                                             |
+| Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                                                     |
+| Blocked     |     4 | SEO-026 (P1); SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                                           |
+| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                                                 |
 
-- P0 remaining: 1 (SEO-036), blocked on the owner.
+- P0 remaining: 1 (SEO-036), in progress: Search Console is set up; the sitemap status and the first baseline remain.
 - P1 remaining: 3 (SEO-026, SEO-035, SEO-056), all owner actions.
-- External action required: 11 tasks.
+- External action required: 10 tasks.
 
 ## 8. Files changed
 

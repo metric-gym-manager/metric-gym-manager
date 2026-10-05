@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
+import { AppProviders } from '@/components/providers/AppProviders'
 import WorkspaceShell from '@/components/workspace/WorkspaceShell'
 import { ViewportTierProvider } from '@/hooks/useViewportTier'
 import { tierFromHeaders } from '@/utils/viewport/tierFromHeaders'
@@ -38,10 +39,12 @@ export default async function DashboardLayout({
   )
 
   return (
-    <ViewportTierProvider initialTier={initialTier}>
-      <WorkspaceShell>
-        <MemberModalProvider>{children}</MemberModalProvider>
-      </WorkspaceShell>
-    </ViewportTierProvider>
+    <AppProviders>
+      <ViewportTierProvider initialTier={initialTier}>
+        <WorkspaceShell>
+          <MemberModalProvider>{children}</MemberModalProvider>
+        </WorkspaceShell>
+      </ViewportTierProvider>
+    </AppProviders>
   )
 }

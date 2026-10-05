@@ -26,7 +26,9 @@ export function CallToAction({
         </p>
         <div className="flex flex-wrap items-center gap-3">
           <Button asChild variant="primary" size="lg">
-            <Link href={SIGN_UP_PATH}>Start free trial</Link>
+            <Link href={SIGN_UP_PATH} prefetch={false}>
+              Start free trial
+            </Link>
           </Button>
           <DemoModal />
           <Link

@@ -1,6 +1,7 @@
-import { ReactNode } from 'react';
-import { redirect } from 'next/navigation';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
+import { ReactNode } from 'react'
+import { redirect } from 'next/navigation'
+import { AppProviders } from '@/components/providers/AppProviders'
+import { getCurrentGymProfile } from '@/lib/middleware/auth'
 
 /**
  * Demo SMS Layout
@@ -18,22 +19,22 @@ import { getCurrentGymProfile } from '@/lib/middleware/auth';
 export default async function DemoSmsLayout({
   children,
 }: {
-  children: ReactNode;
+  children: ReactNode
 }) {
-  const allowedEmail = process.env.DEMO_TOOLS_ALLOWED_EMAIL;
+  const allowedEmail = process.env.DEMO_TOOLS_ALLOWED_EMAIL
 
-  let gymProfile;
+  let gymProfile
   try {
-    gymProfile = await getCurrentGymProfile();
+    gymProfile = await getCurrentGymProfile()
   } catch {
-    redirect('/login');
+    redirect('/login')
   }
 
   // Fail closed: if the demo email is not configured, or the signed-in account
   // is not the demo account, deny access.
   if (!allowedEmail || gymProfile.email !== allowedEmail) {
-    redirect('/dashboard');
+    redirect('/dashboard')
   }
 
-  return <>{children}</>;
+  return <AppProviders>{children}</AppProviders>
 }

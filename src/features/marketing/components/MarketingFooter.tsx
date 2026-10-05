@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { FOOTER_GROUPS } from '../config/navigation'
+import { FOOTER_GROUPS, prefetchFor } from '../config/navigation'
 import { CONTACT, LEGAL_NAME, POSTAL_ADDRESS, SITE_NAME } from '../config/site'
 
 /**
@@ -60,6 +60,7 @@ export function MarketingFooter() {
                   <li key={l.href}>
                     <Link
                       href={l.href}
+                      prefetch={prefetchFor(l.href)}
                       className="font-geist text-sm text-ink-secondary transition-colors duration-normal hover:text-ink"
                     >
                       {l.label}
