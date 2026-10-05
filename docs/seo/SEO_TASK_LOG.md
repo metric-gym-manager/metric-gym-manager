@@ -7,7 +7,7 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-05T08:31:54Z |
+| Last task update | 2026-10-05T09:30:02Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 2 |
@@ -2063,7 +2063,7 @@ List Metric on relevant software directories with consistent NAP; collect genuin
 | Intent | informational |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-04T15:48:40Z |
+| Updated | 2026-10-05T09:30:02Z |
 | Completed | — |
 | Dependencies | SEO-022 |
 
@@ -2079,10 +2079,12 @@ Fitconnect's strongest content is original local data. Metric holds anonymisable
 **Evidence**
 
 - src/features/sms (sms_logs delivery statuses); revenue and analytics features.
+- Read-only probe of production, 2026-10-05. Customer gyms with data: Fitness Empire (231 members, 847 payments, 1,275 texts), Yomak Health Hub (60/60/7), Titan Fitness (52/83/191, including test members), Royal Fitness World (11 members) and LifeLine Fitness (1). Fitness Empire is about 65% of members and about 85% of payments and texts, so a cross-gym aggregate would be its figures under another name.
+- Fitness Empire, 2026-10-05: on Metric since 2026-02-28; 134 of 231 members active; payments recorded about 90 a month March to July, 148 in August, 166 in September; April to September, after removing 30 same-day duplicate payments, 48.2% of 531 renewals were recorded on or before the due date and 81.5% within a week. No delivery report has ever arrived, so delivery rates cannot be published; there is no pre-Metric baseline.
 
 **Recommended change**
 
-Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies. Owner consent, 2026-10-04: one named case study (Fitness Empire only) and an anonymised aggregate study from Metric's own records. Next: a read-only data probe and a plan; the owner approves every published figure.
+Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies. Owner consent, 2026-10-04: one named case study (Fitness Empire only) and an anonymised aggregate study from Metric's own records. Next: a read-only data probe and a plan; the owner approves every published figure. Probe done 2026-10-05: recommend no cross-gym study until about 10 gyms hold data with none above a quarter of it; the Fitness Empire figures listed in HANDOFF §6 await the owner and Fitness Empire.
 
 **Implementation**
 

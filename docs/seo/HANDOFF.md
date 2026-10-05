@@ -44,6 +44,15 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
 
   The JS size (236 KB) and the preview's contrast are not visible in HTML, and rest on the owner session's check.
 
+  Fixed on the same branch, each with a test that fails when its defect is put back:
+  - `/register` no longer shows Supabase's raw error (rule 2.8);
+  - the Door Access panel's dates (`20261013`) read "from 27 Aug 2026 until 26 Oct 2026";
+  - a test pins the canonical Next actually emits;
+  - text.lk calls stop waiting after 10 s;
+  - announcement sends run through `after()`.
+
+  SEO-042 had its read-only data probe; the decisions it needs are in §6.
+
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
@@ -173,7 +182,7 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   - **Verified.** A password reset requested through the live `/api/auth/forgot-password` for the owner's own account at 05:26 UTC returned success, and the account's `recovery_sent_at` moved from 2026-07-24 to 05:26:39. Supabase records it only after a successful send.
   - **Unknown.** The last confirmation email before the fix went out on 2026-07-18, and the logs reach back about three days, so how many gyms tried to register and failed since then cannot be counted.
 - [ ] **Confirm the email itself (owner).** In the reset email sent to colomboshyan@gmail.com at 05:26 UTC, check that it arrived, and that it shows `From: Metric Gym OS <noreply@metricgymos.com>` (not `admin@capitalistone.co`) — that proves the "Send mail as" alias moved with the account. Ignore its link; the password is unchanged. Then register a throwaway gym to see the confirmation email (and do the `sign_up` DebugView check below in the same go).
-- [ ] **The raw sign-up error (repository).** `/register` shows Supabase's raw message, e.g. "Error sending confirmation email". Rule 2.8 asks for a plain message and a support route.
+- [x] **The raw sign-up error (repository).** `/register` showed Supabase's raw message, e.g. "Error sending confirmation email". **Fixed 2026-10-05** on `claude/site-followups-2026-10-05`: `describeRegistrationError` maps the auth error code. A taken address, a weak password, rate limits and an invalid address get their own text. Anything else asks the visitor to retry and names support@metricgymos.com, and Supabase's text stays in the server log.
 - [x] **GA4 `sign_up` (SEO-056).** **Done by the owner 2026-10-05:** seen in DebugView on G-6C0BXYD101 and marked a key event. The database agrees: two sign-ups that morning (05:30 and 05:33 UTC), each confirmation email sent at once and confirmed within 40 seconds. SEO-056 is verified.
 - [ ] **GA4 `generate_lead` (SEO-035): confirm the event.** The owner sent a real demo request on 2026-10-05 at 06:34 UTC (12:04 Sri Lanka time). Production answered `201` and the `leads` table holds its row, so the form works end to end and the page fires `generate_lead` right after. Last step: confirm DebugView (or Realtime) on G-6C0BXYD101 shows `generate_lead` at that time; SEO-035 then moves to verified.
 - [x] **Nobody sees a demo request (P1, found 2026-10-05).** **Decided 2026-10-05: email each request to hello@metricgymos.com** (an alias of admin@capitalistone.co).
@@ -216,6 +225,26 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [x] **Social profiles (SEO-040, P3).** **Confirmed 2026-10-04:** the Facebook page `https://www.facebook.com/people/Metric-Gym-OS/61593409007692/`. It is in the Organization `sameAs` and linked on `/contact` (`3476d69`).
 - [x] **Case studies (SEO-042, P2).** **Consent given 2026-10-04:** one named case study, Fitness Empire only, and an anonymised data study from Metric's own records. Next is a separate round: a read-only data probe and a plan.
 - [ ] **Approve the case-study and data-study figures (SEO-042).** Every figure on either page is shown to you before it is published.
+- [ ] **SEO-042: the anonymised data study (decision).** The read-only probe of 2026-10-05 found little customer data to aggregate:
+  - Fitness Empire: 231 members, 847 payments, 1,275 texts.
+  - Yomak Health Hub: 60, 60, 7.
+  - Titan Fitness: 52, 83, 191, including test members.
+  - Royal Fitness World: 11 members. LifeLine Fitness: 1 member.
+
+  Fitness Empire is about 65% of the members and about 85% of the payments and texts, so an "anonymised aggregate" would be Fitness Empire's figures under another name. Its denominators (about 355 members across five gyms) would also sit beside the sign-in panel's confirmed "25+ gyms, 7,900+ members".
+  - **Recommendation:** no cross-gym study for now. Revisit at 10 or more gyms with data, none above about a quarter of it.
+  - **Decide:** agree, or say where the 25+ / 7,900+ figures come from if not from this database (an older system?).
+
+- [ ] **SEO-042: Fitness Empire figures to approve.** Each also needs Fitness Empire's agreement. From the database, 2026-10-05:
+  - On Metric since 28 Feb 2026.
+  - 231 members registered; 134 active today; all but 2 on monthly plans.
+  - Payments recorded: about 90 a month from March to July, 148 in August, 166 in September.
+  - Texts sent: 453 receipts, 301 three-day reminders, 221 due-today reminders, 122 overdue notices, 127 welcomes, 42 reactivations.
+  - Renewals from April to September, after removing 30 same-day duplicate payments: 48.2% recorded on or before the due date, and 81.5% within a week of it (531 renewals). These are recording dates at the desk, not the day the member paid.
+
+  The data cannot support the testimonial's "80% admin time" (it stays a quote), delivery rates (no delivery report has ever arrived), or any before-and-after comparison (no pre-Metric records). Monthly rupee totals are Fitness Empire's confidential figures; the recommendation is not to publish them.
+  - **Optional:** a short interview with Zulfi Ahamath on how the desk ran before Metric (register book? reminders by hand?). That is the story a case study needs, and the database cannot tell it.
+
 - [x] **Sinhala and Tamil (SEO-047, P3).** **Decided 2026-10-04: English only.** No Sinhala or Tamil pages; SEO-047 is rejected.
 
 **Product and design decisions**
@@ -253,6 +282,10 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   - **What happened.** The production reminders cron treated "E2E Enterprise Gym" as a customer (subscription `active`) and sent 310 real reminders to its seeded members between 2026-09-13 and 2026-10-04 03:31 UTC, about 15 a day. 310 of its 350 seeded numbers are valid-format Sri Lankan mobiles.
   - **The suspension.** Both E2E gyms were suspended with the product's own statement (`subscription_status = 'suspended', next_charge_at = NULL`), so the cron skips them.
   - E2E Lite Gym had sent nothing real.
+- [ ] **Allow the desktop screenshot re-baseline (decision).** `desktop-regression.spec.ts --update-snapshots` signs in to the production E2E Enterprise gym, and its `beforeAll` seeds fixtures there through the app's own APIs. They are idempotent, but the NEW-badge member ages out weekly and is then deleted and re-registered. That writes a member, a mock `sent` SMS row and reader sync jobs. Say yes and the repository session runs it, re-taking the dashboard and revenue baselines (mobile closeout §1) and checking the rest.
+- [ ] **Three stuck announcement rows (decision).** Fitness Empire's 2026-06-27 announcement is still `sending`, and two Titan Fitness ones from 2026-03-01 are still `pending`. Leave them, or have them marked `failed`. Whether Fitness Empire's 213 texts went out is unknown; the text.lk dashboard for 2026-06-27 would show it.
+- [ ] **One announcement after the deploy** (of `claude/site-followups-2026-10-05`). Send a real announcement to a small audience, then check that it reaches `completed` with counts that match its recipients. Read-only: `SELECT created_at, status, recipient_count, sent_count, failed_count FROM announcements ORDER BY created_at DESC LIMIT 1`.
+- [ ] **Date format (decision).** The member detail shows `27/08/2026`, most other screens `27 Aug 2026`, and the members list `2026-10-26`. Pick one; the recommendation is `27 Aug 2026` (`formatDate`), which never confuses day and month.
 - [ ] **Review the 310 texts sent from the E2E gym.** In the text.lk dashboard, check the delivered numbers for 2026-09-13 to 2026-10-04. Decide whether any recipient needs contacting.
 - [x] **How the E2E gyms run from now.** **Decided 2026-10-04:** reactivate both, with texts disabled. **Done 2026-10-04:**
   - **The block.** `SMS_DISABLED_GYM_IDS` (both E2E gym ids) was created in Vercel (production and preview) at 11:34:10 UTC. It is enforced in `sendSmsViaTextLk`, the one function every real text passes through; the reminders cron also skips those gyms up front.
@@ -271,10 +304,14 @@ Ready now, in priority order:
 2. **New guides** from `SEO_AUDIT.md` §8. All four are written: overdue memberships (SEO-061), moving off a register book (SEO-063), Excel and WhatsApp vs software (SEO-064), and choosing gym management software in Sri Lanka (SEO-065, 2026-10-04).
 3. **Case study and data study (SEO-042).** Consent given 2026-10-04 (Fitness Empire; anonymised study). Start with a read-only data probe and a plan; the owner approves every figure.
 4. **P3 items.** ~~SEO-043~~, ~~SEO-051~~, ~~SEO-052~~, ~~SEO-053~~ and ~~SEO-060~~ are done (SEO-060 on `claude/seo-060-app-providers`, 2026-10-05).
-5. **Found by the inverted check of 2026-10-04** (not changed):
-   - The homepage canonical renders as `https://www.metricgymos.com` while `metadata.test.ts` asserts `https://www.metricgymos.com/`: the test checks the metadata object, not the HTML Next emits. Production is the same, and the two forms are one URL, so it is harmless; a rendered-HTML test would close the gap.
-   - The member detail's Door Access panel prints dates raw: "until 20261013, from 20260913".
-   - `tests/e2e/desktop-regression.spec.ts`: the dashboard tile now reads "N warning · N mild", a change of about 0.1% of the frame, inside its 2% tolerance. Re-baseline it with the two baselines the mobile closeout (§1) already lists.
+5. **Found by the inverted check of 2026-10-04:**
+   - ~~The homepage canonical test checks the metadata object, not the HTML.~~ **Fixed 2026-10-05:** `metadata.test.ts` runs every registry page through Next's own `resolveAlternates` and `resolveOpenGraph`, in the node environment (jsdom lacks `URLSearchParams.size`, which Next's root-path branch reads). A production build's 20 sitemap pages matched it exactly.
+   - ~~The member detail's Door Access panel prints dates raw: "until 20261013, from 20260913".~~ **Fixed 2026-10-05:** the status payload carries ISO dates, and the panel prints them with `formatDate`. It was checked in Chromium at 1366 and 390 on the E2E Enterprise gym, read-only.
+   - `tests/e2e/desktop-regression.spec.ts`: the dashboard tile now reads "N warning · N mild", a change of about 0.1% of the frame, inside its 2% tolerance. Re-baseline it with the two baselines the mobile closeout (§1) already lists. **Waits on the owner (§6):** the spec's `beforeAll` seeds fixtures into the production E2E gym.
+   - **New, 2026-10-05: dates in the members list.**
+     - The members table's "Next due" column and the phone member rows print raw ISO dates (`2026-10-26`). On a 390 px phone, "2026-10-09" breaks across two lines.
+     - The member detail prints `27/08/2026`, while the Door Access panel and the screens fixed by the mobile closeout's MO-37 print `27 Aug 2026` (`formatDate`).
+     - One format is the fix. A change to the members table moves a desktop baseline, so it travels with the re-baseline above.
 6. ~~**Stale comments.**~~ Fixed 2026-10-03: `CancelMember.ts` now states the 14-day cron rule and that Cancelled → Active happens on payment.
 7. ~~**Bulk grid.**~~ Fixed 2026-10-03, with three more defects found in the same flow:
    - the grid now stops at `BULK_REGISTER_MAX_ROWS` (50, shared with the route);
@@ -283,9 +320,13 @@ Ready now, in priority order:
    - every batch had been refused since 2026-07-25, because `addMemberSchema` began requiring two consents the grid never sent. The owner chose a batch attestation: the same two consents as single registration, ticked once per batch. Consent times are recorded per member.
 
 8. **SMS follow-ups** (found 2026-10-03 and 2026-10-04, not changed):
-   - The text.lk provider has no request timeout. Registration now waits on the welcome SMS, as payments already wait on the receipt, so a hung gateway holds the request. Bulk import is hit hardest: a batch waits on up to 50 sends at once, so a slow gateway can time the request out after the members are saved. The grid then cannot tell which rows succeeded, and a retry reports those rows as "already exists". No member is duplicated.
+   - ~~The text.lk provider has no request timeout.~~ **Fixed 2026-10-05:** both calls abort after `TEXT_LK_TIMEOUT_MS` (10 s), and a timed-out send is logged `failed` with "delivery unknown". `existsForToday` ignores failed rows, so a manual same-day re-run of the reminders cron would retry that member and could text them twice; the scheduled run is once a day. The original note: Registration now waits on the welcome SMS, as payments already wait on the receipt, so a hung gateway holds the request. Bulk import is hit hardest: a batch waits on up to 50 sends at once, so a slow gateway can time the request out after the members are saved. The grid then cannot tell which rows succeeded, and a retry reports those rows as "already exists". No member is duplicated.
    - ~~On 2026-09-13, 350 members each got a second `welcome` row.~~ **Explained and fixed 2026-10-04.** Those rows were an announcement, logged in mock mode in the E2E Enterprise gym, because `announcement.service` hard-coded `smsType: 'welcome'`. 50 real announcements in Titan Fitness (2026-03-01) were logged the same way. Announcements now log as `announcement`, and migrations `20261004000001` (enum value) and `20261004000002` (relabel) were applied to production: 401 rows relabelled, and 514 `welcome` rows remain, every one starting "Welcome". The member SMS history had labelled every `welcome` row "Announcement"; it now says "Welcome".
-   - **Announcement sends are fire-and-forget.** `createAndSendAnnouncement` calls `sendAnnouncementSmsInBackground(...)` without `await` and without `after()`, so on Vercel a bulk send can be cut off once the response returns. Production: 3 of 9 announcements never finished, with 2 stuck `pending` (52 recipients) and 1 stuck `sending` (213 recipients), none of their recipients accounted for. Same class as the welcome SMS (rule 2.7).
+   - ~~**Announcement sends are fire-and-forget.**~~ **Fixed 2026-10-05:** the send is scheduled with `after()` and takes its announcement's id instead of re-finding the row by message text. Production, read-only: 3 of 9 announcements never finished.
+     - Fitness Empire, 2026-06-27: stuck at `sending` (213 recipients), with no counts and no logged texts.
+     - Titan Fitness, 2026-03-01: two rows stuck at `pending` (26 recipients each), with 25 logged texts each. (An earlier note here said none of their recipients were accounted for.)
+     - Not verified on Vercel: a real send would text customers. The owner's after-deploy check is in §6.
+   - `POST /api/sms/send` returns the log row, `error_message` included, to the gym manager's browser. It is plain text now ("delivery unknown", "SMS disabled for this gym"), but rule 2.8 says it belongs on /system-health only. Not changed.
    - **Mock mode writes `sent` rows.** With `ENABLE_REAL_SMS` off, the announcements path and the manual `sendSMS` path log `sent` for texts never sent. A local run uses `.env.local`, which points at production, so test runs land in production `sms_logs` (the 351 E2E rows).
    - ~~**No block on texting test gyms.**~~ **Fixed 2026-10-04:** `SMS_DISABLED_GYM_IDS`, enforced in `sendSmsViaTextLk` with `gymId` required at every send; the reminders cron skips listed gyms (`membersSkippedSmsDisabled`). A new test gym must be added to the list in Vercel.
    - **No delivery-status polling.** If text.lk cannot push delivery reports (owner item above), add a cron that polls `GET /api/v3/sms/{uid}` for recent `sent` rows and moves them to `delivered` or `failed`.
