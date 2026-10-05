@@ -28,6 +28,7 @@ import { useViewportTier } from '@/hooks/useViewportTier'
 import AnnouncementProgress from '@/features/announcements/components/AnnouncementProgress'
 import { FeatureGate } from '@/features/subscriptions'
 import type { Announcement } from '@/features/announcements/types'
+import { formatDate } from '@/utils/date/date'
 
 const MAX_MESSAGE_LENGTH = 160
 
@@ -289,7 +290,7 @@ function AnnouncementComposer() {
                         ...(a.failed_count > 0
                           ? [`${a.failed_count} failed`]
                           : []),
-                        new Date(a.sent_at).toLocaleDateString('en-CA'),
+                        formatDate(a.sent_at),
                       ]}
                     />
                   )
@@ -344,7 +345,7 @@ function AnnouncementComposer() {
                           {a.message}
                         </TableCell>
                         <TableCell className="font-mono text-mono-sm text-ink-muted">
-                          {new Date(a.sent_at).toLocaleDateString('en-CA')}
+                          {formatDate(a.sent_at)}
                         </TableCell>
                         <TableCell numeric>
                           <span className="text-ink">

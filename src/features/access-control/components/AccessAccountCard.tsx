@@ -28,6 +28,7 @@ import {
   useSaveAccessAccount,
   useVerifyAccessAccount,
 } from '../hooks/useAccessControl'
+import { formatDateTime } from '@/utils/date/date'
 
 export default function AccessAccountCard() {
   const { data: account, isLoading } = useAccessAccount()
@@ -138,15 +139,15 @@ export default function AccessAccountCard() {
           icon={<ShieldAlert className="h-4 w-4" aria-hidden="true" />}
           title="We have not reached your door hardware recently"
         >
-          It last worked on {new Date(account.lastVerifiedAt).toLocaleString()}.
-          Press Test connection to check it again.
+          It last worked on {formatDateTime(account.lastVerifiedAt)}. Press Test
+          connection to check it again.
         </Alert>
       )}
 
       {account?.verified && account.lastVerifiedAt && (
         <p className="flex items-center gap-1.5 text-sm text-ink-secondary">
           <CheckCircle2 className="h-4 w-4 text-success" aria-hidden="true" />
-          Confirmed working {new Date(account.lastVerifiedAt).toLocaleString()}
+          Confirmed working {formatDateTime(account.lastVerifiedAt)}
         </p>
       )}
 

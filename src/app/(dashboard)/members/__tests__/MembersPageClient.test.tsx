@@ -6,6 +6,7 @@ import type {
   MembersListResponse,
 } from '@/features/members/types'
 import MembersPageClient from '../MembersPageClient'
+import { formatDate } from '@/utils/date/date'
 
 // The three modals are `next/dynamic` imports of the whole members feature
 // barrel. They contribute nothing to what this file asserts and pull in
@@ -81,8 +82,8 @@ describe('MembersPageClient', () => {
     expect(await screen.findByText('Nimal Perera')).toBeInTheDocument()
     expect(screen.getByText('+94770000001')).toBeInTheDocument()
     expect(screen.getByText('Monthly')).toBeInTheDocument()
-    expect(screen.getByText('2026-08-01')).toBeInTheDocument()
-    expect(screen.getByText('2026-12-01')).toBeInTheDocument()
+    expect(screen.getByText(formatDate('2026-08-01'))).toBeInTheDocument()
+    expect(screen.getByText(formatDate('2026-12-01'))).toBeInTheDocument()
     expect(screen.getByText('5,000')).toBeInTheDocument()
   })
 

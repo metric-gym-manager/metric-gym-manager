@@ -7,6 +7,7 @@ import {
   TIER_DISPLAY_NAME,
 } from '@/features/subscriptions/config/SubscriptionConfig'
 import type { SerializedSubscription } from '../types'
+import { formatDate } from '@/utils/date/date'
 
 interface PastDueBannerProps {
   subscription: SerializedSubscription
@@ -62,7 +63,9 @@ export default function PastDueBanner({
               : 'PayHere will retry the charge automatically — make sure your card has funds. '}
             {TIER_DISPLAY_NAME[sub.subscriptionTier]} features continue until{' '}
             <span className="font-semibold">
-              {graceEndsAt ?? 'the end of the grace period'}
+              {graceEndsAt
+                ? formatDate(graceEndsAt)
+                : 'the end of the grace period'}
             </span>
             {daysLeft !== null && (
               <>

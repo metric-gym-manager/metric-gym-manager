@@ -38,6 +38,7 @@ import { useViewportTier } from '@/hooks/useViewportTier'
 import type { MemberWithDiscount, Payment } from '@/features/members/types'
 import { parseApiError } from '@/utils/api-error'
 import { formatMemberNumber } from '@/features/members/utils/formatMemberNumber'
+import { formatDate } from '@/utils/date/date'
 
 interface MemberDetailModalProps {
   open: boolean
@@ -390,12 +391,6 @@ export default function MemberDetailModal({
         </div>
       </Modal>
     )
-  }
-
-  // Format date to DD/MM/YYYY
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-GB')
   }
 
   // Format currency
