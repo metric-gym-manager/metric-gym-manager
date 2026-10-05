@@ -47,7 +47,16 @@ const TILES = [
   },
   {
     label: 'Revenue · July',
-    value: '96,500',
+    // A 320 px tile is too narrow for seven readout digits, so StatCard lets
+    // the figure wrap (§27); <wbr> makes it wrap after the comma, never
+    // mid-group as "548,00 / 0".
+    value: (
+      <>
+        548,
+        <wbr />
+        000
+      </>
+    ),
     sub: 'LKR · collected this month',
   },
   {
@@ -62,18 +71,19 @@ const TILES = [
   },
 ] as const
 
-// Early in the month, as the stamp says: July is the month so far, as the
-// real chart's current-month bar is.
+// Late in the month, as the stamp says: July is the month so far, as the
+// real chart's current-month bar is, and it equals the Revenue tile.
+// 548,000 is the owner's figure (2026-10-05).
 const REVENUE = [
   { month: 'Feb', lkr: 312_000 },
   { month: 'Mar', lkr: 356_000 },
   { month: 'Apr', lkr: 341_000 },
   { month: 'May', lkr: 398_000 },
   { month: 'Jun', lkr: 455_000 },
-  { month: 'Jul', lkr: 96_500 },
+  { month: 'Jul', lkr: 548_000 },
 ]
-const AXIS = ['500k', '250k', '0']
-const AXIS_MAX = 500_000
+const AXIS = ['600k', '300k', '0']
+const AXIS_MAX = 600_000
 
 const QUEUE = [
   {
@@ -106,25 +116,25 @@ const PAYMENTS = [
   {
     name: 'Anushka Weerasinghe',
     plan: 'Monthly',
-    date: '05 Jul 2026',
+    date: '29 Jul 2026',
     amount: '4,000',
   },
   {
     name: 'Malith Rathnayake',
     plan: 'Annual',
-    date: '05 Jul 2026',
+    date: '29 Jul 2026',
     amount: '36,000',
   },
   {
     name: 'Sachini Perera',
     plan: '3-Months',
-    date: '04 Jul 2026',
+    date: '28 Jul 2026',
     amount: '10,500',
   },
   {
     name: 'Ravindu Dias',
     plan: 'Monthly',
-    date: '03 Jul 2026',
+    date: '27 Jul 2026',
     amount: '4,000',
   },
 ]
@@ -230,7 +240,7 @@ export function DashboardPreview() {
             <div className="flex items-center justify-between gap-3">
               <p className="text-h1 text-ink">Overview</p>
               <span className="font-mono text-mono-sm text-ink-muted phone:hidden">
-                JUL 06 2026, 09:00 IST
+                JUL 30 2026, 09:00 IST
               </span>
             </div>
 
@@ -258,7 +268,10 @@ export function DashboardPreview() {
                   }
                 />
                 <div className="flex gap-2 pt-3">
-                  <div className="flex h-40 flex-col justify-between pb-5 font-mono text-mono-sm text-ink-muted">
+                  <div
+                    data-axis
+                    className="flex h-40 flex-col justify-between pb-5 font-mono text-mono-sm text-ink-muted"
+                  >
                     {AXIS.map((tick) => (
                       <span key={tick}>{tick}</span>
                     ))}
