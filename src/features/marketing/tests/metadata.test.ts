@@ -1,7 +1,21 @@
+/**
+ * @jest-environment node
+ *
+ * Node, not jsdom: Next's URL resolver reads `URLSearchParams.size`, which
+ * jsdom does not implement, so under jsdom the emitted-canonical tests below
+ * would describe a runtime Next never renders in.
+ */
 import fs from 'node:fs'
 import path from 'node:path'
-import { ARTICLE_PATHS, HUB_PATH, getMarketingPage } from '../config/pages'
-import { OG_IMAGE, SITE_URL } from '../config/site'
+import { resolveAlternates } from 'next/dist/lib/metadata/resolvers/resolve-basics'
+import { resolveOpenGraph } from 'next/dist/lib/metadata/resolvers/resolve-opengraph'
+import {
+  ARTICLE_PATHS,
+  HUB_PATH,
+  MARKETING_PAGES,
+  getMarketingPage,
+} from '../config/pages'
+import { OG_IMAGE, SITE_URL, absoluteUrl } from '../config/site'
 import { buildPageMetadata } from '../utils/metadata'
 
 describe('buildPageMetadata', () => {
@@ -33,9 +47,67 @@ describe('buildPageMetadata', () => {
     )
   })
 
+  // The metadata OBJECT. Next emits the root without the slash; the test of
+  // what reaches the HTML is "the canonical Next emits" below.
   it('canonicalises the homepage to the root with a trailing slash', () => {
     expect(buildPageMetadata('/').alternates?.canonical).toBe(`${SITE_URL}/`)
   })
+})
+
+/**
+ * What a crawler reads is not the metadata object but the `<link
+ * rel="canonical">` Next renders from it, and the two differ: for the root
+ * path Next's URL resolver drops the trailing slash, so the homepage's
+ * `https://www.metricgymos.com/` is emitted as `https://www.metricgymos.com`
+ * (checked against the prerendered `.next/server/app/index.html`). The tests
+ * above pin the object; this pins the emitted value, through the same
+ * resolvers Next runs at render time.
+ *
+ * Those resolvers are internal (`next/dist/...`). If a Next upgrade moves
+ * them this import fails loudly, which is the point: how canonicals are
+ * emitted is exactly what an upgrade could change.
+ */
+describe('the canonical Next emits', () => {
+  // `trailingSlash` is unset in next.config.js, so Next's default (false).
+  const context = { trailingSlash: false, isStaticMetadataRouteFile: false }
+  const metadataBase = new URL(SITE_URL)
+
+  const emitted = async (pagePath: string) => {
+    const meta = buildPageMetadata(pagePath)
+    const pathname = Promise.resolve(pagePath)
+    const alternates = await resolveAlternates(
+      meta.alternates ?? null,
+      metadataBase,
+      pathname,
+      context
+    )
+    const openGraph = await resolveOpenGraph(
+      meta.openGraph ?? null,
+      metadataBase,
+      pathname,
+      context,
+      null
+    )
+    return {
+      canonical: String(alternates?.canonical?.url),
+      ogUrl: String(openGraph?.url),
+    }
+  }
+
+  it('emits the homepage as the bare www origin', async () => {
+    expect((await emitted('/')).canonical).toBe(SITE_URL)
+  })
+
+  it.each(MARKETING_PAGES.map((p) => p.path))(
+    '%s: an absolute www URL, the same in og:url',
+    async (pagePath) => {
+      const { canonical, ogUrl } = await emitted(pagePath)
+      expect(canonical).toBe(
+        pagePath === '/' ? SITE_URL : absoluteUrl(pagePath)
+      )
+      expect(ogUrl).toBe(canonical)
+    }
+  )
 })
 
 /**
