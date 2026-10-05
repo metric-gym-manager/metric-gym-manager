@@ -56,6 +56,31 @@ describe('DemoModal analytics', () => {
     expect(params).not.toMatch(/Nimal|example\.lk|123 4567/)
   })
 
+  it('sends the Lite tier as interest "lite"', async () => {
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    })
+    render(<DemoModal />)
+    fireEvent.click(screen.getByRole('button', { name: 'Request a demo' }))
+    fireEvent.change(screen.getByLabelText(/name/i), {
+      target: { value: 'Nimal Perera' },
+    })
+    fireEvent.change(screen.getByLabelText(/email/i), {
+      target: { value: 'nimal@example.lk' },
+    })
+    fireEvent.change(screen.getByLabelText(/phone/i), {
+      target: { value: '+94 77 123 4567' },
+    })
+    fireEvent.click(screen.getByText('Select a plan'))
+    fireEvent.click(screen.getByText('Lite'))
+    fireEvent.click(screen.getByRole('button', { name: 'Submit request' }))
+
+    expect(await screen.findByText(/be in touch/i)).toBeInTheDocument()
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    expect(body.interest).toBe('lite')
+  })
+
   it('reports nothing when the lead was rejected', async () => {
     fetchMock.mockResolvedValue({
       ok: false,

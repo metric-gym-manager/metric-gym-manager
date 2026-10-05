@@ -11,10 +11,13 @@ export enum LeadInterest {
   Demo = 'demo',
   /** "Talk to sales" / "Contact sales" — Enterprise / hardware enquiry. */
   Sales = 'sales',
-  /** "Get started" on the Lite / Starter tier. */
-  Starter = 'starter',
-  /** "Get started" on the Pro / Growth tier. */
-  Growth = 'growth',
+  /**
+   * The Lite tier. Stored as `starter` until 2026-10-05 (the tier's name before
+   * the July 2026 rename); migration 20261005000001 renamed those rows.
+   */
+  Lite = 'lite',
+  /** The Pro tier. Stored as `growth` until 2026-10-05. */
+  Pro = 'pro',
   /** Enterprise tier enquiry. */
   Enterprise = 'enterprise',
 }
@@ -23,10 +26,17 @@ export enum LeadInterest {
 export const LEAD_INTEREST_LABELS: Record<LeadInterest, string> = {
   [LeadInterest.Demo]: 'Demo request',
   [LeadInterest.Sales]: 'Sales enquiry',
-  [LeadInterest.Starter]: 'Starter plan',
-  [LeadInterest.Growth]: 'Growth plan',
+  [LeadInterest.Lite]: 'Lite plan',
+  [LeadInterest.Pro]: 'Pro plan',
   [LeadInterest.Enterprise]: 'Enterprise plan',
 }
+
+/**
+ * Where each demo request is emailed (owner decision, 2026-10-05): an alias of
+ * admin@capitalistone.co. Sent from the no-reply alias the auth emails use.
+ */
+export const LEAD_NOTIFY_TO = 'hello@metricgymos.com'
+export const LEAD_NOTIFY_FROM = 'Metric Gym OS <noreply@metricgymos.com>'
 
 export function getLeadInterestLabel(interest: LeadInterest): string {
   return LEAD_INTEREST_LABELS[interest]

@@ -158,14 +158,28 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   - Done when the Sitemaps report reads **Success** with **20 discovered pages**. If it still reads "Couldn't fetch" after three days with that exact URL, note the date and the message here.
 - [ ] **First baseline (SEO-036).** About four weeks after the sitemap reads Success, record the first baseline following `SEO_AUDIT.md` §17.
 - [x] **GA4 stream (SEO-035, SEO-056).** **Decided 2026-10-05:** the site reports to the owner's stream **G-6C0BXYD101**. Until this change it reported to G-D711W4RE25 (since 2026-09-20), which the owner's account did not show, so GA said the tag was not detected. Data already in G-D711W4RE25 stays in that property. The ID changed in `src/lib/analytics/ga-init.ts`; GA still loads only through `gaInitScript()`, so credential URLs stay out of it (SEO-059). The two items below apply to the G-6C0BXYD101 stream. Quick check after the deploy: GA → Reports → Realtime shows a visit within a minute or two; the stream page's "not detected" notice can take up to 48 hours to clear.
-- [ ] **GA4 redaction (SEO-056, SEO-059).** At analytics.google.com: Admin → Data collection and modification → Data streams → the `www.metricgymos.com` web stream (G-6C0BXYD101) → Redact data. Turn on email redaction and query-parameter redaction, add `token_hash`, `token`, `code` and `email`, then save. The code already keeps both out of GA; this is the second layer.
-- [ ] **GA4 key events (SEO-035, SEO-056).**
-  1. At tagassistant.google.com add the domain `https://www.metricgymos.com` and connect. The site opens in a tab that reports to DebugView.
-  2. In that tab, submit the demo request form once (it stores one demo request). GA4 Admin → DebugView should show `generate_lead`.
-  3. In the same tab, register a throwaway gym at `/register`. DebugView should show `sign_up`. Remove that gym afterwards.
-  4. Admin → Key events → New key event: `generate_lead`, then `sign_up`.
-  5. Tell the repository session; SEO-035 and SEO-056 then move to `verified`.
-- [ ] **Old domain (SEO-026, P1).** In the same Google account, add `metricgymmanager.com` as a Domain property (its verification record already exists in Cloudflare, so it may verify at once). Open that property → Settings → Change of address → choose metricgymos.com → Validate & update. Google requires the old homepage to redirect to the new one: on 2026-10-04 `https://metricgymmanager.com/` and its `www` answered 308 to `https://www.metricgymos.com/`. The tool's effect lasts 180 days; keep the redirects permanently.
+- [x] **GA4 redaction (SEO-056, SEO-059).** **Done by the owner 2026-10-05.** At analytics.google.com: Admin → Data collection and modification → Data streams → the `www.metricgymos.com` web stream (G-6C0BXYD101) → Redact data. Turn on email redaction and query-parameter redaction, add `token_hash`, `token`, `code` and `email`, then save. The code already keeps both out of GA; this is the second layer.
+- [x] **Sign-up and password-reset emails failed: Gmail rejected the SMTP login (P0, found and fixed 2026-10-05).** Every sign-up answered "Error sending confirmation email": Supabase's auth log showed `/signup` → 500 with `535 5.7.8 Username and Password not accepted` at 04:26 and 04:30 UTC.
+  - **The cause.** Supabase Auth logged in to Gmail as `root@capitalistone.co`. That Google account had been renamed to `admin@capitalistone.co`, so `root@` could no longer authenticate.
+  - **The fix.** `smtp_user` was changed to `admin@capitalistone.co` through the Supabase Management API (host, port, From address and stored app password unchanged), and `supabase/config.toml`'s record of the live settings was updated.
+  - **Verified.** A password reset requested through the live `/api/auth/forgot-password` for the owner's own account at 05:26 UTC returned success, and the account's `recovery_sent_at` moved from 2026-07-24 to 05:26:39. Supabase records it only after a successful send.
+  - **Unknown.** The last confirmation email before the fix went out on 2026-07-18, and the logs reach back about three days, so how many gyms tried to register and failed since then cannot be counted.
+- [ ] **Confirm the email itself (owner).** In the reset email sent to colomboshyan@gmail.com at 05:26 UTC, check that it arrived, and that it shows `From: Metric Gym OS <noreply@metricgymos.com>` (not `admin@capitalistone.co`) — that proves the "Send mail as" alias moved with the account. Ignore its link; the password is unchanged. Then register a throwaway gym to see the confirmation email (and do the `sign_up` DebugView check below in the same go).
+- [ ] **The raw sign-up error (repository).** `/register` shows Supabase's raw message, e.g. "Error sending confirmation email". Rule 2.8 asks for a plain message and a support route.
+- [x] **GA4 `sign_up` (SEO-056).** **Done by the owner 2026-10-05:** seen in DebugView on G-6C0BXYD101 and marked a key event. The database agrees: two sign-ups that morning (05:30 and 05:33 UTC), each confirmation email sent at once and confirmed within 40 seconds. SEO-056 is verified.
+- [ ] **GA4 `generate_lead` (SEO-035): confirm the event.** The owner sent a real demo request on 2026-10-05 at 06:34 UTC (12:04 Sri Lanka time). Production answered `201` and the `leads` table holds its row, so the form works end to end and the page fires `generate_lead` right after. Last step: confirm DebugView (or Realtime) on G-6C0BXYD101 shows `generate_lead` at that time; SEO-035 then moves to verified.
+- [x] **Nobody sees a demo request (P1, found 2026-10-05).** **Decided 2026-10-05: email each request to hello@metricgymos.com** (an alias of admin@capitalistone.co).
+  - Each request is stored, then emailed: From `Metric Gym OS <noreply@metricgymos.com>`, Reply-To the visitor.
+  - The outcome is recorded on the row (`notified_at` / `notification_error`), and a failed email never fails the request.
+  - See `docs/architecture/lead-notification.md`.
+- [ ] **Add the email password in Vercel (owner).** Without it requests are stored but not emailed, and `notification_error` says so.
+  1. Sign in to Google as **admin@capitalistone.co**: the app password must belong to the account; an alias such as hello@ cannot log in. Go to Security → 2-Step Verification → App passwords, create one named "Metric website", and copy the 16 characters.
+  2. Vercel → gym-management-saas → Settings → Environment Variables → add `SMTP_PASS` (Production and Preview), paste the password, save. `SMTP_USER` (`admin@capitalistone.co`) is already set.
+  3. Redeploy production, or tell the repository session to. It then sends one test request and confirms `notified_at`; check that hello@ received it and that replying goes to the sender.
+- [x] **Lead plan names.** **Fixed 2026-10-05:** Lite and Pro are stored as `lite` and `pro` and labelled "Lite plan" and "Pro plan". Two migrations keep the live form working across the switch (`20261005000001` before the deploy, `20261005000002` after), and `LeadConfig.test.ts` checks the enum against the database constraint.
+- [ ] **Remove the two test gyms.** "Throwaway" (`admin@capitalistone.co`) and "Throwaway2" (`playershyan@gmail.com`) were created on 2026-10-05 for these checks and are on a Lite trial. Keep `admin@capitalistone.co` only if it is meant to be a real account.
+- [x] **Old domain (SEO-026, P1).** **Done by the owner 2026-10-05:** metricgymmanager.com verified and the Change of Address to metricgymos.com filed. Its redirects still 308 to the matching www.metricgymos.com URLs (checked that day); keep them permanently.
+- [ ] **Old listings gone (SEO-026).** About a month after the Change of Address, search `site:metricgymmanager.com`. When no stale listing remains (25+ gyms, Starter plan, WhatsApp reminders), SEO-026 moves to verified.
 
 **Claims shown on the site**
 
@@ -285,18 +299,18 @@ Waiting on owner input:
 
 65 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes on `claude/seo-owner-decisions`. Counts recomputed from the JSON on 2026-10-04.
 
-| Status      | Count | Tasks                                                                                                                                                                       |
-| ----------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Verified    |    44 | See `SEO_TASK_LOG.md`                                                                                                                                                       |
-| Implemented |     9 | SEO-035, SEO-056 (P1, awaiting GA4 DebugView); SEO-065 (P2); SEO-040, SEO-043, SEO-051, SEO-052, SEO-060 (P3, awaiting production checks); SEO-053 (P3, after-deploy check) |
-| In progress |     1 | SEO-036 (P0, Search Console set up; waiting for the sitemap to read Success, then the baseline)                                                                             |
-| Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                                                     |
-| Blocked     |     4 | SEO-026 (P1); SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                                           |
-| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                                                 |
+| Status      | Count | Tasks                                                                                                                                                                                                              |
+| ----------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Verified    |    45 | See `SEO_TASK_LOG.md`                                                                                                                                                                                              |
+| Implemented |     9 | SEO-035 (P1, awaiting one stored demo request); SEO-026 (P1, awaiting Google's move); SEO-065 (P2); SEO-040, SEO-043, SEO-051, SEO-052, SEO-060 (P3, awaiting production checks); SEO-053 (P3, after-deploy check) |
+| In progress |     1 | SEO-036 (P0, Search Console set up; waiting for the sitemap to read Success, then the baseline)                                                                                                                    |
+| Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                                                                                            |
+| Blocked     |     3 | SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                                                                                                |
+| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                                                                                        |
 
 - P0 remaining: 1 (SEO-036), in progress: Search Console is set up; the sitemap status and the first baseline remain.
-- P1 remaining: 3 (SEO-026, SEO-035, SEO-056), all owner actions.
-- External action required: 10 tasks.
+- P1 remaining: 2 (SEO-026, awaiting Google's move; SEO-035, awaiting one stored demo request).
+- External action required: 8 tasks.
 
 ## 8. Files changed
 

@@ -7,24 +7,24 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-05T04:09:00Z |
+| Last task update | 2026-10-05T06:35:14Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
-| P1 remaining (not verified/rejected) | 3 |
+| P1 remaining (not verified/rejected) | 2 |
 | Implemented (awaiting verification) | 9 |
-| Verified | 44 |
+| Verified | 45 |
 | In progress | 1 |
 | Open (discovered/planned) | 1 |
-| Blocked | 4 |
+| Blocked | 3 |
 | Rejected | 6 |
-| External action required | 10 |
+| External action required | 8 |
 
 ## Status by priority
 
 | Priority | discovered | planned | in_progress | implemented | verified | blocked | rejected |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 1 | 0 | 10 | 0 | 0 |
-| P1 | 0 | 0 | 0 | 2 | 19 | 1 | 1 |
+| P1 | 0 | 0 | 0 | 2 | 20 | 0 | 1 |
 | P2 | 0 | 1 | 0 | 1 | 13 | 2 | 0 |
 | P3 | 0 | 0 | 0 | 6 | 2 | 1 | 5 |
 
@@ -56,14 +56,14 @@
 | [SEO-020](#seo-020) | P1 | verified | entity | About page with verifiable company facts | no |
 | [SEO-021](#seo-021) | P1 | verified | internal-linking | Homepage navigation and footer use hash anchors and mailto links; /contact is orphaned | no |
 | [SEO-025](#seo-025) | P1 | verified | local | Contact details are inconsistent across the site | no |
-| [SEO-026](#seo-026) | P1 | blocked | off-site | Retired domain metricgymmanager.com is still indexed with stale claims | yes |
+| [SEO-026](#seo-026) | P1 | implemented | off-site | Retired domain metricgymmanager.com is still indexed with stale claims | no |
 | [SEO-028](#seo-028) | P1 | verified | schema | No Organization or WebSite structured data | no |
 | [SEO-029](#seo-029) | P1 | verified | schema | SoftwareApplication structured data with LKR offers | no |
 | [SEO-035](#seo-035) | P1 | implemented | measurement | No analytics event for demo requests | yes |
 | [SEO-038](#seo-038) | P1 | rejected | off-site | Partner citation from VFT Holdings | no |
 | [SEO-046](#seo-046) | P1 | verified | measurement | Measurement plan | no |
 | [SEO-048](#seo-048) | P1 | verified | technical | Design-system TableRow could not render in a Server Component | no |
-| [SEO-056](#seo-056) | P1 | implemented | measurement | Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL | yes |
+| [SEO-056](#seo-056) | P1 | verified | measurement | Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL | no |
 | [SEO-059](#seo-059) | P1 | verified | measurement | GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included | yes |
 | [SEO-062](#seo-062) | P1 | verified | trust | Two public pages said QR self-registrations wait for staff before counting as paid; they are created active with the payment recorded | no |
 | [SEO-010](#seo-010) | P2 | verified | technical | Authenticated route groups have no defensive noindex | no |
@@ -101,9 +101,7 @@
 ## External tasks (cannot be completed in code)
 
 - **SEO-036** (P0, in_progress) — Google Search Console access and sitemap submission
-- **SEO-026** (P1, blocked) — Retired domain metricgymmanager.com is still indexed with stale claims
 - **SEO-035** (P1, implemented) — No analytics event for demo requests
-- **SEO-056** (P1, implemented) — Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL
 - **SEO-059** (P1, verified) — GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included
 - **SEO-037** (P2, blocked) — Google Business Profile eligibility
 - **SEO-039** (P2, blocked) — Software directories and review profiles
@@ -1283,12 +1281,12 @@ features/marketing/config/site.ts is the single source for name, legal name, Kot
 | Field | Value |
 | --- | --- |
 | Priority | P1 |
-| Status | blocked |
+| Status | implemented |
 | Category | off-site |
 | Intent | navigational |
-| External action | required |
+| External action | no |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T17:40:00Z |
+| Updated | 2026-10-05T06:30:27Z |
 | Completed | — |
 | Dependencies | SEO-036 |
 
@@ -1312,7 +1310,7 @@ Verify both domains in Google Search Console and file a Change of Address from m
 
 **Implementation**
 
-—
+The owner verified metricgymmanager.com in Search Console and filed the Change of Address to metricgymos.com (2026-10-05). The old domain keeps its 308 redirects (checked 2026-10-05: apex, www and /pricing 308 to the matching www.metricgymos.com URL). Google applies the move over weeks; verified when a site:metricgymmanager.com search no longer shows the old listings.
 
 **Files**
 
@@ -1427,7 +1425,7 @@ SoftwareApplication (BusinessApplication, Web browser) with three LKR Offers + U
 | Intent | transactional |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-05T04:09:00Z |
+| Updated | 2026-10-05T06:35:14Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1443,6 +1441,9 @@ GA4 (G-D711W4RE25) loads sitewide but the demo form fires no conversion event, s
 
 - src/app/layout.tsx gtag config; src/components/landing/DemoModal.tsx posts to /api/public/leads with no gtag call.
 - 2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.
+- 2026-10-05: generate_lead can be checked in DebugView now; only the sign_up half of the shared checklist item is blocked by the failing sign-up email.
+- 2026-10-05: the owner reported the DebugView check done, but no demo request has ever been stored: the leads table has never held a row (pg_stat n_tup_ins 0 since 2025-12-08) and production received no request to /api/public/leads in the 24 hours before. generate_lead fires only after a lead is stored, so the event cannot have come from a production demo request. Verified once one real request is stored and seen in DebugView.
+- 2026-10-05 06:34:14 UTC: the owner sent a real demo request on the live site. Production answered POST /api/public/leads 201 and the leads table holds its row (interest starter, source landing), so the form stores requests end to end; DemoModal calls trackEvent('generate_lead') right after that success. Verified once the owner confirms the event in DebugView at that time (12:04 Sri Lanka time).
 
 **Recommended change**
 
@@ -1613,13 +1614,13 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 | Field | Value |
 | --- | --- |
 | Priority | P1 |
-| Status | implemented |
+| Status | verified |
 | Category | measurement |
 | Intent | transactional |
-| External action | required |
+| External action | no |
 | Created | 2026-10-01T21:45:00Z |
-| Updated | 2026-10-05T04:09:00Z |
-| Completed | — |
+| Updated | 2026-10-05T06:30:27Z |
+| Completed | 2026-10-05T06:30:27Z |
 | Dependencies | — |
 
 **Target queries**
@@ -1636,6 +1637,8 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 - src/app/layout.tsx: gtag('config', 'G-D711W4RE25') on every route; no sign_up event anywhere in src/
 - The GA4 stream's enhanced-measurement and data-redaction settings are not visible from the repository
 - 2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.
+- 2026-10-05: GA4 redaction is on. The DebugView check of sign_up is blocked: every sign-up fails with "Error sending confirmation email" because Google rejects the Supabase Auth SMTP credentials (535 BadCredentials); see HANDOFF §6.
+- 2026-10-05, later: the sign-up email is fixed (Supabase Auth SMTP user changed from the removed root@capitalistone.co to admin@capitalistone.co); the DebugView check of sign_up is no longer blocked.
 
 **Recommended change**
 
@@ -1660,6 +1663,7 @@ register/page.tsx fires GA4's recommended sign_up event with { method: 'email' }
 - Eight mutations, each caught by a named test: the address back in the push URL; the sign_up call deleted; the email added to the event params; sign_up moved before the response check; the verify page reading ?email= again; the verify page no longer reading storage; the module switched to localStorage; the module reading storage unguarded
 - Chromium via Playwright against next dev, with /api/auth/register and GA's /g/collect stubbed: after sign-up the URL is exactly /verify-email and the address (owner+probe@example.lk) is echoed; GA received one sign_up hit carrying ep.method=email; none of the 4 collect requests contained the address raw or URL-encoded; the address survives a reload at 390 and at 1366 with no console errors and 0 px horizontal overflow; screenshots reviewed
 - Not verified: delivery to the live GA4 property. Owner: mark sign_up as a key event and confirm it in DebugView after deploy, then this task can be marked verified
+- 2026-10-05: the owner confirmed sign_up in GA4 DebugView (stream G-6C0BXYD101) and marked it a key event. Production database the same morning: two sign-ups (05:30 and 05:33 UTC) each sent its confirmation email at once and was confirmed within 40 seconds, and each created a Lite trialing gym.
 
 ### SEO-059
 
@@ -1673,7 +1677,7 @@ register/page.tsx fires GA4's recommended sign_up event with { method: 'email' }
 | Intent | none |
 | External action | required |
 | Created | 2026-10-02T15:36:21Z |
-| Updated | 2026-10-03T05:39:31Z |
+| Updated | 2026-10-05T04:34:11Z |
 | Completed | 2026-10-03T05:39:31Z |
 | Dependencies | — |
 
@@ -1690,6 +1694,7 @@ GA4 is configured on every route in the root layout and sends the full page URL,
 - Chromium via Playwright against next dev (2026-10-02), GA's /g/collect intercepted and stubbed: loading /reset-password?token_hash=PROBETOKEN0001&type=recovery produced a collect hit whose dl was that exact URL; loading /verify-email?type=email_change&token_hash=PROBETOKEN0002 did the same (the API it calls was stubbed so no real token was spent)
 - src/app/layout.tsx: gtag('config', 'G-D711W4RE25') with no page_location override, rendered for every route including (auth)
 - supabase/templates/recovery.html and rule 2.15: the recovery link carries token_hash to /reset-password, which makes no Supabase call until submit
+- 2026-10-05: the owner turned on GA4 redaction for email and for the token_hash, token, code and email query parameters on the G-6C0BXYD101 stream, the second layer behind gaInitScript().
 
 **Recommended change**
 

@@ -17,6 +17,9 @@ export interface Lead {
   createdAt: string
 }
 
+/** What happened to a lead's email: sent at a time, or not sent and why. */
+export type LeadNotificationOutcome = { notifiedAt: Date } | { error: string }
+
 /** Fields required to record a new lead (post-validation, post-honeypot). */
 export interface NewLead {
   name: string
