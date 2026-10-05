@@ -19,6 +19,19 @@ export interface SyncReportEntry {
   error?: string
 }
 
+/**
+ * Top-level domains reserved by RFC 2606 / RFC 6761, plus mDNS `.local`: an
+ * address there can never receive mail. A send to one hard-bounces, and
+ * bounces cost the sending domain reputation, so they are never imported.
+ */
+const UNDELIVERABLE_TLDS = ['test', 'example', 'invalid', 'localhost', 'local']
+
+function isUndeliverable(email: string): boolean {
+  const domain = email.split('@')[1] ?? ''
+  const tld = domain.split('.').pop() ?? ''
+  return UNDELIVERABLE_TLDS.includes(tld)
+}
+
 interface Candidate {
   email: string
   audience: MailingAudience
@@ -81,7 +94,8 @@ export class SyncMarketingContacts {
       const entry = { email, audience: candidate.audience }
       if (
         (candidate.gymId && excludedIds.has(candidate.gymId)) ||
-        excludedEmails.has(email)
+        excludedEmails.has(email) ||
+        isUndeliverable(email)
       ) {
         report.push({ ...entry, outcome: 'excluded' })
         continue

@@ -73,11 +73,15 @@ Product and security updates: the same link, ending `&topic=updates`.
 
 **Rendering the page makes no call.** A mail scanner opening the link changes nothing.
 
-**A `+` arrives as a space.** `{{{contact.email}}}` is not URL-encoded, so `a+b@x.lk` reaches the page as `a b@x.lk`. `normalizeMailingEmail` turns the space back into `+`, since an address cannot contain one.
+**A `+` arrives as a space.** `{{{contact.email}}}` is not URL-encoded, so `a+b@x.lk` reaches the page as `a b@x.lk`. The page and the API turn the space back into `+`, since an address cannot contain one.
+
+**Case.** Resend matches contact emails case-sensitively (measured 2026-10-06): a contact stored with capitals is `not_found` under its lowercased address. The token is signed and checked over the lowercased address, so case never breaks a link. The write to Resend uses the address exactly as the link delivered it (`deliveredMailingEmail`), which is the stored form. **Never import contacts in the Resend dashboard**: the app and the sync create them lowercased, and a hand-imported mixed-case contact would be duplicated by the next sync.
+
+**Confirmed, not assumed.** A topic write takes 1–2.5 s to read back. `optOut` polls the topics (10 reads, 800 ms apart) and throws if they never read `opt_out`, so the visitor is told to write to hello@ instead of seeing a false "Done". Every Resend request also carries an 8 s timeout, because the SDK applies none.
 
 **Analytics.** The link carries `email` and `token`, both in `SENSITIVE_QUERY_PARAMS`, so Google Analytics never loads on the page.
 
-**Rotating the secret** breaks every link already sent. After a rotation, re-run the sync: it rewrites a contact's token when it no longer matches.
+**The secret must be the same everywhere.** The sync never overwrites an existing contact's token. A mismatch means this machine's `MARKETING_UNSUBSCRIBE_SECRET` differs from the one that signed the contact, so the contact is left alone and reported as `token_mismatch`. **Rotating the secret** is deliberate: put the new value in Vercel and `.env.local`, then run the sync with `--apply --rotate-tokens`. Until then, links signed with the old secret fail.
 
 ## Who is on the list
 
@@ -85,13 +89,16 @@ Product and security updates: the same link, ending `&topic=updates`.
 
 **Gym owners.** `scripts/sync-marketing-contacts.ts` adds every gym to Gym owners. The legal basis is our legitimate interest in writing to our own customers, stated in the privacy policy (§3, §5).
 
-**The sync is additive only.** For an existing contact it may add a segment and rewrite a stale token. It never writes topics or the `unsubscribed` flag, so an opt-out survives every re-run.
+**The sync is additive only.** For an existing contact it may add a segment, and write a token where none is stored. It never writes topics or the `unsubscribed` flag, so an opt-out survives every re-run.
 
 **Running it:**
 
 - It is a dry run by default; `--apply` writes.
-- It skips the E2E gyms (`SMS_DISABLED_GYM_IDS`, or `--exclude-gym <id>`) and anything passed with `--exclude <email>`.
+- It skips the E2E gyms (`SMS_DISABLED_GYM_IDS`, which is set in Vercel but not in `.env.local`, so pass `--exclude-gym <id>`; the script warns when it is unset) and anything passed with `--exclude <email>`.
+- It always skips addresses at reserved, undeliverable TLDs (`.test`, `.example`, `.invalid`, `.localhost`, `.local`), whose hard bounces would cost the new sending domain reputation.
 - Run it before each broadcast to Gym owners. New gyms are not added at registration.
+- An email change leaves the old address in Resend, and the next sync adds the new one beside it. Remove the old contact by hand.
+- Closing an account does not remove its contact; delete it in Resend (privacy §5 promises deletion on request).
 
 ## Configuration
 
@@ -113,3 +120,16 @@ Product and security updates: the same link, ending `&topic=updates`.
 - **Resubscribing** is by email to hello@. Resend's hosted preference page (`{{{RESEND_UNSUBSCRIBE_URL}}}`) is not used, because it also offers the global unsubscribe.
 - **New gyms** join Gym owners only when the sync runs, not at registration.
 - **List-Unsubscribe headers:** whether Resend adds them to broadcasts sent with a custom footer link is unverified. Check a received broadcast's headers before the first send to more than the Test segment.
+
+## Inverted check
+
+The falsifying check of 2026-10-06 (`marketing-email-inverted-check.md`) found and fixed:
+
+- the missing timeouts;
+- the case-sensitive opt-out that reported success;
+- the token overwrite;
+- the referrer leak to the next page;
+- the undeliverable-TLD import;
+- two privacy-policy statements the product did not back.
+
+It left two holes for the owner: topic filtering of broadcasts, and the `List-Unsubscribe` header.

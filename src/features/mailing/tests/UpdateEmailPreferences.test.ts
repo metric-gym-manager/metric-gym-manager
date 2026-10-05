@@ -48,14 +48,19 @@ describe('UpdateEmailPreferences', () => {
     ])
   })
 
-  it('normalizes the email before checking and writing', async () => {
+  it('checks the token ignoring case, but writes the address as delivered', async () => {
+    // F2 (inverted check, 2026-10-06): Resend matches contact emails
+    // case-sensitively. The link carries the stored address, so lowercasing
+    // it before the write missed a contact stored with capitals, and the
+    // page said "Done" while nothing changed. This test used to assert the
+    // lowercased write — it pinned the bug.
     const list = fakeList()
     await new UpdateEmailPreferences(list, SECRET).execute({
       email: ' Owner+Gym@TitanFitness.LK',
       token: createUnsubscribeToken('owner+gym@titanfitness.lk', SECRET),
       topics: [MailingTopic.Marketing],
     })
-    expect(list.optOuts[0][0]).toBe('owner+gym@titanfitness.lk')
+    expect(list.optOuts[0][0]).toBe('Owner+Gym@TitanFitness.LK')
   })
 
   it('accepts a link whose + arrived as a space', async () => {

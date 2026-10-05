@@ -16,9 +16,13 @@ export interface NewMailingContact {
  * What adding a contact did:
  * - `created` — a new contact, subscribed to every topic by default;
  * - `added_to_audience` — an existing contact, now also in this audience;
- * - `unchanged` — already a contact in this audience.
+ * - `unchanged` — already a contact in this audience;
+ * - `token_mismatch` — an existing contact whose stored token was signed
+ *   with a different secret. It is left alone (its sent links still work
+ *   only if that secret is the deployed one); rotate deliberately.
  */
-export type AddContactResult = 'created' | 'added_to_audience' | 'unchanged'
+export type AddContactResult =
+  'created' | 'added_to_audience' | 'unchanged' | 'token_mismatch'
 
 /** The mailing-list provider port (Resend in production). */
 export interface IMailingList {

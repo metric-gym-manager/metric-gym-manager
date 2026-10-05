@@ -1,5 +1,6 @@
 import type { MailingTopic } from '../config/MailingConfig'
 import {
+  deliveredMailingEmail,
   normalizeMailingEmail,
   verifyUnsubscribeToken,
 } from '../utils/unsubscribeToken'
@@ -40,11 +41,14 @@ export class UpdateEmailPreferences {
   async execute(input: UpdateEmailPreferencesInput): Promise<void> {
     if (!this.list || !this.secret) throw new MailingUnavailableError()
 
-    const email = normalizeMailingEmail(input.email)
-    if (!verifyUnsubscribeToken(email, input.token, this.secret)) {
+    // The token is signed over the lowercased address, so case never breaks
+    // a link; the write uses the address as delivered, because Resend
+    // matches contacts case-sensitively and the link carries the stored form.
+    const signed = normalizeMailingEmail(input.email)
+    if (!verifyUnsubscribeToken(signed, input.token, this.secret)) {
       throw new InvalidUnsubscribeLinkError()
     }
 
-    await this.list.optOut(email, input.topics)
+    await this.list.optOut(deliveredMailingEmail(input.email), input.topics)
   }
 }

@@ -113,3 +113,42 @@ describe('SyncMarketingContacts', () => {
     expect(list.added.map((c) => c.email)).toContain('broken@example.lk')
   })
 })
+
+/**
+ * F10 (inverted check, 2026-10-06): the dry run planned to import
+ * `demo-sms@gymmanagement.local`, and the E2E gyms (`@metricgym.test`) were
+ * excluded only because ids were passed by hand — `SMS_DISABLED_GYM_IDS` is
+ * not in `.env.local`. A send to a domain that cannot exist hard-bounces and
+ * costs the sending domain reputation, so reserved TLDs are never imported.
+ */
+describe('SyncMarketingContacts — undeliverable addresses', () => {
+  const reservedSource: IMarketingSource = {
+    listGymOwners: async () => [
+      { gymId: 'd1', email: 'demo-sms@gymmanagement.local', gymName: 'Demo' },
+      { gymId: 'd2', email: 'e2e-lite@metricgym.test', gymName: 'E2E' },
+      { gymId: 'd3', email: 'someone@example.invalid', gymName: 'X' },
+      { gymId: 'd4', email: 'owner@example', gymName: 'Y' },
+      { gymId: 'd5', email: 'dev@app.localhost', gymName: 'Z' },
+      { gymId: 'g1', email: 'owner@titan.lk', gymName: 'Titan Fitness' },
+    ],
+    listConsentingLeads: async () => [],
+  }
+
+  it('never imports an address at a reserved, undeliverable TLD, even with no exclusions', async () => {
+    const list = fakeList()
+    const report = await new SyncMarketingContacts(
+      reservedSource,
+      new AddMarketingContact(list, SECRET)
+    ).execute({ apply: true, excludeGymIds: [], excludeEmails: [] })
+    expect(list.added.map((c) => c.email)).toEqual(['owner@titan.lk'])
+    expect(
+      report.filter((r) => r.outcome === 'excluded').map((r) => r.email)
+    ).toEqual([
+      'demo-sms@gymmanagement.local',
+      'e2e-lite@metricgym.test',
+      'someone@example.invalid',
+      'owner@example',
+      'dev@app.localhost',
+    ])
+  })
+})

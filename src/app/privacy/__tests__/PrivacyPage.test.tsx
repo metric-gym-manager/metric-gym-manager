@@ -95,3 +95,26 @@ describe('privacy policy — email communications', () => {
     )
   })
 })
+
+/**
+ * Inverted check, 2026-10-06. F6: §3 and §5 said demo-request visitors are
+ * emailed, while §2 never said their details are collected at all. F7: the
+ * policy said email data is deleted when an account closes, and nothing in
+ * the product does that.
+ */
+describe('privacy policy — demo requests and mailing-list retention', () => {
+  const text = () => render(<PrivacyPolicyPage />).container.textContent ?? ''
+
+  it('says what the demo request form collects, including the consent record', () => {
+    const t = text()
+    expect(t).toMatch(/Information We Collect from People Who Request a Demo/)
+    expect(t).toMatch(/name, email address and phone number/i)
+    expect(t).toMatch(/tick the box\s+asking for marketing emails/i)
+    expect(t).toMatch(/record when you ticked it/i)
+  })
+
+  it('does not promise deletion on account closure that nothing performs', () => {
+    expect(text()).not.toMatch(/delete them or\s+close your account/)
+    expect(text()).toMatch(/until you ask us to delete them/)
+  })
+})

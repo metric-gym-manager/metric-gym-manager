@@ -8,6 +8,16 @@
  * re-run. Test and E2E gyms are left out: the ids in SMS_DISABLED_GYM_IDS,
  * plus anything passed with --exclude-gym or --exclude.
  *
+ * Addresses at reserved TLDs (.test, .example, .invalid, .localhost, .local)
+ * are never imported: they cannot receive mail, and a hard bounce costs the
+ * sending domain reputation.
+ *
+ * An existing contact's unsubscribe token is never overwritten: a mismatch
+ * means this machine's MARKETING_UNSUBSCRIBE_SECRET differs from the one that
+ * signed it, and rewriting would break every link already sent. Such
+ * contacts are reported as token_mismatch. Pass --rotate-tokens only when the
+ * secret was rotated on purpose and the new value is already in Vercel.
+ *
  * DRY RUN BY DEFAULT — prints who would be added and writes nothing.
  *
  * Usage:
@@ -38,6 +48,13 @@ async function main() {
   const { createSyncMarketingContacts } = await import('@/features/mailing')
 
   const apply = process.argv.includes('--apply')
+  const rotateTokens = process.argv.includes('--rotate-tokens')
+  if (!process.env.SMS_DISABLED_GYM_IDS) {
+    console.warn(
+      'WARNING: SMS_DISABLED_GYM_IDS is not set here, so the E2E gyms are not excluded by id.\n' +
+        '         Pass them with --exclude-gym <id> (they are in Vercel), or check the plan below.\n'
+    )
+  }
   const excludeGymIds = [
     ...(process.env.SMS_DISABLED_GYM_IDS ?? '')
       .split(',')
@@ -58,7 +75,9 @@ async function main() {
     auth: { persistSession: false },
   })
 
-  const report = await createSyncMarketingContacts(supabase).execute({
+  const report = await createSyncMarketingContacts(supabase, {
+    rotateTokens,
+  }).execute({
     apply,
     excludeGymIds,
     excludeEmails,
@@ -83,6 +102,13 @@ async function main() {
         .map(([k, v]) => `${k}: ${v}`)
         .join('  ')
   )
+  if (counts.token_mismatch) {
+    console.warn(
+      `\nWARNING: ${counts.token_mismatch} contact(s) carry a token signed with a different\n` +
+        '         MARKETING_UNSUBSCRIBE_SECRET. Their links work only if THAT secret is the one\n' +
+        '         in Vercel. Compare secrets before using --rotate-tokens.'
+    )
+  }
   if (report.some((e) => e.outcome === 'failed')) process.exitCode = 1
 }
 

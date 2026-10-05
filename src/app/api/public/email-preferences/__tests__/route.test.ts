@@ -25,6 +25,16 @@ jest.mock('@/lib/email/resend', () => ({
                 topicUpdates.push(options)
                 return { data: { id: 'contact-1' }, error: null }
               },
+              // Reads back what was written, like Resend once it settles.
+              list: async () => ({
+                data: {
+                  data: topicUpdates
+                    .flatMap((u) => (u as { topics: { id: string }[] }).topics)
+                    .map((t) => ({ id: t.id, subscription: 'opt_out' })),
+                  has_more: false,
+                },
+                error: null,
+              }),
             },
           },
         }

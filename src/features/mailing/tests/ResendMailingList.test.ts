@@ -18,8 +18,13 @@ type Call = [string, unknown]
 function api(options: {
   existing?: { token?: string; segments: string[] }
   failWith?: string
+  /** A provider that answers success and changes nothing. */
+  ignoreTopicWrites?: boolean
 }) {
   const calls: Call[] = []
+  const signals: (AbortSignal | undefined)[] = []
+  const reads: unknown[] = []
+  const written = new Map<string, 'opt_in' | 'opt_out'>()
   const notFound = {
     data: null,
     error: { name: 'not_found', message: 'Contact not found' },
@@ -30,8 +35,9 @@ function api(options: {
     error: { name: 'application_error', message: options.failWith ?? '' },
   })
   const fake: MailingContactsApi = {
-    get: async (o) => {
+    get: async (o, r) => {
       calls.push(['get', o])
+      signals.push(r?.signal)
       if (options.failWith) return fail()
       if (!options.existing) return notFound
       const token = options.existing.token
@@ -39,34 +45,52 @@ function api(options: {
         token ? { unsubscribe_token: { type: 'string', value: token } } : {}
       return ok({ id: 'contact-1', properties })
     },
-    create: async (o) => {
+    create: async (o, r) => {
       calls.push(['create', o])
+      signals.push(r?.signal)
       return ok({ id: 'contact-1' })
     },
-    update: async (o) => {
+    update: async (o, r) => {
       calls.push(['update', o])
+      signals.push(r?.signal)
       return ok({ id: 'contact-1' })
     },
     topics: {
-      update: async (o) => {
+      update: async (o, r) => {
         calls.push(['topics.update', o])
+        signals.push(r?.signal)
         if (options.failWith) return fail()
-        return options.existing ? ok({ id: 'contact-1' }) : notFound
+        if (!options.existing) return notFound
+        if (!options.ignoreTopicWrites) {
+          for (const t of o.topics) written.set(t.id, t.subscription)
+        }
+        return ok({ id: 'contact-1' })
+      },
+      list: async (o, r) => {
+        reads.push(o)
+        signals.push(r?.signal)
+        const data = Object.values(RESEND_TOPIC_IDS).map((id) => ({
+          id,
+          subscription: written.get(id) ?? ('opt_in' as const),
+        }))
+        return ok({ data, has_more: false })
       },
     },
     segments: {
-      list: async (o) => {
+      list: async (o, r) => {
         calls.push(['segments.list', o])
+        signals.push(r?.signal)
         const ids = options.existing?.segments ?? []
         return ok({ data: ids.map((id) => ({ id })), has_more: false })
       },
-      add: async (o) => {
+      add: async (o, r) => {
         calls.push(['segments.add', o])
+        signals.push(r?.signal)
         return ok({ id: 'contact-1' })
       },
     },
   }
-  return { fake, calls, names: () => calls.map(([n]) => n) }
+  return { fake, calls, signals, reads, names: () => calls.map(([n]) => n) }
 }
 
 const contact = {
@@ -197,5 +221,156 @@ describe('ResendMailingList.optOut', () => {
         MailingTopic.Marketing,
       ])
     ).rejects.toThrow('boom')
+  })
+})
+
+/**
+ * Findings of the inverted check of 2026-10-06, each a defect found against
+ * the live Resend API rather than this double (docs/architecture/
+ * marketing-email-inverted-check.md).
+ */
+describe('ResendMailingList — inverted-check findings', () => {
+  const owners = RESEND_SEGMENT_IDS[MailingAudience.GymOwners]
+
+  it('F3: never overwrites a token signed with another secret, and reports it', async () => {
+    const { fake, names } = api({
+      existing: { token: 'tok-OLD', segments: [owners] },
+    })
+    await expect(new ResendMailingList(fake).addContact(contact)).resolves.toBe(
+      'token_mismatch'
+    )
+    expect(names()).not.toContain('update')
+  })
+
+  it('F3: still adds a mismatched contact to the new audience', async () => {
+    const { fake, names } = api({
+      existing: {
+        token: 'tok-OLD',
+        segments: [RESEND_SEGMENT_IDS[MailingAudience.DemoLeads]],
+      },
+    })
+    await expect(new ResendMailingList(fake).addContact(contact)).resolves.toBe(
+      'token_mismatch'
+    )
+    expect(names()).toContain('segments.add')
+  })
+
+  it('F3: rewrites the token only when asked to rotate', async () => {
+    const { fake, calls } = api({
+      existing: { token: 'tok-OLD', segments: [owners] },
+    })
+    await expect(
+      new ResendMailingList(fake, { rotateTokens: true }).addContact(contact)
+    ).resolves.toBe('unchanged')
+    expect(calls.find(([n]) => n === 'update')?.[1]).toEqual({
+      email: 'owner@titanfitness.lk',
+      properties: { unsubscribe_token: 'tok-1' },
+    })
+  })
+
+  it('F1: gives every provider call a time limit', async () => {
+    const { fake, signals } = api({})
+    await new ResendMailingList(fake).addContact(contact)
+    await new ResendMailingList(fake).optOut('owner@titanfitness.lk', [
+      MailingTopic.Marketing,
+    ])
+    expect(signals.length).toBeGreaterThan(0)
+    for (const signal of signals) expect(signal).toBeInstanceOf(AbortSignal)
+  })
+
+  /** A provider that never answers, but honours an abort like fetch does. */
+  function hanging(): MailingContactsApi {
+    const never = <T>(r?: { signal?: AbortSignal }) =>
+      new Promise<T>((_, reject) =>
+        r?.signal?.addEventListener('abort', () => reject(r.signal?.reason))
+      )
+    return {
+      get: (_o, r) => never(r),
+      create: (_o, r) => never(r),
+      update: (_o, r) => never(r),
+      topics: { update: (_o, r) => never(r), list: (_o, r) => never(r) },
+      segments: { list: (_o, r) => never(r), add: (_o, r) => never(r) },
+    }
+  }
+
+  it('F1: gives up on an add that never answers', async () => {
+    await expect(
+      new ResendMailingList(hanging(), { timeoutMs: 20 }).addContact(contact)
+    ).rejects.toBeDefined()
+  })
+
+  it('F1: gives up on an opt-out that never answers', async () => {
+    await expect(
+      new ResendMailingList(hanging(), { timeoutMs: 20 }).optOut(
+        'owner@titanfitness.lk',
+        [MailingTopic.Marketing]
+      )
+    ).rejects.toBeDefined()
+  })
+})
+
+/**
+ * Read-back confirmation (inverted check, 2026-10-06). Topic writes take
+ * 1–2.5 s to read back, and a write that cannot be confirmed must surface as
+ * an error rather than a "Done". (An early probe read too soon and concluded
+ * Resend ignores writes for mixed-case contacts; a timeline disproved it —
+ * see docs/architecture/marketing-email-inverted-check.md, F2b.)
+ */
+describe('ResendMailingList.optOut — read-back confirmation', () => {
+  const fast = { confirmAttempts: 3, confirmDelayMs: 0 }
+
+  it('confirms the opt-out by reading it back', async () => {
+    const { fake, reads } = api({ existing: { segments: [] } })
+    await expect(
+      new ResendMailingList(fake, fast).optOut('owner@titanfitness.lk', [
+        MailingTopic.Marketing,
+      ])
+    ).resolves.toBeUndefined()
+    expect(reads.length).toBeGreaterThan(0)
+  })
+
+  it('fails loudly when the provider reports success but nothing changed', async () => {
+    const { fake } = api({
+      existing: { segments: [] },
+      ignoreTopicWrites: true,
+    })
+    await expect(
+      new ResendMailingList(fake, fast).optOut('Owner@TitanFitness.lk', [
+        MailingTopic.Marketing,
+      ])
+    ).rejects.toThrow(/not confirmed/i)
+  })
+
+  it('waits for a write that takes a moment to read back', async () => {
+    const { fake } = api({ existing: { segments: [] } })
+    let lagging = 2
+    const slow: MailingContactsApi = {
+      ...fake,
+      topics: {
+        update: fake.topics.update,
+        list: async (o, r) => {
+          const result = await fake.topics.list(o, r)
+          if (lagging-- > 0 && result.data) {
+            return {
+              data: {
+                ...result.data,
+                data: result.data.data.map((t) => ({
+                  ...t,
+                  subscription: 'opt_in' as const,
+                })),
+              },
+              error: null,
+            }
+          }
+          return result
+        },
+      },
+    }
+    await expect(
+      new ResendMailingList(slow, {
+        confirmAttempts: 4,
+        confirmDelayMs: 0,
+      }).optOut('owner@titanfitness.lk', [MailingTopic.Updates])
+    ).resolves.toBeUndefined()
   })
 })

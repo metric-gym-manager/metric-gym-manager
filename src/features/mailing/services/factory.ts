@@ -12,15 +12,20 @@ import { createResendClient, readMailingSecret } from '@/lib/email/resend'
 import { AddMarketingContact } from './AddMarketingContact'
 import { MailingUnavailableError } from './errors'
 import type { IMailingList } from './IMailingList'
-import { ResendMailingList } from './ResendMailingList'
+import {
+  ResendMailingList,
+  type ResendMailingListOptions,
+} from './ResendMailingList'
 import { SupabaseMarketingSource } from './SupabaseMarketingSource'
 import { SyncMarketingContacts } from './SyncMarketingContacts'
 import { UpdateEmailPreferences } from './UpdateEmailPreferences'
 
 /** The Resend mailing list, or `null` when `RESEND_API_KEY` is unset. */
-export function createMailingList(): IMailingList | null {
+export function createMailingList(
+  options: ResendMailingListOptions = {}
+): IMailingList | null {
   const client = createResendClient()
-  return client ? new ResendMailingList(client.contacts) : null
+  return client ? new ResendMailingList(client.contacts, options) : null
 }
 
 /** For POST /api/public/email-preferences. */
@@ -29,8 +34,10 @@ export function createUpdateEmailPreferences(): UpdateEmailPreferences {
 }
 
 /** Adds one person to an audience, or `null` when mailing is not configured. */
-export function createAddMarketingContact(): AddMarketingContact | null {
-  const list = createMailingList()
+export function createAddMarketingContact(
+  options: ResendMailingListOptions = {}
+): AddMarketingContact | null {
+  const list = createMailingList(options)
   const secret = readMailingSecret()
   return list && secret ? new AddMarketingContact(list, secret) : null
 }
@@ -38,12 +45,15 @@ export function createAddMarketingContact(): AddMarketingContact | null {
 /**
  * For `scripts/sync-marketing-contacts.ts`, with the service-role client.
  *
+ * @param supabase - Service-role client (reads every gym and lead)
+ * @param options - `rotateTokens` only for a deliberate secret rotation
  * @throws {MailingUnavailableError} When mailing is not configured
  */
 export function createSyncMarketingContacts(
-  supabase: SupabaseClient
+  supabase: SupabaseClient,
+  options: Pick<ResendMailingListOptions, 'rotateTokens'> = {}
 ): SyncMarketingContacts {
-  const add = createAddMarketingContact()
+  const add = createAddMarketingContact(options)
   if (!add) throw new MailingUnavailableError()
   return new SyncMarketingContacts(new SupabaseMarketingSource(supabase), add)
 }

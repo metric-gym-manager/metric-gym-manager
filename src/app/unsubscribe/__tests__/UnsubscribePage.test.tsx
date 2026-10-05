@@ -59,6 +59,14 @@ describe('/unsubscribe', () => {
     expect(metadata.robots).toEqual({ index: false, follow: false })
   })
 
+  it('sends no referrer, so the next page cannot read the email and token', () => {
+    // F9 (inverted check, 2026-10-06): following "privacy policy" from this
+    // page gave /privacy a document.referrer carrying the email and token,
+    // and GA4 sent it as `dr`. Only GA's admin-side redaction hid them; the
+    // in-code guard (SENSITIVE_QUERY_PARAMS) covers page_location only.
+    expect(metadata.referrer).toBe('no-referrer')
+  })
+
   it("keeps the link's email and token out of Google Analytics", () => {
     // The GA bootstrap loads nothing on a URL carrying these parameters.
     expect(SENSITIVE_QUERY_PARAMS).toEqual(

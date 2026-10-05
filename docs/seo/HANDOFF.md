@@ -354,6 +354,25 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [x] **`RESEND_API_KEY` and `MARKETING_UNSUBSCRIBE_SECRET` in Vercel.** **Set 2026-10-06** on `gym-management-saas` (Production and Preview) as sensitive variables, through the Vercel MCP; the same values are in `.env.local`. They take effect from the next deploy, so `/unsubscribe` and the demo form's Resend step work in production once this branch is merged and deployed.
 - [ ] **First send (owner).** Check the test broadcast "Test: Metric Gym OS marketing email", sent to playershyan@gmail.com on 2026-10-06 (Test segment, Marketing topic). It should come from `hello@updates.metricgymos.com`, Gmail's "Show original" should show SPF, DKIM and DMARC as PASS, and replying should go to hello@metricgymos.com. Its footer link points at the PR #92 preview, so the page works before merging; it should open `/unsubscribe` with Marketing ticked. Also check whether the email carries a `List-Unsubscribe` header; Gmail and Yahoo expect one from bulk senders. Keep early sends small (about 150 a day on a new domain), and check whether broadcasts count against the free plan's 100-a-day limit before sending to more than 100 people.
 - [ ] **Every broadcast needs a topic (rule).** Send marketing with the "Marketing" topic and updates with the "Product and security updates" topic. A broadcast without a topic reaches people who opted out. Set the topic in the Resend dashboard's broadcast editor. The Resend MCP cannot set one, so never send a broadcast created through it. The footer link for each topic is in `docs/architecture/marketing-email.md`.
+- [x] **Inverted check of the marketing-email work (2026-10-06).** Findings and evidence are in `docs/architecture/marketing-email-inverted-check.md`. Fixed on the same branch:
+  - Resend calls had no timeout;
+  - opt-outs lowercased the address, Resend matches case-sensitively, and the page said "Done" while nothing changed;
+  - opt-outs were not confirmed by reading them back;
+  - the sync overwrote unsubscribe tokens, so another machine's secret would break every sent link;
+  - the token reached the next page through the referrer;
+  - the sync would have imported `.test` and `.local` addresses;
+  - the privacy policy never said demo-request data is collected, and it promised deletion on account closure that nothing performs.
+- [ ] **Test topic filtering before the first real send (owner, or allow the repository session to).** Nothing yet proves that a broadcast sent with the "Marketing" topic skips someone who opted out of Marketing. It is the core of the two-checkbox design, and it rests on Resend's documentation alone. The session's probe was refused by the permission check:
+  - two `resend.dev` test contacts in the Test segment, one opted out of Marketing;
+  - one broadcast with the topic;
+  - check that only the opted-in contact received it.
+
+  Either allow that probe, or do it in the dashboard.
+
+- [ ] **Gmail's own unsubscribe button (owner).** In "Show original" on the test email, look for a `List-Unsubscribe` header. If there is one, it probably points at Resend, and pressing Gmail's Unsubscribe may set Resend's global flag. That stops product and security updates as well, while the policy says stopping one kind does not stop the other. Report what the header says; the wording or the setup changes accordingly.
+- [ ] **Cancelled and suspended gyms (decision).** The sync adds every gym, whatever its subscription status. Decide whether cancelled or suspended gyms should get marketing, updates, both or neither.
+- [ ] **Closing an account (owner process).** Nothing removes a closed account's address from Resend, and the privacy policy promises deletion on request. When closing an account or handling a deletion request, delete the contact in Resend (Audience → Contacts).
+- [ ] **Never import contacts in the Resend dashboard (rule).** Resend matches emails case-sensitively. The app and the sync create contacts lowercased, so a hand-imported mixed-case contact would be duplicated by the next sync, and that person would get every broadcast twice.
 
 ### Repository, next work on this branch
 

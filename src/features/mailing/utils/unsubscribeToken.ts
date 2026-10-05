@@ -15,7 +15,19 @@ const MIN_SECRET_LENGTH = 32
  * @returns The normalized address
  */
 export function normalizeMailingEmail(email: string): string {
-  return email.trim().replace(/ /g, '+').toLowerCase()
+  return deliveredMailingEmail(email).toLowerCase()
+}
+
+/**
+ * The address exactly as a link delivered it — trimmed, with a space turned
+ * back into `+`, case KEPT. Resend matches contact emails case-sensitively,
+ * so this, not the lowercased form, is what a write to Resend must use.
+ *
+ * @param email - The address as it arrived
+ * @returns The address with its original case
+ */
+export function deliveredMailingEmail(email: string): string {
+  return email.trim().replace(/ /g, '+')
 }
 
 /**

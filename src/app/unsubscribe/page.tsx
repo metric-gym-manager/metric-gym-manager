@@ -6,12 +6,15 @@ import { MailingTopic } from '@/features/mailing/config/MailingConfig'
 /**
  * Reached only from the footer of a marketing or update email. Never indexed,
  * and public (PUBLIC_ROUTES): the person may have no session on this device.
- * The link carries `email` and `token`, which also keeps Google Analytics off
- * the page (`SENSITIVE_QUERY_PARAMS`).
+ * The link carries `email` and `token`, which keeps Google Analytics off the
+ * page (`SENSITIVE_QUERY_PARAMS`) — and `no-referrer` keeps them off the NEXT
+ * page, which would otherwise read this URL as `document.referrer` and send it
+ * to GA as `dr` (inverted check F9, 2026-10-06).
  */
 export const metadata: Metadata = {
   title: 'Email preferences',
   robots: { index: false, follow: false },
+  referrer: 'no-referrer',
 }
 
 type SearchParams = Record<string, string | string[] | undefined>

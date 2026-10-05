@@ -228,6 +228,20 @@ const sections: LegalSection[] = [
               not affect your ability to use the platform.
             </LegalP>
           </div>
+
+          <div>
+            <LegalSubHead>
+              Information We Collect from People Who Request a Demo
+            </LegalSubHead>
+            <LegalP>
+              When you request a demo on our website, we collect your name,
+              email address and phone number, the plan you are interested in,
+              and, if you give them, your gym&apos;s name and a message. We use
+              them to contact you about your request. If you tick the box asking
+              for marketing emails, we also record when you ticked it, as the
+              record of your consent.
+            </LegalP>
+          </div>
         </div>
       </>
     ),
@@ -374,8 +388,7 @@ const sections: LegalSection[] = [
         </LegalList>
         <LegalP>
           The email address, name and gym name we hold for these emails are kept
-          with our email delivery provider until you ask us to delete them or
-          close your account.
+          with our email delivery provider until you ask us to delete them.
         </LegalP>
       </>
     ),
