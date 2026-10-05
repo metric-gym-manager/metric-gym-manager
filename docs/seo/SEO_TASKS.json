@@ -1028,21 +1028,22 @@
       "title": "Google Search Console access and sitemap submission",
       "category": "measurement",
       "priority": "P0",
-      "status": "blocked",
+      "status": "in_progress",
       "intent": "none",
       "targetQueries": [],
       "finding": "No Search Console verification exists in the repository and this environment has no Search Console access, so indexing, queries, CTR and AI-feature traffic cannot be read.",
       "evidence": [
-        "No google-site-verification meta tag or file in the repository."
+        "No google-site-verification meta tag or file in the repository.",
+        "Owner set up the Domain property, submitted the sitemap and requested indexing on 2026-10-05. Checked from outside that day: the google-site-verification TXT record is on metricgymos.com; /sitemap.xml answers 200 as application/xml with no X-Robots-Tag (apex and http forms 308 to it); robots.txt names it; all 20 listed URLs answer 200 to a Googlebot user agent with self canonicals and no noindex; the Vercel project has no firewall configuration."
       ],
       "recommendedChange": "Owner: verify a Domain property for metricgymos.com via DNS, submit /sitemap.xml, inspect '/', '/gym-management-software-sri-lanka' and '/pricing', then follow the measurement plan in SEO_AUDIT.md.",
-      "implementation": "",
+      "implementation": "Search Console Domain property verified and the sitemap submitted by the owner (2026-10-05). Remaining: the Sitemaps report reading Success with 20 discovered pages, then the first baseline about four weeks later (SEO_AUDIT.md §17).",
       "files": [],
       "verification": [],
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-01T17:40:00Z",
-      "updatedAt": "2026-10-01T17:40:00Z",
+      "updatedAt": "2026-10-05T03:17:31Z",
       "completedAt": null
     },
     {

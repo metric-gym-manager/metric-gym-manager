@@ -151,12 +151,12 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 
 **Measurement**
 
-- [ ] **Search Console (SEO-036, P0).** On 2026-10-04 metricgymos.com had no Google verification record. Its DNS is on Cloudflare (`asa` and `jaziel.ns.cloudflare.com`).
-  1. At search.google.com/search-console choose Add property → **Domain**, enter `metricgymos.com`, and copy the TXT value Google shows. Use the Google account that verified metricgymmanager.com, which already carries a `google-site-verification` record; the Change of Address below needs both properties under one account.
-  2. If Search Console offers to add the record through Cloudflare, accept. Otherwise, in the Cloudflare dashboard open metricgymos.com → DNS → Records → Add record: type `TXT`, name `@`, content the copied value, TTL Auto. Save, then press Verify in Search Console. It can take a few minutes.
-  3. Sitemaps → enter `sitemap.xml` → Submit.
-  4. URL Inspection → request indexing for `/`, `/gym-management-software-sri-lanka`, `/pricing` and `/resources/overdue-gym-memberships`.
-  5. About four weeks later, record the first baseline following `SEO_AUDIT.md` §17.
+- [x] **Search Console set up (SEO-036, P0).** **Done by the owner 2026-10-05:** the Domain property for metricgymos.com, the sitemap submitted, and indexing requested. Checked from outside the same day: metricgymos.com carries the `google-site-verification` TXT record; `https://www.metricgymos.com/sitemap.xml` answers 200 as `application/xml` with no `X-Robots-Tag`, and the apex and `http://` forms 308 to it; `robots.txt` names it; all 20 listed URLs answer 200 to a Googlebot user agent with a self-referencing canonical and no noindex; the Vercel project has no firewall configuration that could challenge Google's crawler.
+- [ ] **Sitemap status in Search Console (SEO-036).** On 2026-10-05 it still read "not detected". Two places say that, and both lag the submission:
+  - URL Inspection's "Sitemaps: No referring sitemaps detected" comes from Google's index, which is updated only when Google recrawls the page after reading the sitemap — usually days, sometimes a couple of weeks for a new property. Requesting indexing does not change that line.
+  - The Sitemaps report can show "Couldn't fetch" for a day or two on a new property before it reads "Success". In a Domain property the field takes the **full URL**: if the listed sitemap is anything other than `https://www.metricgymos.com/sitemap.xml`, remove it and submit that URL.
+  - Done when the Sitemaps report reads **Success** with **20 discovered pages**. If it still reads "Couldn't fetch" after three days with that exact URL, note the date and the message here.
+- [ ] **First baseline (SEO-036).** About four weeks after the sitemap reads Success, record the first baseline following `SEO_AUDIT.md` §17.
 - [ ] **GA4 redaction (SEO-056, SEO-059).** At analytics.google.com: Admin → Data collection and modification → Data streams → the `www.metricgymos.com` web stream → Redact data. Turn on email redaction and query-parameter redaction, add `token_hash`, `token`, `code` and `email`, then save. The code already keeps both out of GA; this is the second layer.
 - [ ] **GA4 key events (SEO-035, SEO-056).**
   1. At tagassistant.google.com add the domain `https://www.metricgymos.com` and connect. The site opens in a tab that reports to DebugView.
@@ -288,11 +288,12 @@ Waiting on owner input:
 | ----------- | ----: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Verified    |    44 | See `SEO_TASK_LOG.md`                                                                                                                                                       |
 | Implemented |     9 | SEO-035, SEO-056 (P1, awaiting GA4 DebugView); SEO-065 (P2); SEO-040, SEO-043, SEO-051, SEO-052, SEO-060 (P3, awaiting production checks); SEO-053 (P3, after-deploy check) |
+| In progress |     1 | SEO-036 (P0, Search Console set up; waiting for the sitemap to read Success, then the baseline)                                                                             |
 | Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                                                     |
-| Blocked     |     5 | SEO-036 (P0); SEO-026 (P1); SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                             |
+| Blocked     |     4 | SEO-026 (P1); SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                                           |
 | Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                                                 |
 
-- P0 remaining: 1 (SEO-036), blocked on the owner.
+- P0 remaining: 1 (SEO-036), in progress: Search Console is set up; the sitemap status and the first baseline remain.
 - P1 remaining: 3 (SEO-026, SEO-035, SEO-056), all owner actions.
 - External action required: 10 tasks.
 

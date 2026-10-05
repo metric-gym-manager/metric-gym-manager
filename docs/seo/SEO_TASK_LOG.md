@@ -7,15 +7,15 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-05T00:42:18Z |
+| Last task update | 2026-10-05T03:17:31Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 3 |
 | Implemented (awaiting verification) | 9 |
 | Verified | 44 |
-| In progress | 0 |
+| In progress | 1 |
 | Open (discovered/planned) | 1 |
-| Blocked | 5 |
+| Blocked | 4 |
 | Rejected | 6 |
 | External action required | 10 |
 
@@ -23,7 +23,7 @@
 
 | Priority | discovered | planned | in_progress | implemented | verified | blocked | rejected |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| P0 | 0 | 0 | 0 | 0 | 10 | 1 | 0 |
+| P0 | 0 | 0 | 1 | 0 | 10 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 2 | 19 | 1 | 1 |
 | P2 | 0 | 1 | 0 | 1 | 13 | 2 | 0 |
 | P3 | 0 | 0 | 0 | 6 | 2 | 1 | 5 |
@@ -42,7 +42,7 @@
 | [SEO-019](#seo-019) | P0 | verified | content | Dedicated pricing page in LKR | no |
 | [SEO-023](#seo-023) | P0 | verified | trust | Homepage claims contradicted by the codebase | no |
 | [SEO-024](#seo-024) | P0 | verified | trust | Unverifiable proof claims need owner evidence | no |
-| [SEO-036](#seo-036) | P0 | blocked | measurement | Google Search Console access and sitemap submission | yes |
+| [SEO-036](#seo-036) | P0 | in_progress | measurement | Google Search Console access and sitemap submission | yes |
 | [SEO-005](#seo-005) | P1 | verified | technical | Production .vercel.app alias serves an indexable duplicate of the site | no |
 | [SEO-006](#seo-006) | P1 | verified | on-page | Every public page inherits the homepage title and description | no |
 | [SEO-007](#seo-007) | P1 | verified | technical | Open Graph image has the wrong shape and the retired brand; og:url is the homepage on every page | no |
@@ -100,7 +100,7 @@
 
 ## External tasks (cannot be completed in code)
 
-- **SEO-036** (P0, blocked) — Google Search Console access and sitemap submission
+- **SEO-036** (P0, in_progress) — Google Search Console access and sitemap submission
 - **SEO-026** (P1, blocked) — Retired domain metricgymmanager.com is still indexed with stale claims
 - **SEO-035** (P1, implemented) — No analytics event for demo requests
 - **SEO-056** (P1, implemented) — Trial sign-ups are not measured, and the page after sign-up puts the email address in its URL
@@ -620,12 +620,12 @@ Partially actioned: the '−95% LATE PAYMENTS' statistic and 'RUNNING NATIONWIDE
 | Field | Value |
 | --- | --- |
 | Priority | P0 |
-| Status | blocked |
+| Status | in_progress |
 | Category | measurement |
 | Intent | none |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T17:40:00Z |
+| Updated | 2026-10-05T03:17:31Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -640,6 +640,7 @@ No Search Console verification exists in the repository and this environment has
 **Evidence**
 
 - No google-site-verification meta tag or file in the repository.
+- Owner set up the Domain property, submitted the sitemap and requested indexing on 2026-10-05. Checked from outside that day: the google-site-verification TXT record is on metricgymos.com; /sitemap.xml answers 200 as application/xml with no X-Robots-Tag (apex and http forms 308 to it); robots.txt names it; all 20 listed URLs answer 200 to a Googlebot user agent with self canonicals and no noindex; the Vercel project has no firewall configuration.
 
 **Recommended change**
 
@@ -647,7 +648,7 @@ Owner: verify a Domain property for metricgymos.com via DNS, submit /sitemap.xml
 
 **Implementation**
 
-—
+Search Console Domain property verified and the sitemap submitted by the owner (2026-10-05). Remaining: the Sitemaps report reading Success with 20 discovered pages, then the first baseline about four weeks later (SEO_AUDIT.md §17).
 
 **Files**
 
