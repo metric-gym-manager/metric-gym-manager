@@ -264,13 +264,18 @@ otp_expiry = 1800
 # What is live (recorded here because it exists nowhere else in the repo):
 #
 #   host           smtp.gmail.com : 465
-#   user           root@capitalistone.co      <- authenticates
+#   user           admin@capitalistone.co     <- authenticates
 #   admin_email    noreply@metricgymos.com    <- what recipients see
 #   sender_name    Metric Gym OS
 #
 # The From address is an alias, not the authenticating account. That only
-# works because it is a verified "Send mail as" address on root@; an alias
-# alone CANNOT authenticate — trying it returns 535 and no mail is sent.
+# works because it is a verified "Send mail as" address on the authenticating
+# account; an alias alone CANNOT authenticate — trying it returns 535 and no
+# mail is sent. That is exactly how auth email broke: the Google account
+# root@capitalistone.co was renamed to admin@capitalistone.co, root@ stopped
+# existing as a login, every send returned 535 and registration failed with
+# "Error sending confirmation email". smtp_user was changed to admin@ through
+# the Management API on 2026-10-05; the stored app password still worked.
 #
 # Two DNS records carry this, on two different domains:
 #

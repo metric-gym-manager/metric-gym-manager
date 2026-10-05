@@ -7,7 +7,7 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-05T04:34:11Z |
+| Last task update | 2026-10-05T05:27:21Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 3 |
@@ -1619,7 +1619,7 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 | Intent | transactional |
 | External action | required |
 | Created | 2026-10-01T21:45:00Z |
-| Updated | 2026-10-05T04:34:11Z |
+| Updated | 2026-10-05T05:27:21Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1638,6 +1638,7 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 - The GA4 stream's enhanced-measurement and data-redaction settings are not visible from the repository
 - 2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.
 - 2026-10-05: GA4 redaction is on. The DebugView check of sign_up is blocked: every sign-up fails with "Error sending confirmation email" because Google rejects the Supabase Auth SMTP credentials (535 BadCredentials); see HANDOFF §6.
+- 2026-10-05, later: the sign-up email is fixed (Supabase Auth SMTP user changed from the removed root@capitalistone.co to admin@capitalistone.co); the DebugView check of sign_up is no longer blocked.
 
 **Recommended change**
 
