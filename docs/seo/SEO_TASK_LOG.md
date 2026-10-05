@@ -7,7 +7,7 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-05T06:30:27Z |
+| Last task update | 2026-10-05T06:35:14Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 2 |
@@ -1425,7 +1425,7 @@ SoftwareApplication (BusinessApplication, Web browser) with three LKR Offers + U
 | Intent | transactional |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-05T06:30:27Z |
+| Updated | 2026-10-05T06:35:14Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1443,6 +1443,7 @@ GA4 (G-D711W4RE25) loads sitewide but the demo form fires no conversion event, s
 - 2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.
 - 2026-10-05: generate_lead can be checked in DebugView now; only the sign_up half of the shared checklist item is blocked by the failing sign-up email.
 - 2026-10-05: the owner reported the DebugView check done, but no demo request has ever been stored: the leads table has never held a row (pg_stat n_tup_ins 0 since 2025-12-08) and production received no request to /api/public/leads in the 24 hours before. generate_lead fires only after a lead is stored, so the event cannot have come from a production demo request. Verified once one real request is stored and seen in DebugView.
+- 2026-10-05 06:34:14 UTC: the owner sent a real demo request on the live site. Production answered POST /api/public/leads 201 and the leads table holds its row (interest starter, source landing), so the form stores requests end to end; DemoModal calls trackEvent('generate_lead') right after that success. Verified once the owner confirms the event in DebugView at that time (12:04 Sri Lanka time).
 
 **Recommended change**
 
