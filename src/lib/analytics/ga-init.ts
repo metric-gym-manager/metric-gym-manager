@@ -21,7 +21,8 @@
  * this rule would have to move.
  */
 
-export const GA_MEASUREMENT_ID = 'G-D711W4RE25'
+/** The owner's GA4 web stream (2026-10-05; G-D711W4RE25 until then). */
+export const GA_MEASUREMENT_ID = 'G-6C0BXYD101'
 
 /** Query parameters whose presence means the URL must not reach analytics. */
 export const SENSITIVE_QUERY_PARAMS = [

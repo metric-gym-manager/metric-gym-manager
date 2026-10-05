@@ -13,6 +13,15 @@ import { GA_MEASUREMENT_ID, gaInitScript } from '../ga-init'
  * script, so `function gtag` becomes `window.gtag` as it does in production.
  */
 
+/**
+ * The stream the site reports to: the owner's GA4 web stream, confirmed
+ * 2026-10-05. The site had reported to G-D711W4RE25 since 2026-09-20, which
+ * the owner's account did not show, so GA said the tag was not detected.
+ */
+it('reports to the owner’s GA4 stream', () => {
+  expect(GA_MEASUREMENT_ID).toBe('G-6C0BXYD101')
+})
+
 type GaWindow = Window & { dataLayer?: IArguments[] }
 const w = window as GaWindow
 
