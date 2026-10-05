@@ -36,6 +36,14 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
   - guide 4, "Choosing gym management software in Sri Lanka" (SEO-065), approved by the owner and committed (`61abe36`);
   - the privacy policy no longer promises an SMS opt-out and lists every kind of text (`0110b0d`); the public reminder time is tied to the cron by tests (`46d1f74`).
 
+- **Follow-ups after PR #89 (2026-10-05, branch `claude/site-followups-2026-10-05`).** SEO-040, SEO-043, SEO-051, SEO-052 and SEO-060 are `verified`. They rest on the owner session's production check that day, and each HTML-visible part was re-read through the Vercel connector on deployment `dpl_Awm23N2tgrumn3UHUEHqpzziuCcn`:
+  - sameAs on `/contact`;
+  - two font preloads and no Inter on `/` and `/contact`;
+  - the dark, `aria-hidden` preview on `/`;
+  - "Daily and weekly members get no reminders" on `/features/sms-reminders`.
+
+  The JS size (236 KB) and the preview's contrast are not visible in HTML, and rest on the owner session's check.
+
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
@@ -290,27 +298,25 @@ Waiting on owner input:
 
 - SEO-039 → add each directory profile to `SOCIAL_PROFILES` in `features/marketing/config/site.ts`.
 - SEO-041 → founder and team names on `/about`, if the owner supplies them.
-- SEO-060 → mark `verified` after the deploy: public pages load no provider chunk in production.
-- SEO-035, SEO-056 → mark `verified` once GA4 DebugView shows `generate_lead` and `sign_up`.
-- SEO-040, SEO-043, SEO-051, SEO-052 → mark `verified` after the deploy: production `sameAs`, two font preloads on `/`, no hero contrast failure in Lighthouse, the weekly row on `/features/sms-reminders`.
+- SEO-035 → mark `verified` once GA4 DebugView shows `generate_lead`. (SEO-056's `sign_up` was verified 2026-10-05; SEO-040, SEO-043, SEO-051, SEO-052 and SEO-060 were verified the same day.)
 - SEO-036 → once Search Console has data, record the first baseline (about four weeks after sitemap submission) following `SEO_AUDIT.md` §17.
 
 ## 7. Task log status
 
-65 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes on `claude/seo-owner-decisions`. Counts recomputed from the JSON on 2026-10-04.
+65 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes on `claude/site-followups-2026-10-05`. Counts recomputed from the JSON on 2026-10-05.
 
-| Status      | Count | Tasks                                                                                                                                                                                                              |
-| ----------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Verified    |    45 | See `SEO_TASK_LOG.md`                                                                                                                                                                                              |
-| Implemented |     9 | SEO-035 (P1, awaiting one stored demo request); SEO-026 (P1, awaiting Google's move); SEO-065 (P2); SEO-040, SEO-043, SEO-051, SEO-052, SEO-060 (P3, awaiting production checks); SEO-053 (P3, after-deploy check) |
-| In progress |     1 | SEO-036 (P0, Search Console set up; waiting for the sitemap to read Success, then the baseline)                                                                                                                    |
-| Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                                                                                            |
-| Blocked     |     3 | SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                                                                                                |
-| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                                                                                        |
+| Status      | Count | Tasks                                                                                                                                            |
+| ----------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Verified    |    50 | See `SEO_TASK_LOG.md`                                                                                                                            |
+| Implemented |     4 | SEO-035 (P1, awaiting the `generate_lead` DebugView check); SEO-026 (P1, awaiting Google's move); SEO-065 (P2); SEO-053 (P3, after-deploy check) |
+| In progress |     1 | SEO-036 (P0, Search Console set up; waiting for the sitemap to read Success, then the baseline)                                                  |
+| Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                          |
+| Blocked     |     3 | SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                              |
+| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                      |
 
 - P0 remaining: 1 (SEO-036), in progress: Search Console is set up; the sitemap status and the first baseline remain.
-- P1 remaining: 2 (SEO-026, awaiting Google's move; SEO-035, awaiting one stored demo request).
-- External action required: 8 tasks.
+- P1 remaining: 2 (SEO-026, awaiting Google's move; SEO-035, awaiting the `generate_lead` DebugView check).
+- External action required: 7 open tasks (SEO-035, SEO-036, SEO-037, SEO-039, SEO-041, SEO-042, SEO-053).
 
 ## 8. Files changed
 
