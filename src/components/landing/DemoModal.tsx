@@ -16,15 +16,10 @@ const css = `
 const PLAN_OPTIONS = ['Lite', 'Pro', 'Enterprise'] as const
 type PlanOption = (typeof PLAN_OPTIONS)[number]
 
-/**
- * The dropdown speaks the product's tier names (TIER_DISPLAY_NAME); the API
- * speaks the LeadInterest enum, whose stored values predate the July 2026
- * rename (LeadConfig documents Starter = Lite, Growth = Pro). Mapping here
- * keeps existing lead rows comparable without a data migration.
- */
+/** The dropdown's tier names (TIER_DISPLAY_NAME) to the LeadInterest values. */
 const PLAN_TO_INTEREST: Record<PlanOption, LeadInterest> = {
-  Lite: LeadInterest.Starter,
-  Pro: LeadInterest.Growth,
+  Lite: LeadInterest.Lite,
+  Pro: LeadInterest.Pro,
   Enterprise: LeadInterest.Enterprise,
 }
 
