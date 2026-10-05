@@ -1,4 +1,8 @@
 /**
+ * @jest-environment node
+ */
+
+/**
  * Announcement SMS are logged as `announcement`.
  *
  * Until 2026-10-04 they were logged as `welcome` (the `sms_type` enum had no
