@@ -1004,7 +1004,8 @@
       "finding": "GA4 (G-D711W4RE25) loads sitewide but the demo form fires no conversion event, so organic landing pages cannot be tied to leads.",
       "evidence": [
         "src/app/layout.tsx gtag config; src/components/landing/DemoModal.tsx posts to /api/public/leads with no gtag call.",
-        "2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property."
+        "2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.",
+        "2026-10-05: generate_lead can be checked in DebugView now; only the sign_up half of the shared checklist item is blocked by the failing sign-up email."
       ],
       "recommendedChange": "Fire GA4's recommended generate_lead event after a successful submission (no personal data in the event); mark it as a key event in GA4 (external).",
       "implementation": "src/lib/analytics/gtag.ts trackEvent(); DemoModal fires GA4 'generate_lead' with { form: 'demo_request', interest } after a successful submission — no personal data.",
@@ -1021,7 +1022,7 @@
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-01T17:40:00Z",
-      "updatedAt": "2026-10-05T04:09:00Z",
+      "updatedAt": "2026-10-05T04:34:11Z",
       "completedAt": null
     },
     {
@@ -1598,7 +1599,8 @@
         "src/app/(auth)/register/page.tsx: POST /api/auth/register, then router.push(`/verify-email?email=${encodeURIComponent(email)}`)",
         "src/app/layout.tsx: gtag('config', 'G-D711W4RE25') on every route; no sign_up event anywhere in src/",
         "The GA4 stream's enhanced-measurement and data-redaction settings are not visible from the repository",
-        "2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property."
+        "2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.",
+        "2026-10-05: GA4 redaction is on. The DebugView check of sign_up is blocked: every sign-up fails with \"Error sending confirmation email\" because Google rejects the Supabase Auth SMTP credentials (535 BadCredentials); see HANDOFF §6."
       ],
       "recommendedChange": "Owner, in GA4 now: check Admin → Data streams → web stream → Redact data → Email is on. Then, as one reviewed change to the auth flow (rule 2.15 governs it): fire GA4's recommended sign_up event with { method: 'email' } after a successful registration, mark it as a key event, and stop carrying the address in the URL (the verify-email page can show it from session state). Not changed in this pass: the registration flow is product code with its own tests and rules, outside the public-site scope.",
       "implementation": "register/page.tsx fires GA4's recommended sign_up event with { method: 'email' } only after /api/auth/register returns success, then hands the address to /verify-email through this tab's sessionStorage (features/auth/utils/pendingVerificationEmail.ts, a client-safe deep import over the fail-safe @/lib/client-state wrappers) and navigates to plain /verify-email. The verify page reads the address from that storage and no longer reads ?email= at all. Signup creates no session, so router.push stays (rule 2.15: not an auth-boundary navigation). If storage is unavailable, the resend field starts empty and the user types the address.",
@@ -1619,7 +1621,7 @@
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-01T21:45:00Z",
-      "updatedAt": "2026-10-05T04:09:00Z",
+      "updatedAt": "2026-10-05T04:34:11Z",
       "completedAt": null
     },
     {
@@ -1699,7 +1701,8 @@
       "evidence": [
         "Chromium via Playwright against next dev (2026-10-02), GA's /g/collect intercepted and stubbed: loading /reset-password?token_hash=PROBETOKEN0001&type=recovery produced a collect hit whose dl was that exact URL; loading /verify-email?type=email_change&token_hash=PROBETOKEN0002 did the same (the API it calls was stubbed so no real token was spent)",
         "src/app/layout.tsx: gtag('config', 'G-D711W4RE25') with no page_location override, rendered for every route including (auth)",
-        "supabase/templates/recovery.html and rule 2.15: the recovery link carries token_hash to /reset-password, which makes no Supabase call until submit"
+        "supabase/templates/recovery.html and rule 2.15: the recovery link carries token_hash to /reset-password, which makes no Supabase call until submit",
+        "2026-10-05: the owner turned on GA4 redaction for email and for the token_hash, token, code and email query parameters on the G-6C0BXYD101 stream, the second layer behind gaInitScript()."
       ],
       "recommendedChange": "Owner, in GA4 now (no deploy needed): Admin → Data streams → the web stream → Redact data → turn on query-parameter redaction for token_hash, token, code and email. Then, as one reviewed change: stop sending auth query strings to analytics at all, either by setting a sanitised page_location in the gtag config (strip token_hash, token, code, type) or by not loading GA on the (auth) routes, with a test that fails if a token-bearing URL reaches gtag. Check Contentsquare's URL masking before NEXT_PUBLIC_ENABLE_ANALYTICS is turned on.",
       "implementation": "src/lib/analytics/ga-init.ts gaInitScript() is now the only GA bootstrap; the root layout renders it as one inline afterInteractive Script, in place of the raw gtag.js Script and inline config. It always defines dataLayer and gtag, so trackEvent() stays a no-op, then returns before loading anything when the URL has a token_hash, token, code or email query parameter or a path under /join/. Otherwise it runs the standard snippet: js, config G-D711W4RE25, and an async gtag.js. The check runs at document load, which is enough because every credential URL arrives by a full page load (email link, QR scan, pasted link) and none is reachable by in-app navigation; the JSDoc says the rule must move if that changes. Rule 2.23 records the invariant. Contentsquare is unchanged: it is off in production (NEXT_PUBLIC_ENABLE_ANALYTICS=false) and needs URL masking checked before it is turned on.",
@@ -1720,7 +1723,7 @@
       "dependencies": [],
       "externalActionRequired": true,
       "createdAt": "2026-10-02T15:36:21Z",
-      "updatedAt": "2026-10-03T05:39:31Z",
+      "updatedAt": "2026-10-05T04:34:11Z",
       "completedAt": "2026-10-03T05:39:31Z"
     },
     {

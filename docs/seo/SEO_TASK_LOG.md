@@ -7,7 +7,7 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-05T04:09:00Z |
+| Last task update | 2026-10-05T04:34:11Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 3 |
@@ -1427,7 +1427,7 @@ SoftwareApplication (BusinessApplication, Web browser) with three LKR Offers + U
 | Intent | transactional |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-05T04:09:00Z |
+| Updated | 2026-10-05T04:34:11Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1443,6 +1443,7 @@ GA4 (G-D711W4RE25) loads sitewide but the demo form fires no conversion event, s
 
 - src/app/layout.tsx gtag config; src/components/landing/DemoModal.tsx posts to /api/public/leads with no gtag call.
 - 2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.
+- 2026-10-05: generate_lead can be checked in DebugView now; only the sign_up half of the shared checklist item is blocked by the failing sign-up email.
 
 **Recommended change**
 
@@ -1618,7 +1619,7 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 | Intent | transactional |
 | External action | required |
 | Created | 2026-10-01T21:45:00Z |
-| Updated | 2026-10-05T04:09:00Z |
+| Updated | 2026-10-05T04:34:11Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1636,6 +1637,7 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 - src/app/layout.tsx: gtag('config', 'G-D711W4RE25') on every route; no sign_up event anywhere in src/
 - The GA4 stream's enhanced-measurement and data-redaction settings are not visible from the repository
 - 2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.
+- 2026-10-05: GA4 redaction is on. The DebugView check of sign_up is blocked: every sign-up fails with "Error sending confirmation email" because Google rejects the Supabase Auth SMTP credentials (535 BadCredentials); see HANDOFF §6.
 
 **Recommended change**
 
@@ -1673,7 +1675,7 @@ register/page.tsx fires GA4's recommended sign_up event with { method: 'email' }
 | Intent | none |
 | External action | required |
 | Created | 2026-10-02T15:36:21Z |
-| Updated | 2026-10-03T05:39:31Z |
+| Updated | 2026-10-05T04:34:11Z |
 | Completed | 2026-10-03T05:39:31Z |
 | Dependencies | — |
 
@@ -1690,6 +1692,7 @@ GA4 is configured on every route in the root layout and sends the full page URL,
 - Chromium via Playwright against next dev (2026-10-02), GA's /g/collect intercepted and stubbed: loading /reset-password?token_hash=PROBETOKEN0001&type=recovery produced a collect hit whose dl was that exact URL; loading /verify-email?type=email_change&token_hash=PROBETOKEN0002 did the same (the API it calls was stubbed so no real token was spent)
 - src/app/layout.tsx: gtag('config', 'G-D711W4RE25') with no page_location override, rendered for every route including (auth)
 - supabase/templates/recovery.html and rule 2.15: the recovery link carries token_hash to /reset-password, which makes no Supabase call until submit
+- 2026-10-05: the owner turned on GA4 redaction for email and for the token_hash, token, code and email query parameters on the G-6C0BXYD101 stream, the second layer behind gaInitScript().
 
 **Recommended change**
 
