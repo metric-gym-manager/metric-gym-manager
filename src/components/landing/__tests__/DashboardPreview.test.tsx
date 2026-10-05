@@ -109,7 +109,8 @@ describe('DashboardPreview', () => {
     expect(previewOverdue).toMatch(shape)
   })
 
-  it('shows LKR 548,000 collected this month (owner, 2026-10-05)', () => {
+  // 312 active members at about LKR 4,000 a month (owner, 2026-10-05).
+  it('shows LKR 1,164,000 collected this month', () => {
     const { container } = render(<DashboardPreview />)
     // The tile label's row, then the tile (StatCard: label row, value, sub).
     const revenueTile = [
@@ -117,15 +118,17 @@ describe('DashboardPreview', () => {
     ].find((el) => /^Revenue · /.test(el.textContent ?? ''))?.parentElement
       ?.parentElement
     expect(revenueTile?.textContent).toContain('Revenue · July')
-    expect(revenueTile?.textContent).toContain('548,000')
+    expect(revenueTile?.textContent).toContain('1,164,000')
   })
 
   it('draws every revenue bar inside its axis, this month’s from the tile', () => {
     const { container } = render(<DashboardPreview />)
-    // The axis maximum is read from the top tick ("600k"), so a scale that
-    // disagrees with its own label fails here too.
-    const topTick = container.querySelector('[data-axis] > span')?.textContent
-    const axisMax = Number(topTick?.replace(/k$/, '')) * 1000
+    // The axis maximum is read from the top tick ("1.2M", "600k"), so a scale
+    // that disagrees with its own label fails here too.
+    const topTick =
+      container.querySelector('[data-axis] > span')?.textContent ?? ''
+    const unit = { k: 1e3, M: 1e6 }[topTick.slice(-1)] ?? NaN
+    const axisMax = parseFloat(topTick) * unit
     expect(axisMax).toBeGreaterThan(0)
 
     const heights = [...container.querySelectorAll('[data-bar]')].map((bar) =>
@@ -134,7 +137,7 @@ describe('DashboardPreview', () => {
     expect(heights).toHaveLength(6)
     for (const h of heights) expect(h).toBeLessThanOrEqual(100)
     // The current month is the last bar, and it is the tile's figure.
-    expect(heights[5]).toBeCloseTo((548_000 / axisMax) * 100, 1)
+    expect(heights[5]).toBeCloseTo((1_164_000 / axisMax) * 100, 1)
   })
 
   it('is decorative: hidden from assistive tech, no headings, links or controls', () => {
