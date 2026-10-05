@@ -50,6 +50,8 @@ The page and the privacy policy (§5 Email Communications) both render that one 
 
 **Every broadcast must be sent with a topic.** A broadcast without `topicId` goes to everyone in the segment, whatever they chose.
 
+**Where a topic can be set:** in the Resend dashboard's broadcast editor, or through the API or SDK (`resend.broadcasts.create({ …, topicId })`). The Resend MCP's `create-broadcast` and `update-broadcast` have **no topic field** (plugin 1.0.5, checked 2026-10-06), so a broadcast made through the MCP reaches people who opted out. Do not send one that way.
+
 ## The unsubscribe link
 
 Every broadcast's footer carries the link built by `unsubscribeLinkTemplate(topic)`.
@@ -64,6 +66,8 @@ Marketing:
 ```
 
 Product and security updates: the same link, ending `&topic=updates`.
+
+**Verified 2026-10-06:** the test broadcast (Test segment, Marketing topic) rendered `{{{contact.email}}}`, `{{{contact.unsubscribe_token}}}` and `{{{contact.gym_name|your gym}}}` with the contact's stored values. Custom properties use the same `contact.` prefix as the built-in fields.
 
 **The token.** It is `HMAC-SHA256(lowercased email, MARKETING_UNSUBSCRIBE_SECRET)` in base64url. It is stored on the contact when the contact is added, and checked in constant time when the form is submitted, so nobody can change another person's preferences by typing their email.
 
