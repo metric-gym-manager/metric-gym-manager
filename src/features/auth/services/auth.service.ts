@@ -14,6 +14,7 @@ import type {
   UpdateGymInfoInput,
   UpdatePasswordInput,
 } from '../schemas/auth.schemas'
+import { describeRegistrationError } from '../utils/registrationError'
 
 // ============================================================
 // REGISTRATION
@@ -71,19 +72,12 @@ export async function registerGym(
     })
 
     if (authError || !authData.user || !authData.user.email) {
+      // Supabase's message stays here; the visitor gets plain text (rule 2.8).
       console.error('❌ User creation failed:', authError?.message)
-
-      // Handle specific Supabase Auth errors
-      if (authError?.message?.includes('already registered')) {
-        return {
-          success: false,
-          error: 'Email already registered',
-        }
-      }
 
       return {
         success: false,
-        error: authError?.message || 'Failed to create account',
+        error: describeRegistrationError(authError),
       }
     }
 

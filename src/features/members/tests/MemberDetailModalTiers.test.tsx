@@ -4,6 +4,7 @@ import { renderScreen, mockFetchRoutes } from '@/test-utils/renderScreen'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import type { MemberWithDiscount, Payment } from '../types'
 import MemberDetailModal from '../components/MemberDetailModal'
+import { formatDate } from '@/utils/date/date'
 
 /**
  * One component, two tiers (mobile rebuild plan §10).
@@ -333,10 +334,10 @@ describe('MemberDetailModal — payment history is a list on a phone', () => {
     const dialog = expand('phone')
     const row = dialog.getAllByRole('listitem')[0]
     // Date, amount, discount and next-due are the table's four columns.
-    expect(row).toHaveTextContent('16/08/2026')
+    expect(row).toHaveTextContent(formatDate('2026-08-16'))
     expect(row).toHaveTextContent('2233.11')
     expect(row).toHaveTextContent('Student (33%)')
-    expect(row).toHaveTextContent('Next due 16/09/2026')
+    expect(row).toHaveTextContent(`Next due ${formatDate('2026-09-16')}`)
   })
 })
 

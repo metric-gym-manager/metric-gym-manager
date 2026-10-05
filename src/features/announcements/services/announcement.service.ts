@@ -1,3 +1,4 @@
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import type { Announcement } from '../types'
@@ -163,15 +164,24 @@ export async function createAndSendAnnouncement(
     )
   }
 
-  // Fire-and-forget: Send SMS in background (non-blocking)
-  // This allows the API to return immediately
-  sendAnnouncementSmsInBackground(gymId, gymName, input.message, members).catch(
-    (error) => {
+  // Sent after the response, through `after()`. A bare un-awaited promise
+  // here let Vercel freeze the function mid-send once the response went out:
+  // the 2026-06-27 announcement (213 recipients) never left `sending`.
+  // `after()` keeps the function alive until the send settles, up to the
+  // route's max duration.
+  after(() =>
+    sendAnnouncementSmsInBackground(
+      announcement.id,
+      gymId,
+      gymName,
+      input.message,
+      members
+    ).catch((error) => {
       console.error('Background SMS sending error:', error)
-    }
+    })
   )
 
-  // Return immediately - SMS sending happens in background
+  // Return immediately - SMS sending happens after the response
   return {
     announcement: announcement as Announcement,
     recipientCount: members.length,
@@ -183,6 +193,9 @@ export async function createAndSendAnnouncement(
 // ============================================================
 
 async function sendAnnouncementSmsInBackground(
+  // The row this send was created for. It used to be re-found by message
+  // text, which two announcements with the same text would share.
+  announcementId: string,
   gymId: string,
   gymName: string,
   message: string,
@@ -194,23 +207,6 @@ async function sendAnnouncementSmsInBackground(
   const smsRepo = createSMSRepository(supabase)
   const useRealSms = process.env.ENABLE_REAL_SMS === 'true'
   const messageBody = `${message}\n- ${gymName}`
-
-  // Find the announcement record
-  const { data: announcement } = await supabase
-    .from('announcements')
-    .select('id')
-    .eq('gym_id', gymId)
-    .eq('message', message)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (!announcement) {
-    console.error('Announcement not found for tracking')
-    return
-  }
-
-  const announcementId = announcement.id
 
   // Update status to 'sending'
   await supabase

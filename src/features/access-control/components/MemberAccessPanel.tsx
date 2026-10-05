@@ -53,6 +53,7 @@ import {
   Skeleton,
 } from '@/components/ui'
 import { useConfirmDialog } from '@/hooks/use-confirm-dialog'
+import { formatDate } from '@/utils/date/date'
 import { useSubscription } from '@/features/subscriptions/hooks/useSubscription'
 import {
   useAccessDevices,
@@ -208,8 +209,9 @@ export default function MemberAccessPanel({
 
       {status.validTo && (
         <p className="text-xs text-ink-muted">
-          The readers will let this member in until {status.validTo}
-          {status.validFrom ? `, from ${status.validFrom}` : ''}.
+          The readers will let this member in
+          {status.validFrom ? ` from ${formatDate(status.validFrom)}` : ''}{' '}
+          until {formatDate(status.validTo)}.
         </p>
       )}
 
@@ -243,7 +245,7 @@ export default function MemberAccessPanel({
         {status.biometricConsentAt ? (
           <p className="text-xs text-ink-muted">
             Consent to record a fingerprint given on{' '}
-            {new Date(status.biometricConsentAt).toLocaleDateString()}.
+            {formatDate(status.biometricConsentAt)}.
           </p>
         ) : enrolledWithoutConsent ? (
           <Alert variant="warning" title="No consent recorded">

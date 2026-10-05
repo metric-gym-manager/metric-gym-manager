@@ -21,6 +21,7 @@ import { ChevronLeft, ChevronRight, Printer, RefreshCw } from 'lucide-react'
 import { useViewportTier } from '@/hooks/useViewportTier'
 import { useBillingHistory } from '../hooks/useBillingHistory'
 import type { BillingHistoryRow } from '../types'
+import { formatDate } from '@/utils/date/date'
 
 const STATUS_VARIANTS: Record<
   BillingHistoryRow['status'],
@@ -90,7 +91,7 @@ export default function BillingHistoryTable() {
                 {data.payments.map((row) => (
                   <ListRow
                     key={row.id}
-                    primary={row.date}
+                    primary={formatDate(row.date)}
                     status={
                       <Badge variant={STATUS_VARIANTS[row.status]}>
                         {row.status}
@@ -119,7 +120,9 @@ export default function BillingHistoryTable() {
                   <TableBody>
                     {data.payments.map((row) => (
                       <TableRow key={row.id}>
-                        <TableCell className="text-sm">{row.date}</TableCell>
+                        <TableCell className="text-sm">
+                          {formatDate(row.date)}
+                        </TableCell>
                         <TableCell className="font-mono text-xs">
                           {row.orderId ?? '—'}
                         </TableCell>

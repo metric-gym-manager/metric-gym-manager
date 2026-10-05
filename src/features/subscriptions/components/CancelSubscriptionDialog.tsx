@@ -4,6 +4,7 @@ import { ConfirmDialog } from '@/components/common/composites'
 import { TIER_DISPLAY_NAME } from '@/features/subscriptions/config/SubscriptionConfig'
 import { useCancelSubscription } from '../hooks/useCancelSubscription'
 import type { SerializedSubscription } from '../types'
+import { formatDate } from '@/utils/date/date'
 
 interface CancelSubscriptionDialogProps {
   open: boolean
@@ -45,7 +46,9 @@ export default function CancelSubscriptionDialog({
         <li>
           You keep {tierName} features until{' '}
           <span className="font-semibold text-ink">
-            {sub.currentPeriodEnd ?? 'the end of the current paid period'}
+            {sub.currentPeriodEnd
+              ? formatDate(sub.currentPeriodEnd)
+              : 'the end of the current paid period'}
           </span>
           .
         </li>

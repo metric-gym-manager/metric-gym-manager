@@ -27,10 +27,43 @@ export function formatDate(dateInput: string | Date): string {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
+      // A bare YYYY-MM-DD is a calendar day, parsed as UTC midnight: print it
+      // in UTC or a browser west of UTC shows the day before. Timestamps and
+      // Date objects keep the browser's own zone.
+      timeZone: isCalendarDay(dateInput) ? 'UTC' : undefined,
     })
   } catch {
     return 'Invalid Date'
   }
+}
+
+/** A `YYYY-MM-DD` string with no time: a calendar day, not an instant. */
+function isCalendarDay(dateInput: string | Date): boolean {
+  return typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)
+}
+
+/**
+ * Formats a timestamp as the product date plus a 24-hour local time,
+ * e.g. "05 Oct 2026, 09:00".
+ *
+ * `formatDate` for the date so the product has one date producer, and an
+ * explicit `en-GB` 24-hour time beside it rather than a browser-locale guess
+ * (`toLocaleString()` printed `9/24/2026, 8:41:00 AM`).
+ *
+ * @param iso - ISO timestamp.
+ * @returns Formatted date and time, or "Unknown" if the value is not a date.
+ *
+ * @example
+ * formatDateTime('2026-10-05T03:30:00Z') // "05 Oct 2026, 09:00" in Sri Lanka
+ */
+export function formatDateTime(iso: string): string {
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return 'Unknown'
+  const time = date.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+  return `${formatDate(date)}, ${time}`
 }
 
 /**

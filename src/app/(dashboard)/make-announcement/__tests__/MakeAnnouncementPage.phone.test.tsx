@@ -2,6 +2,7 @@ import { screen, within, fireEvent } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { renderScreen, mockFetchRoutes, apiOk } from '@/test-utils/renderScreen'
 import MakeAnnouncementPage from '../page'
+import { formatDate } from '@/utils/date/date'
 
 // The gate passes on every paid tier today; the screen under test is the
 // delivery log, not the entitlement check (which has server authority anyway).
@@ -52,7 +53,9 @@ describe('Announcements delivery log — phone tier', () => {
     expect(row.getByText('Broadcast 1')).toBeInTheDocument()
     expect(row.getByText('DELIVERED')).toBeInTheDocument()
     // §9.4: "sent · delivered" is the disclosed line, one text node (F10).
-    expect(row.getByText('sent 118/120 · 2026-09-20')).toBeInTheDocument()
+    expect(
+      row.getByText(`sent 118/120 · ${formatDate('2026-09-20T09:00:00Z')}`)
+    ).toBeInTheDocument()
   })
 
   it('names the failures on a partial send', async () => {
@@ -63,7 +66,9 @@ describe('Announcements delivery log — phone tier', () => {
     const row = within(screen.getAllByRole('listitem')[0])
     expect(row.getByText('PARTIAL')).toBeInTheDocument()
     expect(
-      row.getByText('sent 116/120 · 2 failed · 2026-09-20')
+      row.getByText(
+        `sent 116/120 · 2 failed · ${formatDate('2026-09-20T09:00:00Z')}`
+      )
     ).toBeInTheDocument()
   })
 

@@ -3,6 +3,7 @@ import '@testing-library/jest-dom'
 import { renderScreen, mockFetchRoutes, apiOk } from '@/test-utils/renderScreen'
 import MakeAnnouncementPage from '../page'
 import type { Announcement } from '@/features/announcements/types'
+import { formatDate } from '@/utils/date/date'
 
 // The gate passes on every paid tier today; the screen under test is the
 // composer, not the entitlement check (which has server authority anyway).
@@ -200,6 +201,16 @@ describe('Announcements composer', () => {
       const row = (await screen.findByText('Pool closed Sunday')).closest('tr')!
       expect(within(row).getByText('8/10')).toBeInTheDocument()
       expect(within(row).getByText('2 failed')).toBeInTheDocument()
+    })
+
+    it('dates each broadcast in the product format', async () => {
+      routes([announcement({ sent_at: '2026-09-01T06:30:00.000Z' })])
+      renderScreen(<MakeAnnouncementPage />)
+
+      const row = (await screen.findByText('Pool closed Sunday')).closest('tr')!
+      expect(
+        within(row).getByText(formatDate('2026-09-01T06:30:00.000Z'))
+      ).toBeInTheDocument()
     })
 
     it('omits the failure note when nothing failed', async () => {

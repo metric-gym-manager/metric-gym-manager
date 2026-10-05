@@ -7,12 +7,12 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-05T06:35:14Z |
+| Last task update | 2026-10-05T09:30:02Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 2 |
-| Implemented (awaiting verification) | 9 |
-| Verified | 45 |
+| Implemented (awaiting verification) | 4 |
+| Verified | 50 |
 | In progress | 1 |
 | Open (discovered/planned) | 1 |
 | Blocked | 3 |
@@ -26,7 +26,7 @@
 | P0 | 0 | 0 | 1 | 0 | 10 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 2 | 20 | 0 | 1 |
 | P2 | 0 | 1 | 0 | 1 | 13 | 2 | 0 |
-| P3 | 0 | 0 | 0 | 6 | 2 | 1 | 5 |
+| P3 | 0 | 0 | 0 | 1 | 7 | 1 | 5 |
 
 ## All tasks
 
@@ -87,16 +87,16 @@
 | [SEO-032](#seo-032) | P3 | rejected | schema | LocalBusiness structured data | no |
 | [SEO-033](#seo-033) | P3 | rejected | technical | llms.txt or AI-specific markup | no |
 | [SEO-034](#seo-034) | P3 | rejected | local | Mass location pages (Colombo, Kandy, Galle …) | no |
-| [SEO-040](#seo-040) | P3 | implemented | entity | Social and entity profiles | no |
+| [SEO-040](#seo-040) | P3 | verified | entity | Social and entity profiles | no |
 | [SEO-041](#seo-041) | P3 | blocked | entity | Founder and team information | yes |
-| [SEO-043](#seo-043) | P3 | implemented | performance | Marketing pages preload a font they do not render | no |
+| [SEO-043](#seo-043) | P3 | verified | performance | Marketing pages preload a font they do not render | no |
 | [SEO-045](#seo-045) | P3 | verified | technical | Unknown public-looking paths redirect to /login | no |
 | [SEO-047](#seo-047) | P3 | rejected | content | Sinhala and Tamil content | no |
-| [SEO-051](#seo-051) | P3 | implemented | on-page | Decorative dashboard preview on the homepage fails colour contrast | no |
-| [SEO-052](#seo-052) | P3 | implemented | trust | Weekly members get their '7 days before' reminder on the day they pay | no |
+| [SEO-051](#seo-051) | P3 | verified | on-page | Decorative dashboard preview on the homepage fails colour contrast | no |
+| [SEO-052](#seo-052) | P3 | verified | trust | Weekly members get their '7 days before' reminder on the day they pay | no |
 | [SEO-053](#seo-053) | P3 | implemented | trust | Automated reminders and receipts do not name the gym | yes |
 | [SEO-058](#seo-058) | P3 | verified | internal-linking | Seven related-page cards linked the hub with the same exact-match anchor | no |
-| [SEO-060](#seo-060) | P3 | implemented | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | no |
+| [SEO-060](#seo-060) | P3 | verified | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | no |
 
 ## External tasks (cannot be completed in code)
 
@@ -2063,7 +2063,7 @@ List Metric on relevant software directories with consistent NAP; collect genuin
 | Intent | informational |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-04T15:48:40Z |
+| Updated | 2026-10-05T09:30:02Z |
 | Completed | — |
 | Dependencies | SEO-022 |
 
@@ -2079,10 +2079,12 @@ Fitconnect's strongest content is original local data. Metric holds anonymisable
 **Evidence**
 
 - src/features/sms (sms_logs delivery statuses); revenue and analytics features.
+- Read-only probe of production, 2026-10-05. Customer gyms with data: Fitness Empire (231 members, 847 payments, 1,275 texts), Yomak Health Hub (60/60/7), Titan Fitness (52/83/191, including test members), Royal Fitness World (11 members) and LifeLine Fitness (1). Fitness Empire is about 65% of members and about 85% of payments and texts, so a cross-gym aggregate would be its figures under another name.
+- Fitness Empire, 2026-10-05: on Metric since 2026-02-28; 134 of 231 members active; payments recorded about 90 a month March to July, 148 in August, 166 in September; April to September, after removing 30 same-day duplicate payments, 48.2% of 531 renewals were recorded on or before the due date and 81.5% within a week. No delivery report has ever arrived, so delivery rates cannot be published; there is no pre-Metric baseline.
 
 **Recommended change**
 
-Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies. Owner consent, 2026-10-04: one named case study (Fitness Empire only) and an anonymised aggregate study from Metric's own records. Next: a read-only data probe and a plan; the owner approves every published figure.
+Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies. Owner consent, 2026-10-04: one named case study (Fitness Empire only) and an anonymised aggregate study from Metric's own records. Next: a read-only data probe and a plan; the owner approves every published figure. Probe done 2026-10-05: recommend no cross-gym study until about 10 gyms hold data with none above a quarter of it; the Fitness Empire figures listed in HANDOFF §6 await the owner and Fitness Empire.
 
 **Implementation**
 
@@ -2805,13 +2807,13 @@ Rejected: state the true location once (company based in Kotte, Colombo District
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | implemented |
+| Status | verified |
 | Category | entity |
 | Intent | navigational |
 | External action | no |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-04T15:48:40Z |
-| Completed | — |
+| Updated | 2026-10-05T08:31:54Z |
+| Completed | 2026-10-05T08:31:54Z |
 | Dependencies | — |
 
 **Target queries**
@@ -2843,6 +2845,8 @@ The owner confirmed the official Facebook page on 2026-10-04 (https://www.facebo
 **Verification**
 
 - structured-data.test.ts: sameAs equals SOCIAL_PROFILES and contains the confirmed URL. MarketingPages.test.tsx: /contact links every listed profile; removing the links fails it. Verified once the production Organization markup shows sameAs.
+- Production, 2026-10-05 (owner session check): the Organization markup carries sameAs.
+- Vercel connector fetch of the production deployment dpl_Awm23N2tgrumn3UHUEHqpzziuCcn (PR #89), 2026-10-05: /contact answered 200; its Organization JSON-LD reads "sameAs":["https://www.facebook.com/people/Metric-Gym-OS/61593409007692/"], and the page links the profile once under "Follow us".
 
 ### SEO-041
 
@@ -2896,13 +2900,13 @@ Owner supplies names, roles and photos with consent; add to /about.
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | implemented |
+| Status | verified |
 | Category | performance |
 | Intent | none |
 | External action | no |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-04T15:48:40Z |
-| Completed | — |
+| Updated | 2026-10-05T08:31:54Z |
+| Completed | 2026-10-05T08:31:54Z |
 | Dependencies | — |
 
 **Target queries**
@@ -2936,6 +2940,8 @@ Measured first, then removed (commit 2c53ad5). Geist is now the Tailwind sans de
 
 - Local production build, 2026-10-04, before: 30 screens (every public and auth page, the signed-in workspace as the E2E gym, a portalled member modal) rendered no visible text in Inter, yet next/font preloaded its 48,432-byte file on every page, the largest of the three. Its one reader was recharts' off-screen measuring span.
 - After: 4,028 text nodes on the same 30 screens, all Geist or Geist Mono; the homepage preloads two font files instead of three. Chart pages: every axis label, bar and curve count identical; /revenue pixel-identical; /dashboard differs only in its clock; /member-analytics in 203 anti-aliased pixels of its curve. Verified once production preloads two fonts.
+- Production, 2026-10-05 (owner session check): two font preloads.
+- Vercel connector fetch of the production deployment dpl_Awm23N2tgrumn3UHUEHqpzziuCcn (PR #89), 2026-10-05: / and /contact each carry exactly two <link rel="preload" as="font"> tags (Geist and Geist Mono woff2), and no Inter.
 
 ### SEO-045
 
@@ -3032,13 +3038,13 @@ Rejected 2026-10-04: the owner decided Metric supports English only, so no Sinha
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | implemented |
+| Status | verified |
 | Category | on-page |
 | Intent | none |
 | External action | no |
 | Created | 2026-10-01T18:24:04Z |
-| Updated | 2026-10-04T15:48:40Z |
-| Completed | — |
+| Updated | 2026-10-05T08:31:54Z |
+| Completed | 2026-10-05T08:31:54Z |
 | Dependencies | — |
 
 **Target queries**
@@ -3070,6 +3076,8 @@ The owner asked for the true dashboard (2026-10-04). src/components/landing/Dash
 **Verification**
 
 - Chromium, local production build, 2026-10-04: every text node in the preview at least 5.07:1 (none below 4.5); no horizontal overflow at 1366, 1024, 768, 430, 390, 360 and 320; one h1. DashboardPreview.test.tsx compares nav and tiles with the real DashboardClient; six mutations each fail a test. Verified once Lighthouse on production reports no contrast failure in the hero.
+- Production, 2026-10-05 (owner session check): every text node in the hero preview at least 5.07:1, and no horizontal overflow.
+- Vercel connector fetch of the production deployment dpl_Awm23N2tgrumn3UHUEHqpzziuCcn (PR #89), 2026-10-05: / serves the rebuilt preview as one data-theme="dark", aria-hidden="true" block. Contrast and overflow are not measurable from HTML and rest on the check above.
 
 ### SEO-052
 
@@ -3078,13 +3086,13 @@ The owner asked for the true dashboard (2026-10-04). src/components/landing/Dash
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | implemented |
+| Status | verified |
 | Category | trust |
 | Intent | none |
 | External action | no |
 | Created | 2026-10-01T18:24:04Z |
-| Updated | 2026-10-04T15:48:40Z |
-| Completed | — |
+| Updated | 2026-10-05T08:31:54Z |
+| Completed | 2026-10-05T08:31:54Z |
 | Dependencies | — |
 
 **Target queries**
@@ -3116,6 +3124,8 @@ Owner decision 2026-10-04: weekly plans get no automated reminders of any kind, 
 **Verification**
 
 - Restoring the old weekly rule fails five tests. Production, read-only SQL 2026-10-04: 16 weekly members, all cancelled, in two gyms; the 9 weekly reminders of the previous 30 days were all in the E2E test gym.
+- Production, 2026-10-05 (owner session check): "Daily and weekly" on /features/sms-reminders.
+- Vercel connector fetch of the production deployment dpl_Awm23N2tgrumn3UHUEHqpzziuCcn (PR #89), 2026-10-05: /features/sms-reminders reads "Daily and weekly members get no reminders", and its schedule table shows Weekly as Not sent at 7 days, 3 days and on the due date.
 
 ### SEO-053
 
@@ -3238,13 +3248,13 @@ Seven card titles and summaries rewritten per page (e.g. 'From registration to t
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | implemented |
+| Status | verified |
 | Category | performance |
 | Intent | none |
 | External action | no |
 | Created | 2026-10-02T16:47:44Z |
-| Updated | 2026-10-05T00:42:18Z |
-| Completed | — |
+| Updated | 2026-10-05T08:31:54Z |
+| Completed | 2026-10-05T08:31:54Z |
 | Dependencies | SEO-055 |
 
 **Target queries**
@@ -3285,4 +3295,5 @@ The four pieces moved out of the root layout into AppProviders (src/components/p
 - Behaviour, read-only: client navigation to /login works; the auth_failed cookie shows the session-expired toast; six signed-in screens render with zero console errors; the app registers its service worker and a public visit registers none.
 - Secrets: 64 client files in .next/static held none of the 23 server-only variable values and no service_role JWT.
 - providers-placement.test.ts, AppProviders.test.tsx and auth-link-prefetch.test.tsx; five mutations (AuthRecovery back in the root layout, AppProviders dropped from (auth), QueryProvider removed, one header opt-out removed, prefetchFor made a no-op) each fail one.
+- Production, 2026-10-05 (owner session check): public pages load 236 KB of gzipped JavaScript with no provider chunks. Not re-measured here: the connector returns HTML only.
 

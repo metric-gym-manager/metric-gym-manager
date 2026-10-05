@@ -6,6 +6,7 @@ import type {
   MembersListResponse,
 } from '@/features/members/types'
 import MembersPageClient from '../MembersPageClient'
+import { formatDate } from '@/utils/date/date'
 
 /**
  * The Members screen on a phone (mobile rebuild plan §8.2, §9.4, §25.4).
@@ -101,7 +102,7 @@ describe('Members on a phone — §9.4 visible set', () => {
 
     expect(r.getByText('Nimal Perera')).toBeInTheDocument()
     expect(r.getByText('Active')).toBeInTheDocument()
-    expect(r.getByText('2026-12-01')).toBeInTheDocument()
+    expect(r.getByText(formatDate('2026-12-01'))).toBeInTheDocument()
     expect(r.getByText(/Monthly/)).toBeInTheDocument()
     expect(r.getByText(/5,000/)).toBeInTheDocument()
   })
@@ -116,7 +117,7 @@ describe('Members on a phone — §9.4 visible set', () => {
       .getByText('Active')
       .closest('span')?.parentElement
     expect(statusLine).toHaveTextContent('Active')
-    expect(statusLine).toHaveTextContent('2026-12-01')
+    expect(statusLine).toHaveTextContent(formatDate('2026-12-01'))
   })
 
   it('carries the avatar as the row leading, not inside the name', async () => {

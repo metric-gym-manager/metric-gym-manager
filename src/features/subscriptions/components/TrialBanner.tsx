@@ -8,6 +8,7 @@ import {
   TIER_DISPLAY_NAME,
 } from '@/features/subscriptions/config/SubscriptionConfig'
 import type { SerializedSubscription } from '../types'
+import { formatDate } from '@/utils/date/date'
 
 interface TrialBannerProps {
   subscription: SerializedSubscription
@@ -74,7 +75,10 @@ export default function TrialBanner({
               {trialEndsAt && (
                 <>
                   {' '}
-                  until <span className="font-semibold">{trialEndsAt}</span>
+                  until{' '}
+                  <span className="font-semibold">
+                    {formatDate(trialEndsAt)}
+                  </span>
                 </>
               )}
               . Subscribe before then to keep your account active — otherwise it

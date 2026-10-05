@@ -16,6 +16,7 @@ import {
   TIER_DISPLAY_NAME,
 } from '@/features/subscriptions/config/SubscriptionConfig'
 import type { SerializedSubscription } from '../types'
+import { formatDate } from '@/utils/date/date'
 
 interface CurrentPlanCardProps {
   subscription: SerializedSubscription
@@ -140,7 +141,9 @@ export default function CurrentPlanCard({
               <>
                 {' '}
                 until{' '}
-                <span className="font-medium text-ink">{sub.trialEndsAt}</span>
+                <span className="font-medium text-ink">
+                  {formatDate(sub.trialEndsAt)}
+                </span>
               </>
             )}
             . Subscribe before it ends to keep your account active.
@@ -152,7 +155,7 @@ export default function CurrentPlanCard({
             <p className="text-sm text-ink-secondary">
               Renews on{' '}
               <span className="font-medium text-ink">
-                {sub.currentPeriodEnd}
+                {formatDate(sub.currentPeriodEnd)}
               </span>
               .
             </p>
@@ -162,7 +165,9 @@ export default function CurrentPlanCard({
             Subscription canceled — {TIER_DISPLAY_NAME[tier]} features continue
             until{' '}
             <span className="font-medium text-ink">
-              {sub.currentPeriodEnd ?? 'the end of the paid period'}
+              {sub.currentPeriodEnd
+                ? formatDate(sub.currentPeriodEnd)
+                : 'the end of the paid period'}
             </span>
             , then your account is suspended until payment is received.
           </p>

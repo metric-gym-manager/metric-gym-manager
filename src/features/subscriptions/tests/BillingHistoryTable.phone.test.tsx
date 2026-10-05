@@ -2,6 +2,7 @@ import { screen, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { renderScreen, mockFetchRoutes } from '@/test-utils/renderScreen'
 import BillingHistoryTable from '../components/BillingHistoryTable'
+import { formatDate } from '@/utils/date/date'
 
 const payments = [
   {
@@ -56,7 +57,7 @@ describe('Billing history — phone tier', () => {
     expect(screen.queryByRole('table')).toBeNull()
 
     const first = within(rows[0])
-    expect(first.getByText('2026-09-01')).toBeInTheDocument()
+    expect(first.getByText(formatDate('2026-09-01'))).toBeInTheDocument()
     expect(first.getByText('paid')).toBeInTheDocument()
     expect(first.getByText('LKR 4,900.00')).toBeInTheDocument()
     expect(first.getByText('MGO-000123')).toBeInTheDocument()

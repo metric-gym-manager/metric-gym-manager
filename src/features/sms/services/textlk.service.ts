@@ -12,6 +12,33 @@
 import { isSmsDisabledForGym } from '../config/SmsSuppression'
 
 /**
+ * How long a text.lk call may take before we stop waiting.
+ *
+ * Registration awaits the welcome text and bulk import awaits up to 50 at
+ * once, so without a limit a hung gateway held the desk's request until the
+ * platform killed it. text.lk normally answers in a second or two.
+ */
+export const TEXT_LK_TIMEOUT_MS = 10_000
+
+/**
+ * Logged as the failed send's `error_message` (shown on /system-health only,
+ * rule 2.9). The gateway may still have sent the text, hence "unknown".
+ */
+export const TEXT_LK_TIMEOUT_ERROR =
+  'SMS gateway did not answer within 10 s; delivery unknown'
+
+/**
+ * An abort signal that fires after {@link TEXT_LK_TIMEOUT_MS}, and the
+ * function that cancels it. A plain timer rather than `AbortSignal.timeout`,
+ * so the caller can clear it once the call is done.
+ */
+function startTimeout(): { signal: AbortSignal; clear: () => void } {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TEXT_LK_TIMEOUT_MS)
+  return { signal: controller.signal, clear: () => clearTimeout(timer) }
+}
+
+/**
  * Response from text.lk API for sending SMS
  */
 export interface TextLkResponse {
@@ -79,6 +106,9 @@ export async function sendSmsViaTextLk(
     return { success: false, error: 'SMS disabled for this gym' }
   }
 
+  // Covers the request AND reading its body: either can hang.
+  const timeout = startTimeout()
+
   try {
     // Validate environment variables
     if (!process.env.TEXT_LK_API_KEY) {
@@ -124,6 +154,7 @@ export async function sendSmsViaTextLk(
         type: 'plain',
         message: params.message,
       }),
+      signal: timeout.signal,
     })
 
     // Handle non-200 responses
@@ -161,6 +192,11 @@ export async function sendSmsViaTextLk(
       }
     }
   } catch (error) {
+    if (timeout.signal.aborted) {
+      console.error('text.lk API timeout:', TEXT_LK_TIMEOUT_ERROR)
+      return { success: false, error: TEXT_LK_TIMEOUT_ERROR }
+    }
+
     console.error('text.lk API exception:', error)
 
     // Network or parsing errors
@@ -171,6 +207,8 @@ export async function sendSmsViaTextLk(
           ? error.message
           : 'Failed to connect to SMS service',
     }
+  } finally {
+    timeout.clear()
   }
 }
 
@@ -188,6 +226,8 @@ export async function sendSmsViaTextLk(
  * }
  */
 export async function getTextLkBalance(): Promise<number | null> {
+  const timeout = startTimeout()
+
   try {
     if (!process.env.TEXT_LK_API_KEY) {
       console.error('TEXT_LK_API_KEY environment variable is not set')
@@ -203,6 +243,7 @@ export async function getTextLkBalance(): Promise<number | null> {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.TEXT_LK_API_KEY}`,
       },
+      signal: timeout.signal,
     })
 
     if (!response.ok) {
@@ -213,7 +254,12 @@ export async function getTextLkBalance(): Promise<number | null> {
     const data = await response.json()
     return data.balance
   } catch (error) {
-    console.error('text.lk balance check exception:', error)
+    console.error(
+      'text.lk balance check exception:',
+      timeout.signal.aborted ? TEXT_LK_TIMEOUT_ERROR : error
+    )
     return null
+  } finally {
+    timeout.clear()
   }
 }

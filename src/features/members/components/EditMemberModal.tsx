@@ -11,6 +11,7 @@ import {
 } from '@/features/members/schemas/member.schemas'
 import type { MemberWithDiscount } from '@/features/members/types'
 import { toast } from 'sonner'
+import { formatDate } from '@/utils/date/date'
 
 interface Discount {
   id: string
@@ -315,14 +316,12 @@ export default function EditMemberModal({
             <div>
               <Label className="text-ink-muted">Registered Date</Label>
               <p className="font-medium">
-                {new Date(member.registered_date).toLocaleDateString('en-GB')}
+                {formatDate(member.registered_date)}
               </p>
             </div>
             <div>
               <Label className="text-ink-muted">Next Due Date</Label>
-              <p className="font-medium">
-                {new Date(member.next_due_date).toLocaleDateString('en-GB')}
-              </p>
+              <p className="font-medium">{formatDate(member.next_due_date)}</p>
             </div>
           </div>
           <p className="text-xs text-ink-muted">

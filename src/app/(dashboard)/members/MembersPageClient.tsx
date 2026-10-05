@@ -21,6 +21,7 @@ import { useViewportTier } from '@/hooks/useViewportTier'
 import { useMemberModal } from '@/contexts/member-modal.context'
 import { MemberAvatar } from '@/features/members'
 import { memberStatusIndicator } from '@/features/members/utils/memberStatusIndicator'
+import { formatDate } from '@/utils/date/date'
 import type {
   MembersListResponse,
   MemberWithDiscount,
@@ -191,7 +192,7 @@ export default function MembersPageClient() {
       header: 'Joined',
       cell: (m) => (
         <span className="font-mono text-mono-md text-ink-muted">
-          {m.membership_start_date}
+          {formatDate(m.membership_start_date)}
         </span>
       ),
     },
@@ -204,13 +205,13 @@ export default function MembersPageClient() {
           <span
             className={
               variant === 'error'
-                ? 'font-mono text-mono-md text-error'
+                ? 'whitespace-nowrap font-mono text-mono-md text-error'
                 : variant === 'warning'
-                  ? 'font-mono text-mono-md text-warning'
-                  : 'font-mono text-mono-md text-ink-secondary'
+                  ? 'whitespace-nowrap font-mono text-mono-md text-warning'
+                  : 'whitespace-nowrap font-mono text-mono-md text-ink-secondary'
             }
           >
-            {m.next_due_date}
+            {formatDate(m.next_due_date)}
           </span>
         )
       },

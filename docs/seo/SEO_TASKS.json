@@ -1129,7 +1129,7 @@
       "title": "Social and entity profiles",
       "category": "entity",
       "priority": "P3",
-      "status": "implemented",
+      "status": "verified",
       "intent": "navigational",
       "targetQueries": ["metric gym os"],
       "finding": "No social profile URLs exist in the repository, so Organization.sameAs cannot be populated.",
@@ -1144,13 +1144,15 @@
         "src/app/(marketing)/contact/page.tsx"
       ],
       "verification": [
-        "structured-data.test.ts: sameAs equals SOCIAL_PROFILES and contains the confirmed URL. MarketingPages.test.tsx: /contact links every listed profile; removing the links fails it. Verified once the production Organization markup shows sameAs."
+        "structured-data.test.ts: sameAs equals SOCIAL_PROFILES and contains the confirmed URL. MarketingPages.test.tsx: /contact links every listed profile; removing the links fails it. Verified once the production Organization markup shows sameAs.",
+        "Production, 2026-10-05 (owner session check): the Organization markup carries sameAs.",
+        "Vercel connector fetch of the production deployment dpl_Awm23N2tgrumn3UHUEHqpzziuCcn (PR #89), 2026-10-05: /contact answered 200; its Organization JSON-LD reads \"sameAs\":[\"https://www.facebook.com/people/Metric-Gym-OS/61593409007692/\"], and the page links the profile once under \"Follow us\"."
       ],
       "dependencies": [],
       "externalActionRequired": false,
       "createdAt": "2026-10-01T17:40:00Z",
-      "updatedAt": "2026-10-04T15:48:40Z",
-      "completedAt": null
+      "updatedAt": "2026-10-05T08:31:54Z",
+      "completedAt": "2026-10-05T08:31:54Z"
     },
     {
       "id": "SEO-041",
@@ -1188,16 +1190,18 @@
       ],
       "finding": "Fitconnect's strongest content is original local data. Metric holds anonymisable aggregate data (reminder delivery outcomes, renewal timing) that no competitor can copy.",
       "evidence": [
-        "src/features/sms (sms_logs delivery statuses); revenue and analytics features."
+        "src/features/sms (sms_logs delivery statuses); revenue and analytics features.",
+        "Read-only probe of production, 2026-10-05. Customer gyms with data: Fitness Empire (231 members, 847 payments, 1,275 texts), Yomak Health Hub (60/60/7), Titan Fitness (52/83/191, including test members), Royal Fitness World (11 members) and LifeLine Fitness (1). Fitness Empire is about 65% of members and about 85% of payments and texts, so a cross-gym aggregate would be its figures under another name.",
+        "Fitness Empire, 2026-10-05: on Metric since 2026-02-28; 134 of 231 members active; payments recorded about 90 a month March to July, 148 in August, 166 in September; April to September, after removing 30 same-day duplicate payments, 48.2% of 531 renewals were recorded on or before the due date and 81.5% within a week. No delivery report has ever arrived, so delivery rates cannot be published; there is no pre-Metric baseline."
       ],
-      "recommendedChange": "Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies. Owner consent, 2026-10-04: one named case study (Fitness Empire only) and an anonymised aggregate study from Metric's own records. Next: a read-only data probe and a plan; the owner approves every published figure.",
+      "recommendedChange": "Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies. Owner consent, 2026-10-04: one named case study (Fitness Empire only) and an anonymised aggregate study from Metric's own records. Next: a read-only data probe and a plan; the owner approves every published figure. Probe done 2026-10-05: recommend no cross-gym study until about 10 gyms hold data with none above a quarter of it; the Fitness Empire figures listed in HANDOFF §6 await the owner and Fitness Empire.",
       "implementation": "",
       "files": [],
       "verification": [],
       "dependencies": ["SEO-022"],
       "externalActionRequired": true,
       "createdAt": "2026-10-01T17:40:00Z",
-      "updatedAt": "2026-10-04T15:48:40Z",
+      "updatedAt": "2026-10-05T09:30:02Z",
       "completedAt": null
     },
     {
@@ -1205,7 +1209,7 @@
       "title": "Marketing pages preload a font they do not render",
       "category": "performance",
       "priority": "P3",
-      "status": "implemented",
+      "status": "verified",
       "intent": "none",
       "targetQueries": [],
       "finding": "The root layout loads Inter, Geist and Geist Mono for every route; the landing and marketing surfaces render in Geist, so Inter's preload is unused there.",
@@ -1222,13 +1226,15 @@
       ],
       "verification": [
         "Local production build, 2026-10-04, before: 30 screens (every public and auth page, the signed-in workspace as the E2E gym, a portalled member modal) rendered no visible text in Inter, yet next/font preloaded its 48,432-byte file on every page, the largest of the three. Its one reader was recharts' off-screen measuring span.",
-        "After: 4,028 text nodes on the same 30 screens, all Geist or Geist Mono; the homepage preloads two font files instead of three. Chart pages: every axis label, bar and curve count identical; /revenue pixel-identical; /dashboard differs only in its clock; /member-analytics in 203 anti-aliased pixels of its curve. Verified once production preloads two fonts."
+        "After: 4,028 text nodes on the same 30 screens, all Geist or Geist Mono; the homepage preloads two font files instead of three. Chart pages: every axis label, bar and curve count identical; /revenue pixel-identical; /dashboard differs only in its clock; /member-analytics in 203 anti-aliased pixels of its curve. Verified once production preloads two fonts.",
+        "Production, 2026-10-05 (owner session check): two font preloads.",
+        "Vercel connector fetch of the production deployment dpl_Awm23N2tgrumn3UHUEHqpzziuCcn (PR #89), 2026-10-05: / and /contact each carry exactly two <link rel=\"preload\" as=\"font\"> tags (Geist and Geist Mono woff2), and no Inter."
       ],
       "dependencies": [],
       "externalActionRequired": false,
       "createdAt": "2026-10-01T17:40:00Z",
-      "updatedAt": "2026-10-04T15:48:40Z",
-      "completedAt": null
+      "updatedAt": "2026-10-05T08:31:54Z",
+      "completedAt": "2026-10-05T08:31:54Z"
     },
     {
       "id": "SEO-044",
@@ -1428,18 +1434,20 @@
         "src/components/landing/LandingPage.tsx"
       ],
       "verification": [
-        "Chromium, local production build, 2026-10-04: every text node in the preview at least 5.07:1 (none below 4.5); no horizontal overflow at 1366, 1024, 768, 430, 390, 360 and 320; one h1. DashboardPreview.test.tsx compares nav and tiles with the real DashboardClient; six mutations each fail a test. Verified once Lighthouse on production reports no contrast failure in the hero."
+        "Chromium, local production build, 2026-10-04: every text node in the preview at least 5.07:1 (none below 4.5); no horizontal overflow at 1366, 1024, 768, 430, 390, 360 and 320; one h1. DashboardPreview.test.tsx compares nav and tiles with the real DashboardClient; six mutations each fail a test. Verified once Lighthouse on production reports no contrast failure in the hero.",
+        "Production, 2026-10-05 (owner session check): every text node in the hero preview at least 5.07:1, and no horizontal overflow.",
+        "Vercel connector fetch of the production deployment dpl_Awm23N2tgrumn3UHUEHqpzziuCcn (PR #89), 2026-10-05: / serves the rebuilt preview as one data-theme=\"dark\", aria-hidden=\"true\" block. Contrast and overflow are not measurable from HTML and rest on the check above."
       ],
       "dependencies": [],
       "externalActionRequired": false,
       "createdAt": "2026-10-01T18:24:04Z",
-      "updatedAt": "2026-10-04T15:48:40Z",
-      "completedAt": null,
+      "updatedAt": "2026-10-05T08:31:54Z",
+      "completedAt": "2026-10-05T08:31:54Z",
       "id": "SEO-051",
       "title": "Decorative dashboard preview on the homepage fails colour contrast",
       "category": "on-page",
       "priority": "P3",
-      "status": "implemented",
+      "status": "verified",
       "intent": "none",
       "finding": "The hero's mock dashboard uses 10–11 px #5c5c64 labels on black (about 3:1), which Lighthouse counts as 32 contrast failures on '/'. It is decorative, pre-existing and the owner's design."
     },
@@ -1456,18 +1464,20 @@
         "src/app/(marketing)/resources/membership-renewal-reminders/page.tsx"
       ],
       "verification": [
-        "Restoring the old weekly rule fails five tests. Production, read-only SQL 2026-10-04: 16 weekly members, all cancelled, in two gyms; the 9 weekly reminders of the previous 30 days were all in the E2E test gym."
+        "Restoring the old weekly rule fails five tests. Production, read-only SQL 2026-10-04: 16 weekly members, all cancelled, in two gyms; the 9 weekly reminders of the previous 30 days were all in the E2E test gym.",
+        "Production, 2026-10-05 (owner session check): \"Daily and weekly\" on /features/sms-reminders.",
+        "Vercel connector fetch of the production deployment dpl_Awm23N2tgrumn3UHUEHqpzziuCcn (PR #89), 2026-10-05: /features/sms-reminders reads \"Daily and weekly members get no reminders\", and its schedule table shows Weekly as Not sent at 7 days, 3 days and on the due date."
       ],
       "dependencies": [],
       "externalActionRequired": false,
       "createdAt": "2026-10-01T18:24:04Z",
-      "updatedAt": "2026-10-04T15:48:40Z",
-      "completedAt": null,
+      "updatedAt": "2026-10-05T08:31:54Z",
+      "completedAt": "2026-10-05T08:31:54Z",
       "id": "SEO-052",
       "title": "Weekly members get their '7 days before' reminder on the day they pay",
       "category": "trust",
       "priority": "P3",
-      "status": "implemented",
+      "status": "verified",
       "intent": "none",
       "finding": "REMINDER_RULES gives weekly plans the 7-day reminder, but a weekly period is seven days long, so the 7-days-before date is the payment day itself. The SMS reminders page shows the schedule exactly as the product runs it; the guide article does not recommend it."
     },
@@ -1735,7 +1745,7 @@
       "title": "Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery",
       "category": "performance",
       "priority": "P3",
-      "status": "implemented",
+      "status": "verified",
       "intent": "none",
       "targetQueries": [],
       "finding": "Split from SEO-055. After the chart library left the public pages, they still load about 345 KB of gzipped JS. A chunk the audit measured at 245 KB raw (52 KB unused) carries the Supabase client, @tanstack/react-query, the service-worker registration and AuthRecovery, all mounted by the root layout for every route. They sit in the root on purpose: AuthRecovery is the hard-navigation escape for a broken session (rule 2.15), and the service worker's single-reload rule (2.19) assumes it runs on every full-document navigation. So moving them is an auth and PWA decision, not a bundle tweak.",
@@ -1759,13 +1769,14 @@
         "Local production build, 2026-10-05, Chromium JS coverage at 390 px: /, /pricing, the buying guide, /privacy and /terms went from 316–320 KB of gzipped JavaScript with 87 KB of provider chunks to 236 KB with none; /join to 234 KB with none. /login and /register still carry them. Moving the providers alone left 77 KB arriving through prefetches of /login and /register; prefetch opt-outs removed them (hovering the sign-in links fetched nothing).",
         "Behaviour, read-only: client navigation to /login works; the auth_failed cookie shows the session-expired toast; six signed-in screens render with zero console errors; the app registers its service worker and a public visit registers none.",
         "Secrets: 64 client files in .next/static held none of the 23 server-only variable values and no service_role JWT.",
-        "providers-placement.test.ts, AppProviders.test.tsx and auth-link-prefetch.test.tsx; five mutations (AuthRecovery back in the root layout, AppProviders dropped from (auth), QueryProvider removed, one header opt-out removed, prefetchFor made a no-op) each fail one."
+        "providers-placement.test.ts, AppProviders.test.tsx and auth-link-prefetch.test.tsx; five mutations (AuthRecovery back in the root layout, AppProviders dropped from (auth), QueryProvider removed, one header opt-out removed, prefetchFor made a no-op) each fail one.",
+        "Production, 2026-10-05 (owner session check): public pages load 236 KB of gzipped JavaScript with no provider chunks. Not re-measured here: the connector returns HTML only."
       ],
       "dependencies": ["SEO-055"],
       "externalActionRequired": false,
       "createdAt": "2026-10-02T16:47:44Z",
-      "updatedAt": "2026-10-05T00:42:18Z",
-      "completedAt": null
+      "updatedAt": "2026-10-05T08:31:54Z",
+      "completedAt": "2026-10-05T08:31:54Z"
     },
     {
       "id": "SEO-061",
