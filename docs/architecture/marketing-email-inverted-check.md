@@ -38,6 +38,8 @@ The unit tests for the Resend adapter run against a double whose shape I wrote: 
 
 ## Clean (probe could have failed and did not)
 
+- **The fixes, deployed:** an opt-out through the preview of `7b7ee20` answered 200 in 2.8 s, read-back included. Only the chosen topic changed (Updates `opt_out`, Marketing still `opt_in`), the live page carries `<meta name="referrer" content="no-referrer">`, and the token signed with the local secret was accepted, so the local and Vercel secrets match.
+
 - **DNS:** `updates.metricgymos.com` exists (NOERROR, no NXDOMAIN for receivers' sender checks), and DMARC falls back to the apex `p=none`.
 - **Vendor quotes:** both sentences quoted in `marketing-email.md` (topic `opt_in` semantics, global unsubscribe) appear verbatim in Resend's raw docs.
 - **Deployed preview:** a bad token gets 400 `INVALID_LINK`, a truncated body gets 400, and `/unsubscribe` is public and `noindex`. The preview carries both variables (otherwise 503).
