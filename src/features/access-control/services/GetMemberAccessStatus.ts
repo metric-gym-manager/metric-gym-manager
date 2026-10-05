@@ -22,7 +22,7 @@ import {
   resolveAccessDecision,
 } from '@/features/access-control/domain/AccessDecision'
 import {
-  formatDeviceDate,
+  formatCalendarDate,
   getGymToday,
 } from '@/features/access-control/utils/getGymToday'
 import type { MemberAccessStatus } from '@/features/access-control/types'
@@ -69,10 +69,11 @@ export class GetMemberAccessStatus {
         : describeAccessDenial(decision.reason),
       fingerEnrolled: context.subject?.finger_enrolled ?? false,
       biometricConsentAt: context.biometricConsentAt?.toISOString() ?? null,
+      // ISO for the screen; the reader's YYYYMMDD stays on the sync path.
       validFrom: decision.validFrom
-        ? formatDeviceDate(decision.validFrom)
+        ? formatCalendarDate(decision.validFrom)
         : null,
-      validTo: decision.validTo ? formatDeviceDate(decision.validTo) : null,
+      validTo: decision.validTo ? formatCalendarDate(decision.validTo) : null,
       syncPending: pending > 0,
       syncFailed: dead > 0,
     }

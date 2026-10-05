@@ -86,6 +86,18 @@ export function formatDeviceDate(date: Date): string {
 }
 
 /**
+ * Format a calendar day as an ISO `YYYY-MM-DD` string, for API payloads
+ * (rule 2.11). The reader's own `YYYYMMDD` form is {@link formatDeviceDate},
+ * and belongs on the sync path only.
+ *
+ * @param date - The calendar day.
+ * @returns ISO date string, e.g. `2026-01-15`.
+ */
+export function formatCalendarDate(date: Date): string {
+  return toCalendarDay(date).toISOString().slice(0, 10)
+}
+
+/**
  * Add whole days to a calendar day.
  *
  * @param date - Starting calendar day.

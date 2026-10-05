@@ -153,7 +153,9 @@ export interface MemberAccessStatus {
    * rather than a tick nobody can account for later.
    */
   biometricConsentAt: string | null
+  /** First day the readers admit the member, ISO `YYYY-MM-DD`, or `null`. */
   validFrom: string | null
+  /** Last day (inclusive) the readers admit the member, ISO `YYYY-MM-DD`. */
   validTo: string | null
   /** True while changes are queued for the hardware — pending, not failed. */
   syncPending: boolean
