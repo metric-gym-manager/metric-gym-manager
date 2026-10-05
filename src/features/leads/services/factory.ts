@@ -7,7 +7,10 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createSmtpMailer } from '@/lib/email/smtp'
+import type { ILeadNotifier } from './ILeadNotifier'
 import type { ILeadRepository } from './ILeadRepository'
+import { SmtpLeadNotifier } from './SmtpLeadNotifier'
 import { SupabaseLeadRepository } from './SupabaseLeadRepository'
 import { SubmitLead } from './SubmitLead'
 
@@ -17,6 +20,12 @@ export function createLeadRepository(
   return new SupabaseLeadRepository(supabase)
 }
 
+/** The lead email sender, or `null` when SMTP_USER / SMTP_PASS are unset. */
+export function createLeadNotifier(): ILeadNotifier | null {
+  const mailer = createSmtpMailer()
+  return mailer ? new SmtpLeadNotifier(mailer) : null
+}
+
 export function createSubmitLead(supabase: SupabaseClient): SubmitLead {
-  return new SubmitLead(createLeadRepository(supabase))
+  return new SubmitLead(createLeadRepository(supabase), createLeadNotifier())
 }

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { LeadInterest } from '../config/LeadConfig'
-import type { Lead, NewLead } from '../types'
+import type { Lead, LeadNotificationOutcome, NewLead } from '../types'
 import type { ILeadRepository } from './ILeadRepository'
 
 interface LeadRow {
@@ -57,5 +57,31 @@ export class SupabaseLeadRepository implements ILeadRepository {
     }
 
     return toLead(data as LeadRow)
+  }
+
+  async recordNotification(
+    id: string,
+    outcome: LeadNotificationOutcome
+  ): Promise<void> {
+    const values =
+      'notifiedAt' in outcome
+        ? {
+            notified_at: outcome.notifiedAt.toISOString(),
+            notification_error: null,
+          }
+        : { notification_error: outcome.error }
+
+    // `.select()` so an update that matched nothing reports zero rows instead
+    // of passing for a write (the sms_logs lesson, rule 2.7).
+    const { data, error } = await this.supabase
+      .from('leads')
+      .update(values)
+      .eq('id', id)
+      .select('id')
+
+    if (error) throw new Error(error.message)
+    if (!data || data.length !== 1) {
+      throw new Error(`lead ${id}: notification outcome not recorded`)
+    }
   }
 }

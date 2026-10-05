@@ -11,9 +11,14 @@
 // ============================================================
 // SERVICES (factories compose use-cases for routes — R7)
 // ============================================================
-export { createLeadRepository, createSubmitLead } from './services/factory'
+export {
+  createLeadRepository,
+  createLeadNotifier,
+  createSubmitLead,
+} from './services/factory'
 export { SubmitLead, type SubmitLeadInput } from './services/SubmitLead'
 export type { ILeadRepository } from './services/ILeadRepository'
+export type { ILeadNotifier } from './services/ILeadNotifier'
 
 // ============================================================
 // SCHEMAS
@@ -26,10 +31,12 @@ export { createLeadSchema, type CreateLeadInput } from './schemas/lead.schemas'
 export {
   LeadInterest,
   LEAD_INTEREST_LABELS,
+  LEAD_NOTIFY_FROM,
+  LEAD_NOTIFY_TO,
   getLeadInterestLabel,
 } from './config/LeadConfig'
 
 // ============================================================
 // TYPES
 // ============================================================
-export type { Lead, NewLead } from './types'
+export type { Lead, LeadNotificationOutcome, NewLead } from './types'

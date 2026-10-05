@@ -31,6 +31,13 @@ export const LEAD_INTEREST_LABELS: Record<LeadInterest, string> = {
   [LeadInterest.Enterprise]: 'Enterprise plan',
 }
 
+/**
+ * Where each demo request is emailed (owner decision, 2026-10-05): an alias of
+ * admin@capitalistone.co. Sent from the no-reply alias the auth emails use.
+ */
+export const LEAD_NOTIFY_TO = 'hello@metricgymos.com'
+export const LEAD_NOTIFY_FROM = 'Metric Gym OS <noreply@metricgymos.com>'
+
 export function getLeadInterestLabel(interest: LeadInterest): string {
   return LEAD_INTEREST_LABELS[interest]
 }
