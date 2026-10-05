@@ -7,7 +7,7 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-05T03:17:31Z |
+| Last task update | 2026-10-05T04:09:00Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 3 |
@@ -1427,7 +1427,7 @@ SoftwareApplication (BusinessApplication, Web browser) with three LKR Offers + U
 | Intent | transactional |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-01T21:29:53Z |
+| Updated | 2026-10-05T04:09:00Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1442,6 +1442,7 @@ GA4 (G-D711W4RE25) loads sitewide but the demo form fires no conversion event, s
 **Evidence**
 
 - src/app/layout.tsx gtag config; src/components/landing/DemoModal.tsx posts to /api/public/leads with no gtag call.
+- 2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.
 
 **Recommended change**
 
@@ -1617,7 +1618,7 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 | Intent | transactional |
 | External action | required |
 | Created | 2026-10-01T21:45:00Z |
-| Updated | 2026-10-02T15:36:21Z |
+| Updated | 2026-10-05T04:09:00Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -1634,6 +1635,7 @@ src/components/ui/primitives/Table.tsx: handleKeyDown is undefined for static ro
 - src/app/(auth)/register/page.tsx: POST /api/auth/register, then router.push(`/verify-email?email=${encodeURIComponent(email)}`)
 - src/app/layout.tsx: gtag('config', 'G-D711W4RE25') on every route; no sign_up event anywhere in src/
 - The GA4 stream's enhanced-measurement and data-redaction settings are not visible from the repository
+- 2026-10-05: the site switched to the owner's GA4 stream G-6C0BXYD101 (it had reported to G-D711W4RE25, which the owner's account did not show). DebugView verification happens in the G-6C0BXYD101 property.
 
 **Recommended change**
 
