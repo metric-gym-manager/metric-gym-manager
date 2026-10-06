@@ -227,8 +227,10 @@ describe('SendAnnouncements — a release', () => {
   it('sends nothing when the deployed version has no changelog section', async () => {
     const { broadcaster, log, run } = setup()
     const report = await run({ appVersion: '1.3.0' })
+    // The ref is the version that ran: scripts/trigger-announcements.js reads
+    // it to tell a stale deployment's answer from the release's.
     expect(release(report)).toEqual([
-      expect.objectContaining({ outcome: 'no_release' }),
+      expect.objectContaining({ ref: '1.3.0', outcome: 'no_release' }),
     ])
     expect(broadcaster.created).toHaveLength(0)
     expect(log.rows.size).toBe(0)
@@ -299,6 +301,21 @@ describe('SendAnnouncements — a release', () => {
     expect(log.rows.size).toBe(0)
   })
 
+  it('sends nothing to the gyms when nobody can receive the preview', async () => {
+    // Every preview carries Gmail's one-click unsubscribe; one tap by the owner
+    // sets Resend's account-wide flag, and previews then reach nobody while the
+    // real sends go on — the veto gone without a sign (inverted check, 2026-10-06).
+    const { broadcaster, log, run } = setup()
+    broadcaster.reachable = 0
+    const report = await run()
+    expect(release(report)[0]).toMatchObject({
+      outcome: 'preview_failed',
+      detail: expect.stringContaining('Test segment'),
+    })
+    expect(broadcaster.created).toHaveLength(0)
+    expect(log.rows.size).toBe(0)
+  })
+
   it('keeps an interrupted send claimed, then finishes it once stale without a second preview', async () => {
     const { broadcaster, log, run, clock } = setup()
     broadcaster.failReal = true
@@ -363,6 +380,17 @@ describe('SendAnnouncements — a release', () => {
     )
     await run({ appVersion: '1.1.1' })
     expect(broadcaster.real()[0].html).toBe('<p>Fixes and improvements</p>')
+  })
+
+  it('keeps the real send inside office hours in Sri Lanka', async () => {
+    // 23:30 in Colombo: 24 hours on is 23:30 the next night, so 09:30 after.
+    const { broadcaster, run } = setup({
+      now: new Date('2026-10-21T18:00:00Z'),
+    })
+    const report = await run()
+    expect(release(report)[0].scheduledFor).toBe('2026-10-23T04:00:00.000Z')
+    expect(broadcaster.real()[0].scheduledAt).toBe('2026-10-23T04:00:00.000Z')
+    expect(broadcaster.previews()[0].html).toContain('23 October 2026 at 09:30')
   })
 
   it('sends the trial run to the Test segment only', async () => {

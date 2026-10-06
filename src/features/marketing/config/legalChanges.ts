@@ -46,3 +46,16 @@ export const LEGAL_CHANGES: readonly LegalChange[] = [
     ],
   },
 ]
+
+/**
+ * The text each legal page had on its `lastModified` date: the first 16 hex
+ * characters of the SHA-256 of its document sections, whitespace collapsed
+ * (src/app/__tests__/legal-text-fingerprints.test.tsx). Keyed `path@date`, so
+ * wording changed without a new date fails that test instead of reaching
+ * nobody. Add a key when a page gets a new date; never rewrite an old one.
+ */
+export const LEGAL_TEXT_FINGERPRINTS: Readonly<Record<string, string>> = {
+  '/privacy@2026-10-06': '069cf6a03fc2c8f5',
+  '/terms@2026-07-01': '993ff18b7d6bcd36',
+  '/refund-policy@2026-07-01': '5e0575584e294b19',
+}

@@ -396,15 +396,15 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 
   Commits of other types (docs, tests, chores) release nothing. A commit's `Release-Note:` line is what gyms read; `Release-Note: none` keeps it out. The `commit-msg` hook suggests one and never blocks. The old `post-merge` changelog hook is retired, so pulls no longer leave CHANGELOG.md edited.
 
-- [ ] **Add the two Actions secrets (owner).** My attempt to write them was refused: secret-store writes need you. From the repo folder, in this terminal:
-
-  ```
-  ! grep '^CRON_SECRET=' .env.local | cut -d= -f2- | tr -d '"\r\n' | gh secret set CRON_SECRET
-  ! grep '^RESEND_API_KEY=' .env.local | cut -d= -f2- | tr -d '"\r\n' | gh secret set RESEND_API_KEY
-  ```
-
-  Or use GitHub → Settings → Secrets and variables → Actions. Until they exist, releases still cut and tag themselves. The email then goes out at the daily 09:30 SLT run instead of minutes after the deploy, and a changed design is not republished. Each run shows a warning.
-
+- [x] **Actions secrets set (owner, 2026-10-06) and verified.** From GitHub Actions itself: production answered 200 to `CRON_SECRET` and 401 to a wrong one, and `RESEND_API_KEY` read both published designs.
+- [x] **Inverted check of the whole announcement system (2026-10-06).** Seven holes found and fixed, each reproduced first and mutation-tested after (`docs/architecture/announcements-inverted-check.md`):
+  - a GitHub squash could drop a feature from the email;
+  - wrapped notes were cut;
+  - sends could land at night;
+  - the preview veto could silently vanish;
+  - policy wording could change with no notice;
+  - the trigger trusted a bare 200;
+  - a mid-release push turned the run red.
 - [ ] **The first two emails, on merge.** Merging this branch is release **1.1.0**. Its one line for gyms says they'll now get a short email when Metric Gym OS gets new features or fixes. The **privacy notice** goes out at the same time; its four-line summary is in `legalChanges.ts`. Both previews reach playershyan@gmail.com within minutes of the deploy, and both go to the gyms **24 hours later** unless you cancel them at resend.com/broadcasts.
 - [ ] **Watch the first release run** at GitHub → Actions → Release. It ends with the announcement cron's answer. A red run emails you. Its error says which step failed, and the daily 09:30 SLT run still sends the announcement.
 - [ ] **When you edit a legal page**, the tests require an entry in `legalChanges.ts` with the page's new date: `notify: true` with a two-to-four-line summary for a material change, or `notify: false` for wording only.

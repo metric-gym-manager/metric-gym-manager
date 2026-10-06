@@ -17,6 +17,7 @@ function api(
     create: jest.Mock
     list: jest.Mock
     get: jest.Mock
+    contactsList: jest.Mock
   }> = {}
 ) {
   const mocks = {
@@ -24,10 +25,14 @@ function api(
     create: overrides.create ?? jest.fn(() => ok({ id: 'bc_1' })),
     list: overrides.list ?? jest.fn(() => ok({ data: [], has_more: false })),
     get: overrides.get ?? jest.fn(),
+    contactsList:
+      overrides.contactsList ??
+      jest.fn(() => ok({ data: [], has_more: false })),
   }
   const resend: AnnouncementResendApi = {
     templates: { get: mocks.templateGet },
     broadcasts: { create: mocks.create, list: mocks.list, get: mocks.get },
+    contacts: { list: mocks.contactsList },
   }
   return { resend, mocks }
 }
@@ -217,5 +222,37 @@ describe('ResendBroadcaster.getBroadcastState', () => {
     expect(await new ResendBroadcaster(resend).getBroadcastState('b')).toBe(
       state
     )
+  })
+})
+
+describe('ResendBroadcaster.reachableContacts', () => {
+  it('counts the contacts in a segment who have not unsubscribed', async () => {
+    const contactsList = jest.fn(() =>
+      ok({
+        data: [
+          { email: 'a@x.lk', unsubscribed: false },
+          { email: 'b@x.lk', unsubscribed: true },
+          { email: 'c@x.lk', unsubscribed: false },
+        ],
+        has_more: false,
+      })
+    )
+    const { resend } = api({ contactsList })
+    expect(
+      await new ResendBroadcaster(resend).reachableContacts('seg_test')
+    ).toBe(2)
+    expect(contactsList).toHaveBeenCalledWith(
+      { segmentId: 'seg_test', limit: 100 },
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
+  })
+
+  it('throws when the segment cannot be read, rather than guessing', async () => {
+    const { resend } = api({
+      contactsList: jest.fn(() => fail('application_error')),
+    })
+    await expect(
+      new ResendBroadcaster(resend).reachableContacts('seg_test')
+    ).rejects.toThrow()
   })
 })

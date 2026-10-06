@@ -137,7 +137,7 @@ Both go to the **"Product updates"** segment: gyms that are trialing, active or 
 3. **Fills it.** Broadcasts take finished HTML, not a template id; templates work only with single sends. The pipeline therefore fills the template's `{{{VARIABLE}}}`s itself and leaves `{{{contact.*}}}` for Resend. **A placeholder left with no value and no fallback stops the send.**
 4. **Claims the row**, before Resend sees anything.
 5. **Previews** to the **Test** segment at once (playershyan@gmail.com), with "[Preview]" in the subject and a banner naming the send time and the broadcast to cancel. If the preview fails, nothing reaches a gym, and the claim is released.
-6. **Schedules the real broadcast 24 hours later.** That is the owner's veto: cancel it at resend.com/broadcasts before then.
+6. **Schedules the real broadcast 24 hours later**, moved to 09:30 the next morning if that falls outside 09:00–19:00 Sri Lanka time (`nextSendTime`). That is the owner's veto: cancel it at resend.com/broadcasts before then. **The preview must reach someone:** if no contact in the Test segment can receive it (empty, or every contact unsubscribed, as one tap on Gmail's unsubscribe button does), nothing is sent to the gyms.
 
 **Never twice.**
 
@@ -152,7 +152,9 @@ Both go to the **"Product updates"** segment: gyms that are trialing, active or 
 - A version whose lines are all internal records `skipped`. Internal lines are headings other than Breaking, Added, Changed, Removed, Fixed, Performance and Security, and scopes `ci`, `test`, `docs`, `deps`, `build`, `dev`, `e2e`, `arch` and `lint`.
 - Before the first announcement, only the deployed version is considered, never the whole history.
 
-**Which policy change.**
+**Which policy change.** `legal-text-fingerprints.test.tsx` fingerprints each legal page's text under its date, so changed wording without a new date fails the tests instead of reaching nobody.
+
+**Which policy notice is sent.**
 
 - Only entries marked `notify: true` whose date has arrived in Sri Lanka are sent.
 - Only the newest such entry per page is sent. Its summary must cover the older ones it replaces.
@@ -196,17 +198,18 @@ Text values are HTML-escaped, braces included, so nothing from the changelog can
 3. **Changed designs are published** to Resend.
 4. **Once the final commit is live in production** (`scripts/wait-for-deployment.js` watches GitHub's record of Vercel's "Production – gym-management-saas" deployment), the job calls `/api/cron/send-announcements` with `CRON_SECRET`. The preview arrives within minutes of the deploy, and the gyms get the email 24 hours later. A timeout only warns, because the daily 09:30 SLT run still announces it.
 
-**What gyms read.** Each `feat`, `fix`, `perf` or breaking commit becomes one line, under "New features", "Improvements", "Fixes" or "Please note". By default the line is the commit's subject without its scope. A **`Release-Note:` line** in the commit body replaces it word for word. Write it for a gym owner, e.g. `Release-Note: Members can now pay part of a fee and settle the rest later.` **`Release-Note: none`** keeps an internal change out of the changelog and the email; the release still happens. The `commit-msg` hook suggests a note on every `feat`/`fix`/`perf` commit without one, and never blocks. A release whose changes are all internal gets the line "Behind-the-scenes improvements only", and no email.
+**What gyms read.** Each `feat`, `fix`, `perf` or breaking commit becomes a line, under "New features", "Improvements", "Fixes" or "Please note". By default the line is the commit's subject without its scope. A **`Release-Note:` line** in the commit body replaces it word for word. Write it for a gym owner, e.g. `Release-Note: Members can now pay part of a fee and settle the rest later.` **`Release-Note: none`** keeps an internal change out of the changelog and the email; the release still happens. A GitHub squash puts every inner commit's message in the body: each real note there becomes a line, and an inner `none` never hides the squashed change. A note wrapped onto indented following lines is joined back together. The `commit-msg` hook suggests a note on every `feat`/`fix`/`perf` commit without one, and never blocks. A release whose changes are all internal gets the line "Behind-the-scenes improvements only", and no email.
 
 **The baseline** is the tag `v1.0.0` on `c144d1f`, master before announcements shipped (created 2026-10-06). "Since the last release" needs a tag to count from, and the whole history is not a release note.
 
-**Secrets** (GitHub → Settings → Secrets and variables → Actions): `CRON_SECRET`, production's value, and `RESEND_API_KEY`, the full-access key. **Not yet set** (2026-10-06): writing them needs the owner. Until then:
+**Secrets** (GitHub → Settings → Secrets and variables → Actions): `CRON_SECRET`, production's value, and `RESEND_API_KEY`, the full-access key. Set by the owner on 2026-10-06, and verified from Actions the same day: production answered 200 to the secret and 401 to a wrong one, and the key read both published designs. Either secret missing skips its step with a warning.
 
-- the workflow cuts and tags releases as normal;
-- the announcement goes out at the daily 09:30 SLT run instead of minutes after the deploy;
-- a changed design is not republished.
+**Checked, not trusted.** `scripts/trigger-announcements.js` reads the cron's answer:
 
-Each skip shows a warning on the run. The local `CRON_SECRET` was checked against production on 2026-10-06 (HTTP 200).
+- an answer from an older deployment (the release entry names the version that ran) or a 5xx is asked again every 20 s, for up to 3 minutes;
+- any failed email fails the run.
+
+The run checks out the newest master. If master moves while a release is cut, it warns and steps aside, and the queued run releases everything.
 
 **The old local flow is retired.** The `post-merge` hook that drafted the Unreleased section on every pull is removed (the installer deletes an installed copy): its uncommitted edits would collide with the workflow's changelog commits on the next pull. The Version Manager GUI still works for a deliberate manual release; the workflow then finds nothing new since that tag.
 

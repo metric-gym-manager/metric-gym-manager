@@ -132,6 +132,110 @@ describe('the changelog the release writes, read by the email', () => {
   })
 })
 
+/**
+ * Inverted check, 2026-10-06. This repo's GitHub squash merge writes every
+ * inner commit's message into the squashed commit's body
+ * (`squash_merge_commit_message: COMMIT_MESSAGES`), so one commit can carry
+ * several notes — including inner `Release-Note: none` lines that were only
+ * about a tidy-up commit. And editors wrap long lines at 72 columns.
+ */
+describe('Release-Note lines in squashed and wrapped commit messages', () => {
+  const lines = (commit: Commit) => {
+    const section = generator.generateChangelogSection(
+      '1.2.0',
+      '2026-10-06',
+      generator.categorizeCommits([commit])
+    )
+    const [read] = parseChangelog(`# Changelog\n\n${section}`)
+    return Object.values(read.changes)
+      .flat()
+      .map((c) => c.text)
+  }
+
+  it('uses every real note in a squash, whatever order the inner commits came in', () => {
+    expect(
+      lines({
+        hash: 'a1a1a1a',
+        subject: 'feat(members): part payments (#95)',
+        body:
+          '* fix(members): tidy the sheet\n\nRelease-Note: none\n\n' +
+          '* feat(members): part payments\n\nRelease-Note: Members can pay part of a fee.\n\n' +
+          '* feat(members): receipts\n\nRelease-Note: Part payments get their own receipt.',
+      })
+    ).toEqual([
+      'Members can pay part of a fee.',
+      'Part payments get their own receipt.',
+    ])
+  })
+
+  it('never lets an inner commit\'s "none" hide the squashed feature', () => {
+    expect(
+      lines({
+        hash: 'a2a2a2a',
+        subject: 'feat(members): part payments (#96)',
+        body: '* feat(members): part payments\n\n* fix(members): tidy\n\nRelease-Note: none',
+      })
+    ).toEqual(['Part payments.'])
+  })
+
+  it('hides a one-commit squash whose commit said none (GitHub adds the PR number to its title)', () => {
+    expect(
+      lines({
+        hash: 'a5a5a5a',
+        subject: 'fix(release): close the gaps the inverted check found (#95)',
+        body: '- bullets for developers\n\nRelease-Note: none\n\nCo-Authored-By: X <x@y.z>',
+      })
+    ).toEqual([])
+  })
+
+  it('hides a squash only when every inner commit said none', () => {
+    expect(
+      lines({
+        hash: 'a6a6a6a',
+        subject: 'fix(cron): retries (#97)',
+        body:
+          '* fix(cron): retry once\n\nRelease-Note: none\n\n' +
+          '* test(cron): cover the retry\n\nRelease-Note: none',
+      })
+    ).toEqual([])
+  })
+
+  it('counts only the inner commits that could ever reach a changelog', () => {
+    // docs and chores never appear in a changelog, so their silence must not
+    // keep a squash of internal fixes visible.
+    expect(
+      lines({
+        hash: 'a7a7a7a',
+        subject: 'fix(release): close the gaps (#95)',
+        body:
+          '* fix(release): close the gaps\n\nRelease-Note: none\n\n' +
+          '* docs(rules): condense the rules\n\n' +
+          '* chore(deps): lockfile tidy',
+      })
+    ).toEqual([])
+  })
+
+  it('still hides a commit of its own marked none', () => {
+    expect(
+      lines({
+        hash: 'a3a3a3a',
+        subject: 'fix(cron): retry',
+        body: 'Release-Note: none',
+      })
+    ).toEqual([])
+  })
+
+  it('keeps a note wrapped onto the next lines whole', () => {
+    expect(
+      lines({
+        hash: 'a4a4a4a',
+        subject: 'feat(members): part payments',
+        body: 'Release-Note: Members can now pay part of a fee\n  and settle the rest\n  later.\n\nCo-Authored-By: X <x@y.z>',
+      })
+    ).toEqual(['Members can now pay part of a fee and settle the rest later.'])
+  })
+})
+
 describe('releaseTypeFor — the version bump from the kinds of change', () => {
   const type = (commits: Commit[]) =>
     release.releaseTypeFor(generator.categorizeCommits(commits))

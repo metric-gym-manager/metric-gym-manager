@@ -95,6 +95,41 @@ function parseCommitLine(line) {
   return { hash: hash.substring(0, 7), subject, body: body || '' }
 }
 
+/**
+ * Every `Release-Note:` in a commit body, in order. A note wrapped onto the
+ * following lines (indented, as git trailers continue) is joined back into
+ * one sentence; a 72-column editor otherwise cut it mid-sentence.
+ */
+function releaseNotes(body) {
+  const notes = []
+  const lines = body.split('\n')
+  for (let i = 0; i < lines.length; i++) {
+    const match = /^Release-Note:[ \t]*(.*)$/i.exec(lines[i])
+    if (!match) continue
+    let text = match[1].trim()
+    while (i + 1 < lines.length && /^[ \t]+\S/.test(lines[i + 1])) {
+      i += 1
+      text += ` ${lines[i].trim()}`
+    }
+    if (text) notes.push(text)
+  }
+  return notes
+}
+
+/**
+ * The inner commits of a GitHub squash body: one block per `* type(scope): …`
+ * line, up to the next. A body that is not a squash of several commits has
+ * zero or one block.
+ */
+function innerCommitBlocks(body) {
+  const blocks = []
+  for (const line of body.split('\n')) {
+    if (/^\* \w+(\([^)]*\))?!?: /.test(line)) blocks.push([])
+    if (blocks.length > 0) blocks[blocks.length - 1].push(line)
+  }
+  return blocks.map((block) => block.join('\n'))
+}
+
 function categorizeCommits(commits) {
   const categories = {
     breaking: [],
@@ -127,18 +162,43 @@ function categorizeCommits(commits) {
     // `Release-Note:` is the change in a gym owner's words: the release email
     // shows it instead of the developer subject. `Release-Note: none` keeps an
     // internal change out of the changelog, and so out of the email.
-    const noteMatch = body.match(/^Release-Note:[ \t]*(.+)$/im)
-    const note = noteMatch ? noteMatch[1].trim() : null
-    const hidden = note !== null && /^none\.?$/i.test(note)
+    //
+    // A GitHub squash of several commits writes each inner commit's message
+    // into the body as a `* type(scope): …` block (this repo's
+    // `squash_merge_commit_message` is COMMIT_MESSAGES), so a body may hold
+    // several notes, and `none` lines that were only about one inner tidy-up.
+    // Every real note becomes a line. `none` hides the commit when it is the
+    // commit's own word — a one-commit squash included — and hides a
+    // multi-commit squash only when every inner commit said it (inverted
+    // check, 2026-10-06: an inner `none` silently dropped the squashed feature).
+    const isNone = (note) => /^none\.?$/i.test(note)
+    const notes = releaseNotes(body)
+    const visible = notes.filter((note) => !isNone(note))
+    // Only inner commits that could reach a changelog count: a docs or chore
+    // commit has no note because it never needs one.
+    const inner = innerCommitBlocks(body).filter((block) =>
+      /^\* (?:(?:feat|feature|fix|perf)(?:\([^)]*\))?!?|\w+(?:\([^)]*\))?!): /.test(
+        block
+      )
+    )
+    const hidden =
+      visible.length > 0
+        ? false
+        : inner.length > 1
+          ? inner.every((block) => releaseNotes(block).some(isNone))
+          : notes.some(isNone)
 
-    const entry = {
+    const base = {
       hash,
       message,
       scope,
       originalSubject: subject,
-      releaseNote: hidden ? null : note,
+      releaseNote: null,
       hidden,
     }
+    const entries = visible.length
+      ? visible.map((note) => ({ ...base, releaseNote: note }))
+      : [base]
 
     // Check for breaking changes. `feat(api)!:` is breaking too: the old
     // pattern only matched the unscoped `feat!:`.
@@ -149,9 +209,11 @@ function categorizeCommits(commits) {
       // Extract breaking change description
       const breakingMatch = fullMessage.match(/BREAKING CHANGE:\s*(.+)/)
       if (breakingMatch) {
-        entry.breakingDescription = breakingMatch[1].trim()
+        entries.forEach((entry) => {
+          entry.breakingDescription = breakingMatch[1].trim()
+        })
       }
-      categories.breaking.push(entry)
+      categories.breaking.push(...entries)
       return
     }
 
@@ -159,31 +221,31 @@ function categorizeCommits(commits) {
     switch (type) {
       case 'feat':
       case 'feature':
-        categories.features.push(entry)
+        categories.features.push(...entries)
         break
       case 'fix':
-        categories.fixes.push(entry)
+        categories.fixes.push(...entries)
         break
       case 'perf':
-        categories.performance.push(entry)
+        categories.performance.push(...entries)
         break
       case 'docs':
-        categories.docs.push(entry)
+        categories.docs.push(...entries)
         break
       case 'refactor':
-        categories.refactor.push(entry)
+        categories.refactor.push(...entries)
         break
       case 'test':
       case 'tests':
-        categories.tests.push(entry)
+        categories.tests.push(...entries)
         break
       case 'chore':
       case 'ci':
       case 'build':
-        categories.chore.push(entry)
+        categories.chore.push(...entries)
         break
       default:
-        categories.other.push(entry)
+        categories.other.push(...entries)
     }
   })
 

@@ -91,6 +91,8 @@ function output(key, value) {
 
 function main() {
   const dryRun = process.argv.includes('--dry-run')
+  // The commit production should end up running, released or not.
+  output('sha', run('git rev-parse HEAD'))
   const lastTag = changelog.getLastVersionTag()
   if (!lastTag) {
     console.log(

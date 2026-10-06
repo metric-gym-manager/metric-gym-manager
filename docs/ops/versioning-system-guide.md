@@ -1,5 +1,15 @@
 # Auto-Versioning System Guide
 
+> **Superseded on 2026-10-06: releases are automatic.** `.github/workflows/release.yml`
+> cuts a release on every push to master from the commit types (breaking → major,
+> `feat` → minor, `fix`/`perf` → patch), writes CHANGELOG.md, tags it, and triggers the
+> release email to the gyms. Nobody runs the GUI for an ordinary release. The
+> `post-merge` hook described below is **retired**: the installer removes it, because
+> its local changelog drafts collided with the workflow's commits. The GUI still
+> works for a deliberate manual release. Current process: `.claude/rules/versioning.md`
+> and `docs/architecture/marketing-email.md`, "Releases are automatic". The rest of
+> this guide describes the old manual flow.
+
 ## Overview
 
 Complete automated versioning system with:

@@ -21,6 +21,17 @@ interface WaitForDeployment {
 const wait =
   require('../../../../scripts/wait-for-deployment.js') as WaitForDeployment
 
+interface Trigger {
+  assess(
+    status: number,
+    body: unknown,
+    expectedVersion: string | null
+  ): { state: 'ok' | 'stale' | 'failed'; reason?: string }
+  ANNOUNCE_URL: string
+}
+const trigger =
+  require('../../../../scripts/trigger-announcements.js') as Trigger
+
 const ROOT = join(__dirname, '../../../..')
 const workflow = readFileSync(
   join(ROOT, '.github/workflows/release.yml'),
@@ -89,20 +100,28 @@ describe('the release workflow', () => {
 
   it('emails only once the released commit is live in production', () => {
     const waitAt = workflow.indexOf('node scripts/wait-for-deployment.js')
-    const sendAt = workflow.indexOf('/api/cron/send-announcements')
+    const sendAt = workflow.indexOf('node scripts/trigger-announcements.js')
     expect(waitAt).toBeGreaterThan(-1)
     expect(sendAt).toBeGreaterThan(waitAt)
     expect(workflow).toContain('steps.release.outputs.sha || github.sha')
     expect(workflow).toContain("if: steps.deployed.outputs.live == 'true'")
+    expect(workflow).toContain(
+      'EXPECTED_VERSION: ${{ steps.release.outputs.version }}'
+    )
   })
 
   it('calls the production cron with its secret, never a value in the file', () => {
-    expect(workflow).toContain(
+    expect(trigger.ANNOUNCE_URL).toBe(
       'https://www.metricgymos.com/api/cron/send-announcements'
     )
-    expect(workflow).toContain('Authorization: Bearer $CRON_SECRET')
     expect(workflow).toContain('CRON_SECRET: ${{ secrets.CRON_SECRET }}')
     expect(workflow).toContain('RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}')
+  })
+
+  it('releases from the newest master, and steps aside when master moves mid-release', () => {
+    expect(workflow).toMatch(/ref: master\n/)
+    expect(workflow).toContain('superseded=true')
+    expect(workflow).toContain("steps.push.outputs.superseded != 'true'")
   })
 
   it('warns and skips, rather than failing, when a secret is not set yet', () => {
@@ -115,5 +134,82 @@ describe('the release workflow', () => {
     expect(workflow).toMatch(
       /permissions:\n {2}contents: write\n {2}deployments: read\n/
     )
+  })
+})
+
+/**
+ * Inverted check, 2026-10-06. The trigger used to trust a bare HTTP 200: the
+ * cron answers 200 even when an email failed to render or send, and right
+ * after a deploy the PREVIOUS deployment can still answer — announcing
+ * nothing, with a green tick. The cron's answer names the version that ran.
+ */
+describe('assess — what the announcement cron answered', () => {
+  const answer = (entries: object[]) => ({
+    success: true,
+    data: { counts: {}, entries },
+  })
+
+  it('accepts a run of the released version', () => {
+    expect(
+      trigger.assess(
+        200,
+        answer([
+          { kind: 'release', ref: '1.1.1', outcome: 'scheduled' },
+          {
+            kind: 'policy',
+            ref: 'privacy@2026-10-06',
+            outcome: 'already_announced',
+          },
+        ]),
+        '1.1.1'
+      ).state
+    ).toBe('ok')
+  })
+
+  it('calls an answer from the previous version stale, so it is asked again', () => {
+    expect(
+      trigger.assess(
+        200,
+        answer([{ kind: 'release', ref: '1.1.0', outcome: 'no_release' }]),
+        '1.1.1'
+      )
+    ).toEqual({
+      state: 'stale',
+      reason: 'production answered as 1.1.0, not 1.1.1',
+    })
+  })
+
+  it('fails on any email that could not be rendered, previewed or sent', () => {
+    for (const outcome of [
+      'render_failed',
+      'preview_failed',
+      'send_failed',
+      'refresh_failed',
+    ]) {
+      const result = trigger.assess(
+        200,
+        answer([
+          { kind: 'release', ref: '1.1.1', outcome, detail: 'HEADLINE' },
+        ]),
+        '1.1.1'
+      )
+      expect(result.state).toBe('failed')
+      expect(result.reason).toContain(`release 1.1.1: ${outcome} — HEADLINE`)
+    }
+  })
+
+  it('fails on a refused secret, and retries a server error as transient', () => {
+    expect(trigger.assess(401, {}, null).state).toBe('failed')
+    expect(trigger.assess(502, {}, null).state).toBe('stale')
+  })
+
+  it('needs no version when nothing was released', () => {
+    expect(
+      trigger.assess(
+        200,
+        answer([{ kind: 'release', ref: '1.1.0', outcome: 'no_release' }]),
+        null
+      ).state
+    ).toBe('ok')
   })
 })

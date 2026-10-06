@@ -27,6 +27,7 @@ import {
   type ReleaseSection,
 } from '../utils/changelog'
 import { renderTemplate, withPreviewBanner } from '../utils/renderTemplate'
+import { nextSendTime } from '../utils/sendWindow'
 import type { IAnnouncementLog } from './IAnnouncementLog'
 import type { IBroadcaster } from './IBroadcaster'
 
@@ -118,7 +119,8 @@ function message(error: unknown): string {
  * 4. a row is CLAIMED (unique per kind and ref), before Resend sees anything;
  * 5. a preview goes to the Test segment now;
  * 6. the real broadcast is scheduled `ANNOUNCEMENT_HOLD_HOURS` later — the
- *    owner's window to cancel it.
+ *    owner's window to cancel it — moved into office hours in Sri Lanka
+ *    (`nextSendTime`) when that would fall at night.
  *
  * A failure before step 4 leaves no trace, so the next run tries again. A
  * failed preview releases the claim: nothing reaches a gym unseen. A failed
@@ -278,14 +280,31 @@ export class SendAnnouncements {
     const subject = asSubject(title.html)
     if (input.dryRun) return entry('would_send', { subject, html: body.html })
 
+    // The preview is the owner's only veto, so it must reach someone. Every
+    // preview carries Gmail's one-click unsubscribe, and a tap there sets
+    // Resend's account-wide flag: previews would then go to nobody while the
+    // real sends went on.
+    if (!previewId) {
+      const reachable = await this.broadcaster.reachableContacts(
+        RESEND_TEST_SEGMENT_ID
+      )
+      if (reachable === 0) {
+        return entry('preview_failed', {
+          detail:
+            'No one in the Test segment can receive the preview (empty, or ' +
+            'every contact unsubscribed). Nothing was sent to the gyms.',
+        })
+      }
+    }
+
     // 4. The claim, before Resend sees anything.
     const fresh = !existing
     if (fresh && !(await this.log.claim(kind, ref))) {
       return entry('in_progress')
     }
 
-    const scheduledAt = new Date(
-      input.now.getTime() + ANNOUNCEMENT_HOLD_HOURS * HOUR
+    const scheduledAt = nextSendTime(
+      new Date(input.now.getTime() + ANNOUNCEMENT_HOLD_HOURS * HOUR)
     ).toISOString()
 
     // 5. The preview. If it fails, nothing goes to the gyms.

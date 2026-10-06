@@ -180,3 +180,18 @@ export const ANNOUNCEMENT_DEFAULT_SUBJECT: Record<AnnouncementKind, string> = {
 
 /** Where the email's button takes a gym owner. */
 export const ANNOUNCEMENT_APP_PATH = '/dashboard'
+
+/**
+ * When the gyms may receive an announcement, in minutes after midnight in Sri
+ * Lanka: from 09:00 up to (not including) 19:00. A send that would fall
+ * outside moves to 09:30, the daily run's own time (inverted check,
+ * 2026-10-06: a late-night merge emailed every gym owner at 23:30).
+ */
+export const SEND_WINDOW = {
+  opens: 9 * 60,
+  closes: 19 * 60,
+  fallback: 9 * 60 + 30,
+}
+
+/** Sri Lanka is UTC+05:30 all year (no daylight saving since 2006). */
+export const SRI_LANKA_UTC_OFFSET_MINUTES = 5 * 60 + 30
