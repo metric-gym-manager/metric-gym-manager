@@ -118,6 +118,7 @@ export {
   OUTREACH_CAMPAIGN,
   OUTREACH_FROM,
   OUTREACH_SEQUENCE_LENGTH,
-  OUTREACH_WEEKLY_LIMIT,
+  OUTREACH_STARTS_AT,
+  OUTREACH_DAILY_LIMIT,
   type OutreachStep,
 } from './config/outreachCampaign'

@@ -1,7 +1,8 @@
 /**
  * The introduction series to gyms that have never heard of Metric Gym OS
- * (owner request, 2026-10-06): four emails, one a week, sent by the weekly
- * `send-outreach` cron. Each recipient gets them in order and then no more.
+ * (owner request, 2026-10-06): four emails, one a week, sent by the daily
+ * `send-outreach` cron. Each recipient gets them in order, a week apart, and
+ * then no more.
  *
  * 1. "Tired of chasing payments?" — the SMS that brought in calls.
  * 2. The reminders — what members are sent, and when.
@@ -46,6 +47,13 @@ export const OUTREACH_REPLY_TO = MAILING_REPLY_TO
 /** The campaign's key in `outreach_recipients`. */
 export const OUTREACH_CAMPAIGN = 'intro-2026-10'
 
+/**
+ * No email of the campaign goes before this moment: the owner reviews the
+ * imported list first (the first send was promised for Tuesday 13 October,
+ * 10:00 Sri Lanka time).
+ */
+export const OUTREACH_STARTS_AT = new Date('2026-10-13T04:00:00Z')
+
 /** Emails in the series; a recipient gets each once, a week apart. */
 export const OUTREACH_SEQUENCE_LENGTH = 4
 export type OutreachStep = 1 | 2 | 3 | 4
@@ -54,11 +62,13 @@ export type OutreachStep = 1 | 2 | 3 | 4
 export const OUTREACH_MIN_GAP_DAYS = 6
 
 /**
- * Sends per weekly run, at most: a guard against a runaway list. A new
- * domain earns trust slowly; raise it only while bounces and complaints stay
- * near zero.
+ * Sends per daily run, at most. Individual emails count against Resend's
+ * 100-a-day limit (measured 2026-10-06), so the run stays well under it and
+ * leaves room for other email; a longer list simply takes more days, each
+ * address still getting one email a week. A new domain earns trust slowly:
+ * raise it only on a paid plan, while bounces and complaints stay near zero.
  */
-export const OUTREACH_WEEKLY_LIMIT = 150
+export const OUTREACH_DAILY_LIMIT = 80
 
 /** A recipient whose sends fail this many times in a row is stopped. */
 export const OUTREACH_MAX_FAILURES = 3

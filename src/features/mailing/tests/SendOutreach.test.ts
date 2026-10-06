@@ -102,6 +102,10 @@ class MemoryLedger implements IOutreachLedger {
     r.failures += 1
     if (r.failures >= OUTREACH_MAX_FAILURES) r.status = 'failed'
   }
+  async markDone(_c: string, email: string) {
+    const r = this.rows.get(email)
+    if (r) r.status = 'done'
+  }
   async markUnsubscribed(_c: string, email: string) {
     const r = this.rows.get(email)
     if (!r) return false
@@ -114,11 +118,13 @@ class FakeSender implements IOutreachSender {
   contacts = new Map<string, string>()
   unreachable = new Set<string>()
   failFor = new Set<string>()
+  checkFails = new Set<string>()
   sent: OutreachEmail[] = []
   async ensureContact(email: string, token: string) {
     if (!this.contacts.has(email)) this.contacts.set(email, token)
   }
   async canReceiveMarketing(email: string) {
+    if (this.checkFails.has(email)) throw new Error('Resend is down')
     return !this.unreachable.has(email)
   }
   async send(email: OutreachEmail) {
@@ -153,15 +159,16 @@ function setup(known: string[] = []) {
     })
   const runWeek = (
     now: Date,
-    extra: { limit?: number; dryRun?: boolean } = {}
+    extra: { limit?: number; dryRun?: boolean; deadline?: Date } = {}
   ) =>
     outreach.runWeek({
       campaign: CAMPAIGN,
       now,
       limit: extra.limit ?? 150,
       dryRun: extra.dryRun ?? false,
+      ...(extra.deadline ? { deadline: extra.deadline } : {}),
     })
-  return { ledger, sender, outreach, importList, runWeek }
+  return { ledger, sender, outreach, importList, runWeek, known }
 }
 
 describe('SendOutreach — importing the list', () => {
@@ -312,6 +319,54 @@ describe('SendOutreach — the weekly run', () => {
   })
 })
 
+/**
+ * Inverted check of the series, 2026-10-06 (docs/architecture/outreach-inverted-check.md).
+ */
+describe('SendOutreach — what the inverted check found', () => {
+  it('carries on with everyone else when one address cannot be checked', async () => {
+    const { ledger, sender, importList, runWeek } = setup()
+    await importList([
+      prospect('a@gym.lk'),
+      prospect('b@gym.lk'),
+      prospect('c@gym.lk'),
+    ])
+    sender.checkFails.add('a@gym.lk')
+    const report = await runWeek(week(1))
+    expect(sender.sent.map((e) => e.to)).toEqual(['b@gym.lk', 'c@gym.lk'])
+    expect(report.counts.failed).toBe(1)
+    // Not the address's fault: nothing claimed, nothing counted against it.
+    expect(ledger.rows.get('a@gym.lk')).toMatchObject({
+      step: 0,
+      failures: 0,
+      status: 'active',
+    })
+  })
+
+  it('stops the series for an address that has since become a gym or requested a demo', async () => {
+    const { ledger, sender, importList, runWeek, known } = setup()
+    await importList([prospect('a@gym.lk'), prospect('b@gym.lk')])
+    await runWeek(week(1))
+    known.push('A@gym.lk')
+    const report = await runWeek(week(2))
+    expect(sender.stepsTo('a@gym.lk')).toEqual(['1'])
+    expect(sender.stepsTo('b@gym.lk')).toEqual(['1', '2'])
+    expect(ledger.rows.get('a@gym.lk')?.status).toBe('done')
+    expect(report.counts.known).toBe(1)
+  })
+
+  it('stops starting new sends once its time is up, leaving the rest due', async () => {
+    const { ledger, sender, importList, runWeek } = setup()
+    await importList([prospect('a@gym.lk'), prospect('b@gym.lk')])
+    const report = await runWeek(week(1), { deadline: new Date(0) })
+    expect(sender.sent).toHaveLength(0)
+    expect(report.counts.deferred).toBe(2)
+    expect(ledger.rows.get('a@gym.lk')).toMatchObject({
+      step: 0,
+      status: 'active',
+    })
+  })
+})
+
 describe('SendOutreach — every email', () => {
   it('carries the recipient’s own unsubscribe link and a one-click unsubscribe for mail apps', async () => {
     const { sender, importList, runWeek } = setup()
@@ -352,6 +407,15 @@ describe('SendOutreach — every email', () => {
     await outreach.sendTest('me@metric.lk', 3)
     expect(sender.stepsTo('me@metric.lk')).toEqual(['3'])
     expect(ledger.rows.size).toBe(0)
+  })
+
+  it('can send the same test again after the email changed (Resend keeps idempotency keys for 24 hours)', async () => {
+    const { sender, outreach } = setup()
+    await outreach.sendTest('me@metric.lk', 1)
+    await outreach.sendTest('me@metric.lk', 1)
+    const [first, second] = sender.sent
+    expect(first.idempotencyKey).not.toBe(second.idempotencyKey)
+    expect(first.tags).toContainEqual({ name: 'campaign', value: 'test' })
   })
 
   it('takes an address out of the campaign on request', async () => {

@@ -1,8 +1,12 @@
 /**
- * /api/cron/send-outreach — the weekly introduction series to gyms whose
- * contact details are on public pages (owner request, 2026-10-06).
+ * /api/cron/send-outreach — the introduction series to gyms whose contact
+ * details are on public pages (owner request, 2026-10-06), one email a week
+ * per address.
  *
- * Schedule: `30 4 * * 2` — Tuesdays at 04:30 UTC, 10:00 Sri Lanka time.
+ * Schedule: `30 4 * * *` — daily at 04:30 UTC, 10:00 Sri Lanka time. Daily,
+ * not weekly, because individual emails count against Resend's 100-a-day
+ * limit: each run sends at most OUTREACH_DAILY_LIMIT, and the six-day gap
+ * decides who is due, so every address still gets one email a week.
  * Each address in `outreach_recipients` gets its next email of the four (at
  * least six days after the last), then no more; anyone who unsubscribed —
  * by the footer link or a mail app's one-click button — is dropped for good.
@@ -19,7 +23,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import {
   OUTREACH_CAMPAIGN,
-  OUTREACH_WEEKLY_LIMIT,
+  OUTREACH_DAILY_LIMIT,
+  OUTREACH_STARTS_AT,
   createSendOutreach,
 } from '@/features/mailing'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
@@ -28,6 +33,7 @@ import { CronLogger } from '@/lib/cron'
 export const dynamic = 'force-dynamic'
 // A few Resend calls per address; 150 addresses fit comfortably.
 export const maxDuration = 300
+const START_SENDS_FOR_MS = 180_000
 
 async function runOutreach(request: NextRequest) {
   const supabase = createAdminClient()
@@ -52,11 +58,24 @@ async function runOutreach(request: NextRequest) {
     const startedAt = Date.now()
     logId = await logger.logStart('send-outreach')
 
+    const now = new Date()
+    if (now < OUTREACH_STARTS_AT) {
+      const payload = {
+        campaign: OUTREACH_CAMPAIGN,
+        notStarted: true,
+        startsAt: OUTREACH_STARTS_AT.toISOString(),
+      }
+      await logger.logSuccess(logId, payload)
+      return NextResponse.json(ResponseBuilder.success(payload))
+    }
     const report = await createSendOutreach(supabase).runWeek({
       campaign: OUTREACH_CAMPAIGN,
-      now: new Date(),
-      limit: OUTREACH_WEEKLY_LIMIT,
+      now,
+      limit: OUTREACH_DAILY_LIMIT,
       dryRun: false,
+      // Stop starting sends two minutes before the function's 300 s limit, so
+      // a run is never cut off between claiming an email and sending it.
+      deadline: new Date(now.getTime() + START_SENDS_FOR_MS),
     })
 
     const failures = report.entries

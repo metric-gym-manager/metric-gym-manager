@@ -84,6 +84,15 @@ describe('ResendOutreachSender', () => {
     ).rejects.toThrow('down')
   })
 
+  it('treats a contact deleted from Resend as one never to write to', async () => {
+    // Deleting the contact is how a data-deletion request is honoured.
+    const { resend, m } = api({ get: jest.fn(() => fail('not_found')) })
+    expect(
+      await new ResendOutreachSender(resend).canReceiveMarketing('a@gym.lk')
+    ).toBe(false)
+    expect(m.topics).not.toHaveBeenCalled()
+  })
+
   it.each([
     [
       'opted out of marketing',
