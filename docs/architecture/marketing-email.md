@@ -200,7 +200,13 @@ Text values are HTML-escaped, braces included, so nothing from the changelog can
 
 **The baseline** is the tag `v1.0.0` on `c144d1f`, master before announcements shipped (created 2026-10-06). "Since the last release" needs a tag to count from, and the whole history is not a release note.
 
-**Secrets** (GitHub → Settings → Secrets → Actions): `CRON_SECRET`, production's value, and `RESEND_API_KEY`, the full-access key. Both were set 2026-10-06.
+**Secrets** (GitHub → Settings → Secrets and variables → Actions): `CRON_SECRET`, production's value, and `RESEND_API_KEY`, the full-access key. **Not yet set** (2026-10-06): writing them needs the owner. Until then:
+
+- the workflow cuts and tags releases as normal;
+- the announcement goes out at the daily 09:30 SLT run instead of minutes after the deploy;
+- a changed design is not republished.
+
+Each skip shows a warning on the run. The local `CRON_SECRET` was checked against production on 2026-10-06 (HTTP 200).
 
 **The old local flow is retired.** The `post-merge` hook that drafted the Unreleased section on every pull is removed (the installer deletes an installed copy): its uncommitted edits would collide with the workflow's changelog commits on the next pull. The Version Manager GUI still works for a deliberate manual release; the workflow then finds nothing new since that tag.
 

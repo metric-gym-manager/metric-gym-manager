@@ -16,6 +16,7 @@
 #    policy notice. The daily 09:30 SLT run is the backstop.
 #
 # Secrets: CRON_SECRET (production's value) and RESEND_API_KEY (full access).
+# Either missing skips its step with a warning; nothing else depends on them.
 # Design: docs/architecture/marketing-email.md, "Announcements".
 
 name: Release
@@ -76,7 +77,12 @@ jobs:
         if: steps.designs.outputs.changed == 'true'
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-        run: npx tsx scripts/publish-email-templates.ts
+        run: |
+          if [ -z "$RESEND_API_KEY" ]; then
+            echo "::warning::RESEND_API_KEY is not set in Actions secrets: the changed designs were not published."
+            exit 0
+          fi
+          npx tsx scripts/publish-email-templates.ts
 
       - name: Wait for production
         id: deployed
@@ -99,6 +105,10 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::CRON_SECRET is not set in Actions secrets: the daily 09:30 SLT run will send the announcements."
+            exit 0
+          fi
           code=$(curl -sS -o response.json -w '%{http_code}' \
             -H "Authorization: Bearer $CRON_SECRET" \
             https://www.metricgymos.com/api/cron/send-announcements)

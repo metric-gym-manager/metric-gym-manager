@@ -105,6 +105,12 @@ describe('the release workflow', () => {
     expect(workflow).toContain('RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}')
   })
 
+  it('warns and skips, rather than failing, when a secret is not set yet', () => {
+    expect(workflow).toContain('if [ -z "$RESEND_API_KEY" ]; then')
+    expect(workflow).toContain('if [ -z "$CRON_SECRET" ]; then')
+    expect(workflow.match(/::warning::[^\n]*is not set/g)).toHaveLength(2)
+  })
+
   it('asks for no more than it needs: write to the repo, read deployments', () => {
     expect(workflow).toMatch(
       /permissions:\n {2}contents: write\n {2}deployments: read\n/

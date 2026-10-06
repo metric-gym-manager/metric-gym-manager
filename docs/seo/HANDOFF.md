@@ -394,7 +394,16 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   - it bumps the version, writes the changelog and tags the release;
   - it waits for Vercel to put it live, then triggers the announcement at once.
 
-  Commits of other types (docs, tests, chores) release nothing. A commit's `Release-Note:` line is what gyms read; `Release-Note: none` keeps it out. The `commit-msg` hook suggests one and never blocks. Secrets `CRON_SECRET` and `RESEND_API_KEY` are set in GitHub Actions. The old `post-merge` changelog hook is retired, so pulls no longer leave CHANGELOG.md edited.
+  Commits of other types (docs, tests, chores) release nothing. A commit's `Release-Note:` line is what gyms read; `Release-Note: none` keeps it out. The `commit-msg` hook suggests one and never blocks. The old `post-merge` changelog hook is retired, so pulls no longer leave CHANGELOG.md edited.
+
+- [ ] **Add the two Actions secrets (owner).** My attempt to write them was refused: secret-store writes need you. From the repo folder, in this terminal:
+
+  ```
+  ! grep '^CRON_SECRET=' .env.local | cut -d= -f2- | tr -d '"\r\n' | gh secret set CRON_SECRET
+  ! grep '^RESEND_API_KEY=' .env.local | cut -d= -f2- | tr -d '"\r\n' | gh secret set RESEND_API_KEY
+  ```
+
+  Or use GitHub → Settings → Secrets and variables → Actions. Until they exist, releases still cut and tag themselves. The email then goes out at the daily 09:30 SLT run instead of minutes after the deploy, and a changed design is not republished. Each run shows a warning.
 
 - [ ] **The first two emails, on merge.** Merging this branch is release **1.1.0**. Its one line for gyms says they'll now get a short email when Metric Gym OS gets new features or fixes. The **privacy notice** goes out at the same time; its four-line summary is in `legalChanges.ts`. Both previews reach playershyan@gmail.com within minutes of the deploy, and both go to the gyms **24 hours later** unless you cancel them at resend.com/broadcasts.
 - [ ] **Watch the first release run** at GitHub → Actions → Release. It ends with the announcement cron's answer. A red run emails you. Its error says which step failed, and the daily 09:30 SLT run still sends the announcement.
