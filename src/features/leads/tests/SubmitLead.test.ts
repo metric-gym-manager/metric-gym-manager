@@ -148,7 +148,7 @@ describe('SubmitLead', () => {
   /**
    * The demo form's marketing checkbox (owner decision, 2026-10-06). Consent
    * is recorded on the row with its time, and a consenting lead joins the
-   * Demo leads mailing audience. Unticked means neither.
+   * Marketing mailing audience. Unticked means neither.
    */
   describe('marketing consent', () => {
     function audience(

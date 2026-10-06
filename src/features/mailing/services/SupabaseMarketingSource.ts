@@ -9,6 +9,7 @@ interface GymRow {
   id: string
   email: string
   gym_name: string
+  subscription_status: string
 }
 
 interface LeadRow {
@@ -28,13 +29,14 @@ export class SupabaseMarketingSource implements IMarketingSource {
   async listGymOwners(): Promise<GymOwnerRecipient[]> {
     const { data, error } = await this.supabase
       .from('gyms')
-      .select('id, email, gym_name')
+      .select('id, email, gym_name, subscription_status')
       .order('created_at', { ascending: true })
     if (error) throw new Error(error.message)
     return ((data ?? []) as GymRow[]).map((row) => ({
       gymId: row.id,
       email: row.email,
       gymName: row.gym_name,
+      subscriptionStatus: row.subscription_status,
     }))
   }
 

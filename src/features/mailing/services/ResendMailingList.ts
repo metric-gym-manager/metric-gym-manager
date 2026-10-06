@@ -2,7 +2,8 @@ import {
   CONTACT_PROPERTY,
   RESEND_SEGMENT_IDS,
   RESEND_TOPIC_IDS,
-  type MailingTopic,
+  type MailingAudience,
+  MailingTopic,
 } from '../config/MailingConfig'
 import type {
   AddContactResult,
@@ -63,7 +64,21 @@ export interface MailingContactsApi {
       }>
     >
   }
+  list(
+    options: { segmentId: string; limit?: number; after?: string },
+    requestOptions?: RequestOptions
+  ): Promise<
+    ApiResult<{ data: { id: string; email: string }[]; has_more: boolean }>
+  >
+  remove(
+    options: { email: string },
+    requestOptions?: RequestOptions
+  ): Promise<ApiResult<unknown>>
   segments: {
+    remove(
+      options: { email: string; segmentId: string },
+      requestOptions?: RequestOptions
+    ): Promise<ApiResult<unknown>>
     list(
       options: { email: string },
       requestOptions?: RequestOptions
@@ -165,6 +180,7 @@ export class ResendMailingList implements IMailingList {
       }
       if (contact.gymName)
         properties[CONTACT_PROPERTY.gymName] = contact.gymName
+      if (contact.gymId) properties[CONTACT_PROPERTY.gymId] = contact.gymId
       const created = await this.contacts.create(
         {
           email: contact.email,
@@ -212,6 +228,65 @@ export class ResendMailingList implements IMailingList {
       result = 'added_to_audience'
     }
     return tokenMismatch && !this.rotateTokens ? 'token_mismatch' : result
+  }
+
+  async listAudience(audience: MailingAudience): Promise<string[]> {
+    const segmentId = RESEND_SEGMENT_IDS[audience]
+    const emails: string[] = []
+    let after: string | undefined
+    for (;;) {
+      const page = await this.contacts.list(
+        { segmentId, limit: 100, ...(after ? { after } : {}) },
+        this.limit()
+      )
+      if (page.error) throw new Error(page.error.message)
+      emails.push(...page.data.data.map((c) => c.email))
+      const last = page.data.data[page.data.data.length - 1]
+      if (!page.data.has_more || !last) return emails
+      after = last.id
+    }
+  }
+
+  async removeFromAudience(
+    email: string,
+    audience: MailingAudience
+  ): Promise<void> {
+    const result = await this.contacts.segments.remove(
+      { email, segmentId: RESEND_SEGMENT_IDS[audience] },
+      this.limit()
+    )
+    if (result.error && !isNotFound(result.error)) {
+      throw new Error(result.error.message)
+    }
+  }
+
+  async getGymId(email: string): Promise<string | null> {
+    const result = await this.contacts.get({ email }, this.limit())
+    if (result.error && !isNotFound(result.error)) {
+      throw new Error(result.error.message)
+    }
+    const value = result.data?.properties[CONTACT_PROPERTY.gymId]?.value
+    return typeof value === 'string' && value !== '' ? value : null
+  }
+
+  async optedOutTopics(email: string): Promise<MailingTopic[]> {
+    const result = await this.contacts.topics.list({ email }, this.limit())
+    if (result.error) throw new Error(result.error.message)
+    const optedOut = new Set(
+      result.data.data
+        .filter((t) => t.subscription === 'opt_out')
+        .map((t) => t.id)
+    )
+    return Object.values(MailingTopic).filter((topic) =>
+      optedOut.has(RESEND_TOPIC_IDS[topic])
+    )
+  }
+
+  async deleteContact(email: string): Promise<void> {
+    const result = await this.contacts.remove({ email }, this.limit())
+    if (result.error && !isNotFound(result.error)) {
+      throw new Error(result.error.message)
+    }
   }
 
   async optOut(email: string, topics: MailingTopic[]): Promise<void> {

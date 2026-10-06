@@ -20,15 +20,20 @@ Code: `src/features/mailing/`. Consent capture: `src/features/leads/`.
 
 ## Model in Resend
 
-| Resend object    | Name                         | What it is                                                           |
-| ---------------- | ---------------------------- | -------------------------------------------------------------------- |
-| Topic            | Marketing                    | Product news, offers and tips. `opt_in` by default                   |
-| Topic            | Product and security updates | New versions, changes, security notices. `opt_in` by default         |
-| Segment          | Gym owners                   | Every registered gym (`gyms.email`). Receives both topics            |
-| Segment          | Demo leads                   | Leads with `leads.marketing_consent_at` set. Receives marketing only |
-| Segment          | Test                         | Trial broadcasts only                                                |
-| Contact property | `gym_name`                   | `{{{contact.gym_name\|your gym}}}`                                   |
-| Contact property | `unsubscribe_token`          | HMAC for the footer link (below)                                     |
+**Segment = eligibility, topic = choice.** A segment says who MAY receive a kind of email; a topic records what each person CHOSE. Leaving a segment never touches a topic.
+
+| Resend object    | Name                         | What it is                                                                                                              |
+| ---------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Topic            | Marketing                    | Product news, offers and tips. `opt_in` by default                                                                      |
+| Topic            | Product and security updates | New versions, changes, security notices. `opt_in` by default                                                            |
+| Segment          | Marketing                    | Every gym, whatever its status, and every demo lead with `leads.marketing_consent_at` set. Marketing broadcasts go here |
+| Segment          | Product updates              | Gyms with a current subscription: `trialing`, `active`, `past_due` (`audiencesForGym`). Update broadcasts go here       |
+| Segment          | Test                         | Trial broadcasts only                                                                                                   |
+| Contact property | `gym_name`                   | `{{{contact.gym_name\|your gym}}}`                                                                                      |
+| Contact property | `gym_id`                     | On gym contacts: lets the sync find a gym's old address after an email change                                           |
+| Contact property | `unsubscribe_token`          | HMAC for the footer link (below)                                                                                        |
+
+The segments were renamed on 2026-10-06 (from "Demo leads" and "Gym owners", both still empty). **A cancelled or suspended gym gets marketing only** (owner decision, 2026-10-06): it leaves "Product updates" and stays in "Marketing" until it opts out. If it reactivates it rejoins "Product updates", and its own topic choices still apply.
 
 The ids live in `features/mailing/config/MailingConfig.ts`, the single owner of the topics and audiences.
 
@@ -83,22 +88,33 @@ Product and security updates: the same link, ending `&topic=updates`.
 
 **The secret must be the same everywhere.** The sync never overwrites an existing contact's token. A mismatch means this machine's `MARKETING_UNSUBSCRIBE_SECRET` differs from the one that signed the contact, so the contact is left alone and reported as `token_mismatch`. **Rotating the secret** is deliberate: put the new value in Vercel and `.env.local`, then run the sync with `--apply --rotate-tokens`. Until then, links signed with the old secret fail.
 
-## Who is on the list
+## Who is on the list: the nightly reconcile
 
-**Demo leads.** Consent is the unticked box on the demo form. A ticked box is stored as `leads.marketing_consent_at`; the timestamp is the consent record. `SubmitLead` then adds the lead to Demo leads. That step is best-effort, like the lead email: the lead is stored whatever Resend answers.
+**Demo leads.** Consent is the unticked box on the demo form. A ticked box is stored as `leads.marketing_consent_at`; the timestamp is the consent record. `SubmitLead` then adds the lead to "Marketing" straight away. That step is best-effort, like the lead email: the lead is stored whatever Resend answers, and the nightly reconcile adds anyone it missed.
 
-**Gym owners.** `scripts/sync-marketing-contacts.ts` adds every gym to Gym owners. The legal basis is our legitimate interest in writing to our own customers, stated in the privacy policy (§3, §5).
+**Gyms.** The legal basis is our legitimate interest in writing to our own customers, stated in the privacy policy (§3, §5).
 
-**The sync is additive only.** For an existing contact it may add a segment, and write a token where none is stored. It never writes topics or the `unsubscribed` flag, so an opt-out survives every re-run.
+**`SyncMarketingContacts` reconciles the lists with the app.** It runs every night at 01:00 UTC (`/api/cron/sync-marketing-contacts`, logged to `cron_logs`), after the status crons that write `gyms.subscription_status`. `scripts/sync-marketing-contacts.ts` runs the same use-case by hand (dry run by default). Against the prefetched membership of both segments, it:
 
-**Running it:**
+1. **Moves** a gym whose email changed. A contact at the old address carries the gym's `gym_id`, and that gym now has another address. The sync puts a contact at the new address in the gym's segments, copies every opted-out topic onto it (confirmed by read-back), and only then deletes the old contact. Opt-outs therefore survive an email change.
+2. **Removes** an address that is nobody's any more, such as a deleted gym or a newly excluded one, from both segments. It does not delete the contact, so its opt-outs are kept.
+3. **Takes out of "Product updates"** a gym that is cancelled or suspended.
+4. **Adds** anyone missing from a segment they belong in. `addContact` never writes topics and never overwrites a stored token.
 
-- It is a dry run by default; `--apply` writes.
-- It skips the E2E gyms (`SMS_DISABLED_GYM_IDS`, which is set in Vercel but not in `.env.local`, so pass `--exclude-gym <id>`; the script warns when it is unset) and anything passed with `--exclude <email>`.
-- It always skips addresses at reserved, undeliverable TLDs (`.test`, `.example`, `.invalid`, `.localhost`, `.local`), whose hard bounces would cost the new sending domain reputation.
-- Run it before each broadcast to Gym owners. New gyms are not added at registration.
-- An email change leaves the old address in Resend, and the next sync adds the new one beside it. Remove the old contact by hand.
-- Closing an account does not remove its contact; delete it in Resend (privacy §5 promises deletion on request).
+Steady state costs two list calls. Each step is recorded, and one failure does not stop the rest. Verified against the live API on 2026-10-06 with test addresses:
+
+- the move carried a Marketing opt-out and deleted the old contact;
+- a cancelled gym left "Product updates" with its topic untouched;
+- a stale address was taken off both lists and kept.
+
+**Exclusions:**
+
+- `SMS_DISABLED_GYM_IDS`: the E2E gyms;
+- `MARKETING_EXCLUDED_GYM_IDS`: the owner's own and test accounts, i.e. Throwaway, Titan Fitness, Demo Gym and Throwaway2 (2026-10-06);
+- `--exclude-gym` / `--exclude` on the script;
+- always, reserved TLDs (`.test`, `.example`, `.invalid`, `.localhost`, `.local`), whose hard bounces would cost the new sending domain reputation.
+
+An excluded address already on a list is taken off it.
 
 ## Configuration
 
@@ -106,6 +122,7 @@ Product and security updates: the same link, ending `&topic=updates`.
 | ------------------------------ | ------------------------------------------ | ------------------------------------------------------------------------- |
 | `RESEND_API_KEY`               | Vercel (Production, Preview), `.env.local` | Full-access key "metric-website". A sending-only key gets 401 on contacts |
 | `MARKETING_UNSUBSCRIBE_SECRET` | Same                                       | At least 32 characters; `openssl rand -hex 32`                            |
+| `MARKETING_EXCLUDED_GYM_IDS`   | Vercel (Production, Preview), `.env.local` | Comma-separated gym ids never put on the lists (owner and test accounts)  |
 
 **If either is unset:**
 
@@ -118,8 +135,7 @@ Product and security updates: the same link, ending `&topic=updates`.
 ## Not built (yet)
 
 - **Resubscribing** is by email to hello@. Resend's hosted preference page (`{{{RESEND_UNSUBSCRIBE_URL}}}`) is not used, because it also offers the global unsubscribe.
-- **New gyms** join Gym owners only when the sync runs, not at registration.
-- **List-Unsubscribe headers:** whether Resend adds them to broadcasts sent with a custom footer link is unverified. Check a received broadcast's headers before the first send to more than the Test segment.
+- **Gmail's one-click unsubscribe:** Resend adds `List-Unsubscribe` and `List-Unsubscribe-Post` to broadcasts (confirmed on the test email, 2026-10-06). Whether that one click stops only the broadcast's topic, or sets the account-wide flag, is still unverified.
 
 ## Inverted check
 

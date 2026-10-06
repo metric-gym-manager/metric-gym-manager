@@ -76,7 +76,10 @@ function api(options: {
         return ok({ data, has_more: false })
       },
     },
+    list: async () => ok({ data: [], has_more: false }),
+    remove: async () => ok({ id: 'contact-1' }),
     segments: {
+      remove: async () => ok({ id: 'contact-1' }),
       list: async (o, r) => {
         calls.push(['segments.list', o])
         signals.push(r?.signal)
@@ -97,7 +100,7 @@ const contact = {
   email: 'owner@titanfitness.lk',
   firstName: 'Nuwan',
   gymName: 'Titan Fitness',
-  audience: MailingAudience.GymOwners,
+  audience: MailingAudience.ProductUpdates,
   unsubscribeToken: 'tok-1',
 }
 
@@ -112,7 +115,7 @@ describe('ResendMailingList.addContact', () => {
       email: 'owner@titanfitness.lk',
       firstName: 'Nuwan',
       properties: { gym_name: 'Titan Fitness', unsubscribe_token: 'tok-1' },
-      segments: [{ id: RESEND_SEGMENT_IDS[MailingAudience.GymOwners] }],
+      segments: [{ id: RESEND_SEGMENT_IDS[MailingAudience.ProductUpdates] }],
     })
   })
 
@@ -128,7 +131,7 @@ describe('ResendMailingList.addContact', () => {
   })
 
   it('leaves an existing contact in the audience untouched', async () => {
-    const segment = RESEND_SEGMENT_IDS[MailingAudience.GymOwners]
+    const segment = RESEND_SEGMENT_IDS[MailingAudience.ProductUpdates]
     const { fake, names } = api({
       existing: { token: 'tok-1', segments: [segment] },
     })
@@ -142,7 +145,7 @@ describe('ResendMailingList.addContact', () => {
     const { fake, calls, names } = api({
       existing: {
         token: 'tok-1',
-        segments: [RESEND_SEGMENT_IDS[MailingAudience.DemoLeads]],
+        segments: [RESEND_SEGMENT_IDS[MailingAudience.Marketing]],
       },
     })
     await expect(new ResendMailingList(fake).addContact(contact)).resolves.toBe(
@@ -152,12 +155,12 @@ describe('ResendMailingList.addContact', () => {
     expect(names()).not.toContain('create')
     expect(calls.find(([n]) => n === 'segments.add')?.[1]).toEqual({
       email: 'owner@titanfitness.lk',
-      segmentId: RESEND_SEGMENT_IDS[MailingAudience.GymOwners],
+      segmentId: RESEND_SEGMENT_IDS[MailingAudience.ProductUpdates],
     })
   })
 
   it('writes the token onto an existing contact that lacks it, and nothing else', async () => {
-    const segment = RESEND_SEGMENT_IDS[MailingAudience.GymOwners]
+    const segment = RESEND_SEGMENT_IDS[MailingAudience.ProductUpdates]
     const { fake, calls } = api({ existing: { segments: [segment] } })
     await new ResendMailingList(fake).addContact(contact)
     expect(calls.find(([n]) => n === 'update')?.[1]).toEqual({
@@ -230,7 +233,7 @@ describe('ResendMailingList.optOut', () => {
  * marketing-email-inverted-check.md).
  */
 describe('ResendMailingList — inverted-check findings', () => {
-  const owners = RESEND_SEGMENT_IDS[MailingAudience.GymOwners]
+  const owners = RESEND_SEGMENT_IDS[MailingAudience.ProductUpdates]
 
   it('F3: never overwrites a token signed with another secret, and reports it', async () => {
     const { fake, names } = api({
@@ -246,7 +249,7 @@ describe('ResendMailingList — inverted-check findings', () => {
     const { fake, names } = api({
       existing: {
         token: 'tok-OLD',
-        segments: [RESEND_SEGMENT_IDS[MailingAudience.DemoLeads]],
+        segments: [RESEND_SEGMENT_IDS[MailingAudience.Marketing]],
       },
     })
     await expect(new ResendMailingList(fake).addContact(contact)).resolves.toBe(
@@ -289,7 +292,13 @@ describe('ResendMailingList — inverted-check findings', () => {
       create: (_o, r) => never(r),
       update: (_o, r) => never(r),
       topics: { update: (_o, r) => never(r), list: (_o, r) => never(r) },
-      segments: { list: (_o, r) => never(r), add: (_o, r) => never(r) },
+      list: (_o, r) => never(r),
+      remove: (_o, r) => never(r),
+      segments: {
+        list: (_o, r) => never(r),
+        add: (_o, r) => never(r),
+        remove: (_o, r) => never(r),
+      },
     }
   }
 
@@ -372,5 +381,171 @@ describe('ResendMailingList.optOut — read-back confirmation', () => {
         confirmDelayMs: 0,
       }).optOut('owner@titanfitness.lk', [MailingTopic.Updates])
     ).resolves.toBeUndefined()
+  })
+})
+
+/**
+ * The reconcile's reads and removals (owner decision 2026-10-06: the list
+ * follows each gym's status and email).
+ */
+describe('ResendMailingList — reconcile operations', () => {
+  type Row = { id: string; email: string }
+
+  /** A Resend contacts API over an in-memory store of contacts and memberships. */
+  function store(seed: {
+    contacts: { email: string; gymId?: string; optOut?: string[] }[]
+    members: Record<string, string[]>
+    pageSize?: number
+  }) {
+    const contacts = new Map(seed.contacts.map((c) => [c.email, { ...c }]))
+    const members = new Map(
+      Object.entries(seed.members).map(([s, e]) => [s, [...e]])
+    )
+    const calls: string[] = []
+    const ok = <T>(data: T) => ({ data, error: null })
+    const notFound = {
+      data: null,
+      error: { name: 'not_found', message: 'Contact not found' },
+    }
+    const page = seed.pageSize ?? 100
+    const fake = {
+      ...api({}).fake,
+      get: async ({ email }: { email: string }) => {
+        const c = contacts.get(email)
+        if (!c) return notFound
+        const properties: Record<string, { type: 'string'; value: string }> =
+          c.gymId ? { gym_id: { type: 'string', value: c.gymId } } : {}
+        return ok({ id: email, properties })
+      },
+      list: async (o: {
+        segmentId: string
+        limit?: number
+        after?: string
+      }) => {
+        calls.push(`list:${o.after ?? 'start'}`)
+        const all: Row[] = (members.get(o.segmentId) ?? []).map((email) => ({
+          id: `id-${email}`,
+          email,
+        }))
+        const from = o.after ? all.findIndex((r) => r.id === o.after) + 1 : 0
+        const data = all.slice(from, from + page)
+        return ok({ data, has_more: from + page < all.length })
+      },
+      remove: async ({ email }: { email: string }) => {
+        calls.push(`remove:${email}`)
+        return contacts.delete(email) ? ok({ id: email }) : notFound
+      },
+      topics: {
+        update: async () => ok({ id: 'x' }),
+        list: async ({ email }: { email: string }) => {
+          const c = contacts.get(email)
+          if (!c) return notFound
+          const data = Object.values(RESEND_TOPIC_IDS).map((id) => ({
+            id,
+            subscription: c.optOut?.includes(id)
+              ? ('opt_out' as const)
+              : ('opt_in' as const),
+          }))
+          return ok({ data, has_more: false })
+        },
+      },
+      segments: {
+        list: async () => ok({ data: [], has_more: false }),
+        add: async () => ok({ id: 'x' }),
+        remove: async (o: { email: string; segmentId: string }) => {
+          calls.push(`segment-remove:${o.email}`)
+          const list = members.get(o.segmentId) ?? []
+          if (!list.includes(o.email)) return notFound
+          members.set(
+            o.segmentId,
+            list.filter((e) => e !== o.email)
+          )
+          return ok({ id: o.email })
+        },
+      },
+    } as MailingContactsApi
+    return { fake, contacts, members, calls }
+  }
+
+  const MKT = RESEND_SEGMENT_IDS[MailingAudience.Marketing]
+  const UPD = RESEND_SEGMENT_IDS[MailingAudience.ProductUpdates]
+
+  it('lists every member of an audience across pages, as stored', async () => {
+    const emails = ['A@x.lk', 'b@x.lk', 'c@x.lk', 'd@x.lk', 'e@x.lk']
+    const { fake, calls } = store({
+      contacts: [],
+      members: { [MKT]: emails },
+      pageSize: 2,
+    })
+    await expect(
+      new ResendMailingList(fake).listAudience(MailingAudience.Marketing)
+    ).resolves.toEqual(emails)
+    expect(calls.filter((c) => c.startsWith('list:'))).toHaveLength(3)
+  })
+
+  it('removes a contact from one audience only', async () => {
+    const { fake, members } = store({
+      contacts: [{ email: 'a@x.lk' }],
+      members: { [MKT]: ['a@x.lk'], [UPD]: ['a@x.lk'] },
+    })
+    await new ResendMailingList(fake).removeFromAudience(
+      'a@x.lk',
+      MailingAudience.ProductUpdates
+    )
+    expect(members.get(UPD)).toEqual([])
+    expect(members.get(MKT)).toEqual(['a@x.lk'])
+  })
+
+  it('treats removing a non-member as done', async () => {
+    const { fake } = store({ contacts: [], members: {} })
+    await expect(
+      new ResendMailingList(fake).removeFromAudience(
+        'nobody@x.lk',
+        MailingAudience.Marketing
+      )
+    ).resolves.toBeUndefined()
+  })
+
+  it("reads a contact's gym id, or null when it has none or does not exist", async () => {
+    const { fake } = store({
+      contacts: [{ email: 'a@x.lk', gymId: 'gym-1' }, { email: 'b@x.lk' }],
+      members: {},
+    })
+    const list = new ResendMailingList(fake)
+    await expect(list.getGymId('a@x.lk')).resolves.toBe('gym-1')
+    await expect(list.getGymId('b@x.lk')).resolves.toBeNull()
+    await expect(list.getGymId('gone@x.lk')).resolves.toBeNull()
+  })
+
+  it('reads the kinds of email a contact opted out of', async () => {
+    const { fake } = store({
+      contacts: [
+        { email: 'a@x.lk', optOut: [RESEND_TOPIC_IDS[MailingTopic.Marketing]] },
+      ],
+      members: {},
+    })
+    await expect(
+      new ResendMailingList(fake).optedOutTopics('a@x.lk')
+    ).resolves.toEqual([MailingTopic.Marketing])
+  })
+
+  it('deletes a contact, and treats one already gone as done', async () => {
+    const { fake, contacts } = store({
+      contacts: [{ email: 'a@x.lk' }],
+      members: {},
+    })
+    const list = new ResendMailingList(fake)
+    await list.deleteContact('a@x.lk')
+    expect(contacts.has('a@x.lk')).toBe(false)
+    await expect(list.deleteContact('a@x.lk')).resolves.toBeUndefined()
+  })
+
+  it("writes a gym contact's gym id when creating it", async () => {
+    const { fake, calls } = api({})
+    await new ResendMailingList(fake).addContact({ ...contact, gymId: 'gym-9' })
+    const created = calls.find(([n]) => n === 'create')?.[1] as {
+      properties: Record<string, string>
+    }
+    expect(created.properties.gym_id).toBe('gym-9')
   })
 })

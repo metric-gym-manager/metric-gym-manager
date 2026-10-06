@@ -7,6 +7,8 @@ export interface NewMailingContact {
   email: string
   firstName?: string
   gymName?: string
+  /** For gym contacts: lets the sync find this gym's old address later. */
+  gymId?: string
   audience: MailingAudience
   /** Signed for this email; stored on the contact for footer links. */
   unsubscribeToken: string
@@ -36,4 +38,14 @@ export interface IMailingList {
    * that does not exist is already receiving nothing, so that is not an error.
    */
   optOut(email: string, topics: MailingTopic[]): Promise<void>
+  /** Every member of an audience, emails exactly as the provider stores them. */
+  listAudience(audience: MailingAudience): Promise<string[]>
+  /** Leave one audience; topics are untouched. A non-member is already out. */
+  removeFromAudience(email: string, audience: MailingAudience): Promise<void>
+  /** The gym a contact belongs to, or null (no such property or contact). */
+  getGymId(email: string): Promise<string | null>
+  /** The kinds of email this contact opted out of. */
+  optedOutTopics(email: string): Promise<MailingTopic[]>
+  /** Delete the contact. One already gone is done. */
+  deleteContact(email: string): Promise<void>
 }

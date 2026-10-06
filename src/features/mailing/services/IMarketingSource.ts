@@ -3,6 +3,8 @@ export interface GymOwnerRecipient {
   gymId: string
   email: string
   gymName: string
+  /** `gyms.subscription_status`: decides whether updates are sent (`audiencesForGym`). */
+  subscriptionStatus: string
 }
 
 /** A demo request whose sender ticked the marketing consent box. */

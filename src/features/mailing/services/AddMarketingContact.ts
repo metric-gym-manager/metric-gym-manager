@@ -12,6 +12,14 @@ export interface AddMarketingContactInput {
   /** Full name; the first word becomes the contact's first name. */
   name?: string | null
   gymName?: string | null
+  /** For gym contacts; written as the `gym_id` property. */
+  gymId?: string
+  /**
+   * The address exactly as the provider already stores it, when it does.
+   * Resend matches case-sensitively, so writes to an existing contact stored
+   * with capitals must use that form. New contacts are created lowercased.
+   */
+  storedEmail?: string
   audience: MailingAudience
 }
 
@@ -37,7 +45,8 @@ export class AddMarketingContact {
   async execute(input: AddMarketingContactInput): Promise<AddContactResult> {
     if (!this.list || !this.secret) throw new MailingUnavailableError()
 
-    const email = normalizeMailingEmail(input.email)
+    const signed = normalizeMailingEmail(input.email)
+    const email = input.storedEmail ?? signed
     const firstName = input.name?.trim().split(/\s+/)[0] || undefined
     const gymName = input.gymName?.trim() || undefined
 
@@ -45,8 +54,9 @@ export class AddMarketingContact {
       email,
       firstName,
       gymName,
+      ...(input.gymId ? { gymId: input.gymId } : {}),
       audience: input.audience,
-      unsubscribeToken: createUnsubscribeToken(email, this.secret),
+      unsubscribeToken: createUnsubscribeToken(signed, this.secret),
     })
   }
 }

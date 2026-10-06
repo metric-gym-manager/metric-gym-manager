@@ -36,23 +36,32 @@ export const RESEND_TOPIC_IDS: Record<MailingTopic, string> = {
   [MailingTopic.Updates]: '3df985c4-50bb-4cfd-9adc-ee61e81d260b',
 }
 
-/** Who a contact is to us; each is a Resend Segment a broadcast targets. */
+/**
+ * Who may receive which kind of email; each is a Resend Segment a broadcast
+ * targets. A segment is ELIGIBILITY, a topic is CHOICE: leaving a segment
+ * never touches the person's topic subscriptions.
+ */
 export enum MailingAudience {
-  /** Registered gyms. Receive both kinds. */
-  GymOwners = 'gym_owners',
-  /** Demo requests that ticked the consent box. Receive marketing only. */
-  DemoLeads = 'demo_leads',
+  /** Every gym, whatever its status, and every demo lead who consented. */
+  Marketing = 'marketing',
+  /** Gyms with a current subscription (see `audiencesForGym`). */
+  ProductUpdates = 'product_updates',
 }
 
-/** Resend Segment ids (2026-10-06). The third segment, "Test", is for trial sends. */
+/**
+ * Resend Segment ids. Renamed 2026-10-06 (were "Demo leads" and "Gym owners",
+ * both empty at the time). The third segment, "Test", is for trial sends.
+ */
 export const RESEND_SEGMENT_IDS: Record<MailingAudience, string> = {
-  [MailingAudience.GymOwners]: '83025e1c-80ab-4046-b92a-e1f387ebb720',
-  [MailingAudience.DemoLeads]: 'bf045632-d75d-4ed1-9c67-4ba178e82935',
+  [MailingAudience.Marketing]: 'bf045632-d75d-4ed1-9c67-4ba178e82935',
+  [MailingAudience.ProductUpdates]: '83025e1c-80ab-4046-b92a-e1f387ebb720',
 }
 
 /** Contact properties defined in Resend; broadcasts read them as `{{{contact.<key>}}}`. */
 export const CONTACT_PROPERTY = {
   gymName: 'gym_name',
+  /** Set on gym contacts, so the sync can find a gym's old address after an email change. */
+  gymId: 'gym_id',
   unsubscribeToken: 'unsubscribe_token',
 } as const
 

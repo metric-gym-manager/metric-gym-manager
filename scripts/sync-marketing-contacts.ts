@@ -1,12 +1,18 @@
 /**
- * Sync the Resend mailing list with the app: every registered gym into the
- * "Gym owners" audience, every demo lead who ticked the consent box into
- * "Demo leads" (docs/architecture/marketing-email.md).
- *
- * Additive only: it adds missing people and never changes an existing
- * contact's subscriptions, so an opt-out made on /unsubscribe survives every
- * re-run. Test and E2E gyms are left out: the ids in SMS_DISABLED_GYM_IDS,
- * plus anything passed with --exclude-gym or --exclude.
+ * Reconcile the Resend mailing list with the app — the same use-case the
+ * nightly cron runs (/api/cron/sync-marketing-contacts, 01:00 UTC); use this
+ * for a first import, a dry run, or a deliberate token rotation
+ * (docs/architecture/marketing-email.md):
+ *   - every gym and every consenting lead in "Marketing";
+ *   - gyms with a current subscription also in "Product updates", cancelled and
+ *     suspended ones taken out of it (owner decision, 2026-10-06);
+ *   - a gym whose email changed moves to the new address with its opt-outs,
+ *     and the old contact is deleted;
+ *   - addresses that are nobody's any more taken off both lists.
+ * Topics (each person's choices) are never written, except to carry opt-outs
+ * to a new address. Excluded: the ids in SMS_DISABLED_GYM_IDS and
+ * MARKETING_EXCLUDED_GYM_IDS, plus anything passed with --exclude-gym or
+ * --exclude.
  *
  * Addresses at reserved TLDs (.test, .example, .invalid, .localhost, .local)
  * are never imported: they cannot receive mail, and a hard bounce costs the
@@ -55,11 +61,14 @@ async function main() {
         '         Pass them with --exclude-gym <id> (they are in Vercel), or check the plan below.\n'
     )
   }
-  const excludeGymIds = [
-    ...(process.env.SMS_DISABLED_GYM_IDS ?? '')
+  const idsFrom = (value: string | undefined) =>
+    (value ?? '')
       .split(',')
       .map((id) => id.trim())
-      .filter(Boolean),
+      .filter(Boolean)
+  const excludeGymIds = [
+    ...idsFrom(process.env.SMS_DISABLED_GYM_IDS),
+    ...idsFrom(process.env.MARKETING_EXCLUDED_GYM_IDS),
     ...flagValues('--exclude-gym'),
   ]
   const excludeEmails = flagValues('--exclude')
@@ -87,8 +96,12 @@ async function main() {
     apply ? 'APPLIED\n' : 'DRY RUN — nothing written. Re-run with --apply.\n'
   )
   for (const entry of report) {
+    const what = entry.audience
+      ? `${entry.action}:${entry.audience}`
+      : entry.action
     console.log(
-      `${entry.outcome.padEnd(18)} ${entry.audience.padEnd(11)} ${entry.email}` +
+      `${entry.outcome.padEnd(18)} ${what.padEnd(28)} ${entry.email}` +
+        (entry.from ? `  (from ${entry.from})` : '') +
         (entry.error ? `  (${entry.error})` : '')
     )
   }

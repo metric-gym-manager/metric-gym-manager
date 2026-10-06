@@ -29,7 +29,7 @@ export function createLeadNotifier(): ILeadNotifier | null {
 }
 
 /**
- * Consenting leads join the mailing feature's Demo leads audience, or `null`
+ * Consenting leads join the mailing feature's Marketing audience, or `null`
  * when mailing is not configured (RESEND_API_KEY / MARKETING_UNSUBSCRIBE_SECRET).
  */
 export function createLeadMarketingAudience(): ILeadMarketingAudience | null {
@@ -41,7 +41,7 @@ export function createLeadMarketingAudience(): ILeadMarketingAudience | null {
         email: lead.email,
         name: lead.name,
         gymName: lead.gymName,
-        audience: MailingAudience.DemoLeads,
+        audience: MailingAudience.Marketing,
       })
     },
   }

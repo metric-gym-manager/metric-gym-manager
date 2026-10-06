@@ -4,7 +4,7 @@
  * Marketing and product-update email through Resend: who is on the list
  * (gym owners, consenting demo leads), and the two kinds of email each person
  * can opt out of on /unsubscribe. Consumers: the /api/public/email-preferences
- * route, the leads factory (consenting leads join Demo leads), and
+ * route, the leads factory (consenting leads join Marketing), and
  * `scripts/sync-marketing-contacts.ts`. See docs/architecture/marketing-email.md.
  *
  * NOTE: this barrel is **server-tainted** (the factory reaches the Resend SDK

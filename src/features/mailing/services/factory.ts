@@ -53,7 +53,12 @@ export function createSyncMarketingContacts(
   supabase: SupabaseClient,
   options: Pick<ResendMailingListOptions, 'rotateTokens'> = {}
 ): SyncMarketingContacts {
-  const add = createAddMarketingContact(options)
-  if (!add) throw new MailingUnavailableError()
-  return new SyncMarketingContacts(new SupabaseMarketingSource(supabase), add)
+  const list = createMailingList(options)
+  const secret = readMailingSecret()
+  if (!list || !secret) throw new MailingUnavailableError()
+  return new SyncMarketingContacts(
+    new SupabaseMarketingSource(supabase),
+    list,
+    new AddMarketingContact(list, secret)
+  )
 }

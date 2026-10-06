@@ -6,22 +6,23 @@ import {
   InvalidUnsubscribeLinkError,
   MailingUnavailableError,
 } from '../services/errors'
-import type { IMailingList } from '../services/IMailingList'
+import { MemoryMailingList } from './memoryMailingList'
 import { UpdateEmailPreferences } from '../services/UpdateEmailPreferences'
 import { createUnsubscribeToken } from '../utils/unsubscribeToken'
 
 const SECRET = 's'.repeat(64)
 const EMAIL = 'owner@titanfitness.lk'
 
-function fakeList(): IMailingList & { optOuts: [string, MailingTopic[]][] } {
-  const optOuts: [string, MailingTopic[]][] = []
-  return {
-    optOuts,
-    addContact: async () => 'created',
-    optOut: async (email, topics) => {
-      optOuts.push([email, topics])
-    },
+/** Records each opt-out the use-case asks for. */
+class RecordingList extends MemoryMailingList {
+  readonly optOuts: [string, MailingTopic[]][] = []
+  override async optOut(email: string, topics: MailingTopic[]) {
+    this.optOuts.push([email, topics])
   }
+}
+
+function fakeList(): RecordingList {
+  return new RecordingList()
 }
 
 describe('UpdateEmailPreferences', () => {

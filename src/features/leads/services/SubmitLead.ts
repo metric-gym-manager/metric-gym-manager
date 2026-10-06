@@ -37,7 +37,7 @@ export interface SubmitLeadInput {
  * thank-you.
  *
  * A ticked marketing box is stored with its time (`marketing_consent_at`, the
- * consent record) and the lead joins the Demo leads mailing audience. Joining
+ * consent record) and the lead joins the Marketing mailing audience. Joining
  * is best-effort like the email: the lead is stored either way, and
  * `scripts/sync-marketing-contacts.ts` adds anyone a failure missed.
  */

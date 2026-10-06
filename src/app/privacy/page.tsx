@@ -363,12 +363,15 @@ const sections: LegalSection[] = [
         <LegalList>
           <LegalLI>
             Marketing emails — product news, offers and tips. Gym owners receive
-            them, and so do people who requested a demo, but only if you ticked
-            the box asking for them on the demo request form
+            them, including after cancelling or being suspended, and so do
+            people who requested a demo, but only if you ticked the box asking
+            for them on the demo request form
           </LegalLI>
           <LegalLI>
             Product and security updates — new versions, changes to how Metric
-            Gym OS works, and security notices. Gym owners receive them
+            Gym OS works, and security notices. Gym owners with a current
+            subscription (on a trial, active, or with a payment overdue) receive
+            them. A cancelled or suspended gym receives marketing emails only
           </LegalLI>
         </LegalList>
         <LegalP>
@@ -376,6 +379,11 @@ const sections: LegalSection[] = [
           link at the foot of any of these emails and choose which to stop, or
           write to hello@metricgymos.com. Stopping one kind does not stop the
           other. To start receiving them again, write to the same address.
+        </LegalP>
+        <LegalP>
+          If you change your account&apos;s email address, we move these choices
+          to the new address and delete the old one from our email delivery
+          provider, within a day.
         </LegalP>
         <LegalP>
           Whatever you choose, we still send the emails needed to run your

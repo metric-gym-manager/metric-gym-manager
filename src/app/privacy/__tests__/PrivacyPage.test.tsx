@@ -118,3 +118,27 @@ describe('privacy policy — demo requests and mailing-list retention', () => {
     expect(text()).toMatch(/until you ask us to delete them/)
   })
 })
+
+/**
+ * Owner decisions of 2026-10-06: product and security updates go to current
+ * subscriptions, cancelled and suspended gyms get marketing only, and an
+ * email change moves the person's choices to the new address.
+ */
+describe('privacy policy — who gets which email', () => {
+  const text = () => render(<PrivacyPolicyPage />).container.textContent ?? ''
+
+  it('sends updates to current subscriptions only', () => {
+    expect(text()).toMatch(/current subscription/i)
+  })
+
+  it('says a cancelled or suspended gym receives marketing emails only', () => {
+    expect(text()).toMatch(
+      /cancelled or suspended gym receives marketing emails only/i
+    )
+  })
+
+  it('says choices move with an email change and the old address is deleted', () => {
+    expect(text()).toMatch(/change your account's email address/i)
+    expect(text()).toMatch(/delete the old one/i)
+  })
+})

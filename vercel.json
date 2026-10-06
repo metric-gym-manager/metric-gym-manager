@@ -49,6 +49,10 @@
     {
       "path": "/api/cron/purge-access-events",
       "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/sync-marketing-contacts",
+      "schedule": "0 1 * * *"
     }
   ]
 }

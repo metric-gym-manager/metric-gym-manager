@@ -43,16 +43,28 @@ function client(rows: Record<string, unknown[]>, error: string | null = null) {
 describe('SupabaseMarketingSource', () => {
   it('reads every gym owner with their gym name', async () => {
     const { supabase, queries } = client({
-      gyms: [{ id: 'g1', email: 'owner@titan.lk', gym_name: 'Titan Fitness' }],
+      gyms: [
+        {
+          id: 'g1',
+          email: 'owner@titan.lk',
+          gym_name: 'Titan Fitness',
+          subscription_status: 'canceled',
+        },
+      ],
     })
     await expect(
       new SupabaseMarketingSource(supabase).listGymOwners()
     ).resolves.toEqual([
-      { gymId: 'g1', email: 'owner@titan.lk', gymName: 'Titan Fitness' },
+      {
+        gymId: 'g1',
+        email: 'owner@titan.lk',
+        gymName: 'Titan Fitness',
+        subscriptionStatus: 'canceled',
+      },
     ])
     expect(queries[0]).toMatchObject({
       table: 'gyms',
-      select: 'id, email, gym_name',
+      select: 'id, email, gym_name, subscription_status',
     })
   })
 
