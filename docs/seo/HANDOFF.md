@@ -376,9 +376,9 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [x] **An email change no longer leaves the old address (2026-10-06).** Gym contacts carry a `gym_id` property. The nightly reconcile (`/api/cron/sync-marketing-contacts`, 01:00 UTC) moves a gym to its new address, carrying every opt-out, and deletes the old contact. Verified live with test addresses. Privacy §5 says so.
 - [ ] **Closing an account (owner process).** Nothing removes a closed account's address from Resend, and the privacy policy promises deletion on request. When closing an account or handling a deletion request, delete the contact in Resend (Audience → Contacts).
 - [ ] **Never import contacts in the Resend dashboard (rule).** Resend matches emails case-sensitively. The app and the sync create contacts lowercased, so a hand-imported mixed-case contact would be duplicated by the next sync, and that person would get every broadcast twice.
-- [ ] **Two more cron findings (2026-10-06, not fixed).** These turned up while checking which jobs ever log:
-  - `archive-old-members` is scheduled monthly but is a stub that returns 501 and never logs. Either build it, or take it out of `vercel.json`;
-  - `reconcile-access` failed on 26 of its 42 runs. See the `cron_logs` rows with `status <> 'success'`.
+- [x] **Two more cron findings (2026-10-06).**
+  - **`archive-old-members` removed.** It was scheduled monthly, but was only ever a stub that answered 501 and logged nothing. Its route and `vercel.json` entry are gone, and `docs/ops/CRON_JOBS.md` no longer describes it as working.
+  - **`reconcile-access` is healthy; the failures were historical.** All 26 failed runs fell between 2026-08-28 and 2026-09-22, each `Unsupported state or unable to authenticate data` for the E2E Enterprise gym. The stored reader credential had been encrypted under a different key from the `ACCESS_CONTROL_ENCRYPTION_KEY` added to Vercel on 2026-08-28. On 2026-09-23 the key was updated (04:47 UTC) and the credential re-saved (09:05). Every nightly run since has succeeded, 13 in a row. The access-control master doc (§W3) records the cause and the hardening: a typed `CredentialDecryptionError` that dead-letters on the first attempt. The earlier "26 of 42 failed" was an all-time count reported without its dates.
 
 ### Repository, next work on this branch
 
