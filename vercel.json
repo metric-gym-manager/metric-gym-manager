@@ -53,6 +53,10 @@
     {
       "path": "/api/cron/send-announcements",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/send-outreach",
+      "schedule": "30 4 * * 2"
     }
   ]
 }

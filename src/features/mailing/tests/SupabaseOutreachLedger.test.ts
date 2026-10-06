@@ -10,6 +10,7 @@ type Result = {
   error: { code?: string; message: string } | null
 }
 
+/** Records each query's builder calls; resolves with the next canned result. */
 function client(results: Result[]) {
   const queries: Call[][] = []
   const fake = {
@@ -22,8 +23,11 @@ function client(results: Result[]) {
         'upsert',
         'update',
         'eq',
+        'lt',
+        'or',
         'order',
         'limit',
+        'maybeSingle',
       ]) {
         builder[method] = (...args: unknown[]) => {
           calls.push([method, ...args])
@@ -38,20 +42,29 @@ function client(results: Result[]) {
   return { supabase: fake as unknown as SupabaseClient, queries }
 }
 
+const NOW = new Date('2026-10-13T04:30:00Z')
+const ledger = (supabase: SupabaseClient) =>
+  new SupabaseOutreachLedger(supabase, () => NOW)
+
 describe('SupabaseOutreachLedger', () => {
-  it('adds new addresses, leaving recorded ones untouched, and counts the new', async () => {
+  it('adds new addresses with their own source or the default, and returns the new ones', async () => {
     const { supabase, queries } = client([
-      { data: [{ id: 'r1' }], error: null },
+      { data: [{ email: 'a@gym.lk' }], error: null },
     ])
-    const added = await new SupabaseOutreachLedger(supabase).addRecipients(
+    const added = await ledger(supabase).addRecipients(
       'intro',
       [
-        { email: 'a@gym.lk', gymName: 'Alpha', name: null },
-        { email: 'b@gym.lk', gymName: null, name: 'Bo' },
+        {
+          email: 'a@gym.lk',
+          gymName: 'Alpha',
+          name: null,
+          source: 'www.alpha.lk',
+        },
+        { email: 'b@gym.lk', gymName: null, name: 'Bo', source: null },
       ],
       'public listing'
     )
-    expect(added).toBe(1)
+    expect(added).toEqual(['a@gym.lk'])
     expect(queries[0]).toContainEqual([
       'upsert',
       [
@@ -60,7 +73,7 @@ describe('SupabaseOutreachLedger', () => {
           email: 'a@gym.lk',
           gym_name: 'Alpha',
           name: null,
-          source: 'public listing',
+          source: 'www.alpha.lk',
         },
         {
           campaign: 'intro',
@@ -72,60 +85,138 @@ describe('SupabaseOutreachLedger', () => {
       ],
       { onConflict: 'campaign,email', ignoreDuplicates: true },
     ])
+    expect(queries[0]).toContainEqual(['select', 'email'])
   })
 
-  it('adds nothing, and asks nothing, for an empty list', async () => {
+  it('asks nothing for an empty list', async () => {
     const { supabase, queries } = client([])
-    expect(
-      await new SupabaseOutreachLedger(supabase).addRecipients('intro', [], 'x')
-    ).toBe(0)
+    expect(await ledger(supabase).addRecipients('intro', [], 'x')).toEqual([])
     expect(queries).toHaveLength(0)
   })
 
-  it('reads the pending addresses oldest first, up to the limit', async () => {
+  it('finds active addresses with emails left that were not written to recently, oldest first', async () => {
     const { supabase, queries } = client([
       {
-        data: [{ email: 'a@gym.lk', gym_name: 'Alpha', name: null }],
+        data: [{ email: 'a@gym.lk', gym_name: null, name: null, step: 1 }],
         error: null,
       },
     ])
-    expect(
-      await new SupabaseOutreachLedger(supabase).pending('intro', 50)
-    ).toEqual([{ email: 'a@gym.lk', gymName: 'Alpha', name: null }])
-    expect(queries[0]).toContainEqual(['eq', 'status', 'pending'])
-    expect(queries[0]).toContainEqual([
-      'order',
-      'created_at',
-      { ascending: true },
+    const due = await ledger(supabase).due(
+      'intro',
+      new Date('2026-10-07T04:30:00Z'),
+      150
+    )
+    expect(due).toEqual([
+      { email: 'a@gym.lk', gymName: null, name: null, step: 1 },
     ])
-    expect(queries[0]).toContainEqual(['limit', 50])
+    const q = queries[0]
+    expect(q).toContainEqual(['eq', 'status', 'active'])
+    expect(q).toContainEqual(['lt', 'step', 4])
+    expect(q).toContainEqual([
+      'or',
+      'last_sent_at.is.null,last_sent_at.lte.2026-10-07T04:30:00.000Z',
+    ])
+    expect(q).toContainEqual(['order', 'created_at', { ascending: true }])
+    expect(q).toContainEqual(['limit', 150])
   })
 
-  it('marks a send, stamps updated_at, and confirms a row changed', async () => {
+  it('claims the next step only while the address is still active at the step read', async () => {
     const { supabase, queries } = client([
       { data: [{ id: 'r1' }], error: null },
     ])
-    await new SupabaseOutreachLedger(
-      supabase,
-      () => new Date('2026-10-06T10:00:00Z')
-    ).mark('intro', 'a@gym.lk', { status: 'sent', resendEmailId: 'em_1' })
+    expect(await ledger(supabase).claim('intro', 'a@gym.lk', 1, NOW)).toBe(true)
+    const q = queries[0]
+    expect(q).toContainEqual([
+      'update',
+      {
+        step: 2,
+        last_sent_at: NOW.toISOString(),
+        updated_at: NOW.toISOString(),
+      },
+    ])
+    expect(q).toContainEqual(['eq', 'step', 1])
+    expect(q).toContainEqual(['eq', 'status', 'active'])
+  })
+
+  it('loses the claim when another run already moved the address on', async () => {
+    const { supabase } = client([{ data: [], error: null }])
+    expect(await ledger(supabase).claim('intro', 'a@gym.lk', 1, NOW)).toBe(
+      false
+    )
+  })
+
+  it('records a send, and the fourth finishes the series', async () => {
+    const { supabase, queries } = client([
+      { data: [{ id: 'r1' }], error: null },
+      { data: [{ id: 'r1' }], error: null },
+    ])
+    await ledger(supabase).recordSent('intro', 'a@gym.lk', 2, 'em_2')
+    await ledger(supabase).recordSent('intro', 'a@gym.lk', 4, 'em_4')
     expect(queries[0]).toContainEqual([
       'update',
       {
-        status: 'sent',
-        resend_email_id: 'em_1',
+        resend_email_id: 'em_2',
         error: null,
-        updated_at: '2026-10-06T10:00:00.000Z',
+        failures: 0,
+        updated_at: NOW.toISOString(),
+      },
+    ])
+    expect(queries[1]).toContainEqual([
+      'update',
+      {
+        resend_email_id: 'em_4',
+        error: null,
+        failures: 0,
+        updated_at: NOW.toISOString(),
+        status: 'done',
       },
     ])
   })
 
-  it('throws when a mark changed nothing', async () => {
+  it('undoes a failed claim and stops the address after repeated failures', async () => {
+    const { supabase, queries } = client([
+      { data: { failures: 2 }, error: null },
+      { data: [{ id: 'r1' }], error: null },
+    ])
+    await ledger(supabase).recordFailure(
+      'intro',
+      'a@gym.lk',
+      1,
+      'Resend said no'
+    )
+    expect(queries[1]).toContainEqual([
+      'update',
+      {
+        step: 1,
+        error: 'Resend said no',
+        failures: 3,
+        updated_at: NOW.toISOString(),
+        status: 'failed',
+      },
+    ])
+  })
+
+  it('marks an address unsubscribed, and says when it is not in the campaign', async () => {
+    const { supabase, queries } = client([
+      { data: [{ id: 'r1' }], error: null },
+      { data: [], error: null },
+    ])
+    expect(await ledger(supabase).markUnsubscribed('intro', 'a@gym.lk')).toBe(
+      true
+    )
+    expect(await ledger(supabase).markUnsubscribed('intro', 'x@gym.lk')).toBe(
+      false
+    )
+    expect(queries[0]).toContainEqual([
+      'update',
+      { status: 'unsubscribed', updated_at: NOW.toISOString() },
+    ])
+  })
+
+  it('throws when a write it must make changed nothing', async () => {
     const { supabase } = client([{ data: [], error: null }])
     await expect(
-      new SupabaseOutreachLedger(supabase).mark('intro', 'a@gym.lk', {
-        status: 'sent',
-      })
+      ledger(supabase).recordSent('intro', 'a@gym.lk', 1, 'em')
     ).rejects.toThrow(/no outreach recipient/i)
   })
 
@@ -133,8 +224,8 @@ describe('SupabaseOutreachLedger', () => {
     const { supabase } = client([
       { data: null, error: { message: 'relation does not exist' } },
     ])
-    await expect(
-      new SupabaseOutreachLedger(supabase).recipients('intro')
-    ).rejects.toThrow('relation does not exist')
+    await expect(ledger(supabase).recipients('intro')).rejects.toThrow(
+      'relation does not exist'
+    )
   })
 })

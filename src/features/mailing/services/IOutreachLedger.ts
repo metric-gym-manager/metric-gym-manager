@@ -1,36 +1,67 @@
 import type { Prospect } from '../utils/prospectsCsv'
 
 /**
- * Where an outreach address stands in a campaign:
- * - `pending`: recorded, not yet sent (a later run sends it);
- * - `sent`: the introduction went out;
- * - `skipped`: the address had unsubscribed;
- * - `failed`: Resend refused it (the error is kept).
+ * Where an address stands in an outreach series:
+ * - `active`: still receiving the series (`step` emails sent so far);
+ * - `done`: all four sent;
+ * - `unsubscribed`: opted out, or taken out on request — never written to again;
+ * - `failed`: sends kept failing; given up.
  */
-export type OutreachStatus = 'pending' | 'sent' | 'skipped' | 'failed'
+export type OutreachStatus = 'active' | 'done' | 'unsubscribed' | 'failed'
 
-export interface OutreachPatch {
-  status: OutreachStatus
-  resendEmailId?: string
-  error?: string
+/** An address due its next email. */
+export interface OutreachRecipient {
+  email: string
+  gymName: string | null
+  name: string | null
+  /** Emails of the series sent so far, 0 to 4. */
+  step: number
 }
 
 /**
  * The record of a campaign's recipients — one row per address, unique per
- * campaign — and so the guard against emailing anyone twice. It is also the
- * record of where each address came from.
+ * campaign — and so the guard against emailing anyone out of turn. It also
+ * records where each address came from.
  */
 export interface IOutreachLedger {
-  /** Insert new addresses as `pending`; existing ones are left alone. Returns how many were new. */
+  /** Insert new addresses as `active` at step 0; returns the ones that were new. */
   addRecipients(
     campaign: string,
     prospects: Prospect[],
-    source: string
-  ): Promise<number>
+    defaultSource: string
+  ): Promise<string[]>
   /** Every address already in the campaign, with its status. */
   recipients(campaign: string): Promise<Map<string, OutreachStatus>>
-  /** The next addresses to send, oldest first. */
-  pending(campaign: string, limit: number): Promise<Prospect[]>
-  /** Throws when no row changed: a no-op must not pass for a write. */
-  mark(campaign: string, email: string, patch: OutreachPatch): Promise<void>
+  /** Active addresses with emails left, not written to since `notSentSince`, oldest first. */
+  due(
+    campaign: string,
+    notSentSince: Date,
+    limit: number
+  ): Promise<OutreachRecipient[]>
+  /**
+   * Move an address from `fromStep` to the next, BEFORE sending. False when
+   * it is no longer at `fromStep` or no longer active: another run has it.
+   */
+  claim(
+    campaign: string,
+    email: string,
+    fromStep: number,
+    at: Date
+  ): Promise<boolean>
+  /** Record a delivered send; the fourth marks the address `done`. */
+  recordSent(
+    campaign: string,
+    email: string,
+    step: number,
+    resendEmailId: string
+  ): Promise<void>
+  /** Undo a claim whose send failed; repeated failures mark it `failed`. */
+  recordFailure(
+    campaign: string,
+    email: string,
+    revertTo: number,
+    error: string
+  ): Promise<void>
+  /** Never write to this address again. False when it is not in the campaign. */
+  markUnsubscribed(campaign: string, email: string): Promise<boolean>
 }

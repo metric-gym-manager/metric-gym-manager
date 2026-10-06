@@ -56,9 +56,9 @@ export const LEGAL_CHANGES: readonly LegalChange[] = [
  */
 export const LEGAL_TEXT_FINGERPRINTS: Readonly<Record<string, string>> = {
   // Amended the same day, before that day's notice went out, with the
-  // paragraph on the one-off introduction to gyms whose address is public.
+  // paragraph on the introduction series to gyms whose address is public.
   // It concerns people who are not customers, so the notice's summary stands.
-  '/privacy@2026-10-06': '50e9febaa53bd86f',
+  '/privacy@2026-10-06': 'd902ea8403b53e4c',
   '/terms@2026-07-01': '993ff18b7d6bcd36',
   '/refund-policy@2026-07-01': '5e0575584e294b19',
 }

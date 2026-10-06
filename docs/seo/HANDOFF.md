@@ -411,8 +411,9 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 
 **Outreach campaign (`claude/outreach-campaign`)**
 
-- [x] **Built and verified (2026-10-06).** The "Tired of chasing payments?" introduction email: WhatsApp links with the demo request typed, a plain-text part, and a footer that says where the address came from with a working unsubscribe. It goes out from its own domain, `go.metricgymos.com` (verified in Resend, DNS in Cloudflare), so it cannot hurt customer email. `scripts/send-outreach.ts` leaves out every gym and demo request, records each address before sending, never emails anyone twice, and skips anyone who unsubscribed. Privacy §5 discloses it. Design: `docs/architecture/marketing-email.md`, "Outreach".
-- [ ] **Send it (owner + Claude).** Tell me where the CSV is. A dry run shows what would happen; on your OK, the first 50 go out, then one batch a day. Watch Resend → Emails for bounces and complaints, and keep batches small while they stay low.
+- [x] **Built and verified (2026-10-06).** A four-email introduction series, one a week, to gyms from public pages. It is sent by the weekly `send-outreach` cron (Tuesdays, 10:00 SLT) from its own domain, `go.metricgymos.com`. Each email has an Unsubscribe link and one-click unsubscribe headers that work from the backend. Every send is tagged in Resend by campaign and email number, and each run is logged to `cron_logs`. Privacy §5 discloses it. Design: `docs/architecture/marketing-email.md`, "Outreach".
+- [ ] **Review the first list (owner).** 82 businesses were taken in and 67 left out, with reasons; both lists were sent in the conversation. The first email goes out on **Tuesday 2026-10-13 at 10:00 SLT**. To drop someone before then: `npx tsx scripts/send-outreach.ts --remove their@email`. To add more: put them in a CSV and run `--import file.csv --apply`. Check progress with `--status`.
+- [ ] **Watch the first sends (owner).** In Resend → Emails, filter by the tag `kind: outreach`. Keep an eye on bounces and spam complaints. If complaints appear, run `--remove` on that address, and say so before the next Tuesday.
 
 **Check this session's work in production**
 

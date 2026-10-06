@@ -1,12 +1,18 @@
-/** One introduction email, ready to send. */
+/** One email of the series, ready to send. */
 export interface OutreachEmail {
   to: string
   subject: string
   html: string
   text: string
-  /** Also sent as the List-Unsubscribe header. */
+  /** The recipient's /unsubscribe page, linked in the footer. */
   unsubscribeUrl: string
+  /** The one-click endpoint (RFC 8058) for the List-Unsubscribe header. */
+  oneClickUrl: string
   topicId: string
+  /** Shown and filterable in Resend's email log. */
+  tags: { name: string; value: string }[]
+  /** Resend sends one email per key, so a retried request never doubles. */
+  idempotencyKey: string
 }
 
 /** The slice of Resend outreach uses. */

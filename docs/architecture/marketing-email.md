@@ -233,50 +233,73 @@ The run checks out the newest master. If master moves while a release is cut, it
 
 ## Outreach: introducing Metric to gyms that have not heard of it
 
-A one-off introduction email to gyms whose contact email is on a public page, such as the gym's website or a business listing (owner request, 2026-10-06). It echoes the SMS that brought in calls: "Tired of chasing payments?"
+A four-email introduction series, one email a week, to gyms whose contact email is on a public page such as the gym's website or a business listing (owner request, 2026-10-06).
 
-**The email.** `config/outreachCampaign.ts`:
+**The four emails.** All are in `config/outreachCampaign.ts`, and every address gets them in order:
 
-- **Figures:** every figure comes from `pricing.ts` and `site.ts`: from Rs. 2,990 a month, up to 100 active members, a 30-day free trial.
-- **Claims:** only what the product does. Metric shows who owes, sends SMS reminders and receipts, and compares what is owed with what was collected. It does not collect money, and the homepage tests ban that claim.
-- **The sample panel** is labelled "(example)".
-- **WhatsApp:** both the button and the phone number open WhatsApp with "Hi, I'd like a free demo of Metric Gym OS" already typed.
-- **A plain-text part is sent too.**
-- **The footer** says where the address came from, carries the recipient's own signed /unsubscribe link (Marketing topic), and gives the company's postal address.
+1. "Tired of chasing payments?", the SMS that brought in calls.
+2. **The reminders:** what members are sent and when, as `ReminderConfig` sends them. Monthly members get them 3 days before and on the due day, longer plans 7 days before as well, and an overdue reminder follows once.
+3. **The money:** what members owe this month against what was collected.
+4. **Getting started:** sign-up, bulk import, the QR poster. It says it is the last.
 
-`outreachCampaign.test.ts` holds the email to all of this.
+**What every email holds:**
 
-**Its own sending domain.** The email comes from `Metric Gym OS <hello@go.metricgymos.com>`, and replies go to `hello@metricgymos.com`.
+- **Figures** from `pricing.ts` and `site.ts`.
+- **Claims** only the product backs. Metric does not collect money, and the homepage tests ban that claim.
+- **Sample figures** labelled "(example)".
+- **WhatsApp:** the phone number, and the button where there is one, open WhatsApp with the demo request typed.
+- **A plain-text part.**
+- **A footer** that says where the address came from and which email of four it is, gives the company's postal address, and carries the recipient's own signed **Unsubscribe** link (Marketing topic).
 
-- The domain was verified in Resend on 2026-10-06, with tracking off: tracked links are a spam signal on cold email.
-- Its four DNS records sit in Cloudflare, each with a comment naming Resend.
-- A cold list's spam complaints therefore can never touch `updates.metricgymos.com`, which carries release and policy emails to customers.
+`outreachCampaign.test.ts` holds all four to this.
 
-**Who receives it.** `SendOutreach`, run by `scripts/send-outreach.ts`:
+**Stopping them works two ways, both on the backend:**
 
-- **Left out:** every gym's and every demo request's address (`listKnownEmails`, consent or not). Customers already use the product, and a demo request without the consent box ticked must not be marketed to.
-- **The CSV:** `parseProspectsCsv` reads it whatever the headers are called. It splits cells holding several addresses, and drops repeats, invalid rows and reserved TLDs, reporting each one.
-- **Never twice.** Every address is recorded in `outreach_recipients` (unique per campaign and address, with its `source`) before anything is sent.
-- **Unsubscribers are skipped.** Before each send, an address that opted out of Marketing, or out of everything, is marked `skipped`.
-- **Each address becomes a Resend contact** carrying its unsubscribe token, in **no segment**, so /unsubscribe works for it and the nightly sync never touches it. Should the gym later sign up, the sync adds that same contact to its segments, and its opt-outs carry over.
+- the footer link opens /unsubscribe;
+- every email carries one-click `List-Unsubscribe` and `List-Unsubscribe-Post` headers (RFC 8058). Gmail's, Yahoo's and Outlook's own "Unsubscribe" button POSTs to `/api/public/email-preferences/one-click`, which verifies the signed token and opts the address out of Marketing at once. A GET (a person opening the link) is sent to /unsubscribe and changes nothing.
 
-**Running it:**
+Either way the next weekly run marks the address `unsubscribed`, and it is never written to again.
 
-- `npx tsx scripts/send-outreach.ts --test you@example.com` sends one copy to you, outside the campaign.
-- `npx tsx scripts/send-outreach.ts --csv gyms.csv` is a dry run. It shows the rows set aside, the addresses left out, and who the next batch would reach.
-- `npx tsx scripts/send-outreach.ts --csv gyms.csv --apply` records the new addresses and sends the next batch: 50 by default (`--limit`). Run it once a day with the same file; nobody is emailed twice. A new domain earns trust slowly, so raise `--limit` only while bounces and complaints stay near zero (Resend → Emails shows both).
+**Its own sending domain.** The series comes from `Metric Gym OS <hello@go.metricgymos.com>`, and replies go to `hello@metricgymos.com`.
 
-**Verified live on 2026-10-06** with Resend's test addresses, under a throwaway campaign since deleted:
+- The domain was verified 2026-10-06, with tracking off: tracked links are a spam signal on cold email.
+- Its DNS sits in Cloudflare.
+- A cold list's spam complaints cannot touch `updates.metricgymos.com`, the customer email domain.
 
-- a batch of 2, then the rest on the next run, then nothing;
-- an opted-out contact was `skipped`;
-- the owner's gym address was left out;
-- a duplicate, a junk row and a `.local` address were set aside;
-- production's /unsubscribe recorded a prospect's opt-out (Marketing read back `opt_out`).
+**The weekly run.** `/api/cron/send-outreach` runs Tuesdays at 04:30 UTC, 10:00 SLT (`SendOutreach.runWeek`):
 
-The test copy arrived from `hello@go.metricgymos.com` with its plain-text part and `List-Unsubscribe` header.
+- **Who is due:** every `active` address with emails left that has not been written to for 6 days gets its next one.
+- **Claimed before sending:** the step is claimed in `outreach_recipients` by a conditional update, and Resend gets an idempotency key per address and step. Two runs can never send the same email twice.
+- **Failures:** a failed send is undone and retried the next week; three failures in a row stop the address.
+- **Limit:** at most `OUTREACH_WEEKLY_LIMIT` (150) sends per run.
+- **Logs:** every email is **tagged in Resend** (`kind=outreach`, `campaign`, `email` = 1 to 4), so Resend → Emails can be filtered to the series. Each run's counts go to `cron_logs`, logged as a failure when any email failed, so it shows on /system-health.
 
-**Privacy.** Policy §5 describes the introduction: where the address comes from, that the email says so, how to stop it, and what is kept and why.
+**Who is taken in.**
+
+- `--import` reads the list whatever its headers. A `website` column is recorded as each address's `source`.
+- It leaves out every gym's and every demo request's address (`listKnownEmails`, consent or not).
+- It records the rest and adds each to **Resend's contacts** (with its unsubscribe token, in no segment), so the nightly sync never touches them.
+- A gym that later signs up keeps its contact and its opt-outs.
+
+**The first list (2026-10-06).** From 149 websites the owner collected, 82 businesses were taken in, with one address each: Sri Lankan gyms and fitness, martial-arts, yoga and dance studios. 67 were left out:
+
+- Wix error-reporting addresses and placeholders;
+- universities, schools, hotels, a monastery, retailers, directories, media and tour operators;
+- businesses outside Sri Lanka;
+- a page listing ~50 private individuals worldwide;
+- the access-control hardware vendor.
+
+The included and excluded lists, with reasons, were given to the owner and are kept out of the repo.
+
+**Commands** (`npx tsx scripts/send-outreach.ts`):
+
+- `--import list.csv` (`--apply` to record);
+- `--test you@x --email 1-4`;
+- `--run` (the weekly run by hand; `--apply` to send);
+- `--remove someone@x`;
+- `--status`.
+
+**Privacy.** Policy §5 describes the series: where the address comes from, up to four emails a week apart, how to stop them (the link or the mail app's button), and what is kept and why.
 
 ## Configuration
 

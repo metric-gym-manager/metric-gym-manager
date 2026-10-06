@@ -35,7 +35,15 @@ const EMAIL = {
   text: 'hi',
   unsubscribeUrl:
     'https://www.metricgymos.com/unsubscribe?email=a%40gym.lk&token=t&topic=marketing',
+  oneClickUrl:
+    'https://www.metricgymos.com/api/public/email-preferences/one-click?email=a%40gym.lk&token=t&topic=marketing',
   topicId: 'topic_marketing',
+  tags: [
+    { name: 'kind', value: 'outreach' },
+    { name: 'campaign', value: 'intro-2026-10' },
+    { name: 'email', value: '1' },
+  ],
+  idempotencyKey: 'outreach:intro-2026-10:1:a@gym.lk',
 }
 
 describe('ResendOutreachSender', () => {
@@ -100,7 +108,7 @@ describe('ResendOutreachSender', () => {
     ).toBe(expected)
   })
 
-  it('sends from the outreach address, with a plain-text part and unsubscribe headers', async () => {
+  it('sends from the outreach address with a plain-text part, one-click unsubscribe headers, tags and an idempotency key', async () => {
     const { resend, m } = api()
     expect(await new ResendOutreachSender(resend).send(EMAIL)).toBe('em_1')
     expect(m.send).toHaveBeenCalledWith(
@@ -112,11 +120,16 @@ describe('ResendOutreachSender', () => {
         html: '<p>hi</p>',
         text: 'hi',
         topicId: 'topic_marketing',
+        tags: EMAIL.tags,
         headers: {
-          'List-Unsubscribe': `<${EMAIL.unsubscribeUrl}>, <mailto:${MAILING_REPLY_TO}?subject=unsubscribe>`,
+          'List-Unsubscribe': `<${EMAIL.oneClickUrl}>, <mailto:${MAILING_REPLY_TO}?subject=unsubscribe>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       },
-      expect.objectContaining({ signal: expect.any(AbortSignal) })
+      expect.objectContaining({
+        signal: expect.any(AbortSignal),
+        idempotencyKey: 'outreach:intro-2026-10:1:a@gym.lk',
+      })
     )
   })
 

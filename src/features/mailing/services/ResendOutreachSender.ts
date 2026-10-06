@@ -47,18 +47,20 @@ export interface OutreachResendApi {
         html: string
         text: string
         topicId: string
+        tags: { name: string; value: string }[]
         headers: Record<string, string>
       },
-      requestOptions?: RequestOptions
+      requestOptions?: RequestOptions & { idempotencyKey?: string }
     ): Promise<ApiResult<{ id: string }>>
   }
 }
 
 /**
  * Resend-backed {@link IOutreachSender}. Every send goes out from the
- * outreach subdomain with a plain-text part and a `List-Unsubscribe` header
- * (the recipient's /unsubscribe link and a mailto), so a mail app's own
- * unsubscribe works too.
+ * outreach subdomain with a plain-text part, one-click `List-Unsubscribe`
+ * headers (so a mail app's own button opts out at once), tags that make it
+ * filterable in Resend's email log, and an idempotency key so a retried
+ * request never sends twice.
  */
 export class ResendOutreachSender implements IOutreachSender {
   constructor(
@@ -119,11 +121,15 @@ export class ResendOutreachSender implements IOutreachSender {
         html: email.html,
         text: email.text,
         topicId: email.topicId,
+        tags: email.tags,
         headers: {
-          'List-Unsubscribe': `<${email.unsubscribeUrl}>, <mailto:${MAILING_REPLY_TO}?subject=unsubscribe>`,
+          // RFC 8058: a mail app's own "Unsubscribe" button POSTs to the https
+          // URL, no page and no person in between; the mailto is a fallback.
+          'List-Unsubscribe': `<${email.oneClickUrl}>, <mailto:${MAILING_REPLY_TO}?subject=unsubscribe>`,
+          'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       },
-      timeLimit(this.timeoutMs)
+      { ...timeLimit(this.timeoutMs), idempotencyKey: email.idempotencyKey }
     )
     if (error) throw new Error(error.message)
     return data.id

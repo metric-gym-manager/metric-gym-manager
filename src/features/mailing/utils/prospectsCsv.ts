@@ -6,6 +6,8 @@ export interface Prospect {
   email: string
   gymName: string | null
   name: string | null
+  /** The page it was found on, when the CSV says. */
+  source: string | null
 }
 
 export interface RejectedRow {
@@ -16,10 +18,11 @@ export interface RejectedRow {
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const EMAIL_HEADER = /^(e-?mail|mail)( address)?$/
+const EMAIL_HEADER = /^(e-?mails?|mails?)( address(es)?)?$/
 const GYM_HEADER =
   /^(gym|gym name|business|business name|company|company name|organi[sz]ation)$/
 const NAME_HEADER = /^(name|owner|owner name|contact|contact name|full name)$/
+const SOURCE_HEADER = /^(website|website host|site|url|source|page)$/
 
 /** RFC 4180: quoted fields, doubled quotes, commas and newlines inside quotes. */
 function parseRows(text: string): string[][] {
@@ -88,6 +91,9 @@ export function parseProspectsCsv(text: string): {
   const nameColumn = hasHeader
     ? header.findIndex((c) => NAME_HEADER.test(c))
     : -1
+  const sourceColumn = hasHeader
+    ? header.findIndex((c) => SOURCE_HEADER.test(c))
+    : -1
 
   const seen = new Set<string>()
   rows.forEach((cells, index) => {
@@ -117,6 +123,7 @@ export function parseProspectsCsv(text: string): {
           email,
           gymName: cellOf(gymColumn),
           name: cellOf(nameColumn),
+          source: cellOf(sourceColumn),
         })
       }
     }

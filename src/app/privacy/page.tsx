@@ -375,13 +375,14 @@ const sections: LegalSection[] = [
           </LegalLI>
         </LegalList>
         <LegalP>
-          We also send a one-off introduction to gyms whose contact email is
+          We also send a short introduction to gyms whose contact email is
           published on a public page, such as the gym&apos;s own website or a
-          business listing. That email says where we found the address and
-          carries a link to stop further email. We keep the address, where we
-          found it and whether we wrote to it only so that we never write twice
-          and can honour that choice; write to hello@metricgymos.com to have it
-          deleted.
+          business listing: up to four emails, one a week, and then no more.
+          Each email says where we found the address and carries a link to stop
+          further email; your email app&apos;s own unsubscribe button works too.
+          We keep the address, where we found it and which emails we sent only
+          so that we never write out of turn and can honour that choice; write
+          to hello@metricgymos.com to have it deleted.
         </LegalP>
         <LegalP>
           You can stop either kind, or both, at any time: follow the unsubscribe

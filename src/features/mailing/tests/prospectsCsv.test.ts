@@ -19,6 +19,7 @@ describe('parseProspectsCsv', () => {
           email: 'info@titanfitness.lk',
           gymName: 'Titan Fitness',
           name: 'Ruwan',
+          source: null,
         },
       ],
       rejected: [],
@@ -32,6 +33,7 @@ describe('parseProspectsCsv', () => {
       email: 'a@gym.lk',
       gymName: null,
       name: null,
+      source: null,
     })
   })
 
@@ -45,8 +47,8 @@ describe('parseProspectsCsv', () => {
   it('splits a cell holding several addresses into one prospect each', () => {
     const csv = 'email,gym\n"info@a.lk; sales@a.lk",Alpha Gym\n'
     expect(parseProspectsCsv(csv).prospects).toEqual([
-      { email: 'info@a.lk', gymName: 'Alpha Gym', name: null },
-      { email: 'sales@a.lk', gymName: 'Alpha Gym', name: null },
+      { email: 'info@a.lk', gymName: 'Alpha Gym', name: null, source: null },
+      { email: 'sales@a.lk', gymName: 'Alpha Gym', name: null, source: null },
     ])
   })
 
@@ -69,6 +71,28 @@ describe('parseProspectsCsv', () => {
       { row: 2, value: 'not-an-email', reason: 'invalid' },
       { row: 3, value: 'owner@gym', reason: 'invalid' },
       { row: 4, value: 'x@demo.local', reason: 'undeliverable' },
+    ])
+  })
+
+  it('reads the owner’s list: a website column, and several addresses per row', () => {
+    const csv =
+      'website_host,emails\n' +
+      'www.lifn.lk,info@lifn.lk;lifnfitness@gmail.com\n' +
+      'befit.lk,team@befit.lk\n'
+    expect(parseProspectsCsv(csv).prospects).toEqual([
+      {
+        email: 'info@lifn.lk',
+        gymName: null,
+        name: null,
+        source: 'www.lifn.lk',
+      },
+      {
+        email: 'lifnfitness@gmail.com',
+        gymName: null,
+        name: null,
+        source: 'www.lifn.lk',
+      },
+      { email: 'team@befit.lk', gymName: null, name: null, source: 'befit.lk' },
     ])
   })
 
