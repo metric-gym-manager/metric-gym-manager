@@ -200,6 +200,21 @@ describe('Release-Note lines in squashed and wrapped commit messages', () => {
     ).toEqual([])
   })
 
+  it('counts only the inner commits that could ever reach a changelog', () => {
+    // docs and chores never appear in a changelog, so their silence must not
+    // keep a squash of internal fixes visible.
+    expect(
+      lines({
+        hash: 'a7a7a7a',
+        subject: 'fix(release): close the gaps (#95)',
+        body:
+          '* fix(release): close the gaps\n\nRelease-Note: none\n\n' +
+          '* docs(rules): condense the rules\n\n' +
+          '* chore(deps): lockfile tidy',
+      })
+    ).toEqual([])
+  })
+
   it('still hides a commit of its own marked none', () => {
     expect(
       lines({

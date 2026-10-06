@@ -174,7 +174,13 @@ function categorizeCommits(commits) {
     const isNone = (note) => /^none\.?$/i.test(note)
     const notes = releaseNotes(body)
     const visible = notes.filter((note) => !isNone(note))
-    const inner = innerCommitBlocks(body)
+    // Only inner commits that could reach a changelog count: a docs or chore
+    // commit has no note because it never needs one.
+    const inner = innerCommitBlocks(body).filter((block) =>
+      /^\* (?:(?:feat|feature|fix|perf)(?:\([^)]*\))?!?|\w+(?:\([^)]*\))?!): /.test(
+        block
+      )
+    )
     const hidden =
       visible.length > 0
         ? false
