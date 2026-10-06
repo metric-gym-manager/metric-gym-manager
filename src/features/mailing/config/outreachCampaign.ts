@@ -174,8 +174,8 @@ function offer(primary?: { href: string; label: string }): string {
     ? button(primary.href, primary.label, C.brand)
     : button(WHATSAPP_DEMO_URL, 'Book a free demo on WhatsApp', C.whatsapp)
   const second = primary
-    ? `or ask us anything on WhatsApp: <a href="${whatsapp}" style="color:${C.whatsapp};font-weight:700;text-decoration:none">${LOCAL_PHONE}</a>`
-    : `or message us on <a href="${whatsapp}" style="color:${C.whatsapp};font-weight:700;text-decoration:none">${LOCAL_PHONE}</a>`
+    ? `or ask us anything on WhatsApp: <a href="${whatsapp}" style="color:${C.whatsapp};font-weight:700;text-decoration:none;white-space:nowrap">${LOCAL_PHONE}</a>`
+    : `or message us on <a href="${whatsapp}" style="color:${C.whatsapp};font-weight:700;text-decoration:none;white-space:nowrap">${LOCAL_PHONE}</a>`
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 <tr><td style="padding:4px 28px 32px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${C.line};border-radius:12px">

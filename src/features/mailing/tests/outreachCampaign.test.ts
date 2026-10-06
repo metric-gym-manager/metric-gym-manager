@@ -67,6 +67,10 @@ describe.each(STEPS)('email %i', (step) => {
     expect(WHATSAPP_DEMO_URL).toBe(
       `${CONTACT.whatsappUrl}?text=Hi%2C%20I'd%20like%20a%20free%20demo%20of%20Metric%20Gym%20OS`
     )
+    // The number never breaks across lines on a phone.
+    expect(html).toMatch(
+      /style="[^"]*white-space:nowrap[^"]*">070 437 9967<\/a>/
+    )
     // The number itself opens the chat, in every email.
     expect(html).toMatch(
       /<a href="https:\/\/wa\.me\/94704379967\?text=[^"]+"[^>]*>070 437 9967<\/a>/
