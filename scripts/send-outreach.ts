@@ -129,7 +129,7 @@ async function main() {
   }
 
   if (has('--run')) {
-    const limit = Number(flag('--limit') ?? mailing.OUTREACH_WEEKLY_LIMIT)
+    const limit = Number(flag('--limit') ?? mailing.OUTREACH_DAILY_LIMIT)
     if (!Number.isInteger(limit) || limit < 1)
       throw new Error('--limit must be a positive whole number')
     const report = await outreach.runWeek({

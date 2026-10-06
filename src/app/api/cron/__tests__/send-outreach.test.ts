@@ -19,7 +19,8 @@ const logFailure = jest.fn().mockResolvedValue(undefined)
 jest.mock('@/features/mailing', () => ({
   createSendOutreach: (...args: unknown[]) => createOutreach(...args),
   OUTREACH_CAMPAIGN: 'intro-2026-10',
-  OUTREACH_WEEKLY_LIMIT: 150,
+  OUTREACH_DAILY_LIMIT: 80,
+  OUTREACH_STARTS_AT: new Date('2026-01-01T00:00:00Z'),
 }))
 jest.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({}) }))
 jest.mock('@/lib/cron', () => ({
@@ -75,10 +76,29 @@ describe('/api/cron/send-outreach', () => {
     const [input] = runWeek.mock.calls[0]
     expect(input).toMatchObject({
       campaign: 'intro-2026-10',
-      limit: 150,
+      limit: 80,
       dryRun: false,
     })
     expect(input.now).toBeInstanceOf(Date)
+    // Stops starting sends two minutes before the 300 s function limit.
+    expect(input.deadline.getTime() - input.now.getTime()).toBeLessThanOrEqual(
+      180_000
+    )
+  })
+
+  it('sends nothing before the campaign’s start, so the owner can review the list first', async () => {
+    jest.useFakeTimers({ now: new Date('2025-12-31T04:30:00Z') })
+    try {
+      const response = await GET(request('Bearer cron-secret'))
+      expect(response.status).toBe(200)
+      expect(runWeek).not.toHaveBeenCalled()
+      expect(logSuccess).toHaveBeenCalledWith(
+        'cron-log-id',
+        expect.objectContaining({ notStarted: true })
+      )
+    } finally {
+      jest.useRealTimers()
+    }
   })
 
   it('runs on POST too, for a manual trigger', async () => {
@@ -125,14 +145,27 @@ describe('/api/cron/send-outreach', () => {
   })
 })
 
-describe('vercel.json — the weekly schedule', () => {
-  it('runs every Tuesday at 04:30 UTC, 10:00 in Sri Lanka', () => {
+/**
+ * Inverted check, 2026-10-06: individual emails count against Resend's
+ * 100-a-day limit (12 that day were exactly the test sends), so a weekly run
+ * of 150 in one go fails past ~95. The run is daily, below the cap, and each
+ * address still gets one email a week: the six-day gap decides who is due.
+ */
+describe('vercel.json — the schedule', () => {
+  it('runs every day at 04:30 UTC, 10:00 in Sri Lanka', () => {
     const config = JSON.parse(
       readFileSync(join(__dirname, '../../../../../vercel.json'), 'utf8')
     )
     expect(config.crons).toContainEqual({
       path: '/api/cron/send-outreach',
-      schedule: '30 4 * * 2',
+      schedule: '30 4 * * *',
     })
+  })
+
+  it('sends fewer a day than Resend allows, leaving room for other email', () => {
+    const { OUTREACH_DAILY_LIMIT } = jest.requireActual(
+      '../../../../features/mailing/config/outreachCampaign'
+    )
+    expect(OUTREACH_DAILY_LIMIT).toBeLessThanOrEqual(80)
   })
 })

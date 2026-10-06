@@ -25,7 +25,13 @@ export const ONE_CLICK_UNSUBSCRIBE_PATH =
 const DAY = 86_400_000
 
 export type OutreachOutcome =
-  'known' | 'imported' | 'sent' | 'skipped' | 'failed' | 'would_send'
+  | 'known'
+  | 'imported'
+  | 'sent'
+  | 'skipped'
+  | 'failed'
+  | 'deferred'
+  | 'would_send'
 
 export interface OutreachReport {
   counts: Record<OutreachOutcome, number>
@@ -52,6 +58,12 @@ export interface RunWeekInput {
   /** Sends this run, at most. */
   limit: number
   dryRun: boolean
+  /**
+   * No new send is started after this moment; the rest stay due for the next
+   * run. A run cut off by the function's time limit mid-send would leave a
+   * claimed email unsent, so the cron stops well before that limit.
+   */
+  deadline?: Date
 }
 
 function emptyReport(): OutreachReport {
@@ -62,6 +74,7 @@ function emptyReport(): OutreachReport {
       sent: 0,
       skipped: 0,
       failed: 0,
+      deferred: 0,
       would_send: 0,
     },
     entries: [],
@@ -145,32 +158,60 @@ export class SendOutreach {
   /** The weekly run: each due address gets its next email of the four. */
   async runWeek(input: RunWeekInput): Promise<OutreachReport> {
     const report = emptyReport()
+    const record = (
+      email: string,
+      outcome: OutreachOutcome,
+      extra: { step?: number; detail?: string } = {}
+    ) => {
+      report.counts[outcome] += 1
+      report.entries.push({ email, outcome, ...extra })
+    }
     const notSentSince = new Date(
       input.now.getTime() - OUTREACH_MIN_GAP_DAYS * DAY
     )
     const due = await this.ledger.due(input.campaign, notSentSince, input.limit)
+    // Someone imported last month may have signed up or asked for a demo
+    // since: they are a customer or a lead now, not a prospect.
+    const known = new Set(
+      (await this.listKnownEmails()).map(normalizeMailingEmail)
+    )
 
     for (const recipient of due) {
       const step = (recipient.step + 1) as OutreachStep
       if (step > OUTREACH_SEQUENCE_LENGTH) continue
       if (input.dryRun) {
-        report.counts.would_send += 1
-        report.entries.push({
-          email: recipient.email,
-          outcome: 'would_send',
+        record(recipient.email, 'would_send', { step })
+        continue
+      }
+      if (input.deadline && Date.now() > input.deadline.getTime()) {
+        record(recipient.email, 'deferred', {
           step,
+          detail: 'out of time; next run',
+        })
+        continue
+      }
+      if (known.has(normalizeMailingEmail(recipient.email))) {
+        await this.ledger.markDone(input.campaign, recipient.email)
+        record(recipient.email, 'known', {
+          detail: 'now a gym or a demo request',
         })
         continue
       }
 
-      if (!(await this.sender.canReceiveMarketing(recipient.email))) {
-        await this.ledger.markUnsubscribed(input.campaign, recipient.email)
-        report.counts.skipped += 1
-        report.entries.push({
-          email: recipient.email,
-          outcome: 'skipped',
-          detail: 'unsubscribed',
+      // One address's trouble must never stop the rest of the run.
+      let reachable: boolean
+      try {
+        reachable = await this.sender.canReceiveMarketing(recipient.email)
+      } catch (error) {
+        record(recipient.email, 'failed', {
+          step,
+          detail: `could not check: ${error instanceof Error ? error.message : String(error)}`,
         })
+        continue
+      }
+      if (!reachable) {
+        await this.ledger.markUnsubscribed(input.campaign, recipient.email)
+        record(recipient.email, 'skipped', { detail: 'unsubscribed' })
         continue
       }
 
@@ -188,8 +229,7 @@ export class SendOutreach {
       try {
         const id = await this.sendStep(input.campaign, recipient.email, step)
         await this.ledger.recordSent(input.campaign, recipient.email, step, id)
-        report.counts.sent += 1
-        report.entries.push({ email: recipient.email, outcome: 'sent', step })
+        record(recipient.email, 'sent', { step })
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         await this.ledger.recordFailure(
@@ -198,13 +238,7 @@ export class SendOutreach {
           recipient.step,
           message
         )
-        report.counts.failed += 1
-        report.entries.push({
-          email: recipient.email,
-          outcome: 'failed',
-          step,
-          detail: message,
-        })
+        record(recipient.email, 'failed', { step, detail: message })
       }
     }
     return report
@@ -224,7 +258,9 @@ export class SendOutreach {
       null
     )
     if (!(await this.sender.canReceiveMarketing(address))) return null
-    return this.sendStep('test', address, step)
+    // A fresh key per test: Resend keeps a key for 24 hours and refuses it
+    // with a changed body, so a fixed one blocked re-testing after an edit.
+    return this.sendStep('test', address, step, `test-${crypto.randomUUID()}`)
   }
 
   /** Take an address out of the campaign; it is never written to again. */
@@ -235,7 +271,8 @@ export class SendOutreach {
   private async sendStep(
     campaign: string,
     email: string,
-    step: OutreachStep
+    step: OutreachStep,
+    attempt = 'campaign'
   ): Promise<string> {
     const token = createUnsubscribeToken(email, this.secret)
     const link = (path: string) => {
@@ -257,7 +294,10 @@ export class SendOutreach {
         { name: 'campaign', value: campaign },
         { name: 'email', value: String(step) },
       ],
-      idempotencyKey: `outreach:${campaign}:${step}:${email}`,
+      idempotencyKey:
+        attempt === 'campaign'
+          ? `outreach:${campaign}:${step}:${email}`
+          : `outreach:${attempt}:${step}:${email}`,
     })
   }
 }

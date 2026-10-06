@@ -12,8 +12,14 @@ import { checkRateLimit } from '@/lib/rate-limit'
 // /api/public/email-preferences/one-click — List-Unsubscribe (no auth)
 // ============================================================
 
-const IP_LIMIT = 10
-const IP_WINDOW_MS = 60_000
+/**
+ * Per ADDRESS, not per IP: Gmail sends every recipient's one-click from a
+ * handful of Google servers, so a per-IP limit would refuse real
+ * unsubscribes in a busy minute (and Gmail does not retry). The signed token
+ * is the credential; this only stops one address being hammered.
+ */
+const ADDRESS_LIMIT = 5
+const WINDOW_MS = 60_000
 
 function params(request: NextRequest) {
   const query = request.nextUrl.searchParams
@@ -32,9 +38,10 @@ function params(request: NextRequest) {
  * rate-limit → validate → one factory call.
  */
 export async function POST(request: NextRequest) {
-  const ip =
-    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  if (!checkRateLimit(`email-preferences:ip:${ip}`, IP_LIMIT, IP_WINDOW_MS)) {
+  const address = (request.nextUrl.searchParams.get('email') ?? '')
+    .trim()
+    .toLowerCase()
+  if (!checkRateLimit(`one-click:${address}`, ADDRESS_LIMIT, WINDOW_MS)) {
     return NextResponse.json(
       ResponseBuilder.error('Too many requests.', 'RATE_LIMITED'),
       { status: 429 }

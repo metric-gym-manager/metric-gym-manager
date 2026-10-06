@@ -35,7 +35,7 @@ of truth; Sri Lanka local time (UTC+5:30) is shown for convenience only.
 | Sync Marketing Contacts  | `0 1 * * *`   | 01:00       | 6:30 AM          | Daily      |
 | Purge Access Events      | `0 2 * * *`   | 02:00       | 7:30 AM          | Daily      |
 | Send Announcements       | `0 4 * * *`   | 04:00       | 9:30 AM          | Daily      |
-| Send Outreach            | `30 4 * * 2`  | 04:30 Tue   | 10:00 AM Tue     | Weekly     |
+| Send Outreach            | `30 4 * * *`  | 04:30       | 10:00 AM         | Daily      |
 
 ### Member-status chain — ORDER MATTERS
 
@@ -396,9 +396,9 @@ Logged to `cron_logs` as a **failure** when an email could not be rendered, prev
 ## 7. Send Outreach
 
 **Endpoint**: `/api/cron/send-outreach`
-**Schedule**: Tuesdays at 04:30 UTC (10:00 AM Sri Lanka).
+**Schedule**: daily at 04:30 UTC (10:00 AM Sri Lanka), from 13 Oct 2026 (`OUTREACH_STARTS_AT`).
 
-Sends each address in `outreach_recipients` its next email of the four-email introduction series, at least 6 days after the last and never more than four. Anyone who unsubscribed, by the footer link or a mail app's one-click button, is dropped for good. Every email is tagged in Resend (`kind=outreach`, `campaign`, `email`). The run is logged to `cron_logs`, as a failure when any email failed. Design: `docs/architecture/marketing-email.md`, "Outreach".
+Sends each address in `outreach_recipients` its next email of the four-email introduction series, at least 6 days after the last: one a week per address, never more than four. It runs daily, because individual emails count against Resend's 100-a-day limit; each run sends at most 80. Anyone who unsubscribed, by the footer link or a mail app's one-click button, or whose contact was deleted, is dropped for good, and anyone who became a gym or a demo request ends the series. Every email is tagged in Resend (`kind=outreach`, `campaign`, `email`). The run is logged to `cron_logs`, as a failure when any email failed. Design: `docs/architecture/marketing-email.md`, "Outreach".
 
 ## Security
 

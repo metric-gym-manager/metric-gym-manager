@@ -111,6 +111,38 @@ describe('POST /api/public/email-preferences/one-click', () => {
   })
 })
 
+/**
+ * Inverted check, 2026-10-06: Gmail sends every recipient's one-click from a
+ * handful of Google servers. A per-IP limit (the /unsubscribe page's 10 a
+ * minute) would refuse real unsubscribes in a busy minute, and Gmail does not
+ * retry. The signed token is the credential, so the limit is per address.
+ */
+describe('one-click from a mail provider’s shared servers', () => {
+  it('honours many different people unsubscribing from the same IP in a minute', async () => {
+    const statuses: number[] = []
+    for (let i = 0; i < 25; i++) {
+      const address = `member${i}@gym${i}.lk`
+      const request = new NextRequest(
+        url({
+          email: address,
+          token: createUnsubscribeToken(address, SECRET),
+          topic: 'marketing',
+        }),
+        {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/x-www-form-urlencoded',
+            'x-forwarded-for': '209.85.220.41',
+          },
+          body: 'List-Unsubscribe=One-Click',
+        }
+      )
+      statuses.push((await POST(request)).status)
+    }
+    expect(statuses.every((s) => s === 200)).toBe(true)
+  })
+})
+
 describe('GET /api/public/email-preferences/one-click', () => {
   it('sends a person who opens the link to the unsubscribe page, changing nothing', async () => {
     const response = await GET(

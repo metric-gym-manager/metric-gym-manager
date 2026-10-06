@@ -213,6 +213,17 @@ describe('SupabaseOutreachLedger', () => {
     ])
   })
 
+  it('ends the series for an address that became a gym or a demo request', async () => {
+    const { supabase, queries } = client([
+      { data: [{ id: 'r1' }], error: null },
+    ])
+    await ledger(supabase).markDone('intro', 'a@gym.lk')
+    expect(queries[0]).toContainEqual([
+      'update',
+      { status: 'done', updated_at: NOW.toISOString() },
+    ])
+  })
+
   it('throws when a write it must make changed nothing', async () => {
     const { supabase } = client([{ data: [], error: null }])
     await expect(

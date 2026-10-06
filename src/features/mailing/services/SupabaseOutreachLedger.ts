@@ -155,6 +155,13 @@ export class SupabaseOutreachLedger implements IOutreachLedger {
     })
   }
 
+  async markDone(campaign: string, email: string): Promise<void> {
+    await this.write(campaign, email, {
+      status: 'done',
+      updated_at: this.stamp(),
+    })
+  }
+
   async markUnsubscribed(campaign: string, email: string): Promise<boolean> {
     const { data, error } = await this.supabase
       .from(TABLE)

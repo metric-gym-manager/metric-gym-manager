@@ -266,13 +266,21 @@ Either way the next weekly run marks the address `unsubscribed`, and it is never
 - Its DNS sits in Cloudflare.
 - A cold list's spam complaints cannot touch `updates.metricgymos.com`, the customer email domain.
 
-**The weekly run.** `/api/cron/send-outreach` runs Tuesdays at 04:30 UTC, 10:00 SLT (`SendOutreach.runWeek`):
+**The daily run.** `/api/cron/send-outreach` runs daily at 04:30 UTC, 10:00 SLT (`SendOutreach.runWeek`), starting on `OUTREACH_STARTS_AT` (13 Oct 2026):
 
-- **Who is due:** every `active` address with emails left that has not been written to for 6 days gets its next one.
-- **Claimed before sending:** the step is claimed in `outreach_recipients` by a conditional update, and Resend gets an idempotency key per address and step. Two runs can never send the same email twice.
-- **Failures:** a failed send is undone and retried the next week; three failures in a row stop the address.
-- **Limit:** at most `OUTREACH_WEEKLY_LIMIT` (150) sends per run.
-- **Logs:** every email is **tagged in Resend** (`kind=outreach`, `campaign`, `email` = 1 to 4), so Resend → Emails can be filtered to the series. Each run's counts go to `cron_logs`, logged as a failure when any email failed, so it shows on /system-health.
+- **Who is due:** every `active` address with emails left that has not been written to for 6 days gets its next one. Each address therefore hears once a week.
+- **Why daily:** individual emails count against Resend's **100-a-day** limit, so each run sends at most `OUTREACH_DAILY_LIMIT` (80), and a longer list simply takes more days.
+- **Claimed before sending:** the step is claimed in `outreach_recipients`, and Resend gets an idempotency key per address and step, so nothing goes twice.
+- **Before every send:**
+  - an address that has since become a gym or a demo request ends its series (`done`);
+  - one that has unsubscribed, or whose Resend contact was deleted, is marked `unsubscribed`.
+- **Failures:** one address's trouble never stops the rest of the run. A failed send is undone and retried a week later; three in a row stop the address.
+- **Time limit:** no new send starts after 180 s of the function's 300 s, so a run is never cut off between claim and send.
+- **Logs:** every email is **tagged in Resend** (`kind=outreach`, `campaign`, `email` = 1 to 4), so Resend → Emails can be filtered to the series. Each run's counts go to `cron_logs`, as a failure when any email failed.
+- **One-click:** unsubscribes are rate-limited per address, not per IP, because Gmail sends everyone's from a handful of servers.
+- **Mail replies:** an "unsubscribe" reply to the `mailto` fallback lands in hello@. Act on it with `--remove`.
+
+Inverted check of the series: `outreach-inverted-check.md`.
 
 **Who is taken in.**
 

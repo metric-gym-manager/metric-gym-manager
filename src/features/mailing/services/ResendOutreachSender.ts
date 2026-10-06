@@ -97,6 +97,9 @@ export class ResendOutreachSender implements IOutreachSender {
       { email },
       timeLimit(this.timeoutMs)
     )
+    // A contact deleted from Resend is how a deletion request is honoured:
+    // never write to it again, rather than failing every run.
+    if (isNotFound(contact.error)) return false
     if (contact.error) throw new Error(contact.error.message)
     if (contact.data.unsubscribed) return false
     const topics = await this.resend.contacts.topics.list(

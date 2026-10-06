@@ -62,6 +62,8 @@ export interface IOutreachLedger {
     revertTo: number,
     error: string
   ): Promise<void>
+  /** End the series for an address that has since become a gym or a demo request. */
+  markDone(campaign: string, email: string): Promise<void>
   /** Never write to this address again. False when it is not in the campaign. */
   markUnsubscribed(campaign: string, email: string): Promise<boolean>
 }

@@ -411,8 +411,20 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 
 **Outreach campaign (`claude/outreach-campaign`)**
 
-- [x] **Built and verified (2026-10-06).** A four-email introduction series, one a week, to gyms from public pages. It is sent by the weekly `send-outreach` cron (Tuesdays, 10:00 SLT) from its own domain, `go.metricgymos.com`. Each email has an Unsubscribe link and one-click unsubscribe headers that work from the backend. Every send is tagged in Resend by campaign and email number, and each run is logged to `cron_logs`. Privacy §5 discloses it. Design: `docs/architecture/marketing-email.md`, "Outreach".
+- [x] **Built and verified (2026-10-06).** A four-email introduction series, one a week, to gyms from public pages. It is sent by the daily `send-outreach` cron (10:00 SLT, from Tuesday 13 Oct; one email a week per address) from its own domain, `go.metricgymos.com`. Each email has an Unsubscribe link and one-click unsubscribe headers that work from the backend. Every send is tagged in Resend by campaign and email number, and each run is logged to `cron_logs`. Privacy §5 discloses it. Design: `docs/architecture/marketing-email.md`, "Outreach".
 - [ ] **Review the first list (owner).** 82 businesses were taken in and 67 left out, with reasons; both lists were sent in the conversation. The first email goes out on **Tuesday 2026-10-13 at 10:00 SLT**. To drop someone before then: `npx tsx scripts/send-outreach.ts --remove their@email`. To add more: put them in a CSV and run `--import file.csv --apply`. Check progress with `--status`.
+- [x] **Inverted check of the series (2026-10-06).** Seven holes found and fixed (`docs/architecture/outreach-inverted-check.md`):
+  - Resend's 100-a-day cap: the run is now daily, at most 80 a day, still one email a week per address;
+  - one bad address could stop the whole run;
+  - a deleted contact counted as an error;
+  - Gmail's one-click unsubscribes could be rate-limited;
+  - prospects who became customers kept getting the series;
+  - a run cut off mid-send could skip an email;
+  - the first send date was not enforced.
+
+  Unsubscribing was verified live on production: the footer page, the one-click request, and skipping an unsubscribed address the next week.
+
+- [ ] **Unsubscribe replies (owner).** A reply that says "unsubscribe" lands in hello@. Run `npx tsx scripts/send-outreach.ts --remove their@email` for each.
 - [ ] **Watch the first sends (owner).** In Resend → Emails, filter by the tag `kind: outreach`. Keep an eye on bounces and spam complaints. If complaints appear, run `--remove` on that address, and say so before the next Tuesday.
 
 **Check this session's work in production**
