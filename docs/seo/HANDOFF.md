@@ -380,6 +380,47 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   - **`archive-old-members` removed.** It was scheduled monthly, but was only ever a stub that answered 501 and logged nothing. Its route and `vercel.json` entry are gone, and `docs/ops/CRON_JOBS.md` no longer describes it as working.
   - **`reconcile-access` is healthy; the failures were historical.** All 26 failed runs fell between 2026-08-28 and 2026-09-22, each `Unsupported state or unable to authenticate data` for the E2E Enterprise gym. The stored reader credential had been encrypted under a different key from the `ACCESS_CONTROL_ENCRYPTION_KEY` added to Vercel on 2026-08-28. On 2026-09-23 the key was updated (04:47 UTC) and the credential re-saved (09:05). Every nightly run since has succeeded, 13 in a row. The access-control master doc (§W3) records the cause and the hardening: a typed `CredentialDecryptionError` that dead-letters on the first attempt. The earlier "26 of 42 failed" was an all-time count reported without its dates.
 
+**Release and policy-change emails (`claude/release-policy-announcements`)**
+
+- [x] **Built (2026-10-06).** A daily cron (`/api/cron/send-announcements`, 04:00 UTC, 09:30 SLT) emails the "Product updates" segment (trialing, active and past-due gyms). It sends a **release email** for each new version, compiled from that version's `CHANGELOG.md` section, and a **policy notice** for each material change to /privacy, /terms or /refund-policy, compiled from `features/marketing/config/legalChanges.ts`.
+  - Each email previews to the Test segment (playershyan@gmail.com) at once, and goes to the gyms **24 hours later**. Cancel the broadcast at resend.com/broadcasts to stop it.
+  - Releases respect the Updates opt-out. Policy notices go to every current gym (your decision), and /unsubscribe and privacy §5 now say so.
+  - Verified live on the Test segment with throwaway templates, since deleted.
+  - Design: `docs/architecture/marketing-email.md`, "Announcements".
+- [x] **Release baseline tagged (2026-10-06).** `v1.0.0` marks `c144d1f`, master before announcements shipped. You asked for this not to be manual, so the Release workflow now tags every release itself.
+- [x] **Email designs built and published (2026-10-06).** Both emails are written for gym owners: what changed in plain words, "nothing to install", a button, and a WhatsApp number to reach a person. They live in `src/features/mailing/config/announcementTemplates.ts` and are published to Resend as `release-announcement` and `policy-update`. They were rendered at 320, 390 and 1200 px with no overflow, and a dry run against them found nothing that would block a send. To change a design, edit that file; the workflow republishes it. An edit made in the Resend editor is overwritten by the next change to the file.
+- [x] **Releases are automatic (2026-10-06).** `.github/workflows/release.yml` runs on every push to master:
+  - it reads the commit types (breaking → major, feature → minor, fix or speed-up → patch);
+  - it bumps the version, writes the changelog and tags the release;
+  - it waits for Vercel to put it live, then triggers the announcement at once.
+
+  Commits of other types (docs, tests, chores) release nothing. A commit's `Release-Note:` line is what gyms read; `Release-Note: none` keeps it out. The `commit-msg` hook suggests one and never blocks. The old `post-merge` changelog hook is retired, so pulls no longer leave CHANGELOG.md edited.
+
+- [ ] **Add the two Actions secrets (owner).** My attempt to write them was refused: secret-store writes need you. From the repo folder, in this terminal:
+
+  ```
+  ! grep '^CRON_SECRET=' .env.local | cut -d= -f2- | tr -d '"\r\n' | gh secret set CRON_SECRET
+  ! grep '^RESEND_API_KEY=' .env.local | cut -d= -f2- | tr -d '"\r\n' | gh secret set RESEND_API_KEY
+  ```
+
+  Or use GitHub → Settings → Secrets and variables → Actions. Until they exist, releases still cut and tag themselves. The email then goes out at the daily 09:30 SLT run instead of minutes after the deploy, and a changed design is not republished. Each run shows a warning.
+
+- [ ] **The first two emails, on merge.** Merging this branch is release **1.1.0**. Its one line for gyms says they'll now get a short email when Metric Gym OS gets new features or fixes. The **privacy notice** goes out at the same time; its four-line summary is in `legalChanges.ts`. Both previews reach playershyan@gmail.com within minutes of the deploy, and both go to the gyms **24 hours later** unless you cancel them at resend.com/broadcasts.
+- [ ] **Watch the first release run** at GitHub → Actions → Release. It ends with the announcement cron's answer. A red run emails you. Its error says which step failed, and the daily 09:30 SLT run still sends the announcement.
+- [ ] **When you edit a legal page**, the tests require an entry in `legalChanges.ts` with the page's new date: `notify: true` with a two-to-four-line summary for a material change, or `notify: false` for wording only.
+
+**Check this session's work in production**
+
+- [ ] **Demo form, consent ticked:** use a `you+demo1@gmail.com` address. The `leads` row (Supabase) has `marketing_consent_at` set, and the contact appears in Resend's **Marketing** segment within seconds.
+- [ ] **Demo form, consent unticked:** `marketing_consent_at` is NULL, and there is no Resend contact.
+- [ ] **Unsubscribe link:** from the test email, untick Marketing, save, then reload. It confirms, and the reload still shows it unticked. With one character of `token=` changed, the page says the link is not valid.
+- [ ] **Nightly sync (06:30 SLT):** `cron_logs` shows `sync-marketing-contacts` success, and the Resend segments match the gyms.
+- [ ] **Email change:** change a test gym's email, then check the next morning. The new address is in Resend, the old one is gone, and opt-outs carried over.
+- [ ] **Billing crons on 2026-10-07:** `cron_logs` rows for `process-trial-expiry`, `process-dunning` and `charge-renewals` show success. They never ran before.
+- [ ] **Trials end 2026-11-05:** on 2026-11-06, any of the six extended trials that did not pay are `suspended`.
+- [ ] **Vercel → Settings → Cron Jobs:** 12 jobs, with `send-announcements` present and `archive-old-members` gone.
+- [ ] **Announcements:** after a release, the Release workflow's last step shows the cron's answer, a "[Preview]" email arrives, and `cron_logs` has a `send-announcements` row.
+
 ### Repository, next work on this branch
 
 Ready now, in priority order:

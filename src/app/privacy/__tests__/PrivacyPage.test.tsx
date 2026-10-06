@@ -62,6 +62,25 @@ describe('privacy policy — email communications', () => {
     expect(text()).toMatch(/only if you ticked the box/i)
   })
 
+  it('says policy-change notices reach every current gym whatever it chose, except through the mail app button', () => {
+    const t = text()
+    expect(t).toMatch(
+      /material change to our Terms of Service, Privacy Policy or Refund Policy/
+    )
+    expect(t).toMatch(/whatever email choices you have made/i)
+    expect(t).toMatch(
+      /unsubscribe button your email app shows stops these notices too/i
+    )
+  })
+
+  it('promises an emailed summary of material changes, not a maybe', () => {
+    const t = text()
+    expect(t).toMatch(
+      /email a summary of the changes to every gym owner with a current subscription/i
+    )
+    expect(t).not.toMatch(/where appropriate, notify you/i)
+  })
+
   it.each([...ALWAYS_SENT_EMAILS])(
     'lists "%s" among the emails that keep arriving',
     (line) => {

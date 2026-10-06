@@ -69,5 +69,23 @@ if [ "$DESC_LENGTH" -lt 10 ]; then
   exit 1
 fi
 
+# Release-Note tip (never blocks). A feat, fix or perf commit lands in the
+# release email that the Release workflow sends the gyms. Its subject is
+# written for developers; a `Release-Note:` line says the same thing for a gym
+# owner, and `Release-Note: none` keeps an internal change out of the email.
+TYPE=$(echo "$COMMIT_MSG" | head -1 | sed -E 's/^([a-z]+).*/\1/')
+case "$TYPE" in
+  feat|fix|perf)
+    if ! echo "$COMMIT_MSG" | grep -qiE '^Release-Note:'; then
+      echo ""
+      echo "💡 This $TYPE will appear in the release email to gyms."
+      echo "   Add a line in plain words, or keep it out of the email:"
+      echo "     Release-Note: Members can now pay part of a fee and settle the rest later."
+      echo "     Release-Note: none"
+      echo ""
+    fi
+    ;;
+esac
+
 # All checks passed
 exit 0

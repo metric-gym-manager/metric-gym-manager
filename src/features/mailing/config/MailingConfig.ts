@@ -57,6 +57,12 @@ export const RESEND_SEGMENT_IDS: Record<MailingAudience, string> = {
   [MailingAudience.ProductUpdates]: '83025e1c-80ab-4046-b92a-e1f387ebb720',
 }
 
+/**
+ * The "Test" segment: the owner's own addresses. Announcement previews go
+ * here, as do trial sends; no audience above ever points at it.
+ */
+export const RESEND_TEST_SEGMENT_ID = 'bb11d210-e73d-4955-972d-266f2c9295c0'
+
 /** Contact properties defined in Resend; broadcasts read them as `{{{contact.<key>}}}`. */
 export const CONTACT_PROPERTY = {
   gymName: 'gym_name',
@@ -78,6 +84,9 @@ export const UNSUBSCRIBE_PATH = '/unsubscribe'
 export const ALWAYS_SENT_EMAILS = [
   'Emails you ask for, such as sign-up confirmation, password reset and email change',
   'Billing and payment notices about your subscription',
+  // Owner decision, 2026-10-06: policy notices go with no topic, to every gym
+  // with a current subscription (`send-announcements`).
+  'Notices of changes to our Terms of Service, Privacy Policy or Refund Policy',
   'Notices the law requires us to send, such as a personal-data breach notification',
 ] as const
 
@@ -89,10 +98,19 @@ export const ALWAYS_SENT_EMAILS = [
  * @returns The link, with Resend's triple-brace placeholders
  */
 export function unsubscribeLinkTemplate(topic: MailingTopic): string {
+  return `${preferencesLinkTemplate()}&topic=${topic}`
+}
+
+/**
+ * The footer link of an email that is not one of the opt-out kinds (a policy
+ * notice): the same page, with no topic pre-selected.
+ *
+ * @returns The link, with Resend's triple-brace placeholders
+ */
+export function preferencesLinkTemplate(): string {
   return (
     `${SITE_URL}${UNSUBSCRIBE_PATH}` +
     `?email={{{contact.email}}}` +
-    `&token={{{contact.${CONTACT_PROPERTY.unsubscribeToken}}}}` +
-    `&topic=${topic}`
+    `&token={{{contact.${CONTACT_PROPERTY.unsubscribeToken}}}}`
   )
 }

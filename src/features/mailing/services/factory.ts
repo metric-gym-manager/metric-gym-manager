@@ -11,6 +11,10 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createResendClient, readMailingSecret } from '@/lib/email/resend'
 import { AddMarketingContact } from './AddMarketingContact'
 import { MailingUnavailableError } from './errors'
+import { ResendBroadcaster } from './ResendBroadcaster'
+import { SendAnnouncements } from './SendAnnouncements'
+import { SupabaseAnnouncementLog } from './SupabaseAnnouncementLog'
+import type { IBroadcaster } from './IBroadcaster'
 import type { IMailingList } from './IMailingList'
 import {
   ResendMailingList,
@@ -60,5 +64,30 @@ export function createSyncMarketingContacts(
     new SupabaseMarketingSource(supabase),
     list,
     new AddMarketingContact(list, secret)
+  )
+}
+
+/** Resend templates and broadcasts, or `null` when `RESEND_API_KEY` is unset. */
+export function createBroadcaster(): IBroadcaster | null {
+  const client = createResendClient()
+  return client ? new ResendBroadcaster(client) : null
+}
+
+/**
+ * For the `send-announcements` cron and `scripts/send-announcements.ts`.
+ * Needs only `RESEND_API_KEY`: an announcement signs no tokens (the footer
+ * link reads each contact's stored one).
+ *
+ * @param supabase - Service-role client (`mailing_announcements` has no policies)
+ * @throws {MailingUnavailableError} When `RESEND_API_KEY` is unset
+ */
+export function createSendAnnouncements(
+  supabase: SupabaseClient
+): SendAnnouncements {
+  const broadcaster = createBroadcaster()
+  if (!broadcaster) throw new MailingUnavailableError()
+  return new SendAnnouncements(
+    new SupabaseAnnouncementLog(supabase),
+    broadcaster
   )
 }
