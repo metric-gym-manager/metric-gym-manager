@@ -877,7 +877,6 @@ Hi [Member Name], your [plan] membership at [Gym Name] has expired (due [Due Dat
 
 - CRON /api/cron/send-reminders - Daily at 9 AM, sends all eligible reminders
 - CRON /api/cron/update-expired-status - Daily at midnight, marks overdue members as expired
-- CRON /api/cron/archive-old-members - Monthly, archives members past 2-year retention
 
 ---
 

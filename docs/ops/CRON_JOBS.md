@@ -9,7 +9,9 @@ Cron jobs run automatically to handle:
 1. **Daily SMS Reminders** - Send payment reminders to members
 2. **Status Updates** - Expire members the day after their due date
 3. **Cancellation** - Cancel members 14+ days past due
-4. **Member Archival** - Archive inactive members after 2 years
+
+There is no member-archival job. `archive-old-members` was scheduled monthly
+but was only ever a stub answering 501; it was removed on 2026-10-06.
 
 SaaS billing jobs (`charge-renewals`, `process-dunning`, `process-trial-expiry`)
 are documented in `docs/reference/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`.
@@ -19,18 +21,19 @@ are documented in `docs/reference/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`.
 **Vercel evaluates cron expressions in UTC.** The schedule column is the source
 of truth; Sri Lanka local time (UTC+5:30) is shown for convenience only.
 
-| Job                      | Schedule      | Time (UTC)   | Time (Sri Lanka) | Frequency  |
-| ------------------------ | ------------- | ------------ | ---------------- | ---------- |
-| Update Expired Status    | `0 0 * * *`   | 00:00        | 5:30 AM          | Daily      |
-| Expire Suspended Members | `15 0 * * *`  | 00:15        | 5:45 AM          | Daily      |
-| Cancel Overdue Members   | `30 0 * * *`  | 00:30        | 6:00 AM          | Daily      |
-| Charge Renewals          | `30 0 * * *`  | 00:30        | 6:00 AM          | Daily      |
-| Process Dunning          | `45 0 * * *`  | 00:45        | 6:15 AM          | Daily      |
-| Process Trial Expiry     | `50 0 * * *`  | 00:50        | 6:20 AM          | Daily      |
-| Send Reminders           | `30 3 * * *`  | 03:30        | 9:00 AM          | Daily      |
-| Reconcile Access         | `30 18 * * *` | 18:30        | 12:00 AM (next)  | Daily      |
-| Drain Access Sync        | `*/5 * * * *` | every 5 min  | every 5 min      | 5-minutely |
-| Archive Members          | `0 1 1 * *`   | 01:00 on 1st | 6:30 AM on 1st   | Monthly    |
+| Job                      | Schedule      | Time (UTC)  | Time (Sri Lanka) | Frequency  |
+| ------------------------ | ------------- | ----------- | ---------------- | ---------- |
+| Update Expired Status    | `0 0 * * *`   | 00:00       | 5:30 AM          | Daily      |
+| Expire Suspended Members | `15 0 * * *`  | 00:15       | 5:45 AM          | Daily      |
+| Cancel Overdue Members   | `30 0 * * *`  | 00:30       | 6:00 AM          | Daily      |
+| Charge Renewals          | `30 0 * * *`  | 00:30       | 6:00 AM          | Daily      |
+| Process Dunning          | `45 0 * * *`  | 00:45       | 6:15 AM          | Daily      |
+| Process Trial Expiry     | `50 0 * * *`  | 00:50       | 6:20 AM          | Daily      |
+| Send Reminders           | `30 3 * * *`  | 03:30       | 9:00 AM          | Daily      |
+| Reconcile Access         | `30 18 * * *` | 18:30       | 12:00 AM (next)  | Daily      |
+| Drain Access Sync        | `*/5 * * * *` | every 5 min | every 5 min      | 5-minutely |
+| Sync Marketing Contacts  | `0 1 * * *`   | 01:00       | 6:30 AM          | Daily      |
+| Purge Access Events      | `0 2 * * *`   | 02:00       | 7:30 AM          | Daily      |
 
 ### Member-status chain — ORDER MATTERS
 
@@ -220,43 +223,7 @@ Cancels expired members who are 14 or more days past their due date.
 - The sweep is date-based, not incremental: it re-evaluates every expired
   member on every run, so a missed night self-heals on the next one
 
-## 4. Archive Old Members
-
-**Endpoint:** `GET|POST /api/cron/archive-old-members`
-
-### What It Does
-
-Archives (soft deletes) expired members who haven't been updated in 2 years.
-
-### Process Flow
-
-1. Calculate cutoff date (2 years ago)
-2. Find all expired members with `updated_at < cutoff_date`
-3. Change their status to "cancelled" (soft delete)
-4. Update `updated_at` timestamp
-5. Return count of archived members
-
-### Response Example
-
-```json
-{
-  "success": true,
-  "data": {
-    "totalArchived": 3,
-    "errors": [],
-    "duration": "187ms"
-  }
-}
-```
-
-### Business Logic
-
-- Only expired members are archived
-- 2-year grace period before archival
-- Soft delete preserves payment history for revenue reports
-- Archived members have status "cancelled"
-
-## 5. Reconcile Access
+## 4. Reconcile Access
 
 **Endpoint:** `GET|POST /api/cron/reconcile-access`
 **Schedule:** `30 18 * * *` — 18:30 UTC = **00:00 Sri Lanka time**
@@ -307,7 +274,7 @@ clock. A gym's billing dispute must not lock out members who paid.
 }
 ```
 
-## 6. Drain Access Sync
+## 5. Drain Access Sync
 
 **Endpoint:** `GET|POST /api/cron/drain-access-sync`
 **Schedule:** `*/5 * * * *`
@@ -448,9 +415,6 @@ curl http://localhost:3000/api/cron/send-reminders
 
 # Update expired status
 curl http://localhost:3000/api/cron/update-expired-status
-
-# Archive old members
-curl http://localhost:3000/api/cron/archive-old-members
 ```
 
 **Note:** In production, GET requires the same `Authorization: Bearer <CRON_SECRET>`
@@ -468,42 +432,12 @@ curl -X POST https://your-app.vercel.app/api/cron/send-reminders \
 # Update expired status
 curl -X POST https://your-app.vercel.app/api/cron/update-expired-status \
   -H "Authorization: Bearer your-cron-secret"
-
-# Archive old members
-curl -X POST https://your-app.vercel.app/api/cron/archive-old-members \
-  -H "Authorization: Bearer your-cron-secret"
 ```
 
 ## Vercel Configuration
 
-The cron jobs are configured in `vercel.json`:
-
-```json
-{
-  "crons": [
-    {
-      "path": "/api/cron/update-expired-status",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/expire-suspended-members",
-      "schedule": "15 0 * * *"
-    },
-    {
-      "path": "/api/cron/cancel-overdue-members",
-      "schedule": "30 0 * * *"
-    },
-    {
-      "path": "/api/cron/send-reminders",
-      "schedule": "30 3 * * *"
-    },
-    {
-      "path": "/api/cron/archive-old-members",
-      "schedule": "0 1 1 * *"
-    }
-  ]
-}
-```
+The cron jobs are configured in `vercel.json`, which is the source of truth for
+paths and schedules; the table under "Cron Schedule" mirrors it.
 
 ### Vercel Cron Requirements
 
@@ -607,6 +541,5 @@ CREATE TABLE sms_logs (
 - `src/features/sms/services/sms.service.ts` - SMS sending (mock)
 - `src/app/api/cron/send-reminders/route.ts` - Reminder endpoint
 - `src/app/api/cron/update-expired-status/route.ts` - Status update endpoint
-- `src/app/api/cron/archive-old-members/route.ts` - Archive endpoint
 - `vercel.json` - Cron configuration
 - `.env.example` - Environment variable template
