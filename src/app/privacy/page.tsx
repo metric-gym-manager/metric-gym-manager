@@ -377,8 +377,10 @@ const sections: LegalSection[] = [
         <LegalP>
           You can stop either kind, or both, at any time: follow the unsubscribe
           link at the foot of any of these emails and choose which to stop, or
-          write to hello@metricgymos.com. Stopping one kind does not stop the
-          other. To start receiving them again, write to the same address.
+          write to hello@metricgymos.com. Stopping one kind through that link
+          does not stop the other. The unsubscribe button your email app shows
+          next to our address works differently: it stops both kinds. To start
+          receiving them again, write to the same address.
         </LegalP>
         <LegalP>
           If you change your account&apos;s email address, we move these choices

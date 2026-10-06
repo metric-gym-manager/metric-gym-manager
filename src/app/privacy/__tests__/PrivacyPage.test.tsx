@@ -142,3 +142,17 @@ describe('privacy policy — who gets which email', () => {
     expect(text()).toMatch(/delete the old one/i)
   })
 })
+
+/**
+ * Measured 2026-10-06: Gmail's own unsubscribe button (the List-Unsubscribe
+ * one-click Resend adds to every broadcast) sets Resend's account-wide flag,
+ * which stops BOTH kinds of email. The policy must not promise that stopping
+ * one kind never stops the other without saying which control does what.
+ */
+describe('privacy policy — the mail app unsubscribe button', () => {
+  it("says the mail app's own unsubscribe button stops both kinds", () => {
+    const text = render(<PrivacyPolicyPage />).container.textContent ?? ''
+    expect(text).toMatch(/unsubscribe button your email app shows/i)
+    expect(text).toMatch(/stops both kinds/i)
+  })
+})

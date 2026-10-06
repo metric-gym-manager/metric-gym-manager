@@ -135,7 +135,7 @@ An excluded address already on a list is taken off it.
 ## Not built (yet)
 
 - **Resubscribing** is by email to hello@. Resend's hosted preference page (`{{{RESEND_UNSUBSCRIBE_URL}}}`) is not used, because it also offers the global unsubscribe.
-- **Gmail's one-click unsubscribe:** Resend adds `List-Unsubscribe` and `List-Unsubscribe-Post` to broadcasts (confirmed on the test email, 2026-10-06). Whether that one click stops only the broadcast's topic, or sets the account-wide flag, is still unverified.
+- **Gmail's one-click unsubscribe sets the account-wide flag** (measured 2026-10-06). Resend adds `List-Unsubscribe: <https://unsubscribe.resend.com/?token=…>` and `List-Unsubscribe-Post: List-Unsubscribe=One-Click` to every broadcast. The token names the contact, the segment and the broadcast, but not the topic. Posting the one-click returned 204 and set `unsubscribed: true` with both topics still `opt_in`, which blocks every broadcast. Broadcasts take no custom headers, so this cannot be pointed at `/unsubscribe`. Privacy §5 states it: the mail app's button stops both kinds, and the footer link stops one. The reconcile never clears the flag; that is the person's choice.
 
 ## Inverted check
 
