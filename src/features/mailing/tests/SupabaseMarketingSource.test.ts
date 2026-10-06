@@ -86,6 +86,21 @@ describe('SupabaseMarketingSource', () => {
     ])
   })
 
+  it('lists every gym and every demo request address, consented or not', async () => {
+    const { supabase, queries } = client({
+      gyms: [{ email: 'owner@titan.lk' }],
+      leads: [{ email: 'nimal@example.lk' }, { email: 'x@y.lk' }],
+    })
+    await expect(
+      new SupabaseMarketingSource(supabase).listKnownEmails()
+    ).resolves.toEqual(['owner@titan.lk', 'nimal@example.lk', 'x@y.lk'])
+    expect(queries.map((q) => [q.table, q.select])).toEqual([
+      ['gyms', 'email'],
+      ['leads', 'email'],
+    ])
+    expect(queries[1].filters.some((f) => f[0] === 'not')).toBe(false)
+  })
+
   it('throws when the database refuses the read', async () => {
     const { supabase } = client({}, 'permission denied')
     await expect(

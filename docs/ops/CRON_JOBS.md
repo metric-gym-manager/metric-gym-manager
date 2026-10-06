@@ -35,6 +35,7 @@ of truth; Sri Lanka local time (UTC+5:30) is shown for convenience only.
 | Sync Marketing Contacts  | `0 1 * * *`   | 01:00       | 6:30 AM          | Daily      |
 | Purge Access Events      | `0 2 * * *`   | 02:00       | 7:30 AM          | Daily      |
 | Send Announcements       | `0 4 * * *`   | 04:00       | 9:30 AM          | Daily      |
+| Send Outreach            | `30 4 * * 2`  | 04:30 Tue   | 10:00 AM Tue     | Weekly     |
 
 ### Member-status chain — ORDER MATTERS
 
@@ -391,6 +392,13 @@ sitting quietly inside a green result.
 - Never announces anything twice: `mailing_announcements` is unique on `(kind, ref)`.
 
 Logged to `cron_logs` as a **failure** when an email could not be rendered, previewed or scheduled. A missing template is not a failure, only a summary entry ("template not ready"), because nothing is sent until the owner publishes it. The full design is in `docs/architecture/marketing-email.md`, "Announcements".
+
+## 7. Send Outreach
+
+**Endpoint**: `/api/cron/send-outreach`
+**Schedule**: Tuesdays at 04:30 UTC (10:00 AM Sri Lanka).
+
+Sends each address in `outreach_recipients` its next email of the four-email introduction series, at least 6 days after the last and never more than four. Anyone who unsubscribed, by the footer link or a mail app's one-click button, is dropped for good. Every email is tagged in Resend (`kind=outreach`, `campaign`, `email`). The run is logged to `cron_logs`, as a failure when any email failed. Design: `docs/architecture/marketing-email.md`, "Outreach".
 
 ## Security
 

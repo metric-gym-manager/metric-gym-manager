@@ -18,4 +18,9 @@ export interface ConsentingLeadRecipient {
 export interface IMarketingSource {
   listGymOwners(): Promise<GymOwnerRecipient[]>
   listConsentingLeads(): Promise<ConsentingLeadRecipient[]>
+  /**
+   * Every gym's and every demo request's address, consented or not: the
+   * people an outreach campaign must never reach.
+   */
+  listKnownEmails(): Promise<string[]>
 }

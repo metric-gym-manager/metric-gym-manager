@@ -24,3 +24,16 @@ export const emailPreferencesSchema = z.object({
 })
 
 export type EmailPreferencesInput = z.infer<typeof emailPreferencesSchema>
+
+/**
+ * POST /api/public/email-preferences/one-click — a mail app's own
+ * "Unsubscribe" button (RFC 8058). Everything arrives in the header's URL;
+ * the body is only `List-Unsubscribe=One-Click`.
+ */
+export const oneClickUnsubscribeSchema = z.object({
+  email: emailPreferencesSchema.shape.email,
+  token: emailPreferencesSchema.shape.token,
+  topic: z.nativeEnum(MailingTopic),
+})
+
+export type OneClickUnsubscribeInput = z.infer<typeof oneClickUnsubscribeSchema>

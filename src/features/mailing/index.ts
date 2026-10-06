@@ -22,9 +22,17 @@ export {
   createBroadcaster,
   createMailingList,
   createSendAnnouncements,
+  createSendOutreach,
   createSyncMarketingContacts,
   createUpdateEmailPreferences,
 } from './services/factory'
+export {
+  ONE_CLICK_UNSUBSCRIBE_PATH,
+  SendOutreach,
+  type ImportProspectsInput,
+  type OutreachReport,
+  type RunWeekInput,
+} from './services/SendOutreach'
 export {
   SendAnnouncements,
   type AnnouncementOutcome,
@@ -69,7 +77,9 @@ export type {
 // ============================================================
 export {
   emailPreferencesSchema,
+  oneClickUnsubscribeSchema,
   type EmailPreferencesInput,
+  type OneClickUnsubscribeInput,
 } from './schemas/emailPreferences.schemas'
 
 // ============================================================
@@ -103,3 +113,11 @@ export {
   normalizeMailingEmail,
 } from './utils/unsubscribeToken'
 export { placeholdersIn } from './utils/renderTemplate'
+export { parseProspectsCsv, type Prospect } from './utils/prospectsCsv'
+export {
+  OUTREACH_CAMPAIGN,
+  OUTREACH_FROM,
+  OUTREACH_SEQUENCE_LENGTH,
+  OUTREACH_WEEKLY_LIMIT,
+  type OutreachStep,
+} from './config/outreachCampaign'

@@ -409,6 +409,12 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [ ] **Watch the first release run** at GitHub → Actions → Release. It ends with the announcement cron's answer. A red run emails you. Its error says which step failed, and the daily 09:30 SLT run still sends the announcement.
 - [ ] **When you edit a legal page**, the tests require an entry in `legalChanges.ts` with the page's new date: `notify: true` with a two-to-four-line summary for a material change, or `notify: false` for wording only.
 
+**Outreach campaign (`claude/outreach-campaign`)**
+
+- [x] **Built and verified (2026-10-06).** A four-email introduction series, one a week, to gyms from public pages. It is sent by the weekly `send-outreach` cron (Tuesdays, 10:00 SLT) from its own domain, `go.metricgymos.com`. Each email has an Unsubscribe link and one-click unsubscribe headers that work from the backend. Every send is tagged in Resend by campaign and email number, and each run is logged to `cron_logs`. Privacy §5 discloses it. Design: `docs/architecture/marketing-email.md`, "Outreach".
+- [ ] **Review the first list (owner).** 82 businesses were taken in and 67 left out, with reasons; both lists were sent in the conversation. The first email goes out on **Tuesday 2026-10-13 at 10:00 SLT**. To drop someone before then: `npx tsx scripts/send-outreach.ts --remove their@email`. To add more: put them in a CSV and run `--import file.csv --apply`. Check progress with `--status`.
+- [ ] **Watch the first sends (owner).** In Resend → Emails, filter by the tag `kind: outreach`. Keep an eye on bounces and spam complaints. If complaints appear, run `--remove` on that address, and say so before the next Tuesday.
+
 **Check this session's work in production**
 
 - [ ] **Demo form, consent ticked:** use a `you+demo1@gmail.com` address. The `leads` row (Supabase) has `marketing_consent_at` set, and the contact appears in Resend's **Marketing** segment within seconds.

@@ -120,6 +120,7 @@ Run by `.github/workflows/release.yml` on every push to master; none needs runni
 - `wait-for-deployment.js <sha>`: waits until Vercel has that commit live in production.
 - `trigger-announcements.js`: runs the announcement cron on production and reads its answer. It asks again while an older deployment answers, and fails on any failed email.
 - `publish-email-templates.ts`: publishes the two email designs to Resend; `--check` reports drift.
+- `send-outreach.ts`: the introduction email to gyms from a CSV (dry run by default; `--apply` sends the day's batch; `--test you@x` sends one copy to you).
 - `send-announcements.ts`: the announcement cron by hand. It is a dry run by default and writes the emails to HTML files.
 
 Design: `docs/architecture/marketing-email.md`, "Announcements".

@@ -12,6 +12,9 @@ import { createResendClient, readMailingSecret } from '@/lib/email/resend'
 import { AddMarketingContact } from './AddMarketingContact'
 import { MailingUnavailableError } from './errors'
 import { ResendBroadcaster } from './ResendBroadcaster'
+import { ResendOutreachSender } from './ResendOutreachSender'
+import { SendOutreach } from './SendOutreach'
+import { SupabaseOutreachLedger } from './SupabaseOutreachLedger'
 import { SendAnnouncements } from './SendAnnouncements'
 import { SupabaseAnnouncementLog } from './SupabaseAnnouncementLog'
 import type { IBroadcaster } from './IBroadcaster'
@@ -89,5 +92,25 @@ export function createSendAnnouncements(
   return new SendAnnouncements(
     new SupabaseAnnouncementLog(supabase),
     broadcaster
+  )
+}
+
+/**
+ * For `scripts/send-outreach.ts`: an introduction campaign to addresses from
+ * public pages, leaving out every gym and demo request.
+ *
+ * @param supabase - Service-role client (`outreach_recipients` has no policies)
+ * @throws {MailingUnavailableError} When mailing is not configured
+ */
+export function createSendOutreach(supabase: SupabaseClient): SendOutreach {
+  const client = createResendClient()
+  const secret = readMailingSecret()
+  if (!client || !secret) throw new MailingUnavailableError()
+  const source = new SupabaseMarketingSource(supabase)
+  return new SendOutreach(
+    new SupabaseOutreachLedger(supabase),
+    new ResendOutreachSender(client),
+    () => source.listKnownEmails(),
+    secret
   )
 }

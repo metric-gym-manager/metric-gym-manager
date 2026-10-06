@@ -4,6 +4,7 @@ import type { AddMarketingContact } from './AddMarketingContact'
 import { audiencesForGym } from './eligibility'
 import type { AddContactResult, IMailingList } from './IMailingList'
 import type { IMarketingSource } from './IMarketingSource'
+import { isUndeliverable } from '../utils/deliverability'
 
 export interface SyncMarketingContactsOptions {
   /** False reports what would happen and writes nothing. */
@@ -21,19 +22,6 @@ export interface SyncReportEntry {
   /** For a move: the address it moved from. */
   from?: string
   error?: string
-}
-
-/**
- * Top-level domains reserved by RFC 2606 / RFC 6761, plus mDNS `.local`: an
- * address there can never receive mail. A send to one hard-bounces, and
- * bounces cost the sending domain reputation, so they are never imported.
- */
-const UNDELIVERABLE_TLDS = ['test', 'example', 'invalid', 'localhost', 'local']
-
-function isUndeliverable(email: string): boolean {
-  const domain = email.split('@')[1] ?? ''
-  const tld = domain.split('.').pop() ?? ''
-  return UNDELIVERABLE_TLDS.includes(tld)
 }
 
 /** One person the list should hold, keyed by lowercased email. */
