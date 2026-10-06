@@ -1,0 +1,109 @@
+# Release: every push to master becomes a release when its commits call for
+# one, and the gyms are emailed about it once it is live.
+#
+# 1. scripts/release.js reads the Conventional Commit types since the last
+#    version tag: breaking → major, feat → minor, fix/perf → patch, anything
+#    else → no release. A release bumps package.json, writes the version's
+#    CHANGELOG.md section (a commit's `Release-Note:` line is used word for
+#    word; `Release-Note: none` keeps it out), regenerates the PWA version,
+#    commits `chore(release): vX.Y.Z` and tags it.
+# 2. The commit and tag are pushed together. A push made with GITHUB_TOKEN
+#    starts no workflow, so this never triggers itself; Vercel deploys it.
+# 3. When the email designs changed, they are published to Resend.
+# 4. Once the final commit is live in production, the announcement cron runs
+#    at once: a preview to the owner now, the email to the gyms 24 hours later
+#    (cancel it at resend.com/broadcasts to stop it). It also sends any new
+#    policy notice. The daily 09:30 SLT run is the backstop.
+#
+# Secrets: CRON_SECRET (production's value) and RESEND_API_KEY (full access).
+# Design: docs/architecture/marketing-email.md, "Announcements".
+
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  deployments: read
+
+jobs:
+  release:
+    if: ${{ !startsWith(github.event.head_commit.message, 'chore(release):') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Authored as the repository owner, like every other commit here, so
+      # Vercel attributes the release deployment to a member of the project.
+      - name: Cut the release
+        id: release
+        run: |
+          git config user.name "playershyan"
+          git config user.email "playershyan@gmail.com"
+          node scripts/release.js
+
+      - name: Push the release
+        if: steps.release.outputs.released == 'true'
+        run: git push --atomic origin HEAD:master "v${{ steps.release.outputs.version }}"
+
+      - name: Did the email designs change?
+        id: designs
+        run: |
+          if git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" 2>/dev/null \
+            | grep -qx 'src/features/mailing/config/announcementTemplates.ts'; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install dependencies
+        if: steps.designs.outputs.changed == 'true'
+        run: npm ci
+
+      - name: Publish the email designs
+        if: steps.designs.outputs.changed == 'true'
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: npx tsx scripts/publish-email-templates.ts
+
+      - name: Wait for production
+        id: deployed
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          node scripts/wait-for-deployment.js "${{ steps.release.outputs.sha || github.sha }}"
+          code=$?
+          if [ "$code" -eq 0 ]; then
+            echo "live=true" >> "$GITHUB_OUTPUT"
+          elif [ "$code" -eq 2 ]; then
+            echo "::warning::Production did not show the release in time. The daily 09:30 SLT run will announce it."
+            exit 0
+          fi
+          exit "$code"
+
+      - name: Send the announcements
+        if: steps.deployed.outputs.live == 'true'
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS -o response.json -w '%{http_code}' \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            https://www.metricgymos.com/api/cron/send-announcements)
+          cat response.json; echo
+          if [ "$code" != "200" ]; then
+            echo "::error::The announcement cron answered $code. The daily 09:30 SLT run will try again."
+            exit 1
+          fi

@@ -387,16 +387,17 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   - Releases respect the Updates opt-out. Policy notices go to every current gym (your decision), and /unsubscribe and privacy §5 now say so.
   - Verified live on the Test segment with throwaway templates, since deleted.
   - Design: `docs/architecture/marketing-email.md`, "Announcements".
-- [ ] **Tag the current master before your first release.** Run `git tag v1.0.0 && git push --tags` on master after this branch is merged. With no tag, `npm run changelog:generate` (and the version GUI) has no release boundary, writes no `## [x.y.z]` section, and the release email has nothing to send.
-- [ ] **Build and publish the two templates in Resend** (Templates → Create). Use alias `release-announcement` for releases and `policy-update` for policy notices. The variables each may use are in the design doc's "The template contract" table. Requirements:
-  - make the main table `width="100%"` with `max-width:560px`; a fixed 560 px table overflows a phone;
-  - put `{{{CHANGES_HTML}}}` and `{{{SUMMARY_HTML}}}` inside a styled cell, because the lists inherit their font and colour;
-  - include the footer link: `{{{UNSUBSCRIBE_URL}}}` on releases, `{{{PREFERENCES_URL}}}` on policy notices;
-  - greeting by gym name works: `{{{contact.gym_name|there}}}`.
+- [x] **Release baseline tagged (2026-10-06).** `v1.0.0` marks `c144d1f`, master before announcements shipped. You asked for this not to be manual, so the Release workflow now tags every release itself.
+- [x] **Email designs built and published (2026-10-06).** Both emails are written for gym owners: what changed in plain words, "nothing to install", a button, and a WhatsApp number to reach a person. They live in `src/features/mailing/config/announcementTemplates.ts` and are published to Resend as `release-announcement` and `policy-update`. They were rendered at 320, 390 and 1200 px with no overflow, and a dry run against them found nothing that would block a send. To change a design, edit that file; the workflow republishes it. An edit made in the Resend editor is overwritten by the next change to the file.
+- [x] **Releases are automatic (2026-10-06).** `.github/workflows/release.yml` runs on every push to master:
+  - it reads the commit types (breaking → major, feature → minor, fix or speed-up → patch);
+  - it bumps the version, writes the changelog and tags the release;
+  - it waits for Vercel to put it live, then triggers the announcement at once.
 
-  Then run `npx tsx scripts/send-announcements.ts`. It reports anything that would block a send and writes the rendered emails to files. Nothing is sent until a template is **published**, and editing a published template changes nothing until you publish again.
+  Commits of other types (docs, tests, chores) release nothing. A commit's `Release-Note:` line is what gyms read; `Release-Note: none` keeps it out. The `commit-msg` hook suggests one and never blocks. Secrets `CRON_SECRET` and `RESEND_API_KEY` are set in GitHub Actions. The old `post-merge` changelog hook is retired, so pulls no longer leave CHANGELOG.md edited.
 
-- [ ] **The first policy notice.** The privacy entry dated 2026-10-06 is marked to notify. Its four-line summary is in `legalChanges.ts`: the two kinds of optional email, how to stop them, that policy notices go to every account, and that email choices follow an email change. It is previewed at the first 09:30 SLT run after this branch is deployed **and** `policy-update` is published, then goes out 24 hours later unless you cancel it. To change the wording, edit the summary before publishing the template.
+- [ ] **The first two emails, on merge.** Merging this branch is release **1.1.0**. Its one line for gyms says they'll now get a short email when Metric Gym OS gets new features or fixes. The **privacy notice** goes out at the same time; its four-line summary is in `legalChanges.ts`. Both previews reach playershyan@gmail.com within minutes of the deploy, and both go to the gyms **24 hours later** unless you cancel them at resend.com/broadcasts.
+- [ ] **Watch the first release run** at GitHub → Actions → Release. It ends with the announcement cron's answer. A red run emails you. Its error says which step failed, and the daily 09:30 SLT run still sends the announcement.
 - [ ] **When you edit a legal page**, the tests require an entry in `legalChanges.ts` with the page's new date: `notify: true` with a two-to-four-line summary for a material change, or `notify: false` for wording only.
 
 **Check this session's work in production**
@@ -409,7 +410,7 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [ ] **Billing crons on 2026-10-07:** `cron_logs` rows for `process-trial-expiry`, `process-dunning` and `charge-renewals` show success. They never ran before.
 - [ ] **Trials end 2026-11-05:** on 2026-11-06, any of the six extended trials that did not pay are `suspended`.
 - [ ] **Vercel → Settings → Cron Jobs:** 12 jobs, with `send-announcements` present and `archive-old-members` gone.
-- [ ] **Announcements, once a template is published:** the next morning's `cron_logs` row for `send-announcements` shows the counts, and a "[Preview]" email arrives.
+- [ ] **Announcements:** after a release, the Release workflow's last step shows the cron's answer, a "[Preview]" email arrives, and `cron_logs` has a `send-announcements` row.
 
 ### Repository, next work on this branch
 

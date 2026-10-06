@@ -112,6 +112,17 @@ npm run dev:delete-users
 
 ---
 
+### 📣 Releases and announcement emails
+
+Run by `.github/workflows/release.yml` on every push to master; none needs running by hand.
+
+- `release.js`: cuts a release from the commit types since the last tag (breaking → major, feat → minor, fix/perf → patch), writing `package.json`, `CHANGELOG.md` and the PWA version, then commits and tags. `--dry-run` prints the release it would cut.
+- `wait-for-deployment.js <sha>`: waits until Vercel has that commit live in production.
+- `publish-email-templates.ts`: publishes the two email designs to Resend; `--check` reports drift.
+- `send-announcements.ts`: the announcement cron by hand. It is a dry run by default and writes the emails to HTML files.
+
+Design: `docs/architecture/marketing-email.md`, "Announcements".
+
 ## Setup Requirements
 
 Both scripts require a valid `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.

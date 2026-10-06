@@ -124,17 +124,27 @@ function categorizeCommits(commits) {
     const scope = scopeMatch ? scopeMatch[2] : null
     const message = scopeMatch ? scopeMatch[3] : subject
 
+    // `Release-Note:` is the change in a gym owner's words: the release email
+    // shows it instead of the developer subject. `Release-Note: none` keeps an
+    // internal change out of the changelog, and so out of the email.
+    const noteMatch = body.match(/^Release-Note:[ \t]*(.+)$/im)
+    const note = noteMatch ? noteMatch[1].trim() : null
+    const hidden = note !== null && /^none\.?$/i.test(note)
+
     const entry = {
       hash,
       message,
       scope,
       originalSubject: subject,
+      releaseNote: hidden ? null : note,
+      hidden,
     }
 
-    // Check for breaking changes
+    // Check for breaking changes. `feat(api)!:` is breaking too: the old
+    // pattern only matched the unscoped `feat!:`.
     if (
       fullMessage.includes('BREAKING CHANGE') ||
-      subject.match(/^(feat|fix)!/)
+      subject.match(/^\w+(\([^)]*\))?!:/)
     ) {
       // Extract breaking change description
       const breakingMatch = fullMessage.match(/BREAKING CHANGE:\s*(.+)/)
@@ -181,12 +191,26 @@ function categorizeCommits(commits) {
 }
 
 function formatChangelogEntry(entry) {
+  const link = `([${entry.hash}](../../commit/${entry.hash}))`
+  if (entry.releaseNote) return `- ${entry.releaseNote} ${link}`
   const scope = entry.scope ? `**${entry.scope}**: ` : ''
-  return `- ${scope}${entry.message} ([${entry.hash}](../../commit/${entry.hash}))`
+  return `- ${scope}${entry.message} ${link}`
 }
 
-function generateChangelogSection(version, date, categories) {
+/** Said when a release holds only internal changes, so the section is not bare. */
+const INTERNAL_ONLY_NOTE =
+  '_Behind-the-scenes improvements only: nothing changes in how you use Metric Gym OS._'
+
+function generateChangelogSection(version, date, allCategories) {
   const lines = []
+  const visible = (list) => list.filter((entry) => !entry.hidden)
+  const categories = {
+    ...allCategories,
+    breaking: visible(allCategories.breaking),
+    features: visible(allCategories.features),
+    fixes: visible(allCategories.fixes),
+    performance: visible(allCategories.performance),
+  }
 
   // Version header
   if (version === 'Unreleased') {
@@ -199,7 +223,9 @@ function generateChangelogSection(version, date, categories) {
   if (categories.breaking.length > 0) {
     lines.push(`### ⚠️ BREAKING CHANGES\n`)
     categories.breaking.forEach((entry) => {
-      if (entry.breakingDescription) {
+      if (entry.releaseNote) {
+        lines.push(formatChangelogEntry(entry))
+      } else if (entry.breakingDescription) {
         lines.push(
           `- ${entry.breakingDescription} ([${entry.hash}](../../commit/${entry.hash}))`
         )
@@ -235,6 +261,15 @@ function generateChangelogSection(version, date, categories) {
       lines.push(formatChangelogEntry(entry))
     })
     lines.push('')
+  }
+
+  const shown =
+    categories.breaking.length +
+    categories.features.length +
+    categories.fixes.length +
+    categories.performance.length
+  if (shown === 0 && version !== 'Unreleased') {
+    lines.push(INTERNAL_ONLY_NOTE, '')
   }
 
   // Refactoring (optional - can be noisy)

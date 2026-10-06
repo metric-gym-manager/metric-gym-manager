@@ -106,14 +106,14 @@ describe('releaseVariables', () => {
     expect(vars.IMPORTANT_HTML).toBe('')
   })
 
-  it('puts only the groups that have changes into CHANGES_HTML, in order, with headings', () => {
+  it('puts only the groups that have changes into CHANGES_HTML, in order, under plain headings', () => {
     const html = String(vars.CHANGES_HTML)
-    expect(html).toContain('>New<')
-    expect(html).toContain('>Improved<')
-    expect(html).toContain('>Fixed<')
+    expect(html).toContain('>New features<')
+    expect(html).toContain('>Improvements<')
+    expect(html).toContain('>Fixes<')
     expect(html).not.toContain('>Security<')
-    expect(html).not.toContain('>Important<')
-    expect(html.indexOf('>New<')).toBeLessThan(html.indexOf('>Fixed<'))
+    expect(html).not.toContain('>Please note<')
+    expect(html.indexOf('>New features<')).toBeLessThan(html.indexOf('>Fixes<'))
   })
 
   it('carries no colour, so the template decides how it looks', () => {

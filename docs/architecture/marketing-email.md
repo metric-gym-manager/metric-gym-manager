@@ -179,15 +179,30 @@ Text values are HTML-escaped, braces included, so nothing from the changelog can
 - `UNSUBSCRIBE_URL` stops Updates.
 - `PREFERENCES_URL` opens /unsubscribe with nothing pre-ticked. A policy notice cannot honestly offer "stop these".
 
+**The designs live in the repo.** `config/announcementTemplates.ts` holds both emails, written for gym owners: what changed in plain words, "nothing to install", a button, and a person to reply to or WhatsApp. The version number sits only in the footer. `scripts/publish-email-templates.ts` creates or updates them in Resend under their aliases and publishes them; `--check` reports drift and changes nothing. The Release workflow runs it whenever that file changes, so **editing the file is how the design changes**. An edit made in the Resend editor is overwritten by the next change to the file. `announcementTemplates.test.ts` holds the designs to the contract: only filled variables, a full render, an opt-out link, the postal address, and nothing fixed-width. Text variables are declared with **no** fallback, so an unfilled one stops the send instead of going out blank. Published 2026-10-06; rendered at 320, 390 and 1200 px with no overflow.
+
 **Template requirements**, measured 2026-10-06:
 
 - A template **may** use `{{{contact.gym_name|there}}}`; Resend keeps it as written.
 - Size the main table `width="100%"` with `max-width:560px`. A fixed `width="560"` widened a 390 px phone to 592 px.
 - `templates.get` returns the **published** version even while an edit is unsaved (`has_unpublished_versions: true`). A template mid-edit is therefore never what gets sent; only publishing changes the email.
 
-### Operating it
+### Releases are automatic
 
-**Before the first release:** tag the current master `v1.0.0` (`git tag v1.0.0 && git push --tags`). Without a tag, `generate-changelog.js` has no release boundary and writes no versioned section, so the release email has nothing to say.
+`.github/workflows/release.yml` runs on every push to master. Nobody tags, bumps or writes the changelog by hand.
+
+1. **`scripts/release.js` reads the commit types** since the last version tag: breaking (`feat!:`, `fix(api)!:`, `BREAKING CHANGE:`) → major, `feat` → minor, `fix`/`perf` → patch, anything else → no release. It bumps `package.json`, writes the version's `CHANGELOG.md` section (dated in Sri Lanka), regenerates the PWA version files, commits `chore(release): vX.Y.Z` and tags it.
+2. **The commit and tag are pushed together.** A push made with `GITHUB_TOKEN` starts no workflow, so the job never triggers itself. Release commits are authored as the repository owner, like every other commit here, so Vercel attributes the deployment to a project member.
+3. **Changed designs are published** to Resend.
+4. **Once the final commit is live in production** (`scripts/wait-for-deployment.js` watches GitHub's record of Vercel's "Production – gym-management-saas" deployment), the job calls `/api/cron/send-announcements` with `CRON_SECRET`. The preview arrives within minutes of the deploy, and the gyms get the email 24 hours later. A timeout only warns, because the daily 09:30 SLT run still announces it.
+
+**What gyms read.** Each `feat`, `fix`, `perf` or breaking commit becomes one line, under "New features", "Improvements", "Fixes" or "Please note". By default the line is the commit's subject without its scope. A **`Release-Note:` line** in the commit body replaces it word for word. Write it for a gym owner, e.g. `Release-Note: Members can now pay part of a fee and settle the rest later.` **`Release-Note: none`** keeps an internal change out of the changelog and the email; the release still happens. The `commit-msg` hook suggests a note on every `feat`/`fix`/`perf` commit without one, and never blocks. A release whose changes are all internal gets the line "Behind-the-scenes improvements only", and no email.
+
+**The baseline** is the tag `v1.0.0` on `c144d1f`, master before announcements shipped (created 2026-10-06). "Since the last release" needs a tag to count from, and the whole history is not a release note.
+
+**Secrets** (GitHub → Settings → Secrets → Actions): `CRON_SECRET`, production's value, and `RESEND_API_KEY`, the full-access key. Both were set 2026-10-06.
+
+**The old local flow is retired.** The `post-merge` hook that drafted the Unreleased section on every pull is removed (the installer deletes an installed copy): its uncommitted edits would collide with the workflow's changelog commits on the next pull. The Version Manager GUI still works for a deliberate manual release; the workflow then finds nothing new since that tag.
 
 **Commands** (`npx tsx scripts/send-announcements.ts`):
 

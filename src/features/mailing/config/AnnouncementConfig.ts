@@ -87,12 +87,12 @@ export const CHANGE_CATEGORY_ORDER: readonly ChangeCategory[] = [
   ChangeCategory.Security,
 ]
 
-/** The heading a group gets inside `CHANGES_HTML`. */
+/** The heading a group gets inside `CHANGES_HTML`, in a gym owner's words. */
 export const CHANGE_CATEGORY_LABELS: Record<ChangeCategory, string> = {
-  [ChangeCategory.Important]: 'Important',
-  [ChangeCategory.New]: 'New',
-  [ChangeCategory.Improved]: 'Improved',
-  [ChangeCategory.Fixed]: 'Fixed',
+  [ChangeCategory.Important]: 'Please note',
+  [ChangeCategory.New]: 'New features',
+  [ChangeCategory.Improved]: 'Improvements',
+  [ChangeCategory.Fixed]: 'Fixes',
   [ChangeCategory.Security]: 'Security',
 }
 
@@ -174,7 +174,7 @@ export const CHANGE_CATEGORY_NOUNS: Record<ChangeCategory, [string, string]> = {
 
 /** The subject when the template has none of its own. */
 export const ANNOUNCEMENT_DEFAULT_SUBJECT: Record<AnnouncementKind, string> = {
-  [AnnouncementKind.Release]: 'What’s new in Metric Gym OS {{{VERSION}}}',
+  [AnnouncementKind.Release]: 'What’s new in Metric Gym OS: {{{SUMMARY}}}',
   [AnnouncementKind.Policy]: 'We’ve updated our {{{DOCUMENT_NAME}}}',
 }
 
