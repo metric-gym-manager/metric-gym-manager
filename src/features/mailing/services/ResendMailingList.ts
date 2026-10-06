@@ -10,14 +10,13 @@ import type {
   IMailingList,
   NewMailingContact,
 } from './IMailingList'
-
-/** The SDK's `{ data, error }` result; it never throws for an API error. */
-type ApiResult<T> =
-  | { data: T; error: null }
-  | { data: null; error: { name: string; message: string } }
-
-/** Per-request options; the SDK aborts the request when `signal` fires. */
-type RequestOptions = { signal?: AbortSignal }
+import {
+  DEFAULT_RESEND_TIMEOUT_MS,
+  isNotFound,
+  timeLimit,
+  type ApiResult,
+  type RequestOptions,
+} from './resendApi'
 
 /**
  * The slice of the Resend SDK's `contacts` API this adapter uses. The real
@@ -106,8 +105,6 @@ export interface ResendMailingListOptions {
   confirmDelayMs?: number
 }
 
-/** Long enough for Resend's slowest normal answer, short of a serverless timeout. */
-const DEFAULT_TIMEOUT_MS = 8_000
 /**
  * 10 reads, 800 ms apart: about 8 s of waiting, three times the longest lag
  * measured on 2026-10-06 (2.5 s). A miss tells the visitor to write to hello@.
@@ -116,10 +113,6 @@ const DEFAULT_CONFIRM_ATTEMPTS = 10
 const DEFAULT_CONFIRM_DELAY_MS = 800
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-
-function isNotFound(error: { name: string } | null): boolean {
-  return error?.name === 'not_found'
-}
 
 /**
  * Resend-backed mailing list: contacts in segments, opt-outs per topic.
@@ -154,13 +147,13 @@ export class ResendMailingList implements IMailingList {
     options: ResendMailingListOptions = {}
   ) {
     this.rotateTokens = options.rotateTokens ?? false
-    this.timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS
+    this.timeoutMs = options.timeoutMs ?? DEFAULT_RESEND_TIMEOUT_MS
     this.confirmAttempts = options.confirmAttempts ?? DEFAULT_CONFIRM_ATTEMPTS
     this.confirmDelayMs = options.confirmDelayMs ?? DEFAULT_CONFIRM_DELAY_MS
   }
 
   private limit(): RequestOptions {
-    return { signal: AbortSignal.timeout(this.timeoutMs) }
+    return timeLimit(this.timeoutMs)
   }
 
   async addContact(contact: NewMailingContact): Promise<AddContactResult> {

@@ -49,6 +49,10 @@
     {
       "path": "/api/cron/sync-marketing-contacts",
       "schedule": "0 1 * * *"
+    },
+    {
+      "path": "/api/cron/send-announcements",
+      "schedule": "0 4 * * *"
     }
   ]
 }

@@ -34,6 +34,7 @@ of truth; Sri Lanka local time (UTC+5:30) is shown for convenience only.
 | Drain Access Sync        | `*/5 * * * *` | every 5 min | every 5 min      | 5-minutely |
 | Sync Marketing Contacts  | `0 1 * * *`   | 01:00       | 6:30 AM          | Daily      |
 | Purge Access Events      | `0 2 * * *`   | 02:00       | 7:30 AM          | Daily      |
+| Send Announcements       | `0 4 * * *`   | 04:00       | 9:30 AM          | Daily      |
 
 ### Member-status chain — ORDER MATTERS
 
@@ -376,6 +377,20 @@ sitting quietly inside a green result.
   }
 }
 ```
+
+## 6. Send Announcements
+
+**Endpoint**: `/api/cron/send-announcements`
+**Schedule**: daily at 04:00 UTC (9:30 AM Sri Lanka), after `sync-marketing-contacts` (01:00) so the "Product updates" segment is current.
+
+### What It Does
+
+- Compiles a **release email** from the deployed version's `CHANGELOG.md` section. If several versions were deployed since the last announcement, they go out as one email.
+- Compiles a **policy notice** from the newest `notify: true` entry in `features/marketing/config/legalChanges.ts`.
+- Fills each into its Resend template, sends a preview to the Test segment at once, and schedules the real broadcast to the gyms **24 hours later**. Cancel it in Resend to stop it.
+- Never announces anything twice: `mailing_announcements` is unique on `(kind, ref)`.
+
+Logged to `cron_logs` as a **failure** when an email could not be rendered, previewed or scheduled. A missing template is not a failure, only a summary entry ("template not ready"), because nothing is sent until the owner publishes it. The full design is in `docs/architecture/marketing-email.md`, "Announcements".
 
 ## Security
 

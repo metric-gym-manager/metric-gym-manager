@@ -383,6 +383,13 @@ const sections: LegalSection[] = [
           receiving them again, write to the same address.
         </LegalP>
         <LegalP>
+          When we make a material change to our Terms of Service, Privacy Policy
+          or Refund Policy, we email a short notice of it to every gym owner
+          with a current subscription, whatever email choices you have made,
+          because it concerns your rights. The unsubscribe button your email app
+          shows stops these notices too.
+        </LegalP>
+        <LegalP>
           If you change your account&apos;s email address, we move these choices
           to the new address and delete the old one from our email delivery
           provider, within a day.
@@ -676,8 +683,8 @@ const sections: LegalSection[] = [
           We may update this Privacy Policy from time to time to reflect changes
           in our practices, technology, or legal requirements. When we make
           material changes, we will update the &quot;Last updated&quot; date at
-          the top of this document and, where appropriate, notify you through
-          the platform or via email.
+          the top of this document and email a summary of the changes to every
+          gym owner with a current subscription.
         </LegalP>
         <LegalP>
           We encourage you to review this policy periodically to stay informed

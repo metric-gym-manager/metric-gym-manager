@@ -3,9 +3,11 @@
  *
  * Marketing and product-update email through Resend: who is on the list
  * (gym owners, consenting demo leads), and the two kinds of email each person
- * can opt out of on /unsubscribe. Consumers: the /api/public/email-preferences
- * route, the leads factory (consenting leads join Marketing), and
- * `scripts/sync-marketing-contacts.ts`. See docs/architecture/marketing-email.md.
+ * can opt out of on /unsubscribe, and the automatic release and policy-change
+ * announcements. Consumers: the /api/public/email-preferences route, the leads
+ * factory (consenting leads join Marketing), the sync-marketing-contacts and
+ * send-announcements crons, and their scripts. See
+ * docs/architecture/marketing-email.md.
  *
  * NOTE: this barrel is **server-tainted** (the factory reaches the Resend SDK
  * and `node:crypto`). Client components deep-import
@@ -17,10 +19,18 @@
 // ============================================================
 export {
   createAddMarketingContact,
+  createBroadcaster,
   createMailingList,
+  createSendAnnouncements,
   createSyncMarketingContacts,
   createUpdateEmailPreferences,
 } from './services/factory'
+export {
+  SendAnnouncements,
+  type AnnouncementOutcome,
+  type AnnouncementReportEntry,
+  type SendAnnouncementsInput,
+} from './services/SendAnnouncements'
 export {
   AddMarketingContact,
   type AddMarketingContactInput,
@@ -44,6 +54,15 @@ export type {
   NewMailingContact,
 } from './services/IMailingList'
 export type { IMarketingSource } from './services/IMarketingSource'
+export type {
+  AnnouncementRecord,
+  AnnouncementStatus,
+  IAnnouncementLog,
+} from './services/IAnnouncementLog'
+export type {
+  AnnouncementTemplate,
+  IBroadcaster,
+} from './services/IBroadcaster'
 
 // ============================================================
 // SCHEMAS
@@ -65,9 +84,16 @@ export {
   MAILING_TOPIC_LABELS,
   MailingAudience,
   MailingTopic,
+  RESEND_TEST_SEGMENT_ID,
   UNSUBSCRIBE_PATH,
+  preferencesLinkTemplate,
   unsubscribeLinkTemplate,
 } from './config/MailingConfig'
+export {
+  ANNOUNCEMENT_TEMPLATE_ALIAS,
+  ANNOUNCEMENT_VARIABLES,
+  AnnouncementKind,
+} from './config/AnnouncementConfig'
 
 // ============================================================
 // UTILS
@@ -76,3 +102,4 @@ export {
   createUnsubscribeToken,
   normalizeMailingEmail,
 } from './utils/unsubscribeToken'
+export { placeholdersIn } from './utils/renderTemplate'

@@ -51,6 +51,9 @@ const nextConfig = {
       './src/features/registration/assets/fonts/**',
       './public/logo.svg',
     ],
+    // Release emails are compiled from the changelog the route reads at
+    // runtime; without this the deployed function has no CHANGELOG.md.
+    '/api/cron/send-announcements': ['./CHANGELOG.md'],
   },
   experimental: {
     optimizePackageImports: [

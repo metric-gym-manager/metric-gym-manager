@@ -26,14 +26,20 @@
 
 import { config } from 'dotenv'
 import { Resend } from 'resend'
+import {
+  MAILING_FROM,
+  MailingTopic,
+  RESEND_TEST_SEGMENT_ID,
+  RESEND_TOPIC_IDS,
+} from '@/features/mailing/config/MailingConfig'
 
 config({ path: '.env.local', quiet: true })
 
-const TEST_SEGMENT = 'bb11d210-e73d-4955-972d-266f2c9295c0'
-const MARKETING_TOPIC = 'f6e083f1-e3aa-4ade-87b3-6131027728d4'
+const TEST_SEGMENT = RESEND_TEST_SEGMENT_ID
+const MARKETING_TOPIC = RESEND_TOPIC_IDS[MailingTopic.Marketing]
 const IN = 'delivered+probe-topic-in@resend.dev'
 const OUT = 'delivered+probe-topic-out@resend.dev'
-const FROM = 'Metric Gym OS <hello@updates.metricgymos.com>'
+const FROM = MAILING_FROM
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))

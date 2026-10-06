@@ -3,9 +3,14 @@
  */
 import { SITE_URL } from '@/features/marketing/config/site'
 import {
+  ALWAYS_SENT_EMAILS,
+  MailingAudience,
   MailingTopic,
+  RESEND_SEGMENT_IDS,
+  RESEND_TEST_SEGMENT_ID,
   RESEND_TOPIC_IDS,
   UNSUBSCRIBE_PATH,
+  preferencesLinkTemplate,
   unsubscribeLinkTemplate,
 } from '../config/MailingConfig'
 import { deliveredMailingEmail } from '../utils/unsubscribeToken'
@@ -55,5 +60,49 @@ describe('unsubscribeLinkTemplate', () => {
     for (const topic of Object.values(MailingTopic)) {
       expect(RESEND_TOPIC_IDS[topic]).toMatch(/^[0-9a-f-]{36}$/)
     }
+  })
+})
+
+/**
+ * Policy notices go to every current gym whatever its topic choices (owner
+ * decision, 2026-10-06), so their footer opens the preferences page with no
+ * topic pre-selected: a "stop these" link would promise what it cannot do.
+ */
+describe('preferencesLinkTemplate', () => {
+  it('opens /unsubscribe with the stored fields and no topic', () => {
+    const template = preferencesLinkTemplate()
+    expect(template).toBe(
+      `${SITE_URL}${UNSUBSCRIBE_PATH}` +
+        '?email={{{contact.email}}}&token={{{contact.unsubscribe_token}}}'
+    )
+    expect(template).not.toContain('topic=')
+  })
+
+  it('is the unsubscribe link without its topic', () => {
+    expect(unsubscribeLinkTemplate(MailingTopic.Updates)).toBe(
+      `${preferencesLinkTemplate()}&topic=updates`
+    )
+  })
+})
+
+describe('RESEND_TEST_SEGMENT_ID', () => {
+  it('is a segment id and never one a real send targets', () => {
+    expect(RESEND_TEST_SEGMENT_ID).toMatch(/^[0-9a-f-]{36}$/)
+    for (const audience of Object.values(MailingAudience)) {
+      expect(RESEND_SEGMENT_IDS[audience]).not.toBe(RESEND_TEST_SEGMENT_ID)
+    }
+  })
+})
+
+/**
+ * Policy-change notices go to every gym with a current subscription, whatever
+ * it chose (owner decision, 2026-10-06). /unsubscribe and the privacy policy
+ * both print this list, so saying it here is saying it to the person.
+ */
+describe('ALWAYS_SENT_EMAILS', () => {
+  it('names notices of changes to the terms, privacy and refund policies', () => {
+    expect(ALWAYS_SENT_EMAILS).toContain(
+      'Notices of changes to our Terms of Service, Privacy Policy or Refund Policy'
+    )
   })
 })

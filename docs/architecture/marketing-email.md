@@ -116,6 +116,97 @@ Steady state costs two list calls. Each step is recorded, and one failure does n
 
 An excluded address already on a list is taken off it.
 
+## Announcements: release and policy-change emails
+
+Two emails go out by themselves (owner request, 2026-10-06):
+
+- **A release email** when a new version reaches production, whatever the bump (major, minor or patch). It is compiled from that version's `CHANGELOG.md` section, which the owner's release writes (`npm run version:gui` → `scripts/generate-changelog.js`).
+- **A policy notice** when `/privacy`, `/terms` or `/refund-policy` changes materially. It is compiled from the page's entry in `features/marketing/config/legalChanges.ts`.
+
+Both go to the **"Product updates"** segment: gyms that are trialing, active or past_due. Owner decisions, 2026-10-06:
+
+- **Releases carry the Updates topic**, so an Updates opt-out stops them.
+- **Policy notices carry no topic**, so they reach every current gym, whatever its choices. `ALWAYS_SENT_EMAILS` lists them, and so do /unsubscribe and privacy §5. The mail app's one-click button (the global flag) still stops them.
+
+### The pipeline
+
+`/api/cron/send-announcements` runs daily at 04:00 UTC (09:30 SLT), after the 01:00 sync, so the segment is current. Its use case is `SendAnnouncements`. For each thing to announce, it does this:
+
+1. **Checks `mailing_announcements`.** This holds one row per `(kind, ref)`, enforced by a unique constraint (RLS on, no policies, service role only). A row that already exists means the thing was announced, or another run holds it.
+2. **Fetches the Resend template** by alias, `release-announcement` or `policy-update`. If it is missing or not published, the run sends nothing and holds nothing, so the next day tries again.
+3. **Fills it.** Broadcasts take finished HTML, not a template id; templates work only with single sends. The pipeline therefore fills the template's `{{{VARIABLE}}}`s itself and leaves `{{{contact.*}}}` for Resend. **A placeholder left with no value and no fallback stops the send.**
+4. **Claims the row**, before Resend sees anything.
+5. **Previews** to the **Test** segment at once (playershyan@gmail.com), with "[Preview]" in the subject and a banner naming the send time and the broadcast to cancel. If the preview fails, nothing reaches a gym, and the claim is released.
+6. **Schedules the real broadcast 24 hours later.** That is the owner's veto: cancel it at resend.com/broadcasts before then.
+
+**Never twice.**
+
+- A failed real send is ambiguous: Resend may have created it before the timeout. The claim therefore stays `pending`.
+- After 15 minutes the claim is reconciled by broadcast **name** (`release-1.2.0`, `policy-privacy-2026-10-06`). It is created again only if Resend has no broadcast of that name, and the preview is never sent twice.
+- Once a scheduled send's time has passed, the job records what Resend did: `sent`, or `canceled`. A cancelled broadcast reads back as `draft`.
+
+**Which release.**
+
+- Every changelog section above the last announced version, up to and including the deployed `APP_VERSION`, becomes **one** email (a digest).
+- If the deployed version has no section, nothing is sent: the changelog was not written for this release.
+- A version whose lines are all internal records `skipped`. Internal lines are headings other than Breaking, Added, Changed, Removed, Fixed, Performance and Security, and scopes `ci`, `test`, `docs`, `deps`, `build`, `dev`, `e2e`, `arch` and `lint`.
+- Before the first announcement, only the deployed version is considered, never the whole history.
+
+**Which policy change.**
+
+- Only entries marked `notify: true` whose date has arrived in Sri Lanka are sent.
+- Only the newest such entry per page is sent. Its summary must cover the older ones it replaces.
+- `legalChanges.test.ts` fails when a legal page's `lastModified` has no entry, so a policy edit cannot ship without deciding whether to notify.
+
+### The template contract
+
+`config/AnnouncementConfig.ts` (`ANNOUNCEMENT_VARIABLES`) is the contract. `scripts/send-announcements.ts` checks each published template against it.
+
+| Template               | Variables                                                                                                                                                                                                                                                                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `release-announcement` | `VERSION`, `RELEASE_DATE` ("20 October 2026"), `RELEASE_TYPE` ("Major update" \| "New features" \| "Fixes and improvements"), `SUMMARY` ("2 new features, 1 improvement and 3 fixes"), `CHANGES_HTML`, `IMPORTANT_HTML`/`NEW_HTML`/`IMPROVED_HTML`/`FIXED_HTML`/`SECURITY_HTML` with a `*_COUNT` each, `APP_URL`, `UNSUBSCRIBE_URL` |
+| `policy-update`        | `DOCUMENT_NAME`, `DOCUMENT_URL`, `UPDATED_DATE`, `SUMMARY_HTML`, `SUMMARY_TEXT`, `PREFERENCES_URL`                                                                                                                                                                                                                                  |
+
+Text values are HTML-escaped, braces included, so nothing from the changelog can become markup or a placeholder.
+
+**`*_HTML` values.**
+
+- They are lists that carry spacing but no colour or font. Wrap `{{{CHANGES_HTML}}}` in a styled cell and they inherit its style.
+- `CHANGES_HTML` holds only the groups that have changes, each with its heading. Templates have no conditionals, so this is the way to avoid an empty "Security" heading.
+
+**Links.**
+
+- `UNSUBSCRIBE_URL` stops Updates.
+- `PREFERENCES_URL` opens /unsubscribe with nothing pre-ticked. A policy notice cannot honestly offer "stop these".
+
+**Template requirements**, measured 2026-10-06:
+
+- A template **may** use `{{{contact.gym_name|there}}}`; Resend keeps it as written.
+- Size the main table `width="100%"` with `max-width:560px`. A fixed `width="560"` widened a 390 px phone to 592 px.
+- `templates.get` returns the **published** version even while an edit is unsaved (`has_unpublished_versions: true`). A template mid-edit is therefore never what gets sent; only publishing changes the email.
+
+### Operating it
+
+**Before the first release:** tag the current master `v1.0.0` (`git tag v1.0.0 && git push --tags`). Without a tag, `generate-changelog.js` has no release boundary and writes no versioned section, so the release email has nothing to say.
+
+**Commands** (`npx tsx scripts/send-announcements.ts`):
+
+- The **dry run** is the default. It renders what today's run would send, writes each email to an HTML file, and reports each template's status, the variables it uses, and any that would block the send.
+- `--apply` does the cron's run by hand.
+- **Re-sending after a cancel:** `--apply --force release 1.2.0` (or `--force policy privacy@2026-10-06`) forgets that row and announces again.
+- **Trials:**
+  - `--test-only`, with optional `--changelog <file>`, `--app-version <x.y.z>` and `--legal <file.json>`;
+  - fixture data is refused without `--test-only`;
+  - use a version below every real one (`0.0.1`) and an old date, and delete the trial rows afterwards: a trial row at `9.9.0` would stop every real release below it from being announced.
+
+**Verified live on 2026-10-06**, on the Test segment, with throwaway templates (since deleted):
+
+- the preview was queued at once;
+- the real send was scheduled 24 hours on, with the Updates topic for the release and no topic for the policy notice, and no placeholder left;
+- a second run sent nothing;
+- lookup by name found the broadcast;
+- a cancel read back as `draft` and was recorded `canceled`.
+
 ## Configuration
 
 | Variable                       | Where                                      | Notes                                                                     |
@@ -128,7 +219,8 @@ An excluded address already on a list is taken off it.
 
 - `/unsubscribe` answers 503 and asks people to write to hello@metricgymos.com;
 - consenting leads are stored, but not added to Resend;
-- the sync refuses to run.
+- the sync refuses to run;
+- `send-announcements` fails without `RESEND_API_KEY`, logged as a failure in `cron_logs`. It does not need the secret: the footer link reads each contact's stored token.
 
 **Tests:** `tests/setup.ts` deletes both variables, so no unit test can reach the live account.
 
