@@ -240,12 +240,14 @@ the live project.
 Enforced by: `npm run arch:check` rejects duplicate migration timestamps. Full-replay
 correctness is verified by running the chain against an empty DB in CI/staging.
 
-### R12 — Conventional Commits; never auto-release
+### R12 — Conventional Commits; the Release workflow releases
 
 Commit messages follow Conventional Commits (`feat`, `fix`, `refactor`, `docs`,
-`chore`, `test`, `perf`, …), validated by the `commit-msg` hook. **Only a human
-releases** — never bump the version in `package.json`, edit `CHANGELOG.md` release
-sections, or create tags as part of ordinary work. See `.claude/rules/versioning.md`.
+`chore`, `test`, `perf`, …), validated by the `commit-msg` hook, and `feat`/`fix`/
+`perf` commits carry a `Release-Note:` line for the gym-facing release email.
+**Only `.github/workflows/release.yml` releases** (since 2026-10-06): never bump the
+version in `package.json`, edit `CHANGELOG.md` release sections, or create tags by
+hand as part of ordinary work. See `.claude/rules/versioning.md`.
 
 ### R13 — Type-safety and validation are non-negotiable
 

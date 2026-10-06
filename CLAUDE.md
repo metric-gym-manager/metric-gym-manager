@@ -43,7 +43,7 @@ Detailed rules are in `.claude/rules/`:
 - `architecture.md` - Feature-first structure, route authorization, type safety, Pattern Index
 - `security.md` - RLS, input validation, secrets management
 - `testing.md` - Testing pyramid (70% unit, 20% integration, 10% E2E), mandatory coverage
-- `versioning.md` - Conventional Commits; never bump versions, CHANGELOG or tags
+- `versioning.md` - Conventional Commits with a `Release-Note:` line on feat/fix/perf; releases are automatic, never bump versions, CHANGELOG or tags by hand
 - `documentation.md` - JSDoc standards
 
 ### Workflow
@@ -80,8 +80,9 @@ Hooks are installed by `scripts/install-git-hooks.js` (runs automatically on
 `npm install` via postinstall; husky is not used):
 
 - `pre-commit` — runs lint-staged (ESLint --fix, Prettier, jest --findRelatedTests)
-- `commit-msg` — validates Conventional Commits format
-- `post-merge` — generates a draft changelog entry
+- `commit-msg` — validates Conventional Commits format; suggests a `Release-Note:` line on `feat`/`fix`/`perf` (never blocks)
+
+The installer removes the retired `post-merge` hook: its local changelog drafts collided with the release workflow's commits. Releases are cut by `.github/workflows/release.yml` on every push to master (see `versioning.md`).
 
 ## Key Constraints
 
