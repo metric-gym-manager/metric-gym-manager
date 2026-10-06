@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
       message: input.message || undefined,
       interest: input.interest,
       source: 'landing',
+      marketingConsent: input.marketingConsent,
     })
 
     return NextResponse.json(

@@ -31,6 +31,7 @@ const lead: Lead = {
   message: 'Do you support fingerprint readers?',
   interest: LeadInterest.Lite,
   source: 'landing',
+  marketingConsentAt: null,
   createdAt: '2026-10-05T06:34:14.534Z',
 }
 

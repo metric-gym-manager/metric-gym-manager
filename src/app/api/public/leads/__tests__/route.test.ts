@@ -9,23 +9,27 @@ import { NextRequest } from 'next/server'
  * hello@metricgymos.com, and the email's outcome is written to the row.
  */
 const updates: Record<string, unknown>[] = []
+const inserts: Record<string, unknown>[] = []
 const sendMail = jest.fn()
 
 jest.mock('@/lib/supabase/admin', () => ({
   createAdminClient: () => ({
     from: () => ({
-      insert: (row: Record<string, unknown>) => ({
-        select: () => ({
-          single: async () => ({
-            data: {
-              id: 'lead-1',
-              ...row,
-              created_at: '2026-10-05T06:34:14.534Z',
-            },
-            error: null,
+      insert: (row: Record<string, unknown>) => (
+        inserts.push(row),
+        {
+          select: () => ({
+            single: async () => ({
+              data: {
+                id: 'lead-1',
+                ...row,
+                created_at: '2026-10-05T06:34:14.534Z',
+              },
+              error: null,
+            }),
           }),
-        }),
-      }),
+        }
+      ),
       update: (values: Record<string, unknown>) => {
         updates.push(values)
         return {
@@ -65,6 +69,7 @@ const visitor = {
 describe('POST /api/public/leads', () => {
   beforeEach(() => {
     updates.length = 0
+    inserts.length = 0
     sendMail.mockReset()
   })
 
@@ -85,5 +90,18 @@ describe('POST /api/public/leads', () => {
     expect(updates).toEqual([
       { notification_error: expect.stringContaining('535') },
     ])
+  })
+
+  it('stores when a visitor ticked the marketing box', async () => {
+    sendMail.mockResolvedValue(undefined)
+    const res = await POST(request({ ...visitor, marketingConsent: true }))
+    expect(res.status).toBe(201)
+    expect(inserts[0].marketing_consent_at).toEqual(expect.any(String))
+  })
+
+  it('stores no consent when the box was left unticked', async () => {
+    sendMail.mockResolvedValue(undefined)
+    await POST(request(visitor))
+    expect(inserts[0].marketing_consent_at).toBeNull()
   })
 })

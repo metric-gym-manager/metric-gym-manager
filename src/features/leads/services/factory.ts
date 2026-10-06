@@ -7,7 +7,9 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { createAddMarketingContact, MailingAudience } from '@/features/mailing'
 import { createSmtpMailer } from '@/lib/email/smtp'
+import type { ILeadMarketingAudience } from './ILeadMarketingAudience'
 import type { ILeadNotifier } from './ILeadNotifier'
 import type { ILeadRepository } from './ILeadRepository'
 import { SmtpLeadNotifier } from './SmtpLeadNotifier'
@@ -26,6 +28,29 @@ export function createLeadNotifier(): ILeadNotifier | null {
   return mailer ? new SmtpLeadNotifier(mailer) : null
 }
 
+/**
+ * Consenting leads join the mailing feature's Marketing audience, or `null`
+ * when mailing is not configured (RESEND_API_KEY / MARKETING_UNSUBSCRIBE_SECRET).
+ */
+export function createLeadMarketingAudience(): ILeadMarketingAudience | null {
+  const addContact = createAddMarketingContact()
+  if (!addContact) return null
+  return {
+    async add(lead) {
+      await addContact.execute({
+        email: lead.email,
+        name: lead.name,
+        gymName: lead.gymName,
+        audience: MailingAudience.Marketing,
+      })
+    },
+  }
+}
+
 export function createSubmitLead(supabase: SupabaseClient): SubmitLead {
-  return new SubmitLead(createLeadRepository(supabase), createLeadNotifier())
+  return new SubmitLead(
+    createLeadRepository(supabase),
+    createLeadNotifier(),
+    createLeadMarketingAudience()
+  )
 }

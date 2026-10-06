@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { buildPageMetadata } from '@/features/marketing'
+import { ALWAYS_SENT_EMAILS } from '@/features/mailing/config/MailingConfig'
 import {
   LegalLayout,
   LegalP,
@@ -227,6 +228,20 @@ const sections: LegalSection[] = [
               not affect your ability to use the platform.
             </LegalP>
           </div>
+
+          <div>
+            <LegalSubHead>
+              Information We Collect from People Who Request a Demo
+            </LegalSubHead>
+            <LegalP>
+              When you request a demo on our website, we collect your name,
+              email address and phone number, the plan you are interested in,
+              and, if you give them, your gym&apos;s name and a message. We use
+              them to contact you about your request. If you tick the box asking
+              for marketing emails, we also record when you ticked it, as the
+              record of your consent.
+            </LegalP>
+          </div>
         </div>
       </>
     ),
@@ -271,6 +286,17 @@ const sections: LegalSection[] = [
           <LegalLI>
             Provide customer support and respond to inquiries — necessary for
             the performance of our contract with you
+          </LegalLI>
+          <LegalLI>
+            Send gym owners marketing emails about our products, and product and
+            security updates — our legitimate interest in telling our customers
+            about the service they use and how it is changing. You can stop
+            either kind at any time (Section 5)
+          </LegalLI>
+          <LegalLI>
+            Send marketing emails to people who asked us for a demo — based on
+            the consent they gave on the demo request form, which they may
+            withdraw at any time
           </LegalLI>
           <LegalLI>
             Measure visits to our website and how the platform is used, using
@@ -321,6 +347,58 @@ const sections: LegalSection[] = [
           platform&apos;s core functionality. A member may withdraw consent at
           any time by contacting their gym directly, which will action the
           request at no cost.
+        </LegalP>
+      </>
+    ),
+  },
+  {
+    id: 'p4-email',
+    title: 'Email Communications',
+    body: (
+      <>
+        <LegalP>
+          Besides the emails your account needs, we send two kinds of email,
+          from hello@updates.metricgymos.com:
+        </LegalP>
+        <LegalList>
+          <LegalLI>
+            Marketing emails — product news, offers and tips. Gym owners receive
+            them, including after cancelling or being suspended, and so do
+            people who requested a demo, but only if you ticked the box asking
+            for them on the demo request form
+          </LegalLI>
+          <LegalLI>
+            Product and security updates — new versions, changes to how Metric
+            Gym OS works, and security notices. Gym owners with a current
+            subscription (on a trial, active, or with a payment overdue) receive
+            them. A cancelled or suspended gym receives marketing emails only
+          </LegalLI>
+        </LegalList>
+        <LegalP>
+          You can stop either kind, or both, at any time: follow the unsubscribe
+          link at the foot of any of these emails and choose which to stop, or
+          write to hello@metricgymos.com. Stopping one kind through that link
+          does not stop the other. The unsubscribe button your email app shows
+          next to our address works differently: it stops both kinds. To start
+          receiving them again, write to the same address.
+        </LegalP>
+        <LegalP>
+          If you change your account&apos;s email address, we move these choices
+          to the new address and delete the old one from our email delivery
+          provider, within a day.
+        </LegalP>
+        <LegalP>
+          Whatever you choose, we still send the emails needed to run your
+          account:
+        </LegalP>
+        <LegalList>
+          {ALWAYS_SENT_EMAILS.map((line) => (
+            <LegalLI key={line}>{line}</LegalLI>
+          ))}
+        </LegalList>
+        <LegalP>
+          The email address, name and gym name we hold for these emails are kept
+          with our email delivery provider until you ask us to delete them.
         </LegalP>
       </>
     ),
@@ -452,6 +530,11 @@ const sections: LegalSection[] = [
             securely
           </LegalLI>
           <LegalLI>
+            Email delivery providers, to send our marketing emails and product
+            and security updates — limited to the email address, name and gym
+            name we hold for them
+          </LegalLI>
+          <LegalLI>
             Google LLC (Google Analytics), to measure website and application
             usage as described in Section 2. This may include IP address, device
             and browser data, and pages viewed
@@ -549,7 +632,7 @@ const sections: LegalSection[] = [
           <LegalList>
             <LegalLI>
               Requests must be made in writing to us using the contact details
-              in Section 10
+              in Section 11
             </LegalLI>
             <LegalLI>
               We will respond to all legitimate requests within 21 working days,
