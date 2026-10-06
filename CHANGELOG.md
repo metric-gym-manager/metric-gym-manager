@@ -47,3 +47,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Performance
 
 - aggressive caching strategy and Lighthouse performance optimization ([e6d7b23](../../commit/e6d7b23))
+
+## [1.1.0] - 2026-10-06
+
+### Added
+
+- We’ll now email you a short summary whenever Metric Gym OS gets new features or fixes, so you always know what has changed. ([fd4294c](../../commit/fd4294c))
