@@ -118,6 +118,7 @@ Run by `.github/workflows/release.yml` on every push to master; none needs runni
 
 - `release.js`: cuts a release from the commit types since the last tag (breaking → major, feat → minor, fix/perf → patch), writing `package.json`, `CHANGELOG.md` and the PWA version, then commits and tags. `--dry-run` prints the release it would cut.
 - `wait-for-deployment.js <sha>`: waits until Vercel has that commit live in production.
+- `trigger-announcements.js`: runs the announcement cron on production and reads its answer. It asks again while an older deployment answers, and fails on any failed email.
 - `publish-email-templates.ts`: publishes the two email designs to Resend; `--check` reports drift.
 - `send-announcements.ts`: the announcement cron by hand. It is a dry run by default and writes the emails to HTML files.
 

@@ -84,6 +84,14 @@ export class FakeBroadcaster implements IBroadcaster {
   readonly stateReads: string[] = []
   failPreview = false
   failReal = false
+  /** Contacts in a segment who can receive mail (not unsubscribed). */
+  reachable = 1
+  readonly reachableReads: string[] = []
+
+  async reachableContacts(segmentId: string) {
+    this.reachableReads.push(segmentId)
+    return this.reachable
+  }
 
   async getTemplate(alias: string) {
     return this.templates.get(alias) ?? null

@@ -61,6 +61,17 @@ export interface AnnouncementResendApi {
       requestOptions?: RequestOptions
     ): Promise<ApiResult<{ status: string }>>
   }
+  contacts: {
+    list(
+      options: { segmentId: string; limit?: number },
+      requestOptions?: RequestOptions
+    ): Promise<
+      ApiResult<{
+        data: { email: string; unsubscribed: boolean }[]
+        has_more: boolean
+      }>
+    >
+  }
 }
 
 /** Pages of 100 read when looking a broadcast up by name: 2,000 broadcasts. */
@@ -145,6 +156,15 @@ export class ResendBroadcaster implements IBroadcaster {
     throw new Error(
       `Broadcast "${name}" not found in ${MAX_LIST_PAGES} pages; refusing to guess`
     )
+  }
+
+  async reachableContacts(segmentId: string): Promise<number> {
+    const { data, error } = await this.resend.contacts.list(
+      { segmentId, limit: 100 },
+      timeLimit(this.timeoutMs)
+    )
+    if (error) throw new Error(error.message)
+    return data.data.filter((contact) => !contact.unsubscribed).length
   }
 
   async getBroadcastState(id: string): Promise<BroadcastState> {

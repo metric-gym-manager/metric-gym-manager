@@ -33,4 +33,6 @@ export interface IBroadcaster {
     name: string
   ): Promise<{ id: string; scheduledAt: string | null } | null>
   getBroadcastState(id: string): Promise<BroadcastState>
+  /** Contacts in a segment who can receive mail (not unsubscribed). */
+  reachableContacts(segmentId: string): Promise<number>
 }

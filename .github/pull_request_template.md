@@ -9,6 +9,12 @@
 - [ ] `feat!` / `fix!` — breaking change (major bump)
 - [ ] `refactor` / `test` / `docs` / `chore` — no version bump
 
+<!-- Merging to master releases automatically (.github/workflows/release.yml) and
+     emails the gyms. Give each feat/fix/perf commit a line a gym owner can read:
+       Release-Note: Members can now pay part of a fee and settle the rest later.
+     or keep it out of the email:
+       Release-Note: none -->
+
 ## Scope
 
 <!-- Which feature domain(s) does this touch? -->
