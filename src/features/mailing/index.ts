@@ -22,9 +22,15 @@ export {
   createBroadcaster,
   createMailingList,
   createSendAnnouncements,
+  createSendOutreach,
   createSyncMarketingContacts,
   createUpdateEmailPreferences,
 } from './services/factory'
+export {
+  SendOutreach,
+  type OutreachReport,
+  type SendOutreachInput,
+} from './services/SendOutreach'
 export {
   SendAnnouncements,
   type AnnouncementOutcome,
@@ -103,3 +109,9 @@ export {
   normalizeMailingEmail,
 } from './utils/unsubscribeToken'
 export { placeholdersIn } from './utils/renderTemplate'
+export { parseProspectsCsv, type Prospect } from './utils/prospectsCsv'
+export {
+  OUTREACH_CAMPAIGN,
+  OUTREACH_DAILY_LIMIT,
+  OUTREACH_FROM,
+} from './config/outreachCampaign'

@@ -409,6 +409,11 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 - [ ] **Watch the first release run** at GitHub → Actions → Release. It ends with the announcement cron's answer. A red run emails you. Its error says which step failed, and the daily 09:30 SLT run still sends the announcement.
 - [ ] **When you edit a legal page**, the tests require an entry in `legalChanges.ts` with the page's new date: `notify: true` with a two-to-four-line summary for a material change, or `notify: false` for wording only.
 
+**Outreach campaign (`claude/outreach-campaign`)**
+
+- [x] **Built and verified (2026-10-06).** The "Tired of chasing payments?" introduction email: WhatsApp links with the demo request typed, a plain-text part, and a footer that says where the address came from with a working unsubscribe. It goes out from its own domain, `go.metricgymos.com` (verified in Resend, DNS in Cloudflare), so it cannot hurt customer email. `scripts/send-outreach.ts` leaves out every gym and demo request, records each address before sending, never emails anyone twice, and skips anyone who unsubscribed. Privacy §5 discloses it. Design: `docs/architecture/marketing-email.md`, "Outreach".
+- [ ] **Send it (owner + Claude).** Tell me where the CSV is. A dry run shows what would happen; on your OK, the first 50 go out, then one batch a day. Watch Resend → Emails for bounces and complaints, and keep batches small while they stay low.
+
 **Check this session's work in production**
 
 - [ ] **Demo form, consent ticked:** use a `you+demo1@gmail.com` address. The `leads` row (Supabase) has `marketing_consent_at` set, and the contact appears in Resend's **Marketing** segment within seconds.

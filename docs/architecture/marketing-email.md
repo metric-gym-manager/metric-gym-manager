@@ -231,6 +231,53 @@ The run checks out the newest master. If master moves while a release is cut, it
 - lookup by name found the broadcast;
 - a cancel read back as `draft` and was recorded `canceled`.
 
+## Outreach: introducing Metric to gyms that have not heard of it
+
+A one-off introduction email to gyms whose contact email is on a public page, such as the gym's website or a business listing (owner request, 2026-10-06). It echoes the SMS that brought in calls: "Tired of chasing payments?"
+
+**The email.** `config/outreachCampaign.ts`:
+
+- **Figures:** every figure comes from `pricing.ts` and `site.ts`: from Rs. 2,990 a month, up to 100 active members, a 30-day free trial.
+- **Claims:** only what the product does. Metric shows who owes, sends SMS reminders and receipts, and compares what is owed with what was collected. It does not collect money, and the homepage tests ban that claim.
+- **The sample panel** is labelled "(example)".
+- **WhatsApp:** both the button and the phone number open WhatsApp with "Hi, I'd like a free demo of Metric Gym OS" already typed.
+- **A plain-text part is sent too.**
+- **The footer** says where the address came from, carries the recipient's own signed /unsubscribe link (Marketing topic), and gives the company's postal address.
+
+`outreachCampaign.test.ts` holds the email to all of this.
+
+**Its own sending domain.** The email comes from `Metric Gym OS <hello@go.metricgymos.com>`, and replies go to `hello@metricgymos.com`.
+
+- The domain was verified in Resend on 2026-10-06, with tracking off: tracked links are a spam signal on cold email.
+- Its four DNS records sit in Cloudflare, each with a comment naming Resend.
+- A cold list's spam complaints therefore can never touch `updates.metricgymos.com`, which carries release and policy emails to customers.
+
+**Who receives it.** `SendOutreach`, run by `scripts/send-outreach.ts`:
+
+- **Left out:** every gym's and every demo request's address (`listKnownEmails`, consent or not). Customers already use the product, and a demo request without the consent box ticked must not be marketed to.
+- **The CSV:** `parseProspectsCsv` reads it whatever the headers are called. It splits cells holding several addresses, and drops repeats, invalid rows and reserved TLDs, reporting each one.
+- **Never twice.** Every address is recorded in `outreach_recipients` (unique per campaign and address, with its `source`) before anything is sent.
+- **Unsubscribers are skipped.** Before each send, an address that opted out of Marketing, or out of everything, is marked `skipped`.
+- **Each address becomes a Resend contact** carrying its unsubscribe token, in **no segment**, so /unsubscribe works for it and the nightly sync never touches it. Should the gym later sign up, the sync adds that same contact to its segments, and its opt-outs carry over.
+
+**Running it:**
+
+- `npx tsx scripts/send-outreach.ts --test you@example.com` sends one copy to you, outside the campaign.
+- `npx tsx scripts/send-outreach.ts --csv gyms.csv` is a dry run. It shows the rows set aside, the addresses left out, and who the next batch would reach.
+- `npx tsx scripts/send-outreach.ts --csv gyms.csv --apply` records the new addresses and sends the next batch: 50 by default (`--limit`). Run it once a day with the same file; nobody is emailed twice. A new domain earns trust slowly, so raise `--limit` only while bounces and complaints stay near zero (Resend → Emails shows both).
+
+**Verified live on 2026-10-06** with Resend's test addresses, under a throwaway campaign since deleted:
+
+- a batch of 2, then the rest on the next run, then nothing;
+- an opted-out contact was `skipped`;
+- the owner's gym address was left out;
+- a duplicate, a junk row and a `.local` address were set aside;
+- production's /unsubscribe recorded a prospect's opt-out (Marketing read back `opt_out`).
+
+The test copy arrived from `hello@go.metricgymos.com` with its plain-text part and `List-Unsubscribe` header.
+
+**Privacy.** Policy §5 describes the introduction: where the address comes from, that the email says so, how to stop it, and what is kept and why.
+
 ## Configuration
 
 | Variable                       | Where                                      | Notes                                                                     |

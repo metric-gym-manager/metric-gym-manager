@@ -24,6 +24,10 @@ function source(
   return {
     listGymOwners: async () => gyms,
     listConsentingLeads: async () => leads,
+    listKnownEmails: async () => [
+      ...gyms.map((g) => g.email),
+      ...leads.map((l) => l.email),
+    ],
   }
 }
 

@@ -49,6 +49,13 @@ describe('privacy policy — SMS communications', () => {
 describe('privacy policy — email communications', () => {
   const text = () => render(<PrivacyPolicyPage />).container.textContent ?? ''
 
+  it('discloses the one-off introduction to gyms whose address is public', () => {
+    const t = text()
+    expect(t).toMatch(/introduction to gyms whose contact email is published/i)
+    expect(t).toMatch(/says where we found the address/i)
+    expect(t).toMatch(/link to stop further email/i)
+  })
+
   it('names both kinds of email', () => {
     expect(text()).toMatch(/marketing emails/i)
     expect(text()).toMatch(/product and security updates/i)

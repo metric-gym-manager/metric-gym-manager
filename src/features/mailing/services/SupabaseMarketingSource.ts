@@ -40,6 +40,18 @@ export class SupabaseMarketingSource implements IMarketingSource {
     }))
   }
 
+  async listKnownEmails(): Promise<string[]> {
+    const emails: string[] = []
+    for (const table of ['gyms', 'leads']) {
+      const { data, error } = await this.supabase.from(table).select('email')
+      if (error) throw new Error(error.message)
+      for (const row of (data ?? []) as { email: string | null }[]) {
+        if (row.email) emails.push(row.email)
+      }
+    }
+    return emails
+  }
+
   async listConsentingLeads(): Promise<ConsentingLeadRecipient[]> {
     const { data, error } = await this.supabase
       .from('leads')
