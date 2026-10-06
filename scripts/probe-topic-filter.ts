@@ -16,8 +16,12 @@
  * Needs RESEND_API_KEY (full access) in .env.local. Exit code 1 on a FAIL,
  * 2 when a recipient list had not filled in time (re-read it later).
  *
- * Result of 2026-10-06: PASS. The topic broadcast reached only the opted-in
- * contact, and the control reached both.
+ * Results of 2026-10-06: PASS, twice (before and after the segments were
+ * renamed). The topic broadcast reached only the opted-in contact; the
+ * control reached both. Both times the TOPIC broadcast's recipient list filled
+ * more than five minutes after the send, so the run printed INCONCLUSIVE and
+ * the verdict came from a re-read (Resend MCP `list-broadcast-recipients`,
+ * type `sent`) a few minutes later.
  */
 
 import { config } from 'dotenv'
