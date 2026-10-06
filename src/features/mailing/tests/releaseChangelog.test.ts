@@ -178,6 +178,28 @@ describe('Release-Note lines in squashed and wrapped commit messages', () => {
     ).toEqual(['Part payments.'])
   })
 
+  it('hides a one-commit squash whose commit said none (GitHub adds the PR number to its title)', () => {
+    expect(
+      lines({
+        hash: 'a5a5a5a',
+        subject: 'fix(release): close the gaps the inverted check found (#95)',
+        body: '- bullets for developers\n\nRelease-Note: none\n\nCo-Authored-By: X <x@y.z>',
+      })
+    ).toEqual([])
+  })
+
+  it('hides a squash only when every inner commit said none', () => {
+    expect(
+      lines({
+        hash: 'a6a6a6a',
+        subject: 'fix(cron): retries (#97)',
+        body:
+          '* fix(cron): retry once\n\nRelease-Note: none\n\n' +
+          '* test(cron): cover the retry\n\nRelease-Note: none',
+      })
+    ).toEqual([])
+  })
+
   it('still hides a commit of its own marked none', () => {
     expect(
       lines({

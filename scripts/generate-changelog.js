@@ -116,6 +116,20 @@ function releaseNotes(body) {
   return notes
 }
 
+/**
+ * The inner commits of a GitHub squash body: one block per `* type(scope): …`
+ * line, up to the next. A body that is not a squash of several commits has
+ * zero or one block.
+ */
+function innerCommitBlocks(body) {
+  const blocks = []
+  for (const line of body.split('\n')) {
+    if (/^\* \w+(\([^)]*\))?!?: /.test(line)) blocks.push([])
+    if (blocks.length > 0) blocks[blocks.length - 1].push(line)
+  }
+  return blocks.map((block) => block.join('\n'))
+}
+
 function categorizeCommits(commits) {
   const categories = {
     breaking: [],
@@ -149,16 +163,24 @@ function categorizeCommits(commits) {
     // shows it instead of the developer subject. `Release-Note: none` keeps an
     // internal change out of the changelog, and so out of the email.
     //
-    // A GitHub squash writes every inner commit's message into the body
-    // (this repo's `squash_merge_commit_message` is COMMIT_MESSAGES), so a
-    // body may hold several notes, and `none` lines that were only about one
-    // inner tidy-up. Every real note becomes a line; `none` hides a commit only
-    // when it is the commit's own word, never a squash's (inverted check,
-    // 2026-10-06: an inner `none` silently dropped the squashed feature).
+    // A GitHub squash of several commits writes each inner commit's message
+    // into the body as a `* type(scope): …` block (this repo's
+    // `squash_merge_commit_message` is COMMIT_MESSAGES), so a body may hold
+    // several notes, and `none` lines that were only about one inner tidy-up.
+    // Every real note becomes a line. `none` hides the commit when it is the
+    // commit's own word — a one-commit squash included — and hides a
+    // multi-commit squash only when every inner commit said it (inverted
+    // check, 2026-10-06: an inner `none` silently dropped the squashed feature).
+    const isNone = (note) => /^none\.?$/i.test(note)
     const notes = releaseNotes(body)
-    const visible = notes.filter((note) => !/^none\.?$/i.test(note))
-    const squashed = /\(#\d+\)\s*$/.test(subject)
-    const hidden = visible.length === 0 && notes.length > 0 && !squashed
+    const visible = notes.filter((note) => !isNone(note))
+    const inner = innerCommitBlocks(body)
+    const hidden =
+      visible.length > 0
+        ? false
+        : inner.length > 1
+          ? inner.every((block) => releaseNotes(block).some(isNone))
+          : notes.some(isNone)
 
     const base = {
       hash,
