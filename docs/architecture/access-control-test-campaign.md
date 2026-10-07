@@ -1103,6 +1103,36 @@ writers never collide; case verdicts are mirrored into this campaign's
   session; the sessions load `.claude/hw-session.settings.json`, which turns
   hooks off and allows only the console and `jest` without a prompt.
 
+**What the final forward and inverted check found** (before merge, 2026-10-07):
+
+- The outbox claim takes **one job per member per run** (`DISTINCT ON
+member_id`) and every member change enqueues one, so a test member with
+  several changes clears one job every five minutes. Waits that expected an
+  empty queue would have timed out in ten tasks; `jobs --wait` now waits for a
+  sync to complete per member, which is what a retry actually needs.
+- In eleven places a task queued a job in one step and processed it in a later
+  one, so production's five-minute drain could take it in between — near
+  certain in the power-pull test, which had an operator step in the gap. Each
+  pair is now one step, and `set-dates` / `--no-push` wait until that drain is
+  at least 75 s away.
+- `set-dates` counted new jobs by comparing the database's clock with the
+  laptop's and reported 0 for a real change; it now compares job ids.
+- Supabase rotates refresh tokens, so the desk's cached session would have
+  failed about an hour in; the console now keeps its cookies from every
+  response, as a browser does.
+- Spawning an agent with worktree isolation would have split the phase file
+  and the results from the lead's checkout without an error; the lead is told
+  never to, and the brief requires one checkout on one laptop.
+- The nightly reconcile at 00:00 would act on the agents' members mid-task;
+  the console now refuses to start the parallel phase from 15:00 and the
+  exclusive phase from 20:30 Sri Lanka time.
+- Forgetting Device B for XC-11 would hide a real member's change from B for
+  those minutes; the task now checks real members before and after.
+- Verified live on HW Test 10: registration, dates, push, rename, payment,
+  cancel, reactivate, a lost reply and its retry, park and unpark — no SMS log
+  row, one payment of 1 LKR, both readers. A lead session spawned a background
+  agent that ran the console without a permission prompt.
+
 ---
 
 ## 6. Tracker

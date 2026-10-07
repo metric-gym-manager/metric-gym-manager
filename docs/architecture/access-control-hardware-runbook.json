@@ -2277,18 +2277,17 @@
           "do": "Unplug reader A's network again."
         },
         {
+          "who": "operator",
+          "do": "Be ready to plug A back in the moment Claude says \"queued\"."
+        },
+        {
           "who": "claude",
-          "do": "Queue changes for HW1 and HW2 while A is off.",
-          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 1 --due +46 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 2 --due +47 --apply --as physical"
+          "do": "Queue changes for HW1 and HW2 while A is off, and drain them at once. (One step, one Bash call: queuing and processing back to back, so production's five-minute drain cannot take the job in between; the console waits first if that drain is due within 75 s.)",
+          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 1 --due +46 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 2 --due +47 --apply --as physical && npx tsx scripts/hw-session.ts drain --apply --as physical"
         },
         {
           "who": "operator",
-          "do": "Be ready to plug A back in the moment Claude starts the drain."
-        },
-        {
-          "who": "claude",
-          "do": "Drain; the operator plugs A in while it runs.",
-          "cmd": "npx tsx scripts/hw-session.ts drain --apply --as physical"
+          "do": "Claude says \"queued\": plug reader A back in now."
         },
         {
           "who": "claude",
@@ -2343,18 +2342,13 @@
       "preconditions": [],
       "steps": [
         {
-          "who": "claude",
-          "do": "Queue changes for three members.",
-          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 1 --due +33 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 2 --due +34 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 4 --due +35 --apply --as physical"
-        },
-        {
           "who": "operator",
-          "do": "Be ready at reader B's power plug."
+          "do": "Stand at reader B's power plug, ready."
         },
         {
           "who": "claude",
-          "do": "Push all three.",
-          "cmd": "npx tsx scripts/hw-session.ts drain --apply --as physical"
+          "do": "Queue changes for three members and push them at once. (One step, one Bash call: queuing and processing back to back, so production's five-minute drain cannot take the job in between; the console waits first if that drain is due within 75 s.)",
+          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 1 --due +33 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 2 --due +34 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 4 --due +35 --apply --as physical && npx tsx scripts/hw-session.ts drain --apply --as physical"
         },
         {
           "who": "operator",
@@ -2475,18 +2469,13 @@
         },
         {
           "who": "claude",
-          "do": "Queue window changes for all four.",
-          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 1 --due +41 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 2 --due +42 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 3 --due +43 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 4 --due +44 --apply --as physical"
-        },
-        {
-          "who": "claude",
           "do": "Put A into enrol mode for HW1 and B for HW2.",
           "cmd": "npx tsx scripts/hw-session.ts enrol --member 1 --reader A --apply --as physical && npx tsx scripts/hw-session.ts enrol --member 2 --reader B --apply --as physical"
         },
         {
           "who": "claude",
-          "do": "Drain and crash after 3 accepted commands.",
-          "cmd": "npx tsx scripts/hw-session.ts drain --crash-after 3 --apply --as physical",
+          "do": "Queue window changes for all four and drain, crashing after 3 accepted commands. (One step, one Bash call: queuing and processing back to back, so production's five-minute drain cannot take the job in between; the console waits first if that drain is due within 75 s.)",
+          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 1 --due +41 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 2 --due +42 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 3 --due +43 --apply --as physical && npx tsx scripts/hw-session.ts set-dates --member 4 --due +44 --apply --as physical && npx tsx scripts/hw-session.ts drain --crash-after 3 --apply --as physical",
           "expect": "\"SIMULATED CRASH after 3 accepted command(s)\"; exit code 137."
         },
         {
@@ -3017,6 +3006,7 @@
         "[RC-06] A second open while the first is in effect returns success or a benign code, never an error (sim B-12)."
       ],
       "fail_if": [
+        "The log shows the delivery (received ≥ 1) but stored 0 with malformed ≥ 1 → the callback IS live but our parser rejected event 8 (likely an empty EmpId on a remote open): record VEND-21 pass with the logged unreadableFieldNames, a finding \"remote-open events are dropped as malformed\", TIME-07/VEND-08/UI-03 blocked (the visit settles them with a fingerprint scan), and tell the lead's soak to expect opensSeen 0.",
         "Nothing stored and nothing logged within 10 minutes → callback NOT registered: record blocked and a finding; ask the owner to have VFT register https://www.metricgymos.com/api/webhooks/access-control/<token> (the owner reads the token privately from .env.local) and fire WebhookCheck. Continue the day: most remote tasks do not need it.",
         "reader − stored ≈ ±19800 s → finding (timezone), TIME-07=fail."
       ],
@@ -3068,8 +3058,13 @@
         },
         {
           "who": "claude",
-          "do": "Create (daily plan, 1 LKR, texts suppressed, due +200, pushed to both readers).",
+          "do": "Create the ones that do not exist (daily plan, 1 LKR, texts suppressed, due +200, pushed to both readers).",
           "cmd": "npx tsx scripts/hw-session.ts create-members --from 5 --to 10 --apply --as lead"
+        },
+        {
+          "who": "claude",
+          "do": "Only if the dry run said any \"exists (cancelled)\" (an earlier remote day parked them): wake all six (active, due +200, pushed).",
+          "cmd": "npx tsx scripts/hw-session.ts unpark --mine --apply --as lead"
         },
         {
           "who": "claude",
@@ -3343,6 +3338,10 @@
         },
         {
           "who": "claude",
+          "do": "Time check: start the parallel phase only before 15:00 Sri Lanka time. The parallel and exclusive phases take about 4–5 hours and must end before 23:30: at 00:00 the nightly reconcile acts on every Titan member, the agents' test members included, in the middle of their tasks. If it is later, stop here and resume tomorrow morning from LD-07 (the members can stay as they are)."
+        },
+        {
+          "who": "claude",
           "do": "Enter the parallel phase.",
           "cmd": "npx tsx scripts/hw-session.ts phase set parallel --as lead",
           "expect": "\"✓ Phase idle → parallel.\""
@@ -3400,7 +3399,7 @@
         {
           "who": "claude",
           "do": "When the soak finishes, read its final summary line (its output, or the soak evidence file it names).",
-          "expect": "cycles ≈ 20; notCollected ≈ 0 (the last cycle may lag); opensSeen = opens (if the callback is live); deadAtEnd = deadAtStart; errors 0."
+          "expect": "cycles ≈ 20; notCollected ≈ 0 (the last cycle may lag); opensSeen = opens (if LD-03 stored event 8; if LD-03 found remote opens dropped as malformed, opensSeen 0 is expected); deadAtEnd = deadAtStart; errors 0."
         }
       ],
       "pass": [
@@ -3577,9 +3576,13 @@
         },
         {
           "who": "claude",
-          "do": "All parked.",
+          "do": "All parked, and both readers linked (XC-11 unlinked and re-linked B).",
           "cmd": "npx tsx scripts/hw-session.ts snapshot --as lead",
-          "expect": "HW Test 5–10 cancelled, Blocked true."
+          "expect": "HW Test 5–10 cancelled, Blocked true; readers A and B both listed and in use."
+        },
+        {
+          "who": "operator",
+          "do": "Owner — only if the exclusive agent's XC-11 recorded that a real member changed while B was unlinked: open that member and press \"Re-send to readers\"."
         },
         {
           "who": "claude",
@@ -3737,8 +3740,9 @@
         },
         {
           "who": "claude",
-          "do": "The trigger's own jobs settle (production's drain processes them as no-ops).",
-          "cmd": "npx tsx scripts/hw-session.ts jobs --member 5 --wait 400 --as outbox"
+          "do": "Production's drain completes a sync for HW5 (it takes one job per member every 5 minutes; the rest are no-ops).",
+          "cmd": "npx tsx scripts/hw-session.ts jobs --member 5 --wait 400 --as outbox",
+          "expect": "\"✓ Every member has had a sync complete since the wait began\" (older queued jobs are no-ops: production's drain takes one per member every 5 minutes)."
         }
       ],
       "pass": [
@@ -3846,13 +3850,8 @@
       "steps": [
         {
           "who": "claude",
-          "do": "AMB-03 (an update): move HW5's date.",
-          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 5 --due +45 --apply --as outbox"
-        },
-        {
-          "who": "claude",
-          "do": "Push it with the window reply lost.",
-          "cmd": "npx tsx scripts/hw-session.ts ambiguous push --member 5 --lose setValidPeriod --apply --as outbox",
+          "do": "AMB-03 (an update): move HW5's date and push it with the window reply lost. (One step, one Bash call: queuing and processing back to back, so production's five-minute drain cannot take the job in between; the console waits first if that drain is due within 75 s.)",
+          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 5 --due +45 --apply --as outbox && npx tsx scripts/hw-session.ts ambiguous push --member 5 --lose setValidPeriod --apply --as outbox",
           "expect": "\"vendor really answered …, now discarding it\"; the use case reports a failure or throws."
         },
         {
@@ -3881,13 +3880,9 @@
         },
         {
           "who": "claude",
-          "do": "AMB-04 (an access change): lapse HW5.",
-          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 5 --due yesterday --apply --as outbox"
-        },
-        {
-          "who": "claude",
-          "do": "Push with the block reply lost.",
-          "cmd": "npx tsx scripts/hw-session.ts ambiguous push --member 5 --lose blockAccess --apply --as outbox"
+          "do": "AMB-04 (an access change): lapse HW5 and push with the block reply lost. (One step, one Bash call: queuing and processing back to back, so production's five-minute drain cannot take the job in between; the console waits first if that drain is due within 75 s.)",
+          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 5 --due yesterday --apply --as outbox && npx tsx scripts/hw-session.ts ambiguous push --member 5 --lose blockAccess --apply --as outbox",
+          "expect": "If it prints \"nothing was lost\", production's drain got there first: run the step again with --due -2."
         },
         {
           "who": "claude",
@@ -3897,9 +3892,9 @@
         },
         {
           "who": "claude",
-          "do": "Let production's drain retry the trigger's job (the realistic retry, AMB-05).",
+          "do": "Let production's drain retry (the realistic retry, AMB-05): any job it processes for HW5 re-syncs the current state, which repeats the lost block.",
           "cmd": "npx tsx scripts/hw-session.ts jobs --member 5 --wait 420 --as outbox",
-          "expect": "All settled."
+          "expect": "\"✓ Every member has had a sync complete since the wait began\" (older queued jobs are no-ops: production's drain takes one per member every 5 minutes)."
         },
         {
           "who": "claude",
@@ -3915,13 +3910,8 @@
         },
         {
           "who": "claude",
-          "do": "AMB-02 / ENR-26 (a cancellation): cancel HW6 without pushing.",
-          "cmd": "npx tsx scripts/hw-session.ts cancel --member 6 --no-push --apply --as outbox"
-        },
-        {
-          "who": "claude",
-          "do": "Push with the block reply lost.",
-          "cmd": "npx tsx scripts/hw-session.ts ambiguous push --member 6 --lose blockAccess --apply --as outbox"
+          "do": "AMB-02 / ENR-26 (a cancellation): cancel HW6 without pushing, then push with the block reply lost. (One step, one Bash call: queuing and processing back to back, so production's five-minute drain cannot take the job in between; the console waits first if that drain is due within 75 s.)",
+          "cmd": "npx tsx scripts/hw-session.ts cancel --member 6 --no-push --apply --as outbox && npx tsx scripts/hw-session.ts ambiguous push --member 6 --lose blockAccess --apply --as outbox"
         },
         {
           "who": "claude",
@@ -4001,12 +3991,13 @@
         },
         {
           "who": "claude",
-          "do": "Nothing of yours still waiting.",
-          "cmd": "npx tsx scripts/hw-session.ts jobs --wait 300 --as outbox"
+          "do": "A sync has completed for each of your members since your last change.",
+          "cmd": "npx tsx scripts/hw-session.ts jobs --wait 300 --as outbox",
+          "expect": "\"✓ Every member has had a sync complete since the wait began\" (older queued jobs are no-ops: production's drain takes one per member every 5 minutes)."
         }
       ],
       "pass": [
-        "HW Test 5 and 6 active, held A+B, Blocked false; no job of theirs pending."
+        "HW Test 5 and 6 active, held A+B, Blocked false; a sync completed for each since the last change."
       ],
       "fail_if": [
         "A member cannot be restored → record blocked; the lead decides."
@@ -4378,8 +4369,9 @@
         },
         {
           "who": "claude",
-          "do": "Jobs for those changes settle.",
-          "cmd": "npx tsx scripts/hw-session.ts jobs --member 8 --wait 420 --as lifecycle"
+          "do": "Production's drain completes a sync for HW8 after those changes.",
+          "cmd": "npx tsx scripts/hw-session.ts jobs --member 8 --wait 420 --as lifecycle",
+          "expect": "\"✓ Every member has had a sync complete since the wait began\" (older queued jobs are no-ops: production's drain takes one per member every 5 minutes)."
         },
         {
           "who": "claude",
@@ -4456,12 +4448,13 @@
         },
         {
           "who": "claude",
-          "do": "Nothing of yours still waiting.",
-          "cmd": "npx tsx scripts/hw-session.ts jobs --wait 300 --as lifecycle"
+          "do": "A sync has completed for each of your members since your last change.",
+          "cmd": "npx tsx scripts/hw-session.ts jobs --wait 300 --as lifecycle",
+          "expect": "\"✓ Every member has had a sync complete since the wait began\" (older queued jobs are no-ops: production's drain takes one per member every 5 minutes)."
         }
       ],
       "pass": [
-        "HW Test 7 and 8 restored; stub stopped; no job of theirs pending."
+        "HW Test 7 and 8 restored; stub stopped; a sync completed for each since the last change."
       ],
       "fail_if": [
         "A member cannot be restored → record blocked; the lead decides."
@@ -6194,13 +6187,8 @@
       "steps": [
         {
           "who": "claude",
-          "do": "A change for HW5.",
-          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 5 --due +45 --apply --as exclusive"
-        },
-        {
-          "who": "claude",
-          "do": "Push it and restart A immediately after.",
-          "cmd": "npx tsx scripts/hw-session.ts push --member 5 --apply --as exclusive && npx tsx scripts/hw-session.ts reboot --reader A --apply --as exclusive"
+          "do": "A change for HW5, pushed, and reader A restarted immediately after. (One step, one Bash call: queuing and processing back to back, so production's five-minute drain cannot take the job in between; the console waits first if that drain is due within 75 s.)",
+          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 5 --due +45 --apply --as exclusive && npx tsx scripts/hw-session.ts push --member 5 --apply --as exclusive && npx tsx scripts/hw-session.ts reboot --reader A --apply --as exclusive"
         },
         {
           "who": "claude",
@@ -6262,13 +6250,8 @@
       "steps": [
         {
           "who": "claude",
-          "do": "Queue work for both readers.",
-          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 5 --due +31 --apply --as exclusive && npx tsx scripts/hw-session.ts set-dates --member 6 --due +32 --apply --as exclusive"
-        },
-        {
-          "who": "claude",
-          "do": "Drain and crash after the 2nd accepted vendor command.",
-          "cmd": "npx tsx scripts/hw-session.ts drain --crash-after 2 --apply --as exclusive",
+          "do": "Queue work for both readers and drain, crashing after the 2nd accepted vendor command. (One step, one Bash call: queuing and processing back to back, so production's five-minute drain cannot take the job in between; the console waits first if that drain is due within 75 s.)",
+          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 5 --due +31 --apply --as exclusive && npx tsx scripts/hw-session.ts set-dates --member 6 --due +32 --apply --as exclusive && npx tsx scripts/hw-session.ts drain --crash-after 2 --apply --as exclusive",
           "expect": "\"SIMULATED CRASH after 2 accepted command(s)\"; exit code 137."
         },
         {
@@ -6355,17 +6338,17 @@
         },
         {
           "who": "claude",
-          "do": "Queue changes for three members.",
-          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 8 --due +34 --apply --as exclusive && npx tsx scripts/hw-session.ts set-dates --member 9 --due +35 --apply --as exclusive && npx tsx scripts/hw-session.ts set-dates --member 10 --due +36 --apply --as exclusive"
+          "do": "Worker 1: queue changes for three members and drain them against the SLOW stub — the whole step in the BACKGROUND (run_in_background). (One step, one Bash call: queuing and processing back to back, so production's five-minute drain cannot take the job in between; the console waits first if that drain is due within 75 s.)",
+          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 8 --due +34 --apply --as exclusive && npx tsx scripts/hw-session.ts set-dates --member 9 --due +35 --apply --as exclusive && npx tsx scripts/hw-session.ts set-dates --member 10 --due +36 --apply --as exclusive && npx tsx scripts/hw-session.ts drain --vendor-url http://127.0.0.1:4013 --apply --as exclusive"
         },
         {
           "who": "claude",
-          "do": "Worker 1: a drain against the SLOW stub, in the BACKGROUND (run_in_background).",
-          "cmd": "npx tsx scripts/hw-session.ts drain --vendor-url http://127.0.0.1:4013 --apply --as exclusive"
+          "do": "Wait until worker 1 is mid-send: repeat this every ~15 s until a job of HW Test 8–10 shows in_flight (the background step may first wait up to 75 s for production's drain to pass).",
+          "cmd": "npx tsx scripts/hw-session.ts jobs --as exclusive"
         },
         {
           "who": "claude",
-          "do": "After ~20 s, while worker 1 is still sending: reclaim its in-flight jobs.",
+          "do": "While worker 1 is still sending: reclaim its in-flight jobs.",
           "cmd": "npx tsx scripts/hw-session.ts reclaim --older-than 5 --apply --as exclusive"
         },
         {
@@ -6390,7 +6373,7 @@
         },
         {
           "who": "claude",
-          "do": "Two drains at the same instant (SKIP LOCKED): queue changes, then run both in the SAME message as two Bash calls.",
+          "do": "Two drains at the same instant (SKIP LOCKED): queue changes, then — in your very next message — run both drains as two Bash calls together. (They cannot share a step; set-dates already left at least 75 s before production's next drain.)",
           "cmd": "npx tsx scripts/hw-session.ts set-dates --member 8 --due +37 --apply --as exclusive && npx tsx scripts/hw-session.ts set-dates --member 9 --due +38 --apply --as exclusive"
         },
         {
@@ -6405,7 +6388,7 @@
         },
         {
           "who": "claude",
-          "do": "No job processed twice by the two drains; all settled.",
+          "do": "No job processed twice by the two drains (each job id appears once, attempts 1), and a sync completed for each member.",
           "cmd": "npx tsx scripts/hw-session.ts jobs --wait 300 --as exclusive"
         },
         {
@@ -6533,9 +6516,9 @@
         },
         {
           "who": "claude",
-          "do": "REAL-04 / VEND-17: production's drain retries the failed jobs against the REAL vendor at their next attempt time — wait for it.",
+          "do": "REAL-04 / VEND-17: production's drain retries against the REAL vendor — wait until it has completed a sync for each member (repeat once if it says NOT YET).",
           "cmd": "npx tsx scripts/hw-session.ts jobs --wait 540 --as exclusive",
-          "expect": "All settled (succeeded)."
+          "expect": "\"✓ Every member has had a sync complete since the wait began\" (older queued jobs are no-ops: production's drain takes one per member every 5 minutes)."
         },
         {
           "who": "claude",
@@ -6551,7 +6534,7 @@
         "[FAIL-05] A slow vendor within the timeout: success.",
         "[RC-02] [OUT-17] Temporary failures were retried with backoff, not dead-lettered.",
         "[VEND-17] The retry behaviour matched our documented semantics.",
-        "[REAL-04] When the vendor was \"back\" (the real one), production's drain completed every job; the readers converged."
+        "[REAL-04] When the vendor was \"back\" (the real one), production's drain completed a sync for every member and the readers converged. (Jobs a stub marked permanent stay dead — that is the classification FAIL-02/FAIL-04 record, not a recovery failure.)"
       ],
       "fail_if": [
         "A job marked succeeded against a failing vendor, or dead-lettered on a transient error → fail."
@@ -6569,7 +6552,9 @@
         "The vendor answers 5xx or 429 to three commands in a row: stop vendor work, record blocked, and report."
       ],
       "est_minutes": 25,
-      "notes": []
+      "notes": [
+        "Each stub drain also re-claims any earlier member's failed job whose retry time has come, so attempts can rise: judge each member's job from the jobs line read right after its own drain."
+      ]
     },
     {
       "id": "XC-06",
@@ -6924,18 +6909,13 @@
       "steps": [
         {
           "who": "claude",
-          "do": "Queue a change for HW6 (do not push).",
-          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 6 --due +48 --apply --as exclusive"
+          "do": "Note \"Other (real) Titan subjects — newest change\" before B is forgotten.",
+          "cmd": "npx tsx scripts/hw-session.ts snapshot --as exclusive"
         },
         {
           "who": "claude",
-          "do": "Forget B in our records.",
-          "cmd": "npx tsx scripts/hw-session.ts forget --reader B --apply --as exclusive"
-        },
-        {
-          "who": "claude",
-          "do": "Drain: the job now targets A only.",
-          "cmd": "npx tsx scripts/hw-session.ts drain --apply --as exclusive"
+          "do": "Queue a change for HW6, forget B in our records, and drain — the job now targets A only. (One step, one Bash call: queuing and processing back to back, so production's five-minute drain cannot take the job in between; the console waits first if that drain is due within 75 s.)",
+          "cmd": "npx tsx scripts/hw-session.ts set-dates --member 6 --due +48 --apply --as exclusive && npx tsx scripts/hw-session.ts forget --reader B --apply --as exclusive && npx tsx scripts/hw-session.ts drain --apply --as exclusive"
         },
         {
           "who": "claude",
@@ -6966,7 +6946,7 @@
           "who": "claude",
           "do": "Final state.",
           "cmd": "npx tsx scripts/hw-session.ts snapshot --as exclusive",
-          "expect": "Both readers listed; HW6 held A+B."
+          "expect": "Both readers listed; HW6 held A+B; \"Other (real) Titan subjects — newest change\" unchanged since before the forget."
         }
       ],
       "pass": [
@@ -6974,7 +6954,8 @@
         "[RACE-10] [R13] A change queued before the forget was delivered to the remaining reader only, without error."
       ],
       "fail_if": [
-        "A command still sent to forgotten B, or B cannot be linked again → fail. If B cannot be re-linked, STOP and report: Titan needs it."
+        "A command still sent to forgotten B, or B cannot be linked again → fail. If B cannot be re-linked, STOP and report: Titan needs it.",
+        "A real Titan subject changed while B was forgotten (its newest-change time moved) → that change may have skipped B: record it with --finding so the lead asks the owner to press Re-send for that member."
       ],
       "evidence": ["queues", "snapshot"],
       "restore": [
@@ -7053,7 +7034,7 @@
       "band": null,
       "order": 13,
       "title": "Close: everything as the lead expects it",
-      "why": "The lead parks HW Test 5–10 next; leave them active, plainly named, on both readers, with no job pending and the stub stopped.",
+      "why": "The lead parks HW Test 5–10 next; leave them active, plainly named, on both readers, synced since your last change, with the stub stopped.",
       "cases": [],
       "sim": [],
       "members": [
@@ -7075,8 +7056,9 @@
         },
         {
           "who": "claude",
-          "do": "Nothing pending.",
-          "cmd": "npx tsx scripts/hw-session.ts jobs --wait 540 --as exclusive"
+          "do": "A sync has completed for each member since your last change.",
+          "cmd": "npx tsx scripts/hw-session.ts jobs --wait 540 --as exclusive",
+          "expect": "\"✓ Every member has had a sync complete since the wait began\" (older queued jobs are no-ops: production's drain takes one per member every 5 minutes)."
         },
         {
           "who": "claude",
@@ -7085,7 +7067,7 @@
         }
       ],
       "pass": [
-        "Readers linked; HW Test 5–10 active; no job pending; stub stopped."
+        "Readers linked; HW Test 5–10 active and synced since the last change; stub stopped."
       ],
       "fail_if": ["Something cannot be restored → record it for the lead."],
       "evidence": ["final snapshot"],

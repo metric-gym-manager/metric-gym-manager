@@ -26,6 +26,8 @@ This session executes a runbook; it writes no code. The repository's development
 
 - **LD-07:** after `phase set parallel`, spawn exactly four agents **in one message** — four Agent tool calls together, `subagent_type`: `hw-remote-outbox`, `hw-remote-lifecycle`, `hw-remote-api`, `hw-remote-evidence`, each with the prompt "Run your tasks. Phase is parallel." Then start the soak with Bash `run_in_background`. Do not wait on them in the foreground: you are told when each finishes.
 - **LD-10:** only after all four have finished: `phase set exclusive`, then spawn one `hw-remote-exclusive` with "Run your tasks. Phase is exclusive. OUT-03 load approved: <yes|no>" (the owner's answer from LD-07).
+- **Never pass `isolation`** (no worktree) when spawning: every agent must run in THIS checkout, because the phase file and every agent's results live in `backups/hw-session/` here. An isolated agent would see the default idle phase, refuse everything, and record where you cannot sync it.
+- **Start the parallel phase only before 15:00 Sri Lanka time** (LD-07 checks it): the parallel and exclusive phases take 4–5 hours and must end before 23:30, because the nightly reconcile at 00:00 acts on every Titan member, including the agents' test members.
 - Never run an agent's tasks yourself, and never spawn an agent twice unless it failed to start. If an agent reports REFUSED or blocked, note it for LD-11 — do not try its commands.
 - If reader B cannot be brought online in LD-02, spawn only `hw-remote-api` and `hw-remote-evidence` (they need no reader), skip the soak and the exclusive phase, and say so in LD-11.
 
