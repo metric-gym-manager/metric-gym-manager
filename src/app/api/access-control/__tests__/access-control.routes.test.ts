@@ -31,6 +31,7 @@ const mockRepo = {
 }
 const mockOpenDoor = jest.fn()
 const mockEnrol = jest.fn()
+const mockSyncExecute = jest.fn()
 
 jest.mock('@/lib/auth/requireAccessControlGym', () => ({
   requireAccessControlGym: (...args: unknown[]) => mockGuard(...args),
@@ -47,6 +48,7 @@ jest.mock('@/features/access-control', () => {
     createAccessControlRepository: jest.fn(() => mockRepo),
     createOperateDevice: jest.fn(() => ({ openDoor: mockOpenDoor })),
     createManageMemberBiometric: jest.fn(() => ({ enrol: mockEnrol })),
+    createSyncMemberAccess: jest.fn(() => ({ execute: mockSyncExecute })),
   }
 })
 
@@ -58,6 +60,7 @@ import { POST as enableDevice } from '../devices/[id]/enable/route'
 import { POST as openDoorRoute } from '../devices/[id]/open/route'
 import { GET as getEvents } from '../events/route'
 import { POST as enrolMember } from '../members/[id]/enrol/route'
+import { POST as syncMember } from '../members/[id]/sync/route'
 
 const CALLER = { gymId: 'gym-1', userId: 'user-1', supabase: {} }
 
@@ -372,6 +375,48 @@ describe('Access-control routes', () => {
       expect(mockEnrol).toHaveBeenCalledWith(
         expect.objectContaining({ consentGranted: undefined })
       )
+    })
+  })
+
+  describe('POST /members/[id]/sync', () => {
+    beforeEach(() => {
+      mockSyncExecute.mockResolvedValue({
+        applicable: true,
+        allowed: true,
+        commandsSent: 6,
+        commandsPending: 6,
+        failures: [],
+      })
+    })
+
+    it('forces a re-send rather than diffing against our own record', async () => {
+      // "Re-send to readers" is the desk's remedy when our record and a
+      // reader disagree. A diff of our record against itself sends nothing in
+      // exactly that case, so the route must ask for a forced run.
+      mockRepo.getMemberAccessContext.mockResolvedValue({
+        memberId: 'member-1',
+        gymId: 'gym-1',
+      })
+
+      const response = await syncMember(jsonRequest({}), params('member-1'))
+
+      expect(response.status).toBe(200)
+      expect(mockSyncExecute).toHaveBeenCalledWith({
+        memberId: 'member-1',
+        force: true,
+      })
+    })
+
+    it("refuses a member who is not the caller's, before anything is sent", async () => {
+      mockRepo.getMemberAccessContext.mockResolvedValue({
+        memberId: 'member-1',
+        gymId: 'some-other-gym',
+      })
+
+      const response = await syncMember(jsonRequest({}), params('member-1'))
+
+      expect(response.status).toBe(404)
+      expect(mockSyncExecute).not.toHaveBeenCalled()
     })
   })
 })

@@ -75,6 +75,22 @@ export interface DeriveCommandsInput {
   subject: SubjectSyncState
   /** Serials of the gym's active terminals. */
   deviceSerials: string[]
+  /**
+   * Ignore what we believe the readers hold and re-assert everything.
+   *
+   * The desk's "Re-send to readers" exists for the moment our record and a
+   * reader disagree — a reader reset by its installer, a push that sat in an
+   * offline reader's queue, a template that never reached the second door.
+   * Diffing against our own record is precisely what cannot see that: it
+   * agrees with itself however wrong it is (the Z1 lesson, one layer in).
+   *
+   * Only the manual override sets this. The outbox and the nightly reconcile
+   * keep diffing, because re-asserting every member every night is one vendor
+   * call per member per reader for no effect. Forcing changes which commands
+   * are repeated, never the decision: a blocked member is still never sent a
+   * validity period.
+   */
+  force?: boolean
 }
 
 /**
@@ -95,7 +111,7 @@ export interface DeriveCommandsInput {
 export function deriveAccessCommands(
   input: DeriveCommandsInput
 ): AccessCommand[] {
-  const { decision, subject, deviceSerials } = input
+  const { decision, subject, deviceSerials, force = false } = input
 
   if (deviceSerials.length === 0) {
     return []
@@ -160,9 +176,14 @@ export function deriveAccessCommands(
   //
   // Skipped for blocked members on purpose: loading a template for somebody
   // who cannot get in wastes a finite reader slot.
-  const missingFrom = decision.allowed
-    ? deviceSerials.filter((s) => !subject.syncedDeviceSerials.includes(s))
-    : []
+  //
+  // Forced, every reader counts as missing: our record of who holds the
+  // member is the thing being doubted.
+  const missingFrom = !decision.allowed
+    ? []
+    : force
+      ? [...deviceSerials]
+      : deviceSerials.filter((s) => !subject.syncedDeviceSerials.includes(s))
 
   for (const deviceSerial of missingFrom) {
     commands.push({
@@ -173,8 +194,9 @@ export function deriveAccessCommands(
   }
 
   if (!decision.allowed) {
-    // Already blocked and still blocked: nothing to send.
-    if (subject.lastSyncedBlocked === true && subject.provisioned) {
+    // Already blocked and still blocked: nothing to send — unless forced, when
+    // the block itself is what is being re-asserted.
+    if (subject.lastSyncedBlocked === true && subject.provisioned && !force) {
       return commands
     }
 
@@ -198,8 +220,11 @@ export function deriveAccessCommands(
     : undefined
 
   // Lift a block before widening the window, so the two writes cannot race in
-  // an order that leaves the member blocked with a valid window.
-  if (subject.lastSyncedBlocked === true) {
+  // an order that leaves the member blocked with a valid window. Forced, the
+  // grant goes out whatever we last recorded: a reader still holding an old
+  // block is one of the disagreements the override exists for, and a grant to
+  // a member who is not blocked is a benign duplicate (audit Y1).
+  if (subject.lastSyncedBlocked === true || force) {
     for (const deviceSerial of deviceSerials) {
       commands.push({
         intent: AccessIntent.Grant,
@@ -216,7 +241,8 @@ export function deriveAccessCommands(
   //
   // `missingFrom` being non-empty is therefore enough on its own — that is the
   // newly-installed-reader case, where the dates are unchanged but one
-  // terminal has never seen them.
+  // terminal has never seen them. It is also what makes a forced run re-push
+  // the window: forcing marks every reader missing.
   const windowUnchanged =
     missingFrom.length === 0 &&
     subject.provisioned &&

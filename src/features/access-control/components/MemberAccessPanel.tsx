@@ -130,13 +130,20 @@ export default function MemberAccessPanel({
     try {
       const result = await sync.mutateAsync(memberId)
 
-      toast[result.failed ? 'warning' : 'success'](
-        result.failed
-          ? 'Some readers did not respond. We will keep trying.'
-          : result.commandsPending > 0
-            ? 'Queued — the readers will pick this up shortly'
-            : 'Readers updated'
-      )
+      if (result.failed) {
+        toast.warning('Some readers did not respond. We will keep trying.')
+      } else if (result.commandsSent === 0) {
+        // The route forces, so sending nothing means one thing: there is
+        // nothing on any reader to change. "Readers updated" would be a claim
+        // about the hardware made on the strength of zero commands.
+        toast.info(
+          'Nothing to send — this member cannot get in and is not on any reader.'
+        )
+      } else if (result.commandsPending > 0) {
+        toast.success('Queued — the readers will pick this up shortly')
+      } else {
+        toast.success('Readers updated')
+      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Could not update the readers'

@@ -258,6 +258,110 @@ describe('deriveAccessCommands', () => {
     })
   })
 
+  describe('forced re-assert — the desk override', () => {
+    // "Re-send to readers" exists for the moment our record and the reader
+    // disagree: a reader reset by its installer, a template that never reached
+    // the second door. Diffing against our own record is exactly what cannot
+    // see that, so a forced run ignores what we believe the readers hold.
+    const matching = subject({
+      lastSyncedValidFrom: '20251215',
+      lastSyncedValidTo: '20260115',
+    })
+
+    it('pushes the member and their window to every reader even when our record already matches', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Active),
+        subject: matching,
+        deviceSerials: ['DEV-1', 'DEV-2'],
+        force: true,
+      })
+
+      const sent = (intent: AccessIntent) =>
+        commands.filter((c) => c.intent === intent).map((c) => c.deviceSerial)
+
+      expect(sent(AccessIntent.SyncToDevice)).toEqual(['DEV-1', 'DEV-2'])
+      expect(sent(AccessIntent.SetValidPeriod)).toEqual(['DEV-1', 'DEV-2'])
+    })
+
+    it('lifts any block on every reader before the window, because our record of the block may be what is wrong', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Active),
+        subject: matching,
+        deviceSerials: ['DEV-1', 'DEV-2'],
+        force: true,
+      })
+
+      const order = commands.map((c) => c.intent)
+      const grants = commands
+        .filter((c) => c.intent === AccessIntent.Grant)
+        .map((c) => c.deviceSerial)
+
+      expect(grants).toEqual(['DEV-1', 'DEV-2'])
+      expect(order.lastIndexOf(AccessIntent.Grant)).toBeLessThan(
+        order.indexOf(AccessIntent.SetValidPeriod)
+      )
+    })
+
+    it('re-sends the block to every reader for a member who cannot get in', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Suspended),
+        subject: subject({ lastSyncedBlocked: true }),
+        deviceSerials: ['DEV-1', 'DEV-2'],
+        force: true,
+      })
+
+      expect(
+        commands
+          .filter((c) => c.intent === AccessIntent.Block)
+          .map((c) => c.deviceSerial)
+      ).toEqual(['DEV-1', 'DEV-2'])
+    })
+
+    it.each([
+      ['suspended', MemberStatus.Suspended, day('2026-01-10')],
+      ['expired', MemberStatus.Active, day('2026-02-20')],
+    ])(
+      'still never sends a validity period for a %s member',
+      (_label, status, today) => {
+        const commands = deriveAccessCommands({
+          decision: decisionFor(status, today),
+          subject: subject({ lastSyncedBlocked: true }),
+          deviceSerials: ['DEV-1', 'DEV-2'],
+          force: true,
+        })
+
+        expect(containsValidPeriod(commands)).toBe(false)
+        // Nor a template push: a blocked member's slot is not worth spending.
+        expect(commands.map((c) => c.intent)).not.toContain(
+          AccessIntent.SyncToDevice
+        )
+      }
+    )
+
+    it('sends nothing for a member who cannot get in and was never on the hardware', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Suspended),
+        subject: subject({ provisioned: false, syncedDeviceSerials: [] }),
+        deviceSerials: ['DEV-1'],
+        force: true,
+      })
+
+      expect(commands).toHaveLength(0)
+    })
+
+    it('leaves cancellation exactly as it was', () => {
+      const input = {
+        decision: decisionFor(MemberStatus.Cancelled),
+        subject: subject(),
+        deviceSerials: ['DEV-1', 'DEV-2'],
+      }
+
+      expect(deriveAccessCommands({ ...input, force: true })).toEqual(
+        deriveAccessCommands(input)
+      )
+    })
+  })
+
   describe('edge cases', () => {
     it('returns nothing when the gym has no devices', () => {
       const commands = deriveAccessCommands({
