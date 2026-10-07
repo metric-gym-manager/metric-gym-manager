@@ -22,7 +22,12 @@
  * touch the domain that carries customer email.
  *
  * Email HTML is its own surface: tables and inline styles. Colours come from
- * the design tokens where one exists; WhatsApp's teal is WhatsApp's.
+ * the design tokens where one exists; WhatsApp's teal is WhatsApp's. The
+ * frame, the button and the phone layout are shared with the announcements
+ * (`utils/emailFrame.ts`): every section's side padding, the headline, the
+ * panels and the offer tighten on a phone, the button goes full width, and
+ * prices and phone numbers are kept whole — `scripts/check-email-layout.ts`
+ * measures all four at 320–600 px.
  */
 import { darkColors, primitiveColors } from '@/components/ui/tokens'
 import {
@@ -38,11 +43,58 @@ import {
   SITE_NAME,
   SITE_URL,
 } from '@/features/marketing/config/site'
+import {
+  EMAIL_COLOURS,
+  EMAIL_FONT,
+  M,
+  emailButton,
+  emailDocument,
+  keep,
+  noOrphan,
+} from '../utils/emailFrame'
 import { MAILING_REPLY_TO } from './MailingConfig'
 
-/** Outreach's own sending address (Resend domain verified 2026-10-06). */
-export const OUTREACH_FROM = 'Metric Gym OS <hello@go.metricgymos.com>'
+/**
+ * Outreach's own sending domain (Resend, verified 2026-10-06). Every email it
+ * sends is outreach, which is how a bounce or complaint is recognised as one.
+ */
+export const OUTREACH_DOMAIN = 'go.metricgymos.com'
+
+/** Outreach's own sending address. */
+export const OUTREACH_FROM = `Metric Gym OS <hello@${OUTREACH_DOMAIN}>`
 export const OUTREACH_REPLY_TO = MAILING_REPLY_TO
+
+/**
+ * The `mailto:` in every outreach email's List-Unsubscribe header. Mail apps
+ * that unsubscribe by sending an email (Apple Mail among them) write here;
+ * Resend receives it and the webhook opts the sender out. Normal replies
+ * still go to `OUTREACH_REPLY_TO`, read by a person.
+ */
+export const OUTREACH_UNSUBSCRIBE_ADDRESS = `unsubscribe@${OUTREACH_DOMAIN}`
+
+/** Where the safety brake's alert, the weekly summary and forwarded mail go. */
+export const OUTREACH_OWNER_EMAIL = MAILING_REPLY_TO
+
+/**
+ * The safety brake: the campaign pauses itself, and emails the owner, before
+ * mail providers start treating the domain as a spammer's. Counted from the
+ * campaign's start, or from the owner's last `--resume`.
+ *
+ * - Spam complaints: Gmail asks senders to stay under 0.3% of mail marked as
+ *   spam. On a list of about a hundred, one complaint is already 1%; a second
+ *   is a pattern, not an accident.
+ * - Hard bounces: Resend asks for under 4% across the account. Outreach is
+ *   paused above 5% of its own sends, judged once there are enough sends for
+ *   a share to mean something.
+ */
+export const OUTREACH_BRAKE = {
+  complaints: 2,
+  bounceRate: 0.05,
+  minSendsForBounceRate: 40,
+} as const
+
+/** The weekly summary goes on this day (0 Sunday … 6 Saturday), Sri Lanka time. */
+export const OUTREACH_SUMMARY_WEEKDAY = 1
 
 /** The campaign's key in `outreach_recipients`. */
 export const OUTREACH_CAMPAIGN = 'intro-2026-10'
@@ -88,16 +140,8 @@ const PRICE = `Rs. ${formatLkr(lowestMonthlyPriceLkr())}`
 const SIGN_UP_URL = `${SITE_URL}/register`
 
 const C = {
-  page: primitiveColors.neutral[50],
-  card: '#ffffff',
-  ink: primitiveColors.neutral[900],
-  inkSoft: primitiveColors.neutral[600],
-  inkFaint: primitiveColors.neutral[500],
-  line: primitiveColors.neutral[100],
-  brand: primitiveColors.blue[700],
-  // `blue.bg` flattened onto white (Outlook ignores rgba), and a lighter tint
-  // for small text on the brand blue.
-  brandTint: '#e4e3ff',
+  ...EMAIL_COLOURS,
+  // A lighter tint than `brandTint`, for small text on the brand blue.
   onBrandSoft: '#c9c8ff',
   panel: darkColors.surfaceCard,
   panelInk: primitiveColors.dark[50],
@@ -109,9 +153,7 @@ const C = {
   whatsapp: '#128c7e',
 } as const
 
-const FONT =
-  "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
-const PREVIEW_PADDING = '&#847;&zwnj;&nbsp;'.repeat(30)
+const FONT = EMAIL_FONT
 
 function attr(value: string): string {
   return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;')
@@ -121,10 +163,10 @@ function attr(value: string): string {
 
 function hero(eyebrow: string, headline: string, intro: string): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-<tr><td style="background:${C.brand};padding:36px 28px 32px">
-<p style="margin:0 0 10px;font-family:${FONT};font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${C.onBrandSoft}">${eyebrow}</p>
-<h1 style="margin:0;font-family:${FONT};font-size:32px;line-height:1.15;font-weight:800;color:#ffffff">${headline}</h1>
-<p style="margin:14px 0 0;font-family:${FONT};font-size:17px;line-height:1.55;color:${C.brandTint}">${intro}</p>
+<tr><td class="${M.x}" style="background:${C.brand};padding:36px 28px 32px">
+<p class="${M.eyebrow}" style="margin:0 0 10px;font-family:${FONT};font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:${C.onBrandSoft}">${eyebrow}</p>
+<h1 class="${M.headline}" style="margin:0;font-family:${FONT};font-size:32px;line-height:1.15;font-weight:800;color:#ffffff">${noOrphan(headline)}</h1>
+<p class="${M.lead}" style="margin:14px 0 0;font-family:${FONT};font-size:17px;line-height:1.55;color:${C.brandTint}">${intro}</p>
 </td></tr>
 </table>`
 }
@@ -132,10 +174,10 @@ function hero(eyebrow: string, headline: string, intro: string): string {
 /** A dark panel styled like the product, with a caption above it. */
 function panel(caption: string, inner: string): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-<tr><td style="padding:28px 28px 8px">
+<tr><td class="${M.x}" style="padding:28px 28px 8px">
 <p style="margin:0 0 10px;font-family:${FONT};font-size:13px;color:${C.inkSoft}">${caption}</p>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.panel};border-radius:12px">
-<tr><td style="padding:18px 20px 6px">${inner}</td></tr>
+<tr><td class="${M.inset}" style="padding:18px 20px 6px">${inner}</td></tr>
 </table>
 </td></tr>
 </table>`
@@ -149,20 +191,20 @@ function statusRows(
       ([dot, title, detail]) =>
         `<tr><td width="14" style="vertical-align:top;padding-top:6px"><div style="width:9px;height:9px;border-radius:50%;background:${dot}"></div></td>` +
         `<td style="padding:0 0 14px;font-family:${FONT};font-size:15px;line-height:1.45;color:${C.panelInk}">` +
-        `<strong style="color:#ffffff">${title}</strong><br><span style="color:${C.panelInkSoft}">${detail}</span></td></tr>`
+        `<strong style="color:#ffffff">${noOrphan(title)}</strong><br><span style="color:${C.panelInkSoft}">${noOrphan(detail)}</span></td></tr>`
     )
     .join('')}</table>`
 }
 
 function numbered(items: [title: string, body: string][]): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-<tr><td style="padding:20px 28px 4px">
+<tr><td class="${M.x}" style="padding:20px 28px 4px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${items
     .map(
       ([title, body], i) =>
         `<tr><td width="40" style="vertical-align:top;padding:2px 0 18px"><div style="width:30px;height:30px;line-height:30px;border-radius:8px;background:${C.brandTint};color:${C.brand};text-align:center;font-family:Arial,sans-serif;font-size:15px;font-weight:700">${i + 1}</div></td>` +
         `<td style="padding:0 0 18px;font-family:${FONT};font-size:15px;line-height:1.55;color:${C.inkSoft}">` +
-        `<strong style="display:block;font-size:16px;color:${C.ink}">${title}</strong>${body}</td></tr>`
+        `<strong style="display:block;font-size:16px;color:${C.ink}">${noOrphan(title)}</strong>${noOrphan(body)}</td></tr>`
     )
     .join('')}</table>
 </td></tr>
@@ -170,11 +212,14 @@ function numbered(items: [title: string, body: string][]): string {
 }
 
 function button(href: string, label: string, colour: string): string {
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto">
-<tr><td style="border-radius:10px;background:${colour}">
-<a href="${attr(href)}" style="display:inline-block;padding:15px 26px;font-family:${FONT};font-size:16px;font-weight:700;line-height:1.3;color:#ffffff;text-decoration:none;border-radius:10px;text-align:center">${label}</a>
-</td></tr>
-</table>`
+  return emailButton(attr(href), label, {
+    colour,
+    margin: '0 auto',
+    radius: 10,
+    padding: '15px 26px',
+    fontSize: 16,
+    fontWeight: 700,
+  })
 }
 
 /** The price and the WhatsApp call to action; `primary` may lead instead. */
@@ -184,17 +229,17 @@ function offer(primary?: { href: string; label: string }): string {
     ? button(primary.href, primary.label, C.brand)
     : button(WHATSAPP_DEMO_URL, 'Book a free demo on WhatsApp', C.whatsapp)
   const second = primary
-    ? `or ask us anything on WhatsApp: <a href="${whatsapp}" style="color:${C.whatsapp};font-weight:700;text-decoration:none;white-space:nowrap">${LOCAL_PHONE}</a>`
-    : `or message us on <a href="${whatsapp}" style="color:${C.whatsapp};font-weight:700;text-decoration:none;white-space:nowrap">${LOCAL_PHONE}</a>`
+    ? `or ask us anything on WhatsApp: <a href="${whatsapp}" style="color:${C.whatsapp};font-weight:700;text-decoration:none;white-space:nowrap">${keep(LOCAL_PHONE)}</a>`
+    : `or message us on <a href="${whatsapp}" style="color:${C.whatsapp};font-weight:700;text-decoration:none;white-space:nowrap">${keep(LOCAL_PHONE)}</a>`
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-<tr><td style="padding:4px 28px 32px">
+<tr><td class="${M.x}" style="padding:4px 28px 32px">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${C.line};border-radius:12px">
-<tr><td align="center" style="padding:24px 20px 26px">
+<tr><td align="center" class="${M.inset}" style="padding:24px 20px 26px">
 <p style="margin:0;font-family:${FONT};font-size:14px;color:${C.inkSoft}">From</p>
-<p style="margin:2px 0 4px;font-family:${FONT};font-size:32px;line-height:1.1;font-weight:800;color:${C.ink}">${PRICE}<span style="font-size:16px;font-weight:600;color:${C.inkSoft}"> / month</span></p>
+<p class="${M.price}" style="margin:2px 0 4px;font-family:${FONT};font-size:32px;line-height:1.1;font-weight:800;color:${C.ink}">${keep(PRICE)}<span style="font-size:16px;font-weight:600;color:${C.inkSoft}"> ${keep('/ month')}</span></p>
 <p style="margin:0 0 20px;font-family:${FONT};font-size:14px;line-height:1.5;color:${C.inkSoft}">Up to ${LITE_MEMBER_LIMIT} active members · ${TRIAL_DAYS}&#8209;day&nbsp;free&nbsp;trial</p>
 ${first}
-<p style="margin:14px 0 0;font-family:${FONT};font-size:15px;line-height:1.5;color:${C.inkSoft}">${second}</p>
+<p class="${M.small}" style="margin:14px 0 0;font-family:${FONT};font-size:15px;line-height:1.5;color:${C.inkSoft}">${second}</p>
 </td></tr>
 </table>
 </td></tr>
@@ -203,7 +248,7 @@ ${first}
 
 function signOff(lead: string): string {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-<tr><td style="padding:0 28px 30px;font-family:${FONT};font-size:15px;line-height:1.6;color:${C.inkSoft}">
+<tr><td class="${M.x}" style="padding:0 28px 30px;font-family:${FONT};font-size:15px;line-height:1.6;color:${C.inkSoft}">
 ${lead} Just reply to this email if you have a question — a real person reads every one.<br><br>
 <span style="color:${C.ink};font-weight:600">The ${SITE_NAME} team</span><br>
 <a href="${SITE_URL}" style="color:${C.brand};text-decoration:none;font-weight:600">metricgymos.com</a>
@@ -227,38 +272,15 @@ interface Draft {
 }
 
 function render(step: OutreachStep, draft: Draft, unsubscribeUrl: string) {
-  const html = `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
-<meta name="supported-color-schemes" content="light">
-<title>${draft.subject}</title>
-</head>
-<body style="margin:0;padding:0;background:${C.page};-webkit-text-size-adjust:100%">
-<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all">${draft.preheader}${PREVIEW_PADDING}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${C.page}">
-<tr><td align="center" style="padding:28px 12px 36px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">
-<tr><td style="padding:0 4px 18px">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td style="vertical-align:middle"><img src="${SITE_URL}/icon-192.png" width="30" height="30" alt="" style="display:block;border:0;outline:none;border-radius:7px"></td>
-<td style="vertical-align:middle;padding-left:10px;font-family:${FONT};font-size:16px;font-weight:700;color:${C.ink}">${SITE_NAME}</td>
-</tr></table>
-</td></tr>
-<tr><td style="background:${C.card};border:1px solid ${C.line};border-radius:14px;overflow:hidden">
-${draft.body}
-</td></tr>
-<tr><td style="padding:22px 12px 0;font-family:${FONT};font-size:12px;line-height:1.7;color:${C.inkSoft};text-align:center">
-${disclosure(step)} Not interested? <a href="${attr(unsubscribeUrl)}" style="color:${C.inkSoft};text-decoration:underline">Unsubscribe</a> and we won’t email you again.<br>
-${LEGAL_NAME} · ${POSTAL_ADDRESS.lines.join(' ')}
-</td></tr>
-</table>
-</td></tr>
-</table>
-</body>
-</html>`
+  const html = emailDocument({
+    title: draft.subject,
+    preheader: draft.preheader,
+    body: draft.body,
+    card: 'sections',
+    footer:
+      `${disclosure(step)} Not interested? <a href="${attr(unsubscribeUrl)}" style="color:${C.inkSoft};text-decoration:underline">Unsubscribe</a> and we won’t email you again.<br>\n` +
+      `${LEGAL_NAME} · ${POSTAL_ADDRESS.lines.join(' ')}`,
+  })
 
   const text = [
     draft.subject,
@@ -399,8 +421,8 @@ const DRAFTS: Record<OutreachStep, Draft> = {
       panel(
         `This month at a glance <span style="color:${C.inkFaint}">(example)</span>`,
         `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-<tr><td style="padding:0 0 4px;font-family:${FONT};font-size:14px;color:${C.panelInkSoft}">Members owe this month</td><td align="right" style="padding:0 0 4px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff">Rs. 240,000</td></tr>
-<tr><td style="padding:0 0 12px;font-family:${FONT};font-size:14px;color:${C.panelInkSoft}">Collected so far</td><td align="right" style="padding:0 0 12px;font-family:${FONT};font-size:15px;font-weight:700;color:${C.green}">Rs. 186,500</td></tr>
+<tr><td style="padding:0 0 4px;font-family:${FONT};font-size:14px;color:${C.panelInkSoft}">Members owe this month</td><td align="right" style="padding:0 0 4px;font-family:${FONT};font-size:15px;font-weight:700;color:#ffffff">${keep('Rs. 240,000')}</td></tr>
+<tr><td style="padding:0 0 12px;font-family:${FONT};font-size:14px;color:${C.panelInkSoft}">Collected so far</td><td align="right" style="padding:0 0 12px;font-family:${FONT};font-size:15px;font-weight:700;color:${C.green}">${keep('Rs. 186,500')}</td></tr>
 <tr><td colspan="2" style="padding:0 0 8px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius:6px;background:${C.panelTrack}"><tr><td style="width:78%;height:10px;border-radius:6px;background:${C.green};font-size:0;line-height:0">&nbsp;</td><td style="font-size:0;line-height:0">&nbsp;</td></tr></table></td></tr>
 <tr><td colspan="2" style="padding:0 0 14px;font-family:${FONT};font-size:13px;color:${C.panelInkSoft}">78% collected · 6 members still to pay</td></tr>
 </table>`

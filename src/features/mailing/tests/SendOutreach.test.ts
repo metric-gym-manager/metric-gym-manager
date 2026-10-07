@@ -2,142 +2,22 @@
  * @jest-environment node
  */
 import { MailingTopic, RESEND_TOPIC_IDS } from '../config/MailingConfig'
-import {
-  OUTREACH_MAX_FAILURES,
-  OUTREACH_SEQUENCE_LENGTH,
-} from '../config/outreachCampaign'
-import type {
-  IOutreachLedger,
-  OutreachRecipient,
-  OutreachStatus,
-} from '../services/IOutreachLedger'
-import type {
-  IOutreachSender,
-  OutreachEmail,
-} from '../services/IOutreachSender'
+import { OutreachBrake } from '../services/OutreachBrake'
 import { SendOutreach } from '../services/SendOutreach'
 import type { Prospect } from '../utils/prospectsCsv'
 import { verifyUnsubscribeToken } from '../utils/unsubscribeToken'
+import {
+  FakeOwnerMailer,
+  FakeSender,
+  MemoryCampaigns,
+  MemoryLedger,
+} from './memoryOutreach'
 
 const SECRET = 's'.repeat(40)
 const CAMPAIGN = 'intro-test'
 const DAY = 86_400_000
 const WEEK1 = new Date('2026-10-13T04:30:00Z')
 const week = (n: number) => new Date(WEEK1.getTime() + (n - 1) * 7 * DAY)
-
-interface Row extends OutreachRecipient {
-  status: OutreachStatus
-  source: string
-  lastSentAt: Date | null
-  failures: number
-  resendEmailId?: string
-  error?: string
-}
-
-class MemoryLedger implements IOutreachLedger {
-  rows = new Map<string, Row>()
-  async addRecipients(
-    _c: string,
-    prospects: Prospect[],
-    defaultSource: string
-  ) {
-    const added: string[] = []
-    for (const p of prospects) {
-      if (this.rows.has(p.email)) continue
-      this.rows.set(p.email, {
-        email: p.email,
-        gymName: p.gymName,
-        name: p.name,
-        step: 0,
-        status: 'active',
-        source: p.source ?? defaultSource,
-        lastSentAt: null,
-        failures: 0,
-      })
-      added.push(p.email)
-    }
-    return added
-  }
-  async recipients() {
-    return new Map([...this.rows].map(([e, r]) => [e, r.status]))
-  }
-  async due(_c: string, notSentSince: Date, limit: number) {
-    return [...this.rows.values()]
-      .filter(
-        (r) =>
-          r.status === 'active' &&
-          r.step < OUTREACH_SEQUENCE_LENGTH &&
-          (r.lastSentAt === null || r.lastSentAt <= notSentSince)
-      )
-      .slice(0, limit)
-      .map(({ email, gymName, name, step }) => ({ email, gymName, name, step }))
-  }
-  async claim(_c: string, email: string, fromStep: number, at: Date) {
-    const r = this.rows.get(email)
-    if (!r || r.status !== 'active' || r.step !== fromStep) return false
-    r.step = fromStep + 1
-    r.lastSentAt = at
-    return true
-  }
-  async recordSent(
-    _c: string,
-    email: string,
-    step: number,
-    resendEmailId: string
-  ) {
-    const r = this.rows.get(email)!
-    r.resendEmailId = resendEmailId
-    r.failures = 0
-    if (step >= OUTREACH_SEQUENCE_LENGTH) r.status = 'done'
-  }
-  async recordFailure(
-    _c: string,
-    email: string,
-    revertTo: number,
-    error: string
-  ) {
-    const r = this.rows.get(email)!
-    r.step = revertTo
-    r.error = error
-    r.failures += 1
-    if (r.failures >= OUTREACH_MAX_FAILURES) r.status = 'failed'
-  }
-  async markDone(_c: string, email: string) {
-    const r = this.rows.get(email)
-    if (r) r.status = 'done'
-  }
-  async markUnsubscribed(_c: string, email: string) {
-    const r = this.rows.get(email)
-    if (!r) return false
-    r.status = 'unsubscribed'
-    return true
-  }
-}
-
-class FakeSender implements IOutreachSender {
-  contacts = new Map<string, string>()
-  unreachable = new Set<string>()
-  failFor = new Set<string>()
-  checkFails = new Set<string>()
-  sent: OutreachEmail[] = []
-  async ensureContact(email: string, token: string) {
-    if (!this.contacts.has(email)) this.contacts.set(email, token)
-  }
-  async canReceiveMarketing(email: string) {
-    if (this.checkFails.has(email)) throw new Error('Resend is down')
-    return !this.unreachable.has(email)
-  }
-  async send(email: OutreachEmail) {
-    if (this.failFor.has(email.to)) throw new Error('Resend said no')
-    this.sent.push(email)
-    return `em_${this.sent.length}`
-  }
-  stepsTo(address: string) {
-    return this.sent
-      .filter((e) => e.to === address)
-      .map((e) => e.tags.find((t) => t.name === 'email')?.value)
-  }
-}
 
 const prospect = (email: string, source: string | null = null): Prospect => ({
   email,
@@ -147,9 +27,18 @@ const prospect = (email: string, source: string | null = null): Prospect => ({
 })
 
 function setup(known: string[] = []) {
-  const ledger = new MemoryLedger()
+  const ledger = new MemoryLedger(CAMPAIGN)
   const sender = new FakeSender()
-  const outreach = new SendOutreach(ledger, sender, async () => known, SECRET)
+  const campaigns = new MemoryCampaigns()
+  const owner = new FakeOwnerMailer()
+  const brake = new OutreachBrake(ledger, campaigns, owner)
+  const outreach = new SendOutreach(
+    ledger,
+    sender,
+    async () => known,
+    SECRET,
+    brake
+  )
   const importList = (prospects: Prospect[], dryRun = false) =>
     outreach.importProspects({
       campaign: CAMPAIGN,
@@ -168,7 +57,17 @@ function setup(known: string[] = []) {
       dryRun: extra.dryRun ?? false,
       ...(extra.deadline ? { deadline: extra.deadline } : {}),
     })
-  return { ledger, sender, outreach, importList, runWeek, known }
+  return {
+    ledger,
+    sender,
+    campaigns,
+    owner,
+    brake,
+    outreach,
+    importList,
+    runWeek,
+    known,
+  }
 }
 
 describe('SendOutreach — importing the list', () => {
@@ -198,6 +97,23 @@ describe('SendOutreach — importing the list', () => {
     expect(report.counts.known).toBe(2)
     expect([...ledger.rows.keys()]).toEqual(['new@gym.lk'])
     expect(sender.contacts.has('owner@titan.lk')).toBe(false)
+  })
+
+  // Inverted check, 2026-10-07: a gym owner's own inbox under another
+  // spelling (Gmail ignores dots and everything after a `+`) was taken in.
+  it('never takes in a gym’s address under another spelling of the same inbox', async () => {
+    const { ledger, importList } = setup([
+      'colomboshyan@gmail.com',
+      'owner@titan.lk',
+    ])
+    const report = await importList([
+      prospect('colomboshyan+outreach@gmail.com'),
+      prospect('colombo.shyan@googlemail.com'),
+      prospect('owner+gyms@titan.lk'),
+      prospect('someone.else@gmail.com'),
+    ])
+    expect(report.counts.known).toBe(3)
+    expect([...ledger.rows.keys()]).toEqual(['someone.else@gmail.com'])
   })
 
   it('writes nothing on a dry run', async () => {
@@ -354,6 +270,24 @@ describe('SendOutreach — what the inverted check found', () => {
     expect(report.counts.known).toBe(1)
   })
 
+  it('stops the series for an address whose inbox has since become a gym’s, however it is spelled', async () => {
+    const { ledger, sender, importList, runWeek, known } = setup()
+    await importList([prospect('ruwan+gym@gmail.com')])
+    known.push('Ruwan@gmail.com')
+    await runWeek(week(1))
+    expect(sender.sent).toHaveLength(0)
+    expect(ledger.rows.get('ruwan+gym@gmail.com')?.status).toBe('done')
+  })
+
+  it('says on a dry run that an address became a customer, and changes nothing', async () => {
+    const { ledger, importList, runWeek, known } = setup()
+    await importList([prospect('a@gym.lk')])
+    known.push('a@gym.lk')
+    const report = await runWeek(week(1), { dryRun: true })
+    expect(report.counts).toMatchObject({ known: 1, would_send: 0 })
+    expect(ledger.rows.get('a@gym.lk')?.status).toBe('active')
+  })
+
   it('stops starting new sends once its time is up, leaving the rest due', async () => {
     const { ledger, sender, importList, runWeek } = setup()
     await importList([prospect('a@gym.lk'), prospect('b@gym.lk')])
@@ -425,5 +359,77 @@ describe('SendOutreach — every email', () => {
     await runWeek(week(1))
     expect(sender.sent).toHaveLength(0)
     expect(ledger.rows.get('a@gym.lk')?.status).toBe('unsubscribed')
+  })
+})
+
+/**
+ * The safety brake and the event log (owner request, 2026-10-06): the run
+ * sends nothing while the campaign is paused, stops the moment a webhook
+ * pauses it, and records every send for the brake to count.
+ */
+describe('SendOutreach — the safety brake', () => {
+  it('records every send, for the brake and the weekly summary to count', async () => {
+    const { ledger, importList, runWeek } = setup()
+    await importList([prospect('a@gym.lk'), prospect('b@gym.lk')])
+    await runWeek(week(1))
+    expect((await ledger.eventCounts(CAMPAIGN, new Date(0))).sent).toBe(2)
+  })
+
+  it('records an unsubscribe it finds, once', async () => {
+    const { ledger, sender, importList, runWeek } = setup()
+    await importList([prospect('a@gym.lk')])
+    await runWeek(week(1))
+    sender.unreachable.add('a@gym.lk')
+    await runWeek(week(2))
+    await runWeek(week(3))
+    expect((await ledger.eventCounts(CAMPAIGN, new Date(0))).unsubscribed).toBe(
+      1
+    )
+  })
+
+  it('sends nothing while the campaign is paused, and says so', async () => {
+    const { sender, brake, importList, runWeek } = setup()
+    await importList([prospect('a@gym.lk')])
+    await brake.pause(CAMPAIGN, 'checking the list', week(1))
+    const report = await runWeek(week(1))
+    expect(sender.sent).toHaveLength(0)
+    expect(report.paused).toEqual({
+      since: week(1),
+      reason: 'checking the list',
+    })
+  })
+
+  it('pauses before sending when complaints already passed the limit, and alerts the owner', async () => {
+    const { ledger, sender, owner, importList, runWeek } = setup()
+    await importList([prospect('a@gym.lk'), prospect('b@gym.lk')])
+    await runWeek(week(1))
+    await ledger.stop('a@gym.lk', 'complained')
+    await ledger.stop('b@gym.lk', 'complained')
+    const report = await runWeek(week(2))
+    expect(sender.sent).toHaveLength(2)
+    expect(report.paused?.reason).toBe('2 spam complaints')
+    expect(owner.sent).toHaveLength(1)
+  })
+
+  it('stops at once when a webhook pauses the campaign mid-run', async () => {
+    const { sender, brake, importList, runWeek } = setup()
+    await importList(['a', 'b', 'c'].map((x) => prospect(`${x}@gym.lk`)))
+    sender.afterSend = async () => {
+      await brake.pause(CAMPAIGN, '2 spam complaints', week(1))
+    }
+    const report = await runWeek(week(1))
+    expect(sender.sent.map((e) => e.to)).toEqual(['a@gym.lk'])
+    expect(report.paused?.reason).toBe('2 spam complaints')
+  })
+
+  it('reports what the brake would do on a dry run, and pauses nothing', async () => {
+    const { ledger, campaigns, importList, runWeek } = setup()
+    await importList([prospect('a@gym.lk'), prospect('b@gym.lk')])
+    await runWeek(week(1))
+    await ledger.stop('a@gym.lk', 'complained')
+    await ledger.stop('b@gym.lk', 'complained')
+    const report = await runWeek(week(2), { dryRun: true })
+    expect(report.wouldPause).toBe('2 spam complaints')
+    expect((await campaigns.state(CAMPAIGN)).pausedAt).toBeNull()
   })
 })

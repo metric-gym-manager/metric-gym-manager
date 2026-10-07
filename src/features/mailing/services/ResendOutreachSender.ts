@@ -4,7 +4,10 @@ import {
   MailingTopic,
   RESEND_TOPIC_IDS,
 } from '../config/MailingConfig'
-import { OUTREACH_FROM } from '../config/outreachCampaign'
+import {
+  OUTREACH_FROM,
+  OUTREACH_UNSUBSCRIBE_ADDRESS,
+} from '../config/outreachCampaign'
 import type { IOutreachSender, OutreachEmail } from './IOutreachSender'
 import {
   DEFAULT_RESEND_TIMEOUT_MS,
@@ -127,8 +130,11 @@ export class ResendOutreachSender implements IOutreachSender {
         tags: email.tags,
         headers: {
           // RFC 8058: a mail app's own "Unsubscribe" button POSTs to the https
-          // URL, no page and no person in between; the mailto is a fallback.
-          'List-Unsubscribe': `<${email.oneClickUrl}>, <mailto:${MAILING_REPLY_TO}?subject=unsubscribe>`,
+          // URL, no page and no person in between. Apps that unsubscribe by
+          // email instead write to the mailto, which Resend receives and the
+          // webhook acts on (HandleMailingEvent); people's replies still go
+          // to `replyTo`.
+          'List-Unsubscribe': `<${email.oneClickUrl}>, <mailto:${OUTREACH_UNSUBSCRIBE_ADDRESS}?subject=unsubscribe>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       },

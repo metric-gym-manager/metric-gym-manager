@@ -21,9 +21,12 @@ function client(results: Result[]) {
       for (const method of [
         'select',
         'upsert',
+        'insert',
         'update',
         'eq',
+        'in',
         'lt',
+        'gte',
         'or',
         'order',
         'limit',
@@ -145,10 +148,12 @@ describe('SupabaseOutreachLedger', () => {
     )
   })
 
-  it('records a send, and the fourth finishes the series', async () => {
+  it('records a send, and its event, and the fourth finishes the series', async () => {
     const { supabase, queries } = client([
       { data: [{ id: 'r1' }], error: null },
+      { data: null, error: null },
       { data: [{ id: 'r1' }], error: null },
+      { data: null, error: null },
     ])
     await ledger(supabase).recordSent('intro', 'a@gym.lk', 2, 'em_2')
     await ledger(supabase).recordSent('intro', 'a@gym.lk', 4, 'em_4')
@@ -161,7 +166,21 @@ describe('SupabaseOutreachLedger', () => {
         updated_at: NOW.toISOString(),
       },
     ])
-    expect(queries[1]).toContainEqual([
+    expect(queries[1]).toEqual([
+      ['from', 'outreach_events'],
+      [
+        'insert',
+        {
+          campaign: 'intro',
+          email: 'a@gym.lk',
+          type: 'sent',
+          step: 2,
+          detail: null,
+          created_at: NOW.toISOString(),
+        },
+      ],
+    ])
+    expect(queries[2]).toContainEqual([
       'update',
       {
         resend_email_id: 'em_4',
@@ -196,20 +215,122 @@ describe('SupabaseOutreachLedger', () => {
     ])
   })
 
-  it('marks an address unsubscribed, and says when it is not in the campaign', async () => {
+  it('stops an address in every campaign where its status is weaker, and records an event for each', async () => {
     const { supabase, queries } = client([
-      { data: [{ id: 'r1' }], error: null },
-      { data: [], error: null },
+      {
+        data: [
+          { campaign: 'intro', step: 1 },
+          { campaign: 'spring', step: 4 },
+        ],
+        error: null,
+      },
+      { data: null, error: null },
     ])
-    expect(await ledger(supabase).markUnsubscribed('intro', 'a@gym.lk')).toBe(
-      true
-    )
-    expect(await ledger(supabase).markUnsubscribed('intro', 'x@gym.lk')).toBe(
-      false
-    )
+    expect(
+      await ledger(supabase).stop('a@gym.lk', 'bounced', {
+        detail: 'mailbox does not exist',
+      })
+    ).toEqual(['intro', 'spring'])
+    expect(queries[0]).toEqual([
+      ['from', 'outreach_recipients'],
+      ['update', { status: 'bounced', updated_at: NOW.toISOString() }],
+      ['eq', 'email', 'a@gym.lk'],
+      ['in', 'status', ['active', 'done', 'failed', 'unsubscribed']],
+      ['select', 'campaign, step'],
+    ])
+    expect(queries[1]).toEqual([
+      ['from', 'outreach_events'],
+      [
+        'insert',
+        [
+          {
+            campaign: 'intro',
+            email: 'a@gym.lk',
+            type: 'bounced',
+            step: 1,
+            detail: 'mailbox does not exist',
+            created_at: NOW.toISOString(),
+          },
+          {
+            campaign: 'spring',
+            email: 'a@gym.lk',
+            type: 'bounced',
+            step: 4,
+            detail: 'mailbox does not exist',
+            created_at: NOW.toISOString(),
+          },
+        ],
+      ],
+    ])
+  })
+
+  it('never moves a stronger status back: an unsubscribe cannot overwrite a complaint', async () => {
+    const { supabase, queries } = client([{ data: [], error: null }])
+    expect(
+      await ledger(supabase).stop('a@gym.lk', 'unsubscribed', {
+        campaign: 'intro',
+      })
+    ).toEqual([])
+    expect(queries[0]).toContainEqual([
+      'in',
+      'status',
+      ['active', 'done', 'failed'],
+    ])
+    expect(queries[0]).toContainEqual(['eq', 'campaign', 'intro'])
+    // Nothing changed, so no event: a webhook delivered twice counts once.
+    expect(queries).toHaveLength(1)
+  })
+
+  it('records a suppressed send as a bounced address with its own event type', async () => {
+    const { supabase, queries } = client([
+      { data: [{ campaign: 'intro', step: 2 }], error: null },
+      { data: null, error: null },
+    ])
+    await ledger(supabase).stop('a@gym.lk', 'bounced', { event: 'suppressed' })
     expect(queries[0]).toContainEqual([
       'update',
-      { status: 'unsubscribed', updated_at: NOW.toISOString() },
+      { status: 'bounced', updated_at: NOW.toISOString() },
+    ])
+    expect(queries[1][1]).toEqual([
+      'insert',
+      [expect.objectContaining({ type: 'suppressed' })],
+    ])
+  })
+
+  it('counts a campaign’s events since a moment, by type', async () => {
+    const since = new Date('2026-10-06T00:00:00Z')
+    const { supabase, queries } = client([
+      {
+        data: [
+          { type: 'sent' },
+          { type: 'sent' },
+          { type: 'bounced' },
+          { type: 'complained' },
+        ],
+        error: null,
+      },
+    ])
+    expect(await ledger(supabase).eventCounts('intro', since)).toEqual({
+      sent: 2,
+      unsubscribed: 0,
+      bounced: 1,
+      complained: 1,
+      suppressed: 0,
+    })
+    expect(queries[0]).toEqual([
+      ['from', 'outreach_events'],
+      ['select', 'type'],
+      ['eq', 'campaign', 'intro'],
+      ['gte', 'created_at', since.toISOString()],
+    ])
+  })
+
+  it('reads every address’s status and step', async () => {
+    const { supabase } = client([
+      { data: [{ status: 'active', step: 2 }], error: null },
+    ])
+    expect(await ledger(supabase).progress('intro')).toEqual([
+      { status: 'active', step: 2 },
     ])
   })
 

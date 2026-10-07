@@ -33,3 +33,47 @@ export function readMailingSecret(
   const secret = env.MARKETING_UNSUBSCRIBE_SECRET?.trim()
   return secret && secret.length >= MIN_SECRET_LENGTH ? secret : null
 }
+
+export type ResendWebhookVerification =
+  | { ok: true; event: unknown }
+  | { ok: false; reason: 'not_configured' | 'invalid_signature' }
+
+/**
+ * Check a Resend webhook delivery's signature (`RESEND_WEBHOOK_SECRET`, the
+ * endpoint's `whsec_…` signing secret). Resend signs the Standard Webhooks
+ * way: `svix-id`, `svix-timestamp`, `svix-signature` (the `webhook-*` names
+ * are accepted too); the SDK checks the HMAC in constant time and refuses a
+ * timestamp more than five minutes off, so an old delivery cannot be replayed.
+ *
+ * @param payload - The raw request body, exactly as received
+ * @param headers - The request's headers
+ * @param env - Variables to read (defaults to `process.env`)
+ * @returns The parsed event, or why it was refused. Never throws.
+ */
+export function verifyResendWebhook(
+  payload: string,
+  headers: { get(name: string): string | null },
+  env: Record<string, string | undefined> = process.env
+): ResendWebhookVerification {
+  const secret = env.RESEND_WEBHOOK_SECRET?.trim()
+  const client = createResendClient(env)
+  if (!secret || !client) return { ok: false, reason: 'not_configured' }
+  const header = (name: string) =>
+    headers.get(`svix-${name}`) ?? headers.get(`webhook-${name}`)
+  const id = header('id')
+  const timestamp = header('timestamp')
+  const signature = header('signature')
+  if (!id || !timestamp || !signature) {
+    return { ok: false, reason: 'invalid_signature' }
+  }
+  try {
+    const event: unknown = client.webhooks.verify({
+      payload,
+      headers: { id, timestamp, signature },
+      webhookSecret: secret,
+    })
+    return { ok: true, event }
+  } catch {
+    return { ok: false, reason: 'invalid_signature' }
+  }
+}

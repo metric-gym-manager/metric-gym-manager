@@ -6,18 +6,32 @@ import {
 import type { Prospect } from '../utils/prospectsCsv'
 import type {
   IOutreachLedger,
+  OutreachEventCounts,
+  OutreachEventType,
   OutreachRecipient,
   OutreachStatus,
+  OutreachStop,
+  StopOptions,
 } from './IOutreachLedger'
 
 const TABLE = 'outreach_recipients'
+const EVENTS = 'outreach_events'
+
+/** A stop moves a row only from a weaker status, never back from a stronger one. */
+const WEAKER: Record<OutreachStop, OutreachStatus[]> = {
+  unsubscribed: ['active', 'done', 'failed'],
+  bounced: ['active', 'done', 'failed', 'unsubscribed'],
+  complained: ['active', 'done', 'failed', 'unsubscribed', 'bounced'],
+}
 
 /**
  * The outreach ledger in `outreach_recipients`. Needs the SERVICE-ROLE
  * client: the table has RLS on and no policies. Every write selects back what
  * it wrote, so a refused write cannot pass for one (the rule 2.7 lesson), and
  * a step is claimed with a conditional update — `step` must still be the one
- * read — so two runs can never send the same email twice.
+ * read — so two runs can never send the same email twice. Events go to
+ * `outreach_events` (also no policies): one per send, and one per stop that
+ * actually changed a row.
  */
 export class SupabaseOutreachLedger implements IOutreachLedger {
   constructor(
@@ -130,6 +144,14 @@ export class SupabaseOutreachLedger implements IOutreachLedger {
       updated_at: this.stamp(),
       ...(step >= OUTREACH_SEQUENCE_LENGTH ? { status: 'done' } : {}),
     })
+    await this.insertEvents({
+      campaign,
+      email,
+      type: 'sent',
+      step,
+      detail: null,
+      created_at: this.stamp(),
+    })
   }
 
   async recordFailure(
@@ -162,15 +184,76 @@ export class SupabaseOutreachLedger implements IOutreachLedger {
     })
   }
 
-  async markUnsubscribed(campaign: string, email: string): Promise<boolean> {
+  async stop(
+    email: string,
+    status: OutreachStop,
+    options: StopOptions = {}
+  ): Promise<string[]> {
+    let query = this.supabase
+      .from(TABLE)
+      .update({ status, updated_at: this.stamp() })
+      .eq('email', email)
+    if (options.campaign) query = query.eq('campaign', options.campaign)
+    const { data, error } = await query
+      .in('status', WEAKER[status])
+      .select('campaign, step')
+    if (error) throw new Error(error.message)
+    const changed = (data ?? []) as { campaign: string; step: number }[]
+    if (changed.length > 0) {
+      const at = this.stamp()
+      await this.insertEvents(
+        changed.map((row) => ({
+          campaign: row.campaign,
+          email,
+          type: options.event ?? status,
+          step: row.step,
+          detail: options.detail ?? null,
+          created_at: at,
+        }))
+      )
+    }
+    return changed.map((row) => row.campaign)
+  }
+
+  async eventCounts(
+    campaign: string,
+    since: Date
+  ): Promise<OutreachEventCounts> {
+    const { data, error } = await this.supabase
+      .from(EVENTS)
+      .select('type')
+      .eq('campaign', campaign)
+      .gte('created_at', since.toISOString())
+    if (error) throw new Error(error.message)
+    const counts: OutreachEventCounts = {
+      sent: 0,
+      unsubscribed: 0,
+      bounced: 0,
+      complained: 0,
+      suppressed: 0,
+    }
+    for (const row of (data ?? []) as { type: OutreachEventType }[]) {
+      if (row.type in counts) counts[row.type] += 1
+    }
+    return counts
+  }
+
+  async progress(
+    campaign: string
+  ): Promise<{ status: OutreachStatus; step: number }[]> {
     const { data, error } = await this.supabase
       .from(TABLE)
-      .update({ status: 'unsubscribed', updated_at: this.stamp() })
+      .select('status, step')
       .eq('campaign', campaign)
-      .eq('email', email)
-      .select('id')
     if (error) throw new Error(error.message)
-    return (data ?? []).length > 0
+    return (data ?? []) as { status: OutreachStatus; step: number }[]
+  }
+
+  private async insertEvents(
+    rows: Record<string, unknown> | Record<string, unknown>[]
+  ): Promise<void> {
+    const { error } = await this.supabase.from(EVENTS).insert(rows)
+    if (error) throw new Error(error.message)
   }
 
   private async write(

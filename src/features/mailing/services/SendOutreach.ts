@@ -10,6 +10,7 @@ import {
   outreachEmail,
   type OutreachStep,
 } from '../config/outreachCampaign'
+import { mailboxKey } from '../utils/emailAddress'
 import type { Prospect } from '../utils/prospectsCsv'
 import {
   createUnsubscribeToken,
@@ -17,6 +18,7 @@ import {
 } from '../utils/unsubscribeToken'
 import type { IOutreachLedger } from './IOutreachLedger'
 import type { IOutreachSender } from './IOutreachSender'
+import type { OutreachBrake } from './OutreachBrake'
 
 /** The one-click unsubscribe endpoint mail apps POST to (RFC 8058). */
 export const ONE_CLICK_UNSUBSCRIBE_PATH =
@@ -41,6 +43,10 @@ export interface OutreachReport {
     step?: number
     detail?: string
   }[]
+  /** Set when the campaign is paused: nothing more was sent. */
+  paused?: { since: Date; reason: string }
+  /** A dry run's brake verdict: the real run would pause for this. */
+  wouldPause?: string
 }
 
 export interface ImportProspectsInput {
@@ -98,24 +104,28 @@ function emptyReport(): OutreachReport {
  * - Every email carries the recipient's own signed /unsubscribe link and a
  *   one-click List-Unsubscribe URL, and is tagged in Resend by campaign and
  *   email number.
+ * - Nothing is sent while the campaign is paused. The safety brake is
+ *   checked before the run starts and again before every send, so bounces
+ *   and complaints arriving mid-run (the webhook) stop it at the next address.
  */
 export class SendOutreach {
   constructor(
     private readonly ledger: IOutreachLedger,
     private readonly sender: IOutreachSender,
     private readonly listKnownEmails: () => Promise<string[]>,
-    private readonly secret: string
+    private readonly secret: string,
+    private readonly brake: OutreachBrake
   ) {}
 
   /** Take the list in: record new addresses and add them to Resend's contacts. Sends nothing. */
   async importProspects(input: ImportProspectsInput): Promise<OutreachReport> {
     const report = emptyReport()
-    const known = new Set(
-      (await this.listKnownEmails()).map(normalizeMailingEmail)
-    )
+    // Compared by inbox, not spelling: `owner+promo@gmail.com` is the gym
+    // owner's own inbox.
+    const known = new Set((await this.listKnownEmails()).map(mailboxKey))
     const fresh: Prospect[] = []
     for (const prospect of input.prospects) {
-      if (known.has(normalizeMailingEmail(prospect.email))) {
+      if (known.has(mailboxKey(prospect.email))) {
         report.counts.known += 1
         report.entries.push({
           email: prospect.email,
@@ -166,19 +176,36 @@ export class SendOutreach {
       report.counts[outcome] += 1
       report.entries.push({ email, outcome, ...extra })
     }
+    const brake = await this.brake.check(input.campaign, input.now, {
+      dryRun: input.dryRun,
+    })
+    if (brake.paused) {
+      report.paused = { since: brake.since, reason: brake.reason }
+      return report
+    }
+    if (brake.wouldPause) report.wouldPause = brake.wouldPause
+
     const notSentSince = new Date(
       input.now.getTime() - OUTREACH_MIN_GAP_DAYS * DAY
     )
     const due = await this.ledger.due(input.campaign, notSentSince, input.limit)
     // Someone imported last month may have signed up or asked for a demo
     // since: they are a customer or a lead now, not a prospect.
-    const known = new Set(
-      (await this.listKnownEmails()).map(normalizeMailingEmail)
-    )
+    const known = new Set((await this.listKnownEmails()).map(mailboxKey))
 
     for (const recipient of due) {
       const step = (recipient.step + 1) as OutreachStep
       if (step > OUTREACH_SEQUENCE_LENGTH) continue
+      if (known.has(mailboxKey(recipient.email))) {
+        // A dry run says so and writes nothing.
+        if (!input.dryRun) {
+          await this.ledger.markDone(input.campaign, recipient.email)
+        }
+        record(recipient.email, 'known', {
+          detail: 'now a gym or a demo request',
+        })
+        continue
+      }
       if (input.dryRun) {
         record(recipient.email, 'would_send', { step })
         continue
@@ -187,13 +214,6 @@ export class SendOutreach {
         record(recipient.email, 'deferred', {
           step,
           detail: 'out of time; next run',
-        })
-        continue
-      }
-      if (known.has(normalizeMailingEmail(recipient.email))) {
-        await this.ledger.markDone(input.campaign, recipient.email)
-        record(recipient.email, 'known', {
-          detail: 'now a gym or a demo request',
         })
         continue
       }
@@ -210,9 +230,18 @@ export class SendOutreach {
         continue
       }
       if (!reachable) {
-        await this.ledger.markUnsubscribed(input.campaign, recipient.email)
+        await this.ledger.stop(recipient.email, 'unsubscribed', {
+          campaign: input.campaign,
+        })
         record(recipient.email, 'skipped', { detail: 'unsubscribed' })
         continue
+      }
+
+      // A bounce or complaint arriving mid-run may have paused it.
+      const now = await this.brake.check(input.campaign, input.now)
+      if (now.paused) {
+        report.paused = { since: now.since, reason: now.reason }
+        break
       }
 
       if (
@@ -263,9 +292,21 @@ export class SendOutreach {
     return this.sendStep('test', address, step, `test-${crypto.randomUUID()}`)
   }
 
-  /** Take an address out of the campaign; it is never written to again. */
+  /**
+   * Take an address out of the campaign; it is never written to again.
+   *
+   * @returns False when the address is not in the campaign
+   */
   async remove(campaign: string, email: string): Promise<boolean> {
-    return this.ledger.markUnsubscribed(campaign, normalizeMailingEmail(email))
+    const address = normalizeMailingEmail(email)
+    const stopped = await this.ledger.stop(address, 'unsubscribed', {
+      campaign,
+      detail: 'taken out on request',
+    })
+    return (
+      stopped.length > 0 ||
+      (await this.ledger.recipients(campaign)).has(address)
+    )
   }
 
   private async sendStep(

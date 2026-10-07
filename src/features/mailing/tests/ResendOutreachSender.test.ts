@@ -131,7 +131,8 @@ describe('ResendOutreachSender', () => {
         topicId: 'topic_marketing',
         tags: EMAIL.tags,
         headers: {
-          'List-Unsubscribe': `<${EMAIL.oneClickUrl}>, <mailto:${MAILING_REPLY_TO}?subject=unsubscribe>`,
+          // Resend receives the mailto; the webhook opts the sender out.
+          'List-Unsubscribe': `<${EMAIL.oneClickUrl}>, <mailto:unsubscribe@go.metricgymos.com?subject=unsubscribe>`,
           'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
         },
       },

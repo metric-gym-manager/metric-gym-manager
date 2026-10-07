@@ -17,6 +17,11 @@
  * sends can be filtered in Resend's email log; this run's counts and any
  * failed sends are logged to the cron audit table (rule 2.6) — as a failure
  * when an email failed, so it shows on /system-health.
+ *
+ * Nothing is sent while the campaign is paused by the safety brake
+ * (`OutreachBrake`); a paused run is logged as a failure naming the reason.
+ * On Mondays it first sends the owner the weekly summary — guarded, so a
+ * failed summary is logged and never stops the day's emails.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -26,6 +31,7 @@ import {
   OUTREACH_DAILY_LIMIT,
   OUTREACH_STARTS_AT,
   createSendOutreach,
+  createSendOutreachSummary,
 } from '@/features/mailing'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { CronLogger } from '@/lib/cron'
@@ -68,6 +74,21 @@ async function runOutreach(request: NextRequest) {
       await logger.logSuccess(logId, payload)
       return NextResponse.json(ResponseBuilder.success(payload))
     }
+    const failures: string[] = []
+    let summary = 'not_sent'
+    try {
+      summary = (
+        await createSendOutreachSummary(supabase).sendIfDue(
+          OUTREACH_CAMPAIGN,
+          now
+        )
+      ).outcome
+    } catch (error) {
+      failures.push(
+        `weekly summary: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+
     const report = await createSendOutreach(supabase).runWeek({
       campaign: OUTREACH_CAMPAIGN,
       now,
@@ -78,15 +99,23 @@ async function runOutreach(request: NextRequest) {
       deadline: new Date(now.getTime() + START_SENDS_FOR_MS),
     })
 
-    const failures = report.entries
-      .filter((entry) => entry.outcome === 'failed')
-      .map(
-        (entry) =>
+    for (const entry of report.entries) {
+      if (entry.outcome === 'failed') {
+        failures.push(
           `${entry.email} (email ${entry.step}): ${entry.detail ?? 'failed'}`
+        )
+      }
+    }
+    if (report.paused) {
+      failures.push(
+        `campaign paused: ${report.paused.reason} (resume with --resume)`
       )
+    }
     const payload = {
       campaign: OUTREACH_CAMPAIGN,
       counts: report.counts,
+      ...(report.paused ? { paused: report.paused.reason } : {}),
+      summary,
       duration: `${Date.now() - startedAt}ms`,
     }
 

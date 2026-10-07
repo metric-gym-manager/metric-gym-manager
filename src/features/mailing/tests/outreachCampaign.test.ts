@@ -67,13 +67,14 @@ describe.each(STEPS)('email %i', (step) => {
     expect(WHATSAPP_DEMO_URL).toBe(
       `${CONTACT.whatsappUrl}?text=Hi%2C%20I'd%20like%20a%20free%20demo%20of%20Metric%20Gym%20OS`
     )
-    // The number never breaks across lines on a phone.
-    expect(html).toMatch(
-      /style="[^"]*white-space:nowrap[^"]*">070 437 9967<\/a>/
-    )
+    // The number never breaks across lines on a phone (emailFrame `keep`).
+    const number =
+      '<span class="m-keep" style="white-space:nowrap">070 437 9967</span>'
     // The number itself opens the chat, in every email.
     expect(html).toMatch(
-      /<a href="https:\/\/wa\.me\/94704379967\?text=[^"]+"[^>]*>070 437 9967<\/a>/
+      new RegExp(
+        `<a href="https://wa\\.me/94704379967\\?text=[^"]+"[^>]*white-space:nowrap[^>]*>${number}</a>`
+      )
     )
     expect(html).not.toContain('href="tel:')
     expect(text).toContain(WHATSAPP_DEMO_URL)
@@ -133,7 +134,8 @@ describe('the four, in order', () => {
     expect(subject).toMatch(/reminders/i)
     // Monthly members: 3 days before and on the due day; overdue once missed.
     expect(html).toMatch(/3 days before/)
-    expect(html).toMatch(/On the due day/)
+    // Short titles tie their last two words (`noOrphan`).
+    expect(html.replace(/&nbsp;/g, ' ')).toMatch(/On the due day/)
     expect(html).toMatch(/receipt/i)
   })
 

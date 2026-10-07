@@ -12,8 +12,13 @@ import { createResendClient, readMailingSecret } from '@/lib/email/resend'
 import { AddMarketingContact } from './AddMarketingContact'
 import { MailingUnavailableError } from './errors'
 import { ResendBroadcaster } from './ResendBroadcaster'
+import { HandleMailingEvent } from './HandleMailingEvent'
+import { OutreachBrake } from './OutreachBrake'
 import { ResendOutreachSender } from './ResendOutreachSender'
+import { ResendOwnerMailer } from './ResendOwnerMailer'
 import { SendOutreach } from './SendOutreach'
+import { SendOutreachSummary } from './SendOutreachSummary'
+import { SupabaseOutreachCampaigns } from './SupabaseOutreachCampaigns'
 import { SupabaseOutreachLedger } from './SupabaseOutreachLedger'
 import { SendAnnouncements } from './SendAnnouncements'
 import { SupabaseAnnouncementLog } from './SupabaseAnnouncementLog'
@@ -111,6 +116,63 @@ export function createSendOutreach(supabase: SupabaseClient): SendOutreach {
     new SupabaseOutreachLedger(supabase),
     new ResendOutreachSender(client),
     () => source.listKnownEmails(),
-    secret
+    secret,
+    createOutreachBrake(supabase)
+  )
+}
+
+/**
+ * The outreach safety brake: pause, resume, and the check the run and the
+ * webhook make.
+ *
+ * @param supabase - Service-role client (the outreach tables have no policies)
+ * @throws {MailingUnavailableError} When `RESEND_API_KEY` is unset (it alerts the owner)
+ */
+export function createOutreachBrake(supabase: SupabaseClient): OutreachBrake {
+  const client = createResendClient()
+  if (!client) throw new MailingUnavailableError()
+  return new OutreachBrake(
+    new SupabaseOutreachLedger(supabase),
+    new SupabaseOutreachCampaigns(supabase),
+    new ResendOwnerMailer(client)
+  )
+}
+
+/**
+ * For the `send-outreach` cron's Monday summary and `--summary`.
+ *
+ * @param supabase - Service-role client
+ * @throws {MailingUnavailableError} When `RESEND_API_KEY` is unset
+ */
+export function createSendOutreachSummary(
+  supabase: SupabaseClient
+): SendOutreachSummary {
+  const client = createResendClient()
+  if (!client) throw new MailingUnavailableError()
+  return new SendOutreachSummary(
+    new SupabaseOutreachLedger(supabase),
+    new SupabaseOutreachCampaigns(supabase),
+    new ResendOwnerMailer(client)
+  )
+}
+
+/**
+ * For POST /api/webhooks/resend: bounces, complaints, opt-outs and received
+ * mail, acted on.
+ *
+ * @param supabase - Service-role client (a webhook has no session, and the
+ *   outreach tables have no policies)
+ * @throws {MailingUnavailableError} When `RESEND_API_KEY` is unset
+ */
+export function createHandleMailingEvent(
+  supabase: SupabaseClient
+): HandleMailingEvent {
+  const client = createResendClient()
+  if (!client) throw new MailingUnavailableError()
+  return new HandleMailingEvent(
+    new SupabaseOutreachLedger(supabase),
+    new ResendMailingList(client.contacts),
+    new ResendOwnerMailer(client),
+    createOutreachBrake(supabase)
   )
 }
