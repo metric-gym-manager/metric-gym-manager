@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - aggressive caching strategy and Lighthouse performance optimization ([e6d7b23](../../commit/e6d7b23))
 
+## [1.3.0] - 2026-10-07
+
+### Added
+
+- Our emails to you now fit a phone screen, with no words broken onto odd lines. ([b6d7d65](../../commit/b6d7d65))
+
 ## [1.2.2] - 2026-10-06
 
 _Behind-the-scenes improvements only: nothing changes in how you use Metric Gym OS._
