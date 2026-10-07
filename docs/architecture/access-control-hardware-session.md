@@ -36,7 +36,16 @@ six agents at once.
 callback (a remote door open sends a real event 8), finds defects the visit
 would otherwise trip over, and leaves the visit only what needs a person.
 **The two tracks never run at the same time** — the console refuses: the phase
-file is shared and each track claims it.
+file is shared and each track claims it. That interlock, and every agent's
+recorded results, live in `backups/hw-session/` of **one checkout on one
+laptop**: run both tracks from it, and never let the lead spawn an agent with
+worktree isolation.
+
+**Start the remote day in the morning.** Its parallel and exclusive phases take
+4–5 hours and must end before 23:30 Sri Lanka time: at 00:00 the nightly
+reconcile acts on every Titan member, the agents' test members included. The
+console refuses `phase set parallel` from 15:00 and `phase set exclusive` from
+20:30 (Sri Lanka time); only the owner's word justifies `--late`.
 
 **Bands (physical):** 1 = the do-not-ship cases and the core premises (a finger
 enrols, the first scan confirms, the end date is inclusive, midnight bites,
@@ -58,6 +67,11 @@ acceptance gates) only the last.
 - [ ] `git pull` on the laptop: the sessions' console, agents and settings
       live on `master`.
 - [ ] Do not schedule a Titan announcement for that day.
+- [ ] Merge nothing to `master` during either session: a deploy in the middle
+      of a test confuses its results (LD-08's redeploy is the one planned
+      exception).
+- [ ] HW Test 10 already exists, parked, from the final pre-flight check on
+      2026-10-07; LD-04 wakes it with the others.
 - [ ] Have a browser signed in to www.metricgymos.com as Titan Fitness (laptop)
       and, for LD-06, a phone signed in too.
 
@@ -136,11 +150,21 @@ remote track, the physical session for its own).
   drain assumes; the vendor documents no limit (a 429 is itself a finding).
 - **Desk agents never call the vendor**; the api agent reaches only
   `http://localhost:3100` and refuses Titan's reader serials in any webhook.
+- **Production's own drain** runs every 5 minutes and processes every
+  agent's jobs — the system working, not interference. Where a task queues a
+  job and then processes it itself (a crash, a lost reply, a reader restart
+  with a command in flight), both happen in one step, and `set-dates` and
+  `--no-push` changes first wait until production's next drain is at least
+  75 s away, so it cannot take the job in between.
+- **The drain takes one job per member per run** (the claim is `DISTINCT ON
+member_id`), and every member change enqueues one. A test member with several
+  queued changes therefore clears one job every 5 minutes. That is harmless —
+  any processed job syncs the member's current state, so the rest are no-ops —
+  and it is why `jobs --wait` waits for **a sync to complete for each member
+  since the wait began**, never for an empty queue.
 - **`hw coverage`** proves it offline: every step's command, member and scope is
   one the console grants its agent in its phase; every case and simulator item
-  has exactly one task. Production's own drain still runs every 5 minutes — it
-  processes every agent's jobs, which is the system working, and the tasks are
-  written to expect it.
+  has exactly one task.
 
 ---
 
