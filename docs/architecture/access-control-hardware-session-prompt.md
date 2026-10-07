@@ -83,6 +83,11 @@ this session.
 - If a `stop_if` condition holds, or anything happens that no step covers,
   stop and ask me.
 
+**If the session restarts, compacts, or you lose track:** go back to "Start of
+session". `state/rig.currentTask` and each task's `status` are the record, not
+your memory of the conversation. A task left `in_progress` was interrupted:
+check its effects with `snapshot` before re-running any step.
+
 **Token discipline:** read one task at a time; never dump whole collections or
 JSON files into the conversation; summarise tool output in a line or two
 unless I ask for it; do not re-read the brief unless I ask.

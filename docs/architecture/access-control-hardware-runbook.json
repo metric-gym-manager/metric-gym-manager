@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "generated": "2026-10-07",
   "description": "On-site door-hardware test runbook for the VFT/ZKTeco access-control campaign. Canonical task definitions; live status is the \"Door Hardware Runbook\" artifact database. Brief: docs/architecture/access-control-hardware-session.md.",
   "rig": {
@@ -72,9 +72,14 @@
       "steps": [
         {
           "who": "claude",
-          "do": "Confirm production runs the merged fixes: list the newest READY production deployment and read its commit message.",
-          "cmd": "Vercel MCP list_deployments projectId=prj_A65dZtjDSUp0qVs1SKNDxaAe2AAy teamId=team_Fl7rQYbRLMhzxU8bhXeMOE94 target=production state=READY limit=3",
-          "expect": "The newest READY production deployment's commit is at or after the merge that contains \"make \\\"Re-send to readers\\\" actually re-send\" and \"leave a log line for every webhook delivery\"."
+          "do": "Find the newest READY production deployment and its git commit SHA (meta.githubCommitSha).",
+          "cmd": "Vercel MCP list_deployments projectId=prj_A65dZtjDSUp0qVs1SKNDxaAe2AAy teamId=team_Fl7rQYbRLMhzxU8bhXeMOE94 target=production state=READY limit=3"
+        },
+        {
+          "who": "claude",
+          "do": "Prove that commit contains the fixes. Its message may well be \"chore(release): …\" — the release commit sits on top of the merge, so judge by ancestry, never by the message. Replace <DEPLOYED_SHA> with the SHA from the previous step.",
+          "cmd": "git fetch origin master && FIX=$(git log origin/master --format=%H --grep=\"leave a log line for every webhook delivery\" -1) && echo \"fix commit: $FIX\" && git merge-base --is-ancestor \"$FIX\" <DEPLOYED_SHA> && echo \"DEPLOYED BUILD CONTAINS THE FIXES\"",
+          "expect": "\"DEPLOYED BUILD CONTAINS THE FIXES\" printed (exit 0). Exit 1 means production predates the fixes."
         },
         {
           "who": "claude",
@@ -176,7 +181,7 @@
       "title": "Wake the readers and watch Device B drain a four-day backlog",
       "why": "Device B has had four commands sitting NEVER SENT since 3 Oct; Device A has two transmitted but never acknowledged. Watching them land proves the readers reach the vendor and measures real collection latency.",
       "cases": ["STATUS-03", "REAL-08"],
-      "sim": [],
+      "sim": ["A-9"],
       "members": [],
       "requires": [],
       "depends_on": [],
@@ -332,7 +337,7 @@
       "steps": [
         {
           "who": "operator",
-          "do": "Members → Add member, four times: names exactly \"HW Test 1\", \"HW Test 2\", \"HW Test 3\", \"HW Test 4\" (exact spelling and spacing — the tools refuse anything else); phone = your own mobile; any monthly plan; start date today; first payment marked paid; admission fee off if the form offers it. Each sends you one welcome SMS — that is expected."
+          "do": "Members → Add member, four times: names exactly \"HW Test 1\", \"HW Test 2\", \"HW Test 3\", \"HW Test 4\" (exact spelling and spacing — the tools refuse anything else); phone = your own mobile; the CHEAPEST monthly plan (their payments appear in Titan Fitness revenue until R3-21 cleans up); start date today; first payment marked paid; admission fee off if the form offers it. Each sends you one welcome SMS — that is expected."
         },
         {
           "who": "claude",
@@ -385,7 +390,7 @@
       "title": "An unknown finger at Device A — does a refused scan reach us at all?",
       "why": "A-1: if refusals never reach the webhook, the activity log can never show them AND a lapsed member's enrolment can never be confirmed. It decides a whole screen.",
       "cases": ["VEND-20"],
-      "sim": ["A-1", "H-16"],
+      "sim": ["A-1", "H-16", "D-5", "D-12"],
       "members": [],
       "requires": ["callback-live"],
       "depends_on": [],
@@ -398,8 +403,12 @@
         },
         {
           "who": "claude",
-          "do": "Look for the scan in our database.",
-          "cmd": "npx tsx scripts/hw-session.ts watch-events --since 3m --timeout 120"
+          "do": "Look for the scan in our database. FIRST SCAN EVER: VFT may batch deliveries, so wait up to 10 minutes before concluding nothing came.",
+          "cmd": "npx tsx scripts/hw-session.ts watch-events --since 3m --timeout 600"
+        },
+        {
+          "who": "claude",
+          "do": "If a scan arrived, record state/rig.answers.deliveryLatencySeconds = stored time − reader time (from watch-events). Every later watch-events uses --timeout of at least 2 × that latency (minimum 120)."
         },
         {
           "who": "claude",
@@ -408,15 +417,21 @@
         },
         {
           "who": "operator",
-          "do": "Open Door Access → Recent activity → All, then Refusals. Report what rows appear."
+          "do": "Open Door Access → Recent activity → All, then Refusals. Report what rows appear (reload the page first)."
+        },
+        {
+          "who": "operator",
+          "do": "D-5: HW Test 2 (created in R1-06, NOT enrolled yet) places their RIGHT MIDDLE finger on reader A once. Report the screen. Then open HW Test 2's Door Access panel and read the badge and the Fingerprint line.",
+          "expect": "Reader refuses (not registered); panel says \"Can get in\" with Fingerprint \"Not registered\" — the membership is fine, the finger is simply not on file."
         }
       ],
       "pass": [
-        "[VEND-20] Record which event code (if any) an unregistered finger produces, and whether it reached us. PASS = an event arrived and is shown as \"Not recognised\" with a Refused badge.",
+        "[VEND-20] Record which event code (if any) an unregistered finger produces, and whether it reached us. PASS = an event arrived and is shown as \"Not recognised\" with a Refused badge (sim D-12: stored with no member).",
+        "D-5: an active member with no fingerprint is refused at the reader while the panel explains it (Can get in + Not registered).",
         "A-1 answer recorded in state/rig.answers.A1 = refusals-arrive | refusals-do-not-arrive | unknown."
       ],
       "fail_if": [
-        "Nothing stored AND nothing logged within 2 minutes while R1-05 proved the callback live → refusals for unknown fingers are not delivered: record as a finding (design consequence), status fail for VEND-20."
+        "Nothing stored AND nothing logged within 10 minutes while R1-05 proved the callback live → refusals for unknown fingers are not delivered: record as a finding (design consequence), status fail for VEND-20."
       ],
       "evidence": [
         "watch-events output",
@@ -430,7 +445,7 @@
         "A reader stays NEVER SENT for more than 10 minutes while the operator confirms it is powered and networked.",
         "The operator says stop."
       ],
-      "est_minutes": 8,
+      "est_minutes": 15,
       "notes": ""
     },
     {
@@ -519,8 +534,8 @@
         },
         {
           "who": "claude",
-          "do": "Fetch the scan.",
-          "cmd": "npx tsx scripts/hw-session.ts watch-events --since 3m --timeout 120",
+          "do": "Fetch the scan (use --timeout 600 if R1-07 stored nothing, otherwise at least 2 × state/rig.answers.deliveryLatencySeconds).",
+          "cmd": "npx tsx scripts/hw-session.ts watch-events --since 3m --timeout 600",
           "expect": "One scan: reader A, HW1's subject, member \"HW Test 1\", event kind Granted, verify 1."
         },
         {
@@ -547,7 +562,7 @@
         "[OBS-01] The enrolment trace is complete: job/command/consent/scan each visible with timestamps."
       ],
       "fail_if": [
-        "No scan arrives within 2 minutes although R1-05 proved the callback live → fail; check the log for \"Access webhook delivery\" with unknownDevice (serial mismatch) or malformed (payload shape) and record unknownSerials/unreadableFieldNames.",
+        "No scan arrives within 10 minutes although R1-05 proved the callback live → fail; check the log for \"Access webhook delivery\" with unknownDevice (serial mismatch) or malformed (payload shape) and record unknownSerials/unreadableFieldNames.",
         "reader − stored ≈ ±19800 s → finding (timezone), fail TIME-07."
       ],
       "evidence": [
@@ -874,7 +889,7 @@
       "title": "Lapse HW Test 1: the block lands and the reader refuses",
       "why": "Re-proves on a real finger that the date decides, and asks A-1 part 2: does a REFUSED scan of a KNOWN member reach us? That decides whether a lapsed member's enrolment can ever be confirmed.",
       "cases": ["ACCESS-02", "OUT-01"],
-      "sim": ["H-13", "A-1"],
+      "sim": ["H-13", "A-1", "D-4"],
       "members": ["HW Test 1"],
       "requires": [],
       "depends_on": [],
@@ -1151,7 +1166,7 @@
       "title": "Block, then a validity period behind our back (A-8)",
       "why": "We never send a window to a blocked subject because on some firmware a later write resets the block. If this reader admits after a window, the guard is load-bearing (A10 grade A).",
       "cases": ["ACCESS-07"],
-      "sim": ["A-8"],
+      "sim": ["A-8", "B-8"],
       "members": ["HW Test 2"],
       "requires": [],
       "depends_on": [],
@@ -1724,7 +1739,7 @@
       "title": "The worker dies mid-batch while both readers have work",
       "why": "REC-07 (do-not-ship): a crashed worker leaves jobs in_flight; the stale reclaim must finish them and both readers must end correct, with no duplicate damage.",
       "cases": ["REC-07"],
-      "sim": [],
+      "sim": ["C-7"],
       "members": ["HW Test 1", "HW Test 2"],
       "requires": [],
       "depends_on": [],
@@ -2502,7 +2517,7 @@
       "title": "Power pulled in the middle of a command, and mid-batch",
       "why": "FAIL-12/STATUS-08: power loss must not corrupt the reader or our queue; return codes for a vanished device must classify correctly.",
       "cases": ["FAIL-12", "STATUS-08", "RC-02", "RC-05"],
-      "sim": [],
+      "sim": ["A-2"],
       "members": ["HW Test 1", "HW Test 2", "HW Test 4"],
       "requires": ["power-pull"],
       "depends_on": [],
@@ -2830,7 +2845,7 @@
       "title": "Delete a member at the reader: can the reconcile see it?",
       "why": "CRON-10/11: the nightly reconcile compares against the vendor's central record, not each reader. A member deleted at one reader is probably invisible to it — the state must at least be recoverable by the desk.",
       "cases": ["CRON-10", "CRON-11", "ENR-18"],
-      "sim": [],
+      "sim": ["B-14"],
       "members": ["HW Test 4"],
       "requires": ["device-menu"],
       "depends_on": [],
@@ -2876,10 +2891,17 @@
         {
           "who": "operator",
           "do": "At reader B, HW Test 4 places their LEFT MIDDLE finger on the sensor once. Report back: (1) exactly what the reader screen shows, (2) beep/LED colour, (3) whether the relay/lock clicks, (4) the time shown on the reader."
+        },
+        {
+          "who": "claude",
+          "do": "B-14: run the reconcile twice more in a row; the second run must enqueue nothing.",
+          "cmd": "npx tsx scripts/hw-session.ts reconcile --apply && npx tsx scripts/hw-session.ts reconcile",
+          "expect": "Second (dry) run: \"Would enqueue: nobody\"."
         }
       ],
       "pass": [
         "[CRON-10] If the reconcile detects the mismatch it fixes it (HW4 admitted at B after the drain).",
+        "B-14: a reconcile right after a reconcile enqueues nobody.",
         "[CRON-11] If it cannot detect it (vendor record unchanged), the gap is recorded as a finding AND the desk's forced re-send recovers it — no silent corruption, operator-visible remedy exists.",
         "[ENR-18] Record: a device-side loss with no webhook signal is closed only by a manual re-send (or by the next scan attempt being refused)."
       ],
@@ -2892,7 +2914,7 @@
         "A reader stays NEVER SENT for more than 10 minutes while the operator confirms it is powered and networked.",
         "The operator says stop."
       ],
-      "est_minutes": 12,
+      "est_minutes": 14,
       "notes": ""
     },
     {
@@ -3021,7 +3043,7 @@
       "title": "Capacity: a number, a bar, and \"free up space\"",
       "why": "H-4/H-5/H-19: capacity is unknown until entered; the bar must not lie, and freeing space with only current members must warn, not error.",
       "cases": [],
-      "sim": ["H-4", "H-5", "H-19"],
+      "sim": ["H-4", "H-5", "H-19", "F-4"],
       "members": [],
       "requires": [],
       "depends_on": [],
@@ -3036,8 +3058,13 @@
           "do": "Settings → Access Control → Device A row → Fingerprint capacity = 5 → Save. Back on Door Access, report the line and bar."
         },
         {
+          "who": "claude",
+          "do": "BEFORE pressing: list who \"Free up space\" could remove (only members who cannot get in are ever evicted). If any row is NOT an HW test member, skip the next step and record that the press was skipped to protect a real member.",
+          "cmd": "Supabase SQL: select m.name, m.status, m.next_due_date, s.synced_device_serials from member_access_subjects s join members m on m.id = s.member_id where s.gym_id = '481599f6-5134-4152-83b2-6e2dd10e3018' and s.on_device and (m.status <> 'active' or m.next_due_date < current_date)"
+        },
+        {
           "who": "operator",
-          "do": "Press \"Free up space\" on Device A. Report the toast."
+          "do": "Only if Claude says the list is empty or HW-only: press \"Free up space\" on Device A. Report the toast."
         },
         {
           "who": "claude",
@@ -3065,7 +3092,7 @@
         "A reader stays NEVER SENT for more than 10 minutes while the operator confirms it is powered and networked.",
         "The operator says stop."
       ],
-      "est_minutes": 10,
+      "est_minutes": 12,
       "notes": "A capacity of 5 with 4+ current members can make \"Free up space\" try to evict; only cancelled/expired members are ever evicted. HW members are all current, so expect shortfall only."
     },
     {
@@ -3413,7 +3440,7 @@
       "title": "Edit the member while their enrolment is pending",
       "why": "RACE-07, R15, DATA-09: a rename and a payment during enrolment must not erase consent (trap 12) or disturb the template.",
       "cases": ["RACE-07", "R15", "DATA-09"],
-      "sim": ["H-9"],
+      "sim": ["H-9", "E-3"],
       "members": ["HW Test 2"],
       "requires": [],
       "depends_on": [],
@@ -3421,7 +3448,7 @@
       "steps": [
         {
           "who": "operator",
-          "do": "HW Test 2 panel → Remove fingerprint → tick consent → reader B → Register. While waiting: edit HW Test 2 (pencil) → change phone or remarks → Save; then Mark Paid. Then present RIGHT MIDDLE at B."
+          "do": "HW Test 2 panel → Remove fingerprint → tick consent → reader B → Register. While reader B waits: edit HW Test 2 (pencil) → change the name to exactly \"HW Test 2 Renamed\" → Save; then Mark Paid. Then present RIGHT MIDDLE at B."
         },
         {
           "who": "operator",
@@ -3429,24 +3456,37 @@
         },
         {
           "who": "claude",
-          "do": "Consent survived; finger confirmed; rename (if name changed) pushed.",
+          "do": "Consent survived; finger confirmed; the new name reached the vendor (vendor subject records show EmpName HW_Test_2_Renamed).",
           "cmd": "npx tsx scripts/hw-session.ts snapshot"
+        },
+        {
+          "who": "operator",
+          "do": "Edit the member back to exactly \"HW Test 2\" → Save."
+        },
+        {
+          "who": "claude",
+          "do": "Name restored on our side and the vendor.",
+          "cmd": "npx tsx scripts/hw-session.ts snapshot",
+          "expect": "HW Test 2 listed; vendor EmpName HW_Test_2."
         }
       ],
       "pass": [
-        "[RACE-07] [R15] Consent still on file after the edit and payment; enrolment completed.",
-        "[DATA-09] DB, readers, queue and webhook agree."
+        "[RACE-07] [R15] Consent still on file after the edit and payment; enrolment completed and the template survived the payment's window push (sim E-3).",
+        "[DATA-09] DB, readers, queue and webhook agree.",
+        "The rename reached the vendor's subject record (sim H-9) and was restored."
       ],
       "fail_if": ["Consent cleared by the edit → fail (trap 12)."],
       "evidence": ["snapshot"],
-      "restore": ["Nothing to restore."],
+      "restore": [
+        "Name exactly \"HW Test 2\" (the console refuses any other spelling of a test member)."
+      ],
       "stop_if": [
         "Any app route the operator uses returns an error page or a 5xx toast twice in a row.",
         "snapshot shows a dead job, or \"Other (real) Titan subjects — newest change\" moves to a time inside this session.",
         "A reader stays NEVER SENT for more than 10 minutes while the operator confirms it is powered and networked.",
         "The operator says stop."
       ],
-      "est_minutes": 10,
+      "est_minutes": 12,
       "notes": ""
     },
     {
@@ -3526,7 +3566,7 @@
         "STATUS-06",
         "DATA-03"
       ],
-      "sim": [],
+      "sim": ["C-8"],
       "members": ["HW Test 1", "HW Test 4"],
       "requires": [],
       "depends_on": [],
@@ -3881,7 +3921,7 @@
       "title": "A scan arriving while that member's sync is in flight",
       "why": "WH-13/14/15, ENR-19, R8: webhook timing against our own requests and commits.",
       "cases": ["WH-13", "WH-14", "WH-15", "ENR-19", "R8"],
-      "sim": [],
+      "sim": ["E-7"],
       "members": ["HW Test 1"],
       "requires": ["callback-live"],
       "depends_on": [],
@@ -4256,7 +4296,7 @@
       "title": "Final cleanup and readiness verdict",
       "why": "Leave production clean and write the verdict the owner will act on.",
       "cases": [],
-      "sim": [],
+      "sim": ["D-15"],
       "members": [],
       "requires": [],
       "depends_on": [],
@@ -4264,12 +4304,16 @@
       "steps": [
         {
           "who": "operator",
-          "do": "Decide the HW test members' fate: keep (recommended for future regression) or cancel them now (Suspend → Cancel each). Decide: readers stay ACTIVE or parked."
+          "do": "Decide the HW test members' fate: keep (recommended for future regression), cancel them (Suspend → Cancel each), or delete them (the bin icon in the member modal) — deleting removes them from Titan's member list; check whether their payments leave the revenue screen too. Decide: readers stay ACTIVE or parked."
         },
         {
           "who": "claude",
           "do": "Apply the decision; final snapshot.",
           "cmd": "npx tsx scripts/hw-session.ts snapshot"
+        },
+        {
+          "who": "claude",
+          "do": "D-15 (only if a member was deleted): read reader A's and B's user list via the operator and the vendor template list (snapshot shows only remaining members — use read-only SQL on member_access_subjects and the vendor list in the snapshot JSON). Record whether the deleted member's subject is still on the readers or the vendor."
         },
         {
           "who": "claude",
@@ -4281,7 +4325,8 @@
         }
       ],
       "pass": [
-        "Production left in a recorded state; readiness verdict written; rotation reminders delivered."
+        "Production left in a recorded state; readiness verdict written; rotation reminders delivered.",
+        "If a member was deleted (sim D-15): what remained on the readers and the vendor is recorded."
       ],
       "fail_if": ["Verdict without evidence."],
       "evidence": ["final snapshot", "readiness doc"],
@@ -4292,7 +4337,7 @@
         "A reader stays NEVER SENT for more than 10 minutes while the operator confirms it is powered and networked.",
         "The operator says stop."
       ],
-      "est_minutes": 20,
+      "est_minutes": 25,
       "notes": ""
     }
   ],
@@ -4695,5 +4740,93 @@
     "WH-23": "desk",
     "WH-24": "done",
     "WH-25": "desk"
+  },
+  "simulatorPlan": {
+    "A-1": "task:R1-07,R1-15",
+    "A-2": "task:R2-10",
+    "A-3": "task:R1-17",
+    "A-4": "task:R1-08",
+    "A-5": "task:R2-13",
+    "A-6": "done: VEND-03 / VAL-08 (field limits measured on the live account)",
+    "A-7": "excluded: needs a reader in a second vendor area; VFT confirmed area is organisational only (A9)",
+    "A-8": "task:R1-19",
+    "A-9": "task:R1-03",
+    "A-10": "task:R1-09",
+    "B-1": "done: P0.1 / UI-05 (credentials saved and verified through the deployed app)",
+    "B-2": "done: DEVICE-03 (duplicate serial refused)",
+    "B-3": "task:R1-06",
+    "B-4": "task:R1-08",
+    "B-5": "task:R1-09",
+    "B-6": "task:R1-16",
+    "B-7": "task:R1-18,R2-03",
+    "B-8": "task:R1-19",
+    "B-9": "task:R1-20",
+    "B-10": "task:R1-20",
+    "B-11": "task:R2-12",
+    "B-12": "task:R1-14",
+    "B-13": "task:R1-22",
+    "B-14": "task:R2-15",
+    "C-1": "task:R1-21",
+    "C-2": "desk: FAIL-01 (vendor unreachable — needs fault injection, not presence)",
+    "C-3": "desk: wrong-credential handling (no presence needed)",
+    "C-4": "deferred: RC-10 (needs a reader filled to capacity)",
+    "C-5": "done: WH-16 / WH-17",
+    "C-6": "done: WH-06",
+    "C-7": "task:R1-26",
+    "C-8": "task:R3-08",
+    "D-1": "task:R1-17,R2-03",
+    "D-2": "task:R2-04",
+    "D-3": "desk: an unverified QR self-registration is refused by the decision engine before any command (unit-pinned)",
+    "D-4": "task:R1-15",
+    "D-5": "task:R1-07",
+    "D-6": "task:R1-04,R1-10,R1-11",
+    "D-7": "task:R1-04",
+    "D-8": "task:R3-11",
+    "D-9": "desk: subject-id ceiling enforced before dispatch (VAL-08 / unit-pinned)",
+    "D-10": "done: VEND-06 (ruled: names stay stripped to ASCII)",
+    "D-11": "done: WH-09",
+    "D-12": "task:R1-07",
+    "D-13": "excluded on site: would mean downgrading the owner's real gym; nothing is sent to a reader on a downgrade, pinned by BillingLapseNeverLocksOut.reverse.test.ts",
+    "D-14": "excluded on site: same as D-13 for a suspended SaaS subscription",
+    "D-15": "task:R3-21",
+    "E-1": "done: OUT-07",
+    "E-2": "desk: a payment landing mid-drain is a database ordering race (no presence needed)",
+    "E-3": "task:R3-06",
+    "E-4": "desk: reconcile and trigger enqueueing together (database-side)",
+    "E-5": "desk: eviction during a renewal (EvictionPolicy unit-pinned; needs a full reader on site)",
+    "E-6": "task:R2-02",
+    "E-7": "task:R3-13",
+    "F-1": "desk: 100+ member drain (load generation, needs approval)",
+    "F-2": "desk: 500-member reconcile",
+    "F-3": "desk: WH-11 (100-event batch, needs approval)",
+    "F-4": "task:R2-18",
+    "F-5": "desk: 1000+ events pagination",
+    "G-1": "done: WH-02",
+    "G-2": "done: webhook unconfigured → 401 (unit + P0.3)",
+    "G-3": "done: TENANT-12",
+    "G-4": "done: AUTH-08",
+    "G-5": "done: P0.2",
+    "G-6": "done: lock-down migration (DB-09)",
+    "G-7": "done: SEC-15",
+    "G-8": "done: WH-07",
+    "H-1": "task:R1-09,R2-17",
+    "H-2": "task:R2-17",
+    "H-3": "task:R1-21,R2-17",
+    "H-4": "task:R2-18",
+    "H-5": "task:R2-18",
+    "H-6": "task:R2-06",
+    "H-7": "task:R2-06",
+    "H-8": "task:R2-06",
+    "H-9": "task:R3-06",
+    "H-10": "done: VEND-01 (reader rename reached the vendor)",
+    "H-11": "task:R1-06",
+    "H-12": "desk: registration with the vendor unreachable (fault injection)",
+    "H-13": "task:R1-15,R2-17",
+    "H-14": "desk: a dead-lettered job shown as \"a change did not reach the readers\" (needs a forced dead letter)",
+    "H-15": "task:R2-17",
+    "H-16": "task:R1-07",
+    "H-17": "task:R2-02",
+    "H-18": "desk: UI-14 (Lite gym sees the upgrade panel)",
+    "H-19": "task:R2-18"
   }
 }

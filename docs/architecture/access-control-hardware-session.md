@@ -153,6 +153,13 @@ and is benign.
 normal (delivery lag). About ±19,800 s means a timezone error. After a
 deliberate clock change, a large value is expected.
 
+**Delivery delay is unknown until R1-07 measures it.** VFT may batch webhook
+deliveries, so "no scan within 2 minutes" is not "no scan". Until
+`state/rig.answers.deliveryLatencySeconds` is set, wait up to **10 minutes**
+(`--timeout 600`) before concluding a scan never arrived. After that, use a
+`--timeout` of at least twice the measured delay, and never less than 120 s.
+A task's own `--timeout` is a floor, not a ceiling.
+
 **Expected screen behaviour, not defects:**
 
 - A reader shows _Not responding_ 15 min after its last scan: the vendor sends
@@ -237,6 +244,12 @@ Run tasks in order. A task whose `requires` capability is missing (see
 `state/rig.capabilities`), or whose `depends_on` did not pass, is `blocked`
 with the reason. Move on. A round can stop part-way: write the close-out
 anyway, and the next session starts from `state/rig.currentTask`.
+
+**The simulator plan's 86 items** (`vft-simulator-test-plan.md`) are mapped
+too, in the runbook's `simulatorPlan` section: 51 are covered by tasks (each
+task's `sim` lists them), 17 were done earlier, 14 are desk work, 1 is deferred
+(C-4, a full reader), and 3 are excluded on purpose (A-7 needs a second vendor
+area; D-13/D-14 would mean downgrading or suspending the owner's real gym).
 
 **Not in these rounds:** 146 catalogue cases need no one at the reader (listed
 in `meta/coverage.desk`). They belong to a later remote session using the same
