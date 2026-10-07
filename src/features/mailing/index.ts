@@ -4,9 +4,10 @@
  * Marketing and product-update email through Resend: who is on the list
  * (gym owners, consenting demo leads), and the two kinds of email each person
  * can opt out of on /unsubscribe, and the automatic release and policy-change
- * announcements. Consumers: the /api/public/email-preferences route, the leads
- * factory (consenting leads join Marketing), the sync-marketing-contacts and
- * send-announcements crons, and their scripts. See
+ * announcements, and the outreach series with its safety brake. Consumers: the
+ * /api/public/email-preferences route, the leads factory (consenting leads
+ * join Marketing), the sync-marketing-contacts, send-announcements and
+ * send-outreach crons, the Resend webhook, and their scripts. See
  * docs/architecture/marketing-email.md.
  *
  * NOTE: this barrel is **server-tainted** (the factory reaches the Resend SDK
@@ -20,12 +21,24 @@
 export {
   createAddMarketingContact,
   createBroadcaster,
+  createHandleMailingEvent,
   createMailingList,
+  createOutreachBrake,
   createSendAnnouncements,
   createSendOutreach,
+  createSendOutreachSummary,
   createSyncMarketingContacts,
   createUpdateEmailPreferences,
 } from './services/factory'
+export {
+  HandleMailingEvent,
+  type MailingEventResult,
+} from './services/HandleMailingEvent'
+export { OutreachBrake, type BrakeState } from './services/OutreachBrake'
+export {
+  SendOutreachSummary,
+  type SummaryResult,
+} from './services/SendOutreachSummary'
 export {
   ONE_CLICK_UNSUBSCRIBE_PATH,
   SendOutreach,
@@ -76,6 +89,11 @@ export type {
 // SCHEMAS
 // ============================================================
 export {
+  HANDLED_RESEND_EVENTS,
+  resendWebhookEventSchema,
+  type ResendWebhookEvent,
+} from './schemas/mailingEvents.schemas'
+export {
   emailPreferencesSchema,
   oneClickUnsubscribeSchema,
   type EmailPreferencesInput,
@@ -120,5 +138,6 @@ export {
   OUTREACH_SEQUENCE_LENGTH,
   OUTREACH_STARTS_AT,
   OUTREACH_DAILY_LIMIT,
+  OUTREACH_UNSUBSCRIBE_ADDRESS,
   type OutreachStep,
 } from './config/outreachCampaign'

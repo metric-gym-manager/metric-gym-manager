@@ -424,8 +424,21 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 
   Unsubscribing was verified live on production: the footer page, the one-click request, and skipping an unsubscribed address the next week.
 
-- [ ] **Unsubscribe replies (owner).** A reply that says "unsubscribe" lands in hello@. Run `npx tsx scripts/send-outreach.ts --remove their@email` for each.
-- [ ] **Watch the first sends (owner).** In Resend → Emails, filter by the tag `kind: outreach`. Keep an eye on bounces and spam complaints. If complaints appear, run `--remove` on that address, and say so before the next Tuesday.
+- [x] **Outreach looks after itself (2026-10-07).** The two owner tasks below are automated by the Resend webhook (`/api/webhooks/resend`), the safety brake and a Monday summary to hello@ (`docs/architecture/marketing-email.md`, "Looking after itself"):
+  - mail apps that unsubscribe by email write to `unsubscribe@go.metricgymos.com`, and the sender is opted out with no one acting;
+  - a hard bounce or spam complaint ends that address's series; a Marketing opt-out made anywhere ends it at once;
+  - the campaign pauses itself at 2 spam complaints, or above 5% bounces after 40 sends, and emails hello@ ("Outreach paused: …");
+  - every Monday at 10:00 SLT hello@ gets the week's numbers and whether the campaign is running.
+
+  Set up on 2026-10-07: receiving enabled on `go.metricgymos.com` (MX in Cloudflare), Resend webhook `774cc897`, `RESEND_WEBHOOK_SECRET` in Vercel Production and `.env.local`.
+
+- [ ] **Removal requests by hand (owner, rare).** A person who replies "please remove me" reaches hello@ as before, and still needs `npx tsx scripts/send-outreach.ts --remove their@email`. The footer link, the mail app's button and unsubscribe-by-email are automatic.
+- [x] **Inverted check of the automations (2026-10-07).** Real bounces, complaints, one-click and footer unsubscribes, an unsubscribe email and a forward were run and replayed against the branch. Five problems were found and fixed (`docs/architecture/outreach-inverted-check.md`, O9–O13), including one where a gym owner's inbox was taken in under a `+` alias.
+- [ ] **Decide: a brake on unsubscribes too? (owner).** Gmail never reports spam complaints per message, so for the Gmail and Google-hosted addresses (most of the list) the brake's complaint count stays at zero, and their "Report spam & unsubscribe" shows up as an unsubscribe. A pause at, say, more than 10% unsubscribes after 40 sends would stand in for it. Not built; say if you want it.
+- [ ] **After the deploy, check the first real webhook (owner or next session).** In Resend → Webhooks → `774cc897`, the next event should show **200**. The signature path was verified by replay, not yet by Resend itself.
+- [ ] **If you get "Outreach paused" (owner).** Look at who bounced or complained (Resend → Emails, tag `kind: outreach`). If the list looks right, `npx tsx scripts/send-outreach.ts --resume`; to end the campaign, do nothing.
+- [x] ~~**Unsubscribe replies (owner).**~~ Automated for mail apps; see above.
+- [x] ~~**Watch the first sends (owner).**~~ Automated: the brake and the Monday summary.
 
 **Check this session's work in production**
 

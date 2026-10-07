@@ -5,9 +5,34 @@ import type { Prospect } from '../utils/prospectsCsv'
  * - `active`: still receiving the series (`step` emails sent so far);
  * - `done`: all four sent;
  * - `unsubscribed`: opted out, or taken out on request — never written to again;
- * - `failed`: sends kept failing; given up.
+ * - `failed`: sends kept failing; given up;
+ * - `bounced`: the address does not exist, or Resend will not deliver to it;
+ * - `complained`: the recipient marked an email as spam.
  */
-export type OutreachStatus = 'active' | 'done' | 'unsubscribed' | 'failed'
+export type OutreachStatus =
+  'active' | 'done' | 'unsubscribed' | 'failed' | 'bounced' | 'complained'
+
+/** The ways a series is stopped from outside the run: never written to again. */
+export type OutreachStop = 'unsubscribed' | 'bounced' | 'complained'
+
+/**
+ * What `outreach_events` records: each email sent, and each series stopped.
+ * `suppressed` stops an address as `bounced` without counting as a new bounce:
+ * Resend refused to try, so no mail provider saw it.
+ */
+export type OutreachEventType =
+  'sent' | 'unsubscribed' | 'bounced' | 'complained' | 'suppressed'
+
+export type OutreachEventCounts = Record<OutreachEventType, number>
+
+export interface StopOptions {
+  /** Only this campaign; every campaign the address is in when absent. */
+  campaign?: string
+  /** Recorded with the event, e.g. the bounce message. */
+  detail?: string
+  /** The event to record when it is not the status itself (`suppressed`). */
+  event?: OutreachEventType
+}
 
 /** An address due its next email. */
 export interface OutreachRecipient {
@@ -48,7 +73,7 @@ export interface IOutreachLedger {
     fromStep: number,
     at: Date
   ): Promise<boolean>
-  /** Record a delivered send; the fourth marks the address `done`. */
+  /** Record a delivered send, and its `sent` event; the fourth marks the address `done`. */
   recordSent(
     campaign: string,
     email: string,
@@ -64,6 +89,23 @@ export interface IOutreachLedger {
   ): Promise<void>
   /** End the series for an address that has since become a gym or a demo request. */
   markDone(campaign: string, email: string): Promise<void>
-  /** Never write to this address again. False when it is not in the campaign. */
-  markUnsubscribed(campaign: string, email: string): Promise<boolean>
+  /**
+   * Never write to this address again. Moves it to `status` in each campaign
+   * where its status is a weaker one (active, done, failed < unsubscribed <
+   * bounced < complained), and records an event for each such move — so a
+   * webhook delivered twice records nothing the second time.
+   *
+   * @returns The campaigns whose row changed
+   */
+  stop(
+    email: string,
+    status: OutreachStop,
+    options?: StopOptions
+  ): Promise<string[]>
+  /** Events of a campaign since a moment, counted by type. */
+  eventCounts(campaign: string, since: Date): Promise<OutreachEventCounts>
+  /** Every address of a campaign: its status and the emails it has had. */
+  progress(
+    campaign: string
+  ): Promise<{ status: OutreachStatus; step: number }[]>
 }

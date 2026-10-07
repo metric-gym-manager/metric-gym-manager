@@ -47,6 +47,9 @@
                         # token is the ONLY credential (no signature scheme exists);
                         # gym resolved from device_serial, never from the body;
                         # always-200 for business outcomes.
+        /resend/route.ts  # Outreach bounces, complaints, opt-outs, inbound mail.
+                        # Signature (RESEND_WEBHOOK_SECRET) is the only credential;
+                        # always-200 for business outcomes (marketing-email.md).
       /cron/        # Scheduled job endpoints (CRON_SECRET auth)
   /components       # SHARED UI only (ui, common, workspace, landing, auth, legal, providers, pwa)
   /features         # Feature-first modules — ALL business logic lives here

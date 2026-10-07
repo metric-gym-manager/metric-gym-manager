@@ -12,12 +12,15 @@ import { join } from 'node:path'
  */
 const runWeek = jest.fn()
 const createOutreach = jest.fn((..._args: unknown[]) => ({ runWeek }))
+const sendIfDue = jest.fn()
+const createSummary = jest.fn((..._args: unknown[]) => ({ sendIfDue }))
 const logStart = jest.fn().mockResolvedValue('cron-log-id')
 const logSuccess = jest.fn().mockResolvedValue(undefined)
 const logFailure = jest.fn().mockResolvedValue(undefined)
 
 jest.mock('@/features/mailing', () => ({
   createSendOutreach: (...args: unknown[]) => createOutreach(...args),
+  createSendOutreachSummary: (...args: unknown[]) => createSummary(...args),
   OUTREACH_CAMPAIGN: 'intro-2026-10',
   OUTREACH_DAILY_LIMIT: 80,
   OUTREACH_STARTS_AT: new Date('2026-01-01T00:00:00Z'),
@@ -57,6 +60,7 @@ describe('/api/cron/send-outreach', () => {
     jest.clearAllMocks()
     process.env.CRON_SECRET = 'cron-secret'
     runWeek.mockResolvedValue(report({ sent: 80, skipped: 2 }))
+    sendIfDue.mockResolvedValue({ outcome: 'not_due' })
   })
 
   it('refuses a call without the bearer, and sends nothing', async () => {
@@ -135,6 +139,45 @@ describe('/api/cron/send-outreach', () => {
       expect.objectContaining({
         counts: expect.objectContaining({ failed: 1 }),
       })
+    )
+  })
+
+  it('sends the weekly summary when it is due, and logs that it did', async () => {
+    sendIfDue.mockResolvedValue({ outcome: 'sent', id: 'em_summary' })
+    await GET(request('Bearer cron-secret'))
+    expect(sendIfDue).toHaveBeenCalledWith('intro-2026-10', expect.any(Date))
+    expect(logSuccess).toHaveBeenCalledWith(
+      'cron-log-id',
+      expect.objectContaining({ summary: 'sent' })
+    )
+  })
+
+  it('still sends the day’s emails when the summary fails, and logs the failure', async () => {
+    sendIfDue.mockRejectedValue(new Error('Resend is down'))
+    const response = await GET(request('Bearer cron-secret'))
+    expect(response.status).toBe(200)
+    expect(runWeek).toHaveBeenCalled()
+    expect(logFailure).toHaveBeenCalledWith(
+      'cron-log-id',
+      ['weekly summary: Resend is down'],
+      expect.objectContaining({ counts: expect.objectContaining({ sent: 80 }) })
+    )
+  })
+
+  it('logs a paused campaign as a failure, with its reason, so it shows on /system-health', async () => {
+    runWeek.mockResolvedValue({
+      ...report({}),
+      paused: {
+        since: new Date('2026-10-19T05:00:00Z'),
+        reason: '2 spam complaints',
+      },
+    })
+    const response = await GET(request('Bearer cron-secret'))
+    expect(response.status).toBe(200)
+    expect(logFailure).toHaveBeenCalledWith(
+      'cron-log-id',
+      ['campaign paused: 2 spam complaints (resume with --resume)'],
+      expect.objectContaining({ paused: '2 spam complaints' })
     )
   })
 

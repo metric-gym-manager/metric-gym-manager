@@ -1,7 +1,9 @@
 /**
  * The introduction series to gyms whose contact details are on public pages:
- * four emails, one a week, sent by the weekly `send-outreach` cron (Tuesdays
- * 10:00 Sri Lanka time). This script is for everything around it.
+ * four emails, one a week, sent by the daily `send-outreach` cron (10:00 Sri
+ * Lanka time). Bounces, spam complaints and unsubscribes are handled by the
+ * Resend webhook, the safety brake pauses the campaign on its own, and a
+ * summary reaches hello@ every Monday. This script is for everything around it.
  *
  *   npx tsx scripts/send-outreach.ts --import gyms.csv [--apply]
  *       Take a list in. DRY RUN unless --apply: shows the rows set aside,
@@ -20,14 +22,24 @@
  *       Never write to that address again.
  *
  *   npx tsx scripts/send-outreach.ts --status
- *       Where the campaign stands: how many on each email, done, out.
+ *       Where the campaign stands: how many on each email, done, out, and
+ *       whether it is paused.
+ *
+ *   npx tsx scripts/send-outreach.ts --pause "why"
+ *   npx tsx scripts/send-outreach.ts --resume
+ *       Stop every send, or start again. The safety brake pauses on its own
+ *       (and emails you); only you resume, and it counts afresh from then.
+ *
+ *   npx tsx scripts/send-outreach.ts --summary [--apply]
+ *       This week's summary: written to a file to look at, or with --apply
+ *       sent to hello@ now (the cron sends it on Mondays by itself).
  *
  * Reads .env.local: RESEND_API_KEY, MARKETING_UNSUBSCRIBE_SECRET,
  * NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.
  * Design: docs/architecture/marketing-email.md, "Outreach".
  */
 
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { config } from 'dotenv'
 import { createClient } from '@supabase/supabase-js'
 
@@ -71,6 +83,50 @@ async function main() {
     return
   }
 
+  const pauseReason = flag('--pause')
+  if (pauseReason !== undefined || has('--pause')) {
+    if (!pauseReason) throw new Error('--pause needs a reason, in quotes')
+    const paused = await mailing
+      .createOutreachBrake(supabase)
+      .pause(campaign, pauseReason, new Date())
+    console.log(
+      paused
+        ? `${campaign} is paused: nothing is sent until --resume.`
+        : `${campaign} was already paused.`
+    )
+    return
+  }
+
+  if (has('--resume')) {
+    const resumed = await mailing
+      .createOutreachBrake(supabase)
+      .resume(campaign, new Date())
+    console.log(
+      resumed
+        ? `${campaign} is running again; the brake counts from now.`
+        : `${campaign} was not paused.`
+    )
+    return
+  }
+
+  if (has('--summary')) {
+    const summary = mailing.createSendOutreachSummary(supabase)
+    const email = await summary.compose(campaign, new Date())
+    if (!email) {
+      console.log(`${campaign}: nothing to report (the series is over).`)
+      return
+    }
+    if (apply) {
+      const id = await summary.sendNow(email)
+      console.log(`Sent "${email.subject}" to hello@ (${id}).`)
+      return
+    }
+    const out = flag('--out') ?? 'outreach-summary.html'
+    writeFileSync(out, email.html)
+    console.log(`${email.subject}\n\n${email.text}\n\nHTML written to ${out}.`)
+    return
+  }
+
   const remove = flag('--remove')
   if (remove) {
     const removed = await outreach.remove(campaign, remove)
@@ -94,7 +150,18 @@ async function main() {
         row.status === 'active' ? `active, ${row.step} of 4 sent` : row.status
       tally.set(key, (tally.get(key) ?? 0) + 1)
     }
+    const { data: state, error: stateError } = await supabase
+      .from('outreach_campaigns')
+      .select('paused_at, pause_reason')
+      .eq('campaign', campaign)
+      .maybeSingle()
+    if (stateError) throw new Error(stateError.message)
     console.log(`${campaign}: ${data?.length ?? 0} address(es)`)
+    console.log(
+      state?.paused_at
+        ? `  PAUSED since ${state.paused_at}: ${state.pause_reason} (--resume to start again)`
+        : '  running'
+    )
     for (const [key, count] of [...tally].sort())
       console.log(`  ${key}: ${count}`)
     return
@@ -138,6 +205,17 @@ async function main() {
       limit,
       dryRun: !apply,
     })
+    if (report.paused) {
+      console.log(
+        `PAUSED since ${report.paused.since.toISOString()}: ${report.paused.reason}. ` +
+          'Nothing more was sent; --resume to start again.'
+      )
+    }
+    if (report.wouldPause) {
+      console.log(
+        `The safety brake would pause this campaign now: ${report.wouldPause}.`
+      )
+    }
     console.log(apply ? 'SENT' : 'DRY RUN — nothing sent. Re-run with --apply.')
     const c = report.counts
     console.log(
@@ -150,12 +228,12 @@ async function main() {
         `  ${e.outcome.padEnd(10)} ${e.email}${e.step ? `  (email ${e.step})` : ''}${e.detail ? `  ${e.detail}` : ''}`
       )
     }
-    if (c.failed > 0) process.exitCode = 1
+    if (c.failed > 0 || report.paused) process.exitCode = 1
     return
   }
 
   throw new Error(
-    'Pass --import <csv>, --run, --test <address>, --remove <address> or --status'
+    'Pass --import <csv>, --run, --test <address>, --remove <address>, --status, --pause "why", --resume or --summary'
   )
 }
 

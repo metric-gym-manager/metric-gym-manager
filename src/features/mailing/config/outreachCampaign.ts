@@ -40,9 +40,47 @@ import {
 } from '@/features/marketing/config/site'
 import { MAILING_REPLY_TO } from './MailingConfig'
 
-/** Outreach's own sending address (Resend domain verified 2026-10-06). */
-export const OUTREACH_FROM = 'Metric Gym OS <hello@go.metricgymos.com>'
+/**
+ * Outreach's own sending domain (Resend, verified 2026-10-06). Every email it
+ * sends is outreach, which is how a bounce or complaint is recognised as one.
+ */
+export const OUTREACH_DOMAIN = 'go.metricgymos.com'
+
+/** Outreach's own sending address. */
+export const OUTREACH_FROM = `Metric Gym OS <hello@${OUTREACH_DOMAIN}>`
 export const OUTREACH_REPLY_TO = MAILING_REPLY_TO
+
+/**
+ * The `mailto:` in every outreach email's List-Unsubscribe header. Mail apps
+ * that unsubscribe by sending an email (Apple Mail among them) write here;
+ * Resend receives it and the webhook opts the sender out. Normal replies
+ * still go to `OUTREACH_REPLY_TO`, read by a person.
+ */
+export const OUTREACH_UNSUBSCRIBE_ADDRESS = `unsubscribe@${OUTREACH_DOMAIN}`
+
+/** Where the safety brake's alert, the weekly summary and forwarded mail go. */
+export const OUTREACH_OWNER_EMAIL = MAILING_REPLY_TO
+
+/**
+ * The safety brake: the campaign pauses itself, and emails the owner, before
+ * mail providers start treating the domain as a spammer's. Counted from the
+ * campaign's start, or from the owner's last `--resume`.
+ *
+ * - Spam complaints: Gmail asks senders to stay under 0.3% of mail marked as
+ *   spam. On a list of about a hundred, one complaint is already 1%; a second
+ *   is a pattern, not an accident.
+ * - Hard bounces: Resend asks for under 4% across the account. Outreach is
+ *   paused above 5% of its own sends, judged once there are enough sends for
+ *   a share to mean something.
+ */
+export const OUTREACH_BRAKE = {
+  complaints: 2,
+  bounceRate: 0.05,
+  minSendsForBounceRate: 40,
+} as const
+
+/** The weekly summary goes on this day (0 Sunday … 6 Saturday), Sri Lanka time. */
+export const OUTREACH_SUMMARY_WEEKDAY = 1
 
 /** The campaign's key in `outreach_recipients`. */
 export const OUTREACH_CAMPAIGN = 'intro-2026-10'

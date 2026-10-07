@@ -258,13 +258,14 @@ A four-email introduction series, one email a week, to gyms whose contact email 
 - the footer link opens /unsubscribe;
 - every email carries one-click `List-Unsubscribe` and `List-Unsubscribe-Post` headers (RFC 8058). Gmail's, Yahoo's and Outlook's own "Unsubscribe" button POSTs to `/api/public/email-preferences/one-click`, which verifies the signed token and opts the address out of Marketing at once. A GET (a person opening the link) is sent to /unsubscribe and changes nothing.
 
-Either way the next weekly run marks the address `unsubscribed`, and it is never written to again.
+Either way Resend's `contact.topics.updated` webhook marks the address `unsubscribed` at once (the next run would also find it), and it is never written to again. A third way, for mail apps that unsubscribe by sending an email (Apple Mail among them): the header's `mailto:` is `unsubscribe@go.metricgymos.com`, which Resend receives; see "Looking after itself" below.
 
 **Its own sending domain.** The series comes from `Metric Gym OS <hello@go.metricgymos.com>`, and replies go to `hello@metricgymos.com`.
 
 - The domain was verified 2026-10-06, with tracking off: tracked links are a spam signal on cold email.
 - Its DNS sits in Cloudflare.
 - A cold list's spam complaints cannot touch `updates.metricgymos.com`, the customer email domain.
+- It also receives mail (enabled 2026-10-07: MX `go.metricgymos.com` → `inbound-smtp.us-east-1.amazonaws.com`, priority 10), for `unsubscribe@` and anyone who writes to the From address. The root domain's own mail (Google) is untouched.
 
 **The daily run.** `/api/cron/send-outreach` runs daily at 04:30 UTC, 10:00 SLT (`SendOutreach.runWeek`), starting on `OUTREACH_STARTS_AT` (13 Oct 2026):
 
@@ -278,14 +279,38 @@ Either way the next weekly run marks the address `unsubscribed`, and it is never
 - **Time limit:** no new send starts after 180 s of the function's 300 s, so a run is never cut off between claim and send.
 - **Logs:** every email is **tagged in Resend** (`kind=outreach`, `campaign`, `email` = 1 to 4), so Resend → Emails can be filtered to the series. Each run's counts go to `cron_logs`, as a failure when any email failed.
 - **One-click:** unsubscribes are rate-limited per address, not per IP, because Gmail sends everyone's from a handful of servers.
-- **Mail replies:** an "unsubscribe" reply to the `mailto` fallback lands in hello@. Act on it with `--remove`.
+- **The brake:** nothing is sent while the campaign is paused. The run checks the safety brake before it starts and again before every send.
+- **Mail replies:** a person's reply goes to hello@ and is read by a person. Someone who writes "please remove me" there still needs `--remove`; the footer link and the mail app's button are automatic.
+
+### Looking after itself
+
+The two owner tasks the series started with — removing whoever unsubscribed by email, and checking Resend for bounces and spam complaints after each send — are automated (owner request, 2026-10-06). One webhook, `POST /api/webhooks/resend` (`HandleMailingEvent`), receives `email.bounced`, `email.complained`, `email.suppressed`, `email.received` and `contact.topics.updated`:
+
+| What happened                                                | What it does                                                                                                                                                                                        |
+| ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An outreach email hard-bounced (`bounce.type` = `Permanent`) | The address becomes `bounced` in every campaign. A `Transient` or `Undetermined` bounce is left alone: Resend retries it.                                                                           |
+| It was marked as spam                                        | `complained`, and the address is opted out of Marketing.                                                                                                                                            |
+| Resend refused to send it (`email.suppressed`)               | `bounced`, or `complained` when `suppressed.reason` names a complaint (`type` is always `"Suppressed"`), recorded as a `suppressed` event, which the brake does not count: no mail provider saw it. |
+| Mail arrived for `unsubscribe@go.metricgymos.com`            | The sender is opted out of Marketing and marked `unsubscribed`.                                                                                                                                     |
+| Any other mail arrived on `go.metricgymos.com`               | Forwarded to hello@ as text, with Reply-To set to the writer (`ResendOwnerMailer`). Their HTML is never passed on: it would arrive under our own address.                                           |
+| A contact opted out of Marketing anywhere                    | `unsubscribed` at once.                                                                                                                                                                             |
+
+Only email sent **from** `go.metricgymos.com` counts as outreach; bounces and complaints on gym email are ignored here. The signature (`RESEND_WEBHOOK_SECRET`, Standard Webhooks via the SDK, five-minute replay window) is the only credential: unsigned or forged gets 401, an event not acted on or a malformed one gets 200, and a fault gets 500 so Resend retries. Every step is safe to repeat: a status only moves to a stronger one (active, done, failed < unsubscribed < bounced < complained), and an event is written only when a status changes, so a webhook delivered twice counts once.
+
+**`outreach_events`** records each send and each stop (`sent`, `unsubscribed`, `bounced`, `complained`, `suppressed`). **`outreach_campaigns`** holds the pause and the weekly summary's claim. Both have RLS on and no policies.
+
+The ledger is written before Resend is told of an opt-out, because every opt-out makes Resend send its own `contact.topics.updated`, which must find the complaint already recorded.
+
+**The safety brake** (`OutreachBrake`, thresholds in `OUTREACH_BRAKE`) pauses a campaign at **2 spam complaints**, or when **more than 5%** of its sends bounce once there are **40 sends** to judge by. It counts from the start, or from the owner's last `--resume`, so an old spike cannot pause a resumed campaign again. The webhook checks it as each bounce or complaint arrives, and the run before every send, so a spike mid-run stops it at the next address. The pause is owned by the one caller whose conditional write set it. The owner's alert ("Outreach paused: …", to hello@ from `updates.metricgymos.com`, so it arrives even if `go` is in trouble) is at-least-once: a failed send leaves it owed, and the next check sends it. A paused run is logged to `cron_logs` as a failure. Only the owner resumes. **It cannot see Gmail's spam reports:** Gmail does not report complaints per message, so for Gmail and Google-hosted addresses (most of the list) a spam report reaches the brake only as an unsubscribe, via "Report spam & unsubscribe" (`outreach-inverted-check.md`, "The automations").
+
+**The weekly summary** (`SendOutreachSummary`) goes to hello@ on Mondays at 10:00 SLT, from the daily run. It holds the last 7 days (sent, bounced, complaints, unsubscribed), where every address stands, and whether the campaign is running, paused (with the resume command) or finished. The week is claimed in `outreach_campaigns` before the send, so it goes at most once. A failed summary is logged and never stops the day's emails. Once the series has finished and a week passes with nothing to report, it stops.
 
 Inverted check of the series: `outreach-inverted-check.md`.
 
 **Who is taken in.**
 
 - `--import` reads the list whatever its headers. A `website` column is recorded as each address's `source`.
-- It leaves out every gym's and every demo request's address (`listKnownEmails`, consent or not).
+- It leaves out every gym's and every demo request's address (`listKnownEmails`, consent or not), compared by **inbox** (`mailboxKey`): `owner+promo@gmail.com` and `o.w.n.e.r@googlemail.com` are the owner's own inbox. Each run re-checks the same way.
 - It records the rest and adds each to **Resend's contacts** (with its unsubscribe token, in no segment), so the nightly sync never touches them.
 - A gym that later signs up keeps its contact and its opt-outs.
 
@@ -305,17 +330,20 @@ The included and excluded lists, with reasons, were given to the owner and are k
 - `--test you@x --email 1-4`;
 - `--run` (the weekly run by hand; `--apply` to send);
 - `--remove someone@x`;
-- `--status`.
+- `--status` (including whether the campaign is paused);
+- `--pause "why"` and `--resume`;
+- `--summary` (writes this week's summary to a file; `--apply` sends it to hello@ now).
 
 **Privacy.** Policy §5 describes the series: where the address comes from, up to four emails a week apart, how to stop them (the link or the mail app's button), and what is kept and why.
 
 ## Configuration
 
-| Variable                       | Where                                      | Notes                                                                     |
-| ------------------------------ | ------------------------------------------ | ------------------------------------------------------------------------- |
-| `RESEND_API_KEY`               | Vercel (Production, Preview), `.env.local` | Full-access key "metric-website". A sending-only key gets 401 on contacts |
-| `MARKETING_UNSUBSCRIBE_SECRET` | Same                                       | At least 32 characters; `openssl rand -hex 32`                            |
-| `MARKETING_EXCLUDED_GYM_IDS`   | Vercel (Production, Preview), `.env.local` | Comma-separated gym ids never put on the lists (owner and test accounts)  |
+| Variable                       | Where                                      | Notes                                                                                      |
+| ------------------------------ | ------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `RESEND_API_KEY`               | Vercel (Production, Preview), `.env.local` | Full-access key "metric-website". A sending-only key gets 401 on contacts                  |
+| `MARKETING_UNSUBSCRIBE_SECRET` | Same                                       | At least 32 characters; `openssl rand -hex 32`                                             |
+| `MARKETING_EXCLUDED_GYM_IDS`   | Vercel (Production, Preview), `.env.local` | Comma-separated gym ids never put on the lists (owner and test accounts)                   |
+| `RESEND_WEBHOOK_SECRET`        | Vercel (Production), `.env.local`          | Signing secret of Resend webhook `774cc897`; `/api/webhooks/resend` answers 500 without it |
 
 **If either is unset:**
 
