@@ -1022,6 +1022,50 @@ enrolment. Nothing has changed about that.
 
 ---
 
+## 10. On-site hardware rounds (prepared 2026-10-07)
+
+The remaining tier-C cases, plus the tier-B cases that are easier with someone
+standing at the readers, became a **runbook of 67 tasks in three rounds**,
+written to be executed one at a time by a Sonnet session with the owner at the
+hardware.
+
+| What                                                          | Where                                                                                       |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Task definitions + the 398-case disposition map               | `docs/architecture/access-control-hardware-runbook.json`                                    |
+| Live status (one row per task, plus rig state, findings, log) | https://claude.ai/artifact/7z5fDgK75AbnYfLWnRZviL                                           |
+| The brief the session reads                                   | `docs/architecture/access-control-hardware-session.md`                                      |
+| The prompt that starts a round                                | `docs/architecture/access-control-hardware-session-prompt.md`                               |
+| The console every task drives                                 | `scripts/hw-session.ts` (guarded: Titan Fitness, `HW Test 1–4`, the two readers, `--apply`) |
+
+**Disposition of all 398 cases** (`npx tsx scripts/hw-session.ts coverage`
+asserts it): 84 already recorded, **165 on site**, **146 desk** (no one needs
+to be at a reader — the next remote session's work), 3 deferred (SOAK-02/03
+need a pilot gym; RC-10 needs a reader filled to capacity). Every tier-C case
+is on site except those three and CRON-09, already recorded. A task's results
+are mirrored into this campaign's `results/<case>` as it completes.
+
+**What preparing it found**, before any travel:
+
+- Device B had been offline since at least 3 October with four commands never
+  transmitted while our record called it current, and the vendor now reports
+  `FpCount`/`UserCount` 0 on it (null on 23 September) — R1-03/R1-04 read both
+  readers' own user lists before anything is trusted.
+- "Re-send to readers" diffed against our own record, so it could not repair
+  exactly that state. Fixed: the desk route forces (master §6, tenth audit).
+- The webhook dropped a delivery for an unknown serial with no trace at all.
+  Fixed: one log line per delivery, naming dropped serials.
+- "Free up space" on a reader with no capacity entered told the desk it was
+  "still 25 short" and to buy a second reader. Fixed: a shortfall is reported
+  only against a known capacity.
+- The E2E enrolment spec opened "the first member", who had since expired, so
+  it went red for a refusal the product is right to make. It now opens the
+  first member who can get in. 14 passed, 1 honest skip.
+- Both readers still carried the synthetic presence and a −20 h clock skew
+  from the 23 September webhook tests; cleared so the first real scan is
+  unambiguous.
+
+---
+
 ## 6. Tracker
 
 **https://claude.ai/artifact/EgC9mSfKccoq29nGH9rRNC**

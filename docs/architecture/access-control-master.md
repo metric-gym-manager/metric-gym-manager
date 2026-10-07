@@ -826,6 +826,23 @@ from 2026-08-28 to 2026-09-22, 351 distinct members — deleted by that exact
 signature after being snapshotted, leaving 17 jobs and a dead count of **0**.
 The next dead job on `/system-health` will be a real one.
 
+### Tenth audit (2026-10-07) — preparing the on-site rounds
+
+Found by reading the vendor's live queue and walking every desk control against
+the state the hardware was actually in, before anyone travelled.
+
+| #       | Inverted assumption                                     | The defect                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AA1** | "The manual override overrides"                         | `POST /members/[id]/sync` documented itself as a forced re-assert and ran the same diff as the outbox — our record against our record. Device B sat four commands behind for four days while that record called it current, so the one state the button exists for was the one it could not touch, and it toasted "Readers updated" having sent nothing. `deriveAccessCommands` now takes `force`; only the desk route sets it, and a blocked member is still never sent a window. |
+| **AA2** | "A delivery we accept is a delivery we can account for" | Every event from an unknown serial was counted and dropped with nothing logged, so on a reader's first contact "VFT never called" and "VFT called about a reader we registered differently" were indistinguishable. The webhook now logs one line per non-empty delivery — counts, dropped serials, the field names of the first unreadable event — and never a value or the token.                                                                                                |
+| **AA3** | "What a batch leaves unfilled is a shortfall"           | Found by pressing **Free up space** on a brand-new reader during the render check: "Freed 0, but this reader is still 25 short … you may need a second reader". With capacity unknown, the manual press asks for a fixed batch of 25 — a request size, not a measured need — and the unfilled remainder was reported as a capacity shortfall, which is the one number that tells a gym to buy hardware. A shortfall is now reported only against a known capacity.                 |
+
+**Two questions the rounds now answer**, both raised by the same walk: whether
+VFT distributes a newly captured template to a second reader by itself
+(nothing in our code re-sends after capture — R1-10/R1-11), and whether
+"Remove fingerprint" erases anything, since `fromdev` keeps the central copy a
+later sync could push back without consent (R2-12).
+
 ---
 
 ## 7. What is NOT built
