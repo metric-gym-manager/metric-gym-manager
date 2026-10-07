@@ -230,6 +230,7 @@ const FLAGS_WITHOUT_VALUE = new Set([
   'fail-consent-write',
   'force',
   'help',
+  'late',
   'mine',
   'no-content-type',
   'no-push',
@@ -787,11 +788,11 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms))
  * Production's drain runs on every five-minute mark. A test that needs the
  * outbox to itself — a crash, a reclaim, a stubbed vendor — starts clear of it.
  */
-async function avoidCronBoundary(): Promise<void> {
+async function avoidCronBoundary(before = 30): Promise<void> {
   const intoCycle = (Date.now() / 1000) % 300
-  if (intoCycle < 25 || intoCycle > 270) {
+  if (intoCycle < 25 || intoCycle > 300 - before) {
     const pause = Math.ceil(
-      (intoCycle > 270 ? 325 - intoCycle : 25 - intoCycle) * 1000
+      (intoCycle > 300 - before ? 325 - intoCycle : 25 - intoCycle) * 1000
     )
     console.log(
       `  (waiting ${Math.round(pause / 1000)}s to stay clear of production's five-minute drain)`
@@ -1170,6 +1171,16 @@ function phaseCommand(): void {
     }
     if (next === 'physical')
       fail('REFUSED: only the physical session enters the physical phase.')
+    // The nightly reconcile (00:00 gym time) acts on every Titan member, the
+    // agents' test members included. A phase must be able to finish before it.
+    const latest =
+      next === 'parallel' ? '15:00' : next === 'exclusive' ? '20:30' : null
+    const now = slt(new Date()).slice(11, 16)
+    if (latest && now >= latest && !flag('late')) {
+      fail(
+        `REFUSED: it is ${now} in Sri Lanka. The ${next} phase must start before ${latest} so the day ends before the 00:00 reconcile. Resume tomorrow, or — only on the owner's word — add --late.`
+      )
+    }
   }
   mkdirSync(EVIDENCE_DIR, { recursive: true })
   writeFileSync(
@@ -2064,30 +2075,64 @@ async function jobs(): Promise<void> {
 
   // `--wait S`: block until none of these jobs is still waiting to run —
   // how a task waits for production's own drain to retry something.
+  // `--wait S`: block until every member in scope has had a sync complete
+  // since the wait began — or has nothing waiting at all. Not "until nothing
+  // is pending": the claim takes ONE job per member per run
+  // (DISTINCT ON member_id), so a member with several queued changes clears
+  // one job every five minutes. Any processed job syncs the member's current
+  // state, so the first one to finish is the retry a task waits for; the rest
+  // are no-ops. Compared on the database's own clock, never this laptop's.
   const waitSeconds = Number(arg('wait') ?? 0)
   const unsettled = [
     AccessSyncStatus.Pending,
     AccessSyncStatus.InFlight,
     AccessSyncStatus.Failed,
   ] as string[]
+  const finished = [
+    AccessSyncStatus.Succeeded,
+    AccessSyncStatus.Dead,
+  ] as string[]
   let data = await fetchJobs()
   if (waitSeconds > 0) {
     const started = Date.now()
-    while (
-      data.some((j) => unsettled.includes(j.status)) &&
-      (Date.now() - started) / 1000 < waitSeconds
-    ) {
+    const baseline = new Map<string, string>()
+    for (const j of data) {
+      const key = String(j.member_id)
+      if (!baseline.has(key) || String(j.updated_at) > baseline.get(key)!) {
+        baseline.set(key, String(j.updated_at))
+      }
+    }
+    const waiting = () =>
+      [
+        ...new Set(
+          data
+            .filter((j) => unsettled.includes(j.status))
+            .map((j) => String(j.member_id))
+        ),
+      ].filter(
+        (memberId) =>
+          !data.some(
+            (j) =>
+              String(j.member_id) === memberId &&
+              finished.includes(j.status) &&
+              String(j.updated_at) > (baseline.get(memberId) ?? '')
+          )
+      )
+    while (waiting().length && (Date.now() - started) / 1000 < waitSeconds) {
       console.log(
-        `  +${Math.round((Date.now() - started) / 1000)}s: ${data.filter((j) => unsettled.includes(j.status)).length} job(s) still waiting…`
+        `  +${Math.round((Date.now() - started) / 1000)}s: waiting for a sync to complete for ${waiting()
+          .map((id) => nameById.get(id) ?? 'a member')
+          .join(', ')}…`
       )
       await wait(15_000)
       data = await fetchJobs()
     }
-    const left = data.filter((j) => unsettled.includes(j.status)).length
+    const left = waiting()
+    const queued = data.filter((j) => unsettled.includes(j.status)).length
     console.log(
-      left
-        ? `  Still waiting after ${waitSeconds}s: ${left} job(s).`
-        : '  All settled.'
+      left.length
+        ? `  NOT YET after ${waitSeconds}s: no sync has completed for ${left.map((id) => nameById.get(id) ?? 'a member').join(', ')}.`
+        : `  ✓ Every member has had a sync complete since the wait began${queued ? ` (${queued} older job(s) still queued — production's drain takes one per member every 5 minutes; they are no-ops)` : ''}.`
     )
   }
   table(
@@ -2364,6 +2409,7 @@ async function memberChange(): Promise<void> {
     )
   console.log(`${member.name} (${before}): ${plan}.`)
   if (!apply) return dryRun(plan)
+  if (noPush) await avoidCronBoundary(75)
   await run()
   if (!noPush) await pushMember(member.id)
   const after = await hwMember(member.id, { owned: false })
@@ -2426,20 +2472,32 @@ async function setDates(): Promise<void> {
   if (!apply)
     return dryRun('write those dates; the trigger then enqueues an outbox job')
 
-  const before = new Date().toISOString()
+  // The job this enqueues is meant for the command that follows it. Leave at
+  // least 75 s before production's next drain, or that drain takes it first.
+  await avoidCronBoundary(75)
+  // New jobs are counted by id, not by time: this laptop's clock and the
+  // database's disagree by more than the update takes.
+  const jobIds = async () =>
+    new Set(
+      (
+        (
+          await supabase
+            .from('access_sync_jobs')
+            .select('id')
+            .eq('member_id', member.id)
+        ).data ?? []
+      ).map((j) => String(j.id))
+    )
+  const existing = await jobIds()
   const patch: { next_due_date?: string; membership_start_date?: string } = {}
   if (due) patch.next_due_date = due
   if (start) patch.membership_start_date = start
   await writeDates(member, patch)
 
   await wait(1_500)
-  const { data: enqueued } = await supabase
-    .from('access_sync_jobs')
-    .select('id')
-    .eq('member_id', member.id)
-    .gte('created_at', before)
+  const enqueued = [...(await jobIds())].filter((id) => !existing.has(id))
   console.log(
-    `✓ Written. Outbox jobs enqueued by the trigger: ${(enqueued ?? []).length}`
+    `✓ Written. Outbox jobs enqueued by the trigger: ${enqueued.length}`
   )
   console.log(
     "  Next: `push --apply` to send it now, or wait ≤5 min for production's drain.\n"
@@ -3758,6 +3816,49 @@ function deskBody(): string | undefined {
     .join(process.env.E2E_ENTERPRISE_GYM_EMAIL ?? '')
 }
 
+/**
+ * A request that keeps the cached session current. Supabase rotates refresh
+ * tokens: once the server refreshes a session it answers with new cookies and
+ * the old refresh token dies, so a jar that ignored Set-Cookie would start
+ * failing about an hour into a run.
+ */
+async function fetchWithJar(
+  user: DeskUser,
+  url: string,
+  init: RequestInit
+): Promise<Response> {
+  const response = await fetch(url, init)
+  if (user !== 'enterprise' && user !== 'lite') return response
+  const fresh = response.headers.getSetCookie()
+  if (!fresh.length) return response
+  const path = resolve(COOKIE_DIR, `${user}.txt`)
+  const jar = new Map(
+    (existsSync(path) ? readFileSync(path, 'utf8') : '')
+      .split('; ')
+      .filter(Boolean)
+      .map(
+        (c) =>
+          [c.slice(0, c.indexOf('=')), c.slice(c.indexOf('=') + 1)] as [
+            string,
+            string,
+          ]
+      )
+  )
+  for (const header of fresh) {
+    const [pair, ...attributes] = header.split(';')
+    const name = pair.slice(0, pair.indexOf('=')).trim()
+    const value = pair.slice(pair.indexOf('=') + 1).trim()
+    const expired =
+      attributes.some((a) => /^\s*max-age=0\s*$/i.test(a)) || value === ''
+    if (expired) jar.delete(name)
+    else jar.set(name, value)
+  }
+  writeFileSync(path, [...jar].map(([n, v]) => `${n}=${v}`).join('; '), {
+    mode: 0o600,
+  })
+  return response
+}
+
 /** One request to the local dev server. Returns the status. */
 async function apiRequest(quiet = false): Promise<number> {
   const method = (positional === 'api' ? positional2 : positional).toUpperCase()
@@ -3793,7 +3894,7 @@ async function apiRequest(quiet = false): Promise<number> {
     headers[k.trim()] = v.join(':').trim()
   }
   const started = Date.now()
-  const response = await fetch(`${DEV_URL}${path}`, {
+  const response = await fetchWithJar(user, `${DEV_URL}${path}`, {
     method: httpMethod,
     headers,
     body,
