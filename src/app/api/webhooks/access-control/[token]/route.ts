@@ -85,6 +85,35 @@ export async function POST(
     const summary =
       await createRecordAccessEvents(createAdminClient()).execute(payload)
 
+    if (summary.received > 0) {
+      // One line per delivery, whatever became of it. Without it a delivery we
+      // accepted and discarded left a 200 and nothing else anywhere, so "the
+      // vendor never called" and "the vendor called about a reader we do not
+      // recognise" could not be told apart — both store nothing. Counts,
+      // serials and field names only: never values, never the path token.
+      console.info('Access webhook delivery', {
+        received: summary.received,
+        stored: summary.stored,
+        duplicates: summary.duplicates,
+        unknownDevice: summary.unknownDevice,
+        unknownSerials: summary.unknownSerials,
+        malformed: summary.malformed,
+        unreadableFieldNames: summary.unreadableFieldNames,
+        enrolmentsConfirmed: summary.enrolmentsConfirmed,
+        driftingDevices: summary.driftingDevices,
+      })
+    }
+
+    if (summary.unknownDevice > 0) {
+      // Expected on a shared vendor account — and also exactly what a reader
+      // registered under a different spelling, or a vendor sending its own
+      // device id instead of the serial, looks like. Named so either is
+      // diagnosable from the log.
+      console.warn(
+        `Access webhook: ${summary.unknownDevice} event(s) from readers we do not know, dropped — ${summary.unknownSerials.join(', ')}`
+      )
+    }
+
     if (summary.unreadableDelivery) {
       // Not "one event failed": the shape of the body was not one we know, so
       // how many scans it carried cannot be counted. Said plainly, because the

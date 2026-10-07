@@ -117,11 +117,17 @@ export class EvictInactiveSubjects {
       (device) => device.template_capacity === null
     )
 
+    const fromManualBatch =
+      input.forceSlots === undefined &&
+      fromThresholds === 0 &&
+      input.reason === 'manual' &&
+      capacityUnknown
+
     const needed =
       input.forceSlots ??
       (fromThresholds > 0
         ? fromThresholds
-        : input.reason === 'manual' && capacityUnknown
+        : fromManualBatch
           ? MANUAL_EVICTION_BATCH
           : 0)
 
@@ -138,7 +144,11 @@ export class EvictInactiveSubjects {
       needed
     )
 
-    summary.shortfall = selection.shortfall
+    // A shortfall is a measured need left unmet — the thing that tells a gym
+    // to buy a second reader. The manual batch is only a request size for a
+    // reader whose limit we do not know, so what it leaves unfilled measures
+    // nothing (found on a brand-new reader: "still 25 short").
+    summary.shortfall = fromManualBatch ? 0 : selection.shortfall
 
     const pacer = new RequestPacer(VENDOR_MAX_REQUESTS_PER_SECOND)
 

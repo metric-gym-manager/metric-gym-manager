@@ -310,6 +310,39 @@ describe('Gap 2 — eviction triggers', () => {
 
       expect(summary.evicted).toBe(0)
     })
+
+    /**
+     * Found pressing the button on a brand-new reader (2026-10-07): "Freed 0,
+     * but this reader is still 25 short … you may need a second reader". With
+     * capacity unknown the manual batch is a request size, not a measured
+     * need, so whatever of it goes unfilled says nothing about the reader —
+     * and a shortfall is what tells a gym to buy hardware.
+     */
+    it('reports no shortfall when capacity is unknown, however little it could free', async () => {
+      const { useCase } = buildEviction(null)
+
+      const summary = await useCase.execute({
+        gymId: 'gym-1',
+        reason: 'manual',
+      })
+
+      expect(summary.evicted).toBe(1)
+      expect(summary.shortfall).toBe(0)
+    })
+
+    it('still reports a real shortfall when a known capacity cannot be met', async () => {
+      // 100 held of 110 is past the 85% threshold; reaching the 70% target
+      // needs 23 slots and only one member can be removed.
+      const { useCase } = buildEviction(110)
+
+      const summary = await useCase.execute({
+        gymId: 'gym-1',
+        reason: 'manual',
+      })
+
+      expect(summary.evicted).toBe(1)
+      expect(summary.shortfall).toBeGreaterThan(0)
+    })
   })
 })
 

@@ -85,6 +85,40 @@ async function openFirstMember(page: Page): Promise<void> {
   }).toPass({ timeout: 60_000 })
 }
 
+/**
+ * Open the first member in the list who may currently enter.
+ *
+ * Since 2026-09-23 the enrolment path resolves the access decision first and
+ * refuses a member who cannot get in (F27/Y2) — the panel says "This
+ * membership is not active…". "The first row" stopped being a usable fixture
+ * the day the seeded gym's newest member (Stress Member 264, due 2026-10-02)
+ * expired: the spec went red for a refusal the product is right to make. The
+ * list order is stable, so this finds the same member on every call.
+ */
+async function openEnrollableMember(page: Page): Promise<void> {
+  await page.goto('/members')
+
+  for (let row = 1; row <= 15; row += 1) {
+    await expect(async () => {
+      await page.getByRole('row').nth(row).click()
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5_000 })
+    }).toPass({ timeout: 60_000 })
+
+    await waitForAccessPanel(page)
+    const panel = page.getByRole('dialog')
+    await expect(panel.getByText(/Can get in|Cannot get in/)).toBeVisible()
+
+    if (await panel.getByText('Can get in').isVisible()) return
+
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toBeHidden()
+  }
+
+  throw new Error(
+    'openEnrollableMember: none of the first 15 members can currently get in — the seeded gym needs an active, paid-up member'
+  )
+}
+
 test.beforeAll(async ({ browser }) => {
   const page = await browser.newPage()
   await loginAsEnterpriseGym(page)
@@ -157,9 +191,7 @@ test('records the consent and starts waiting for a finger', async ({
   page,
 }) => {
   await loginAsEnterpriseGym(page)
-  await openFirstMember(page)
-
-  await waitForAccessPanel(page)
+  await openEnrollableMember(page)
 
   const panel = page.getByRole('dialog')
   const consent = panel.getByRole('checkbox')
@@ -188,7 +220,7 @@ test('records the consent and starts waiting for a finger', async ({
   // Reopening shows the consent as a dated record, which is the point of
   // keeping it rather than a bare boolean.
   await page.reload()
-  await openFirstMember(page)
+  await openEnrollableMember(page)
   await expect(
     page
       .getByRole('dialog')

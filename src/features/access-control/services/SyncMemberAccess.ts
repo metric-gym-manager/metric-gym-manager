@@ -34,6 +34,12 @@ export interface SyncMemberAccessInput {
   memberId: string
   /** Gym-local calendar day. Defaults to now, injectable for tests. */
   today?: Date
+  /**
+   * Re-assert everything to every active reader, ignoring our record of what
+   * they hold. Set by the desk's "Re-send to readers" only — see
+   * `DeriveCommandsInput.force` for why the outbox must not.
+   */
+  force?: boolean
 }
 
 /**
@@ -140,6 +146,7 @@ export class SyncMemberAccess {
         lastSyncedBlocked: subject.last_synced_blocked,
       },
       deviceSerials,
+      force: input.force ?? false,
     })
 
     const failures: SyncFailure[] = []

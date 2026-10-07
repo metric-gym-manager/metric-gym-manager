@@ -16,6 +16,7 @@
  */
 
 import { NextRequest } from 'next/server'
+import type { RecordAccessEventsSummary } from '@/features/access-control/services/RecordAccessEvents'
 
 const mockExecute = jest.fn()
 
@@ -44,11 +45,19 @@ function paramsFor(token: string) {
   return { params: Promise.resolve({ token }) }
 }
 
-const cleanSummary = {
+// Every field of `RecordAccessEventsSummary`: the route reads them, and a
+// fixture missing one passes for the wrong reason or fails for one no real
+// delivery can produce.
+const cleanSummary: RecordAccessEventsSummary = {
   received: 1,
   stored: 1,
   duplicates: 0,
   unknownDevice: 0,
+  unknownSerials: [],
+  malformed: 0,
+  unreadableDelivery: false,
+  unreadableFieldNames: [],
+  enrolmentsConfirmed: 0,
   driftingDevices: [],
   errors: [],
 }
@@ -156,6 +165,94 @@ describe('POST /api/webhooks/access-control/[token]', () => {
       expect(warn).toHaveBeenCalled()
 
       warn.mockRestore()
+    })
+  })
+
+  /**
+   * Every delivery leaves one line in the runtime log.
+   *
+   * Before this, a delivery we accepted and discarded — every event from a
+   * serial we do not know — produced a 200 and nothing else, anywhere. The
+   * first time real hardware calls us, "the vendor never called" and "the
+   * vendor called with a serial we do not recognise" have to be told apart
+   * from the log alone, because nothing reaches the database in either case.
+   */
+  describe('the delivery trace', () => {
+    let info: jest.SpyInstance
+    let warn: jest.SpyInstance
+
+    beforeEach(() => {
+      info = jest.spyOn(console, 'info').mockImplementation(() => {})
+      warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      info.mockRestore()
+      warn.mockRestore()
+    })
+
+    it('logs the counts of every delivery that carried events', async () => {
+      mockExecute.mockResolvedValue({
+        ...cleanSummary,
+        received: 3,
+        stored: 2,
+        duplicates: 1,
+        enrolmentsConfirmed: 1,
+      })
+
+      await POST(makeRequest([{}, {}, {}]), paramsFor(TOKEN))
+
+      expect(info).toHaveBeenCalledTimes(1)
+      const [label, trace] = info.mock.calls[0]
+      expect(label).toBe('Access webhook delivery')
+      expect(trace).toMatchObject({
+        received: 3,
+        stored: 2,
+        duplicates: 1,
+        enrolmentsConfirmed: 1,
+      })
+    })
+
+    it('names the serials it dropped, as a warning', async () => {
+      mockExecute.mockResolvedValue({
+        ...cleanSummary,
+        received: 1,
+        stored: 0,
+        unknownDevice: 1,
+        unknownSerials: ['QEM1253800017'],
+      })
+
+      await POST(makeRequest([{}]), paramsFor(TOKEN))
+
+      expect(info.mock.calls[0][1]).toMatchObject({
+        unknownDevice: 1,
+        unknownSerials: ['QEM1253800017'],
+      })
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining('QEM1253800017')
+      )
+    })
+
+    it('never writes the path token into the log', async () => {
+      mockExecute.mockResolvedValue({
+        ...cleanSummary,
+        received: 1,
+        unknownDevice: 1,
+        unknownSerials: ['QEM1253800017'],
+      })
+
+      await POST(makeRequest([{}]), paramsFor(TOKEN))
+
+      const logged = JSON.stringify([...info.mock.calls, ...warn.mock.calls])
+      expect(logged).not.toContain(TOKEN)
+    })
+
+    it('stays quiet for an empty delivery', async () => {
+      mockExecute.mockResolvedValue({ ...cleanSummary, received: 0, stored: 0 })
+
+      await POST(makeRequest([]), paramsFor(TOKEN))
+
+      expect(info).not.toHaveBeenCalled()
     })
   })
 

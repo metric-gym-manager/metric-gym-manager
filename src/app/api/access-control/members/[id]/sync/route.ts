@@ -10,6 +10,13 @@
  *
  * It re-derives everything from current state rather than replaying a command,
  * so pressing it twice is harmless.
+ *
+ * And it really is forced: every active reader is sent the member, the grant
+ * and the window whatever our record says they hold. It used to diff against
+ * that record, which agrees with itself however wrong it is — so the one case
+ * this button exists for (a reader that lost the member, or never collected
+ * the push) sent nothing and reported "Readers updated". Found on 2026-10-07
+ * with Device B four commands behind while our record called it current.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -45,6 +52,7 @@ export async function POST(
 
     const result = await createSyncMemberAccess(createAdminClient()).execute({
       memberId: id,
+      force: true,
     })
 
     if (!result.applicable) {
