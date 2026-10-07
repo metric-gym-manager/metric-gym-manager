@@ -1022,27 +1022,45 @@ enrolment. Nothing has changed about that.
 
 ---
 
-## 10. On-site hardware rounds (prepared 2026-10-07)
+## 10. Door-hardware sessions: a physical visit and a remote day (prepared 2026-10-07)
 
-The remaining tier-C cases, plus the tier-B cases that are easier with someone
-standing at the readers, became a **runbook of 67 tasks in three rounds**,
-written to be executed one at a time by a Sonnet session with the owner at the
-hardware.
+The remaining cases became a **runbook of 87 tasks in two tracks**, each task
+written to be executed one at a time by a Sonnet session. It replaced a first
+version of three on-site rounds (67 tasks, 5–6 hours each), because most of
+those hours did not need anyone at the readers:
 
-| What                                                          | Where                                                                                       |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Task definitions + the 398-case disposition map               | `docs/architecture/access-control-hardware-runbook.json`                                    |
-| Live status (one row per task, plus rig state, findings, log) | https://claude.ai/artifact/7z5fDgK75AbnYfLWnRZviL                                           |
-| The brief the session reads                                   | `docs/architecture/access-control-hardware-session.md`                                      |
-| The prompt that starts a round                                | `docs/architecture/access-control-hardware-session-prompt.md`                               |
-| The console every task drives                                 | `scripts/hw-session.ts` (guarded: Titan Fitness, `HW Test 1–4`, the two readers, `--apply`) |
+- **Physical visit** (`hw-physical`, HW Test 1–4): only what needs a hand, an
+  eye, a menu or a cable — 101 cases in bands: 1 must (≈ 2 h, the do-not-ship
+  cases and the core premises), 2 should, 3 optional. PH-30 closes every visit.
+- **Remote day** (`hw-remote-lead` + six agents, HW Test 5–10 and the E2E gyms):
+  everything else with both readers online at VFT — 210 cases, including all
+  146 that were "desk". Four agents run **at once** (outbox, lifecycle, api,
+  evidence), then one **alone** (exclusive: reboots, crashes, reclaims, a
+  stubbed vendor, forgetting a reader). The remote day runs first: a remote
+  door open proves the callback with a real event 8, before anyone travels.
+
+Running agents in parallel against production is made safe by the console,
+not by the agents: every command names its agent (`--as`), a shared phase file
+says which track and phase hold the readers, each agent owns disjoint test
+members, reader-wide work is refused outside its phase, desk agents never call
+the vendor, and `hw-session.ts coverage` proves offline that no runbook step
+asks an agent for anything the console would refuse it.
+
+| What                                                         | Where                                                                                          |
+| ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| Task definitions + the 398-case and 86-item disposition maps | `docs/architecture/access-control-hardware-runbook.json` (v3)                                  |
+| Live status (newest result per task)                         | https://claude.ai/artifact/7z5fDgK75AbnYfLWnRZviL                                              |
+| The brief every session reads                                | `docs/architecture/access-control-hardware-session.md`                                         |
+| How to launch each session, and its effort level             | `docs/architecture/access-control-hardware-session-prompt.md`                                  |
+| The sessions' system prompts and settings                    | `.claude/agents/hw-*.md`, `.claude/hw-session.settings.json`                                   |
+| The console every task drives                                | `scripts/hw-session.ts` (Titan, `HW Test N`, the two readers, the E2E gyms, `--as`, `--apply`) |
 
 **Disposition of all 398 cases** (`npx tsx scripts/hw-session.ts coverage`
-asserts it): 84 already recorded, **165 on site**, **146 desk** (no one needs
-to be at a reader — the next remote session's work), 3 deferred (SOAK-02/03
-need a pilot gym; RC-10 needs a reader filled to capacity). Every tier-C case
-is on site except those three and CRON-09, already recorded. A task's results
-are mirrored into this campaign's `results/<case>` as it completes.
+asserts it): 84 already recorded, **101 physical**, **210 remote**, 3 deferred
+(SOAK-02/03 need a pilot gym; RC-10 needs a reader filled to capacity). Agents
+record locally; only the lead or the visit syncs, as new documents, so two
+writers never collide; case verdicts are mirrored into this campaign's
+`results/<case>` at the end of each track.
 
 **What preparing it found**, before any travel:
 
@@ -1063,6 +1081,27 @@ are mirrored into this campaign's `results/<case>` as it completes.
 - Both readers still carried the synthetic presence and a −20 h clock skew
   from the 23 September webhook tests; cleared so the first real scan is
   unambiguous.
+
+**What splitting it into two tracks found:**
+
+- The app's **Mark Paid**, **Add member** and **Re-activate** text the
+  member's number, and the test members cannot share the owner's (duplicate
+  phones are refused). Test members are now created by the console on the
+  daily plan — which the reminder run never texts — with texts suppressed, and
+  parked at every session's end.
+- Driving the real VFT client against a local fake vendor: **a 429 is
+  dead-lettered on its first attempt** (every status below 500 is treated as
+  permanent), and an unfamiliar 200 body reads as "queued". XC-05/XC-06 record
+  both.
+- An **undecodable session cookie** makes the API answer 500 instead of 401
+  (an expired but well-formed one answers 401). AP-02 records it.
+- The E2E enterprise gym had **no readers** left (the Playwright specs forget
+  what they register), so the desk agent registers two and forgets them.
+- Reader capacity is validated to 100–100,000, so the first version's
+  "capacity 5" step would have been refused.
+- The repository's `npm test` Stop hook would run after every reply of a field
+  session; the sessions load `.claude/hw-session.settings.json`, which turns
+  hooks off and allows only the console and `jest` without a prompt.
 
 ---
 

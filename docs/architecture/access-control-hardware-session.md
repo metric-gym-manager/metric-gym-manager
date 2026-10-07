@@ -1,271 +1,273 @@
-# Access Control — On-Site Hardware Session Brief
+# Access Control — Door-Hardware Test Sessions Brief
 
-**The one document the test session reads.** Everything else it needs is in the
-task records. Written 2026-10-07 for the rounds run at VFT with real readers.
+**The one document the test sessions read.** Everything else is in the task
+records. Rewritten 2026-10-07 for two tracks: a short **physical visit** (only
+what needs a hand, an eye, a menu or a cable at the readers) and a **remote
+day** (everything else, with both readers online at VFT), run by a lead and
+six agents at once.
 
-| What                              | Where                                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------------------------- |
-| **Live task list (status)**       | https://claude.ai/artifact/7z5fDgK75AbnYfLWnRZviL — database collections listed in §6       |
-| Task definitions (canonical seed) | `docs/architecture/access-control-hardware-runbook.json` — 67 tasks, 3 rounds, 398-case map |
-| Campaign tracker (case results)   | https://claude.ai/artifact/EgC9mSfKccoq29nGH9rRNC — `results/<case id>`                     |
-| Session prompt                    | `docs/architecture/access-control-hardware-session-prompt.md`                               |
-| Session console                   | `scripts/hw-session.ts` (alias below: `hw`)                                                 |
-| Catalogue / design (do not read)  | `access-control-test-campaign.md`, `access-control-master.md`                               |
+| What                              | Where                                                                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Live status**                   | https://claude.ai/artifact/7z5fDgK75AbnYfLWnRZviL — collection `results` (newest per task wins)              |
+| Task definitions (canonical seed) | `docs/architecture/access-control-hardware-runbook.json` — 87 tasks, 398-case and 86-item simulator map (v3) |
+| Campaign tracker (case results)   | https://claude.ai/artifact/EgC9mSfKccoq29nGH9rRNC — `results/<case id>`                                      |
+| How to launch each session        | `docs/architecture/access-control-hardware-session-prompt.md`                                                |
+| Session agents                    | `.claude/agents/hw-*.md` (system prompts) · `.claude/hw-session.settings.json` (permissions, hooks off)      |
+| Session console                   | `scripts/hw-session.ts` (alias below: `hw`)                                                                  |
+| Catalogue / design (do not read)  | `access-control-test-campaign.md`, `access-control-master.md`                                                |
 
 `hw` means `npx tsx scripts/hw-session.ts`, run from the repository root on
-`master` (after `git pull`), with `.env.local` present.
+`master` (after `git pull`), with `.env.local` present. Every command takes
+`--as <agent>`; `hw help` prints the agent/phase table.
 
 ---
 
-## 1. Owner checklist — before and around each round
+## 1. The two tracks
 
-- [ ] **Before travelling:** ask VFT to confirm the attendance callback URL is
-      registered on account `admin@capitalistone.co` and to fire their
-      WebhookCheck at it. Give them the URL privately — never through a chat.
-- [ ] **Before travelling:** arrange admin access to each reader's menu and
-      permission to pull power, pull the network and change the clock.
-- [ ] **Before Round 1:** merge branch `claude/access-control-hardware-runbook`
-      and let production deploy (R1-01 checks). Merging cuts a release.
-- [ ] Bring the laptop (this repo, `.env.local`, Claude Code) and a phone
-      signed in to www.metricgymos.com as Titan Fitness.
-- [ ] **After the campaign:** rotate the VFT account password (exposed
-      2026-09-22). If the webhook token ever appeared in a transcript, rotate
-      `ACCESS_CONTROL_WEBHOOK_TOKEN` in Vercel and `.env.local` and re-register
-      the URL with VFT.
+|         | Physical visit                                                   | Remote day                                                                         |
+| ------- | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Needs   | the operator at the readers; menu, clock, cable and power access | both readers online at VFT all day; the owner at a browser for ~1 h in the morning |
+| Runs    | one session (`hw-physical`)                                      | a lead (`hw-remote-lead`) + four agents at once, then one alone                    |
+| Members | HW Test 1–4 (each with a finger)                                 | HW Test 5–10 (never a finger) + the two E2E gyms on a local dev server             |
+| Cases   | 101                                                              | 210                                                                                |
+| Time    | band 1 ≈ 2 h (must) · band 2 ≈ 1½ h · band 3 ≈ 1½ h (optional)   | ≈ 1¼ h with the owner, then ≈ 4–5 h unattended                                     |
+
+**Order: the remote day first, then the visit.** The remote day proves the
+callback (a remote door open sends a real event 8), finds defects the visit
+would otherwise trip over, and leaves the visit only what needs a person.
+**The two tracks never run at the same time** — the console refuses: the phase
+file is shared and each track claims it.
+
+**Bands (physical):** 1 = the do-not-ship cases and the core premises (a finger
+enrols, the first scan confirms, the end date is inclusive, midnight bites,
+cancel/rejoin needs no re-enrolment, an offline reader still admits). 2 =
+clocks, withdrawal, interrupted and device-local enrolment, scans under
+pressure. 3 = menu deletion, network and power trouble, finger races, a
+condensed day, the five-source audit. PH-30 closes **every** visit; PH-31 (the
+acceptance gates) only the last.
 
 ---
 
-## 2. The rig
+## 2. Owner checklist
 
-|                     | Reader A                                                                   | Reader B                                                            |
-| ------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Serial              | `NYU7251900066`                                                            | `NYU7254500734`                                                     |
-| Our name            | Device A (test)                                                            | Device B (test)                                                     |
-| Vendor name         | Device1                                                                    | Device B (test)                                                     |
-| State on 2026-10-07 | Collected a backlog on 5 Oct; 2 validity commands sent, never acknowledged | Offline since ≤3 Oct; 4 commands NEVER SENT; vendor reports 0 users |
+**Before the remote day**
+
+- [ ] Ask VFT to bring **Device B online** (it has been offline since ≤ 3 Oct,
+      commands NEVER SENT) and to keep both readers powered and networked all
+      day with nobody touching them.
+- [ ] `git pull` on the laptop: the sessions' console, agents and settings
+      live on `master`.
+- [ ] Do not schedule a Titan announcement for that day.
+- [ ] Have a browser signed in to www.metricgymos.com as Titan Fitness (laptop)
+      and, for LD-06, a phone signed in too.
+
+**Before the physical visit**
+
+- [ ] Arrange admin access to each reader's menu and permission to change its
+      clock, pull its network cable and pull its power.
+- [ ] The remote day's results are synced (LD-11) and its findings read.
+- [ ] Laptop (this repo, `.env.local`, Claude Code) and a phone signed in as
+      Titan Fitness.
+
+**After the campaign**
+
+- [ ] Rotate the VFT account password (exposed 2026-09-22).
+- [ ] Rotate `ACCESS_CONTROL_WEBHOOK_TOKEN` in Vercel and `.env.local` and
+      re-register the URL with VFT: the token appeared in the setup session's
+      transcript on 2026-10-07 (a raw dev-server log line). Do it after the
+      campaign, so the sessions keep one URL.
+
+---
+
+## 3. The rig
+
+|             | Reader A        | Reader B        |
+| ----------- | --------------- | --------------- |
+| Serial      | `NYU7251900066` | `NYU7254500734` |
+| Our name    | Device A (test) | Device B (test) |
+| Vendor name | Device1         | Device B (test) |
 
 - **Gym:** Titan Fitness (`481599f6-5134-4152-83b2-6e2dd10e3018`), Enterprise.
-  It is the owner's real gym: **real members are on these readers.** The
-  session touches only the four test members.
-- **Test members (created in R1-06):** `HW Test 1` = right index finger ·
-  `HW Test 2` = right middle · `HW Test 3` = left index · `HW Test 4` = left
-  middle · unknown finger = right thumb (never enrolled anywhere).
-- **App paths** (www.metricgymos.com, signed in as Titan Fitness):
-  - _Member panel_ — Members → click the member → scroll to **Door Access**:
-    badge, explanation, window line, Fingerprint badge, consent box, reader
-    drop-down, **Register fingerprint**, **Remove fingerprint**, **Re-send to
-    readers**. Status actions (**Suspend Member**, **Activate Member**,
-    **Cancel Member** — only from suspended/expired) are higher in the modal;
-    **Mark Paid** / **Re-activate** sit in the footer.
-  - _Door Access_ — sidebar → Door Access: alert strip, a card per reader
-    (**Open door**, **Free up space**, **Restart**), Recent activity with
-    All / Entries / Refusals / Alerts / Device filters. It does not refresh by
-    itself: reload the page to see new scans.
-  - _Reader settings_ — Settings → Access Control: account card; readers with
-    name, capacity, **In use** switch and **Forget** (bin icon).
+  It is the owner's **real gym**: real members exist; the console touches only
+  members named `HW Test N`.
+- **Test members** are created by the console (`create-members`) on the
+  **daily plan**, 1 LKR, synthetic phone numbers `+947000001NN`, due +200 days,
+  and pushed to both readers at once. `HW Test 1` = right index finger ·
+  `2` = right middle · `3` = left index · `4` = left middle · unknown finger =
+  right thumb. HW Test 5–10 belong to the remote track.
+- **E2E gyms** (desk only, through the local dev server): enterprise
+  `e0d0a7f9-…` (two fake readers) and lite `3133db6c-…`. Their vendor accounts
+  **must stay inactive** — `hw e2e-account` shows it.
+- **App paths** (signed in as Titan Fitness): _Member panel_ — Members → the
+  member → **Door Access**: badge, explanation, Fingerprint badge, consent box,
+  reader drop-down, **Register fingerprint**, **Remove fingerprint**, **Re-send
+  to readers**. _Door Access_ — sidebar: alert strip, a card per reader (**Open
+  door**, **Free up space**, **Restart**), Recent activity (All / Entries /
+  Refusals / Alerts); reload to see new scans. _Reader settings_ — Settings →
+  Access Control: name, capacity (100–100,000), **In use**, **Forget**.
 
 ---
 
-## 3. Hard rules
+## 4. Who may touch what — the conflict model
+
+Several agents run against the same two readers at once, so the console, not
+their good behaviour, keeps them apart. The phase is in
+`backups/hw-session/phase.json`; only `hw phase set` moves it (the lead for the
+remote track, the physical session for its own).
+
+| Agent       | Members it owns (phase)                  | Reader-wide + outbox work        | Vendor pace |
+| ----------- | ---------------------------------------- | -------------------------------- | ----------- |
+| `physical`  | HW Test 1–4 (physical)                   | yes (physical)                   | 4/s         |
+| `lead`      | HW Test 5–10 (idle), 9–10 (parallel)     | idle; door opens + soak parallel | 1/s         |
+| `outbox`    | HW Test 5–6 (parallel)                   | no                               | 1.5/s       |
+| `lifecycle` | HW Test 7–8 (parallel)                   | no                               | 1.5/s       |
+| `api`       | none — E2E gyms via the local dev server | no                               | none        |
+| `evidence`  | none — read-only (code, tests, docs)     | no                               | none        |
+| `exclusive` | HW Test 5–10 (exclusive)                 | yes (exclusive)                  | 4/s         |
+
+- **Reader-wide** = acts on a whole reader or on the shared outbox: `drain`,
+  `reconcile --apply`, `open`, `reboot`, `free-space`, `capacity --set`,
+  `vendor events-pull`, an `enrol` on a real reader (it holds the reader until a
+  finger or the timeout), `reclaim`, `forget`/`register`, `burst sync`, `soak`.
+  An `enrol --vendor-url` to the local stub is member-scoped.
+- **Members** are refused by number before any lookup: an agent can never
+  write to another agent's member, and nothing can address a real member.
+- **Paces** sum to 4/s in the parallel phase, under the 5/s production's own
+  drain assumes; the vendor documents no limit (a 429 is itself a finding).
+- **Desk agents never call the vendor**; the api agent reaches only
+  `http://localhost:3100` and refuses Titan's reader serials in any webhook.
+- **`hw coverage`** proves it offline: every step's command, member and scope is
+  one the console grants its agent in its phase; every case and simulator item
+  has exactly one task. Production's own drain still runs every 5 minutes — it
+  processes every agent's jobs, which is the system working, and the tasks are
+  written to expect it.
+
+---
+
+## 5. Hard rules (both tracks)
 
 1. **Never print a secret.** Not the webhook token or URL, the VFT password,
-   the service-role key or `CRON_SECRET`. Never `cat .env.local` and never
-   echo a variable from it. Vercel log entries can include the request path,
-   which contains the webhook token: quote only message text. If a token
-   appears in any tool output, open finding "webhook token exposed in a
-   transcript — rotate after the campaign" and carry on.
-2. **Touch only HW Test 1–4.** Write to production only through `hw … --apply`
-   or the app UI as the operator. Never run SQL `UPDATE`/`DELETE`/`INSERT`
-   against production tables. Read-only SQL is fine.
-3. **Never** run `provision-access-control-test-gym.ts` with
-   `ALLOW_CREDENTIAL_OVERWRITE`, never delete vendor subjects or queues, never
-   call `DELETE /api/devicecmd`, never run the E2E suite with the real provider.
-4. **No code changes during a session.** A defect is recorded as a finding;
-   fixing it is a separate desk session.
-5. **Run every task's `restore` before moving on**, even when the task failed.
-6. **Measure the thing.** The reader's screen, the vendor queue (`watch-queue`)
-   and the database (`snapshot`, `watch-events`) are evidence. A toast, an HTTP
-   200 or a green summary is not. Pending is not failure. A queued command is
-   not an applied one.
-7. **Stop and ask the operator** before anything a task does not list, and
-   whenever a `stop_if` condition holds.
+   the service-role key or `CRON_SECRET`. Never open `.env.local` (the session
+   settings deny it). Vercel log entries can include the request path, which
+   holds the webhook token: quote only message text.
+2. **Writes only through the console** (`--apply`, your own `--as`) or the
+   operator's clicks in the app. Read-only SQL only. A REFUSED answer is the
+   fence working: never get around it.
+3. **Never text anyone.** The app's **Mark Paid**, **Add member**,
+   **Re-activate** and **Day pass** send real texts to a member's number — the
+   test members' numbers are synthetic and might belong to someone. Use the
+   console's `pay`, `create-members`, `reactivate`/`unpark` (texts suppressed,
+   nothing logged). Test members are on the daily plan, which the 09:00 SLT
+   reminder run never texts (`REMINDER_RULES[Daily]` is empty), and every
+   session ends with its members **parked** (cancelled).
+4. **Never** run `provision-access-control-test-gym.ts` with
+   `ALLOW_CREDENTIAL_OVERWRITE`, never delete a vendor subject or queue (the
+   console cannot), never write vendor credentials (it cannot), never deploy.
+5. **No code changes during a session.** A defect is a `--finding`.
+6. **Run every task's Restore**, even when the task failed.
+7. **Measure the thing.** The reader's screen, the vendor queue
+   (`watch-queue`) and our records (`snapshot`, `jobs`, `watch-events`) are
+   evidence. A toast, an HTTP 200 or a ✓ is not. Pending is not failure; a
+   queued command is not an applied one.
 
 ---
 
-## 4. The console (`hw`)
+## 6. The console (`hw`, every command `--as <agent>`)
 
-| Command                                                                                                                                 | What it does                                                                                                                                                                                                                                                                                                                                           |
-| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `hw snapshot`                                                                                                                           | Read-only. Our readers (presence, skew), HW members (status, dates, consent, subject, held by, finger, window sent), the newest real-member change (a stop condition), latest scans, latest jobs + dead count, vendor counters (FpCount/UserCount), vendor subject records, each reader's queue tail. Saves JSON evidence under `backups/hw-session/`. |
-| `hw watch-events --since 3m --timeout 120 [--all]`                                                                                      | Read-only. Prints each stored scan: reader, subject, member, event code + kind, verify type, reader clock vs stored time. Looks back from `--since`, so run it **after** the operator scans. Stops 15 s after the first scan unless `--all`.                                                                                                           |
-| `hw watch-queue --reader A\|B --since 5m --timeout 180`                                                                                 | Read-only. Follows that reader's vendor queue until our recent commands are DONE. States: `NEVER SENT` (reader not polling), `SENT, NOT DONE`, `SENT, NO REPLY`, `DONE` with the Return code.                                                                                                                                                          |
-| `hw set-dates --member "HW Test 1" --due D --start D --apply`                                                                           | D = `YYYY-MM-DD`, `today`, `yesterday`, `tomorrow`, `+N`, `-N` (gym-local days). The trigger enqueues an outbox job.                                                                                                                                                                                                                                   |
-| `hw drain --apply`                                                                                                                      | Runs the real outbox drain now, from the laptop, so a change need not wait up to 5 min for the cron. Refuses if another gym has jobs due. `--crash-after N` exits after the Nth vendor command is accepted, leaving jobs in_flight on purpose.                                                                                                         |
-| `hw reconcile [--apply]`                                                                                                                | Runs the real nightly reconcile for Titan. Without `--apply` it reports whom it would enqueue.                                                                                                                                                                                                                                                         |
-| `hw vendor <validperiod\|block\|grant\|sync> --member M --reader A\|B [--start YYYYMMDD --end YYYYMMDD] --apply`                        | One direct vendor call that bypasses our records on purpose (A-8). Restore with the panel's Re-send.                                                                                                                                                                                                                                                   |
-| `hw vendor events-pull --reader A\|B --apply`                                                                                           | Asks the reader to upload its stored attendance log.                                                                                                                                                                                                                                                                                                   |
-| `hw enrol --member M --reader A\|B [--consent] --apply`                                                                                 | One real enrolment outside the panel (the panel hides Register once a finger is registered).                                                                                                                                                                                                                                                           |
-| `hw withdraw --member M --apply`                                                                                                        | The same use case as Remove fingerprint, usable mid-enrolment.                                                                                                                                                                                                                                                                                         |
-| `hw race <consent\|enrol-both\|enrol-two\|enrol-vs-cancel\|double-cancel> --member M [--member2 M] [--reader A\|B] [--consent] --apply` | Real use cases fired at the same instant. Cancellation follows the app's path (suspend → cancel).                                                                                                                                                                                                                                                      |
-| `hw ambiguous <enrol\|sync> --member M [--reader A\|B] [--consent] --apply`                                                             | The vendor really receives the command; our side is told it timed out.                                                                                                                                                                                                                                                                                 |
-| `hw coverage`                                                                                                                           | Offline: every catalogue case has exactly one disposition in the runbook.                                                                                                                                                                                                                                                                              |
+| Group       | Commands                                                                                                                                                                                                                                                                                                                                                                                                              |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runbook     | `task <ID>` · `tasks [--agent A]` · `record --task ID --status S --outcome "…" --case ID=verdict… [--obs …] [--finding …]` · `results [--emit-batch [--tracker]] [--mark-synced FILE]` · `phase [set P]` · `coverage`                                                                                                                                                                                                 |
+| Read        | `snapshot` (shared-phase agents see only their own members) · `watch-events [--since 3m --timeout 120 --all --member M --code C]` · `watch-queue --reader A\|B [--since 5m --timeout 180 --member M]` · `jobs [--member M] [--wait S]`                                                                                                                                                                                |
+| Members     | `create-members --from N --to N` · `park`/`unpark --member M \| --mine` · `pay`/`suspend`/`cancel`/`reactivate --member M [--no-push]` · `push`/`resend --member M [--vendor-url U]` · `rename --member M --to "HW Test N …"` · `set-dates --member M [--due D] [--start D]` · `withdraw --member M`                                                                                                                  |
+| Vendor      | `vendor validperiod\|block\|grant\|sync --member M --reader A\|B` (bypasses our records on purpose; restore with `resend`) · `vendor events-pull --reader A\|B` · `enrol --member M --reader A\|B [--consent] [--vendor-url U [--fail-consent-write]]` · `race <scenario>` · `ambiguous enrol \| push --lose <method>`                                                                                                |
+| Reader-wide | `drain [--crash-after N \| --crash-on-complete] [--vendor-url U]` · `reconcile [--apply]` · `reclaim --older-than S` · `open`/`reboot --reader A\|B` · `free-space` (refuses if a real member would be evicted) · `capacity --reader A\|B [--set N \| --clear]` · `forget`/`register --reader B` · `burst sync … --approved` · `soak --member M --minutes 60`                                                         |
+| Stub        | `stub --port P --mode M` (127.0.0.1 only; modes ok, validation, 500, 500bare, 502, 429, slow, hang, garbage, bizfail, auth) · `stub-mode --port P --mode M` · `stub-log --port P [--since 5m]` · `stub-stop --port P`                                                                                                                                                                                                 |
+| Desk        | `devserver start\|stop\|status\|log [--grep X]` · `api <METHOD> <path> --user enterprise\|lite\|anon\|tampered [--body JSON \| --body-gen K] [--find TEXT]` · `webhook --serial S \| --unknown […] [--token good\|wrong\|empty\|short] [--events N \| --same N \| --body-gen K] [--repeat K]` · `burst webhook\|api … --count K` · `tier --gym enterprise\|lite [--to T \| --restore]` · `e2e-account [--deactivate]` |
 
-Without `--apply` every write command prints what it would do and stops.
-**Placeholders** in a task's command (`<TODAY>`, `<TODAY+30>`, `<HW3 subject
-id>`) are filled from the latest snapshot: its header gives gym-today, and the
-members table gives subject ids. Write `<TODAY>` as `YYYYMMDD` for vendor
-commands.
+Without `--apply` every write prints what it would do and stops. `D` in dates
+= `YYYY-MM-DD`, `today`, `yesterday`, `tomorrow`, `+N`, `-N` (gym-local days).
+Placeholders in a step (`<TODAY>`, `<E2E_DEVICE_1>`, `<HW3 subject id>`) are
+filled from earlier output; vendor dates are `YYYYMMDD`.
 
-**Read-only SQL** (Supabase MCP `execute_sql`) is for what the console does not
-print. Columns worth knowing: `access_events(occurred_at, created_at,
-device_serial, subject_id, member_id, event_code, verify_type, raw)`,
-`access_sync_jobs(intent, status, attempts, last_error, payload, created_at,
-updated_at)`, `cron_logs(job_name, status, started_at, summary)`.
-
-**Vercel MCP:** project `prj_A65dZtjDSUp0qVs1SKNDxaAe2AAy`, team
-`team_Fl7rQYbRLMhzxU8bhXeMOE94`. Use `list_deployments` (target production)
-and `get_runtime_logs` with `query` = a message text such as
-`Access webhook`. The tool can time out; one retry, then ask the operator to
-read the Vercel dashboard log message aloud (never the path).
+**Read-only SQL** (lead and physical only, Supabase MCP): `access_events
+(occurred_at, created_at, device_serial, subject_id, member_id, event_code,
+verify_type, raw)`, `access_sync_jobs(intent, status, attempts, last_error,
+payload)`, `cron_logs(job_name, status, started_at, summary)`. **Vercel MCP:**
+project `prj_A65dZtjDSUp0qVs1SKNDxaAe2AAy`, team `team_Fl7rQYbRLMhzxU8bhXeMOE94`;
+`list_deployments`, `get_runtime_logs` with `query` = message text (one retry,
+then ask the owner to read the dashboard message aloud — never the path).
 
 ---
 
-## 5. Reading what comes back
+## 7. Reading what comes back
 
-**Event kinds** (printed by `watch-events`). _Granted_ = the door opened:
-`0`/`14` normal fingerprint entry, `1`/`16` inside a normal-open period,
-`8` opened remotely. _Denied_ = refused: `20`/`31` scanned again too soon,
-`21`/`35`/`22` outside the valid time period, `23` unauthorised, `27`/`30`/`34`
-not registered, `29`/`33` privilege expired. _System_ = reader or door state.
-_Alarm_ = needs a person. An unknown code is stored as-is; record it.
+**Event kinds.** _Granted_: `0`/`14` fingerprint entry, `1`/`16` normal-open
+period, `8` opened remotely. _Denied_: `20`/`31` too soon, `21`/`35`/`22`
+outside the valid period, `23` unauthorised, `27`/`30`/`34` not registered,
+`29`/`33` expired. _System_ = reader or door state; _Alarm_ = needs a person.
+**Verify type:** `1` fingerprint (the only one that confirms an enrolment),
+`0` password, `2` card, `15` face.
 
-**Verify type:** `1` fingerprint, `0` password, `2` card, `15` face. Only a
-`1` confirms an enrolment.
+**Return codes in the queue:** `≥ 0` success (enrol gives `6`). `-7` repeated
+command and `-28` door already open are benign. `-725` = no answer in ~2 min
+(retryable). `-18` = reader full. The vendor's `500 {"message":"Validation
+error"}` means "already true or already queued" — benign.
 
-**Return codes in the queue:** `≥ 0` success (enrol gives `6`; a data query
-returns a count). `-7` repeated command and `-28` door already open are
-benign. `-725` means the reader did not answer within ~2 min, which is
-retryable. `-18` means the reader is full. The vendor's
-`500 {"message":"Validation error"}` means "already true or already queued"
-and is benign.
+**Our retry rule** (what the stub tasks check): network errors, timeouts,
+502/503/504 and a **bare** 500 are retried with backoff; a 500 whose body names
+a reason is a permanent rejection flagged for attention; **any status below 500
+— including 429 — is permanent** (a known gap, XC-05 records it); an unfamiliar
+200 body reads as "queued" and the reconcile settles it.
 
 **Clock:** `watch-events` prints reader clock − stored time. Within ±120 s is
-normal (delivery lag). About ±19,800 s means a timezone error. After a
-deliberate clock change, a large value is expected.
+normal. ≈ ±19,800 s is a timezone error. **Delivery delay is unknown until the
+first event of a session arrives** — wait up to 9 minutes (`--timeout 540`)
+before concluding nothing came, then use at least twice the measured delay.
 
-**Delivery delay is unknown until R1-07 measures it.** VFT may batch webhook
-deliveries, so "no scan within 2 minutes" is not "no scan". Until
-`state/rig.answers.deliveryLatencySeconds` is set, wait up to **10 minutes**
-(`--timeout 600`) before concluding a scan never arrived. After that, use a
-`--timeout` of at least twice the measured delay, and never less than 120 s.
-A task's own `--timeout` is a floor, not a ceiling.
-
-**Expected screen behaviour, not defects:**
-
-- A reader shows _Not responding_ 15 min after its last scan: the vendor sends
-  no heartbeat.
-- _Fingerprints_ on a reader card counts only after an eviction run.
-- An enrolment is confirmed only by the member's first fingerprint scan.
-- Door Access needs a page reload to show new scans.
+**Expected, not defects:** a reader shows _Not responding_ 15 min after its
+last event (no heartbeat); _Fingerprints_ on a card counts only after an
+eviction run; an enrolment is confirmed only by the first fingerprint scan;
+Door Access needs a reload to show new scans.
 
 ---
 
-## 6. Recording — after every task, one write
+## 8. Recording and syncing
 
-Read one task: `ArtifactData get` url = the runbook artifact,
-`collection: "tasks"`, `doc_id: "R1-08"`. Its `version` is needed to write.
+Every session records its own tasks locally, one command per task:
 
-**Update the task** (`ArtifactData update` with `if_version`):
-
-```json
-{
-  "status": "pass | fail | partial | blocked | skipped",
-  "outcome": "1–3 sentences: what happened against what was expected.",
-  "observations": {
-    "A1": "refusals-arrive",
-    "enrolReturn": "6",
-    "readerScreen": "Verified"
-  },
-  "caseResults": { "ENR-01": "pass", "CONSENT-02": "pass" },
-  "findings": ["H06"],
-  "artifacts": ["backups/hw-session/2026-…-snapshot.json"],
-  "at": "<ISO time>",
-  "by": "hardware session"
-}
+```
+hw record --task OB-02 --status pass --outcome "Block reached both readers (Return 0) with no window; grant then window after the payment." \
+  --case ACCESS-02=pass --case OUT-01=pass --case OUT-02=pass --obs "blockLatencyA=9s" --as outbox
 ```
 
-- `caseResults` gives one verdict per case in the task's `cases`. A pass
-  criterion tagged `[CASE-ID]` decides that case. Untagged criteria apply to
-  the task as a whole.
-- **Never** write a field named `evidence`, `steps`, `pass` or `cases`: those
-  are the definition.
+- Status: `pass` (every PASS holds), `fail` (a FAIL-if holds), `partial`,
+  `blocked` (could not run — say why), `skipped` (only where a task says so).
+- Every case of the task gets a verdict when the status is pass/fail/partial:
+  `pass`, `fail`, `partial`, `blocked`, `na`, and for evidence `pinned` (a
+  passing test asserts exactly this, cited file:line) or `gap`.
+- Records live in `backups/hw-session/results/<agent>/` (gitignored) and keep
+  their history. An agent can record only its own tasks.
 
-**Mirror into the campaign tracker** (one `ArtifactData batch`, url
-`https://claude.ai/artifact/EgC9mSfKccoq29nGH9rRNC`, collection `results`,
-`op: "set"`, no `if_version` for a new case; for a case that already has a row,
-`get` it first and pass its version):
-
-```json
-{
-  "status": "pass",
-  "note": "Hardware runbook R1-08 (2026-10-08): <outcome>",
-  "at": "<ISO>",
-  "by": "hardware-runbook"
-}
-```
-
-Status mapping: pass → `pass`, fail → `fail`, partial or blocked →
-`blocked` (say why in the note), skipped → write nothing.
-
-**Also keep these current on the runbook artifact:**
-
-- `state/rig.currentTask` — set it to the next task id when moving on (`update`).
-- `state/rig.callback`, `.capabilities.*` and `.answers.*` — when a task
-  settles them.
-- `log/entries` — prepend `{t, actor: "hardware session", text}` to `entries`,
-  one line per task. `update` replaces the whole array, so keep the existing
-  entries.
-- `findings/H<n>` — a new finding is `set` with `{title, severity:
-low|medium|high|critical, status: open, task, detail}`. Continue from the
-  highest existing id (H01–H05 exist).
-- `rounds/<n>` — at close-out, `update` with `{status, date, summary}`.
+**Only the lead (remote) or the physical session syncs**, so two writers never
+collide: `hw results --emit-batch` writes a batch of NEW documents
+(`results/<task>~<time>`, so no versions are needed) → `ArtifactData batch` on
+the runbook artifact with that `writes.json` → `hw results --mark-synced
+<mark.json>`. At the end of a track, `--emit-batch --tracker` does the same for
+the campaign tracker's `results/<case id>` (pinned → pass with a "PINNED" note;
+gap/partial/blocked → blocked); a case that already has a row there is refused
+and is updated by hand with its version.
 
 ---
 
-## 7. Rounds
+## 9. When something looks wrong
 
-| Round | Theme                                                                                          | Tasks       | ≈ hours |
-| ----- | ---------------------------------------------------------------------------------------------- | ----------- | ------- |
-| 1     | A finger, a scan, a door — every remaining do-not-ship case and the simulator plan's top eight | R1-01…R1-27 | 5–6     |
-| 2     | Time, failure and the honest screen                                                            | R2-01…R2-19 | 4–5     |
-| 3     | Concurrency, ambiguity, recovery, acceptance                                                   | R3-01…R3-21 | 6       |
-
-Run tasks in order. A task whose `requires` capability is missing (see
-`state/rig.capabilities`), or whose `depends_on` did not pass, is `blocked`
-with the reason. Move on. A round can stop part-way: write the close-out
-anyway, and the next session starts from `state/rig.currentTask`.
-
-**The simulator plan's 86 items** (`vft-simulator-test-plan.md`) are mapped
-too, in the runbook's `simulatorPlan` section: 51 are covered by tasks (each
-task's `sim` lists them), 17 were done earlier, 14 are desk work, 1 is deferred
-(C-4, a full reader), and 3 are excluded on purpose (A-7 needs a second vendor
-area; D-13/D-14 would mean downgrading or suspending the owner's real gym).
-
-**Not in these rounds:** 146 catalogue cases need no one at the reader (listed
-in `meta/coverage.desk`). They belong to a later remote session using the same
-tools. Three are deferred: SOAK-02/03 need a pilot gym, and RC-10 needs a full
-reader.
-
----
-
-## 8. When something looks wrong
-
-| Symptom                                                | Check, in order                                                                                                                                                                                                     |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| No scan stored                                         | Callback live (`state/rig.callback`)? Log line `Access webhook delivery`: `unknownSerials` means the serial differs; `unreadableFieldNames` means the payload shape differs. No line at all means nothing was sent. |
-| Command stays `NEVER SENT`                             | The reader is not reaching the vendor: power, cable or Wi-Fi, reader network settings. VFT territory.                                                                                                               |
-| `DONE` but nothing happened on the reader              | Record the Return value and the exact screen. It is a finding, not a retry.                                                                                                                                         |
-| `drain` refuses                                        | Another gym has jobs due: wait for the cron (≤5 min) and run `drain` again.                                                                                                                                         |
-| `set-dates` refuses a member                           | The name must be exactly `HW Test N` in Titan Fitness.                                                                                                                                                              |
-| A real member changed (snapshot "newest change" moved) | Stop the round and tell the operator.                                                                                                                                                                               |
-| Dead job appears                                       | Stop. `snapshot` shows it; read its `last_error` with SQL; record a finding.                                                                                                                                        |
+| Symptom                                        | Check, in order                                                                                                                                        |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| No event stored                                | Log line `Access webhook delivery`: `unknownSerials` = the serial differs; `unreadableFieldNames` = the payload shape differs; no line = nothing sent. |
+| Command stays `NEVER SENT`                     | The reader is not reaching the vendor: power, cable, Wi-Fi. VFT territory.                                                                             |
+| `DONE` but nothing happened on the reader      | Record the Return value and the exact screen: a finding, not a retry.                                                                                  |
+| `REFUSED (…, phase …)`                         | The fence. Wrong agent, wrong phase or another agent's member. Record blocked; never work around it.                                                   |
+| `drain` refuses                                | Another gym's jobs are due, or (with `--vendor-url`) a real member's: wait ≤ 5 min for the cron and retry once.                                        |
+| A real member changed (snapshot newest change) | Stop and tell the owner/operator.                                                                                                                      |
+| A dead job appears you did not cause           | Stop. `jobs` shows it; record a finding.                                                                                                               |
+| The dev server stops answering                 | `hw devserver status`; the lead restarts it (`devserver start`).                                                                                       |
