@@ -30,12 +30,14 @@
  *   watch-queue  --reader A|B [--since 5m] [--timeout 180]
  *   set-dates    --member "HW Test 1" [--due D] [--start D] [--apply]
  *                D = YYYY-MM-DD | today | yesterday | tomorrow | +N | -N   (gym-local days)
- *   drain        [--apply]           run the real outbox drain once, now
+ *   drain        [--crash-after N] [--apply]   run the real outbox drain once, now
  *   reconcile    [--apply]           run the real nightly reconcile for Titan, now
  *   vendor       <validperiod|block|grant|sync> --member M --reader A|B [--start YYYYMMDD --end YYYYMMDD] [--apply]
  *   vendor       events-pull --reader A|B [--apply]
- *   race         <consent|enrol-both|enrol-two|enrol-vs-cancel|double-cancel> --member M [--member2 M] [--reader A|B] [--apply]
- *   ambiguous    <enrol|sync> --member M [--reader A|B] [--apply]
+ *   enrol        --member M --reader A|B [--consent] [--apply]
+ *   withdraw     --member M [--apply]          consent withdrawal, as the panel's Remove fingerprint
+ *   race         <consent|enrol-both|enrol-two|enrol-vs-cancel|double-cancel> --member M [--member2 M] [--reader A|B] [--consent] [--apply]
+ *   ambiguous    <enrol|sync> --member M [--reader A|B] [--consent] [--apply]
  *   coverage                         offline: every catalogue case has exactly one disposition
  *
  * Usage: npx tsx scripts/hw-session.ts <command> [options]
@@ -55,6 +57,8 @@ import { ReconcileMemberAccess } from '../src/features/access-control/services/R
 import { ManageMemberBiometric } from '../src/features/access-control/services/ManageMemberBiometric'
 import { SupabaseGymSubscriptionRepository } from '../src/features/subscriptions/services/SupabaseGymSubscriptionRepository'
 import { CancelMember } from '../src/features/members/services/CancelMember'
+import { SuspendMember } from '../src/features/members/services/SuspendMember'
+import { MemberStatus } from '../src/features/members/config/StatusConfig'
 import { SupabaseMemberRepository } from '../src/features/members/services/SupabaseMemberRepository'
 import {
   classifyDeviceEvent,
@@ -927,13 +931,58 @@ async function drain(): Promise<void> {
   if (!apply)
     return dryRun('claim and process those jobs now with the real drain')
 
+  // `--crash-after N` kills this process the moment the Nth vendor command
+  // has really been accepted — mid-batch, jobs still `in_flight`, our records
+  // not yet written. That is a worker dying under load (REC-03/07, FAIL-08):
+  // the next drain must reclaim the jobs after STALE_JOB_RECLAIM_SECONDS and
+  // finish them, and the readers must end up correct.
+  const crashAfter = arg('crash-after') ? Number(arg('crash-after')) : null
+  if (crashAfter !== null && !(crashAfter >= 1)) {
+    fail('--crash-after needs a whole number of commands, 1 or more')
+  }
+  let accepted = 0
+  const commandMethods = new Set([
+    'upsertSubject',
+    'syncSubjectsToDevice',
+    'setValidPeriod',
+    'grantAccess',
+    'blockAccess',
+    'revokeBiometrics',
+  ])
+  const drainProvider =
+    crashAfter === null
+      ? provider
+      : (new Proxy(provider, {
+          get(target, prop, receiver) {
+            const value = Reflect.get(target, prop, receiver)
+            if (typeof value !== 'function') return value
+            if (!commandMethods.has(String(prop))) return value.bind(target)
+            return async (...args: unknown[]) => {
+              const outcome = await (
+                value as (...a: unknown[]) => Promise<unknown>
+              ).apply(target, args)
+              accepted += 1
+              console.log(
+                `  vendor accepted command ${accepted}: ${String(prop)}`
+              )
+              if (accepted >= crashAfter) {
+                console.log(
+                  `\n✗ SIMULATED CRASH after ${accepted} accepted command(s). Jobs are left in_flight on purpose.\n`
+                )
+                process.exit(137)
+              }
+              return outcome
+            }
+          },
+        }) as IAccessControlProvider)
+
   const repo = sessionRepository()
   const summary = await new DrainAccessSyncQueue(
     repo,
-    new SyncMemberAccess(repo, provider),
-    new OperateDevice(repo, provider),
-    new EvictInactiveSubjects(repo, provider),
-    provider
+    new SyncMemberAccess(repo, drainProvider),
+    new OperateDevice(repo, drainProvider),
+    new EvictInactiveSubjects(repo, drainProvider),
+    drainProvider
   ).execute()
   console.log('✓ Drain finished:', JSON.stringify(summary))
   console.log(
@@ -1052,6 +1101,59 @@ async function vendor(): Promise<void> {
 }
 
 // ============================================================
+// enrol — one real enrolment, outside the panel
+// ============================================================
+
+/**
+ * The panel hides "Register fingerprint" once a member is registered, so the
+ * already-enrolled case (ENR-07) and any enrolment that is not itself the
+ * thing under test go through the real use case here instead.
+ */
+async function enrol(): Promise<void> {
+  const member = await hwMember(arg('member'))
+  const reader = readerSerial(arg('reader'))
+  const plan = `put reader ${readerLetter(reader)} into enrol mode for ${member.name}${flag('consent') ? ', recording the consent the operator confirmed' : ''}`
+  console.log(`Enrol: ${plan}.`)
+  if (!apply) return dryRun(plan)
+
+  const repo = sessionRepository()
+  const result = await new ManageMemberBiometric(repo, provider).enrol({
+    gymId: TITAN_GYM_ID,
+    memberId: member.id,
+    deviceId: await deviceIdFor(reader),
+    ...(flag('consent') ? { consentGranted: true } : {}),
+  })
+  console.log('✓ Use case returned:', JSON.stringify(result))
+  console.log(
+    '  Next: watch-queue on that reader; the operator presents the finger when the reader prompts.\n'
+  )
+}
+
+// ============================================================
+// withdraw — the member takes back their consent, whatever the panel shows
+// ============================================================
+
+/**
+ * The panel offers "Remove fingerprint" only once a finger is registered, so a
+ * withdrawal DURING an enrolment (CONSENT-05) cannot be driven from it. This
+ * calls the same use case the button does: fromdev revoke, flag cleared,
+ * consent cleared.
+ */
+async function withdraw(): Promise<void> {
+  const member = await hwMember(arg('member'))
+  const plan = `withdraw ${member.name}'s fingerprint consent (fromdev revoke on every reader, flag and consent cleared)`
+  console.log(`Withdraw: ${plan}.`)
+  if (!apply) return dryRun(plan)
+
+  const result = await new ManageMemberBiometric(
+    sessionRepository(),
+    provider
+  ).clear(TITAN_GYM_ID, member.id)
+  console.log('✓ Use case returned:', JSON.stringify(result))
+  console.log('  Next: snapshot and watch-queue on both readers.\n')
+}
+
+// ============================================================
 // race — real use cases fired concurrently
 // ============================================================
 
@@ -1061,15 +1163,21 @@ async function race(): Promise<void> {
   const repo = sessionRepository()
   const biometric = new ManageMemberBiometric(repo, provider)
   const sync = new SyncMemberAccess(repo, provider)
-  const cancel = new CancelMember(new SupabaseMemberRepository(supabase))
+  const memberRepo = new SupabaseMemberRepository(supabase)
+  const cancel = new CancelMember(memberRepo)
+  const suspend = new SuspendMember(memberRepo)
   const serialA = READERS.A
   const serialB = READERS.B
   const reader = readerSerial(arg('reader') ?? 'A')
 
+  // `--consent` is the desk ticking the box: the operator confirms the person
+  // whose finger it is agreed. Without it a member with no consent on file is
+  // refused by the gate, exactly as the panel would refuse them.
+  const consentFlag = flag('consent')
   const enrolOn = async (
     memberId: string,
     serial: string,
-    consentGranted?: boolean
+    consentGranted = consentFlag
   ) =>
     biometric.enrol({
       gymId: TITAN_GYM_ID,
@@ -1078,8 +1186,16 @@ async function race(): Promise<void> {
       ...(consentGranted ? { consentGranted } : {}),
     })
 
+  // The domain's own path, the one the UI takes: Active cannot go straight to
+  // Cancelled (StatusConfig), so an active member is suspended first. Each
+  // step re-reads the member, so two racing cancellations meet the state
+  // machine exactly as two staff pressing the buttons would.
   const cancelAndPush = async (memberId: string) => {
     try {
+      const current = await memberRepo.findById(memberId, TITAN_GYM_ID)
+      if (current?.status === MemberStatus.Active) {
+        await suspend.execute({ memberId, gymId: TITAN_GYM_ID })
+      }
       await cancel.execute({ memberId, gymId: TITAN_GYM_ID })
       return { cancelled: true, sync: await sync.execute({ memberId }) }
     } catch (error) {
@@ -1120,7 +1236,7 @@ async function race(): Promise<void> {
       break
     }
     case 'enrol-vs-cancel':
-      plan = `enrol ${member.name} on reader ${readerLetter(reader)} while cancelling them (cancel + immediate push)`
+      plan = `enrol ${member.name} on reader ${readerLetter(reader)} while cancelling them (suspend → cancel → immediate push)`
       fire = () =>
         Promise.all([enrolOn(member.id, reader), cancelAndPush(member.id)])
       break
@@ -1201,6 +1317,7 @@ async function ambiguous(): Promise<void> {
         gymId: TITAN_GYM_ID,
         memberId: member.id,
         deviceId: await deviceIdFor(reader),
+        ...(flag('consent') ? { consentGranted: true } : {}),
       })
       console.log('  Use case returned:', JSON.stringify(result))
     } catch (error) {
@@ -1243,9 +1360,9 @@ function coverage(): void {
     'docs/architecture/access-control-test-campaign.md',
     'utf8'
   )
-  const ids = [...catalogue.matchAll(/^\| `([A-Z0-9.]+(?:-\d+)?)` \|/gm)].map(
-    (m) => m[1]
-  )
+  const ids = [
+    ...catalogue.matchAll(/^\|\s*`([A-Z0-9.]+(?:-\d+)?)`\s*\|/gm),
+  ].map((m) => m[1])
   const unique = new Set(ids)
   if (unique.size !== ids.length) fail('The catalogue lists a case id twice')
 
@@ -1320,6 +1437,8 @@ const commands: Record<string, () => Promise<void> | void> = {
   drain,
   reconcile,
   vendor,
+  enrol,
+  withdraw,
   race,
   ambiguous,
   coverage,
