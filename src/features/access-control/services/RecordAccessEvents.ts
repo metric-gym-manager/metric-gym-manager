@@ -38,12 +38,29 @@ import {
   VerifyType,
 } from '@/features/access-control/config/AccessControlConfig'
 
+/** How many dropped serials one delivery's trace names. */
+const UNKNOWN_SERIALS_REPORTED = 10
+
+/** How many field names an unreadable event's trace keeps. */
+const UNREADABLE_FIELD_NAMES_KEPT = 20
+
 export interface RecordAccessEventsSummary {
   received: number
   stored: number
   duplicates: number
   /** Events for readers we do not know. Dropped, not guessed at. */
   unknownDevice: number
+  /**
+   * The serials those dropped events named — once each, at most
+   * `UNKNOWN_SERIALS_REPORTED` of them.
+   *
+   * The count alone left a dropped delivery with no trace worth having: on a
+   * reader's first contact, "the vendor never called" and "the vendor called
+   * with a serial we registered differently" both store nothing. The serial is
+   * printed on the hardware, not a secret, and it is exactly what the fix
+   * needs.
+   */
+  unknownSerials: string[]
   /**
    * Events we could not read at all.
    *
@@ -62,6 +79,15 @@ export interface RecordAccessEventsSummary {
    * as a single event, and this count is the only alarm this path produces.
    */
   unreadableDelivery: boolean
+  /**
+   * The field names of the first event we could not read — names only.
+   *
+   * When the real payload differs from the collection's one example (a renamed
+   * field, a wrapper such as `{"events": […]}`), its shape is the only evidence
+   * that survives: the scans themselves are gone the moment we answer 200.
+   * Values are never kept here, because a log is no place for a payload.
+   */
+  unreadableFieldNames: string[]
   /**
    * Members whose fingerprint this delivery confirmed for the first time.
    *
@@ -92,8 +118,10 @@ export class RecordAccessEvents {
       stored: 0,
       duplicates: 0,
       unknownDevice: 0,
+      unknownSerials: [],
       malformed: 0,
       unreadableDelivery: false,
+      unreadableFieldNames: [],
       enrolmentsConfirmed: 0,
       driftingDevices: [],
       errors: [],
@@ -128,6 +156,9 @@ export class RecordAccessEvents {
         if (envelope.data.length === 1 && !Array.isArray(payload)) {
           summary.unreadableDelivery = true
         }
+        if (summary.unreadableFieldNames.length === 0) {
+          summary.unreadableFieldNames = fieldNamesOf(candidate)
+        }
         summary.errors.push(
           `Event ${index}: ${parsed.error.issues.map((i) => `${i.path.join('.') || '(root)'} ${i.message}`).join('; ')}`
         )
@@ -146,6 +177,11 @@ export class RecordAccessEvents {
 
         if (!device) {
           summary.unknownDevice += events.length
+          // Grouping by serial already de-duplicates; the cap is what keeps a
+          // flood of strangers on a shared account from bloating the trace.
+          if (summary.unknownSerials.length < UNKNOWN_SERIALS_REPORTED) {
+            summary.unknownSerials.push(reportedSerial)
+          }
           continue
         }
 
@@ -350,6 +386,18 @@ function parseDeviceTime(attTime: string, offsetMinutes: number): Date | null {
 
   // The stamp is local to the device, so subtract its offset to get UTC.
   return new Date(asUtc - offsetMinutes * 60_000)
+}
+
+/**
+ * The keys of an unreadable event, never its values.
+ *
+ * @param candidate - One element of the delivery, as received.
+ * @returns Its field names, or none when it is not a plain object.
+ */
+function fieldNamesOf(candidate: unknown): string[] {
+  if (typeof candidate !== 'object' || candidate === null) return []
+  if (Array.isArray(candidate)) return []
+  return Object.keys(candidate).slice(0, UNREADABLE_FIELD_NAMES_KEPT)
 }
 
 function toNumberOrNull(value: string | undefined): number | null {

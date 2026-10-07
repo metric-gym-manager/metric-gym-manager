@@ -288,6 +288,77 @@ describe('RecordAccessEvents', () => {
       expect(summary.stored).toBe(1)
       expect(summary.unknownDevice).toBe(1)
     })
+
+    /**
+     * A dropped scan used to leave no trace at all: the route answered 200,
+     * stored nothing and logged nothing. On a first hardware session that is
+     * indistinguishable from "the vendor never called" — and a reader whose
+     * serial we registered in a different form (or a vendor sending its own
+     * device id instead of the serial) would look exactly like silence. The
+     * serial is not a secret and is what the fix needs, so it is reported.
+     */
+    it('names the serials it dropped, once each', async () => {
+      const { useCase } = build()
+
+      const summary = await useCase.execute([
+        event({ DeviceID: 'QEM1253800017' }),
+        event({ DeviceID: 'QEM1253800017', AttTime: '2026-01-10 12:00:01' }),
+        event({ DeviceID: 'OTHER-002' }),
+      ])
+
+      expect(summary.unknownSerials).toEqual(['QEM1253800017', 'OTHER-002'])
+    })
+
+    it('caps the dropped serials it names, so a flood cannot bloat a log line', async () => {
+      const { useCase } = build()
+
+      const summary = await useCase.execute(
+        Array.from({ length: 25 }, (_, i) =>
+          event({ DeviceID: `STRANGER-${i}` })
+        )
+      )
+
+      expect(summary.unknownDevice).toBe(25)
+      expect(summary.unknownSerials).toHaveLength(10)
+    })
+
+    it('names no serial when every reader in the delivery is ours', async () => {
+      const { useCase } = build()
+
+      const summary = await useCase.execute([event()])
+
+      expect(summary.unknownSerials).toEqual([])
+    })
+  })
+
+  describe('unreadable events', () => {
+    /**
+     * When the real payload differs from the collection's example — a renamed
+     * field, a wrapper — the only useful evidence is its SHAPE. Field names
+     * are recorded; values never are, because the log is not a place for full
+     * payloads.
+     */
+    it('records the field names of the first unreadable event, never its values', async () => {
+      const { useCase } = build()
+
+      const summary = await useCase.execute([
+        { UserPin: '100001', LogTime: '2026-01-10 12:00:00', SN: 'SER-001' },
+      ])
+
+      expect(summary.malformed).toBe(1)
+      expect(summary.unreadableFieldNames).toEqual(['UserPin', 'LogTime', 'SN'])
+      expect(JSON.stringify(summary.unreadableFieldNames)).not.toContain(
+        '2026-01-10'
+      )
+    })
+
+    it('records no field names when every event was readable', async () => {
+      const { useCase } = build()
+
+      const summary = await useCase.execute([event()])
+
+      expect(summary.unreadableFieldNames).toEqual([])
+    })
   })
 
   describe('device-local time', () => {
