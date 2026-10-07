@@ -336,6 +336,42 @@ The included and excluded lists, with reasons, were given to the owner and are k
 
 **Privacy.** Policy §5 describes the series: where the address comes from, up to four emails a week apart, how to stop them (the link or the mail app's button), and what is kept and why.
 
+## Email layout: desktop and phone
+
+Every email to a person — the four outreach emails and the release and policy announcements — is built on one frame, `utils/emailFrame.ts` (owner request, 2026-10-07: "they are broken into different lines on mobile").
+
+**What was wrong.** The inline styles were sized for one 560 px desktop column, and nothing adapted. A phone's mail app leaves an email about 320–340 px, and at that width:
+
+- the stacked paddings squeezed text into 143–200 px columns;
+- headlines ran to four lines, one word each;
+- "Rs. 2,990 / month" split apart;
+- the WhatsApp button wrapped;
+- phone numbers broke in two.
+
+**How it works now:**
+
+- **The desktop is the inline styles, unchanged.** Every desktop render at 600 and 1100 px was byte-identical before and after the phone layout went in. The one exception is a deliberate fix: a short title's last two words are tied (`noOrphan`), which removed five one-word last lines ("collected", "member.", "around.").
+- **The phone layout is one `@media (max-width: 480px)` block in `<head>`** (`PHONE_STYLE`). Apple Mail, the Gmail app, Outlook mobile and Samsung Mail apply it. Elements opt in by class (`M`):
+  - thinner gutters and section padding;
+  - a 26 px headline;
+  - a full-width button with a 14 px label, so "Book a free demo on WhatsApp" fits at 320 px;
+  - a smaller price.
+- **What must never split is kept whole inline** (`keep`: prices, "/ month", amounts, phone numbers). This holds in a mail app that drops `<style>` too.
+- **The stylesheet never has two braces side by side**, because the announcements are Resend templates, where `{{` opens a variable.
+
+**Checking it.** `npm run email:layout` renders all eight emails (the six above and the owner's two reports) in Chromium at 320, 360, 390, 600 and 1100 px, with and without the stylesheet. It fails on:
+
+- sideways scrolling;
+- a split unit;
+- a button on two lines;
+- the price apart from "/ month";
+- a headline over three lines;
+- text narrower than 220 px at 320.
+
+`--shots <dir>` saves the renders, and `--compare <dir>` fails if a desktop render moved. The logo is served from `public/`, because a refused fetch of the live one draws a broken image. `tests/emailFrame.test.ts` pins what the measurement relies on, on every commit: the stylesheet in every head, the button classes, the whole units, the brace rule, and Gmail's 102 KB clipping limit.
+
+**Publishing.** The announcement designs live in Resend. The Release workflow republishes them when `announcementTemplates.ts` or `emailFrame.ts` changes. Outreach is sent by code, so it changes on deploy.
+
 ## Configuration
 
 | Variable                       | Where                                      | Notes                                                                                      |

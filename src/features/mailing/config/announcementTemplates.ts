@@ -7,49 +7,43 @@
  * subject; it sits in the footer for support.
  *
  * `scripts/publish-email-templates.ts` creates or updates both in Resend and
- * publishes them; the Release workflow runs it whenever this file changes. The
+ * publishes them; the Release workflow runs it whenever this file or the
+ * shared frame (`utils/emailFrame.ts`) changes. The
  * placeholders are Resend's triple-brace variables: ours are filled by
  * `SendAnnouncements` (the contract is `ANNOUNCEMENT_VARIABLES`), and
  * `{{{contact.*}}}` by Resend, per recipient.
  *
  * Email HTML is its own rendering surface, like the QR poster: tables and
- * inline styles, no CSS variables, no classes. Colours come from the design
- * tokens where one exists. One 560 px column that shrinks on a phone — a fixed
- * width overflows a 390 px screen (measured 2026-10-06).
+ * inline styles, no CSS variables. Colours come from the design tokens where
+ * one exists. The frame, the button and the phone layout are shared with the
+ * outreach series (`utils/emailFrame.ts`): one 560 px column on the desktop,
+ * tighter padding and a full-width button on a phone, and the phone number
+ * kept whole — `scripts/check-email-layout.ts` measures both.
  *
  * Client-safe: pure data.
  */
-import { primitiveColors } from '@/components/ui/tokens'
 import {
   CONTACT,
   LEGAL_NAME,
   POSTAL_ADDRESS,
-  SITE_NAME,
-  SITE_URL,
   SUPPORT_HOURS,
 } from '@/features/marketing/config/site'
+import {
+  EMAIL_COLOURS,
+  EMAIL_FONT,
+  M,
+  emailButton,
+  emailDocument,
+  keep,
+} from '../utils/emailFrame'
 import {
   ANNOUNCEMENT_TEMPLATE_ALIAS,
   ANNOUNCEMENT_VARIABLES,
   AnnouncementKind,
 } from './AnnouncementConfig'
 
-const PALETTE = {
-  page: primitiveColors.neutral[50],
-  card: '#ffffff',
-  ink: primitiveColors.neutral[900],
-  inkSoft: primitiveColors.neutral[600],
-  line: primitiveColors.neutral[100],
-  brand: primitiveColors.blue[700],
-  // `blue.bg` (12 % brand) flattened onto white: Outlook ignores rgba().
-  brandTint: '#e4e3ff',
-} as const
-
-const FONT =
-  "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
-
-/** Keeps the inbox preview to the preheader, not the first words of the body. */
-const PREVIEW_PADDING = '&#847;&zwnj;&nbsp;'.repeat(30)
+const PALETTE = EMAIL_COLOURS
+const FONT = EMAIL_FONT
 
 const ADDRESS = `${LEGAL_NAME} · ${POSTAL_ADDRESS.lines.join(' ')}`
 
@@ -58,13 +52,14 @@ const HOURS =
   SUPPORT_HOURS.display.charAt(0).toLowerCase() + SUPPORT_HOURS.display.slice(1)
 
 function button(href: string, label: string): string {
-  return (
-    '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:28px 0 8px">' +
-    `<tr><td style="border-radius:8px;background:${PALETTE.brand}">` +
-    `<a href="${href}" style="display:inline-block;padding:13px 24px;font-family:${FONT};` +
-    `font-size:15px;font-weight:600;line-height:1.3;color:#ffffff;text-decoration:none;border-radius:8px">` +
-    `${label}</a></td></tr></table>`
-  )
+  return emailButton(href, label, {
+    colour: PALETTE.brand,
+    margin: '28px 0 8px',
+    radius: 8,
+    padding: '13px 24px',
+    fontSize: 15,
+    fontWeight: 600,
+  })
 }
 
 function badge(text: string): string {
@@ -88,7 +83,7 @@ function help(question: string): string {
     `font-size:14px;line-height:1.6;color:${PALETTE.inkSoft}">` +
     `${question} Just reply to this email — a real person reads every one. ` +
     `Or WhatsApp us on <a href="${CONTACT.whatsappUrl}" style="color:${PALETTE.brand};text-decoration:none;font-weight:600">` +
-    `${CONTACT.phoneDisplay}</a> (${HOURS}).</p>`
+    `${keep(CONTACT.phoneDisplay)}</a> (${HOURS}).</p>`
   )
 }
 
@@ -100,38 +95,13 @@ interface LayoutParts {
 }
 
 function layout({ title, preheader, card, footer }: LayoutParts): string {
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
-<meta name="supported-color-schemes" content="light">
-<title>${title}</title>
-</head>
-<body style="margin:0;padding:0;background:${PALETTE.page};-webkit-text-size-adjust:100%">
-<div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all">${preheader}${PREVIEW_PADDING}</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${PALETTE.page}">
-<tr><td align="center" style="padding:28px 12px 36px">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">
-<tr><td style="padding:0 4px 18px">
-<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-<td style="vertical-align:middle"><img src="${SITE_URL}/icon-192.png" width="30" height="30" alt="" style="display:block;border:0;outline:none;border-radius:7px"></td>
-<td style="vertical-align:middle;padding-left:10px;font-family:${FONT};font-size:16px;font-weight:700;color:${PALETTE.ink}">${SITE_NAME}</td>
-</tr></table>
-</td></tr>
-<tr><td style="background:${PALETTE.card};border:1px solid ${PALETTE.line};border-radius:14px;padding:32px 28px">
-${card}
-</td></tr>
-<tr><td style="padding:22px 12px 0;font-family:${FONT};font-size:12px;line-height:1.7;color:${PALETTE.inkSoft};text-align:center">
-${footer}
-<br>${ADDRESS}
-</td></tr>
-</table>
-</td></tr>
-</table>
-</body>
-</html>`
+  return emailDocument({
+    title,
+    preheader,
+    body: card,
+    card: 'padded',
+    footer: `${footer}\n<br>${ADDRESS}`,
+  })
 }
 
 const RELEASE_HTML = layout({
@@ -169,7 +139,7 @@ const POLICY_HTML = layout({
       'Hi {{{contact.gym_name|there}}}, we’ve made some changes to our {{{DOCUMENT_NAME}}}, ' +
         'effective {{{UPDATED_DATE}}}. Here’s what’s different, in plain words:'
     ) +
-    `<div style="margin:0 0 20px;padding:16px 20px 4px;border-left:3px solid ${PALETTE.brand};border-radius:4px;` +
+    `<div class="${M.inset}" style="margin:0 0 20px;padding:16px 20px 4px;border-left:3px solid ${PALETTE.brand};border-radius:4px;` +
     `background:${PALETTE.page};font-family:${FONT};font-size:15px;line-height:1.6;color:${PALETTE.ink}">` +
     '{{{SUMMARY_HTML}}}</div>' +
     paragraph(

@@ -19,6 +19,7 @@
     "type-check": "tsc --noEmit",
     "arch:check": "node scripts/check-architecture.mjs",
     "seo:report": "node scripts/seo-report.mjs",
+    "email:layout": "tsx scripts/check-email-layout.ts",
     "db:audit": "node scripts/db-audit.mjs",
     "auth:verify": "node scripts/verify-auth-redirects.mjs",
     "pretest": "tsc --noEmit",

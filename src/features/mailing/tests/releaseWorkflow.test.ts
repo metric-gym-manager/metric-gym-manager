@@ -91,8 +91,10 @@ describe('the release workflow', () => {
   })
 
   it('publishes the email designs only when they changed', () => {
+    // The designs are announcementTemplates.ts on the shared email frame: a
+    // change to either is a change to what Resend must hold.
     expect(workflow).toContain(
-      'src/features/mailing/config/announcementTemplates.ts'
+      "grep -qxE 'src/features/mailing/(config/announcementTemplates|utils/emailFrame)[.]ts'"
     )
     expect(workflow).toContain('npx tsx scripts/publish-email-templates.ts')
     expect(workflow).toContain("if: steps.designs.outputs.changed == 'true'")
