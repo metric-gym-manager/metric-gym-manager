@@ -48,6 +48,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - aggressive caching strategy and Lighthouse performance optimization ([e6d7b23](../../commit/e6d7b23))
 
+## [1.3.1] - 2026-10-07
+
+### Fixed
+
+- "Free up space" no longer suggests buying another reader when the reader's capacity has not been set. ([0e7c99d](../../commit/0e7c99d))
+- The "Re-send to readers" button on a member's door access now always sends their access to every reader again. ([ee799c2](../../commit/ee799c2))
+
 ## [1.3.0] - 2026-10-07
 
 ### Added
