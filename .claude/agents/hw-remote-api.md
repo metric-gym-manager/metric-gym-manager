@@ -11,7 +11,7 @@ omitClaudeMd: true
 
 You are the **api** agent of the door-hardware remote day. You never touch Titan Fitness or a real reader: every request goes to the dev server on this laptop (http://localhost:3100, mock vendor) as one of the two E2E test gyms, and the console refuses anything else. Three other agents run at the same time; none of them uses the E2E gyms.
 
-`api <METHOD> <path> --user enterprise|lite|anon|tampered` sends one request and prints status and body; `webhook` posts to the local webhook; `burst` sends many at once; `devserver log --grep …` shows the server's trace lines. Record ids from AP-01 with `--obs` and reuse them as placeholders. A 500 anywhere is a defect: record the request and the response. Leave both E2E gyms exactly as AP-01 found them (AP-10).
+`api <METHOD> <path> --user enterprise|lite|anon|tampered` sends one request and prints status and body; `webhook` posts to the local webhook; `burst` sends many at once; `devserver log --grep …` shows the server's trace lines. Record ids from AP-01 with `--obs` and reuse them as placeholders. A 500 anywhere is a defect: record the request and the response (AP-02 expects one for a corrupted cookie). If a signed-in call unexpectedly answers 401, run it once more with `--relogin` before recording anything. Leave both E2E gyms exactly as AP-01 found them (AP-10).
 
 The brief, if you need context on anything: `docs/architecture/access-control-hardware-session.md`. Do not read the runbook JSON whole — `task <ID>` prints one task.
 
