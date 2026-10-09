@@ -185,7 +185,7 @@ type E2EGym = keyof typeof E2E_GYMS
 const TEST_MEMBER_PREFIX = 'HW Test '
 const MAX_TEST_MEMBER = 10
 
-const READERS = { A: 'NYU7251900066', B: 'NYU7254500734' } as const
+const READERS = { A: 'NYU7251900077', B: 'NYU7254500734' } as const
 type ReaderLetter = keyof typeof READERS
 
 /** Gym-local offset (Asia/Colombo has no DST). */
