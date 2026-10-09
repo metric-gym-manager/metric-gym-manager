@@ -185,7 +185,7 @@ type E2EGym = keyof typeof E2E_GYMS
 const TEST_MEMBER_PREFIX = 'HW Test '
 const MAX_TEST_MEMBER = 10
 
-const READERS = { A: 'NYU7251900066', B: 'NYU7254500734' } as const
+const READERS = { A: 'NYU7251900077', B: 'NYU7254500734' } as const
 type ReaderLetter = keyof typeof READERS
 
 /** Gym-local offset (Asia/Colombo has no DST). */
@@ -361,6 +361,7 @@ type Scope =
   | 'reader'
   | 'desk'
   | 'lead'
+  | 'phase'
 
 /** Why `agent` may not run a command of `scope` in `phase`, or null if it may. */
 function refusal(
@@ -391,12 +392,49 @@ function refusal(
         (agent === 'lead' && phase === 'idle')
         ? null
         : `desk commands belong to the api agent (parallel/idle phase) or the lead (idle phase)`
+    case 'phase':
+      // Not judged on the phase being LEFT: the physical session's first act
+      // is idle → physical, which no check of the current phase can allow.
+      // Which moves are legal is phaseMoveRefusal's rule (it needs the target).
+      return agent === 'lead' || agent === 'physical'
+        ? null
+        : `only the lead (remote track) or the physical session moves the phase`
     case 'lead':
       return (agent === 'lead' && phase !== 'physical') ||
         (agent === 'physical' && phase === 'physical')
         ? null
         : `"${name}" belongs to the lead (remote track) or the physical session (its own phase)`
   }
+}
+
+/**
+ * Why `who` may not move the phase `from` → `to`, or null if the move is legal.
+ * The single rule for phase moves: `phase set` enforces it and `coverage`
+ * proves that every runbook step which moves the phase is a legal move, from
+ * the phase the step really starts in.
+ */
+function phaseMoveRefusal(
+  who: AgentName,
+  from: Phase,
+  to: Phase
+): string | null {
+  if (who === 'physical') {
+    const legal =
+      (from === 'idle' && to === 'physical') ||
+      (from === 'physical' && to === 'idle')
+    if (legal) return null
+    return from === 'parallel' || from === 'exclusive'
+      ? `the remote track is running (phase ${from}). Never run both tracks at once`
+      : `the physical session moves idle → physical at its start and physical → idle at its end, nothing else`
+  }
+  if (who === 'lead') {
+    if (from === 'physical')
+      return 'a physical session is running. Never run both tracks at once'
+    if (to === 'physical')
+      return 'only the physical session enters the physical phase'
+    return null
+  }
+  return 'only the lead (remote track) or the physical session moves the phase'
 }
 
 function readerOwner(phase: Phase): string {
@@ -425,7 +463,7 @@ function scopeOf(name: string, line: string): Scope {
     case 'jobs':
       return 'read'
     case 'phase':
-      return has(/\bset\b/) ? 'lead' : 'read'
+      return has(/\bset\b/) ? 'phase' : 'read'
     case 'record':
       return 'record'
     case 'results':
@@ -1147,30 +1185,18 @@ function phaseCommand(): void {
     )
     return
   }
-  gate('lead')
+  gate('phase')
   const next = positional2 as Phase
   if (!(PHASES as readonly string[]).includes(next)) {
     fail(`phase set needs one of: ${PHASES.join(', ')}`)
   }
-  if (agent === 'physical') {
-    const legal =
-      (phase === 'idle' && next === 'physical') ||
-      (phase === 'physical' && next === 'idle')
-    if (!legal) {
-      fail(
-        phase === 'parallel' || phase === 'exclusive'
-          ? `REFUSED: the remote track is running (phase ${phase}, set by ${phaseState.setBy}). Never run both tracks at once.`
-          : `REFUSED: the physical session moves idle → physical at its start and physical → idle at its end, nothing else.`
-      )
-    }
-  } else {
-    if (phase === 'physical') {
-      fail(
-        `REFUSED: a physical session is running (set ${slt(phaseState.at)} SLT). Never run both tracks at once.`
-      )
-    }
-    if (next === 'physical')
-      fail('REFUSED: only the physical session enters the physical phase.')
+  const moveRefusal = phaseMoveRefusal(agent, phase, next)
+  if (moveRefusal) {
+    fail(
+      `REFUSED: ${moveRefusal} (phase ${phase}, set by ${phaseState.setBy}${phaseState.at ? ` at ${slt(phaseState.at)} SLT` : ''}).`
+    )
+  }
+  if (agent !== 'physical') {
     // The nightly reconcile (00:00 gym time) acts on every Titan member, the
     // agents' test members included. A phase must be able to finish before it.
     const latest =
@@ -4256,6 +4282,31 @@ function coverage(): void {
         const reason = refusal(scopeOf(name, line), t.agent, t.phase, name)
         if (reason)
           problems.push(`${t.id}: "${name}" would be refused — ${reason}`)
+        // A step that moves the phase must be a legal move FROM the phase it
+        // really starts in. `t.phase` is where the task runs, which for the
+        // step that enters the physical phase is not where it starts: the
+        // physical session begins in idle. Checking the destination's phase
+        // let a gate that could never be passed ship (the visit could not start).
+        const move = line.match(/\bphase\s+set\s+([a-z]+)/)
+        if (name === 'phase' && move) {
+          const to = move[1] as Phase
+          const from: Phase = to === 'physical' ? 'idle' : t.phase
+          const bad = (PHASES as readonly string[]).includes(to)
+            ? phaseMoveRefusal(t.agent, from, to)
+            : `unknown phase "${to}"`
+          if (bad)
+            problems.push(
+              `${t.id}: "phase set ${to}" is not a legal move from ${from} — ${bad}`
+            )
+          // …and the command's own gate must let this agent through while the
+          // phase is still `from` (the original defect: it only did so once the
+          // phase was already physical).
+          const gated = refusal('phase', t.agent, from, 'phase')
+          if (gated)
+            problems.push(
+              `${t.id}: "phase set ${to}" is refused at its start (phase ${from}) — ${gated}`
+            )
+        }
         for (const m of line.matchAll(
           /--member2?\s+"?(?:HW Test )?(\d{1,2})"?/g
         )) {
