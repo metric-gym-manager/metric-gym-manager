@@ -246,6 +246,20 @@ export interface IAccessControlRepository {
   /** Record that a member's template is no longer on the reader. */
   markSubjectOffDevice(memberId: string): Promise<void>
 
+  /**
+   * Give a member a fresh device identity after their vendor record was erased.
+   *
+   * One write that resets everything tied to the old record — provisioning,
+   * reader list, window, block state, fingerprint — so no half-erased row can
+   * exist. Throws when no row matched: an update that matches nothing reports
+   * success, which would leave the old id in place and the erasure undone
+   * (rule 2.7).
+   */
+  replaceSubjectAfterErasure(
+    memberId: string,
+    newSubjectId: number
+  ): Promise<void>
+
   /** Recompute how many templates a reader holds. */
   recountDeviceTemplates(deviceId: string): Promise<number>
 

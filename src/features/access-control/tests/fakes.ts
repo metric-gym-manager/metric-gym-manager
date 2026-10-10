@@ -354,6 +354,38 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     this.offDevice.push(memberId)
   }
 
+  async replaceSubjectAfterErasure(
+    memberId: string,
+    newSubjectId: number
+  ): Promise<void> {
+    const context = (this.options.contexts ?? []).find(
+      (c) => c.memberId === memberId
+    )
+
+    // Mirrors the real repository's "no row updated" failure: a fake that
+    // quietly accepted an unknown member would hide the RLS-style no-op the
+    // real guard exists to catch.
+    if (!context?.subject) {
+      throw new Error('Failed to replace subject after erasure: no row updated')
+    }
+
+    context.subject = {
+      ...context.subject,
+      subject_id: newSubjectId,
+      provisioned_at: null,
+      synced_device_serials: [],
+      on_device: false,
+      last_synced_at: null,
+      last_synced_valid_from: null,
+      last_synced_valid_to: null,
+      last_synced_blocked: null,
+      finger_enrolled: false,
+      finger_id: null,
+      enrolled_at: null,
+      updated_at: new Date().toISOString(),
+    }
+  }
+
   async recountDeviceTemplates(deviceId: string): Promise<number> {
     this.recounted.push(deviceId)
 

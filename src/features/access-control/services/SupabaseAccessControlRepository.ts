@@ -651,6 +651,45 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     }
   }
 
+  async replaceSubjectAfterErasure(
+    memberId: string,
+    newSubjectId: number
+  ): Promise<void> {
+    const now = new Date().toISOString()
+
+    const { data, error } = await this.supabase
+      .from('member_access_subjects')
+      .update({
+        subject_id: newSubjectId,
+        provisioned_at: null,
+        synced_device_serials: [],
+        device_removed_at: now,
+        last_synced_at: null,
+        last_synced_valid_from: null,
+        last_synced_valid_to: null,
+        last_synced_blocked: null,
+        finger_enrolled: false,
+        finger_id: null,
+        enrolled_at: null,
+        updated_at: now,
+      })
+      .eq('member_id', memberId)
+      // Without this a no-match update reports success (rule 2.7).
+      .select('id')
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to replace subject after erasure: ${error.message}`
+      )
+    }
+
+    if (!data || data.length === 0) {
+      throw new DatabaseError(
+        'Failed to replace subject after erasure: no row updated'
+      )
+    }
+  }
+
   async recountDeviceTemplates(deviceId: string): Promise<number> {
     const { data, error } = await this.supabase.rpc(
       'recount_device_templates',
