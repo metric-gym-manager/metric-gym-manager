@@ -200,6 +200,9 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
   readonly purgeCalls: Array<{ cutoff: Date; limit: number }> = []
 
   /** Serials already stored, so a repeat delivery counts as a duplicate. */
+  /** When each entry of `enqueued` was queued, in the same order. */
+  private readonly enqueuedAt: Date[] = []
+
   private readonly seenEventKeys = new Set<string>()
   /** Claimed jobs and where they stand, so a result can be guarded by attempt. */
   private readonly jobStates = new Map<
@@ -495,6 +498,7 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     payload?: Record<string, unknown>,
     notBefore?: Date
   ): Promise<void> {
+    this.enqueuedAt.push(new Date())
     this.enqueued.push({
       gymId,
       memberId,
@@ -524,6 +528,21 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
       )
     }
     return jobs.length
+  }
+
+  async hasRecentJob(
+    memberId: string,
+    reason: string,
+    sinceSeconds: number
+  ): Promise<boolean> {
+    const cutoff = Date.now() - sinceSeconds * 1000
+
+    return this.enqueued.some(
+      (job, index) =>
+        job.memberId === memberId &&
+        job.payload?.reason === reason &&
+        this.enqueuedAt[index].getTime() >= cutoff
+    )
   }
 
   async claimDueJobs(limit: number): Promise<AccessSyncJob[]> {

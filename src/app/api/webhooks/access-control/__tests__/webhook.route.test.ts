@@ -58,6 +58,7 @@ const cleanSummary: RecordAccessEventsSummary = {
   unreadableDelivery: false,
   unreadableFieldNames: [],
   enrolmentsConfirmed: 0,
+  refusalRepairsQueued: 0,
   driftingDevices: [],
   errors: [],
 }

@@ -192,6 +192,28 @@ export const DRAIN_BATCH_SIZE = 25
 export const REBOOT_RESEAT_DELAY_SECONDS = 180
 
 /**
+ * Event codes that mean "the reader refused a person it recognised":
+ * 23 no access rights (the reader shows it as "invalid time period"), 29
+ * membership expired.
+ *
+ * A refusal of a member our own decision allows means the reader's record of
+ * them is wrong, and the repair is a forced re-push. Visit 1, D3: four of five
+ * enrolments were refused until a re-send carried an Access Grant, including
+ * enrolments made at the reader's own menu, which nothing of ours sees.
+ */
+export const REFUSAL_REPAIR_EVENT_CODES = ['23', '29'] as const
+
+/**
+ * At most one refusal repair per member in this window (DEC-06).
+ *
+ * Without it a reader with a wrong clock refuses everyone forever and every
+ * scan queues a job. Fifteen minutes is three drain runs: long enough for the
+ * repair to land and be tried, short enough that a member still refused after
+ * it is retried before they give up and go home.
+ */
+export const REFUSAL_REPAIR_COOLDOWN_SECONDS = 900
+
+/**
  * Reader usage above which the nightly reconcile evicts inactive members,
  * and the level it frees down to.
  *

@@ -379,6 +379,18 @@ export interface IAccessControlRepository {
   ): Promise<number>
 
   /**
+   * Whether a job with this `payload.reason` was queued for the member within
+   * the last `sinceSeconds`.
+   *
+   * What bounds the refusal repair: it asks before queueing another.
+   */
+  hasRecentJob(
+    memberId: string,
+    reason: string,
+    sinceSeconds: number
+  ): Promise<boolean>
+
+  /**
    * Claim jobs to work on.
    *
    * Implementations must return **at most one job per member**, oldest first:

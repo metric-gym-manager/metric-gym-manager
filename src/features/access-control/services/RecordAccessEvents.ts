@@ -34,9 +34,14 @@ import {
 } from '@/features/access-control/schemas/access-control.schemas'
 import type { AccessWebhookEvent } from '@/features/access-control/schemas/access-control.schemas'
 import {
+  AccessIntent,
   DEVICE_CLOCK_SKEW_ALERT_SECONDS,
+  REFUSAL_REPAIR_COOLDOWN_SECONDS,
+  REFUSAL_REPAIR_EVENT_CODES,
   VerifyType,
 } from '@/features/access-control/config/AccessControlConfig'
+import { resolveAccessDecision } from '@/features/access-control/domain/AccessDecision'
+import { getGymToday } from '@/features/access-control/utils/getGymToday'
 
 /** How many dropped serials one delivery's trace names. */
 const UNKNOWN_SERIALS_REPORTED = 10
@@ -95,6 +100,11 @@ export interface RecordAccessEventsSummary {
    * is somebody's first entry after being enrolled.
    */
   enrolmentsConfirmed: number
+  /**
+   * Forced re-pushes queued because a reader refused a member we would admit
+   * (visit 1, D3). Non-zero means a reader's record of someone was wrong.
+   */
+  refusalRepairsQueued: number
   /** Readers whose clock looks far enough out to matter. */
   driftingDevices: string[]
   errors: string[]
@@ -123,6 +133,7 @@ export class RecordAccessEvents {
       unreadableDelivery: false,
       unreadableFieldNames: [],
       enrolmentsConfirmed: 0,
+      refusalRepairsQueued: 0,
       driftingDevices: [],
       errors: [],
     }
@@ -244,6 +255,8 @@ export class RecordAccessEvents {
             normalised,
             summary
           )
+
+          await this.repairRefusals(normalised, summary)
         }
 
         if (newestScan) {
@@ -281,6 +294,87 @@ export class RecordAccessEvents {
     }
 
     return summary
+  }
+
+  /**
+   * Queue a forced re-push for a member the reader refused but we would admit.
+   *
+   * ## Why only fingerprint scans, and only members our decision allows
+   *
+   * A refused card or password scan says nothing about the template, and a
+   * member we also refuse is the system working: the reader is right and a
+   * re-push would just re-assert the refusal. What remains is the case this
+   * exists for — the reader recognised a finger, applied a window that
+   * disagrees with ours, and nothing else will ever notice (visit 1, D3).
+   *
+   * The decision is re-derived here from the member's current state, never
+   * taken from the event, so a payload cannot talk us into pushing anyone.
+   *
+   * ## Why a failure here is not a failure of ingestion
+   *
+   * The scans are already stored and never come again, so — like enrolment
+   * confirmation — this records the error and lets the batch stand. The webhook
+   * is always-200.
+   */
+  private async repairRefusals(
+    events: IncomingAccessEvent[],
+    summary: RecordAccessEventsSummary
+  ): Promise<void> {
+    const refused = new Set<string>()
+
+    for (const event of events) {
+      if (!event.memberId) continue
+      if (event.verifyType !== VerifyType.Fingerprint) continue
+      if (
+        !(REFUSAL_REPAIR_EVENT_CODES as readonly string[]).includes(
+          event.eventCode ?? ''
+        )
+      ) {
+        continue
+      }
+      refused.add(event.memberId)
+    }
+
+    for (const memberId of refused) {
+      try {
+        const context = await this.repo.getMemberAccessContext(memberId)
+        if (!context) continue
+
+        const decision = resolveAccessDecision({
+          status: context.status,
+          membershipStartDate: context.membershipStartDate,
+          nextDueDate: context.nextDueDate,
+          registrationSource: context.registrationSource,
+          verifiedAt: context.verifiedAt,
+          today: getGymToday(),
+        })
+        if (!decision.allowed) continue
+
+        if (
+          await this.repo.hasRecentJob(
+            memberId,
+            'door_refused',
+            REFUSAL_REPAIR_COOLDOWN_SECONDS
+          )
+        ) {
+          continue
+        }
+
+        await this.repo.enqueue(
+          context.gymId,
+          memberId,
+          AccessIntent.ReconcileMember,
+          { reason: 'door_refused', force: true }
+        )
+        summary.refusalRepairsQueued += 1
+      } catch (error) {
+        summary.errors.push(
+          `Refusal repair for member ${memberId}: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`
+        )
+      }
+    }
   }
 
   /**

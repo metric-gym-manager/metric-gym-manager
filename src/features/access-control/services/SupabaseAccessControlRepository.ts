@@ -962,6 +962,28 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     return inserted
   }
 
+  async hasRecentJob(
+    memberId: string,
+    reason: string,
+    sinceSeconds: number
+  ): Promise<boolean> {
+    const since = new Date(Date.now() - sinceSeconds * 1000).toISOString()
+
+    const { data, error } = await this.supabase
+      .from('access_sync_jobs')
+      .select('id')
+      .eq('member_id', memberId)
+      .eq('payload->>reason', reason)
+      .gte('created_at', since)
+      .limit(1)
+
+    if (error) {
+      throw new DatabaseError(`Failed to read recent jobs: ${error.message}`)
+    }
+
+    return (data?.length ?? 0) > 0
+  }
+
   /**
    * Claim due jobs via the SQL function.
    *
