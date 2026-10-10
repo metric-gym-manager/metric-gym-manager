@@ -451,9 +451,15 @@ describe('Access-control routes', () => {
       const response = await syncMember(jsonRequest({}), params('member-1'))
 
       expect(response.status).toBe(200)
+      // And a re-seat, not only a forced push: after a reader restart the
+      // reader keeps the user and ignores a re-pushed template, so the member
+      // is deleted from the readers and added back (visit 1, D1). A failure
+      // queues a forced retry, which is what the desk toast promises.
       expect(mockSyncExecute).toHaveBeenCalledWith({
         memberId: 'member-1',
         force: true,
+        reseat: true,
+        retryOnFailure: true,
       })
     })
 
