@@ -30,8 +30,11 @@ export const registerDeviceSchema = z.object({
   // Trimmed before validation: a serial is read off a label and pasted, and
   // surrounding whitespace would otherwise fail the pattern with "must be
   // alphanumeric", which describes neither the problem nor the fix.
+  //
+  // Upper-cased because vendors print and send serials in capitals; a
+  // lower-case copy was a second reader that matched no scan (remote day F-07).
   deviceSerial: z.preprocess(
-    (value) => (typeof value === 'string' ? value.trim() : value),
+    (value) => (typeof value === 'string' ? value.trim().toUpperCase() : value),
     z
       .string()
       .min(1)

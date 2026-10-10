@@ -113,6 +113,7 @@ export {
   createRecordAccessEvents,
   createEvictInactiveSubjects,
   createOperateDevice,
+  createRegisterDevice,
   createVerifyAccessAccount,
   createManageMemberBiometric,
   createGetMemberAccessStatus,

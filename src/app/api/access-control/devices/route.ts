@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   createAccessControlRepository,
+  createRegisterDevice,
   registerDeviceSchema,
   serializeAccessDeviceForAPI,
 } from '@/features/access-control'
@@ -57,12 +58,23 @@ export async function POST(request: NextRequest) {
     // so the owning gym's own session cannot insert into it. The gym id comes
     // from the guard, never from the body — that is the tenant boundary
     // (rule 2.20), and it is ours to enforce rather than RLS's.
-    const device = await createAccessControlRepository(
-      createAdminClient()
-    ).registerDevice(caller!.gymId, parsed.data)
+    const result = await createRegisterDevice(createAdminClient()).execute(
+      caller!.gymId,
+      parsed.data
+    )
+
+    // The serial is checked against the gym's own VFT account first (F-07).
+    if (result.notOnAccount || !result.device) {
+      return NextResponse.json(
+        ResponseBuilder.badRequest(
+          'This serial is not on your VFT account. Check the label on the reader, or ask VFT to add the reader to your account.'
+        ),
+        { status: 400 }
+      )
+    }
 
     return NextResponse.json(
-      ResponseBuilder.success(serializeAccessDeviceForAPI(device)),
+      ResponseBuilder.success(serializeAccessDeviceForAPI(result.device)),
       { status: 201 }
     )
   } catch (err) {

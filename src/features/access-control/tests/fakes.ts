@@ -284,8 +284,30 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     )
   }
 
-  async registerDevice(): Promise<AccessDevice> {
-    throw new Error('not used in these tests')
+  /** Readers registered through the port, in order. */
+  readonly registeredDevices: AccessDevice[] = []
+
+  async registerDevice(
+    gymId: string,
+    input: {
+      deviceSerial: string
+      deviceName: string
+      areaId?: number | null
+      timezoneOffsetMinutes?: number
+    }
+  ): Promise<AccessDevice> {
+    // Stored exactly as given, as the real repository stores it: whatever
+    // normalisation a serial gets happens BEFORE it reaches the port.
+    const device = makeDevice({
+      id: `device-${this.registeredDevices.length + 1}`,
+      gym_id: gymId,
+      device_serial: input.deviceSerial,
+      device_name: input.deviceName,
+      area_id: input.areaId ?? 1,
+      timezone_offset_minutes: input.timezoneOffsetMinutes ?? 330,
+    })
+    this.registeredDevices.push(device)
+    return device
   }
 
   async setDeviceActive(): Promise<void> {}

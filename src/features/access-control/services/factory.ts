@@ -20,6 +20,7 @@ import { ReconcileMemberAccess } from './ReconcileMemberAccess'
 import { RecordAccessEvents } from './RecordAccessEvents'
 import { EvictInactiveSubjects } from './EvictInactiveSubjects'
 import { OperateDevice } from './OperateDevice'
+import { RegisterDevice } from './RegisterDevice'
 import { VerifyAccessAccount } from './VerifyAccessAccount'
 import { ManageMemberBiometric } from './ManageMemberBiometric'
 import { GetMemberAccessStatus } from './GetMemberAccessStatus'
@@ -72,6 +73,14 @@ export function createSyncMemberAccess(
 /** Remote unlock and restart. */
 export function createOperateDevice(supabase: SupabaseClient): OperateDevice {
   return new OperateDevice(
+    createAccessControlRepository(supabase),
+    createAccessControlProvider()
+  )
+}
+
+/** Adding a reader, with its serial checked against the VFT account. */
+export function createRegisterDevice(supabase: SupabaseClient): RegisterDevice {
+  return new RegisterDevice(
     createAccessControlRepository(supabase),
     createAccessControlProvider()
   )
