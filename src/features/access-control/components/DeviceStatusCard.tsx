@@ -192,7 +192,9 @@ export default function DeviceStatusCard({
 
       <div className="space-y-1.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-caption text-ink-secondary">Fingerprints</span>
+          <span className="text-caption text-ink-secondary">
+            Members on this reader
+          </span>
           <span className="font-mono text-mono-sm text-ink">
             {device.templateCount}
             {device.templateCapacity !== null &&

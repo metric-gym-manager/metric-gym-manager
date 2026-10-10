@@ -35,7 +35,7 @@
  * back the next time.
  */
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   CheckCircle2,
@@ -91,6 +91,13 @@ export default function MemberAccessPanel({
   const [deviceId, setDeviceId] = useState('')
   const [consentTicked, setConsentTicked] = useState(false)
 
+  // Re-send is a re-seat (delete from the readers, then add back), so a second
+  // click landing mid-way would delete the member again halfway through the
+  // first one's pushes. The button's loading state is not enough: it only takes
+  // effect after a re-render, and two clicks in one turn both see it enabled
+  // (remote day F-13). Declared here, above the early returns, like every hook.
+  const syncInFlight = useRef(false)
+
   if (!entitled) return null
 
   if (isLoading) {
@@ -127,6 +134,9 @@ export default function MemberAccessPanel({
   const enrolledWithoutConsent = status.fingerEnrolled && consentNeeded
 
   const handleSync = async () => {
+    if (syncInFlight.current) return
+    syncInFlight.current = true
+
     try {
       const result = await sync.mutateAsync(memberId)
 
@@ -148,6 +158,8 @@ export default function MemberAccessPanel({
       toast.error(
         error instanceof Error ? error.message : 'Could not update the readers'
       )
+    } finally {
+      syncInFlight.current = false
     }
   }
 

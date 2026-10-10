@@ -46,6 +46,11 @@ export interface RefreshDeviceStatusSummary {
   /** Readers whose contact time we managed to advance. */
   devicesSeen: number
   /**
+   * Readers whose member count was recounted from our own record (remote day
+   * F-13). Independent of the vendor: a recount needs no call to it.
+   */
+  devicesRecounted: number
+  /**
    * Serials registered here that the vendor does not know.
    *
    * A configuration problem, not an outage — wrong account, mistyped serial,
@@ -73,6 +78,7 @@ export class RefreshDeviceStatus {
       gymsChecked: 0,
       devicesChecked: 0,
       devicesSeen: 0,
+      devicesRecounted: 0,
       unknownToVendor: [],
       errors: [],
     }
@@ -94,6 +100,23 @@ export class RefreshDeviceStatus {
 
         summary.gymsChecked += 1
         summary.devicesChecked += active.length
+
+        // Before the vendor is asked anything: the count comes from our own
+        // record, and a vendor outage is exactly when a stale one misleads the
+        // desk most. `template_count` used to be set once and never again
+        // (remote day F-13, visit 1 PH-16).
+        for (const device of active) {
+          try {
+            await this.repo.recountDeviceTemplates(device.id)
+            summary.devicesRecounted += 1
+          } catch (error) {
+            summary.errors.push(
+              `Recount ${device.device_serial}: ${
+                error instanceof Error ? error.message : 'Unknown error'
+              }`
+            )
+          }
+        }
 
         const theirs = await this.provider.listDevices(credentials)
         const bySerial = new Map(theirs.map((d) => [d.serial, d]))
