@@ -35,7 +35,11 @@
 import type { IAccessControlProvider } from '@/lib/access-control'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 import { resolveAccessDecision } from '@/features/access-control/domain/AccessDecision'
-import { getGymToday } from '@/features/access-control/utils/getGymToday'
+import { AccessIntent } from '@/features/access-control/config/AccessControlConfig'
+import {
+  formatDeviceDate,
+  getGymToday,
+} from '@/features/access-control/utils/getGymToday'
 
 export interface EnrolMemberBiometricInput {
   gymId: string
@@ -230,6 +234,39 @@ export class ManageMemberBiometric {
         dispatched: false,
         error: 'The reader did not accept the enrolment request',
       }
+    }
+
+    // Visit 1, D3: the reader runs its queue in order, so these land after the
+    // enrolment ends and restore anything the enrolment reset.
+    const target = {
+      deviceSerial: device.device_serial,
+      subjectId: String(subject.subject_id),
+    }
+    try {
+      const granted = await this.provider.grantAccess(credentials, target)
+      const windowed =
+        granted.status !== 'failed' && decision.validFrom && decision.validTo
+          ? await this.provider.setValidPeriod(credentials, {
+              ...target,
+              startDate: formatDeviceDate(decision.validFrom),
+              endDate: formatDeviceDate(decision.validTo),
+            })
+          : granted
+      if (granted.status === 'failed' || windowed.status === 'failed') {
+        await this.repo.enqueue(
+          input.gymId,
+          input.memberId,
+          AccessIntent.ReconcileMember,
+          { reason: 'post_enrol_window', force: true }
+        )
+      }
+    } catch {
+      await this.repo.enqueue(
+        input.gymId,
+        input.memberId,
+        AccessIntent.ReconcileMember,
+        { reason: 'post_enrol_window', force: true }
+      )
     }
 
     return { applicable: true, dispatched: true }
