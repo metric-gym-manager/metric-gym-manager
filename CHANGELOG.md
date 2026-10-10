@@ -48,6 +48,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - aggressive caching strategy and Lighthouse performance optimization ([e6d7b23](../../commit/e6d7b23))
 
+## [1.4.0] - 2026-10-10
+
+### Fixed
+
+- The Door Access page now shows how many members each reader holds. ([dbc4952](../../commit/dbc4952))
+- If a paid-up member is turned away at the door, their access is sent to the readers again automatically. ([44c5315](../../commit/44c5315))
+- Re-send to readers now also repairs fingerprints a reader has lost. ([44ba97b](../../commit/44ba97b))
+- Reader serial numbers are now checked against your VFT account when you add a reader. ([7bb7d6e](../../commit/7bb7d6e))
+- If the door system rejects your VFT login, the Access Control settings now say so. ([22230af](../../commit/22230af))
+- Registering a fingerprint now finishes in about 30 seconds and confirms itself when the member scans. ([6fbdeb0](../../commit/6fbdeb0))
+- Removing a member's fingerprint now deletes it everywhere, and it cannot come back without asking the member again. ([fd86dbc](../../commit/fd86dbc))
+- Fingerprints keep working after a reader is restarted from the Door Access page. ([d470244](../../commit/d470244))
+- Newly registered fingerprints now open the door on the first scan. ([f9f9a91](../../commit/f9f9a91))
+
 ## [1.3.1] - 2026-10-07
 
 ### Fixed
