@@ -516,4 +516,17 @@ export interface IAccessControlRepository {
     gymId: string,
     subjectId: number
   ): Promise<string | null>
+
+  /**
+   * Resolve many subject ids to member ids in as few queries as the transport
+   * allows.
+   *
+   * A delivery of hundreds of scans names only a handful of people, so the
+   * webhook asks once per delivery instead of once per scan (remote day, F-09).
+   * Subjects mapping to no member of this gym are simply absent from the map.
+   */
+  findMemberIdsBySubjectIds(
+    gymId: string,
+    subjectIds: number[]
+  ): Promise<Map<number, string>>
 }

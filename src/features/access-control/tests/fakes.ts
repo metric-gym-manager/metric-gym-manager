@@ -810,6 +810,27 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
       }))
   }
 
+  async findMemberIdsBySubjectIds(
+    gymId: string,
+    subjectIds: number[]
+  ): Promise<Map<number, string>> {
+    const wanted = new Set(subjectIds)
+    const resolved = new Map<number, string>()
+
+    for (const context of this.options.contexts ?? []) {
+      const subjectId = context.subject?.subject_id
+      if (
+        context.gymId === gymId &&
+        subjectId !== undefined &&
+        wanted.has(subjectId)
+      ) {
+        resolved.set(subjectId, context.memberId)
+      }
+    }
+
+    return resolved
+  }
+
   async findMemberIdBySubjectId(
     gymId: string,
     subjectId: number

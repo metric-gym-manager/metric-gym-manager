@@ -214,6 +214,25 @@ export class RecordAccessEvents {
 
         let normalised: IncomingAccessEvent[] = []
 
+        // One lookup for the whole delivery: it names a handful of people but
+        // may carry hundreds of scans (an offline reader uploads its buffer in
+        // one go), and a query per scan was hundreds of sequential round trips
+        // inside one request (remote day F-09).
+        const distinctSubjectIds = [
+          ...new Set(
+            events
+              .map((e) => Number(e.EmpId))
+              .filter((id) => Number.isFinite(id))
+          ),
+        ]
+        const membersBySubject =
+          distinctSubjectIds.length > 0
+            ? await this.repo.findMemberIdsBySubjectIds(
+                device.gym_id,
+                distinctSubjectIds
+              )
+            : new Map<number, string>()
+
         for (const event of events) {
           const occurredAt = parseDeviceTime(
             event.AttTime,
@@ -227,7 +246,7 @@ export class RecordAccessEvents {
 
           const subjectId = Number(event.EmpId)
           const memberId = Number.isFinite(subjectId)
-            ? await this.repo.findMemberIdBySubjectId(device.gym_id, subjectId)
+            ? (membersBySubject.get(subjectId) ?? null)
             : null
 
           normalised.push({

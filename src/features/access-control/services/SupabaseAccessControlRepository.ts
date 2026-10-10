@@ -74,6 +74,9 @@ interface MemberContextRow {
   member_access_subjects: MemberAccessSubject[] | MemberAccessSubject | null
 }
 
+/** Subject ids per member lookup: bounded by the length of a query string. */
+const SUBJECT_LOOKUP_CHUNK_SIZE = 100
+
 /** Rows per bulk insert into the outbox. */
 const ENQUEUE_CHUNK_SIZE = 500
 
@@ -1331,6 +1334,39 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     }
 
     return (data as { member_id: string } | null)?.member_id ?? null
+  }
+
+  async findMemberIdsBySubjectIds(
+    gymId: string,
+    subjectIds: number[]
+  ): Promise<Map<number, string>> {
+    const resolved = new Map<number, string>()
+    if (subjectIds.length === 0) return resolved
+
+    // `.in()` puts every id in the query string, so the list is chunked to keep
+    // each request line well under what a gateway accepts (trap 15).
+    for (let i = 0; i < subjectIds.length; i += SUBJECT_LOOKUP_CHUNK_SIZE) {
+      const chunk = subjectIds.slice(i, i + SUBJECT_LOOKUP_CHUNK_SIZE)
+
+      const { data, error } = await this.supabase
+        .from('member_access_subjects')
+        .select('member_id, subject_id')
+        .eq('gym_id', gymId)
+        .in('subject_id', chunk)
+
+      if (error) {
+        throw new DatabaseError(
+          `Failed to resolve subjects to members: ${error.message}`
+        )
+      }
+
+      for (const row of (data as
+        { member_id: string; subject_id: number }[] | null) ?? []) {
+        resolved.set(row.subject_id, row.member_id)
+      }
+    }
+
+    return resolved
   }
 
   // ============================================================
