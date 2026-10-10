@@ -156,6 +156,7 @@ import {
   describeDeviceEvent,
 } from '../src/features/access-control/config/DeviceEventCodes'
 import {
+  AccessIntent,
   AccessSyncStatus,
   DEVICE_OFFLINE_AFTER_SECONDS,
 } from '../src/features/access-control/config/AccessControlConfig'
@@ -2693,12 +2694,20 @@ async function reclaim(): Promise<void> {
   const hwIds = new Set((await hwMembers()).map((m) => m.id))
   const { data, error } = await supabase
     .from('access_sync_jobs')
-    .select('id, gym_id, member_id, updated_at')
+    .select('id, gym_id, member_id, intent, updated_at')
     .eq('status', AccessSyncStatus.InFlight)
   if (error) fail(`access_sync_jobs: ${error.message}`)
   const inFlight = data ?? []
+  // A door open or restart can no longer run twice (the drain refuses any
+  // attempt past the first), so reclaiming one is harmless and not "real".
+  const runsOnce = (j: { member_id: string | null; intent: string }) =>
+    j.member_id === null &&
+    (j.intent === AccessIntent.OpenDoor ||
+      j.intent === AccessIntent.RebootDevice)
   const real = inFlight.filter(
-    (j) => j.gym_id !== TITAN_GYM_ID || !j.member_id || !hwIds.has(j.member_id)
+    (j) =>
+      !runsOnce(j) &&
+      (j.gym_id !== TITAN_GYM_ID || !j.member_id || !hwIds.has(j.member_id))
   )
   console.log(
     `In flight now: ${inFlight.length} (not HW test members': ${real.length})`

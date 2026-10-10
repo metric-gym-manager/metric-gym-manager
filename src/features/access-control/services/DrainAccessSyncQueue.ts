@@ -212,6 +212,7 @@ export class DrainAccessSyncQueue {
       member_id: string | null
       intent: string
       payload: Record<string, unknown>
+      attempts: number
     },
     today?: Date
   ): Promise<SyncFailure[]> {
@@ -223,6 +224,23 @@ export class DrainAccessSyncQueue {
       // immediate feedback; the queued row exists for the audit trail. Nothing
       // to re-send here.
       if (job.payload?.dispatchedInline === true) return []
+
+      // Unlike every other job, a door open or a restart is not safe to repeat:
+      // if a worker died after the vendor accepted the call, the reclaim hands
+      // the job back and a second run would open the door — or restart the
+      // reader — ten minutes late, for nobody. A door opened late is worse than
+      // one not opened, so anything past the first attempt is refused (F-11).
+      // Not a failure anyone can act on, hence no attention flag.
+      if (job.attempts > 1) {
+        return [
+          {
+            message:
+              'Not repeated: a door open or restart is never sent again after an interruption',
+            retryable: false,
+            needsAttention: false,
+          },
+        ]
+      }
 
       const deviceId = String(job.payload?.deviceId ?? '')
       const actorId = String(job.payload?.actorId ?? 'system')
