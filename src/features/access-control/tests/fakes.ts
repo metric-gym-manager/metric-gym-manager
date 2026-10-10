@@ -785,6 +785,31 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     return device?.gym_id ?? null
   }
 
+  async findExistingEvents(
+    _gymId: string,
+    deviceSerial: string,
+    from: Date,
+    to: Date
+  ): Promise<
+    Array<{ subjectId: number; occurredAt: Date; eventCode: string | null }>
+  > {
+    // Over the events the fake has actually stored, so a test can seed an
+    // original through `recordEvents` exactly as production did. The fake does
+    // not track the gym on a stored event, so it filters by reader alone.
+    return this.storedEvents
+      .filter(
+        (e) =>
+          e.deviceSerial === deviceSerial &&
+          e.occurredAt >= from &&
+          e.occurredAt <= to
+      )
+      .map((e) => ({
+        subjectId: e.subjectId,
+        occurredAt: e.occurredAt,
+        eventCode: e.eventCode,
+      }))
+  }
+
   async findMemberIdBySubjectId(
     gymId: string,
     subjectId: number

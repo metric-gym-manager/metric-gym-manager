@@ -478,6 +478,22 @@ export interface IAccessControlRepository {
   ): Promise<{ events: AccessEventWithMember[]; total: number }>
 
   /**
+   * Scans we already hold for one reader inside a window.
+   *
+   * Read so a pulled re-delivery — the same scan, its time shifted by the
+   * reader's UTC offset — can be recognised as a copy rather than stored as a
+   * second scan (remote day, F-01).
+   */
+  findExistingEvents(
+    gymId: string,
+    deviceSerial: string,
+    from: Date,
+    to: Date
+  ): Promise<
+    Array<{ subjectId: number; occurredAt: Date; eventCode: string | null }>
+  >
+
+  /**
    * Delete scans older than a cutoff, up to `limit` rows.
    *
    * Bounded rather than "delete everything older than X" so the caller can

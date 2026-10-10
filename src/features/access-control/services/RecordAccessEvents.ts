@@ -94,6 +94,11 @@ export interface RecordAccessEventsSummary {
    */
   unreadableFieldNames: string[]
   /**
+   * Scans the vendor re-delivered in UTC (events pull) whose original we already
+   * hold — remote day F-01. Counted as duplicates too.
+   */
+  redeliveredShifted: number
+  /**
    * Members whose fingerprint this delivery confirmed for the first time.
    *
    * Almost always zero: it takes one scan per member, ever. A non-zero value
@@ -127,6 +132,7 @@ export class RecordAccessEvents {
       received: 0,
       stored: 0,
       duplicates: 0,
+      redeliveredShifted: 0,
       unknownDevice: 0,
       unknownSerials: [],
       malformed: 0,
@@ -206,8 +212,7 @@ export class RecordAccessEvents {
         // The reader's own spelling survives in each event's `raw`.
         const deviceSerial = device.device_serial
 
-        const normalised: IncomingAccessEvent[] = []
-        let newestScan: Date | null = null
+        let normalised: IncomingAccessEvent[] = []
 
         for (const event of events) {
           const occurredAt = parseDeviceTime(
@@ -218,10 +223,6 @@ export class RecordAccessEvents {
           if (!occurredAt) {
             summary.errors.push(`Unparseable timestamp "${event.AttTime}"`)
             continue
-          }
-
-          if (!newestScan || occurredAt > newestScan) {
-            newestScan = occurredAt
           }
 
           const subjectId = Number(event.EmpId)
@@ -246,8 +247,62 @@ export class RecordAccessEvents {
           })
         }
 
+        // A pulled re-delivery (`GetEventsbyDevSN`) carries the SAME scan with
+        // its wall-clock fields in UTC where a live delivery uses the reader's
+        // local time, and nothing marks it as pulled. Read against the reader's
+        // offset it lands that offset EARLIER than its original, so it passes the
+        // unique key and used to be stored as a second scan. The only tell is
+        // "an existing row, shifted by exactly the offset, same subject and
+        // event code" (remote day F-01, DEC-08).
+        const offsetMs = device.timezone_offset_minutes * 60_000
+
+        if (offsetMs !== 0 && normalised.length > 0) {
+          const shiftedInstants = normalised.map(
+            (e) => e.occurredAt.getTime() + offsetMs
+          )
+          const existing = await this.repo.findExistingEvents(
+            device.gym_id,
+            deviceSerial,
+            new Date(Math.min(...shiftedInstants)),
+            new Date(Math.max(...shiftedInstants))
+          )
+          const held = new Set(
+            existing.map((e) =>
+              eventKey(e.subjectId, e.eventCode, e.occurredAt)
+            )
+          )
+
+          const fresh = normalised.filter(
+            (e) =>
+              !held.has(
+                eventKey(
+                  e.subjectId,
+                  e.eventCode,
+                  new Date(e.occurredAt.getTime() + offsetMs)
+                )
+              )
+          )
+          const shifted = normalised.length - fresh.length
+
+          summary.duplicates += shifted
+          summary.redeliveredShifted += shifted
+          normalised = fresh
+        }
+
+        // Only what is genuinely new may say what time the reader thinks it is:
+        // a copy is hours old by construction.
+        let newestScan: Date | null = null
+        for (const event of normalised) {
+          if (!newestScan || event.occurredAt > newestScan) {
+            newestScan = event.occurredAt
+          }
+        }
+
+        let inserted = 0
+
         if (normalised.length > 0) {
           const result = await this.repo.recordEvents(device.gym_id, normalised)
+          inserted = result.inserted
           summary.stored += result.inserted
           summary.duplicates += result.duplicates
 
@@ -259,7 +314,9 @@ export class RecordAccessEvents {
           await this.repairRefusals(normalised, summary)
         }
 
-        if (newestScan) {
+        // A delivery that stored nothing new carries no fresh timing: an exact
+        // re-delivery of a live scan is as old as the copy shifted by the offset.
+        if (newestScan && inserted > 0) {
           // Measured from the NEWEST scan in the batch, not the first one.
           //
           // Readers batch, so the oldest scan in a delivery can be an hour old
@@ -492,6 +549,15 @@ function fieldNamesOf(candidate: unknown): string[] {
   if (typeof candidate !== 'object' || candidate === null) return []
   if (Array.isArray(candidate)) return []
   return Object.keys(candidate).slice(0, UNREADABLE_FIELD_NAMES_KEPT)
+}
+
+/** The identity of a scan for the shifted-copy check. */
+function eventKey(
+  subjectId: number,
+  eventCode: string | null,
+  instant: Date
+): string {
+  return `${subjectId}|${eventCode ?? ''}|${instant.toISOString()}`
 }
 
 function toNumberOrNull(value: string | undefined): number | null {

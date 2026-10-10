@@ -1276,6 +1276,38 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     return ids.length
   }
 
+  async findExistingEvents(
+    gymId: string,
+    deviceSerial: string,
+    from: Date,
+    to: Date
+  ): Promise<
+    Array<{ subjectId: number; occurredAt: Date; eventCode: string | null }>
+  > {
+    const rows = await this.pageAll<{
+      subject_id: number
+      occurred_at: string
+      event_code: string | null
+    }>(
+      'access_events',
+      (query) =>
+        query
+          .eq('gym_id', gymId)
+          .eq('device_serial', deviceSerial)
+          .gte('occurred_at', from.toISOString())
+          .lte('occurred_at', to.toISOString())
+          // Stable paging needs an order; the instant is the natural one.
+          .order('occurred_at', { ascending: true }),
+      'subject_id, occurred_at, event_code'
+    )
+
+    return rows.map((row) => ({
+      subjectId: row.subject_id,
+      occurredAt: new Date(row.occurred_at),
+      eventCode: row.event_code,
+    }))
+  }
+
   async findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null> {
     const device = await this.findDeviceBySerial(deviceSerial)
     return device?.gym_id ?? null
