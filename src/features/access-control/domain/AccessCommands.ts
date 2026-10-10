@@ -91,6 +91,16 @@ export interface DeriveCommandsInput {
    * validity period.
    */
   force?: boolean
+  /**
+   * Delete-then-add. Implies `force`.
+   *
+   * One `RevokeBiometric` (vendor `fromdev`, which removes the subject from
+   * every reader while the vendor keeps its central copy) goes out before the
+   * forced push, because a reader that lost its templates (restart, visit 1
+   * D1/PH-15) ignores a plain re-push for a user it already lists. Only for an
+   * allowed, provisioned member; otherwise identical to `force`.
+   */
+  reseat?: boolean
 }
 
 /**
@@ -111,7 +121,8 @@ export interface DeriveCommandsInput {
 export function deriveAccessCommands(
   input: DeriveCommandsInput
 ): AccessCommand[] {
-  const { decision, subject, deviceSerials, force = false } = input
+  const { decision, subject, deviceSerials, reseat = false } = input
+  const force = (input.force ?? false) || reseat
 
   if (deviceSerials.length === 0) {
     return []
@@ -157,6 +168,18 @@ export function deriveAccessCommands(
   }
 
   const commands: AccessCommand[] = []
+
+  // Delete-then-add (visit 1, D1): `fromdev` takes the subject off every
+  // reader in one call, so a single revoke is enough whatever the reader
+  // count. Only when the vendor already holds the subject and the decision is
+  // to admit them; a blocked member is never reached by this branch.
+  if (reseat && decision.allowed && subject.provisioned) {
+    commands.push({
+      intent: AccessIntent.RevokeBiometric,
+      deviceSerial: deviceSerials[0],
+      subjectId: subject.subjectId,
+    })
+  }
 
   // The subject record must exist on the vendor before anything can reference
   // it. This is a hardware ordering requirement, not a preference.
