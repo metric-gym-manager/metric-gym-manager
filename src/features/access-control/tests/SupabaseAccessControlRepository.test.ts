@@ -10,7 +10,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { SupabaseAccessControlRepository } from '@/features/access-control/services/SupabaseAccessControlRepository'
-import { AccessSyncStatus } from '@/features/access-control/config/AccessControlConfig'
+import {
+  AccessSyncStatus,
+  SYNC_MAX_ATTEMPTS,
+} from '@/features/access-control/config/AccessControlConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { RegistrationSource } from '@/features/members/config/RegistrationConfig'
 
@@ -456,6 +459,43 @@ function makeJobClient(attempts: number, updates: Record<string, unknown>[]) {
     },
   } as unknown as SupabaseClient
 }
+
+/**
+ * Where the retry ladder ends (remote day, F-14).
+ *
+ * There are five backoff steps (30 s, 2 min, 10 min, 30 min, 2 h) and each
+ * follows a failure, so the sixth failure has no step left and dead-letters.
+ * `SYNC_MAX_ATTEMPTS` used to be 5, the length of the ladder, which described
+ * the steps rather than the attempts; and the 5-versus-6 boundary was asserted
+ * nowhere (tests only used attempts 1 and 99).
+ */
+describe('SupabaseAccessControlRepository — the retry limit', () => {
+  it('counts attempts, not backoff steps', () => {
+    expect(SYNC_MAX_ATTEMPTS).toBe(6)
+  })
+
+  it('reschedules the fifth failure two hours out', async () => {
+    const updates: Record<string, unknown>[] = []
+    const repo = new SupabaseAccessControlRepository(makeJobClient(5, updates))
+    const before = Date.now()
+
+    await repo.failJob('job-1', 'Device did not respond', true)
+
+    expect(updates[0].status).toBe(AccessSyncStatus.Failed)
+    const nextAt = Date.parse(String(updates[0].next_attempt_at))
+    expect(nextAt - before).toBeGreaterThanOrEqual(7_200_000 - 1_000)
+    expect(nextAt - before).toBeLessThan(7_200_000 + 5_000)
+  })
+
+  it('dead-letters the sixth failure', async () => {
+    const updates: Record<string, unknown>[] = []
+    const repo = new SupabaseAccessControlRepository(makeJobClient(6, updates))
+
+    await repo.failJob('job-1', 'Device did not respond', true)
+
+    expect(updates[0].status).toBe(AccessSyncStatus.Dead)
+  })
+})
 
 /**
  * Outbox writes (visit 1, D1).

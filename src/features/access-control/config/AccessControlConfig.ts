@@ -148,8 +148,14 @@ export enum CheckingStatus {
  */
 export const SYNC_RETRY_BACKOFF_SECONDS = [30, 120, 600, 1_800, 7_200] as const
 
-/** Attempts before a job is dead-lettered for SaaS-admin attention. */
-export const SYNC_MAX_ATTEMPTS = SYNC_RETRY_BACKOFF_SECONDS.length
+/**
+ * Attempts before a job is dead-lettered for SaaS-admin attention.
+ *
+ * Six. Each of the five backoff steps follows a failure; the sixth failure has
+ * no step left and dead-letters (`backoffSecondsFor` returns null). Remote day
+ * F-14: the old value 5 described the ladder, not the attempts.
+ */
+export const SYNC_MAX_ATTEMPTS = SYNC_RETRY_BACKOFF_SECONDS.length + 1
 
 /**
  * Requests per second we allow ourselves against the vendor API.

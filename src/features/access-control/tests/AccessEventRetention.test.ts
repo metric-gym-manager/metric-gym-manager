@@ -10,6 +10,8 @@
  * rather than silently doing part of the job and reporting success.
  */
 
+import fs from 'node:fs'
+import path from 'node:path'
 import { PurgeExpiredAccessEvents } from '@/features/access-control/services/PurgeExpiredAccessEvents'
 import {
   ACCESS_EVENT_DELETE_CHUNK_SIZE,
@@ -259,5 +261,20 @@ describe('PurgeExpiredAccessEvents', () => {
 
     expect(await repo.deleteEventsOlderThan(cutoff, 1)).toBe(1)
     expect(events).toHaveLength(0)
+  })
+})
+
+describe('the published retention figure', () => {
+  it('is the figure the privacy policy states', () => {
+    // One decision in two places (trap 13): the constant decides what the
+    // nightly purge deletes, and the privacy page tells members how long door
+    // scans are kept. Changing one without the other makes the policy false.
+    const page = fs.readFileSync(
+      path.join(process.cwd(), 'src/app/privacy/page.tsx'),
+      'utf8'
+    )
+
+    expect(ACCESS_EVENT_RETENTION_DAYS).toBe(365)
+    expect(page).toContain('12 months')
   })
 })
