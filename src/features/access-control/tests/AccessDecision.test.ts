@@ -300,6 +300,54 @@ describe('resolveAccessDecision', () => {
   })
 })
 
+describe('resolveAccessDecision — unreadable dates fail closed (F-04)', () => {
+  // `NaN` compares false both ways, so `today > dueDate` was false for a due
+  // date we could not read and the member was ADMITTED (remote day, F-04).
+  const garbage = () => new Date('garbage')
+
+  it('refuses an active member whose due date cannot be read', () => {
+    const decision = resolveAccessDecision(member({ nextDueDate: garbage() }))
+
+    expect(decision.allowed).toBe(false)
+    expect(decision.reason).toBe(AccessDenialReason.Expired)
+    expect(decision.validFrom).toBeNull()
+    expect(decision.validTo).toBeNull()
+  })
+
+  it('refuses an active member whose start date cannot be read', () => {
+    const decision = resolveAccessDecision(
+      member({ membershipStartDate: garbage() })
+    )
+
+    expect(decision.allowed).toBe(false)
+    expect(decision.reason).toBe(AccessDenialReason.Expired)
+  })
+
+  it('refuses when the day being decided against cannot be read', () => {
+    const decision = resolveAccessDecision(member({ today: garbage() }))
+
+    expect(decision.allowed).toBe(false)
+    expect(decision.reason).toBe(AccessDenialReason.Expired)
+  })
+
+  it('still takes a cancelled member off the hardware', () => {
+    const decision = resolveAccessDecision(
+      member({ status: MemberStatus.Cancelled, nextDueDate: garbage() })
+    )
+
+    expect(decision.reason).toBe(AccessDenialReason.Cancelled)
+    expect(decision.removeFromDevice).toBe(true)
+  })
+
+  it('still reports a suspended member as suspended', () => {
+    const decision = resolveAccessDecision(
+      member({ status: MemberStatus.Suspended, nextDueDate: garbage() })
+    )
+
+    expect(decision.reason).toBe(AccessDenialReason.Suspended)
+  })
+})
+
 describe('describeAccessDenial', () => {
   it('explains every denial reason in plain language', () => {
     for (const reason of Object.values(AccessDenialReason)) {

@@ -121,6 +121,13 @@ export function resolveAccessDecision(
     return denied(AccessDenialReason.Suspended)
   }
 
+  // A date we cannot read must never open a door: NaN compares false both
+  // ways, which made `today > dueDate` false and admitted the member
+  // (remote day, F-04). Fails closed.
+  if ([today, startDate, dueDate].some((d) => Number.isNaN(d.getTime()))) {
+    return denied(AccessDenialReason.Expired)
+  }
+
   // A QR self-registration is an unverified stranger until the desk confirms
   // them. Checked before the dates: an unverified person with a valid-looking
   // payment must still not get through a door.
