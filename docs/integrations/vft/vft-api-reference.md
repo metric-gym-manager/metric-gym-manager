@@ -186,6 +186,8 @@ other message as a failure needing attention, and `isRetryable` treats a 5xx
 that carries a `message` as permanent while a bare 5xx still retries. An
 explicit `Return` code still wins over prose.
 
+**Withdrawal uses DeleteEmployee, cancellation uses DeleteFromAllDevice.** Cancelling a membership calls `fromdev`, which takes the person off every reader but leaves the vendor's central copy, so a returning member is restored without enrolling a finger again (trap 5). Removing a fingerprint at a member's request is the opposite case: `fromdev` kept that central copy and any later sync put the withdrawn finger back without consent (visit 1, D2), so withdrawal calls `DELETE /api/template/{EmpId}` and gives the member a new subject id. A cancelled member's templates are therefore kept on purpose and a withdrawn member's are erased on purpose, and `removeSubject` must never be used for cancellation.
+
 #### Field limits, measured rather than quoted
 
 | Field                               | Result                                                                                                                                                                                                            |
@@ -237,6 +239,10 @@ This endpoint is the answer to that, and it pairs exactly with the failure mode
 byte-identical to a wrong token, on every event, silently. Worth building as a
 backfill the `reconcile-access` cron can run. **Not** a replacement for the
 webhook.
+
+### Measured 2026-10-09: pulled events arrive in UTC
+
+Calling this endpoint makes the vendor re-deliver the reader's stored scans through the same webhook, but with `AttTime` in UTC where live deliveries carry the reader's local time, and nothing in the payload marks a delivery as pulled. We therefore treat a scan that equals an existing row shifted by exactly the reader's UTC offset (same subject and event code) as a duplicate (fix plan DEC-08), and production does not call this endpoint until VFT explains the behaviour (fix plan O-5).
 
 ### 4.2 `EnrollFace` — face enrolment
 

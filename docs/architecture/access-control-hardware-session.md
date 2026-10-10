@@ -232,7 +232,7 @@ outside the valid period, `23` unauthorised, `27`/`30`/`34` not registered,
 **Verify type:** `1` fingerprint (the only one that confirms an enrolment),
 `0` password, `2` card, `15` face.
 
-**Return codes in the queue:** `≥ 0` success (enrol gives `6`). `-7` repeated
+**Return codes in the queue:** `≥ 0` success — except **Enroll User**: `0` = a finger was taken, `6` = the reader's ~10 s enrolment window timed out with no finger (measured 2026-10-09, PH-07/PH-21). `-7` repeated
 command and `-28` door already open are benign. `-725` = no answer in ~2 min
 (retryable). `-18` = reader full. The vendor's `500 {"message":"Validation
 error"}` means "already true or already queued" — benign.
