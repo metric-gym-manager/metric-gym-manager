@@ -802,10 +802,14 @@ export class VendorRequestError extends Error {
  * Whether a failure is worth retrying.
  *
  * 5xx and transport errors are transient; 4xx means the request was wrong and
- * repeating it just repeats the mistake.
+ * repeating it just repeats the mistake — except 429 (rate limited) and 408
+ * (timeout), which clear by waiting. Dead-lettering them is how a vendor
+ * throttle once killed a queue (remote day, F-02).
  */
 function isRetryable(error: unknown): boolean {
   if (error instanceof VendorRequestError) {
+    if (error.status === 429 || error.status === 408) return true
+
     if (error.status < 500) return false
 
     // Only a bare 500. This vendor answers 500 for business rejections — a
