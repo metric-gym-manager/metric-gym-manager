@@ -237,6 +237,11 @@ export class DrainAccessSyncQueue {
     const result = await this.syncMember.execute({
       memberId: job.member_id,
       today,
+      // Carried by the job so a queued repair (restart re-seat, refusal
+      // re-push, a desk retry) does what the request that queued it meant,
+      // not an ordinary diff that would find nothing to send.
+      force: job.payload?.force === true,
+      reseat: job.payload?.reseat === true,
     })
 
     return result.failures

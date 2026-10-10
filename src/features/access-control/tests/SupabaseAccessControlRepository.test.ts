@@ -458,6 +458,110 @@ function makeJobClient(attempts: number, updates: Record<string, unknown>[]) {
 }
 
 /**
+ * Outbox writes (visit 1, D1).
+ *
+ * The restart repair queues one job per member the reader holds, which can be
+ * a few hundred. One insert per job would be a few hundred round trips inside
+ * a request, and one insert for all of them risks the transport's body limit,
+ * so the bulk write goes out in chunks.
+ */
+describe('SupabaseAccessControlRepository — outbox writes', () => {
+  function makeInsertClient(
+    inserts: unknown[][],
+    result: { error: { message: string } | null } = { error: null }
+  ) {
+    return {
+      from: (table: string) => {
+        expect(table).toBe('access_sync_jobs')
+        return {
+          insert: (rows: unknown) => {
+            const batch = Array.isArray(rows) ? rows : [rows]
+            inserts.push(batch)
+            const resolved = {
+              data: result.error ? null : batch.map((_, i) => ({ id: i })),
+              error: result.error,
+            }
+            // `enqueue` awaits the insert itself; `enqueueMany` chains
+            // `.select('id')` onto it. Serve both, as PostgREST does.
+            return Object.assign(Promise.resolve(resolved), {
+              select: () => Promise.resolve(resolved),
+            })
+          },
+        }
+      },
+    } as unknown as SupabaseClient
+  }
+
+  const job = (n: number) => ({
+    memberId: `member-${n}`,
+    intent: 'reconcile_member',
+    payload: { reason: 'reader_restarted', reseat: true },
+  })
+
+  it('writes 1,001 jobs as three inserts of 500, 500 and 1', async () => {
+    const inserts: unknown[][] = []
+    const repo = new SupabaseAccessControlRepository(makeInsertClient(inserts))
+
+    const count = await repo.enqueueMany(
+      'gym-1',
+      Array.from({ length: 1001 }, (_, n) => job(n))
+    )
+
+    expect(inserts.map((batch) => batch.length)).toEqual([500, 500, 1])
+    expect(count).toBe(1001)
+  })
+
+  it('does not touch the database for an empty list', async () => {
+    const inserts: unknown[][] = []
+    const repo = new SupabaseAccessControlRepository(makeInsertClient(inserts))
+
+    expect(await repo.enqueueMany('gym-1', [])).toBe(0)
+    expect(inserts).toHaveLength(0)
+  })
+
+  it('carries each job its own time and payload', async () => {
+    const inserts: unknown[][] = []
+    const repo = new SupabaseAccessControlRepository(makeInsertClient(inserts))
+    const notBefore = new Date('2026-10-10T10:03:00Z')
+
+    await repo.enqueueMany('gym-1', [{ ...job(1), notBefore }])
+
+    expect(inserts[0][0]).toMatchObject({
+      gym_id: 'gym-1',
+      member_id: 'member-1',
+      intent: 'reconcile_member',
+      payload: { reason: 'reader_restarted', reseat: true },
+      next_attempt_at: notBefore.toISOString(),
+    })
+  })
+
+  it('throws when an insert is refused rather than reporting zero', async () => {
+    const repo = new SupabaseAccessControlRepository(
+      makeInsertClient([], { error: { message: 'boom' } })
+    )
+
+    await expect(repo.enqueueMany('gym-1', [job(1)])).rejects.toThrow(
+      /Failed to enqueue/
+    )
+  })
+
+  it('writes next_attempt_at for a single delayed job, and omits it otherwise', async () => {
+    const inserts: unknown[][] = []
+    const repo = new SupabaseAccessControlRepository(makeInsertClient(inserts))
+    const notBefore = new Date('2026-10-10T10:03:00Z')
+
+    await repo.enqueue('gym-1', 'member-1', 'reconcile_member', {}, notBefore)
+    await repo.enqueue('gym-1', 'member-1', 'reconcile_member', {})
+
+    expect(inserts[0][0]).toMatchObject({
+      next_attempt_at: notBefore.toISOString(),
+    })
+    // Left to the column default, so an ordinary job is due immediately.
+    expect(inserts[1][0]).not.toHaveProperty('next_attempt_at')
+  })
+})
+
+/**
  * Serial matching.
  *
  * The serial is the entire routing key for an inbound scan: `findDeviceBySerial`

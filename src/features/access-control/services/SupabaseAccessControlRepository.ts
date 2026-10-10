@@ -74,6 +74,9 @@ interface MemberContextRow {
   member_access_subjects: MemberAccessSubject[] | MemberAccessSubject | null
 }
 
+/** Rows per bulk insert into the outbox. */
+const ENQUEUE_CHUNK_SIZE = 500
+
 /**
  * Rows the case-insensitive serial fallback will consider.
  *
@@ -841,18 +844,66 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     gymId: string,
     memberId: string | null,
     intent: string,
-    payload: Record<string, unknown> = {}
+    payload: Record<string, unknown> = {},
+    notBefore?: Date
   ): Promise<void> {
     const { error } = await this.supabase.from('access_sync_jobs').insert({
       gym_id: gymId,
       member_id: memberId,
       intent,
       payload,
+      // Omitted for an ordinary job so the column default (now) applies.
+      ...(notBefore ? { next_attempt_at: notBefore.toISOString() } : {}),
     })
 
     if (error) {
       throw new DatabaseError(`Failed to enqueue access sync: ${error.message}`)
     }
+  }
+
+  async enqueueMany(
+    gymId: string,
+    jobs: Array<{
+      memberId: string
+      intent: string
+      payload?: Record<string, unknown>
+      notBefore?: Date
+    }>
+  ): Promise<number> {
+    if (jobs.length === 0) return 0
+
+    let inserted = 0
+
+    // Chunked: one insert per job is a round trip each, and a gym's reader can
+    // hold hundreds of members (restart repair, visit 1 D1).
+    for (let from = 0; from < jobs.length; from += ENQUEUE_CHUNK_SIZE) {
+      const chunk = jobs.slice(from, from + ENQUEUE_CHUNK_SIZE)
+
+      const { data, error } = await this.supabase
+        .from('access_sync_jobs')
+        .insert(
+          chunk.map((job) => ({
+            gym_id: gymId,
+            member_id: job.memberId,
+            intent: job.intent,
+            payload: job.payload ?? {},
+            ...(job.notBefore
+              ? { next_attempt_at: job.notBefore.toISOString() }
+              : {}),
+          }))
+        )
+        .select('id')
+
+      if (error) {
+        throw new DatabaseError(
+          `Failed to enqueue access sync: ${error.message}`
+        )
+      }
+
+      inserted += data?.length ?? 0
+    }
+
+    return inserted
   }
 
   /**

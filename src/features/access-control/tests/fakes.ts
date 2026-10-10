@@ -140,6 +140,8 @@ export interface EnqueuedJob {
   memberId: string | null
   intent: string
   payload?: Record<string, unknown>
+  /** Present only when the job was queued to wait. */
+  notBefore?: Date
 }
 
 /** How a job was settled, in the order it happened. */
@@ -418,9 +420,38 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     gymId: string,
     memberId: string | null,
     intent: string,
-    payload?: Record<string, unknown>
+    payload?: Record<string, unknown>,
+    notBefore?: Date
   ): Promise<void> {
-    this.enqueued.push({ gymId, memberId, intent, payload })
+    this.enqueued.push({
+      gymId,
+      memberId,
+      intent,
+      payload,
+      // Only when given, so a plain `toEqual` on an ordinary job stays exact.
+      ...(notBefore ? { notBefore } : {}),
+    })
+  }
+
+  async enqueueMany(
+    gymId: string,
+    jobs: Array<{
+      memberId: string
+      intent: string
+      payload?: Record<string, unknown>
+      notBefore?: Date
+    }>
+  ): Promise<number> {
+    for (const job of jobs) {
+      await this.enqueue(
+        gymId,
+        job.memberId,
+        job.intent,
+        job.payload,
+        job.notBefore
+      )
+    }
+    return jobs.length
   }
 
   async claimDueJobs(limit: number): Promise<AccessSyncJob[]> {
@@ -428,7 +459,25 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     // jobs again would let a test loop forever.
     if (this.claimed) return []
     this.claimed = true
-    return (this.options.claimable ?? []).slice(0, limit)
+
+    // What a test seeded as claimable, plus anything enqueued so far, minus
+    // jobs still waiting for their time — the real claim function filters on
+    // `next_attempt_at <= now()` too. A fake that ignored it would let a
+    // delayed repair run the moment it was queued and still pass.
+    const now = Date.now()
+    const queued = this.enqueued
+      .filter((job) => !job.notBefore || job.notBefore.getTime() <= now)
+      .map((job, n) =>
+        makeJob({
+          id: `queued-${n}`,
+          gym_id: job.gymId,
+          member_id: job.memberId,
+          intent: job.intent as AccessSyncJob['intent'],
+          payload: job.payload ?? {},
+        })
+      )
+
+    return [...(this.options.claimable ?? []), ...queued].slice(0, limit)
   }
 
   async completeJob(jobId: string, status: AccessSyncStatus): Promise<void> {

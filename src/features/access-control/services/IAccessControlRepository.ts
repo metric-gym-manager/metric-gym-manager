@@ -326,12 +326,35 @@ export interface IAccessControlRepository {
 
   // ---- Outbox --------------------------------------------------------------
 
+  /**
+   * Queue one job.
+   *
+   * @param notBefore - Earliest time a drain may claim it. Omitted, the job is
+   *   due at once. The restart repair uses this to wait out the reboot.
+   */
   enqueue(
     gymId: string,
     memberId: string | null,
     intent: string,
-    payload?: Record<string, unknown>
+    payload?: Record<string, unknown>,
+    notBefore?: Date
   ): Promise<void>
+
+  /**
+   * Queue many jobs for one gym in as few round trips as the transport allows.
+   *
+   * @returns The number of rows inserted. Throws on a refused insert — a
+   *   caller that is told "0" cannot tell an empty list from a failed write.
+   */
+  enqueueMany(
+    gymId: string,
+    jobs: Array<{
+      memberId: string
+      intent: string
+      payload?: Record<string, unknown>
+      notBefore?: Date
+    }>
+  ): Promise<number>
 
   /**
    * Claim jobs to work on.
