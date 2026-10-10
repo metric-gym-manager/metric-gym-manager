@@ -240,17 +240,23 @@ export const DEVICE_OFFLINE_AFTER_SECONDS = DRAIN_INTERVAL_SECONDS * 3
 export const ENROLMENT_POLL_INTERVAL_MS = 3_000
 
 /**
- * How long the desk waits for a finger before it stops asking.
+ * How long the desk waits, visibly, for a finger.
  *
- * Two minutes: long enough for a member to walk from the desk to the reader and
- * be shown what to do, short enough that a forgotten panel is not still polling
- * when the next member arrives.
+ * Thirty seconds. The reader's own enrolment window is about ten seconds (ZAM70,
+ * measured on visit 1, PH-21); the rest covers the member's confirming scan.
  *
  * **Timing out is not failure.** The detection behind the poll is additive — it
  * can mark a member enrolled, never un-enrol one — so a member who did present
  * a finger stays correctly enrolled and simply shows it on the next read.
  */
-export const ENROLMENT_POLL_TIMEOUT_MS = 120_000
+export const ENROLMENT_POLL_TIMEOUT_MS = 30_000
+
+/**
+ * After the visible wait ends, the panel keeps checking quietly this long, so
+ * the member's first scan flips it to Registered without a reload (visit 1,
+ * PH-04).
+ */
+export const ENROLMENT_CONFIRM_GRACE_MS = 180_000
 
 /**
  * How long a door scan is kept before it is deleted.

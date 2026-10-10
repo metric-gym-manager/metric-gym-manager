@@ -58,6 +58,7 @@ import type {
 import type { MemberAccessStatus } from '../types'
 import {
   ENROLMENT_POLL_INTERVAL_MS,
+  ENROLMENT_CONFIRM_GRACE_MS,
   ENROLMENT_POLL_TIMEOUT_MS,
 } from '../config/AccessControlConfig'
 
@@ -271,12 +272,7 @@ export function useClearMemberBiometric(): UseMutationResult<
  * the wait ends when the member arrives, gives up, or the window closes.
  */
 export type EnrolmentPollState =
-  | 'idle'
-  | 'starting'
-  | 'awaiting'
-  | 'enrolled'
-  | 'timed-out'
-  | 'failed'
+  'idle' | 'starting' | 'awaiting' | 'enrolled' | 'timed-out' | 'failed'
 
 export interface EnrolmentPoll {
   state: EnrolmentPollState
@@ -372,6 +368,11 @@ export function useEnrolmentPoll(memberId: string | null): EnrolmentPoll {
       queryClient.invalidateQueries({ queryKey: memberAccessKey(memberId) })
 
       const startedAt = Date.now()
+      // The visible state flips to 'timed-out' once, but the loop carries on
+      // quietly for the confirmation grace: the member's first scan is what
+      // confirms the finger, and it can come well after the reader's own ~10 s
+      // window closed (visit 1, PH-04).
+      let timedOut = false
 
       const tick = async (): Promise<void> => {
         if (cancelledRef.current) return
@@ -396,11 +397,21 @@ export function useEnrolmentPoll(memberId: string | null): EnrolmentPoll {
 
         if (cancelledRef.current) return
 
-        if (Date.now() - startedAt >= ENROLMENT_POLL_TIMEOUT_MS) {
+        const elapsed = Date.now() - startedAt
+
+        // The flip comes BEFORE the stop, so a tick that fires late (a
+        // throttled background tab can skip straight past both limits) still
+        // ends on 'timed-out' rather than leaving an 'awaiting' instruction
+        // on screen with nothing polling behind it.
+        if (elapsed >= ENROLMENT_POLL_TIMEOUT_MS && !timedOut) {
+          timedOut = true
           setState('timed-out')
           // Refresh anyway: the finger may have landed on the attempt whose
           // response we lost.
           queryClient.invalidateQueries({ queryKey: memberAccessKey(memberId) })
+        }
+
+        if (elapsed >= ENROLMENT_POLL_TIMEOUT_MS + ENROLMENT_CONFIRM_GRACE_MS) {
           return
         }
 

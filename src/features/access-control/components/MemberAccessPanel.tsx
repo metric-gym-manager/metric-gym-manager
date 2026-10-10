@@ -374,7 +374,8 @@ function EnrolmentStatus({
     return (
       <p className="flex items-center gap-1.5 text-xs text-brand-link">
         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-        Ask the member to place their finger on the reader, then scan once to
+        The reader is waiting for the finger now and gives up after about 10
+        seconds. Once it accepts the finger, ask the member to scan once to
         confirm.
       </p>
     )
@@ -392,9 +393,9 @@ function EnrolmentStatus({
   if (state === 'timed-out') {
     return (
       <p className="text-xs text-ink-muted">
-        Not confirmed yet. If the fingerprint was taken, it is confirmed the
-        first time the member uses the door — reopen this member to check.
-        Otherwise start again.
+        Not confirmed yet. If the reader accepted the finger, ask the member to
+        scan once and this will update by itself for the next few minutes. If
+        the reader gave up, start again.
       </p>
     )
   }
