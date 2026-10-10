@@ -140,6 +140,8 @@ export interface EnqueuedJob {
   memberId: string | null
   intent: string
   payload?: Record<string, unknown>
+  /** Present only when the job was queued to wait. */
+  notBefore?: Date
 }
 
 /** How a job was settled, in the order it happened. */
@@ -198,7 +200,15 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
   readonly purgeCalls: Array<{ cutoff: Date; limit: number }> = []
 
   /** Serials already stored, so a repeat delivery counts as a duplicate. */
+  /** When each entry of `enqueued` was queued, in the same order. */
+  private readonly enqueuedAt: Date[] = []
+
   private readonly seenEventKeys = new Set<string>()
+  /** Claimed jobs and where they stand, so a result can be guarded by attempt. */
+  private readonly jobStates = new Map<
+    string,
+    { status: AccessSyncStatus; attempts: number }
+  >()
   private nextSubjectId = 100001
   private claimed = false
 
@@ -277,8 +287,30 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     )
   }
 
-  async registerDevice(): Promise<AccessDevice> {
-    throw new Error('not used in these tests')
+  /** Readers registered through the port, in order. */
+  readonly registeredDevices: AccessDevice[] = []
+
+  async registerDevice(
+    gymId: string,
+    input: {
+      deviceSerial: string
+      deviceName: string
+      areaId?: number | null
+      timezoneOffsetMinutes?: number
+    }
+  ): Promise<AccessDevice> {
+    // Stored exactly as given, as the real repository stores it: whatever
+    // normalisation a serial gets happens BEFORE it reaches the port.
+    const device = makeDevice({
+      id: `device-${this.registeredDevices.length + 1}`,
+      gym_id: gymId,
+      device_serial: input.deviceSerial,
+      device_name: input.deviceName,
+      area_id: input.areaId ?? 1,
+      timezone_offset_minutes: input.timezoneOffsetMinutes ?? 330,
+    })
+    this.registeredDevices.push(device)
+    return device
   }
 
   async setDeviceActive(): Promise<void> {}
@@ -315,6 +347,19 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     )
   }
 
+  async listMemberIdsOnDevice(
+    gymId: string,
+    deviceSerial: string
+  ): Promise<string[]> {
+    return (this.options.contexts ?? [])
+      .filter(
+        (c) =>
+          c.gymId === gymId &&
+          (c.subject?.synced_device_serials ?? []).includes(deviceSerial)
+      )
+      .map((c) => c.memberId)
+  }
+
   async listMembersNeedingReconcile(gymId: string): Promise<string[]> {
     return (this.options.contexts ?? [])
       .filter((c) => c.gymId === gymId)
@@ -337,6 +382,38 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
 
   async markSubjectOffDevice(memberId: string): Promise<void> {
     this.offDevice.push(memberId)
+  }
+
+  async replaceSubjectAfterErasure(
+    memberId: string,
+    newSubjectId: number
+  ): Promise<void> {
+    const context = (this.options.contexts ?? []).find(
+      (c) => c.memberId === memberId
+    )
+
+    // Mirrors the real repository's "no row updated" failure: a fake that
+    // quietly accepted an unknown member would hide the RLS-style no-op the
+    // real guard exists to catch.
+    if (!context?.subject) {
+      throw new Error('Failed to replace subject after erasure: no row updated')
+    }
+
+    context.subject = {
+      ...context.subject,
+      subject_id: newSubjectId,
+      provisioned_at: null,
+      synced_device_serials: [],
+      on_device: false,
+      last_synced_at: null,
+      last_synced_valid_from: null,
+      last_synced_valid_to: null,
+      last_synced_blocked: null,
+      finger_enrolled: false,
+      finger_id: null,
+      enrolled_at: null,
+      updated_at: new Date().toISOString(),
+    }
   }
 
   async recountDeviceTemplates(deviceId: string): Promise<number> {
@@ -418,9 +495,54 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     gymId: string,
     memberId: string | null,
     intent: string,
-    payload?: Record<string, unknown>
+    payload?: Record<string, unknown>,
+    notBefore?: Date
   ): Promise<void> {
-    this.enqueued.push({ gymId, memberId, intent, payload })
+    this.enqueuedAt.push(new Date())
+    this.enqueued.push({
+      gymId,
+      memberId,
+      intent,
+      payload,
+      // Only when given, so a plain `toEqual` on an ordinary job stays exact.
+      ...(notBefore ? { notBefore } : {}),
+    })
+  }
+
+  async enqueueMany(
+    gymId: string,
+    jobs: Array<{
+      memberId: string
+      intent: string
+      payload?: Record<string, unknown>
+      notBefore?: Date
+    }>
+  ): Promise<number> {
+    for (const job of jobs) {
+      await this.enqueue(
+        gymId,
+        job.memberId,
+        job.intent,
+        job.payload,
+        job.notBefore
+      )
+    }
+    return jobs.length
+  }
+
+  async hasRecentJob(
+    memberId: string,
+    reason: string,
+    sinceSeconds: number
+  ): Promise<boolean> {
+    const cutoff = Date.now() - sinceSeconds * 1000
+
+    return this.enqueued.some(
+      (job, index) =>
+        job.memberId === memberId &&
+        job.payload?.reason === reason &&
+        this.enqueuedAt[index].getTime() >= cutoff
+    )
   }
 
   async claimDueJobs(limit: number): Promise<AccessSyncJob[]> {
@@ -428,19 +550,124 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     // jobs again would let a test loop forever.
     if (this.claimed) return []
     this.claimed = true
-    return (this.options.claimable ?? []).slice(0, limit)
+
+    // What a test seeded as claimable, plus anything enqueued so far, minus
+    // jobs still waiting for their time — the real claim function filters on
+    // `next_attempt_at <= now()` too. A fake that ignored it would let a
+    // delayed repair run the moment it was queued and still pass.
+    const now = Date.now()
+    const queued = this.enqueued
+      .filter((job) => !job.notBefore || job.notBefore.getTime() <= now)
+      .map((job, n) =>
+        makeJob({
+          id: `queued-${n}`,
+          gym_id: job.gymId,
+          member_id: job.memberId,
+          intent: job.intent as AccessSyncJob['intent'],
+          payload: job.payload ?? {},
+        })
+      )
+
+    const claimed = [...(this.options.claimable ?? []), ...queued].slice(
+      0,
+      limit
+    )
+
+    for (const job of claimed) {
+      this.jobStates.set(job.id, {
+        status: AccessSyncStatus.InFlight,
+        attempts: job.attempts,
+      })
+    }
+
+    return claimed
   }
 
-  async completeJob(jobId: string, status: AccessSyncStatus): Promise<void> {
+  async completeJob(
+    jobId: string,
+    status: AccessSyncStatus,
+    expectedAttempts?: number
+  ): Promise<boolean> {
+    if (!this.guardAllows(jobId, expectedAttempts)) return false
+
     this.settled.push({ jobId, outcome: 'completed', status })
+    this.setJobStatus(jobId, status)
+    return true
   }
 
   async failJob(
     jobId: string,
     error: string,
-    retryable: boolean
-  ): Promise<void> {
+    retryable: boolean,
+    expectedAttempts?: number
+  ): Promise<boolean> {
+    if (!this.guardAllows(jobId, expectedAttempts)) return false
+
     this.settled.push({ jobId, outcome: 'failed', error, retryable })
+    this.setJobStatus(
+      jobId,
+      retryable ? AccessSyncStatus.Failed : AccessSyncStatus.Dead
+    )
+    return true
+  }
+
+  /**
+   * The state of a job the fake has handed out, for assertions.
+   *
+   * `undefined` for a job it never claimed.
+   */
+  jobState(
+    jobId: string
+  ): { status: AccessSyncStatus; attempts: number } | undefined {
+    return this.jobStates.get(jobId)
+  }
+
+  /**
+   * Simulate `reclaim_stale_access_sync_jobs`, and optionally another run's
+   * claim after it.
+   *
+   * A reclaim alone returns the job to pending with its attempt number
+   * UNCHANGED — the bump happens when the next claim takes it. So the two real
+   * states are kept apart, because each is caught by a different filter:
+   * pending at the same attempt only by the status check, and in flight at the
+   * new attempt only by the attempts check.
+   *
+   * @param options.claimedAgain - Another run has already claimed it: the job
+   *   is `in_flight` again at attempt + 1.
+   */
+  simulateReclaim(
+    jobId: string,
+    options: { claimedAgain?: boolean } = {}
+  ): void {
+    const state = this.jobStates.get(jobId)
+    if (!state) throw new Error(`Job ${jobId} was never claimed`)
+
+    this.jobStates.set(
+      jobId,
+      options.claimedAgain
+        ? { status: AccessSyncStatus.InFlight, attempts: state.attempts + 1 }
+        : { status: AccessSyncStatus.Pending, attempts: state.attempts }
+    )
+  }
+
+  /**
+   * The real repository's guard: with an expected attempt the result lands only
+   * on a job still in flight at that attempt. Without one it always lands, as
+   * the unguarded call does.
+   */
+  private guardAllows(jobId: string, expectedAttempts?: number): boolean {
+    if (expectedAttempts === undefined) return true
+    const state = this.jobStates.get(jobId)
+    return (
+      state !== undefined &&
+      state.status === AccessSyncStatus.InFlight &&
+      state.attempts === expectedAttempts
+    )
+  }
+
+  private setJobStatus(jobId: string, status: AccessSyncStatus): void {
+    const state = this.jobStates.get(jobId)
+    if (state) this.jobStates.set(jobId, { ...state, status })
   }
 
   async recordBiometricConsent(memberId: string, at: Date): Promise<void> {
@@ -556,6 +783,52 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
   async findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null> {
     const device = await this.findDeviceBySerial(deviceSerial)
     return device?.gym_id ?? null
+  }
+
+  async findExistingEvents(
+    _gymId: string,
+    deviceSerial: string,
+    from: Date,
+    to: Date
+  ): Promise<
+    Array<{ subjectId: number; occurredAt: Date; eventCode: string | null }>
+  > {
+    // Over the events the fake has actually stored, so a test can seed an
+    // original through `recordEvents` exactly as production did. The fake does
+    // not track the gym on a stored event, so it filters by reader alone.
+    return this.storedEvents
+      .filter(
+        (e) =>
+          e.deviceSerial === deviceSerial &&
+          e.occurredAt >= from &&
+          e.occurredAt <= to
+      )
+      .map((e) => ({
+        subjectId: e.subjectId,
+        occurredAt: e.occurredAt,
+        eventCode: e.eventCode,
+      }))
+  }
+
+  async findMemberIdsBySubjectIds(
+    gymId: string,
+    subjectIds: number[]
+  ): Promise<Map<number, string>> {
+    const wanted = new Set(subjectIds)
+    const resolved = new Map<number, string>()
+
+    for (const context of this.options.contexts ?? []) {
+      const subjectId = context.subject?.subject_id
+      if (
+        context.gymId === gymId &&
+        subjectId !== undefined &&
+        wanted.has(subjectId)
+      ) {
+        resolved.set(subjectId, context.memberId)
+      }
+    }
+
+    return resolved
   }
 
   async findMemberIdBySubjectId(

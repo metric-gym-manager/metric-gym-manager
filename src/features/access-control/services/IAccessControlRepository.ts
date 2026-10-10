@@ -204,6 +204,14 @@ export interface IAccessControlRepository {
   getMemberAccessContext(memberId: string): Promise<MemberAccessContext | null>
 
   /**
+   * Ids of the members we believe a reader holds.
+   *
+   * Read from our own record (`synced_device_serials`), which is what the
+   * restart repair needs: it re-seats exactly the members we put there.
+   */
+  listMemberIdsOnDevice(gymId: string, deviceSerial: string): Promise<string[]>
+
+  /**
    * Members whose access may have changed, for the nightly reconcile.
    *
    * Returns ids only; prefer `listSubjectsForReconcile` when the caller needs
@@ -237,6 +245,20 @@ export interface IAccessControlRepository {
 
   /** Record that a member's template is no longer on the reader. */
   markSubjectOffDevice(memberId: string): Promise<void>
+
+  /**
+   * Give a member a fresh device identity after their vendor record was erased.
+   *
+   * One write that resets everything tied to the old record — provisioning,
+   * reader list, window, block state, fingerprint — so no half-erased row can
+   * exist. Throws when no row matched: an update that matches nothing reports
+   * success, which would leave the old id in place and the erasure undone
+   * (rule 2.7).
+   */
+  replaceSubjectAfterErasure(
+    memberId: string,
+    newSubjectId: number
+  ): Promise<void>
 
   /** Recompute how many templates a reader holds. */
   recountDeviceTemplates(deviceId: string): Promise<number>
@@ -326,12 +348,47 @@ export interface IAccessControlRepository {
 
   // ---- Outbox --------------------------------------------------------------
 
+  /**
+   * Queue one job.
+   *
+   * @param notBefore - Earliest time a drain may claim it. Omitted, the job is
+   *   due at once. The restart repair uses this to wait out the reboot.
+   */
   enqueue(
     gymId: string,
     memberId: string | null,
     intent: string,
-    payload?: Record<string, unknown>
+    payload?: Record<string, unknown>,
+    notBefore?: Date
   ): Promise<void>
+
+  /**
+   * Queue many jobs for one gym in as few round trips as the transport allows.
+   *
+   * @returns The number of rows inserted. Throws on a refused insert — a
+   *   caller that is told "0" cannot tell an empty list from a failed write.
+   */
+  enqueueMany(
+    gymId: string,
+    jobs: Array<{
+      memberId: string
+      intent: string
+      payload?: Record<string, unknown>
+      notBefore?: Date
+    }>
+  ): Promise<number>
+
+  /**
+   * Whether a job with this `payload.reason` was queued for the member within
+   * the last `sinceSeconds`.
+   *
+   * What bounds the refusal repair: it asks before queueing another.
+   */
+  hasRecentJob(
+    memberId: string,
+    reason: string,
+    sinceSeconds: number
+  ): Promise<boolean>
 
   /**
    * Claim jobs to work on.
@@ -343,9 +400,34 @@ export interface IAccessControlRepository {
    */
   claimDueJobs(limit: number): Promise<AccessSyncJob[]>
 
-  completeJob(jobId: string, status: AccessSyncStatus): Promise<void>
+  /**
+   * Record a job's success.
+   *
+   * @param expectedAttempts - The attempt number this run claimed. When given,
+   *   the result is written only if the job is still `in_flight` at that
+   *   attempt: a reclaim may have handed it to another run, and a slow worker
+   *   must not overwrite that run (remote day, F-10).
+   * @returns True when a row was updated; false when the result was dropped.
+   */
+  completeJob(
+    jobId: string,
+    status: AccessSyncStatus,
+    expectedAttempts?: number
+  ): Promise<boolean>
 
-  failJob(jobId: string, error: string, retryable: boolean): Promise<void>
+  /**
+   * Record a job's failure, rescheduling or dead-lettering it.
+   *
+   * @param expectedAttempts - As for `completeJob`; also the attempt the retry
+   *   backoff is taken from, so the row need not be read first.
+   * @returns True when a row was updated; false when the result was dropped.
+   */
+  failJob(
+    jobId: string,
+    error: string,
+    retryable: boolean,
+    expectedAttempts?: number
+  ): Promise<boolean>
 
   /**
    * Jobs stuck in `dead`.
@@ -396,6 +478,22 @@ export interface IAccessControlRepository {
   ): Promise<{ events: AccessEventWithMember[]; total: number }>
 
   /**
+   * Scans we already hold for one reader inside a window.
+   *
+   * Read so a pulled re-delivery — the same scan, its time shifted by the
+   * reader's UTC offset — can be recognised as a copy rather than stored as a
+   * second scan (remote day, F-01).
+   */
+  findExistingEvents(
+    gymId: string,
+    deviceSerial: string,
+    from: Date,
+    to: Date
+  ): Promise<
+    Array<{ subjectId: number; occurredAt: Date; eventCode: string | null }>
+  >
+
+  /**
    * Delete scans older than a cutoff, up to `limit` rows.
    *
    * Bounded rather than "delete everything older than X" so the caller can
@@ -418,4 +516,17 @@ export interface IAccessControlRepository {
     gymId: string,
     subjectId: number
   ): Promise<string | null>
+
+  /**
+   * Resolve many subject ids to member ids in as few queries as the transport
+   * allows.
+   *
+   * A delivery of hundreds of scans names only a handful of people, so the
+   * webhook asks once per delivery instead of once per scan (remote day, F-09).
+   * Subjects mapping to no member of this gym are simply absent from the map.
+   */
+  findMemberIdsBySubjectIds(
+    gymId: string,
+    subjectIds: number[]
+  ): Promise<Map<number, string>>
 }

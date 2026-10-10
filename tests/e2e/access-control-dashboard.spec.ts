@@ -77,7 +77,7 @@ function readerCard(page: Page) {
   return page
     .locator('div')
     .filter({ hasText: READER.name })
-    .filter({ has: page.getByText('Fingerprints') })
+    .filter({ has: page.getByText('Members on this reader') })
     .last()
 }
 

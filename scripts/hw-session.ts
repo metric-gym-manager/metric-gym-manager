@@ -156,6 +156,7 @@ import {
   describeDeviceEvent,
 } from '../src/features/access-control/config/DeviceEventCodes'
 import {
+  AccessIntent,
   AccessSyncStatus,
   DEVICE_OFFLINE_AFTER_SECONDS,
 } from '../src/features/access-control/config/AccessControlConfig'
@@ -2693,12 +2694,20 @@ async function reclaim(): Promise<void> {
   const hwIds = new Set((await hwMembers()).map((m) => m.id))
   const { data, error } = await supabase
     .from('access_sync_jobs')
-    .select('id, gym_id, member_id, updated_at')
+    .select('id, gym_id, member_id, intent, updated_at')
     .eq('status', AccessSyncStatus.InFlight)
   if (error) fail(`access_sync_jobs: ${error.message}`)
   const inFlight = data ?? []
+  // A door open or restart can no longer run twice (the drain refuses any
+  // attempt past the first), so reclaiming one is harmless and not "real".
+  const runsOnce = (j: { member_id: string | null; intent: string }) =>
+    j.member_id === null &&
+    (j.intent === AccessIntent.OpenDoor ||
+      j.intent === AccessIntent.RebootDevice)
   const real = inFlight.filter(
-    (j) => j.gym_id !== TITAN_GYM_ID || !j.member_id || !hwIds.has(j.member_id)
+    (j) =>
+      !runsOnce(j) &&
+      (j.gym_id !== TITAN_GYM_ID || !j.member_id || !hwIds.has(j.member_id))
   )
   console.log(
     `In flight now: ${inFlight.length} (not HW test members': ${real.length})`
@@ -3624,15 +3633,16 @@ function stubLog(): void {
   const shown = entries.filter((e) => !since || new Date(e.at) >= since)
   table(
     ['At (SLT)', 'Mode', 'Method', 'Path', 'Query / body'],
-    shown
-      .slice(-Number(arg('tail') ?? 40))
-      .map((e) => [
-        slt(e.at).slice(11),
-        e.mode,
-        e.method,
-        e.path,
-        (e.query || e.body).slice(0, 60),
-      ])
+    shown.slice(-Number(arg('tail') ?? 40)).map((e) => [
+      slt(e.at).slice(11),
+      e.mode,
+      e.method,
+      e.path,
+      // A stub's recorded query/body can carry what a caller sent it, including
+      // a credential (remote day F-15), so it goes through the same filter as
+      // everything else this console prints.
+      redact(e.query || e.body).slice(0, 60),
+    ])
   )
   const commands = shown.filter(
     (e) => !e.path.startsWith('/api/user') && e.method !== 'GET'
@@ -4168,6 +4178,13 @@ async function e2eAccount(): Promise<void> {
       `  E2E ${name} gym vendor account: is_active ${row.is_active}${row.is_active ? '   ← MUST be false: production would push its members to the real vendor' : ''}`
     )
   }
+  // A gym with no row prints nothing above, which reads as "not checked".
+  // Saying so is the difference between "no account" and "this printed
+  // nothing" (remote day F-17).
+  const present = new Set((data ?? []).map((row) => row.gym_id))
+  for (const [name, id] of Object.entries(E2E_GYMS)) {
+    if (!present.has(id)) console.log(`  E2E ${name} gym vendor account: none`)
+  }
   if (!flag('deactivate')) return
   if (!apply)
     return dryRun("set is_active=false on the E2E gyms' vendor accounts")
@@ -4404,6 +4421,13 @@ const COMMANDS: Record<string, () => Promise<void> | void> = {
   'e2e-account': e2eAccount,
   coverage,
 }
+
+// `... | head` closes the pipe while we are still writing; that is the reader
+// being done, not an error worth a stack trace (remote day F-15).
+process.stdout.on('error', (e: NodeJS.ErrnoException) => {
+  if (e.code === 'EPIPE') process.exit(0)
+  throw e
+})
 
 const run = COMMANDS[command]
 if (!run) {

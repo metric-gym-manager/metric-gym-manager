@@ -10,7 +10,10 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { SupabaseAccessControlRepository } from '@/features/access-control/services/SupabaseAccessControlRepository'
-import { AccessSyncStatus } from '@/features/access-control/config/AccessControlConfig'
+import {
+  AccessSyncStatus,
+  SYNC_MAX_ATTEMPTS,
+} from '@/features/access-control/config/AccessControlConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { RegistrationSource } from '@/features/members/config/RegistrationConfig'
 
@@ -456,6 +459,242 @@ function makeJobClient(attempts: number, updates: Record<string, unknown>[]) {
     },
   } as unknown as SupabaseClient
 }
+
+/**
+ * Where the retry ladder ends (remote day, F-14).
+ *
+ * There are five backoff steps (30 s, 2 min, 10 min, 30 min, 2 h) and each
+ * follows a failure, so the sixth failure has no step left and dead-letters.
+ * `SYNC_MAX_ATTEMPTS` used to be 5, the length of the ladder, which described
+ * the steps rather than the attempts; and the 5-versus-6 boundary was asserted
+ * nowhere (tests only used attempts 1 and 99).
+ */
+describe('SupabaseAccessControlRepository — the retry limit', () => {
+  it('counts attempts, not backoff steps', () => {
+    expect(SYNC_MAX_ATTEMPTS).toBe(6)
+  })
+
+  it('reschedules the fifth failure two hours out', async () => {
+    const updates: Record<string, unknown>[] = []
+    const repo = new SupabaseAccessControlRepository(makeJobClient(5, updates))
+    const before = Date.now()
+
+    await repo.failJob('job-1', 'Device did not respond', true)
+
+    expect(updates[0].status).toBe(AccessSyncStatus.Failed)
+    const nextAt = Date.parse(String(updates[0].next_attempt_at))
+    expect(nextAt - before).toBeGreaterThanOrEqual(7_200_000 - 1_000)
+    expect(nextAt - before).toBeLessThan(7_200_000 + 5_000)
+  })
+
+  it('dead-letters the sixth failure', async () => {
+    const updates: Record<string, unknown>[] = []
+    const repo = new SupabaseAccessControlRepository(makeJobClient(6, updates))
+
+    await repo.failJob('job-1', 'Device did not respond', true)
+
+    expect(updates[0].status).toBe(AccessSyncStatus.Dead)
+  })
+})
+
+/**
+ * Outbox writes (visit 1, D1).
+ *
+ * The restart repair queues one job per member the reader holds, which can be
+ * a few hundred. One insert per job would be a few hundred round trips inside
+ * a request, and one insert for all of them risks the transport's body limit,
+ * so the bulk write goes out in chunks.
+ */
+describe('SupabaseAccessControlRepository — outbox writes', () => {
+  function makeInsertClient(
+    inserts: unknown[][],
+    result: { error: { message: string } | null } = { error: null }
+  ) {
+    return {
+      from: (table: string) => {
+        expect(table).toBe('access_sync_jobs')
+        return {
+          insert: (rows: unknown) => {
+            const batch = Array.isArray(rows) ? rows : [rows]
+            inserts.push(batch)
+            const resolved = {
+              data: result.error ? null : batch.map((_, i) => ({ id: i })),
+              error: result.error,
+            }
+            // `enqueue` awaits the insert itself; `enqueueMany` chains
+            // `.select('id')` onto it. Serve both, as PostgREST does.
+            return Object.assign(Promise.resolve(resolved), {
+              select: () => Promise.resolve(resolved),
+            })
+          },
+        }
+      },
+    } as unknown as SupabaseClient
+  }
+
+  const job = (n: number) => ({
+    memberId: `member-${n}`,
+    intent: 'reconcile_member',
+    payload: { reason: 'reader_restarted', reseat: true },
+  })
+
+  it('writes 1,001 jobs as three inserts of 500, 500 and 1', async () => {
+    const inserts: unknown[][] = []
+    const repo = new SupabaseAccessControlRepository(makeInsertClient(inserts))
+
+    const count = await repo.enqueueMany(
+      'gym-1',
+      Array.from({ length: 1001 }, (_, n) => job(n))
+    )
+
+    expect(inserts.map((batch) => batch.length)).toEqual([500, 500, 1])
+    expect(count).toBe(1001)
+  })
+
+  it('does not touch the database for an empty list', async () => {
+    const inserts: unknown[][] = []
+    const repo = new SupabaseAccessControlRepository(makeInsertClient(inserts))
+
+    expect(await repo.enqueueMany('gym-1', [])).toBe(0)
+    expect(inserts).toHaveLength(0)
+  })
+
+  it('carries each job its own time and payload', async () => {
+    const inserts: unknown[][] = []
+    const repo = new SupabaseAccessControlRepository(makeInsertClient(inserts))
+    const notBefore = new Date('2026-10-10T10:03:00Z')
+
+    await repo.enqueueMany('gym-1', [{ ...job(1), notBefore }])
+
+    expect(inserts[0][0]).toMatchObject({
+      gym_id: 'gym-1',
+      member_id: 'member-1',
+      intent: 'reconcile_member',
+      payload: { reason: 'reader_restarted', reseat: true },
+      next_attempt_at: notBefore.toISOString(),
+    })
+  })
+
+  it('throws when an insert is refused rather than reporting zero', async () => {
+    const repo = new SupabaseAccessControlRepository(
+      makeInsertClient([], { error: { message: 'boom' } })
+    )
+
+    await expect(repo.enqueueMany('gym-1', [job(1)])).rejects.toThrow(
+      /Failed to enqueue/
+    )
+  })
+
+  it('writes next_attempt_at for a single delayed job, and omits it otherwise', async () => {
+    const inserts: unknown[][] = []
+    const repo = new SupabaseAccessControlRepository(makeInsertClient(inserts))
+    const notBefore = new Date('2026-10-10T10:03:00Z')
+
+    await repo.enqueue('gym-1', 'member-1', 'reconcile_member', {}, notBefore)
+    await repo.enqueue('gym-1', 'member-1', 'reconcile_member', {})
+
+    expect(inserts[0][0]).toMatchObject({
+      next_attempt_at: notBefore.toISOString(),
+    })
+    // Left to the column default, so an ordinary job is due immediately.
+    expect(inserts[1][0]).not.toHaveProperty('next_attempt_at')
+  })
+})
+
+/**
+ * The guard on a job's result (remote day, F-10).
+ *
+ * A result may only land on the attempt that claimed the job: the update
+ * carries `status = in_flight` and `attempts = <claimed>`, and reports whether
+ * a row was actually changed — an update that matches nothing succeeds in
+ * silence, which is how a reclaimed job's result used to vanish.
+ */
+describe('SupabaseAccessControlRepository — guarded job results', () => {
+  /** Records every filter applied to the update and answers with `rows`. */
+  function makeGuardClient(rows: Array<{ id: string }>) {
+    const filters: Array<[string, unknown]> = []
+    const patches: Record<string, unknown>[] = []
+
+    const builder = {
+      update: (patch: Record<string, unknown>) => {
+        patches.push(patch)
+        return builder
+      },
+      eq: (column: string, value: unknown) => {
+        filters.push([column, value])
+        return builder
+      },
+      select: () => Promise.resolve({ data: rows, error: null }),
+    }
+
+    return {
+      client: { from: () => builder } as unknown as SupabaseClient,
+      filters,
+      patches,
+    }
+  }
+
+  it('applies the in-flight and attempts filters when completing a claimed attempt', async () => {
+    const { client, filters } = makeGuardClient([{ id: 'job-1' }])
+    const repo = new SupabaseAccessControlRepository(client)
+
+    const applied = await repo.completeJob(
+      'job-1',
+      AccessSyncStatus.Succeeded,
+      3
+    )
+
+    expect(applied).toBe(true)
+    expect(filters).toEqual(
+      expect.arrayContaining([
+        ['id', 'job-1'],
+        ['status', AccessSyncStatus.InFlight],
+        ['attempts', 3],
+      ])
+    )
+  })
+
+  it('reports false when the guarded update matched no row', async () => {
+    const { client } = makeGuardClient([])
+    const repo = new SupabaseAccessControlRepository(client)
+
+    expect(await repo.completeJob('job-1', AccessSyncStatus.Succeeded, 3)).toBe(
+      false
+    )
+  })
+
+  it('guards a failure the same way and backs off from the claimed attempt without reading the row', async () => {
+    const { client, filters, patches } = makeGuardClient([{ id: 'job-1' }])
+    const repo = new SupabaseAccessControlRepository(client)
+
+    const applied = await repo.failJob(
+      'job-1',
+      'Device did not respond',
+      true,
+      2
+    )
+
+    expect(applied).toBe(true)
+    expect(filters).toEqual(
+      expect.arrayContaining([
+        ['status', AccessSyncStatus.InFlight],
+        ['attempts', 2],
+      ])
+    )
+    // Attempt 2 is the second rung of the ladder, so the job is rescheduled,
+    // not dead — taken from the argument, since this client has no read path.
+    expect(patches[0].status).toBe(AccessSyncStatus.Failed)
+  })
+
+  it('does not add the guard when no attempt is given', async () => {
+    const { client, filters } = makeGuardClient([{ id: 'job-1' }])
+    const repo = new SupabaseAccessControlRepository(client)
+
+    await repo.completeJob('job-1', AccessSyncStatus.Succeeded)
+
+    expect(filters).toEqual([['id', 'job-1']])
+  })
+})
 
 /**
  * Serial matching.

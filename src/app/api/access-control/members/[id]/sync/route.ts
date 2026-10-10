@@ -17,6 +17,11 @@
  * this button exists for (a reader that lost the member, or never collected
  * the push) sent nothing and reported "Readers updated". Found on 2026-10-07
  * with Device B four commands behind while our record called it current.
+ *
+ * Visit 1 (D1): forced is not enough after a reader restart — the reader keeps
+ * the user and ignores a re-pushed template — so this re-seats: delete from the
+ * readers, then add back from VFT's central copy. A failure queues a forced
+ * retry, which is what the desk toast promises.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -53,6 +58,8 @@ export async function POST(
     const result = await createSyncMemberAccess(createAdminClient()).execute({
       memberId: id,
       force: true,
+      reseat: true,
+      retryOnFailure: true,
     })
 
     if (!result.applicable) {

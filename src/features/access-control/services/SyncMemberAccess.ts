@@ -40,6 +40,13 @@ export interface SyncMemberAccessInput {
    * `DeriveCommandsInput.force` for why the outbox must not.
    */
   force?: boolean
+  /** Delete-then-add; see `DeriveCommandsInput.reseat`. */
+  reseat?: boolean
+  /**
+   * Queue a forced reconcile when anything failed. Set by the desk route, whose
+   * toast promises we will keep trying.
+   */
+  retryOnFailure?: boolean
 }
 
 /**
@@ -68,6 +75,11 @@ export interface SyncFailure {
    * doing nothing.
    */
   deviceSerial?: string
+  /**
+   * The vendor refused our sign-in. The drainer marks the gym's account
+   * verification-failed on this, so the settings card says what the jobs know.
+   */
+  credentialsRejected?: boolean
 }
 
 export interface SyncMemberAccessResult {
@@ -147,6 +159,7 @@ export class SyncMemberAccess {
       },
       deviceSerials,
       force: input.force ?? false,
+      reseat: input.reseat ?? false,
     })
 
     const failures: SyncFailure[] = []
@@ -166,6 +179,7 @@ export class SyncMemberAccess {
           retryable: outcome.retryable,
           needsAttention: outcome.needsAttention ?? false,
           returnCode: outcome.returnCode,
+          credentialsRejected: outcome.credentialsRejected ?? false,
           // The command knows its target even when the error does not. Only
           // reported for commands actually aimed at a terminal: `Provision`
           // targets the vendor's records and borrows a serial for ordering,
@@ -182,6 +196,28 @@ export class SyncMemberAccess {
 
       sent += 1
       if (outcome.status === 'queued') pending += 1
+    }
+
+    if (failures.length > 0) {
+      // A re-seat that got past its revoke has already taken the member off
+      // every reader (`fromdev` is not per reader), so our record must not keep
+      // claiming otherwise just because a later push failed (visit 1, D1).
+      if (
+        commands
+          .slice(0, sent)
+          .some((c) => c.intent === AccessIntent.RevokeBiometric)
+      ) {
+        await this.repo.markSubjectOffDevice(context.memberId)
+      }
+
+      if (input.retryOnFailure) {
+        await this.repo.enqueue(
+          context.gymId,
+          context.memberId,
+          AccessIntent.ReconcileMember,
+          { reason: 'desk_resend_failed', force: true }
+        )
+      }
     }
 
     // Only claim the hardware matches if every command got through. A partial
@@ -296,9 +332,10 @@ export class SyncMemberAccess {
  * Which readers hold the member once this command set has been applied.
  *
  * Derived from the commands rather than from a flag, so the record can never
- * claim a reader holds a member it was never sent. Revocation is evaluated
- * after the pushes because the cancellation sequence contains both and
- * revocation is what it means.
+ * claim a reader holds a member it was never sent. Applied in order, because a
+ * re-seat revokes before it pushes and the member is back on every reader it
+ * pushed to; the cancellation sequence has no pushes, so its result is
+ * unchanged.
  *
  * @param commands - The commands that all succeeded.
  * @param heldBefore - Readers that already held the member.
@@ -307,18 +344,15 @@ function resolveHeldSerials(
   commands: AccessCommand[],
   heldBefore: string[]
 ): string[] {
-  const revoked = new Set(
-    commands
-      .filter((c) => c.intent === AccessIntent.RevokeBiometric)
-      .map((c) => c.deviceSerial)
-  )
+  const held = new Set(heldBefore)
 
-  const pushed = commands
-    .filter((c) => c.intent === AccessIntent.SyncToDevice)
-    .map((c) => c.deviceSerial)
-
-  const held = new Set([...heldBefore, ...pushed])
-  for (const serial of revoked) held.delete(serial)
+  for (const command of commands) {
+    if (command.intent === AccessIntent.SyncToDevice) {
+      held.add(command.deviceSerial)
+    } else if (command.intent === AccessIntent.RevokeBiometric) {
+      held.delete(command.deviceSerial)
+    }
+  }
 
   return [...held]
 }

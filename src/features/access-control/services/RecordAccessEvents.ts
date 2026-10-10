@@ -34,9 +34,14 @@ import {
 } from '@/features/access-control/schemas/access-control.schemas'
 import type { AccessWebhookEvent } from '@/features/access-control/schemas/access-control.schemas'
 import {
+  AccessIntent,
   DEVICE_CLOCK_SKEW_ALERT_SECONDS,
+  REFUSAL_REPAIR_COOLDOWN_SECONDS,
+  REFUSAL_REPAIR_EVENT_CODES,
   VerifyType,
 } from '@/features/access-control/config/AccessControlConfig'
+import { resolveAccessDecision } from '@/features/access-control/domain/AccessDecision'
+import { getGymToday } from '@/features/access-control/utils/getGymToday'
 
 /** How many dropped serials one delivery's trace names. */
 const UNKNOWN_SERIALS_REPORTED = 10
@@ -89,12 +94,22 @@ export interface RecordAccessEventsSummary {
    */
   unreadableFieldNames: string[]
   /**
+   * Scans the vendor re-delivered in UTC (events pull) whose original we already
+   * hold — remote day F-01. Counted as duplicates too.
+   */
+  redeliveredShifted: number
+  /**
    * Members whose fingerprint this delivery confirmed for the first time.
    *
    * Almost always zero: it takes one scan per member, ever. A non-zero value
    * is somebody's first entry after being enrolled.
    */
   enrolmentsConfirmed: number
+  /**
+   * Forced re-pushes queued because a reader refused a member we would admit
+   * (visit 1, D3). Non-zero means a reader's record of someone was wrong.
+   */
+  refusalRepairsQueued: number
   /** Readers whose clock looks far enough out to matter. */
   driftingDevices: string[]
   errors: string[]
@@ -117,12 +132,14 @@ export class RecordAccessEvents {
       received: 0,
       stored: 0,
       duplicates: 0,
+      redeliveredShifted: 0,
       unknownDevice: 0,
       unknownSerials: [],
       malformed: 0,
       unreadableDelivery: false,
       unreadableFieldNames: [],
       enrolmentsConfirmed: 0,
+      refusalRepairsQueued: 0,
       driftingDevices: [],
       errors: [],
     }
@@ -195,8 +212,26 @@ export class RecordAccessEvents {
         // The reader's own spelling survives in each event's `raw`.
         const deviceSerial = device.device_serial
 
-        const normalised: IncomingAccessEvent[] = []
-        let newestScan: Date | null = null
+        let normalised: IncomingAccessEvent[] = []
+
+        // One lookup for the whole delivery: it names a handful of people but
+        // may carry hundreds of scans (an offline reader uploads its buffer in
+        // one go), and a query per scan was hundreds of sequential round trips
+        // inside one request (remote day F-09).
+        const distinctSubjectIds = [
+          ...new Set(
+            events
+              .map((e) => Number(e.EmpId))
+              .filter((id) => Number.isFinite(id))
+          ),
+        ]
+        const membersBySubject =
+          distinctSubjectIds.length > 0
+            ? await this.repo.findMemberIdsBySubjectIds(
+                device.gym_id,
+                distinctSubjectIds
+              )
+            : new Map<number, string>()
 
         for (const event of events) {
           const occurredAt = parseDeviceTime(
@@ -209,13 +244,9 @@ export class RecordAccessEvents {
             continue
           }
 
-          if (!newestScan || occurredAt > newestScan) {
-            newestScan = occurredAt
-          }
-
           const subjectId = Number(event.EmpId)
           const memberId = Number.isFinite(subjectId)
-            ? await this.repo.findMemberIdBySubjectId(device.gym_id, subjectId)
+            ? (membersBySubject.get(subjectId) ?? null)
             : null
 
           normalised.push({
@@ -235,8 +266,62 @@ export class RecordAccessEvents {
           })
         }
 
+        // A pulled re-delivery (`GetEventsbyDevSN`) carries the SAME scan with
+        // its wall-clock fields in UTC where a live delivery uses the reader's
+        // local time, and nothing marks it as pulled. Read against the reader's
+        // offset it lands that offset EARLIER than its original, so it passes the
+        // unique key and used to be stored as a second scan. The only tell is
+        // "an existing row, shifted by exactly the offset, same subject and
+        // event code" (remote day F-01, DEC-08).
+        const offsetMs = device.timezone_offset_minutes * 60_000
+
+        if (offsetMs !== 0 && normalised.length > 0) {
+          const shiftedInstants = normalised.map(
+            (e) => e.occurredAt.getTime() + offsetMs
+          )
+          const existing = await this.repo.findExistingEvents(
+            device.gym_id,
+            deviceSerial,
+            new Date(Math.min(...shiftedInstants)),
+            new Date(Math.max(...shiftedInstants))
+          )
+          const held = new Set(
+            existing.map((e) =>
+              eventKey(e.subjectId, e.eventCode, e.occurredAt)
+            )
+          )
+
+          const fresh = normalised.filter(
+            (e) =>
+              !held.has(
+                eventKey(
+                  e.subjectId,
+                  e.eventCode,
+                  new Date(e.occurredAt.getTime() + offsetMs)
+                )
+              )
+          )
+          const shifted = normalised.length - fresh.length
+
+          summary.duplicates += shifted
+          summary.redeliveredShifted += shifted
+          normalised = fresh
+        }
+
+        // Only what is genuinely new may say what time the reader thinks it is:
+        // a copy is hours old by construction.
+        let newestScan: Date | null = null
+        for (const event of normalised) {
+          if (!newestScan || event.occurredAt > newestScan) {
+            newestScan = event.occurredAt
+          }
+        }
+
+        let inserted = 0
+
         if (normalised.length > 0) {
           const result = await this.repo.recordEvents(device.gym_id, normalised)
+          inserted = result.inserted
           summary.stored += result.inserted
           summary.duplicates += result.duplicates
 
@@ -244,9 +329,13 @@ export class RecordAccessEvents {
             normalised,
             summary
           )
+
+          await this.repairRefusals(normalised, summary)
         }
 
-        if (newestScan) {
+        // A delivery that stored nothing new carries no fresh timing: an exact
+        // re-delivery of a live scan is as old as the copy shifted by the offset.
+        if (newestScan && inserted > 0) {
           // Measured from the NEWEST scan in the batch, not the first one.
           //
           // Readers batch, so the oldest scan in a delivery can be an hour old
@@ -281,6 +370,87 @@ export class RecordAccessEvents {
     }
 
     return summary
+  }
+
+  /**
+   * Queue a forced re-push for a member the reader refused but we would admit.
+   *
+   * ## Why only fingerprint scans, and only members our decision allows
+   *
+   * A refused card or password scan says nothing about the template, and a
+   * member we also refuse is the system working: the reader is right and a
+   * re-push would just re-assert the refusal. What remains is the case this
+   * exists for — the reader recognised a finger, applied a window that
+   * disagrees with ours, and nothing else will ever notice (visit 1, D3).
+   *
+   * The decision is re-derived here from the member's current state, never
+   * taken from the event, so a payload cannot talk us into pushing anyone.
+   *
+   * ## Why a failure here is not a failure of ingestion
+   *
+   * The scans are already stored and never come again, so — like enrolment
+   * confirmation — this records the error and lets the batch stand. The webhook
+   * is always-200.
+   */
+  private async repairRefusals(
+    events: IncomingAccessEvent[],
+    summary: RecordAccessEventsSummary
+  ): Promise<void> {
+    const refused = new Set<string>()
+
+    for (const event of events) {
+      if (!event.memberId) continue
+      if (event.verifyType !== VerifyType.Fingerprint) continue
+      if (
+        !(REFUSAL_REPAIR_EVENT_CODES as readonly string[]).includes(
+          event.eventCode ?? ''
+        )
+      ) {
+        continue
+      }
+      refused.add(event.memberId)
+    }
+
+    for (const memberId of refused) {
+      try {
+        const context = await this.repo.getMemberAccessContext(memberId)
+        if (!context) continue
+
+        const decision = resolveAccessDecision({
+          status: context.status,
+          membershipStartDate: context.membershipStartDate,
+          nextDueDate: context.nextDueDate,
+          registrationSource: context.registrationSource,
+          verifiedAt: context.verifiedAt,
+          today: getGymToday(),
+        })
+        if (!decision.allowed) continue
+
+        if (
+          await this.repo.hasRecentJob(
+            memberId,
+            'door_refused',
+            REFUSAL_REPAIR_COOLDOWN_SECONDS
+          )
+        ) {
+          continue
+        }
+
+        await this.repo.enqueue(
+          context.gymId,
+          memberId,
+          AccessIntent.ReconcileMember,
+          { reason: 'door_refused', force: true }
+        )
+        summary.refusalRepairsQueued += 1
+      } catch (error) {
+        summary.errors.push(
+          `Refusal repair for member ${memberId}: ${
+            error instanceof Error ? error.message : 'Unknown error'
+          }`
+        )
+      }
+    }
   }
 
   /**
@@ -398,6 +568,15 @@ function fieldNamesOf(candidate: unknown): string[] {
   if (typeof candidate !== 'object' || candidate === null) return []
   if (Array.isArray(candidate)) return []
   return Object.keys(candidate).slice(0, UNREADABLE_FIELD_NAMES_KEPT)
+}
+
+/** The identity of a scan for the shifted-copy check. */
+function eventKey(
+  subjectId: number,
+  eventCode: string | null,
+  instant: Date
+): string {
+  return `${subjectId}|${eventCode ?? ''}|${instant.toISOString()}`
 }
 
 function toNumberOrNull(value: string | undefined): number | null {

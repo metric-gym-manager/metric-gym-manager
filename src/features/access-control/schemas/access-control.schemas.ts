@@ -15,7 +15,30 @@ import { DeviceEventKind } from '@/features/access-control/config/DeviceEventCod
 
 /** Vendor credentials submitted by a gym owner. Write-only — never read back. */
 export const accessControlAccountSchema = z.object({
-  baseUrl: z.string().url('Must be a valid URL'),
+  // The account's email and password are sent here on every sign-in, so the
+  // address must be encrypted. The one exception is the hardware console's own
+  // stub on this machine (remote day F-08).
+  baseUrl: z
+    .string()
+    .url('Must be a valid URL')
+    .refine((value) => {
+      let url: URL
+      try {
+        url = new URL(value)
+      } catch {
+        // Not a URL at all: `.url()` above has already said so, and zod still
+        // runs this check after it. Throwing here would turn bad input into a
+        // 500 instead of a validation error.
+        return true
+      }
+
+      const { protocol, hostname } = url
+      return (
+        protocol === 'https:' ||
+        (protocol === 'http:' &&
+          (hostname === 'localhost' || hostname === '127.0.0.1'))
+      )
+    }, 'The VFT address must start with https://'),
   email: z.string().email(),
   password: z.string().min(1, 'Password is required'),
   areaId: z.number().int().positive().optional(),
@@ -30,8 +53,11 @@ export const registerDeviceSchema = z.object({
   // Trimmed before validation: a serial is read off a label and pasted, and
   // surrounding whitespace would otherwise fail the pattern with "must be
   // alphanumeric", which describes neither the problem nor the fix.
+  //
+  // Upper-cased because vendors print and send serials in capitals; a
+  // lower-case copy was a second reader that matched no scan (remote day F-07).
   deviceSerial: z.preprocess(
-    (value) => (typeof value === 'string' ? value.trim() : value),
+    (value) => (typeof value === 'string' ? value.trim().toUpperCase() : value),
     z
       .string()
       .min(1)

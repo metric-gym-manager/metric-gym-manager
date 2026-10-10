@@ -213,9 +213,7 @@ test('records the consent and starts waiting for a finger', async ({
   // is the only confirmation this vendor offers — VFT, 2026-09-23: the finger
   // count arrives in a future update, and today a fingerprint "is considered
   // with the attendance record".
-  await expect(
-    panel.getByText(/place their finger on the reader/i)
-  ).toBeVisible()
+  await expect(panel.getByText(/waiting for the finger now/i)).toBeVisible()
 
   // Reopening shows the consent as a dated record, which is the point of
   // keeping it rather than a bare boolean.

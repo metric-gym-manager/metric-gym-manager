@@ -74,6 +74,12 @@ interface MemberContextRow {
   member_access_subjects: MemberAccessSubject[] | MemberAccessSubject | null
 }
 
+/** Subject ids per member lookup: bounded by the length of a query string. */
+const SUBJECT_LOOKUP_CHUNK_SIZE = 100
+
+/** Rows per bulk insert into the outbox. */
+const ENQUEUE_CHUNK_SIZE = 500
+
 /**
  * Rows the case-insensitive serial fallback will consider.
  *
@@ -537,6 +543,23 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     }
   }
 
+  async listMemberIdsOnDevice(
+    gymId: string,
+    deviceSerial: string
+  ): Promise<string[]> {
+    const rows = await this.pageAll<{ member_id: string }>(
+      'member_access_subjects',
+      (query) =>
+        query
+          .eq('gym_id', gymId)
+          .contains('synced_device_serials', [deviceSerial])
+          .order('created_at', { ascending: true }),
+      'member_id'
+    )
+
+    return rows.map((r) => r.member_id)
+  }
+
   async listMembersNeedingReconcile(gymId: string): Promise<string[]> {
     const rows = await this.pageAll<{ member_id: string }>(
       'member_access_subjects',
@@ -627,6 +650,45 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     if (error) {
       throw new DatabaseError(
         `Failed to mark subject off device: ${error.message}`
+      )
+    }
+  }
+
+  async replaceSubjectAfterErasure(
+    memberId: string,
+    newSubjectId: number
+  ): Promise<void> {
+    const now = new Date().toISOString()
+
+    const { data, error } = await this.supabase
+      .from('member_access_subjects')
+      .update({
+        subject_id: newSubjectId,
+        provisioned_at: null,
+        synced_device_serials: [],
+        device_removed_at: now,
+        last_synced_at: null,
+        last_synced_valid_from: null,
+        last_synced_valid_to: null,
+        last_synced_blocked: null,
+        finger_enrolled: false,
+        finger_id: null,
+        enrolled_at: null,
+        updated_at: now,
+      })
+      .eq('member_id', memberId)
+      // Without this a no-match update reports success (rule 2.7).
+      .select('id')
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to replace subject after erasure: ${error.message}`
+      )
+    }
+
+    if (!data || data.length === 0) {
+      throw new DatabaseError(
+        'Failed to replace subject after erasure: no row updated'
       )
     }
   }
@@ -841,18 +903,88 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     gymId: string,
     memberId: string | null,
     intent: string,
-    payload: Record<string, unknown> = {}
+    payload: Record<string, unknown> = {},
+    notBefore?: Date
   ): Promise<void> {
     const { error } = await this.supabase.from('access_sync_jobs').insert({
       gym_id: gymId,
       member_id: memberId,
       intent,
       payload,
+      // Omitted for an ordinary job so the column default (now) applies.
+      ...(notBefore ? { next_attempt_at: notBefore.toISOString() } : {}),
     })
 
     if (error) {
       throw new DatabaseError(`Failed to enqueue access sync: ${error.message}`)
     }
+  }
+
+  async enqueueMany(
+    gymId: string,
+    jobs: Array<{
+      memberId: string
+      intent: string
+      payload?: Record<string, unknown>
+      notBefore?: Date
+    }>
+  ): Promise<number> {
+    if (jobs.length === 0) return 0
+
+    let inserted = 0
+
+    // Chunked: one insert per job is a round trip each, and a gym's reader can
+    // hold hundreds of members (restart repair, visit 1 D1).
+    for (let from = 0; from < jobs.length; from += ENQUEUE_CHUNK_SIZE) {
+      const chunk = jobs.slice(from, from + ENQUEUE_CHUNK_SIZE)
+
+      const { data, error } = await this.supabase
+        .from('access_sync_jobs')
+        .insert(
+          chunk.map((job) => ({
+            gym_id: gymId,
+            member_id: job.memberId,
+            intent: job.intent,
+            payload: job.payload ?? {},
+            ...(job.notBefore
+              ? { next_attempt_at: job.notBefore.toISOString() }
+              : {}),
+          }))
+        )
+        .select('id')
+
+      if (error) {
+        throw new DatabaseError(
+          `Failed to enqueue access sync: ${error.message}`
+        )
+      }
+
+      inserted += data?.length ?? 0
+    }
+
+    return inserted
+  }
+
+  async hasRecentJob(
+    memberId: string,
+    reason: string,
+    sinceSeconds: number
+  ): Promise<boolean> {
+    const since = new Date(Date.now() - sinceSeconds * 1000).toISOString()
+
+    const { data, error } = await this.supabase
+      .from('access_sync_jobs')
+      .select('id')
+      .eq('member_id', memberId)
+      .eq('payload->>reason', reason)
+      .gte('created_at', since)
+      .limit(1)
+
+    if (error) {
+      throw new DatabaseError(`Failed to read recent jobs: ${error.message}`)
+    }
+
+    return (data?.length ?? 0) > 0
   }
 
   /**
@@ -874,8 +1006,12 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     return (data as AccessSyncJob[]) ?? []
   }
 
-  async completeJob(jobId: string, status: AccessSyncStatus): Promise<void> {
-    const { error } = await this.supabase
+  async completeJob(
+    jobId: string,
+    status: AccessSyncStatus,
+    expectedAttempts?: number
+  ): Promise<boolean> {
+    const update = this.supabase
       .from('access_sync_jobs')
       .update({
         status,
@@ -884,29 +1020,36 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       })
       .eq('id', jobId)
 
-    if (error) {
-      throw new DatabaseError(`Failed to complete sync job: ${error.message}`)
-    }
+    return this.settleJob(update, expectedAttempts, 'complete sync job')
   }
 
   async failJob(
     jobId: string,
     errorMessage: string,
-    retryable: boolean
-  ): Promise<void> {
-    const { data, error: readError } = await this.supabase
-      .from('access_sync_jobs')
-      .select('attempts')
-      .eq('id', jobId)
-      .maybeSingle()
+    retryable: boolean,
+    expectedAttempts?: number
+  ): Promise<boolean> {
+    let attempts = expectedAttempts
 
-    if (readError) {
-      throw new DatabaseError(
-        `Failed to load sync job for retry: ${readError.message}`
-      )
+    // Unguarded callers still read the row for the backoff. A guarded caller
+    // already knows the attempt it claimed, which is both the right input (the
+    // row may now belong to another run) and one round trip fewer.
+    if (attempts === undefined) {
+      const { data, error: readError } = await this.supabase
+        .from('access_sync_jobs')
+        .select('attempts')
+        .eq('id', jobId)
+        .maybeSingle()
+
+      if (readError) {
+        throw new DatabaseError(
+          `Failed to load sync job for retry: ${readError.message}`
+        )
+      }
+
+      attempts = (data as { attempts: number } | null)?.attempts ?? 1
     }
 
-    const attempts = (data as { attempts: number } | null)?.attempts ?? 1
     const backoff = backoffSecondsFor(attempts)
 
     // A non-retryable failure is dead-lettered immediately: retrying it would
@@ -921,7 +1064,7 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
         ? new Date(Date.now() + backoff * 1000).toISOString()
         : new Date().toISOString()
 
-    const { error } = await this.supabase
+    const update = this.supabase
       .from('access_sync_jobs')
       .update({
         status,
@@ -931,9 +1074,7 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       })
       .eq('id', jobId)
 
-    if (error) {
-      throw new DatabaseError(`Failed to record sync failure: ${error.message}`)
-    }
+    return this.settleJob(update, expectedAttempts, 'record sync failure')
   }
 
   async countDeadJobs(memberId?: string): Promise<number> {
@@ -1138,6 +1279,38 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     return ids.length
   }
 
+  async findExistingEvents(
+    gymId: string,
+    deviceSerial: string,
+    from: Date,
+    to: Date
+  ): Promise<
+    Array<{ subjectId: number; occurredAt: Date; eventCode: string | null }>
+  > {
+    const rows = await this.pageAll<{
+      subject_id: number
+      occurred_at: string
+      event_code: string | null
+    }>(
+      'access_events',
+      (query) =>
+        query
+          .eq('gym_id', gymId)
+          .eq('device_serial', deviceSerial)
+          .gte('occurred_at', from.toISOString())
+          .lte('occurred_at', to.toISOString())
+          // Stable paging needs an order; the instant is the natural one.
+          .order('occurred_at', { ascending: true }),
+      'subject_id, occurred_at, event_code'
+    )
+
+    return rows.map((row) => ({
+      subjectId: row.subject_id,
+      occurredAt: new Date(row.occurred_at),
+      eventCode: row.event_code,
+    }))
+  }
+
   async findGymIdByDeviceSerial(deviceSerial: string): Promise<string | null> {
     const device = await this.findDeviceBySerial(deviceSerial)
     return device?.gym_id ?? null
@@ -1161,6 +1334,39 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     }
 
     return (data as { member_id: string } | null)?.member_id ?? null
+  }
+
+  async findMemberIdsBySubjectIds(
+    gymId: string,
+    subjectIds: number[]
+  ): Promise<Map<number, string>> {
+    const resolved = new Map<number, string>()
+    if (subjectIds.length === 0) return resolved
+
+    // `.in()` puts every id in the query string, so the list is chunked to keep
+    // each request line well under what a gateway accepts (trap 15).
+    for (let i = 0; i < subjectIds.length; i += SUBJECT_LOOKUP_CHUNK_SIZE) {
+      const chunk = subjectIds.slice(i, i + SUBJECT_LOOKUP_CHUNK_SIZE)
+
+      const { data, error } = await this.supabase
+        .from('member_access_subjects')
+        .select('member_id, subject_id')
+        .eq('gym_id', gymId)
+        .in('subject_id', chunk)
+
+      if (error) {
+        throw new DatabaseError(
+          `Failed to resolve subjects to members: ${error.message}`
+        )
+      }
+
+      for (const row of (data as
+        { member_id: string; subject_id: number }[] | null) ?? []) {
+        resolved.set(row.subject_id, row.member_id)
+      }
+    }
+
+    return resolved
   }
 
   // ============================================================
@@ -1203,6 +1409,43 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     }
 
     return results
+  }
+
+  /**
+   * Finish a job-result update, guarded by the attempt that claimed the job.
+   *
+   * With `expectedAttempts` the write only lands on a job still `in_flight` at
+   * that attempt, and `.select('id')` reports whether a row actually changed —
+   * an update that matches nothing is a success to PostgREST, which is how a
+   * reclaimed job's result used to vanish without a trace (remote day, F-10).
+   * Without it the update is unconditional, as before: nothing is guarded and
+   * there is nothing to report.
+   */
+  private async settleJob(
+    update: ReturnType<ReturnType<SupabaseClient['from']>['update']>,
+    expectedAttempts: number | undefined,
+    action: string
+  ): Promise<boolean> {
+    if (expectedAttempts === undefined) {
+      const { error } = await update
+
+      if (error) {
+        throw new DatabaseError(`Failed to ${action}: ${error.message}`)
+      }
+
+      return true
+    }
+
+    const { data, error } = await update
+      .eq('status', AccessSyncStatus.InFlight)
+      .eq('attempts', expectedAttempts)
+      .select('id')
+
+    if (error) {
+      throw new DatabaseError(`Failed to ${action}: ${error.message}`)
+    }
+
+    return (data?.length ?? 0) > 0
   }
 
   private async updateDevice(

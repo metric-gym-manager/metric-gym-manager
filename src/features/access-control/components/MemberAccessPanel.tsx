@@ -35,7 +35,7 @@
  * back the next time.
  */
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
 import {
   CheckCircle2,
@@ -91,6 +91,13 @@ export default function MemberAccessPanel({
   const [deviceId, setDeviceId] = useState('')
   const [consentTicked, setConsentTicked] = useState(false)
 
+  // Re-send is a re-seat (delete from the readers, then add back), so a second
+  // click landing mid-way would delete the member again halfway through the
+  // first one's pushes. The button's loading state is not enough: it only takes
+  // effect after a re-render, and two clicks in one turn both see it enabled
+  // (remote day F-13). Declared here, above the early returns, like every hook.
+  const syncInFlight = useRef(false)
+
   if (!entitled) return null
 
   if (isLoading) {
@@ -127,6 +134,9 @@ export default function MemberAccessPanel({
   const enrolledWithoutConsent = status.fingerEnrolled && consentNeeded
 
   const handleSync = async () => {
+    if (syncInFlight.current) return
+    syncInFlight.current = true
+
     try {
       const result = await sync.mutateAsync(memberId)
 
@@ -148,6 +158,8 @@ export default function MemberAccessPanel({
       toast.error(
         error instanceof Error ? error.message : 'Could not update the readers'
       )
+    } finally {
+      syncInFlight.current = false
     }
   }
 
@@ -374,7 +386,8 @@ function EnrolmentStatus({
     return (
       <p className="flex items-center gap-1.5 text-xs text-brand-link">
         <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-        Ask the member to place their finger on the reader, then scan once to
+        The reader is waiting for the finger now and gives up after about 10
+        seconds. Once it accepts the finger, ask the member to scan once to
         confirm.
       </p>
     )
@@ -392,9 +405,9 @@ function EnrolmentStatus({
   if (state === 'timed-out') {
     return (
       <p className="text-xs text-ink-muted">
-        Not confirmed yet. If the fingerprint was taken, it is confirmed the
-        first time the member uses the door — reopen this member to check.
-        Otherwise start again.
+        Not confirmed yet. If the reader accepted the finger, ask the member to
+        scan once and this will update by itself for the next few minutes. If
+        the reader gave up, start again.
       </p>
     )
   }

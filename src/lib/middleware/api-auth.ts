@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import type { User } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -6,13 +7,23 @@ import { createClient } from '@/lib/supabase/server'
  * Use this instead of requireAuth() in API routes to ensure session is fresh.
  */
 export async function requireApiAuth() {
-  const supabase = await createClient()
+  let user: User | null = null
+  let error: { message: string } | null = null
 
-  // This getUser() call will automatically refresh the session if needed
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
+  // A corrupted cookie makes the client throw before it can say 'no user';
+  // that is still no user, not a server fault (remote day F-06, AP-02).
+  try {
+    const supabase = await createClient()
+
+    // This getUser() call will automatically refresh the session if needed
+    const result = await supabase.auth.getUser()
+    user = result.data.user
+    error = result.error
+  } catch (thrown) {
+    error = {
+      message: thrown instanceof Error ? thrown.message : 'Session unreadable',
+    }
+  }
 
   if (error || !user) {
     console.error('API auth failed:', error?.message || 'No user')

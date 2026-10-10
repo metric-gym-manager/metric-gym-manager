@@ -17,7 +17,10 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { useEnrolmentPoll } from '@/features/access-control/hooks/useAccessControl'
-import { ENROLMENT_POLL_TIMEOUT_MS } from '@/features/access-control/config/AccessControlConfig'
+import {
+  ENROLMENT_CONFIRM_GRACE_MS,
+  ENROLMENT_POLL_TIMEOUT_MS,
+} from '@/features/access-control/config/AccessControlConfig'
 
 const startEnrolment = jest.fn()
 const getEnrolment = jest.fn()
@@ -127,7 +130,7 @@ describe('useEnrolmentPoll', () => {
     expect(result.current.state).not.toBe('failed')
   })
 
-  it('stops polling once it has timed out', async () => {
+  it('keeps checking quietly after the visible wait ends (visit 1, PH-04)', async () => {
     const { result } = renderHook(() => useEnrolmentPoll('member-1'), {
       wrapper,
     })
@@ -137,6 +140,46 @@ describe('useEnrolmentPoll', () => {
     })
 
     await advance(ENROLMENT_POLL_TIMEOUT_MS + 5_000)
+    await waitFor(() => expect(result.current.state).toBe('timed-out'))
+
+    const callsAtTimeout = getEnrolment.mock.calls.length
+    await advance(30_000)
+
+    // The reader gave up after ~10 s, but the member's first scan is the
+    // confirmation, and it can come well after the visible wait.
+    expect(getEnrolment.mock.calls.length).toBeGreaterThan(callsAtTimeout)
+  })
+
+  it('moves to enrolled when the first scan lands after the timeout', async () => {
+    const { result } = renderHook(() => useEnrolmentPoll('member-1'), {
+      wrapper,
+    })
+
+    await act(async () => {
+      await result.current.start({ deviceId: 'device-1' })
+    })
+
+    await advance(ENROLMENT_POLL_TIMEOUT_MS + 5_000)
+    await waitFor(() => expect(result.current.state).toBe('timed-out'))
+
+    getEnrolment.mockResolvedValue({ enrolled: true })
+    await advance(60_000)
+
+    await waitFor(() => expect(result.current.state).toBe('enrolled'))
+  })
+
+  it('stops polling once the quiet confirmation window has passed', async () => {
+    const { result } = renderHook(() => useEnrolmentPoll('member-1'), {
+      wrapper,
+    })
+
+    await act(async () => {
+      await result.current.start({ deviceId: 'device-1' })
+    })
+
+    await advance(
+      ENROLMENT_POLL_TIMEOUT_MS + ENROLMENT_CONFIRM_GRACE_MS + 5_000
+    )
     await waitFor(() => expect(result.current.state).toBe('timed-out'))
 
     const callsAtTimeout = getEnrolment.mock.calls.length

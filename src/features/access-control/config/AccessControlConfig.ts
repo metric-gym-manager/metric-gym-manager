@@ -148,8 +148,14 @@ export enum CheckingStatus {
  */
 export const SYNC_RETRY_BACKOFF_SECONDS = [30, 120, 600, 1_800, 7_200] as const
 
-/** Attempts before a job is dead-lettered for SaaS-admin attention. */
-export const SYNC_MAX_ATTEMPTS = SYNC_RETRY_BACKOFF_SECONDS.length
+/**
+ * Attempts before a job is dead-lettered for SaaS-admin attention.
+ *
+ * Six. Each of the five backoff steps follows a failure; the sixth failure has
+ * no step left and dead-letters (`backoffSecondsFor` returns null). Remote day
+ * F-14: the old value 5 described the ladder, not the attempts.
+ */
+export const SYNC_MAX_ATTEMPTS = SYNC_RETRY_BACKOFF_SECONDS.length + 1
 
 /**
  * Requests per second we allow ourselves against the vendor API.
@@ -181,6 +187,37 @@ export const STALE_JOB_RECLAIM_SECONDS = 600
 
 /** Jobs claimed per drain run. */
 export const DRAIN_BATCH_SIZE = 25
+
+/**
+ * Seconds after a restart before its members are re-seated.
+ *
+ * A ZAM70 restart takes about a minute; the repair waits three so it lands on a
+ * reader that is back. Visit 1, D1 (PH-15): a restart kept the users and
+ * dropped their fingerprints.
+ */
+export const REBOOT_RESEAT_DELAY_SECONDS = 180
+
+/**
+ * Event codes that mean "the reader refused a person it recognised":
+ * 23 no access rights (the reader shows it as "invalid time period"), 29
+ * membership expired.
+ *
+ * A refusal of a member our own decision allows means the reader's record of
+ * them is wrong, and the repair is a forced re-push. Visit 1, D3: four of five
+ * enrolments were refused until a re-send carried an Access Grant, including
+ * enrolments made at the reader's own menu, which nothing of ours sees.
+ */
+export const REFUSAL_REPAIR_EVENT_CODES = ['23', '29'] as const
+
+/**
+ * At most one refusal repair per member in this window (DEC-06).
+ *
+ * Without it a reader with a wrong clock refuses everyone forever and every
+ * scan queues a job. Fifteen minutes is three drain runs: long enough for the
+ * repair to land and be tried, short enough that a member still refused after
+ * it is retried before they give up and go home.
+ */
+export const REFUSAL_REPAIR_COOLDOWN_SECONDS = 900
 
 /**
  * Reader usage above which the nightly reconcile evicts inactive members,
@@ -231,17 +268,23 @@ export const DEVICE_OFFLINE_AFTER_SECONDS = DRAIN_INTERVAL_SECONDS * 3
 export const ENROLMENT_POLL_INTERVAL_MS = 3_000
 
 /**
- * How long the desk waits for a finger before it stops asking.
+ * How long the desk waits, visibly, for a finger.
  *
- * Two minutes: long enough for a member to walk from the desk to the reader and
- * be shown what to do, short enough that a forgotten panel is not still polling
- * when the next member arrives.
+ * Thirty seconds. The reader's own enrolment window is about ten seconds (ZAM70,
+ * measured on visit 1, PH-21); the rest covers the member's confirming scan.
  *
  * **Timing out is not failure.** The detection behind the poll is additive — it
  * can mark a member enrolled, never un-enrol one — so a member who did present
  * a finger stays correctly enrolled and simply shows it on the next read.
  */
-export const ENROLMENT_POLL_TIMEOUT_MS = 120_000
+export const ENROLMENT_POLL_TIMEOUT_MS = 30_000
+
+/**
+ * After the visible wait ends, the panel keeps checking quietly this long, so
+ * the member's first scan flips it to Registered without a reload (visit 1,
+ * PH-04).
+ */
+export const ENROLMENT_CONFIRM_GRACE_MS = 180_000
 
 /**
  * How long a door scan is kept before it is deleted.

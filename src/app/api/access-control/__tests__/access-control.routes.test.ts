@@ -30,6 +30,7 @@ const mockRepo = {
   getMemberAccessContext: jest.fn(),
 }
 const mockOpenDoor = jest.fn()
+const mockRegisterExecute = jest.fn()
 const mockEnrol = jest.fn()
 const mockSyncExecute = jest.fn()
 
@@ -47,6 +48,7 @@ jest.mock('@/features/access-control', () => {
     ...actual,
     createAccessControlRepository: jest.fn(() => mockRepo),
     createOperateDevice: jest.fn(() => ({ openDoor: mockOpenDoor })),
+    createRegisterDevice: jest.fn(() => ({ execute: mockRegisterExecute })),
     createManageMemberBiometric: jest.fn(() => ({ enrol: mockEnrol })),
     createSyncMemberAccess: jest.fn(() => ({ execute: mockSyncExecute })),
   }
@@ -111,6 +113,13 @@ describe('Access-control routes', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     allow()
+    // By default registering is just the repository write, as the route used to
+    // do it; the serial check has its own cases below and its own suite.
+    mockRegisterExecute.mockImplementation(
+      async (gymId: string, input: unknown) => ({
+        device: await mockRepo.registerDevice(gymId, input),
+      })
+    )
   })
 
   describe('the entitlement gate', () => {
@@ -212,6 +221,47 @@ describe('Access-control routes', () => {
       // A serial belongs to exactly one gym: it is how a webhook event finds
       // its gym, so two claims would make that routing ambiguous.
       expect(response.status).toBe(409)
+    })
+  })
+
+  describe('POST /devices — the serial is checked against the VFT account (F-07)', () => {
+    it('answers 400 with a plain message when the serial is not on the account', async () => {
+      mockRegisterExecute.mockResolvedValue({ notOnAccount: true })
+
+      const response = await postDevice(
+        jsonRequest({ deviceSerial: 'NYU7251900077', deviceName: 'Door' })
+      )
+
+      expect(response.status).toBe(400)
+      const body = await response.json()
+      expect(body.error).toEqual({
+        code: 'BAD_REQUEST',
+        message:
+          'This serial is not on your VFT account. Check the label on the reader, or ask VFT to add the reader to your account.',
+      })
+    })
+
+    it('hands the use case the caller’s gym and the serial in capitals', async () => {
+      mockRegisterExecute.mockResolvedValue({ notOnAccount: true })
+
+      await postDevice(
+        jsonRequest({ deviceSerial: ' nyu7251900077 ', deviceName: 'Door' })
+      )
+
+      expect(mockRegisterExecute).toHaveBeenCalledWith(
+        'gym-1',
+        expect.objectContaining({ deviceSerial: 'NYU7251900077' })
+      )
+    })
+
+    it('answers 201 with the registered reader otherwise', async () => {
+      mockRegisterExecute.mockResolvedValue({ device: DEVICE })
+
+      const response = await postDevice(
+        jsonRequest({ deviceSerial: 'SER-001', deviceName: 'Door' })
+      )
+
+      expect(response.status).toBe(201)
     })
   })
 
@@ -401,9 +451,15 @@ describe('Access-control routes', () => {
       const response = await syncMember(jsonRequest({}), params('member-1'))
 
       expect(response.status).toBe(200)
+      // And a re-seat, not only a forced push: after a reader restart the
+      // reader keeps the user and ignores a re-pushed template, so the member
+      // is deleted from the readers and added back (visit 1, D1). A failure
+      // queues a forced retry, which is what the desk toast promises.
       expect(mockSyncExecute).toHaveBeenCalledWith({
         memberId: 'member-1',
         force: true,
+        reseat: true,
+        retryOnFailure: true,
       })
     })
 

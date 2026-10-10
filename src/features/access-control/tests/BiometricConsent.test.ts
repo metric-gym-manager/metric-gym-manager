@@ -284,7 +284,7 @@ describe('Biometric consent', () => {
         new Date('2026-02-01T09:00:00Z')
       )
 
-      provider.revokeBiometrics = async () => ({
+      provider.removeSubject = async () => ({
         status: 'failed' as const,
         error: 'device offline',
         retryable: true,

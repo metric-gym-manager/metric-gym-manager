@@ -23,19 +23,31 @@
  *
  * ## Why clearing is its own operation
  *
- * Deleting someone's fingerprint is not an edit to their membership. It maps
- * to the vendor's `fromdev` delete — template off the reader, employee record
- * intact — and touches no `members` row except to withdraw the consent that
- * allowed the template to be taken. Registry and biometrics stay
- * separable in both directions: a member can lose their fingerprint and keep
- * their membership, and can be evicted from a reader and be restored later
- * without re-enrolling.
+ * Deleting someone's fingerprint is not an edit to their membership, and it is
+ * not a `fromdev`. That call takes the template off the readers but the vendor
+ * keeps its central copy, and any later sync re-installed the withdrawn finger
+ * without consent (visit 1, D2/PH-19). So clearing deletes the vendor's record
+ * ("server and all devices") and gives the member a NEW subject id, which
+ * makes it impossible for a template keyed to the old id to be re-attached. A
+ * member who is still entitled is re-provisioned by the queued reconcile, with
+ * no fingerprint. The membership itself is untouched; `members` changes only
+ * to withdraw the consent that allowed the template to be taken. Registry and
+ * biometrics stay separable in both directions: a member can lose their
+ * fingerprint and keep their membership.
+ *
+ * Cancellation is the opposite on purpose — it blocks and revokes
+ * (`fromdev`), keeping the central copy so a returning member needs no
+ * re-enrolment.
  */
 
 import type { IAccessControlProvider } from '@/lib/access-control'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 import { resolveAccessDecision } from '@/features/access-control/domain/AccessDecision'
-import { getGymToday } from '@/features/access-control/utils/getGymToday'
+import { AccessIntent } from '@/features/access-control/config/AccessControlConfig'
+import {
+  formatDeviceDate,
+  getGymToday,
+} from '@/features/access-control/utils/getGymToday'
 
 export interface EnrolMemberBiometricInput {
   gymId: string
@@ -232,6 +244,39 @@ export class ManageMemberBiometric {
       }
     }
 
+    // Visit 1, D3: the reader runs its queue in order, so these land after the
+    // enrolment ends and restore anything the enrolment reset.
+    const target = {
+      deviceSerial: device.device_serial,
+      subjectId: String(subject.subject_id),
+    }
+    try {
+      const granted = await this.provider.grantAccess(credentials, target)
+      const windowed =
+        granted.status !== 'failed' && decision.validFrom && decision.validTo
+          ? await this.provider.setValidPeriod(credentials, {
+              ...target,
+              startDate: formatDeviceDate(decision.validFrom),
+              endDate: formatDeviceDate(decision.validTo),
+            })
+          : granted
+      if (granted.status === 'failed' || windowed.status === 'failed') {
+        await this.repo.enqueue(
+          input.gymId,
+          input.memberId,
+          AccessIntent.ReconcileMember,
+          { reason: 'post_enrol_window', force: true }
+        )
+      }
+    } catch {
+      await this.repo.enqueue(
+        input.gymId,
+        input.memberId,
+        AccessIntent.ReconcileMember,
+        { reason: 'post_enrol_window', force: true }
+      )
+    }
+
     return { applicable: true, dispatched: true }
   }
 
@@ -253,25 +298,38 @@ export class ManageMemberBiometric {
       return { applicable: true, dispatched: false, error: 'Member not found' }
     }
 
-    const outcome = await this.provider.revokeBiometrics(
-      credentials,
-      String(context.subject.subject_id)
-    )
+    // Erase the vendor's record (visit 1, D2). A subject we never provisioned
+    // has nothing there to delete. "Not found" is the vendor agreeing the
+    // record is already gone, which is the state we want.
+    if (context.subject.provisioned_at !== null) {
+      const outcome = await this.provider.removeSubject(
+        credentials,
+        String(context.subject.subject_id)
+      )
 
-    if (outcome.status === 'failed') {
-      return {
-        applicable: true,
-        dispatched: false,
-        error: 'The reader did not accept the request',
+      if (outcome.status === 'failed' && !/not found/i.test(outcome.error)) {
+        return {
+          applicable: true,
+          dispatched: false,
+          error: 'The reader did not accept the request',
+        }
       }
     }
 
-    await this.repo.setBiometricEnrolled(memberId, false, null)
-    await this.repo.markSubjectOffDevice(memberId)
+    // A new id, so a template the vendor might still hold under the old one
+    // can never be re-attached to this member.
+    const newSubjectId = await this.repo.allocateSubjectId()
+    await this.repo.replaceSubjectAfterErasure(memberId, newSubjectId)
     // Removing the fingerprint IS the withdrawal, so the consent goes with it.
     // Leaving the timestamp would let the next enrolment proceed silently on a
     // permission the member had already taken back.
     await this.repo.clearBiometricConsent(memberId)
+    // Still entitled? The reconcile puts them back on the readers, without a
+    // fingerprint (remote day, F-05: withdrawal used to leave an active member
+    // on no reader with nothing queued).
+    await this.repo.enqueue(gymId, memberId, AccessIntent.ReconcileMember, {
+      reason: 'biometric_withdrawn',
+    })
 
     return { applicable: true, dispatched: true }
   }

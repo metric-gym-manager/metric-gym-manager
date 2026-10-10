@@ -54,6 +54,11 @@ export interface DrainAccessSyncQueueSummary {
   needingAttention: number
   /** Slots reclaimed after a reader reported itself full. */
   evicted: number
+  /**
+   * Results dropped because a reclaim gave the job to another run first —
+   * remote day F-10.
+   */
+  superseded: number
   errors: string[]
 }
 
@@ -101,6 +106,7 @@ export class DrainAccessSyncQueue {
       deadLettered: 0,
       needingAttention: 0,
       evicted: 0,
+      superseded: 0,
       errors: [],
     }
 
@@ -124,12 +130,26 @@ export class DrainAccessSyncQueue {
         const failures = await this.runJob(job, input.today)
 
         if (failures.length === 0) {
-          await this.repo.completeJob(job.id, AccessSyncStatus.Succeeded)
-          summary.succeeded += 1
+          // Guarded by the attempt we claimed: if a reclaim gave the job to
+          // another run while we were talking to the vendor, our result must
+          // not overwrite theirs (F-10).
+          const applied = await this.repo.completeJob(
+            job.id,
+            AccessSyncStatus.Succeeded,
+            job.attempts
+          )
+          if (applied) summary.succeeded += 1
+          else summary.superseded += 1
           continue
         }
 
-        await this.settleFailure(job.id, failures[0], summary, job.gym_id)
+        await this.settleFailure(
+          job.id,
+          failures[0],
+          summary,
+          job.gym_id,
+          job.attempts
+        )
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown drain error'
@@ -157,14 +177,21 @@ export class DrainAccessSyncQueue {
               needsAttention: !error.retryable,
             },
             summary,
-            job.gym_id
+            job.gym_id,
+            job.attempts
           )
           continue
         }
 
         summary.errors.push(message)
-        await this.repo.failJob(job.id, message, true)
-        summary.retrying += 1
+        const applied = await this.repo.failJob(
+          job.id,
+          message,
+          true,
+          job.attempts
+        )
+        if (applied) summary.retrying += 1
+        else summary.superseded += 1
       }
     }
 
@@ -185,6 +212,7 @@ export class DrainAccessSyncQueue {
       member_id: string | null
       intent: string
       payload: Record<string, unknown>
+      attempts: number
     },
     today?: Date
   ): Promise<SyncFailure[]> {
@@ -196,6 +224,23 @@ export class DrainAccessSyncQueue {
       // immediate feedback; the queued row exists for the audit trail. Nothing
       // to re-send here.
       if (job.payload?.dispatchedInline === true) return []
+
+      // Unlike every other job, a door open or a restart is not safe to repeat:
+      // if a worker died after the vendor accepted the call, the reclaim hands
+      // the job back and a second run would open the door — or restart the
+      // reader — ten minutes late, for nobody. A door opened late is worse than
+      // one not opened, so anything past the first attempt is refused (F-11).
+      // Not a failure anyone can act on, hence no attention flag.
+      if (job.attempts > 1) {
+        return [
+          {
+            message:
+              'Not repeated: a door open or restart is never sent again after an interruption',
+            retryable: false,
+            needsAttention: false,
+          },
+        ]
+      }
 
       const deviceId = String(job.payload?.deviceId ?? '')
       const actorId = String(job.payload?.actorId ?? 'system')
@@ -237,6 +282,11 @@ export class DrainAccessSyncQueue {
     const result = await this.syncMember.execute({
       memberId: job.member_id,
       today,
+      // Carried by the job so a queued repair (restart re-seat, refusal
+      // re-push, a desk retry) does what the request that queued it meant,
+      // not an ordinary diff that would find nothing to send.
+      force: job.payload?.force === true,
+      reseat: job.payload?.reseat === true,
     })
 
     return result.failures
@@ -247,8 +297,16 @@ export class DrainAccessSyncQueue {
     jobId: string,
     failure: SyncFailure,
     summary: DrainAccessSyncQueueSummary,
-    gymId: string
+    gymId: string,
+    attempts: number
   ): Promise<void> {
+    // The vendor refused our sign-in. The jobs are what discover this, so they
+    // report it: without this a gym with a changed vendor password read
+    // Connected while every job died (remote day, F-03).
+    if (failure.credentialsRejected) {
+      await this.repo.markAccountVerificationFailed(gymId)
+    }
+
     // A full reader is the one failure we can act on rather than merely
     // report. Reclaim capacity from members who cannot get in anyway, then
     // reschedule — so the member who triggered it gets on at the next pass
@@ -261,8 +319,14 @@ export class DrainAccessSyncQueue {
       )
 
       if (freed > 0) {
-        await this.repo.failJob(jobId, failure.message, true)
-        summary.retrying += 1
+        const applied = await this.repo.failJob(
+          jobId,
+          failure.message,
+          true,
+          attempts
+        )
+        if (applied) summary.retrying += 1
+        else summary.superseded += 1
         return
       }
       // Nothing could be freed: every remaining member on the reader can
@@ -275,7 +339,19 @@ export class DrainAccessSyncQueue {
     // not free — burns quota and buries the real problem behind noise.
     const retryable = failure.retryable && !failure.needsAttention
 
-    await this.repo.failJob(jobId, failure.message, retryable)
+    const applied = await this.repo.failJob(
+      jobId,
+      failure.message,
+      retryable,
+      attempts
+    )
+
+    // Another run owns the job now: its outcome is not ours to count, and a
+    // dead-letter or attention flag we did not write must not be reported.
+    if (!applied) {
+      summary.superseded += 1
+      return
+    }
 
     if (retryable) {
       summary.retrying += 1

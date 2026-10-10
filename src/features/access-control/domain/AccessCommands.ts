@@ -91,6 +91,16 @@ export interface DeriveCommandsInput {
    * validity period.
    */
   force?: boolean
+  /**
+   * Delete-then-add. Implies `force`.
+   *
+   * One `RevokeBiometric` (vendor `fromdev`, which removes the subject from
+   * every reader while the vendor keeps its central copy) goes out before the
+   * forced push, because a reader that lost its templates (restart, visit 1
+   * D1/PH-15) ignores a plain re-push for a user it already lists. Only for an
+   * allowed, provisioned member; otherwise identical to `force`.
+   */
+  reseat?: boolean
 }
 
 /**
@@ -111,7 +121,8 @@ export interface DeriveCommandsInput {
 export function deriveAccessCommands(
   input: DeriveCommandsInput
 ): AccessCommand[] {
-  const { decision, subject, deviceSerials, force = false } = input
+  const { decision, subject, deviceSerials, reseat = false } = input
+  const force = (input.force ?? false) || reseat
 
   if (deviceSerials.length === 0) {
     return []
@@ -157,6 +168,18 @@ export function deriveAccessCommands(
   }
 
   const commands: AccessCommand[] = []
+
+  // Delete-then-add (visit 1, D1): `fromdev` takes the subject off every
+  // reader in one call, so a single revoke is enough whatever the reader
+  // count. Only when the vendor already holds the subject and the decision is
+  // to admit them; a blocked member is never reached by this branch.
+  if (reseat && decision.allowed && subject.provisioned) {
+    commands.push({
+      intent: AccessIntent.RevokeBiometric,
+      deviceSerial: deviceSerials[0],
+      subjectId: subject.subjectId,
+    })
+  }
 
   // The subject record must exist on the vendor before anything can reference
   // it. This is a hardware ordering requirement, not a preference.
@@ -224,14 +247,22 @@ export function deriveAccessCommands(
   // grant goes out whatever we last recorded: a reader still holding an old
   // block is one of the disagreements the override exists for, and a grant to
   // a member who is not blocked is a benign duplicate (audit Y1).
-  if (subject.lastSyncedBlocked === true || force) {
-    for (const deviceSerial of deviceSerials) {
-      commands.push({
-        intent: AccessIntent.Grant,
-        deviceSerial,
-        subjectId: subject.subjectId,
-      })
-    }
+  //
+  // Every reader that is HANDED the member also gets a grant, even when we
+  // believe they were never blocked (visit 1, D3): a freshly added user was
+  // refused with event 23 "invalid time period" on the first scan until an
+  // Access Grant arrived (PH-04/06/07; PH-08, the one enrolment preceded by a
+  // grant, was the exception). Nothing else tells us the reader's own record
+  // of the user carries no privilege.
+  const grantTo =
+    subject.lastSyncedBlocked === true || force ? deviceSerials : missingFrom
+
+  for (const deviceSerial of grantTo) {
+    commands.push({
+      intent: AccessIntent.Grant,
+      deviceSerial,
+      subjectId: subject.subjectId,
+    })
   }
 
   // Any reader that was just handed the member gets the window re-pushed, even
