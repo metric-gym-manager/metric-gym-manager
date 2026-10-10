@@ -540,6 +540,23 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     }
   }
 
+  async listMemberIdsOnDevice(
+    gymId: string,
+    deviceSerial: string
+  ): Promise<string[]> {
+    const rows = await this.pageAll<{ member_id: string }>(
+      'member_access_subjects',
+      (query) =>
+        query
+          .eq('gym_id', gymId)
+          .contains('synced_device_serials', [deviceSerial])
+          .order('created_at', { ascending: true }),
+      'member_id'
+    )
+
+    return rows.map((r) => r.member_id)
+  }
+
   async listMembersNeedingReconcile(gymId: string): Promise<string[]> {
     const rows = await this.pageAll<{ member_id: string }>(
       'member_access_subjects',

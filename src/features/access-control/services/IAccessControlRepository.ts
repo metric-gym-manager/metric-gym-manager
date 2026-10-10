@@ -204,6 +204,14 @@ export interface IAccessControlRepository {
   getMemberAccessContext(memberId: string): Promise<MemberAccessContext | null>
 
   /**
+   * Ids of the members we believe a reader holds.
+   *
+   * Read from our own record (`synced_device_serials`), which is what the
+   * restart repair needs: it re-seats exactly the members we put there.
+   */
+  listMemberIdsOnDevice(gymId: string, deviceSerial: string): Promise<string[]>
+
+  /**
    * Members whose access may have changed, for the nightly reconcile.
    *
    * Returns ids only; prefer `listSubjectsForReconcile` when the caller needs

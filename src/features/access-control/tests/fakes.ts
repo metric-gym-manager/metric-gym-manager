@@ -317,6 +317,19 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
     )
   }
 
+  async listMemberIdsOnDevice(
+    gymId: string,
+    deviceSerial: string
+  ): Promise<string[]> {
+    return (this.options.contexts ?? [])
+      .filter(
+        (c) =>
+          c.gymId === gymId &&
+          (c.subject?.synced_device_serials ?? []).includes(deviceSerial)
+      )
+      .map((c) => c.memberId)
+  }
+
   async listMembersNeedingReconcile(gymId: string): Promise<string[]> {
     return (this.options.contexts ?? [])
       .filter((c) => c.gymId === gymId)

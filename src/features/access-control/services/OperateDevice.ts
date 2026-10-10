@@ -15,7 +15,10 @@
 
 import type { IAccessControlProvider } from '@/lib/access-control'
 import type { IAccessControlRepository } from './IAccessControlRepository'
-import { AccessIntent } from '@/features/access-control/config/AccessControlConfig'
+import {
+  AccessIntent,
+  REBOOT_RESEAT_DELAY_SECONDS,
+} from '@/features/access-control/config/AccessControlConfig'
 
 export interface OperateDeviceInput {
   gymId: string
@@ -30,6 +33,11 @@ export interface OperateDeviceResult {
   /** True once the vendor accepted the command. */
   dispatched: boolean
   error?: string
+  /**
+   * Members queued for a re-seat after a restart (visit 1, D1). Present only
+   * for a restart the vendor accepted; 0 when the repair could not be queued.
+   */
+  membersQueuedForRepair?: number
 }
 
 export class OperateDevice {
@@ -98,6 +106,45 @@ export class OperateDevice {
       return { applicable: true, dispatched: false, error: outcome.error }
     }
 
-    return { applicable: true, dispatched: true }
+    if (intent !== AccessIntent.RebootDevice) {
+      return { applicable: true, dispatched: true }
+    }
+
+    // Visit 1, D1 (PH-15): a restart kept the users and dropped their
+    // fingerprints, and only a delete-then-add brought them back. Queued for
+    // after the reader is up again. Never allowed to fail the restart: the
+    // reader IS restarting, and the member-level Re-send remains the manual
+    // fix if this could not be queued.
+    let membersQueuedForRepair = 0
+    try {
+      const memberIds = await this.repo.listMemberIdsOnDevice(
+        input.gymId,
+        device.device_serial
+      )
+      const notBefore = new Date(
+        Date.now() + REBOOT_RESEAT_DELAY_SECONDS * 1000
+      )
+      membersQueuedForRepair = await this.repo.enqueueMany(
+        input.gymId,
+        memberIds.map((memberId) => ({
+          memberId,
+          intent: AccessIntent.ReconcileMember,
+          payload: {
+            reason: 'reader_restarted',
+            reseat: true,
+            deviceSerial: device.device_serial,
+          },
+          notBefore,
+        }))
+      )
+    } catch (error) {
+      console.error('[access-control] restart repair not queued', {
+        gymId: input.gymId,
+        deviceSerial: device.device_serial,
+        message: error instanceof Error ? error.message : 'unknown',
+      })
+    }
+
+    return { applicable: true, dispatched: true, membersQueuedForRepair }
   }
 }

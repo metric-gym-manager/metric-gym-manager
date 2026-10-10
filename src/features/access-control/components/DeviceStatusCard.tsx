@@ -93,7 +93,7 @@ export default function DeviceStatusCard({
     const confirmed = await confirm({
       title: `Restart ${device.deviceName}?`,
       description:
-        'The reader will be unusable for about a minute while it restarts. Nobody can scan in during that time.',
+        'The reader will be unusable for about a minute while it restarts. Nobody can scan in during that time. Afterwards, members’ fingerprints are sent to the readers again, which takes a few minutes.',
       confirmText: 'Restart reader',
       variant: 'destructive',
     })

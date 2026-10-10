@@ -183,6 +183,15 @@ export const STALE_JOB_RECLAIM_SECONDS = 600
 export const DRAIN_BATCH_SIZE = 25
 
 /**
+ * Seconds after a restart before its members are re-seated.
+ *
+ * A ZAM70 restart takes about a minute; the repair waits three so it lands on a
+ * reader that is back. Visit 1, D1 (PH-15): a restart kept the users and
+ * dropped their fingerprints.
+ */
+export const REBOOT_RESEAT_DELAY_SECONDS = 180
+
+/**
  * Reader usage above which the nightly reconcile evicts inactive members,
  * and the level it frees down to.
  *
