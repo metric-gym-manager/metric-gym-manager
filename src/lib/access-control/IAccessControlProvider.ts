@@ -53,6 +53,11 @@ export type CommandOutcome =
       /** The raw device return code, when one was reported. */
       returnCode?: number
       /**
+       * The vendor refused our sign-in: a person must re-enter the account.
+       * Never retried.
+       */
+      credentialsRejected?: boolean
+      /**
        * Which terminal refused, when the command targeted one.
        *
        * Carried because some failures are *about a specific reader* rather

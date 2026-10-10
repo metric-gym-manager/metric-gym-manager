@@ -75,6 +75,11 @@ export interface SyncFailure {
    * doing nothing.
    */
   deviceSerial?: string
+  /**
+   * The vendor refused our sign-in. The drainer marks the gym's account
+   * verification-failed on this, so the settings card says what the jobs know.
+   */
+  credentialsRejected?: boolean
 }
 
 export interface SyncMemberAccessResult {
@@ -174,6 +179,7 @@ export class SyncMemberAccess {
           retryable: outcome.retryable,
           needsAttention: outcome.needsAttention ?? false,
           returnCode: outcome.returnCode,
+          credentialsRejected: outcome.credentialsRejected ?? false,
           // The command knows its target even when the error does not. Only
           // reported for commands actually aimed at a terminal: `Provision`
           // targets the vendor's records and borrows a serial for ordering,

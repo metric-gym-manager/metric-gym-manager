@@ -254,6 +254,13 @@ export class DrainAccessSyncQueue {
     summary: DrainAccessSyncQueueSummary,
     gymId: string
   ): Promise<void> {
+    // The vendor refused our sign-in. The jobs are what discover this, so they
+    // report it: without this a gym with a changed vendor password read
+    // Connected while every job died (remote day, F-03).
+    if (failure.credentialsRejected) {
+      await this.repo.markAccountVerificationFailed(gymId)
+    }
+
     // A full reader is the one failure we can act on rather than merely
     // report. Reclaim capacity from members who cannot get in anyway, then
     // reschedule — so the member who triggered it gets on at the next pass

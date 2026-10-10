@@ -285,8 +285,20 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     })
 
     if (!response.ok) {
-      throw new VendorAuthError(
-        `Sign-in rejected with status ${response.status}`
+      // Only a refusal of the account is an auth error. Any other status (the
+      // vendor down, throttling, a gateway fault) says nothing about our
+      // credentials and is an ordinary vendor failure — retried, and never
+      // reported on the gym's account (remote day, F-03).
+      if ([400, 401, 403].includes(response.status)) {
+        throw new VendorAuthError(
+          `Sign-in rejected with status ${response.status}`
+        )
+      }
+
+      throw new VendorRequestError(
+        `Sign-in failed with status ${response.status}`,
+        response.status,
+        (await response.text()).slice(0, 300)
       )
     }
 
@@ -650,7 +662,15 @@ export class VftAccessControlProvider implements IAccessControlProvider {
       }
     } catch (error) {
       if (error instanceof VendorAuthError) {
-        return { status: 'failed', error: error.message, retryable: false }
+        // A person has to re-enter the account; the drain also marks it
+        // verification-failed so the settings card says so (F-03).
+        return {
+          status: 'failed',
+          error: error.message,
+          retryable: false,
+          needsAttention: true,
+          credentialsRejected: true,
+        }
       }
 
       // Already true, or already queued. Re-sending would be the mistake, and
