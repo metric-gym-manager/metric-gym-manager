@@ -54,6 +54,11 @@ export interface DrainAccessSyncQueueSummary {
   needingAttention: number
   /** Slots reclaimed after a reader reported itself full. */
   evicted: number
+  /**
+   * Results dropped because a reclaim gave the job to another run first —
+   * remote day F-10.
+   */
+  superseded: number
   errors: string[]
 }
 
@@ -101,6 +106,7 @@ export class DrainAccessSyncQueue {
       deadLettered: 0,
       needingAttention: 0,
       evicted: 0,
+      superseded: 0,
       errors: [],
     }
 
@@ -124,12 +130,26 @@ export class DrainAccessSyncQueue {
         const failures = await this.runJob(job, input.today)
 
         if (failures.length === 0) {
-          await this.repo.completeJob(job.id, AccessSyncStatus.Succeeded)
-          summary.succeeded += 1
+          // Guarded by the attempt we claimed: if a reclaim gave the job to
+          // another run while we were talking to the vendor, our result must
+          // not overwrite theirs (F-10).
+          const applied = await this.repo.completeJob(
+            job.id,
+            AccessSyncStatus.Succeeded,
+            job.attempts
+          )
+          if (applied) summary.succeeded += 1
+          else summary.superseded += 1
           continue
         }
 
-        await this.settleFailure(job.id, failures[0], summary, job.gym_id)
+        await this.settleFailure(
+          job.id,
+          failures[0],
+          summary,
+          job.gym_id,
+          job.attempts
+        )
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Unknown drain error'
@@ -157,14 +177,21 @@ export class DrainAccessSyncQueue {
               needsAttention: !error.retryable,
             },
             summary,
-            job.gym_id
+            job.gym_id,
+            job.attempts
           )
           continue
         }
 
         summary.errors.push(message)
-        await this.repo.failJob(job.id, message, true)
-        summary.retrying += 1
+        const applied = await this.repo.failJob(
+          job.id,
+          message,
+          true,
+          job.attempts
+        )
+        if (applied) summary.retrying += 1
+        else summary.superseded += 1
       }
     }
 
@@ -252,7 +279,8 @@ export class DrainAccessSyncQueue {
     jobId: string,
     failure: SyncFailure,
     summary: DrainAccessSyncQueueSummary,
-    gymId: string
+    gymId: string,
+    attempts: number
   ): Promise<void> {
     // The vendor refused our sign-in. The jobs are what discover this, so they
     // report it: without this a gym with a changed vendor password read
@@ -273,8 +301,14 @@ export class DrainAccessSyncQueue {
       )
 
       if (freed > 0) {
-        await this.repo.failJob(jobId, failure.message, true)
-        summary.retrying += 1
+        const applied = await this.repo.failJob(
+          jobId,
+          failure.message,
+          true,
+          attempts
+        )
+        if (applied) summary.retrying += 1
+        else summary.superseded += 1
         return
       }
       // Nothing could be freed: every remaining member on the reader can
@@ -287,7 +321,19 @@ export class DrainAccessSyncQueue {
     // not free — burns quota and buries the real problem behind noise.
     const retryable = failure.retryable && !failure.needsAttention
 
-    await this.repo.failJob(jobId, failure.message, retryable)
+    const applied = await this.repo.failJob(
+      jobId,
+      failure.message,
+      retryable,
+      attempts
+    )
+
+    // Another run owns the job now: its outcome is not ours to count, and a
+    // dead-letter or attention flag we did not write must not be reported.
+    if (!applied) {
+      summary.superseded += 1
+      return
+    }
 
     if (retryable) {
       summary.retrying += 1

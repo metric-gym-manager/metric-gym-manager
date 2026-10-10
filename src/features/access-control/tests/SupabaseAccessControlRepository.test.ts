@@ -562,6 +562,101 @@ describe('SupabaseAccessControlRepository — outbox writes', () => {
 })
 
 /**
+ * The guard on a job's result (remote day, F-10).
+ *
+ * A result may only land on the attempt that claimed the job: the update
+ * carries `status = in_flight` and `attempts = <claimed>`, and reports whether
+ * a row was actually changed — an update that matches nothing succeeds in
+ * silence, which is how a reclaimed job's result used to vanish.
+ */
+describe('SupabaseAccessControlRepository — guarded job results', () => {
+  /** Records every filter applied to the update and answers with `rows`. */
+  function makeGuardClient(rows: Array<{ id: string }>) {
+    const filters: Array<[string, unknown]> = []
+    const patches: Record<string, unknown>[] = []
+
+    const builder = {
+      update: (patch: Record<string, unknown>) => {
+        patches.push(patch)
+        return builder
+      },
+      eq: (column: string, value: unknown) => {
+        filters.push([column, value])
+        return builder
+      },
+      select: () => Promise.resolve({ data: rows, error: null }),
+    }
+
+    return {
+      client: { from: () => builder } as unknown as SupabaseClient,
+      filters,
+      patches,
+    }
+  }
+
+  it('applies the in-flight and attempts filters when completing a claimed attempt', async () => {
+    const { client, filters } = makeGuardClient([{ id: 'job-1' }])
+    const repo = new SupabaseAccessControlRepository(client)
+
+    const applied = await repo.completeJob(
+      'job-1',
+      AccessSyncStatus.Succeeded,
+      3
+    )
+
+    expect(applied).toBe(true)
+    expect(filters).toEqual(
+      expect.arrayContaining([
+        ['id', 'job-1'],
+        ['status', AccessSyncStatus.InFlight],
+        ['attempts', 3],
+      ])
+    )
+  })
+
+  it('reports false when the guarded update matched no row', async () => {
+    const { client } = makeGuardClient([])
+    const repo = new SupabaseAccessControlRepository(client)
+
+    expect(await repo.completeJob('job-1', AccessSyncStatus.Succeeded, 3)).toBe(
+      false
+    )
+  })
+
+  it('guards a failure the same way and backs off from the claimed attempt without reading the row', async () => {
+    const { client, filters, patches } = makeGuardClient([{ id: 'job-1' }])
+    const repo = new SupabaseAccessControlRepository(client)
+
+    const applied = await repo.failJob(
+      'job-1',
+      'Device did not respond',
+      true,
+      2
+    )
+
+    expect(applied).toBe(true)
+    expect(filters).toEqual(
+      expect.arrayContaining([
+        ['status', AccessSyncStatus.InFlight],
+        ['attempts', 2],
+      ])
+    )
+    // Attempt 2 is the second rung of the ladder, so the job is rescheduled,
+    // not dead — taken from the argument, since this client has no read path.
+    expect(patches[0].status).toBe(AccessSyncStatus.Failed)
+  })
+
+  it('does not add the guard when no attempt is given', async () => {
+    const { client, filters } = makeGuardClient([{ id: 'job-1' }])
+    const repo = new SupabaseAccessControlRepository(client)
+
+    await repo.completeJob('job-1', AccessSyncStatus.Succeeded)
+
+    expect(filters).toEqual([['id', 'job-1']])
+  })
+})
+
+/**
  * Serial matching.
  *
  * The serial is the entire routing key for an inbound scan: `findDeviceBySerial`

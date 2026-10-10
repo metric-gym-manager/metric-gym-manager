@@ -201,6 +201,11 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
 
   /** Serials already stored, so a repeat delivery counts as a duplicate. */
   private readonly seenEventKeys = new Set<string>()
+  /** Claimed jobs and where they stand, so a result can be guarded by attempt. */
+  private readonly jobStates = new Map<
+    string,
+    { status: AccessSyncStatus; attempts: number }
+  >()
   private nextSubjectId = 100001
   private claimed = false
 
@@ -522,19 +527,106 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
         })
       )
 
-    return [...(this.options.claimable ?? []), ...queued].slice(0, limit)
+    const claimed = [...(this.options.claimable ?? []), ...queued].slice(
+      0,
+      limit
+    )
+
+    for (const job of claimed) {
+      this.jobStates.set(job.id, {
+        status: AccessSyncStatus.InFlight,
+        attempts: job.attempts,
+      })
+    }
+
+    return claimed
   }
 
-  async completeJob(jobId: string, status: AccessSyncStatus): Promise<void> {
+  async completeJob(
+    jobId: string,
+    status: AccessSyncStatus,
+    expectedAttempts?: number
+  ): Promise<boolean> {
+    if (!this.guardAllows(jobId, expectedAttempts)) return false
+
     this.settled.push({ jobId, outcome: 'completed', status })
+    this.setJobStatus(jobId, status)
+    return true
   }
 
   async failJob(
     jobId: string,
     error: string,
-    retryable: boolean
-  ): Promise<void> {
+    retryable: boolean,
+    expectedAttempts?: number
+  ): Promise<boolean> {
+    if (!this.guardAllows(jobId, expectedAttempts)) return false
+
     this.settled.push({ jobId, outcome: 'failed', error, retryable })
+    this.setJobStatus(
+      jobId,
+      retryable ? AccessSyncStatus.Failed : AccessSyncStatus.Dead
+    )
+    return true
+  }
+
+  /**
+   * The state of a job the fake has handed out, for assertions.
+   *
+   * `undefined` for a job it never claimed.
+   */
+  jobState(
+    jobId: string
+  ): { status: AccessSyncStatus; attempts: number } | undefined {
+    return this.jobStates.get(jobId)
+  }
+
+  /**
+   * Simulate `reclaim_stale_access_sync_jobs`, and optionally another run's
+   * claim after it.
+   *
+   * A reclaim alone returns the job to pending with its attempt number
+   * UNCHANGED — the bump happens when the next claim takes it. So the two real
+   * states are kept apart, because each is caught by a different filter:
+   * pending at the same attempt only by the status check, and in flight at the
+   * new attempt only by the attempts check.
+   *
+   * @param options.claimedAgain - Another run has already claimed it: the job
+   *   is `in_flight` again at attempt + 1.
+   */
+  simulateReclaim(
+    jobId: string,
+    options: { claimedAgain?: boolean } = {}
+  ): void {
+    const state = this.jobStates.get(jobId)
+    if (!state) throw new Error(`Job ${jobId} was never claimed`)
+
+    this.jobStates.set(
+      jobId,
+      options.claimedAgain
+        ? { status: AccessSyncStatus.InFlight, attempts: state.attempts + 1 }
+        : { status: AccessSyncStatus.Pending, attempts: state.attempts }
+    )
+  }
+
+  /**
+   * The real repository's guard: with an expected attempt the result lands only
+   * on a job still in flight at that attempt. Without one it always lands, as
+   * the unguarded call does.
+   */
+  private guardAllows(jobId: string, expectedAttempts?: number): boolean {
+    if (expectedAttempts === undefined) return true
+    const state = this.jobStates.get(jobId)
+    return (
+      state !== undefined &&
+      state.status === AccessSyncStatus.InFlight &&
+      state.attempts === expectedAttempts
+    )
+  }
+
+  private setJobStatus(jobId: string, status: AccessSyncStatus): void {
+    const state = this.jobStates.get(jobId)
+    if (state) this.jobStates.set(jobId, { ...state, status })
   }
 
   async recordBiometricConsent(memberId: string, at: Date): Promise<void> {

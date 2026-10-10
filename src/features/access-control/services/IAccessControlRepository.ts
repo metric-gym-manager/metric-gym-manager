@@ -388,9 +388,34 @@ export interface IAccessControlRepository {
    */
   claimDueJobs(limit: number): Promise<AccessSyncJob[]>
 
-  completeJob(jobId: string, status: AccessSyncStatus): Promise<void>
+  /**
+   * Record a job's success.
+   *
+   * @param expectedAttempts - The attempt number this run claimed. When given,
+   *   the result is written only if the job is still `in_flight` at that
+   *   attempt: a reclaim may have handed it to another run, and a slow worker
+   *   must not overwrite that run (remote day, F-10).
+   * @returns True when a row was updated; false when the result was dropped.
+   */
+  completeJob(
+    jobId: string,
+    status: AccessSyncStatus,
+    expectedAttempts?: number
+  ): Promise<boolean>
 
-  failJob(jobId: string, error: string, retryable: boolean): Promise<void>
+  /**
+   * Record a job's failure, rescheduling or dead-lettering it.
+   *
+   * @param expectedAttempts - As for `completeJob`; also the attempt the retry
+   *   backoff is taken from, so the row need not be read first.
+   * @returns True when a row was updated; false when the result was dropped.
+   */
+  failJob(
+    jobId: string,
+    error: string,
+    retryable: boolean,
+    expectedAttempts?: number
+  ): Promise<boolean>
 
   /**
    * Jobs stuck in `dead`.

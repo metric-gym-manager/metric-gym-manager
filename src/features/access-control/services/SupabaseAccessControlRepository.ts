@@ -981,8 +981,12 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     return (data as AccessSyncJob[]) ?? []
   }
 
-  async completeJob(jobId: string, status: AccessSyncStatus): Promise<void> {
-    const { error } = await this.supabase
+  async completeJob(
+    jobId: string,
+    status: AccessSyncStatus,
+    expectedAttempts?: number
+  ): Promise<boolean> {
+    const update = this.supabase
       .from('access_sync_jobs')
       .update({
         status,
@@ -991,29 +995,36 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       })
       .eq('id', jobId)
 
-    if (error) {
-      throw new DatabaseError(`Failed to complete sync job: ${error.message}`)
-    }
+    return this.settleJob(update, expectedAttempts, 'complete sync job')
   }
 
   async failJob(
     jobId: string,
     errorMessage: string,
-    retryable: boolean
-  ): Promise<void> {
-    const { data, error: readError } = await this.supabase
-      .from('access_sync_jobs')
-      .select('attempts')
-      .eq('id', jobId)
-      .maybeSingle()
+    retryable: boolean,
+    expectedAttempts?: number
+  ): Promise<boolean> {
+    let attempts = expectedAttempts
 
-    if (readError) {
-      throw new DatabaseError(
-        `Failed to load sync job for retry: ${readError.message}`
-      )
+    // Unguarded callers still read the row for the backoff. A guarded caller
+    // already knows the attempt it claimed, which is both the right input (the
+    // row may now belong to another run) and one round trip fewer.
+    if (attempts === undefined) {
+      const { data, error: readError } = await this.supabase
+        .from('access_sync_jobs')
+        .select('attempts')
+        .eq('id', jobId)
+        .maybeSingle()
+
+      if (readError) {
+        throw new DatabaseError(
+          `Failed to load sync job for retry: ${readError.message}`
+        )
+      }
+
+      attempts = (data as { attempts: number } | null)?.attempts ?? 1
     }
 
-    const attempts = (data as { attempts: number } | null)?.attempts ?? 1
     const backoff = backoffSecondsFor(attempts)
 
     // A non-retryable failure is dead-lettered immediately: retrying it would
@@ -1028,7 +1039,7 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
         ? new Date(Date.now() + backoff * 1000).toISOString()
         : new Date().toISOString()
 
-    const { error } = await this.supabase
+    const update = this.supabase
       .from('access_sync_jobs')
       .update({
         status,
@@ -1038,9 +1049,7 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
       })
       .eq('id', jobId)
 
-    if (error) {
-      throw new DatabaseError(`Failed to record sync failure: ${error.message}`)
-    }
+    return this.settleJob(update, expectedAttempts, 'record sync failure')
   }
 
   async countDeadJobs(memberId?: string): Promise<number> {
@@ -1310,6 +1319,43 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
     }
 
     return results
+  }
+
+  /**
+   * Finish a job-result update, guarded by the attempt that claimed the job.
+   *
+   * With `expectedAttempts` the write only lands on a job still `in_flight` at
+   * that attempt, and `.select('id')` reports whether a row actually changed —
+   * an update that matches nothing is a success to PostgREST, which is how a
+   * reclaimed job's result used to vanish without a trace (remote day, F-10).
+   * Without it the update is unconditional, as before: nothing is guarded and
+   * there is nothing to report.
+   */
+  private async settleJob(
+    update: ReturnType<ReturnType<SupabaseClient['from']>['update']>,
+    expectedAttempts: number | undefined,
+    action: string
+  ): Promise<boolean> {
+    if (expectedAttempts === undefined) {
+      const { error } = await update
+
+      if (error) {
+        throw new DatabaseError(`Failed to ${action}: ${error.message}`)
+      }
+
+      return true
+    }
+
+    const { data, error } = await update
+      .eq('status', AccessSyncStatus.InFlight)
+      .eq('attempts', expectedAttempts)
+      .select('id')
+
+    if (error) {
+      throw new DatabaseError(`Failed to ${action}: ${error.message}`)
+    }
+
+    return (data?.length ?? 0) > 0
   }
 
   private async updateDevice(
