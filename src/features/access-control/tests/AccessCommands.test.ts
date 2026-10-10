@@ -362,6 +362,81 @@ describe('deriveAccessCommands', () => {
     })
   })
 
+  describe('grant on hand-over (visit 1, D3)', () => {
+    const intents = (commands: ReturnType<typeof deriveAccessCommands>) =>
+      commands.map((c) => [c.intent, c.deviceSerial])
+
+    it('grants every reader a never-provisioned member is handed to', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Active),
+        subject: subject({
+          provisioned: false,
+          syncedDeviceSerials: [],
+          lastSyncedBlocked: null,
+        }),
+        deviceSerials: ['A', 'B'],
+      })
+
+      expect(commands.map((c) => c.intent)).toEqual([
+        AccessIntent.Provision,
+        AccessIntent.SyncToDevice,
+        AccessIntent.SyncToDevice,
+        AccessIntent.Grant,
+        AccessIntent.Grant,
+        AccessIntent.SetValidPeriod,
+        AccessIntent.SetValidPeriod,
+      ])
+      expect(
+        commands
+          .filter((c) => c.intent === AccessIntent.Grant)
+          .map((c) => c.deviceSerial)
+      ).toEqual(['A', 'B'])
+    })
+
+    it('grants only the reader a held member is newly handed to', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Active),
+        subject: subject({ syncedDeviceSerials: ['A'] }),
+        deviceSerials: ['A', 'B'],
+      })
+
+      expect(intents(commands)).toEqual([
+        [AccessIntent.SyncToDevice, 'B'],
+        [AccessIntent.Grant, 'B'],
+        [AccessIntent.SetValidPeriod, 'A'],
+        [AccessIntent.SetValidPeriod, 'B'],
+      ])
+    })
+
+    it('sends no grant when no reader is handed the member', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Active),
+        subject: subject({
+          syncedDeviceSerials: ['A', 'B'],
+          lastSyncedValidFrom: '20250101',
+          lastSyncedValidTo: '20250201',
+        }),
+        deviceSerials: ['A', 'B'],
+      })
+
+      expect(
+        commands.some((c) => c.intent === AccessIntent.SetValidPeriod)
+      ).toBe(true)
+      expect(commands.some((c) => c.intent === AccessIntent.Grant)).toBe(false)
+    })
+
+    it('sends a suspended member neither a grant nor a window', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Suspended),
+        subject: subject({ syncedDeviceSerials: [] }),
+        deviceSerials: ['A', 'B'],
+      })
+
+      expect(commands.some((c) => c.intent === AccessIntent.Grant)).toBe(false)
+      expect(containsValidPeriod(commands)).toBe(false)
+    })
+  })
+
   describe('edge cases', () => {
     it('returns nothing when the gym has no devices', () => {
       const commands = deriveAccessCommands({

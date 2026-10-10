@@ -224,14 +224,22 @@ export function deriveAccessCommands(
   // grant goes out whatever we last recorded: a reader still holding an old
   // block is one of the disagreements the override exists for, and a grant to
   // a member who is not blocked is a benign duplicate (audit Y1).
-  if (subject.lastSyncedBlocked === true || force) {
-    for (const deviceSerial of deviceSerials) {
-      commands.push({
-        intent: AccessIntent.Grant,
-        deviceSerial,
-        subjectId: subject.subjectId,
-      })
-    }
+  //
+  // Every reader that is HANDED the member also gets a grant, even when we
+  // believe they were never blocked (visit 1, D3): a freshly added user was
+  // refused with event 23 "invalid time period" on the first scan until an
+  // Access Grant arrived (PH-04/06/07; PH-08, the one enrolment preceded by a
+  // grant, was the exception). Nothing else tells us the reader's own record
+  // of the user carries no privilege.
+  const grantTo =
+    subject.lastSyncedBlocked === true || force ? deviceSerials : missingFrom
+
+  for (const deviceSerial of grantTo) {
+    commands.push({
+      intent: AccessIntent.Grant,
+      deviceSerial,
+      subjectId: subject.subjectId,
+    })
   }
 
   // Any reader that was just handed the member gets the window re-pushed, even
