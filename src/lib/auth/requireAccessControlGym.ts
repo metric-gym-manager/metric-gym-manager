@@ -43,23 +43,34 @@ export interface AccessControlGuardResult {
  *   .listDevices(caller!.gymId)
  */
 export async function requireAccessControlGym(): Promise<AccessControlGuardResult> {
-  const supabase = await createClient()
+  let session: { supabase: SupabaseClient; userId: string } | null = null
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  // A corrupted cookie makes the client throw before it can say 'no user';
+  // that is still no user, not a server fault (remote day F-06, AP-02).
+  try {
+    const supabase = await createClient()
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
 
-  if (!user) {
+    if (user) session = { supabase, userId: user.id }
+  } catch {
+    session = null
+  }
+
+  if (!session) {
     return {
       caller: null,
       error: NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 }),
     }
   }
 
+  const { supabase, userId } = session
+
   const { data: gym, error: gymError } = await supabase
     .from('gyms')
     .select('id')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .single()
 
   if (gymError || !gym) {
@@ -94,7 +105,7 @@ export async function requireAccessControlGym(): Promise<AccessControlGuardResul
   }
 
   return {
-    caller: { gymId, userId: user.id, supabase },
+    caller: { gymId, userId, supabase },
     error: null,
   }
 }

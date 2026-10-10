@@ -94,3 +94,37 @@ describe('requireAccessControlGym', () => {
     expect(error?.status).toBe(403)
   })
 })
+
+/**
+ * A corrupted session cookie (remote day, F-06 / AP-02).
+ *
+ * The Supabase client throws while DECODING the cookie, before it can answer
+ * "no user" — so the guard's 401 branch was never reached and the route
+ * answered 500. A cookie that cannot be read is still no user: the caller is
+ * unauthenticated, which is a client condition, not a server fault.
+ */
+describe('requireAccessControlGym — an undecodable session', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('answers 401, not a thrown error, when the session cannot be decoded', async () => {
+    mockGetUser.mockRejectedValue(new Error('Invalid base64'))
+
+    const { caller, error } = await requireAccessControlGym()
+
+    expect(caller).toBeNull()
+    expect(error?.status).toBe(401)
+    // Rejected before anything else was looked up.
+    expect(mockFindByGymId).not.toHaveBeenCalled()
+  })
+
+  it('answers 401 exactly as before when the session simply has no user', async () => {
+    mockGetUser.mockResolvedValue({ data: { user: null } })
+
+    const { caller, error } = await requireAccessControlGym()
+
+    expect(caller).toBeNull()
+    expect(error?.status).toBe(401)
+  })
+})

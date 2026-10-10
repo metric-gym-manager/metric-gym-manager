@@ -30,7 +30,11 @@ jest.mock('@/lib/supabase/server', () => ({
   }),
 }))
 
-import { getApiGymProfile, EMAIL_CHANGE_TTL_MS } from '../api-auth'
+import {
+  getApiGymProfile,
+  requireApiAuth,
+  EMAIL_CHANGE_TTL_MS,
+} from '../api-auth'
 
 const gymRow = {
   id: 'g1',
@@ -213,5 +217,58 @@ describe('getApiGymProfile', () => {
 
     expect(gymProfile).toBeNull()
     expect(error).not.toBeNull()
+  })
+})
+
+/**
+ * A corrupted session cookie (remote day, F-06 / AP-02).
+ *
+ * The Supabase client throws while decoding the cookie, before it can answer
+ * "no user", so the 401 branch was never reached and the route answered 500.
+ * A cookie that cannot be read is still no user.
+ */
+describe('requireApiAuth — an undecodable session', () => {
+  let log: jest.SpyInstance
+
+  beforeEach(() => {
+    log = jest.spyOn(console, 'error').mockImplementation(() => undefined)
+  })
+
+  afterEach(() => {
+    log.mockRestore()
+  })
+
+  it('answers 401, not a thrown error, when the session cannot be decoded', async () => {
+    getUser.mockRejectedValue(new Error('Invalid base64'))
+
+    const { user, error } = await requireApiAuth()
+
+    expect(user).toBeNull()
+    expect(error?.status).toBe(401)
+    await expect(error?.json()).resolves.toEqual({
+      success: false,
+      error: 'Unauthorized',
+    })
+  })
+
+  it('answers 401 exactly as before when the session simply has no user', async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: null })
+
+    const { user, error } = await requireApiAuth()
+
+    expect(user).toBeNull()
+    expect(error?.status).toBe(401)
+  })
+
+  it('still returns the user for a valid session', async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: 'u1' } },
+      error: null,
+    })
+
+    const { user, error } = await requireApiAuth()
+
+    expect(error).toBeNull()
+    expect(user).toEqual({ id: 'u1' })
   })
 })
