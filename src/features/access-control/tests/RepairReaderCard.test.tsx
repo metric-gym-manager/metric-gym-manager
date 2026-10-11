@@ -112,6 +112,18 @@ describe('DeviceStatusCard — Repair fingerprints', () => {
     )
   })
 
+  it('says "member", not "members", for one', async () => {
+    renderCard(1)
+
+    await openDialogAndConfirm()
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith(
+        'Repair queued for 1 member. Their fingerprints return within about 10 minutes.'
+      )
+    )
+  })
+
   it('says so when the reader holds nobody', async () => {
     renderCard(0)
 

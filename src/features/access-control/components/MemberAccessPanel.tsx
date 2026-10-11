@@ -366,32 +366,38 @@ export default function MemberAccessPanel({
             )}
 
             <div className="flex flex-wrap items-center gap-2">
-              <Select
-                value={fingerId}
-                onChange={(event) => setFingerId(Number(event.target.value))}
-                aria-label="Finger to register"
-                className="max-w-56"
-              >
-                {FINGER_SLOTS.map((slot) => (
-                  <option key={slot.id} value={slot.id}>
-                    {slot.label}
-                  </option>
-                ))}
-              </Select>
-
-              {activeDevices.length > 1 && (
+              {/* Width on a wrapper, not on the Select: its className lands on
+                  the <select>, while the chevron sits on the primitive's own
+                  full-width wrapper, so `max-w-56` there left the arrow at the
+                  far edge of the row (visit 2 review, F2-02). */}
+              <div className="w-full max-w-56">
                 <Select
-                  value={selectedDevice}
-                  onChange={(event) => setDeviceId(event.target.value)}
-                  aria-label="Reader to register the fingerprint on"
-                  className="max-w-56"
+                  value={fingerId}
+                  onChange={(event) => setFingerId(Number(event.target.value))}
+                  aria-label="Finger to register"
                 >
-                  {activeDevices.map((device) => (
-                    <option key={device.id} value={device.id}>
-                      {device.deviceName}
+                  {FINGER_SLOTS.map((slot) => (
+                    <option key={slot.id} value={slot.id}>
+                      {slot.label}
                     </option>
                   ))}
                 </Select>
+              </div>
+
+              {activeDevices.length > 1 && (
+                <div className="w-full max-w-56">
+                  <Select
+                    value={selectedDevice}
+                    onChange={(event) => setDeviceId(event.target.value)}
+                    aria-label="Reader to register the fingerprint on"
+                  >
+                    {activeDevices.map((device) => (
+                      <option key={device.id} value={device.id}>
+                        {device.deviceName}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               )}
 
               <Button

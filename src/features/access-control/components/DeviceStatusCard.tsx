@@ -133,7 +133,7 @@ export default function DeviceStatusCard({
       toast.success(
         result.membersQueued === 0
           ? 'No members are on this reader.'
-          : `Repair queued for ${result.membersQueued} members. Their fingerprints return within about 10 minutes.`
+          : `Repair queued for ${result.membersQueued} ${result.membersQueued === 1 ? 'member' : 'members'}. Their fingerprints return within about 10 minutes.`
       )
     } catch (error) {
       toast.error(
