@@ -53,6 +53,7 @@ const cleanSummary: RecordAccessEventsSummary = {
   stored: 1,
   duplicates: 0,
   redeliveredShifted: 0,
+  pulledScans: 0,
   unknownDevice: 0,
   unknownSerials: [],
   malformed: 0,
