@@ -391,6 +391,20 @@ export interface IAccessControlRepository {
   ): Promise<boolean>
 
   /**
+   * Whether an events pull was recorded for this reader within the last
+   * `sinceSeconds`.
+   *
+   * What lets ingestion read a delivery's `AttTime` as UTC instead of
+   * reader-local (visit 2, CD-2/DEC2-08). Scoped by gym AND serial: the marker
+   * is our own record, so it is looked up the way every tenant row is.
+   */
+  hasRecentEventsPull(
+    gymId: string,
+    deviceSerial: string,
+    sinceSeconds: number
+  ): Promise<boolean>
+
+  /**
    * Claim jobs to work on.
    *
    * Implementations must return **at most one job per member**, oldest first:

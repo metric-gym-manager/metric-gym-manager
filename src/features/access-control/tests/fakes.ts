@@ -10,7 +10,10 @@
 import type { AccessCredentials } from '@/lib/access-control'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { RegistrationSource } from '@/features/members/config/RegistrationConfig'
-import { AccessSyncStatus } from '@/features/access-control/config/AccessControlConfig'
+import {
+  AccessIntent,
+  AccessSyncStatus,
+} from '@/features/access-control/config/AccessControlConfig'
 import type {
   AccessControlAccount,
   AccessDevice,
@@ -541,6 +544,22 @@ export class FakeAccessControlRepository implements IAccessControlRepository {
       (job, index) =>
         job.memberId === memberId &&
         job.payload?.reason === reason &&
+        this.enqueuedAt[index].getTime() >= cutoff
+    )
+  }
+
+  async hasRecentEventsPull(
+    gymId: string,
+    deviceSerial: string,
+    sinceSeconds: number
+  ): Promise<boolean> {
+    const cutoff = Date.now() - sinceSeconds * 1000
+
+    return this.enqueued.some(
+      (job, index) =>
+        job.gymId === gymId &&
+        job.intent === AccessIntent.EventsPull &&
+        job.payload?.deviceSerial === deviceSerial &&
         this.enqueuedAt[index].getTime() >= cutoff
     )
   }

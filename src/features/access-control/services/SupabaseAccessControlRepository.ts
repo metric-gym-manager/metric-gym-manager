@@ -31,6 +31,7 @@ import {
 } from '@/lib/access-control'
 import {
   ACCESS_EVENT_DELETE_CHUNK_SIZE,
+  AccessIntent,
   AccessSyncStatus,
   SYNC_RETRY_BACKOFF_SECONDS,
 } from '@/features/access-control/config/AccessControlConfig'
@@ -982,6 +983,31 @@ export class SupabaseAccessControlRepository implements IAccessControlRepository
 
     if (error) {
       throw new DatabaseError(`Failed to read recent jobs: ${error.message}`)
+    }
+
+    return (data?.length ?? 0) > 0
+  }
+
+  async hasRecentEventsPull(
+    gymId: string,
+    deviceSerial: string,
+    sinceSeconds: number
+  ): Promise<boolean> {
+    const since = new Date(Date.now() - sinceSeconds * 1000).toISOString()
+
+    const { data, error } = await this.supabase
+      .from('access_sync_jobs')
+      .select('id')
+      .eq('gym_id', gymId)
+      .eq('intent', AccessIntent.EventsPull)
+      .eq('payload->>deviceSerial', deviceSerial)
+      .gte('created_at', since)
+      .limit(1)
+
+    if (error) {
+      throw new DatabaseError(
+        `Failed to read recent events pulls: ${error.message}`
+      )
     }
 
     return (data?.length ?? 0) > 0

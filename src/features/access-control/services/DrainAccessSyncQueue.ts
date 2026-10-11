@@ -218,8 +218,24 @@ export class DrainAccessSyncQueue {
   ): Promise<SyncFailure[]> {
     if (
       job.intent === AccessIntent.OpenDoor ||
-      job.intent === AccessIntent.RebootDevice
+      job.intent === AccessIntent.RebootDevice ||
+      job.intent === AccessIntent.EventsPull
     ) {
+      // An events pull is a record, not work (visit 2, CD-2): the marker exists
+      // so ingestion knows a delivery may be a pull, and the pull itself went
+      // out inline. One that did not is a row nobody should replay.
+      if (job.intent === AccessIntent.EventsPull) {
+        return job.payload?.dispatchedInline === true
+          ? []
+          : [
+              {
+                message: 'An events pull job is a record only',
+                retryable: false,
+                needsAttention: false,
+              },
+            ]
+      }
+
       // Device operations dispatch inline at request time so staff get
       // immediate feedback; the queued row exists for the audit trail. Nothing
       // to re-send here.

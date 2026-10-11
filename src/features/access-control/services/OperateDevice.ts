@@ -56,6 +56,21 @@ export class OperateDevice {
   }
 
   /**
+   * Ask a reader to upload its stored attendance log.
+   *
+   * Recorded as a marker job before the vendor is called, so ingestion knows
+   * the next deliveries from this reader may be a pull and carry UTC stamps
+   * (visit 2, CD-2).
+   *
+   * @param input - Gym, device and the acting user.
+   */
+  async requestEventsUpload(
+    input: OperateDeviceInput
+  ): Promise<OperateDeviceResult> {
+    return this.operate(input, AccessIntent.EventsPull)
+  }
+
+  /**
    * Restart a reader.
    *
    * @param input - Gym, device and the acting user.
@@ -100,7 +115,12 @@ export class OperateDevice {
     const outcome =
       intent === AccessIntent.OpenDoor
         ? await this.provider.openDoor(credentials, device.device_serial)
-        : await this.provider.rebootDevice(credentials, device.device_serial)
+        : intent === AccessIntent.EventsPull
+          ? await this.provider.requestEventsUpload(
+              credentials,
+              device.device_serial
+            )
+          : await this.provider.rebootDevice(credentials, device.device_serial)
 
     if (outcome.status === 'failed') {
       return { applicable: true, dispatched: false, error: outcome.error }

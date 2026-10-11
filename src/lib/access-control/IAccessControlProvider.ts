@@ -272,6 +272,15 @@ export interface IAccessControlProvider {
     deviceSerial: string
   ): Promise<CommandOutcome>
 
+  /**
+   * Asks the reader to upload its stored attendance log (`GetEventsbyDevSN`).
+   * The re-delivered events arrive on the webhook with `AttTime` in UTC.
+   */
+  requestEventsUpload(
+    credentials: AccessCredentials,
+    deviceSerial: string
+  ): Promise<CommandOutcome>
+
   /** Commands not yet collected, for drift detection. */
   listPendingCommands(
     credentials: AccessCredentials,

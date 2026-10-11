@@ -98,7 +98,22 @@ export enum AccessIntent {
   OpenDoor = 'open_door',
   /** Remote restart. Device-level. */
   RebootDevice = 'reboot_device',
+  /**
+   * A record, not work: written before an events pull so ingestion knows a
+   * delivery may be a pull.
+   */
+  EventsPull = 'events_pull',
 }
+
+/**
+ * How long after an events pull a reader's deliveries may carry UTC stamps.
+ *
+ * While a pull marker for a reader is younger than this, ingestion tests each
+ * event's `AttTime` read as UTC (DEC2-08). Half an hour is long enough for the
+ * reader to upload a backlog and short enough that a live scan is not
+ * misread as one.
+ */
+export const EVENTS_PULL_WINDOW_SECONDS = 1800
 
 /** Lifecycle of an outbox job. Mirrors the `access_sync_status` SQL enum. */
 export enum AccessSyncStatus {
