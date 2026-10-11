@@ -828,3 +828,177 @@ describe('ReconcileMemberAccess — members the hardware has no work for', () =>
     expect(repo.enqueued).toHaveLength(1)
   })
 })
+
+describe('ReconcileMemberAccess — members who may not enter (visit 2, CD-4)', () => {
+  // The vendor keeps a parked member's old StartDate/EndDate for ever, while we
+  // want none (trap 4: a blocked subject is never sent a window). Comparing
+  // them reported six parked members as drift on the dry run.
+  const OLD_WINDOW = { validFrom: '20251215', validTo: '20260115' }
+
+  function vendorHolding(...subjectIds: number[]): AccessSubjectInfo[] {
+    return subjectIds.map((id) => ({
+      subjectId: String(id),
+      name: `Member ${id}`,
+      areaId: 1,
+      templateCount: null,
+      ...OLD_WINDOW,
+      syncedToVendor: true,
+      deleted: false,
+    }))
+  }
+
+  function build(
+    contexts: ReturnType<typeof makeContext>[],
+    vendorSubjects: AccessSubjectInfo[]
+  ) {
+    const repo = new FakeAccessControlRepository({
+      credentials: testCredentials,
+      contexts,
+      gymsWithAccessControl: ['gym-1'],
+    })
+
+    const subscriptionRepo = mockSubscriptionRepo()
+    subscriptionRepo.findByGymId.mockImplementation(async () =>
+      makeSubscription({
+        gymId: 'gym-1',
+        tier: SaasTier.Enterprise,
+        status: SaasStatus.Active,
+      })
+    )
+
+    const provider = new MockAccessControlProvider()
+    provider.setSubjects(vendorSubjects)
+
+    return {
+      repo,
+      useCase: new ReconcileMemberAccess(
+        repo,
+        subscriptionRepo,
+        new EvictInactiveSubjects(repo, provider),
+        provider
+      ),
+    }
+  }
+
+  const parkedCancelled = (n: number, serials: string[] = []) =>
+    makeContext({
+      memberId: `member-${n}`,
+      status: MemberStatus.Cancelled,
+      subject: makeSubject({
+        member_id: `member-${n}`,
+        subject_id: 100000 + n,
+        synced_device_serials: serials,
+        last_synced_valid_from: null,
+        last_synced_valid_to: null,
+        last_synced_blocked: true,
+      }),
+    })
+
+  it('leaves a cancelled, blocked member held by no reader alone, whatever window the vendor kept', async () => {
+    const { repo, useCase } = build([parkedCancelled(1)], vendorHolding(100001))
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(0)
+    expect(summary.vendorDrift).toBe(0)
+    expect(repo.enqueued).toHaveLength(0)
+  })
+
+  it('leaves a suspended, blocked member alone', async () => {
+    const { repo, useCase } = build(
+      [
+        makeContext({
+          memberId: 'member-2',
+          status: MemberStatus.Suspended,
+          subject: makeSubject({
+            member_id: 'member-2',
+            subject_id: 100002,
+            last_synced_valid_from: null,
+            last_synced_valid_to: null,
+            last_synced_blocked: true,
+          }),
+        }),
+      ],
+      vendorHolding(100002)
+    )
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(0)
+    expect(repo.enqueued).toHaveLength(0)
+  })
+
+  it('still enqueues a cancelled member a reader is holding', async () => {
+    const { repo, useCase } = build(
+      [parkedCancelled(3, ['SER-001'])],
+      vendorHolding(100003)
+    )
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(1)
+    expect(repo.enqueued).toHaveLength(1)
+  })
+
+  it('still reports an allowed member whose vendor window differs as drift', async () => {
+    const { repo, useCase } = build(
+      [
+        makeContext({
+          nextDueDate: day('2026-01-15'),
+          subject: makeSubject({
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+            last_synced_blocked: false,
+          }),
+        }),
+      ],
+      [{ ...vendorHolding(100001)[0], validTo: '20251215' }]
+    )
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersEnqueued).toBe(1)
+    expect(summary.vendorDrift).toBe(1)
+    expect(repo.enqueued).toHaveLength(1)
+  })
+
+  it('is quiet on the second run over a mixed settled set (B-14)', async () => {
+    const { repo, useCase } = build(
+      [
+        parkedCancelled(1),
+        parkedCancelled(4),
+        makeContext({
+          memberId: 'member-2',
+          status: MemberStatus.Suspended,
+          subject: makeSubject({
+            member_id: 'member-2',
+            subject_id: 100002,
+            last_synced_valid_from: null,
+            last_synced_valid_to: null,
+            last_synced_blocked: true,
+          }),
+        }),
+        makeContext({
+          memberId: 'member-5',
+          nextDueDate: day('2026-01-15'),
+          subject: makeSubject({
+            member_id: 'member-5',
+            subject_id: 100005,
+            last_synced_valid_from: '2025-12-15',
+            last_synced_valid_to: '2026-01-15',
+            last_synced_blocked: false,
+          }),
+        }),
+      ],
+      vendorHolding(100001, 100002, 100004, 100005)
+    )
+
+    const first = await useCase.execute({ today: TODAY })
+    const second = await useCase.execute({ today: TODAY })
+
+    expect(first.membersEnqueued).toBe(0)
+    expect(second.membersEnqueued).toBe(0)
+    expect(second.vendorDrift).toBe(0)
+    expect(repo.enqueued).toHaveLength(0)
+  })
+})

@@ -241,9 +241,16 @@ export class ReconcileMemberAccess {
             normaliseDate(current.last_synced_valid_from) === desiredFrom &&
             normaliseDate(current.last_synced_valid_to) === desiredTo
 
-          const windowMatches = vendorSubjects
-            ? this.vendorAgrees(vendorRecord, current, desiredFrom, desiredTo)
-            : localWindowMatches
+          // A member who may not enter has no window to compare: the block
+          // governs, and trap 4 forbids sending one. The vendor keeps the old
+          // dates, so comparing them reported every parked member as drift each
+          // night (CD-4).
+          const windowMatches = !decision.allowed
+            ? !decision.removeFromDevice ||
+              (current.synced_device_serials ?? []).length === 0
+            : vendorSubjects
+              ? this.vendorAgrees(vendorRecord, current, desiredFrom, desiredTo)
+              : localWindowMatches
 
           if (windowMatches && blockMatches && !unrecordedAtVendor) continue
 
