@@ -77,12 +77,16 @@
  *   rename --member M --to "HW Test N …"            rename and push the name to the readers
  *   set-dates --member M [--due D] [--start D]      D = YYYY-MM-DD | today | yesterday | tomorrow | +N | -N
  *   vendor validperiod|block|grant|sync --member M --reader A|B [--start YYYYMMDD --end YYYYMMDD]
- *   vendor events-pull --reader A|B
+ *   vendor events-pull --reader A|B   the product's events pull: records the marker job, then asks the reader
+ *   vendor device-raw --reader A|B    read-only: that reader's raw vendor device row (IsReboot, LastRequestTime,
+ *                                     UserCount, FpCount, *Stamp …) for comparing before and after a restart
  *   enrol --member M --reader A|B [--finger KEY] [--consent] [--vendor-url U [--fail-consent-write]]
  *                                      KEY = left-little … left-thumb, right-thumb … right-little
  *                                      (FINGER_SLOTS keys; default right-index). A different key adds a finger,
  *                                      the same key replaces it.
- *   withdraw --member M                consent withdrawal, as the panel's Remove fingerprint
+ *   withdraw --member M                as the panel's Remove fingerprint: removes the vendor employee (fingerprints
+ *                                      erased), issues a new subject id, clears consent; a still-active member is
+ *                                      re-added with no finger. The ONLY place removeSubject is allowed through.
  *   race <scenario> --member M [--member2 M] [--reader A|B] [--consent] [--vendor-url U]
  *        consent | enrol-both | enrol-two | enrol-vs-cancel | double-cancel | pay-vs-dates | trio
  *   ambiguous enrol --member M [--reader A|B] [--consent]
@@ -496,7 +500,7 @@ function scopeOf(name: string, line: string): Scope {
     case 'withdraw':
       return 'member'
     case 'vendor':
-      return has(/\bevents-pull\b/) ? 'reader' : 'member'
+      return has(/\b(events-pull|device-raw)\b/) ? 'reader' : 'member'
     case 'enrol':
       return has(/--vendor-url/) ? 'member' : 'reader'
     case 'ambiguous':
@@ -657,18 +661,36 @@ const VENDOR_METHODS = new Set([
   'startFingerEnrolment',
   'openDoor',
   'rebootDevice',
+  'requestEventsUpload',
   'listPendingCommands',
 ])
 
 const rawProvider = new VftAccessControlProvider()
 
-/** The real vendor client, paced, and unable to delete a vendor subject. */
+/**
+ * Vendor subject ids `removeSubject` may be called for, right now.
+ *
+ * Empty except for the length of one `withdraw`, which adds the ONE HW member
+ * being withdrawn and removes them again in a `finally` (visit 2, CR-1). The
+ * product's Remove fingerprint deletes the vendor employee, so a console that
+ * cannot do the same cannot exercise it; every other deletion stays refused.
+ */
+const allowedRemovals = new Set<string>()
+
+/**
+ * The real vendor client, paced, and unable to delete a vendor subject except
+ * the one `withdraw` has just named.
+ */
 const provider: IAccessControlProvider = new Proxy(rawProvider, {
   get(target, prop, receiver) {
     const value = Reflect.get(target, prop, receiver)
     if (prop === 'removeSubject') {
-      return async () => {
-        throw new Error('hw-session never deletes a vendor subject')
+      return async (...callArgs: unknown[]) => {
+        if (!allowedRemovals.has(String(callArgs[1]))) {
+          throw new Error('hw-session never deletes a vendor subject')
+        }
+        await pace()
+        return (value as (...a: unknown[]) => unknown).apply(target, callArgs)
       }
     }
     if (typeof value !== 'function') return value
@@ -1042,25 +1064,6 @@ async function vendorGet(path: string): Promise<unknown> {
   )
   if (!response.ok) throw new Error(`GET ${path} → HTTP ${response.status}`)
   return response.json()
-}
-
-async function vendorPost(
-  path: string
-): Promise<{ status: number; text: string }> {
-  if (!vendorToken) vendorToken = await provider.signIn(credentials())
-  await pace()
-  const response = await fetch(
-    new URL(path, credentials().baseUrl).toString(),
-    {
-      method: 'POST',
-      headers: { ApiToken: vendorToken },
-      signal: AbortSignal.timeout(20_000),
-    }
-  )
-  return {
-    status: response.status,
-    text: (await response.text()).slice(0, 300),
-  }
 }
 
 type VendorRow = Record<string, unknown>
@@ -2772,13 +2775,38 @@ async function vendor(): Promise<void> {
     console.log(
       `Ask reader ${readerLetter(serial)} to upload its stored attendance log (changes nothing on the reader).`
     )
-    if (!apply) return dryRun(`POST /api/devicecmd/events?DevSN=${serial}`)
-    const result = await vendorPost(
-      `/api/devicecmd/events?DevSN=${encodeURIComponent(serial)}`
-    )
+    // Through the product's own operation (visit 2, CD-2): it records the
+    // marker job first, which is what lets ingestion read the re-delivered
+    // events as UTC. A bare vendor POST would leave them stored five and a
+    // half hours off.
+    if (!apply) {
+      return dryRun(
+        `record an events_pull marker, then POST /api/devicecmd/events?DevSN=${serial}`
+      )
+    }
+    const result = await new OperateDevice(
+      sessionRepository(),
+      provider
+    ).requestEventsUpload({
+      gymId: TITAN_GYM_ID,
+      deviceId: await deviceIdFor(serial),
+      actorId: 'hw-session',
+    })
     console.log(
-      `✓ HTTP ${result.status}  ${result.text}\n  Next: watch-queue and watch-events.\n`
+      `✓ Use case returned: ${JSON.stringify(result)}\n  Next: watch-queue and watch-events.\n`
     )
+    return
+  }
+
+  if (op === 'device-raw') {
+    // Read-only, so no --apply: prints one reader's vendor row as the vendor
+    // sent it, to compare IsReboot, LastRequestTime, UserCount, FpCount and the
+    // *Stamp counters before and after a restart (visit 2, signal hunt).
+    const row = rows(await vendorGet('/api/device')).find(
+      (device) => String(device.DevSN) === serial
+    )
+    if (!row) fail('reader not in the vendor list')
+    console.log(redact(JSON.stringify(row, null, 2)))
     return
   }
 
@@ -2825,7 +2853,7 @@ async function vendor(): Promise<void> {
       break
     default:
       return fail(
-        'vendor needs one of: validperiod, block, grant, sync, events-pull'
+        'vendor needs one of: validperiod, block, grant, sync, events-pull, device-raw'
       )
   }
 
@@ -2909,20 +2937,36 @@ async function enrol(): Promise<void> {
 /**
  * The panel offers "Remove fingerprint" only once a finger is registered, so a
  * withdrawal DURING an enrolment cannot be driven from it. This calls the same
- * use case the button does: fromdev revoke, flag cleared, consent cleared.
+ * use case the button does: it removes the vendor employee (fingerprints
+ * erased), issues a new subject id and clears the consent; a still-active
+ * member is re-added with no finger.
+ *
+ * That use case calls `removeSubject`, which the provider proxy refuses for
+ * everything except the one subject id named here for the length of the call
+ * (visit 2, CR-1).
  */
 async function withdraw(): Promise<void> {
   gate()
   const member = await hwMember(arg('member'))
-  const plan = `withdraw ${member.name}'s fingerprint consent (fromdev revoke on every reader, flag and consent cleared)`
+  const plan = `withdraw ${member.name}'s fingerprint (removes the vendor employee, fingerprints erased; issues a new subject id; clears consent; a still-active member is re-added with no finger)`
   console.log(`Withdraw: ${plan}.`)
   if (!apply) return dryRun(plan)
 
-  const result = await new ManageMemberBiometric(
-    sessionRepository(),
-    provider
-  ).clear(TITAN_GYM_ID, member.id)
-  console.log('✓ Use case returned:', JSON.stringify(result))
+  const repo = sessionRepository()
+  const subjectId = (await repo.getMemberAccessContext(member.id))?.subject
+    ?.subject_id
+  if (subjectId === undefined) fail('withdraw: this member has no subject')
+
+  allowedRemovals.add(String(subjectId))
+  try {
+    const result = await new ManageMemberBiometric(repo, provider).clear(
+      TITAN_GYM_ID,
+      member.id
+    )
+    console.log('✓ Use case returned:', JSON.stringify(result))
+  } finally {
+    allowedRemovals.delete(String(subjectId))
+  }
   console.log('  Next: snapshot and watch-queue on both readers.\n')
 }
 
