@@ -92,7 +92,7 @@ export default function MemberAccessPanel({
   const clearBiometric = useClearMemberBiometric()
   const recordConsent = useRecordMemberBiometricConsent()
   const enrolment = useEnrolmentPoll(memberId)
-  const { confirm, ConfirmDialog } = useConfirmDialog()
+  const { confirm, dialog } = useConfirmDialog()
 
   const [deviceId, setDeviceId] = useState('')
   // Which finger the next enrolment takes. Each finger has its own slot in the
@@ -434,7 +434,7 @@ export default function MemberAccessPanel({
         </Button>
       </div>
 
-      <ConfirmDialog />
+      {dialog}
     </div>
   )
 }

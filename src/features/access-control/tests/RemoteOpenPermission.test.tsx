@@ -44,7 +44,7 @@ jest.mock('../hooks/useAccessControl', () => ({
 jest.mock('@/hooks/use-confirm-dialog', () => ({
   useConfirmDialog: () => ({
     confirm: jest.fn().mockResolvedValue(true),
-    ConfirmDialog: () => null,
+    dialog: null,
   }),
 }))
 

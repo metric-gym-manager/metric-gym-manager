@@ -42,7 +42,7 @@ export default function PlanTypesTab() {
   const [planValues, setPlanValues] = useState<
     Record<string, { amount: number; isActive: boolean }>
   >({})
-  const { confirm, ConfirmDialog } = useConfirmDialog()
+  const { confirm, dialog } = useConfirmDialog()
   const phone = useViewportTier() === 'phone'
 
   // Add new plan state
@@ -647,7 +647,7 @@ export default function PlanTypesTab() {
       )}
 
       {/* Confirmation Dialog */}
-      <ConfirmDialog />
+      {dialog}
     </div>
   )
 }

@@ -75,7 +75,7 @@ export default function DeviceStatusCard({
   const reboot = useRebootAccessDevice()
   const repair = useRepairAccessDevice()
   const freeSpace = useFreeAccessDeviceSpace()
-  const { confirm, ConfirmDialog } = useConfirmDialog()
+  const { confirm, dialog } = useConfirmDialog()
 
   const handleOpen = async () => {
     const confirmed = await confirm({
@@ -298,7 +298,7 @@ export default function DeviceStatusCard({
         </Button>
       </div>
 
-      <ConfirmDialog />
+      {dialog}
     </Card>
   )
 }
