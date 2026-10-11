@@ -23,13 +23,20 @@
  */
 
 import { toast } from 'sonner'
-import { AlarmClock, DoorOpen, HardDriveDownload, Power } from 'lucide-react'
+import {
+  AlarmClock,
+  DoorOpen,
+  HardDriveDownload,
+  Power,
+  Wrench,
+} from 'lucide-react'
 import { Badge, Button, Card, Progress } from '@/components/ui'
 import { useConfirmDialog } from '@/hooks/use-confirm-dialog'
 import {
   useFreeAccessDeviceSpace,
   useOpenAccessDevice,
   useRebootAccessDevice,
+  useRepairAccessDevice,
 } from '../hooks/useAccessControl'
 import { DEVICE_CAPACITY_EVICT_ABOVE } from '../config/AccessControlConfig'
 import type { SerializedAccessDevice } from '../utils/serializeAccessForAPI'
@@ -66,6 +73,7 @@ export default function DeviceStatusCard({
 }: DeviceStatusCardProps) {
   const open = useOpenAccessDevice()
   const reboot = useRebootAccessDevice()
+  const repair = useRepairAccessDevice()
   const freeSpace = useFreeAccessDeviceSpace()
   const { confirm, ConfirmDialog } = useConfirmDialog()
 
@@ -106,6 +114,30 @@ export default function DeviceStatusCard({
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Could not restart the reader'
+      )
+    }
+  }
+
+  const handleRepair = async () => {
+    const confirmed = await confirm({
+      title: `Repair fingerprints on ${device.deviceName}?`,
+      description:
+        'Use this after a power cut, once the reader has been back on for at least a minute. Every member this reader holds is removed from the readers and sent again from VFT’s copy, which takes a few minutes. A fingerprint added at this reader while it was offline is lost if the reader has not reconnected yet.',
+      confirmText: 'Repair fingerprints',
+    })
+
+    if (!confirmed) return
+
+    try {
+      const result = await repair.mutateAsync(device.id)
+      toast.success(
+        result.membersQueued === 0
+          ? 'No members are on this reader.'
+          : `Repair queued for ${result.membersQueued} members. Their fingerprints return within about 10 minutes.`
+      )
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Could not queue the repair'
       )
     }
   }
@@ -243,6 +275,16 @@ export default function DeviceStatusCard({
         >
           <HardDriveDownload className="h-4 w-4" aria-hidden="true" />
           Free up space
+        </Button>
+
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={handleRepair}
+          loading={repair.isPending}
+        >
+          <Wrench className="h-4 w-4" aria-hidden="true" />
+          Repair fingerprints
         </Button>
 
         <Button

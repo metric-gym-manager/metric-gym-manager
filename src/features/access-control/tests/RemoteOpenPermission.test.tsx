@@ -34,6 +34,7 @@ import type { SerializedAccessDevice } from '../utils/serializeAccessForAPI'
 jest.mock('../hooks/useAccessControl', () => ({
   useOpenAccessDevice: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useRebootAccessDevice: () => ({ mutateAsync: jest.fn(), isPending: false }),
+  useRepairAccessDevice: () => ({ mutateAsync: jest.fn(), isPending: false }),
   useFreeAccessDeviceSpace: () => ({
     mutateAsync: jest.fn(),
     isPending: false,

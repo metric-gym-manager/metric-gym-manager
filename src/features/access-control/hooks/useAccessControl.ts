@@ -28,6 +28,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   clearMemberBiometric,
   recordMemberBiometricConsent,
+  repairAccessDevice,
   disableAccessDevice,
   enableAccessDevice,
   freeAccessDeviceSpace,
@@ -196,6 +197,14 @@ export function useRebootAccessDevice(): UseMutationResult<
   string
 > {
   return useMutation({ mutationFn: rebootAccessDevice })
+}
+
+export function useRepairAccessDevice(): UseMutationResult<
+  { membersQueued: number },
+  Error,
+  string
+> {
+  return useMutation({ mutationFn: repairAccessDevice })
 }
 
 /** Manual capacity reclamation. Changes template counts, so devices refetch. */

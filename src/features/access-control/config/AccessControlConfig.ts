@@ -213,6 +213,12 @@ export const DRAIN_BATCH_SIZE = 25
 export const REBOOT_RESEAT_DELAY_SECONDS = 180
 
 /**
+ * Gives a reader that has just come back time to upload fingers added while it
+ * was offline before Delete User reaches it (visit 2, RB-3/PH-25).
+ */
+export const MANUAL_REPAIR_DELAY_SECONDS = 60
+
+/**
  * Event codes that mean "the reader refused a person it recognised":
  * 23 no access rights (the reader shows it as "invalid time period"), 29
  * membership expired.

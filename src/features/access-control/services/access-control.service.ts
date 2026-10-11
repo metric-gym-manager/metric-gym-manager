@@ -209,6 +209,14 @@ export async function rebootAccessDevice(
   )
 }
 
+export async function repairAccessDevice(
+  deviceId: string
+): Promise<{ membersQueued: number }> {
+  return post<{ membersQueued: number }>(
+    `/api/access-control/devices/${deviceId}/repair`
+  )
+}
+
 export interface FreeSpaceResult {
   freed: number
   /**
