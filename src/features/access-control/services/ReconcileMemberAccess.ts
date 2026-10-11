@@ -75,6 +75,11 @@ export interface ReconcileMemberAccessInput {
   gymId?: string
   /** Gym-local calendar day. Injectable for tests. */
   today?: Date
+  /**
+   * Limit the run to these members; for supervised tests that must not touch
+   * anyone else. Capacity eviction is skipped when set.
+   */
+  memberIds?: string[]
 }
 
 export interface ReconcileMemberAccessSummary {
@@ -188,7 +193,15 @@ export class ReconcileMemberAccess {
           continue
         }
 
-        const subjects = await this.repo.listSubjectsForReconcile(gymId)
+        const allSubjects = await this.repo.listSubjectsForReconcile(gymId)
+        // Narrowed BEFORE any counting or comparison, so a supervised run
+        // neither reports on nor enqueues anyone it was not asked about
+        // (visit 2, CR-1).
+        const subjects = input.memberIds
+          ? allSubjects.filter((context) =>
+              input.memberIds!.includes(context.memberId)
+            )
+          : allSubjects
         summary.membersChecked += subjects.length
 
         const vendorSubjects = await this.readVendorState(gymId, subjects)
@@ -285,9 +298,14 @@ export class ReconcileMemberAccess {
         // reader turns out to be full, so the drainer's own reactive path can
         // deal with that and the two mechanisms cannot fight over the same
         // slots in the same run.
-        const eviction = await this.evictSubjects.execute({ gymId })
-        summary.slotsReclaimed += eviction.evicted
-        summary.errors.push(...eviction.errors)
+        //
+        // Skipped for a run limited to chosen members: eviction is gym-wide
+        // and would touch everyone else (visit 2, CR-1).
+        if (!input.memberIds) {
+          const eviction = await this.evictSubjects.execute({ gymId })
+          summary.slotsReclaimed += eviction.evicted
+          summary.errors.push(...eviction.errors)
+        }
       } catch (error) {
         summary.errors.push(
           `Gym ${gymId}: ${error instanceof Error ? error.message : 'Unknown error'}`

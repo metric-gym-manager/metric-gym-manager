@@ -1002,3 +1002,73 @@ describe('ReconcileMemberAccess — members who may not enter (visit 2, CD-4)', 
     expect(repo.enqueued).toHaveLength(0)
   })
 })
+
+describe('ReconcileMemberAccess — limited to chosen members (visit 2, CR-1)', () => {
+  // PH-24 could not run `reconcile --apply` without touching the other test
+  // members, so the run can be narrowed to the ones a supervised test names.
+  function driftingMember(n: number) {
+    return makeContext({
+      memberId: `m${n}`,
+      nextDueDate: day('2026-02-15'),
+      subject: makeSubject({
+        member_id: `m${n}`,
+        subject_id: 100000 + n,
+        last_synced_valid_from: '2025-12-15',
+        last_synced_valid_to: '2026-01-15',
+        last_synced_blocked: false,
+      }),
+    })
+  }
+
+  function setup() {
+    const repo = new FakeAccessControlRepository({
+      credentials: testCredentials,
+      contexts: [driftingMember(1), driftingMember(2), driftingMember(3)],
+      gymsWithAccessControl: ['gym-1'],
+    })
+    const subscriptionRepo = mockSubscriptionRepo()
+    subscriptionRepo.findByGymId.mockImplementation(async () =>
+      makeSubscription({
+        gymId: 'gym-1',
+        tier: SaasTier.Enterprise,
+        status: SaasStatus.Active,
+      })
+    )
+    const provider = new MockAccessControlProvider()
+    const evict = new EvictInactiveSubjects(repo, provider)
+    const evictSpy = jest.spyOn(evict, 'execute')
+
+    return {
+      repo,
+      evictSpy,
+      useCase: new ReconcileMemberAccess(
+        repo,
+        subscriptionRepo,
+        evict,
+        provider
+      ),
+    }
+  }
+
+  it('enqueues only the named member, counts only them, and skips capacity eviction', async () => {
+    const { repo, evictSpy, useCase } = setup()
+
+    const summary = await useCase.execute({ today: TODAY, memberIds: ['m1'] })
+
+    expect(summary.membersChecked).toBe(1)
+    expect(summary.membersEnqueued).toBe(1)
+    expect(repo.enqueued.map((job) => job.memberId)).toEqual(['m1'])
+    expect(evictSpy).not.toHaveBeenCalled()
+  })
+
+  it('behaves as before when no members are named', async () => {
+    const { repo, evictSpy, useCase } = setup()
+
+    const summary = await useCase.execute({ today: TODAY })
+
+    expect(summary.membersChecked).toBe(3)
+    expect(summary.membersEnqueued).toBe(3)
+    expect(repo.enqueued).toHaveLength(3)
+    expect(evictSpy).toHaveBeenCalledTimes(1)
+  })
+})
