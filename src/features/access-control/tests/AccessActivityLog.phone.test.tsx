@@ -126,3 +126,31 @@ describe('Access activity — phone tier', () => {
     )
   })
 })
+
+/**
+ * Readers report refusals only for fingers they recognise (visit 2, CD-6/PH-03).
+ * A gym that sees no "Refused" row for a stranger at the door must not read
+ * that as "nobody tried", so the log says so, on both tiers.
+ */
+describe('Access activity — unreported refusals', () => {
+  const sentence =
+    'Readers report refusals only for fingers they recognise. An unknown finger is turned away without a record.'
+
+  it.each(['desktop', 'phone'] as const)(
+    'explains which refusals are never reported on the %s tier',
+    async (viewport) => {
+      routes([event()])
+      renderScreen(<AccessActivityLog />, { viewport })
+
+      expect(await screen.findByText(sentence)).toBeInTheDocument()
+    }
+  )
+
+  it('shows the explanation even when the log is empty', async () => {
+    routes([])
+    renderScreen(<AccessActivityLog />)
+
+    expect(await screen.findByText('Nothing here yet')).toBeInTheDocument()
+    expect(screen.getByText(sentence)).toBeInTheDocument()
+  })
+})

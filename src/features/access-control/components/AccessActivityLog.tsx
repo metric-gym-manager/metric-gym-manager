@@ -102,6 +102,13 @@ export default function AccessActivityLog({
         ))}
       </div>
 
+      {/* Visit 2, CD-6/PH-03: no "Refused" row for a stranger is not evidence
+          that nobody tried. */}
+      <p className="text-caption text-ink-muted">
+        Readers report refusals only for fingers they recognise. An unknown
+        finger is turned away without a record.
+      </p>
+
       {isLoading ? (
         <Skeleton className="h-64 w-full" />
       ) : !data || data.events.length === 0 ? (
