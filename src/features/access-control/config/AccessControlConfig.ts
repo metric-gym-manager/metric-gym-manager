@@ -340,3 +340,27 @@ export const ACCESS_EVENT_PURGE_MAX_BATCHES = 500
  * `ACCESS_EVENT_PURGE_BATCH_SIZE` is safe; raising this is not.
  */
 export const ACCESS_EVENT_DELETE_CHUNK_SIZE = 100
+
+/**
+ * ZKTeco finger slots. A member's fingers live in separate slots in the
+ * vendor's copy; enrolling into a used slot replaces that finger. The map is
+ * the ZKTeco standard, confirmed on visit 2: a left thumb enrolled at the
+ * reader came back as slot 4 and a right thumb as slot 5 (PH-25). Every
+ * enrolment used slot 0 before this, so a second finger replaced the first
+ * (V2-4).
+ */
+export const FINGER_SLOTS = [
+  { id: 0, key: 'left-little', label: 'Left little finger' },
+  { id: 1, key: 'left-ring', label: 'Left ring finger' },
+  { id: 2, key: 'left-middle', label: 'Left middle finger' },
+  { id: 3, key: 'left-index', label: 'Left index finger' },
+  { id: 4, key: 'left-thumb', label: 'Left thumb' },
+  { id: 5, key: 'right-thumb', label: 'Right thumb' },
+  { id: 6, key: 'right-index', label: 'Right index finger' },
+  { id: 7, key: 'right-middle', label: 'Right middle finger' },
+  { id: 8, key: 'right-ring', label: 'Right ring finger' },
+  { id: 9, key: 'right-little', label: 'Right little finger' },
+] as const
+
+/** The finger the desk registers unless it chooses another: right index. */
+export const DEFAULT_FINGER_SLOT = 6
