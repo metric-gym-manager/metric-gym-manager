@@ -64,6 +64,7 @@ import {
   useClearMemberBiometric,
   useEnrolmentPoll,
   useMemberAccess,
+  useRecordMemberBiometricConsent,
   useSyncMemberAccess,
 } from '../hooks/useAccessControl'
 
@@ -89,6 +90,7 @@ export default function MemberAccessPanel({
 
   const sync = useSyncMemberAccess()
   const clearBiometric = useClearMemberBiometric()
+  const recordConsent = useRecordMemberBiometricConsent()
   const enrolment = useEnrolmentPoll(memberId)
   const { confirm, ConfirmDialog } = useConfirmDialog()
 
@@ -98,6 +100,9 @@ export default function MemberAccessPanel({
   // it (visit 2, CD-1/V2-4).
   const [fingerId, setFingerId] = useState<number>(DEFAULT_FINGER_SLOT)
   const [consentTicked, setConsentTicked] = useState(false)
+  // Separate from `consentTicked`: that one gates a NEW enrolment, this one
+  // confirms consent for a fingerprint that already exists (visit 2, CD-3).
+  const [existingConsentTicked, setExistingConsentTicked] = useState(false)
 
   // Re-send is a re-seat (delete from the readers, then add back), so a second
   // click landing mid-way would delete the member again halfway through the
@@ -183,6 +188,20 @@ export default function MemberAccessPanel({
       // original timestamp is the one the record keeps.
       ...(consentNeeded ? { consent: true } : {}),
     })
+  }
+
+  const handleRecordConsent = async () => {
+    if (!existingConsentTicked) return
+
+    try {
+      await recordConsent.mutateAsync(memberId)
+      setExistingConsentTicked(false)
+      toast.success('Consent recorded.')
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Could not record the consent'
+      )
+    }
   }
 
   const handleClearBiometric = async () => {
@@ -281,6 +300,29 @@ export default function MemberAccessPanel({
             agreeing to it — so it was most likely registered at the reader
             itself rather than here. Ask them to confirm they are happy with it,
             or remove it below.
+            <div className="mt-3 space-y-2">
+              <Checkbox
+                checked={existingConsentTicked}
+                onChange={(event) =>
+                  setExistingConsentTicked(event.target.checked)
+                }
+                label={
+                  <span className="text-xs text-ink-secondary">
+                    The member confirms they agree to this fingerprint being
+                    used to open the gym&rsquo;s doors.
+                  </span>
+                }
+              />
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleRecordConsent}
+                disabled={!existingConsentTicked}
+                loading={recordConsent.isPending}
+              >
+                Record consent
+              </Button>
+            </div>
           </Alert>
         ) : null}
 

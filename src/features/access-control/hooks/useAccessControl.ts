@@ -27,6 +27,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   clearMemberBiometric,
+  recordMemberBiometricConsent,
   disableAccessDevice,
   enableAccessDevice,
   freeAccessDeviceSpace,
@@ -243,6 +244,22 @@ export function useSyncMemberAccess(): UseMutationResult<
     mutationFn: syncMemberAccess,
     onSuccess: (_result, memberId) => {
       queryClient.invalidateQueries({ queryKey: memberAccessKey(memberId) })
+    },
+  })
+}
+
+export function useRecordMemberBiometricConsent(): UseMutationResult<
+  { consentRecorded: boolean },
+  Error,
+  string
+> {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: recordMemberBiometricConsent,
+    onSuccess: (_result, memberId) => {
+      queryClient.invalidateQueries({ queryKey: memberAccessKey(memberId) })
+      queryClient.invalidateQueries({ queryKey: ACCESS_DEVICES_KEY })
     },
   })
 }

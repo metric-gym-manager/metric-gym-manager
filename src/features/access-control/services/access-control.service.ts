@@ -325,6 +325,18 @@ export async function getMemberEnrolment(
 }
 
 /**
+ * Record consent for a fingerprint that already exists, e.g. one registered at
+ * the reader's own menu (visit 2, V2-6). Talks to no reader.
+ */
+export async function recordMemberBiometricConsent(
+  memberId: string
+): Promise<{ consentRecorded: boolean }> {
+  return post<{ consentRecorded: boolean }>(
+    `/api/access-control/members/${memberId}/consent`
+  )
+}
+
+/**
  * Clear a member's fingerprint.
  *
  * `membershipUnchanged` comes back from the route deliberately: the desk needs
