@@ -72,12 +72,16 @@
  *   park --member M | --mine           suspend → cancel → push (nobody active overnight)
  *   unpark --member M | --mine         reactivate, due +200 days → push
  *   pay | suspend | cancel | reactivate [--due D] --member M [--no-push]   real use cases, then push
- *   push | resend --member M [--vendor-url U]       sync (resend = forced, as the panel's button)
+ *   push | resend --member M [--vendor-url U]       sync; resend = forced re-seat: Delete User on every reader,
+ *                                                   then re-add from VFT's copy (same as the app's Re-send)
  *   rename --member M --to "HW Test N …"            rename and push the name to the readers
  *   set-dates --member M [--due D] [--start D]      D = YYYY-MM-DD | today | yesterday | tomorrow | +N | -N
  *   vendor validperiod|block|grant|sync --member M --reader A|B [--start YYYYMMDD --end YYYYMMDD]
  *   vendor events-pull --reader A|B
- *   enrol --member M --reader A|B [--consent] [--vendor-url U [--fail-consent-write]]
+ *   enrol --member M --reader A|B [--finger KEY] [--consent] [--vendor-url U [--fail-consent-write]]
+ *                                      KEY = left-little … left-thumb, right-thumb … right-little
+ *                                      (FINGER_SLOTS keys; default right-index). A different key adds a finger,
+ *                                      the same key replaces it.
  *   withdraw --member M                consent withdrawal, as the panel's Remove fingerprint
  *   race <scenario> --member M [--member2 M] [--reader A|B] [--consent] [--vendor-url U]
  *        consent | enrol-both | enrol-two | enrol-vs-cancel | double-cancel | pay-vs-dates | trio
@@ -85,7 +89,8 @@
  *   ambiguous push --member M --lose <provider method> [--force]
  *
  *   drain [--crash-after N | --crash-on-complete] [--vendor-url U]
- *   reconcile                          the real nightly reconcile for Titan, now
+ *   reconcile [--members N,N,…]        the real nightly reconcile for Titan, now; --members limits it to those
+ *                                      HW members (numbers) and skips capacity eviction
  *   reclaim --older-than S             return stale in_flight jobs to pending
  *   open | reboot --reader A|B
  *   free-space                         refuses if a real member would be evicted
@@ -159,6 +164,7 @@ import {
   AccessIntent,
   AccessSyncStatus,
   DEVICE_OFFLINE_AFTER_SECONDS,
+  FINGER_SLOTS,
 } from '../src/features/access-control/config/AccessControlConfig'
 import { VftAccessControlProvider } from '../src/lib/access-control/VftAccessControlProvider'
 import type {
@@ -2199,16 +2205,25 @@ async function jobs(): Promise<void> {
 // Member lifecycle — real use cases, texts suppressed
 // ============================================================
 
-/** Push one member now, as the inline provision after a change does. */
+/**
+ * Push one member now, as the inline provision after a change does.
+ *
+ * `force` is the app's Re-send, and the app's Re-send is a re-seat (Delete User
+ * on every reader, then the re-add), so the console's `resend` re-seats too
+ * (visit 2, CR-1): a forced push alone is ignored by a reader that lost its
+ * templates (visit 1, D1).
+ */
 async function pushMember(memberId: string, force = false): Promise<void> {
   const result = await new SyncMemberAccess(
     sessionRepository(),
     provider
   ).execute({
     memberId,
-    ...(force ? { force: true } : {}),
+    ...(force ? { force: true, reseat: true } : {}),
   })
-  console.log(`  push${force ? ' (forced)' : ''}: ${JSON.stringify(result)}`)
+  console.log(
+    `  push${force ? ' (forced re-seat)' : ''}: ${JSON.stringify(result)}`
+  )
 }
 
 async function writeDates(
@@ -2450,7 +2465,7 @@ async function push(): Promise<void> {
   gate()
   const member = await hwMember(arg('member'))
   const force = command === 'resend'
-  const plan = `${force ? 'force a re-send (the panel button)' : 'push'} for ${member.name}${usingStub() ? ' to the STUB vendor' : ''}`
+  const plan = `${force ? 're-seat (the app’s Re-send: Delete User on every reader, then re-add)' : 'push'} for ${member.name}${usingStub() ? ' to the STUB vendor' : ''}`
   console.log(`${plan}.`)
   if (!apply) return dryRun(plan)
   await pushMember(member.id, force)
@@ -2650,6 +2665,27 @@ async function drain(): Promise<void> {
 
 async function reconcile(): Promise<void> {
   gate()
+  // Visit 2, CR-1: `--members 5,6` limits the run to those HW members, so a
+  // supervised test (PH-24) cannot touch anyone else. Each number goes through
+  // the same fence as every other `--member`.
+  const memberArg = arg('members')
+  const chosen = memberArg
+    ? await Promise.all(
+        memberArg
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .map((value) => hwMember(value))
+      )
+    : null
+  if (memberArg && (!chosen || chosen.length === 0)) {
+    fail('--members needs HW member numbers, e.g. --members 5,6')
+  }
+  if (chosen) {
+    console.log(
+      `Reconcile limited to: ${chosen.map((member) => member.name).join(', ')} (capacity eviction skipped).`
+    )
+  }
   const real = sessionRepository()
   const enqueued: string[] = []
   const repo = apply
@@ -2671,7 +2707,10 @@ async function reconcile(): Promise<void> {
     new SupabaseGymSubscriptionRepository(supabase),
     new EvictInactiveSubjects(repo, provider),
     provider
-  ).execute({ gymId: TITAN_GYM_ID })
+  ).execute({
+    gymId: TITAN_GYM_ID,
+    ...(chosen ? { memberIds: chosen.map((member) => member.id) } : {}),
+  })
 
   console.log(
     `${apply ? '✓ Reconcile ran' : 'DRY RUN reconcile (nothing enqueued)'}:`,
@@ -2813,7 +2852,16 @@ async function enrol(): Promise<void> {
   gate()
   const member = await hwMember(arg('member'))
   const reader = readerSerial(arg('reader'))
-  const plan = `put reader ${readerLetter(reader)}${usingStub() ? ' (STUB vendor — no real reader)' : ''} into enrol mode for ${member.name}${flag('consent') ? ', recording the consent the operator confirmed' : ''}`
+  // Visit 2, CD-1/V2-4: each finger has its own slot, so the operator picks the
+  // finger. A different key adds a finger; the same key replaces it.
+  const fingerKey = arg('finger') ?? 'right-index'
+  const slot = FINGER_SLOTS.find((candidate) => candidate.key === fingerKey)
+  if (!slot) {
+    fail(
+      `--finger must be one of: ${FINGER_SLOTS.map((candidate) => candidate.key).join(', ')}`
+    )
+  }
+  const plan = `put reader ${readerLetter(reader)}${usingStub() ? ' (STUB vendor — no real reader)' : ''} into enrol mode for ${member.name}, finger: ${slot.label} (slot ${slot.id})${flag('consent') ? ', recording the consent the operator confirmed' : ''}`
   // `--fail-consent-write` (stub only): the consent write throws, as a lost
   // database connection would. Nothing may reach a reader after that.
   const failConsent = flag('fail-consent-write')
@@ -2847,6 +2895,7 @@ async function enrol(): Promise<void> {
     gymId: TITAN_GYM_ID,
     memberId: member.id,
     deviceId: await deviceIdFor(reader),
+    fingerId: slot.id,
     ...(flag('consent') ? { consentGranted: true } : {}),
   })
   console.log('✓ Use case returned:', JSON.stringify(result))
