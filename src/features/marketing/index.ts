@@ -43,6 +43,7 @@ export {
   getMarketingPage,
   breadcrumbTrail,
 } from './config/pages'
+export { FITNESS_EMPIRE } from './config/caseStudies'
 export {
   PRICING_TIERS,
   TRIAL_DAYS,

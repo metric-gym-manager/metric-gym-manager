@@ -5,6 +5,7 @@ import type { ComponentType } from 'react'
 import {
   ARTICLE_PATHS,
   FEATURE_PATHS,
+  FITNESS_EMPIRE,
   MARKETING_PAGES,
   ORGANIZATION_ID,
   LITE_MEMBER_LIMIT,
@@ -54,6 +55,9 @@ import RemindersArticle, {
 import RevenueArticle, {
   metadata as revenueArticleMeta,
 } from '../resources/billed-vs-collected-revenue/page'
+import FitnessEmpireCaseStudy, {
+  metadata as fitnessEmpireMeta,
+} from '../resources/fitness-empire-case-study/page'
 import OverdueArticle, {
   metadata as overdueArticleMeta,
 } from '../resources/overdue-gym-memberships/page'
@@ -90,6 +94,7 @@ const PAGES: [string, ComponentType, Metadata][] = [
   [ARTICLE_PATHS.compare, CompareArticle, compareArticleMeta],
   [ARTICLE_PATHS.choose, ChooseArticle, chooseArticleMeta],
   [ARTICLE_PATHS.revenue, RevenueArticle, revenueArticleMeta],
+  [ARTICLE_PATHS.fitnessEmpire, FitnessEmpireCaseStudy, fitnessEmpireMeta],
 ]
 
 /** Every in-site destination a public page may link to. */
@@ -493,4 +498,99 @@ describe('SMS samples on the public site', () => {
       expect(text).not.toMatch(/welcome to our gym/i)
     }
   )
+})
+
+/**
+ * The Fitness Empire case study (SEO-042) names a real gym and its owner and
+ * publishes their figures, so every figure is the one the owner approved on
+ * 2026-10-15 (as of 2026-10-05, HANDOFF §6). The literals below ARE that
+ * approval: a config change that alters a figure fails here instead of
+ * reaching the page unapproved. Fitness Empire runs no door readers and no QR
+ * sign-ups, and the page says nothing of either; nor does it carry review or
+ * rating markup (rule 2.23).
+ */
+describe('the Fitness Empire case study', () => {
+  const main = () =>
+    renderInShell(FitnessEmpireCaseStudy).container.querySelector('main')
+      ?.textContent ?? ''
+
+  it('holds exactly the figures the owner approved', () => {
+    expect(FITNESS_EMPIRE).toMatchObject({
+      name: 'Fitness Empire',
+      owner: 'Zulfi Ahamath',
+      locality: 'Wattala',
+      asOf: '2026-10-05',
+      onMetricSince: '2026-02-28',
+      members: { registered: 231, active: 134, notMonthly: 2 },
+      paymentsRecorded: { marchToJulyMonthly: 90, august: 148, september: 166 },
+      texts: {
+        welcome: 127,
+        receipt: 453,
+        threeDayReminder: 301,
+        dueTodayReminder: 221,
+        overdueNotice: 122,
+        reactivation: 42,
+      },
+      renewals: {
+        count: 531,
+        onOrBeforeDuePercent: 48.2,
+        withinAWeekPercent: 81.5,
+        duplicatesRemoved: 30,
+      },
+    })
+  })
+
+  it('states every figure, the date they are as of, and how they were counted', () => {
+    const text = main()
+    for (const figure of [
+      '231',
+      '134',
+      '148',
+      '166',
+      '127',
+      '453',
+      '301',
+      '221',
+      '122',
+      '42',
+      '48.2%',
+      '81.5%',
+      '531',
+      '30',
+    ]) {
+      expect([figure, text.includes(figure)]).toEqual([figure, true])
+    }
+    expect(text).toContain('5 October 2026')
+    expect(text).toContain('28 February 2026')
+    expect(text).toMatch(/How these figures were counted/)
+  })
+
+  it('quotes the owner word for word, attributed', () => {
+    const text = main()
+    expect(text).toContain(FITNESS_EMPIRE.quote)
+    expect(FITNESS_EMPIRE.quote).toBe(
+      'We cut our admin time by 80% in the first month. The automated reminders alone paid for the subscription.'
+    )
+    expect(text).toContain('Zulfi Ahamath')
+  })
+
+  it.each([
+    /door/i,
+    /fingerprint/i,
+    /\bQR\b/,
+    /reader/i,
+    /rupee|LKR|Rs\.?\s?\d/i,
+  ])(
+    'claims nothing Fitness Empire does not use or did not approve (%s)',
+    (pattern) => {
+      expect(main()).not.toMatch(pattern)
+    }
+  )
+
+  it('carries no review or rating markup', () => {
+    const graphText = JSON.stringify(
+      jsonLdGraph(renderInShell(FitnessEmpireCaseStudy).container)
+    )
+    expect(graphText).not.toMatch(/Review|aggregateRating|ratingValue/)
+  })
 })

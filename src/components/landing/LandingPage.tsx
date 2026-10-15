@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
 import {
+  ARTICLE_PATHS,
   CONTACT,
   FEATURE_PATHS,
+  FITNESS_EMPIRE,
   FOOTER_GROUPS,
   HEADER_LINKS,
   HUB_PATH,
@@ -501,8 +503,7 @@ export function LandingPage() {
               color: '#ededf0',
             }}
           >
-            &quot;We cut our admin time by 80% in the first month. The automated
-            reminders alone paid for the subscription.&quot;
+            &quot;{FITNESS_EMPIRE.quote}&quot;
           </p>
           <p
             id="quote-attribution"
@@ -514,9 +515,21 @@ export function LandingPage() {
             }}
           >
             <strong style={{ color: '#ededf0', fontWeight: 500 }}>
-              Zulfi Ahamath
+              {FITNESS_EMPIRE.owner}
             </strong>{' '}
-            — Owner, Fitness Empire, Wattala
+            — Owner, {FITNESS_EMPIRE.name}, {FITNESS_EMPIRE.locality}
+          </p>
+          <p style={{ margin: '20px 0 0', fontSize: '15px' }}>
+            <Link
+              href={ARTICLE_PATHS.fitnessEmpire}
+              style={{
+                color: '#9694f5',
+                textDecoration: 'underline',
+                textUnderlineOffset: '4px',
+              }}
+            >
+              Read the {FITNESS_EMPIRE.name} story
+            </Link>
           </p>
         </div>
       </section>

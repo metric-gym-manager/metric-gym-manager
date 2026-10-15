@@ -7,13 +7,13 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-15T17:38:43Z |
+| Last task update | 2026-10-15T17:51:28Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 2 |
-| Implemented (awaiting verification) | 2 |
+| Implemented (awaiting verification) | 3 |
 | Verified | 52 |
-| In progress | 2 |
+| In progress | 1 |
 | Open (discovered/planned) | 0 |
 | Blocked | 3 |
 | Rejected | 6 |
@@ -25,7 +25,7 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 1 | 0 | 10 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 2 | 20 | 0 | 1 |
-| P2 | 0 | 0 | 1 | 0 | 14 | 2 | 0 |
+| P2 | 0 | 0 | 0 | 1 | 14 | 2 | 0 |
 | P3 | 0 | 0 | 0 | 0 | 8 | 1 | 5 |
 
 ## All tasks
@@ -72,7 +72,7 @@
 | [SEO-030](#seo-030) | P2 | verified | schema | BreadcrumbList on subpages and Article on resources | no |
 | [SEO-037](#seo-037) | P2 | blocked | local | Google Business Profile eligibility | yes |
 | [SEO-039](#seo-039) | P2 | blocked | off-site | Software directories and review profiles | yes |
-| [SEO-042](#seo-042) | P2 | in_progress | content | Real case studies and first-party data content | yes |
+| [SEO-042](#seo-042) | P2 | implemented | content | Real case studies and first-party data content | yes |
 | [SEO-044](#seo-044) | P2 | verified | performance | Lab performance check of public pages | no |
 | [SEO-049](#seo-049) | P2 | verified | technical | Homepage overflowed a 320 px viewport | no |
 | [SEO-050](#seo-050) | P2 | verified | on-page | In-text links relied on colour alone; footer contact links below 24 px | no |
@@ -105,7 +105,7 @@
 - **SEO-059** (P1, verified) — GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included
 - **SEO-037** (P2, blocked) — Google Business Profile eligibility
 - **SEO-039** (P2, blocked) — Software directories and review profiles
-- **SEO-042** (P2, in_progress) — Real case studies and first-party data content
+- **SEO-042** (P2, implemented) — Real case studies and first-party data content
 - **SEO-041** (P3, blocked) — Founder and team information
 - **SEO-053** (P3, verified) — Automated reminders and receipts do not name the gym
 
@@ -2060,12 +2060,12 @@ List Metric on relevant software directories with consistent NAP; collect genuin
 | Field | Value |
 | --- | --- |
 | Priority | P2 |
-| Status | in_progress |
+| Status | implemented |
 | Category | content |
 | Intent | informational |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-15T17:38:43Z |
+| Updated | 2026-10-15T17:51:28Z |
 | Completed | — |
 | Dependencies | SEO-022 |
 
@@ -2091,15 +2091,23 @@ Owner approval and customer consent, then publish an aggregate, anonymised study
 
 **Implementation**
 
-—
+Fitness Empire case study at /resources/fitness-empire-case-study (registry article, PUBLIC_ROUTES, sitemap, Article JSON-LD, no review markup). Every figure and the quote come from FITNESS_EMPIRE in features/marketing/config/caseStudies.ts, the snapshot the owner approved; the homepage testimonial reads its quote from the same object and links to the page. The page states the as-of date and how the figures were counted, and claims nothing the gym does not use (no door readers, no QR sign-up) and no money amounts.
 
 **Files**
 
-- —
+- `src/features/marketing/config/caseStudies.ts`
+- `src/features/marketing/config/pages.ts`
+- `src/app/(marketing)/resources/fitness-empire-case-study/page.tsx`
+- `src/components/landing/LandingPage.tsx`
+- `src/lib/auth-config.ts`
+- `src/app/(marketing)/__tests__/MarketingPages.test.tsx`
+- `src/app/__tests__/HomePage.test.tsx`
 
 **Verification**
 
-- Not yet verified
+- MarketingPages.test.tsx pins every figure to the 2026-10-15 approval, the as-of date, the method section, the owner quote, no door/fingerprint/QR/reader/money claim and no review markup; HomePage.test.tsx pins the testimonial link. Four mutations each fail a test: a changed figure, the route removed from PUBLIC_ROUTES, a door-reader sentence, the homepage link removed.
+- Chromium against next dev --webpack, 2026-10-15: 200, one h1, self canonical, no robots meta; no horizontal overflow at 1366, 390 and 320; lowest text contrast 5.48:1 (the aria-hidden breadcrumb separator, decorative and shared with every guide, excluded); screenshots reviewed. next build --webpack: page prerendered static, built sitemap lists 21 URLs including it.
+- Not yet live: it is merged only after Fitness Empire has read the draft (HANDOFF section 6).
 
 ### SEO-044
 
