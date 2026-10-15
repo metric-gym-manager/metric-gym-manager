@@ -7,7 +7,7 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-15T17:51:28Z |
+| Last task update | 2026-10-15T18:26:49Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 2 |
@@ -623,7 +623,7 @@ Partially actioned: the '−95% LATE PAYMENTS' statistic and 'RUNNING NATIONWIDE
 | Intent | none |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-15T17:38:43Z |
+| Updated | 2026-10-15T18:26:49Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -641,6 +641,7 @@ No Search Console verification exists in the repository and this environment has
 - Owner set up the Domain property, submitted the sitemap and requested indexing on 2026-10-05. Checked from outside that day: the google-site-verification TXT record is on metricgymos.com; /sitemap.xml answers 200 as application/xml with no X-Robots-Tag (apex and http forms 308 to it); robots.txt names it; all 20 listed URLs answer 200 to a Googlebot user agent with self canonicals and no noindex; the Vercel project has no firewall configuration.
 - 2026-10-15, Search Console Page indexing (owner, data to 2026-10-12): 4 indexed, 22 not indexed, 25 impressions over nine days. Not indexed: 16 Discovered - currently not indexed (Google systems), 3 Page with redirect, 2 Duplicate without user-selected canonical, 1 Blocked due to other 4xx issue. Known URLs rose from 9 to 26 on 2026-10-05, the day the sitemap was submitted; 4 indexed + 16 discovered = the 20 sitemap URLs.
 - 2026-10-15: https://www.metricgymos.com/sitemap.xml answered 200 application/xml with 20 URLs; robots.txt names it.
+- 2026-10-15: the Sitemaps report reads Success (owner). The two "Duplicate without user-selected canonical" URLs are /login?redirect=/privacy and /login?redirect=/terms, last crawled 2026-08-02, before /privacy and /terms were public and before /login had a canonical; live the same day both answer 200 with a /login canonical. The one "Blocked due to other 4xx issue" URL is https://links.updates.metricgymos.com/, Resend click tracking (CNAME links2.resend-dns.com), whose bare root answers 400 by design. Nothing to fix; the baseline is due around 2026-11-02.
 
 **Recommended change**
 
@@ -2065,7 +2066,7 @@ List Metric on relevant software directories with consistent NAP; collect genuin
 | Intent | informational |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-15T17:51:28Z |
+| Updated | 2026-10-15T18:26:49Z |
 | Completed | — |
 | Dependencies | SEO-022 |
 
@@ -2084,6 +2085,7 @@ Fitconnect's strongest content is original local data. Metric holds anonymisable
 - Read-only probe of production, 2026-10-05. Customer gyms with data: Fitness Empire (231 members, 847 payments, 1,275 texts), Yomak Health Hub (60/60/7), Titan Fitness (52/83/191, including test members), Royal Fitness World (11 members) and LifeLine Fitness (1). Fitness Empire is about 65% of members and about 85% of payments and texts, so a cross-gym aggregate would be its figures under another name.
 - Fitness Empire, 2026-10-05: on Metric since 2026-02-28; 134 of 231 members active; payments recorded about 90 a month March to July, 148 in August, 166 in September; April to September, after removing 30 same-day duplicate payments, 48.2% of 531 renewals were recorded on or before the due date and 81.5% within a week. No delivery report has ever arrived, so delivery rates cannot be published; there is no pre-Metric baseline.
 - 2026-10-15: the owner approved the recommendation (no cross-gym study until about 10 gyms hold data) and the Fitness Empire figures as of 2026-10-05. Read-only the same day: Fitness Empire runs no door readers and has no QR self-registrations, so the case study claims neither.
+- 2026-10-15: Fitness Empire agreed to the case study (owner); merged through PR #106.
 
 **Recommended change**
 

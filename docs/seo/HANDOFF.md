@@ -61,7 +61,8 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
 - **2026-10-15: the first Search Console data, and SEO-042 approved.**
   - **Page indexing on 2026-10-12, from the owner:** 4 pages indexed and 22 not, 25 impressions over nine days. Google knows 26 URLs. The 20 sitemap URLs account for the 4 indexed and the 16 "Discovered – currently not indexed": Google has every sitemap page queued but has crawled few. The other 6 are 3 redirects (expected), 2 "duplicate without user-selected canonical" and 1 "blocked due to other 4xx". Those 3 URLs are not known yet (§6).
   - **The sitemap the same day:** `https://www.metricgymos.com/sitemap.xml` answers 200 `application/xml` with the 20 URLs, and `robots.txt` names it.
-  - **SEO-042:** the owner approved the recommendation (no cross-gym study) and the Fitness Empire figures. The case study is built at `/resources/fitness-empire-case-study` on `claude/seo-042-case-study`, and the homepage testimonial links to it. It is not merged until Fitness Empire has read it (§6).
+  - **SEO-042:** the owner approved the recommendation (no cross-gym study) and the Fitness Empire figures. The case study is at `/resources/fitness-empire-case-study`, and the homepage testimonial links to it. Fitness Empire agreed to it the same day, and it was merged through PR #106.
+  - **SEO-036, later the same day:** the Sitemaps report reads Success. The two duplicates and the 4xx URL need no fix (§6). The first baseline is due about four weeks after the sitemap was read, around 2026-11-02.
   - **SEO-053** is verified: all 192 automated texts sent outside the E2E gyms from 2026-10-05 to 2026-10-15 name their gym. **SEO-065** is verified on production.
 
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
@@ -180,21 +181,24 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 **Measurement**
 
 - [x] **Search Console set up (SEO-036, P0).** **Done by the owner 2026-10-05:** the Domain property for metricgymos.com, the sitemap submitted, and indexing requested. Checked from outside the same day: metricgymos.com carries the `google-site-verification` TXT record; `https://www.metricgymos.com/sitemap.xml` answers 200 as `application/xml` with no `X-Robots-Tag`, and the apex and `http://` forms 308 to it; `robots.txt` names it; all 20 listed URLs answer 200 to a Googlebot user agent with a self-referencing canonical and no noindex; the Vercel project has no firewall configuration that could challenge Google's crawler.
-- [ ] **Sitemap status in Search Console (SEO-036).** On 2026-10-05 it still read "not detected". Two places say that, and both lag the submission:
+- [x] **Sitemap status in Search Console (SEO-036).** **Done: the Sitemaps report reads Success (owner, 2026-10-15).** On 2026-10-05 it still read "not detected". Two places say that, and both lag the submission:
   - URL Inspection's "Sitemaps: No referring sitemaps detected" comes from Google's index, which is updated only when Google recrawls the page after reading the sitemap — usually days, sometimes a couple of weeks for a new property. Requesting indexing does not change that line.
   - The Sitemaps report can show "Couldn't fetch" for a day or two on a new property before it reads "Success". In a Domain property the field takes the **full URL**: if the listed sitemap is anything other than `https://www.metricgymos.com/sitemap.xml`, remove it and submit that URL.
   - Done when the Sitemaps report reads **Success** with **20 discovered pages**. If it still reads "Couldn't fetch" after three days with that exact URL, note the date and the message here.
   - **2026-10-15:** Search Console's Page indexing report (owner, data to 2026-10-12) shows Google learnt 22 more URLs on 2026-10-05, the day of submission, and all 20 sitemap URLs are known (4 indexed, 16 discovered). The sitemap was evidently read. The live sitemap answered 200 with 20 URLs the same day. To close this item, either the Sitemaps report reads **Success**, or Page indexing filtered to **All submitted pages** shows 20.
-- [ ] **First baseline (SEO-036).** About four weeks after the sitemap reads Success, record the first baseline following `SEO_AUDIT.md` §17.
+- [ ] **First baseline (SEO-036).** About four weeks after the sitemap was read (2026-10-05; the report read Success by 2026-10-15), so around 2026-11-02, record the first baseline following `SEO_AUDIT.md` §17.
   - **Early data, 2026-10-04 to 2026-10-12 (not the baseline):** 4 indexed, 22 not indexed, 25 impressions in nine days.
 
-    | Reason                                    | Pages | Read as                                                                                                  |
-    | ----------------------------------------- | ----: | -------------------------------------------------------------------------------------------------------- |
-    | Discovered – currently not indexed        |    16 | Sitemap pages Google has not crawled yet. Normal for a new domain; no fault on the site                  |
-    | Page with redirect                        |     3 | Expected: the apex and `http://` forms, `/features` and the signed-in paths all redirect by design       |
-    | Duplicate without user-selected canonical |     2 | Unknown URLs; every public page has a canonical, so these are probably URLs outside the site's own pages |
-    | Blocked due to other 4xx issue            |     1 | Unknown URL. Not 404, 401 or 403, which have reasons of their own                                        |
-- [ ] **Send the example URLs (SEO-036).** In Search Console → Pages, open "Duplicate without user-selected canonical", "Blocked due to other 4xx issue" and "Page with redirect", and send the URLs under Examples. The first two decide whether anything needs fixing. The redirects are almost certainly fine.
+    | Reason                                    | Pages | Read as                                                                                                                     |
+    | ----------------------------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------- |
+    | Discovered – currently not indexed        |    16 | Sitemap pages Google has not crawled yet. Normal for a new domain; no fault on the site                                     |
+    | Page with redirect                        |     3 | Expected: the apex and `http://` forms, `/features` and the signed-in paths all redirect by design                          |
+    | Duplicate without user-selected canonical |     2 | `/login?redirect=/privacy` and `/terms`, last crawled 2 August, before the public site; they now carry a `/login` canonical |
+    | Blocked due to other 4xx issue            |     1 | `links.updates.metricgymos.com/`: Resend's click-tracking host, whose bare root answers 400 by design                       |
+- [x] **Send the example URLs (SEO-036).** **Sent 2026-10-15; nothing on the site needs fixing:** In Search Console → Pages, open "Duplicate without user-selected canonical", "Blocked due to other 4xx issue" and "Page with redirect", and send the URLs under Examples. The first two decide whether anything needs fixing. The redirects are almost certainly fine.
+  - **Duplicate without user-selected canonical:** `/login?redirect=/privacy` and `/login?redirect=/terms`. Google last crawled them on 2 August 2026, when `/privacy` and `/terms` sent visitors to the login page and `/login` had no canonical. Checked live 2026-10-15: `/privacy` answers 200, and `/login?redirect=/privacy` answers 200 with a canonical of `https://www.metricgymos.com/login`. Google files them as alternates once it recrawls. "Validate fix" on that reason asks it to recrawl sooner.
+  - **Blocked due to other 4xx issue:** `https://links.updates.metricgymos.com/`, Resend's click-tracking host for the update emails (CNAME `links2.resend-dns.com`, served by CloudFront). Its bare root answers 400 by design; only tracked links under it are real. It is listed because the Domain property covers every subdomain. Ignore it.
+  - **Page with redirect:** not sent; expected by design (see the table above).
 - [ ] **Which four pages are indexed (SEO-036).** In Pages, open the indexed view and send the list.
 - [ ] **Request indexing, a few a day (SEO-036).** For each sitemap page that is not indexed, run URL Inspection → Request indexing. Google allows roughly ten requests a day. In this order:
   1. `/gym-management-software-sri-lanka`
@@ -276,7 +280,7 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   The data cannot support the testimonial's "80% admin time" (it stays a quote), delivery rates (no delivery report has ever arrived), or any before-and-after comparison (no pre-Metric records). Monthly rupee totals are Fitness Empire's confidential figures; the recommendation is not to publish them.
   - **Optional:** a short interview with Zulfi Ahamath on how the desk ran before Metric (register book? reminders by hand?). That is the story a case study needs, and the database cannot tell it.
 
-- [ ] **Fitness Empire reads the case study before it goes live (SEO-042).** The page names the gym and its owner and publishes its figures. Send Zulfi Ahamath the draft (the Vercel preview of the case-study PR; the PR description holds the link) and confirm his agreement; then the PR is merged. The figures are dated 5 October 2026 on the page. Fitness Empire runs no door readers and no QR sign-ups, so the page does not mention either.
+- [x] **Fitness Empire reads the case study before it goes live (SEO-042).** **Fitness Empire agreed (owner, 2026-10-15); PR #106 merged.** The page names the gym and its owner and publishes its figures. Send Zulfi Ahamath the draft (the Vercel preview of the case-study PR; the PR description holds the link) and confirm his agreement; then the PR is merged. The figures are dated 5 October 2026 on the page. Fitness Empire runs no door readers and no QR sign-ups, so the page does not mention either.
 - [x] **Sinhala and Tamil (SEO-047, P3).** **Decided 2026-10-04: English only.** No Sinhala or Tamil pages; SEO-047 is rejected.
 
 **Product and design decisions**
