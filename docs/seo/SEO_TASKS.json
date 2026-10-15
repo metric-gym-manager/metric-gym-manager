@@ -1185,7 +1185,7 @@
       "title": "Real case studies and first-party data content",
       "category": "content",
       "priority": "P2",
-      "status": "implemented",
+      "status": "verified",
       "intent": "informational",
       "targetQueries": [
         "gym membership renewal sri lanka",
@@ -1213,13 +1213,14 @@
       "verification": [
         "MarketingPages.test.tsx pins every figure to the 2026-10-15 approval, the as-of date, the method section, the owner quote, no door/fingerprint/QR/reader/money claim and no review markup; HomePage.test.tsx pins the testimonial link. Four mutations each fail a test: a changed figure, the route removed from PUBLIC_ROUTES, a door-reader sentence, the homepage link removed.",
         "Chromium against next dev --webpack, 2026-10-15: 200, one h1, self canonical, no robots meta; no horizontal overflow at 1366, 390 and 320; lowest text contrast 5.48:1 (the aria-hidden breadcrumb separator, decorative and shared with every guide, excluded); screenshots reviewed. next build --webpack: page prerendered static, built sitemap lists 21 URLs including it.",
-        "Not yet live: it is merged only after Fitness Empire has read the draft (HANDOFF section 6)."
+        "Not yet live: it is merged only after Fitness Empire has read the draft (HANDOFF section 6).",
+        "Production, 2026-10-16 (deployment dpl_3ckcsxup9Kjp6Lkdbx4euAHH7VcP, merge 39cb8c7), fetched as Googlebot: /resources/fitness-empire-case-study answers 200 with no X-Robots-Tag, one h1, a self-referencing canonical, no robots meta, Article JSON-LD and no review markup; every approved figure and the as-of date are on the page. The live sitemap lists 21 URLs including it, and the homepage links to it from the testimonial."
       ],
       "dependencies": ["SEO-022"],
-      "externalActionRequired": true,
+      "externalActionRequired": false,
       "createdAt": "2026-10-01T17:40:00Z",
-      "updatedAt": "2026-10-15T18:26:49Z",
-      "completedAt": null
+      "updatedAt": "2026-10-15T18:32:47Z",
+      "completedAt": "2026-10-15T18:32:47Z"
     },
     {
       "id": "SEO-043",

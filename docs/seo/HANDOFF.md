@@ -61,7 +61,7 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
 - **2026-10-15: the first Search Console data, and SEO-042 approved.**
   - **Page indexing on 2026-10-12, from the owner:** 4 pages indexed and 22 not, 25 impressions over nine days. Google knows 26 URLs. The 20 sitemap URLs account for the 4 indexed and the 16 "Discovered – currently not indexed": Google has every sitemap page queued but has crawled few. The other 6 are 3 redirects (expected), 2 "duplicate without user-selected canonical" and 1 "blocked due to other 4xx". Those 3 URLs are not known yet (§6).
   - **The sitemap the same day:** `https://www.metricgymos.com/sitemap.xml` answers 200 `application/xml` with the 20 URLs, and `robots.txt` names it.
-  - **SEO-042:** the owner approved the recommendation (no cross-gym study) and the Fitness Empire figures. The case study is at `/resources/fitness-empire-case-study`, and the homepage testimonial links to it. Fitness Empire agreed to it the same day, and it was merged through PR #106.
+  - **SEO-042:** the owner approved the recommendation (no cross-gym study) and the Fitness Empire figures. The case study is at `/resources/fitness-empire-case-study`, and the homepage testimonial links to it. Fitness Empire agreed to it the same day, and it was merged through PR #106. **SEO-042 is verified** on production (2026-10-16): the page answers 200 and is indexable, the sitemap lists 21 URLs, and the homepage links to it.
   - **SEO-036, later the same day:** the Sitemaps report reads Success. The two duplicates and the 4xx URL need no fix (§6). The first baseline is due about four weeks after the sitemap was read, around 2026-11-02.
   - **SEO-053** is verified: all 192 automated texts sent outside the E2E gyms from 2026-10-05 to 2026-10-15 name their gym. **SEO-065** is verified on production.
 
@@ -489,7 +489,7 @@ Ready now, in priority order:
 
 1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
 2. **New guides** from `SEO_AUDIT.md` §8. All four are written: overdue memberships (SEO-061), moving off a register book (SEO-063), Excel and WhatsApp vs software (SEO-064), and choosing gym management software in Sri Lanka (SEO-065, 2026-10-04).
-3. **Fitness Empire case study (SEO-042).** The probe is done (2026-10-05). On 2026-10-15 the owner approved the figures and agreed there is no cross-gym study for now. Next is the page, built from the approved figures and the confirmed testimonial; it goes live only after Fitness Empire has read it (§6).
+3. ~~**Fitness Empire case study (SEO-042).**~~ **Done 2026-10-16:** live at `/resources/fitness-empire-case-study` (PR #106), with Fitness Empire's agreement. Its figures are a dated snapshot in `features/marketing/config/caseStudies.ts`; any update to them needs the owner's and Fitness Empire's approval again.
 4. **P3 items.** ~~SEO-043~~, ~~SEO-051~~, ~~SEO-052~~, ~~SEO-053~~ and ~~SEO-060~~ are done (SEO-060 on `claude/seo-060-app-providers`, 2026-10-05).
 5. **Found by the inverted check of 2026-10-04:**
    - ~~The homepage canonical test checks the metadata object, not the HTML.~~ **Fixed 2026-10-05:** `metadata.test.ts` runs every registry page through Next's own `resolveAlternates` and `resolveOpenGraph`, in the node environment (jsdom lacks `URLSearchParams.size`, which Next's root-path branch reads). A production build's 20 sitemap pages matched it exactly.
@@ -531,17 +531,17 @@ Waiting on owner input:
 
 65 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes on `claude/seo-gsc-2026-10-15`. Counts recomputed from the JSON on 2026-10-15.
 
-| Status      | Count | Tasks                                                                                                                                                                                        |
-| ----------- | ----: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Verified    |    52 | See `SEO_TASK_LOG.md`                                                                                                                                                                        |
-| Implemented |     3 | SEO-035 (P1, awaiting the `generate_lead` DebugView check); SEO-026 (P1, awaiting Google's move); SEO-042 (P2: the Fitness Empire case study, built; merged once Fitness Empire has read it) |
-| In progress |     1 | SEO-036 (P0: 4 of 20 sitemap pages indexed; the sitemap status, then the baseline)                                                                                                           |
-| Blocked     |     3 | SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                                                                          |
-| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                                                                  |
+| Status      | Count | Tasks                                                                                                       |
+| ----------- | ----: | ----------------------------------------------------------------------------------------------------------- |
+| Verified    |    53 | See `SEO_TASK_LOG.md`                                                                                       |
+| Implemented |     2 | SEO-035 (P1, awaiting the `generate_lead` DebugView check); SEO-026 (P1, awaiting Google's move)            |
+| In progress |     1 | SEO-036 (P0: 4 of 20 sitemap pages indexed; the sitemap status, then the baseline)                          |
+| Blocked     |     3 | SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                         |
+| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only) |
 
 - P0 remaining: 1 (SEO-036), in progress: Search Console is set up; the sitemap status and the first baseline remain.
 - P1 remaining: 2 (SEO-026, awaiting Google's move; SEO-035, awaiting the `generate_lead` DebugView check).
-- External action required: 6 open tasks (SEO-035, SEO-036, SEO-037, SEO-039, SEO-041, SEO-042).
+- External action required: 5 open tasks (SEO-035, SEO-036, SEO-037, SEO-039, SEO-041).
 
 ## 8. Files changed
 
