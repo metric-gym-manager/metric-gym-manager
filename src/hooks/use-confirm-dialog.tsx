@@ -19,6 +19,12 @@ interface ConfirmDialogState extends ConfirmOptions {
  * user's choice. Renders the Metric `ConfirmDialog` composite (Layer 3) — the
  * single confirm-dialog implementation — so the imperative and declarative
  * entry points share one UI.
+ *
+ * Render the returned `dialog` element as `{dialog}`. It is an element, not a
+ * component defined in here: a component created inside the hook is a new type
+ * on every render, so React remounted the OPEN dialog whenever its parent
+ * re-rendered (a background refetch is enough), and a click landing on the
+ * replaced node could be read as a dismissal.
  */
 export function useConfirmDialog() {
   const [state, setState] = useState<ConfirmDialogState>({
@@ -53,7 +59,7 @@ export function useConfirmDialog() {
     setState((prev) => ({ ...prev, isOpen: false }))
   }
 
-  const ConfirmDialog = () => (
+  const dialog = (
     <ConfirmDialogComposite
       open={state.isOpen}
       onOpenChange={(open) => {
@@ -68,5 +74,5 @@ export function useConfirmDialog() {
     />
   )
 
-  return { confirm, ConfirmDialog }
+  return { confirm, dialog }
 }

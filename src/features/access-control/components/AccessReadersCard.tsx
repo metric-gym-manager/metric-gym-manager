@@ -173,7 +173,7 @@ function ReaderRow({ device }: { device: SerializedAccessDevice }) {
   const update = useUpdateAccessDevice()
   const setActive = useSetAccessDeviceActive()
   const unlink = useUnlinkAccessDevice()
-  const { confirm, ConfirmDialog } = useConfirmDialog()
+  const { confirm, dialog } = useConfirmDialog()
 
   const [name, setName] = useState(device.deviceName)
   const [capacity, setCapacity] = useState(
@@ -313,7 +313,7 @@ function ReaderRow({ device }: { device: SerializedAccessDevice }) {
         </Button>
       </div>
 
-      <ConfirmDialog />
+      {dialog}
     </div>
   )
 }

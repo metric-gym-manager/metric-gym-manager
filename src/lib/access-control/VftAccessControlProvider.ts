@@ -548,6 +548,17 @@ export class VftAccessControlProvider implements IAccessControlProvider {
     })
   }
 
+  async requestEventsUpload(
+    credentials: AccessCredentials,
+    deviceSerial: string
+  ): Promise<CommandOutcome> {
+    return this.command(credentials, {
+      method: 'POST',
+      path: '/api/devicecmd/events',
+      query: { DevSN: deviceSerial },
+    })
+  }
+
   async listPendingCommands(
     credentials: AccessCredentials,
     deviceSerial?: string

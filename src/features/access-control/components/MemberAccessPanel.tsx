@@ -56,10 +56,15 @@ import { useConfirmDialog } from '@/hooks/use-confirm-dialog'
 import { formatDate } from '@/utils/date/date'
 import { useSubscription } from '@/features/subscriptions/hooks/useSubscription'
 import {
+  DEFAULT_FINGER_SLOT,
+  FINGER_SLOTS,
+} from '../config/AccessControlConfig'
+import {
   useAccessDevices,
   useClearMemberBiometric,
   useEnrolmentPoll,
   useMemberAccess,
+  useRecordMemberBiometricConsent,
   useSyncMemberAccess,
 } from '../hooks/useAccessControl'
 
@@ -85,11 +90,19 @@ export default function MemberAccessPanel({
 
   const sync = useSyncMemberAccess()
   const clearBiometric = useClearMemberBiometric()
+  const recordConsent = useRecordMemberBiometricConsent()
   const enrolment = useEnrolmentPoll(memberId)
-  const { confirm, ConfirmDialog } = useConfirmDialog()
+  const { confirm, dialog } = useConfirmDialog()
 
   const [deviceId, setDeviceId] = useState('')
+  // Which finger the next enrolment takes. Each finger has its own slot in the
+  // vendor's copy, so a different slot adds a finger and the same slot replaces
+  // it (visit 2, CD-1/V2-4).
+  const [fingerId, setFingerId] = useState<number>(DEFAULT_FINGER_SLOT)
   const [consentTicked, setConsentTicked] = useState(false)
+  // Separate from `consentTicked`: that one gates a NEW enrolment, this one
+  // confirms consent for a fingerprint that already exists (visit 2, CD-3).
+  const [existingConsentTicked, setExistingConsentTicked] = useState(false)
 
   // Re-send is a re-seat (delete from the readers, then add back), so a second
   // click landing mid-way would delete the member again halfway through the
@@ -169,11 +182,26 @@ export default function MemberAccessPanel({
 
     await enrolment.start({
       deviceId: selectedDevice,
+      fingerId,
       // Sent only when it is actually being given. A member who consented
       // before is not consenting again by being re-enrolled, and their
       // original timestamp is the one the record keeps.
       ...(consentNeeded ? { consent: true } : {}),
     })
+  }
+
+  const handleRecordConsent = async () => {
+    if (!existingConsentTicked) return
+
+    try {
+      await recordConsent.mutateAsync(memberId)
+      setExistingConsentTicked(false)
+      toast.success('Consent recorded.')
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Could not record the consent'
+      )
+    }
   }
 
   const handleClearBiometric = async () => {
@@ -272,10 +300,33 @@ export default function MemberAccessPanel({
             agreeing to it — so it was most likely registered at the reader
             itself rather than here. Ask them to confirm they are happy with it,
             or remove it below.
+            <div className="mt-3 space-y-2">
+              <Checkbox
+                checked={existingConsentTicked}
+                onChange={(event) =>
+                  setExistingConsentTicked(event.target.checked)
+                }
+                label={
+                  <span className="text-xs text-ink-secondary">
+                    The member confirms they agree to this fingerprint being
+                    used to open the gym&rsquo;s doors.
+                  </span>
+                }
+              />
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={handleRecordConsent}
+                disabled={!existingConsentTicked}
+                loading={recordConsent.isPending}
+              >
+                Record consent
+              </Button>
+            </div>
           </Alert>
         ) : null}
 
-        {status.fingerEnrolled ? (
+        {status.fingerEnrolled && (
           <Button
             size="sm"
             variant="destructive-ghost"
@@ -284,13 +335,22 @@ export default function MemberAccessPanel({
           >
             Remove fingerprint
           </Button>
-        ) : activeDevices.length === 0 ? (
+        )}
+
+        {activeDevices.length === 0 ? (
           <p className="text-xs text-ink-muted">
             No readers are in use, so there is nowhere to register a
             fingerprint.
           </p>
         ) : (
           <div className="space-y-2">
+            {status.fingerEnrolled && (
+              <p className="text-xs text-ink-muted">
+                Each finger is kept separately. Registering the same finger
+                again replaces it.
+              </p>
+            )}
+
             {consentNeeded && (
               <Checkbox
                 checked={consentTicked}
@@ -306,19 +366,38 @@ export default function MemberAccessPanel({
             )}
 
             <div className="flex flex-wrap items-center gap-2">
-              {activeDevices.length > 1 && (
+              {/* Width on a wrapper, not on the Select: its className lands on
+                  the <select>, while the chevron sits on the primitive's own
+                  full-width wrapper, so `max-w-56` there left the arrow at the
+                  far edge of the row (visit 2 review, F2-02). */}
+              <div className="w-full max-w-56">
                 <Select
-                  value={selectedDevice}
-                  onChange={(event) => setDeviceId(event.target.value)}
-                  aria-label="Reader to register the fingerprint on"
-                  className="max-w-56"
+                  value={fingerId}
+                  onChange={(event) => setFingerId(Number(event.target.value))}
+                  aria-label="Finger to register"
                 >
-                  {activeDevices.map((device) => (
-                    <option key={device.id} value={device.id}>
-                      {device.deviceName}
+                  {FINGER_SLOTS.map((slot) => (
+                    <option key={slot.id} value={slot.id}>
+                      {slot.label}
                     </option>
                   ))}
                 </Select>
+              </div>
+
+              {activeDevices.length > 1 && (
+                <div className="w-full max-w-56">
+                  <Select
+                    value={selectedDevice}
+                    onChange={(event) => setDeviceId(event.target.value)}
+                    aria-label="Reader to register the fingerprint on"
+                  >
+                    {activeDevices.map((device) => (
+                      <option key={device.id} value={device.id}>
+                        {device.deviceName}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               )}
 
               <Button
@@ -332,7 +411,9 @@ export default function MemberAccessPanel({
                 }
               >
                 <Fingerprint className="h-4 w-4" aria-hidden="true" />
-                Register fingerprint
+                {status.fingerEnrolled
+                  ? 'Register another finger'
+                  : 'Register fingerprint'}
               </Button>
             </div>
 
@@ -353,7 +434,7 @@ export default function MemberAccessPanel({
         </Button>
       </div>
 
-      <ConfirmDialog />
+      {dialog}
     </div>
   )
 }

@@ -36,6 +36,7 @@ import type { AccessWebhookEvent } from '@/features/access-control/schemas/acces
 import {
   AccessIntent,
   DEVICE_CLOCK_SKEW_ALERT_SECONDS,
+  EVENTS_PULL_WINDOW_SECONDS,
   REFUSAL_REPAIR_COOLDOWN_SECONDS,
   REFUSAL_REPAIR_EVENT_CODES,
   VerifyType,
@@ -99,6 +100,11 @@ export interface RecordAccessEventsSummary {
    */
   redeliveredShifted: number
   /**
+   * Events read as UTC because a pull for this reader was recorded in the last
+   * 30 min (DEC2-08).
+   */
+  pulledScans: number
+  /**
    * Members whose fingerprint this delivery confirmed for the first time.
    *
    * Almost always zero: it takes one scan per member, ever. A non-zero value
@@ -133,6 +139,7 @@ export class RecordAccessEvents {
       stored: 0,
       duplicates: 0,
       redeliveredShifted: 0,
+      pulledScans: 0,
       unknownDevice: 0,
       unknownSerials: [],
       malformed: 0,
@@ -233,11 +240,35 @@ export class RecordAccessEvents {
               )
             : new Map<number, string>()
 
+        // An events pull re-delivers stored scans with `AttTime` in UTC, where a
+        // live delivery is reader-local (visit 2, CD-2/DEC2-08). Only while a
+        // pull was recorded for this reader do we even consider reading a stamp
+        // as UTC.
+        const pullOpen = await this.repo.hasRecentEventsPull(
+          device.gym_id,
+          deviceSerial,
+          EVENTS_PULL_WINDOW_SECONDS
+        )
+        const pulled = new Set<IncomingAccessEvent>()
+
         for (const event of events) {
-          const occurredAt = parseDeviceTime(
+          let occurredAt = parseDeviceTime(
             event.AttTime,
             device.timezone_offset_minutes
           )
+          let isPulled = false
+
+          // A live scan read as UTC lands about 5 h 30 min in the future, so it
+          // can never pass this test; a pulled scan read as UTC is in the past.
+          // Known edge: an offline backlog older than 5 h 30 min arriving
+          // inside a pull window is stored 5 h 30 min late.
+          if (pullOpen) {
+            const asUtc = parseDeviceTime(event.AttTime, 0)
+            if (asUtc && asUtc.getTime() <= receivedAt.getTime() + 120_000) {
+              occurredAt = asUtc
+              isPulled = true
+            }
+          }
 
           if (!occurredAt) {
             summary.errors.push(`Unparseable timestamp "${event.AttTime}"`)
@@ -249,7 +280,7 @@ export class RecordAccessEvents {
             ? (membersBySubject.get(subjectId) ?? null)
             : null
 
-          normalised.push({
+          const incoming: IncomingAccessEvent = {
             deviceSerial,
             subjectId: Number.isFinite(subjectId) ? subjectId : 0,
             // Stored as a column, not merely inside `raw`: the check-in log
@@ -263,7 +294,13 @@ export class RecordAccessEvents {
             // Kept whole: the code tables are vendor-supplied but not
             // exhaustive, so an unmapped value must still be recoverable.
             raw: { ...event },
-          })
+          }
+
+          normalised.push(incoming)
+          if (isPulled) {
+            pulled.add(incoming)
+            summary.pulledScans += 1
+          }
         }
 
         // A pulled re-delivery (`GetEventsbyDevSN`) carries the SAME scan with
@@ -309,9 +346,11 @@ export class RecordAccessEvents {
         }
 
         // Only what is genuinely new may say what time the reader thinks it is:
-        // a copy is hours old by construction.
+        // a copy is hours old by construction. A pulled scan is old too, so it
+        // never speaks for the clock either (visit 2, CD-2).
         let newestScan: Date | null = null
         for (const event of normalised) {
+          if (pulled.has(event)) continue
           if (!newestScan || event.occurredAt > newestScan) {
             newestScan = event.occurredAt
           }

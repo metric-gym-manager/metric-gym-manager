@@ -98,7 +98,22 @@ export enum AccessIntent {
   OpenDoor = 'open_door',
   /** Remote restart. Device-level. */
   RebootDevice = 'reboot_device',
+  /**
+   * A record, not work: written before an events pull so ingestion knows a
+   * delivery may be a pull.
+   */
+  EventsPull = 'events_pull',
 }
+
+/**
+ * How long after an events pull a reader's deliveries may carry UTC stamps.
+ *
+ * While a pull marker for a reader is younger than this, ingestion tests each
+ * event's `AttTime` read as UTC (DEC2-08). Half an hour is long enough for the
+ * reader to upload a backlog and short enough that a live scan is not
+ * misread as one.
+ */
+export const EVENTS_PULL_WINDOW_SECONDS = 1800
 
 /** Lifecycle of an outbox job. Mirrors the `access_sync_status` SQL enum. */
 export enum AccessSyncStatus {
@@ -196,6 +211,12 @@ export const DRAIN_BATCH_SIZE = 25
  * dropped their fingerprints.
  */
 export const REBOOT_RESEAT_DELAY_SECONDS = 180
+
+/**
+ * Gives a reader that has just come back time to upload fingers added while it
+ * was offline before Delete User reaches it (visit 2, RB-3/PH-25).
+ */
+export const MANUAL_REPAIR_DELAY_SECONDS = 60
 
 /**
  * Event codes that mean "the reader refused a person it recognised":
@@ -340,3 +361,27 @@ export const ACCESS_EVENT_PURGE_MAX_BATCHES = 500
  * `ACCESS_EVENT_PURGE_BATCH_SIZE` is safe; raising this is not.
  */
 export const ACCESS_EVENT_DELETE_CHUNK_SIZE = 100
+
+/**
+ * ZKTeco finger slots. A member's fingers live in separate slots in the
+ * vendor's copy; enrolling into a used slot replaces that finger. The map is
+ * the ZKTeco standard, confirmed on visit 2: a left thumb enrolled at the
+ * reader came back as slot 4 and a right thumb as slot 5 (PH-25). Every
+ * enrolment used slot 0 before this, so a second finger replaced the first
+ * (V2-4).
+ */
+export const FINGER_SLOTS = [
+  { id: 0, key: 'left-little', label: 'Left little finger' },
+  { id: 1, key: 'left-ring', label: 'Left ring finger' },
+  { id: 2, key: 'left-middle', label: 'Left middle finger' },
+  { id: 3, key: 'left-index', label: 'Left index finger' },
+  { id: 4, key: 'left-thumb', label: 'Left thumb' },
+  { id: 5, key: 'right-thumb', label: 'Right thumb' },
+  { id: 6, key: 'right-index', label: 'Right index finger' },
+  { id: 7, key: 'right-middle', label: 'Right middle finger' },
+  { id: 8, key: 'right-ring', label: 'Right ring finger' },
+  { id: 9, key: 'right-little', label: 'Right little finger' },
+] as const
+
+/** The finger the desk registers unless it chooses another: right index. */
+export const DEFAULT_FINGER_SLOT = 6

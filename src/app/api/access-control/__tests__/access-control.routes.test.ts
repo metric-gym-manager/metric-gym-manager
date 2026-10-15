@@ -32,6 +32,8 @@ const mockRepo = {
 const mockOpenDoor = jest.fn()
 const mockRegisterExecute = jest.fn()
 const mockEnrol = jest.fn()
+const mockRecordConsent = jest.fn()
+const mockRepairReader = jest.fn()
 const mockSyncExecute = jest.fn()
 
 jest.mock('@/lib/auth/requireAccessControlGym', () => ({
@@ -47,9 +49,15 @@ jest.mock('@/features/access-control', () => {
   return {
     ...actual,
     createAccessControlRepository: jest.fn(() => mockRepo),
-    createOperateDevice: jest.fn(() => ({ openDoor: mockOpenDoor })),
+    createOperateDevice: jest.fn(() => ({
+      openDoor: mockOpenDoor,
+      repairReader: mockRepairReader,
+    })),
     createRegisterDevice: jest.fn(() => ({ execute: mockRegisterExecute })),
-    createManageMemberBiometric: jest.fn(() => ({ enrol: mockEnrol })),
+    createManageMemberBiometric: jest.fn(() => ({
+      enrol: mockEnrol,
+      recordConsent: mockRecordConsent,
+    })),
     createSyncMemberAccess: jest.fn(() => ({ execute: mockSyncExecute })),
   }
 })
@@ -60,8 +68,10 @@ import { GET as getDevices, POST as postDevice } from '../devices/route'
 import { PATCH as patchDevice } from '../devices/[id]/route'
 import { POST as enableDevice } from '../devices/[id]/enable/route'
 import { POST as openDoorRoute } from '../devices/[id]/open/route'
+import { POST as repairDevice } from '../devices/[id]/repair/route'
 import { GET as getEvents } from '../events/route'
 import { POST as enrolMember } from '../members/[id]/enrol/route'
+import { POST as recordConsent } from '../members/[id]/consent/route'
 import { POST as syncMember } from '../members/[id]/sync/route'
 
 const CALLER = { gymId: 'gym-1', userId: 'user-1', supabase: {} }
@@ -366,6 +376,101 @@ describe('Access-control routes', () => {
 
       expect(response.status).toBe(400)
       expect(mockRepo.listEvents).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('POST /devices/[id]/repair', () => {
+    it("answers 404 for another gym's reader", async () => {
+      mockRepairReader.mockResolvedValue({
+        applicable: false,
+        membersQueued: 0,
+        error: 'Device not found for this gym',
+      })
+
+      const response = await repairDevice(
+        { json: async () => ({}) } as unknown as NextRequest,
+        params('other-gyms-device')
+      )
+
+      expect(response.status).toBe(404)
+      expect(mockRepairReader).toHaveBeenCalledWith({
+        gymId: 'gym-1',
+        deviceId: 'other-gyms-device',
+        actorId: 'user-1',
+      })
+    })
+
+    it('reports how many members were queued', async () => {
+      mockRepairReader.mockResolvedValue({ applicable: true, membersQueued: 3 })
+
+      const response = await repairDevice(
+        { json: async () => ({}) } as unknown as NextRequest,
+        params('device-1')
+      )
+      const body = await response.json()
+
+      expect(response.status).toBe(200)
+      expect(body.data).toEqual({ membersQueued: 3 })
+    })
+
+    it('refuses callers the entitlement gate refuses', async () => {
+      deny(403)
+
+      const response = await repairDevice(
+        { json: async () => ({}) } as unknown as NextRequest,
+        params('device-1')
+      )
+
+      expect(response.status).toBe(403)
+      expect(mockRepairReader).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('POST /members/[id]/consent', () => {
+    it("answers 404 for another gym's member and records nothing", async () => {
+      mockRepo.getMemberAccessContext.mockResolvedValue({
+        memberId: 'member-1',
+        gymId: 'gym-2',
+      })
+
+      const response = await recordConsent(
+        { json: async () => ({}) } as unknown as NextRequest,
+        params('member-1')
+      )
+
+      expect(response.status).toBe(404)
+      expect(mockRecordConsent).not.toHaveBeenCalled()
+    })
+
+    it("records consent for the caller's own member", async () => {
+      mockRepo.getMemberAccessContext.mockResolvedValue({
+        memberId: 'member-1',
+        gymId: 'gym-1',
+      })
+      mockRecordConsent.mockResolvedValue({
+        applicable: true,
+        dispatched: true,
+      })
+
+      const response = await recordConsent(
+        { json: async () => ({}) } as unknown as NextRequest,
+        params('member-1')
+      )
+
+      expect(response.status).toBe(200)
+      expect(mockRecordConsent).toHaveBeenCalledWith('gym-1', 'member-1')
+    })
+
+    it('refuses callers the entitlement gate refuses', async () => {
+      deny(403)
+
+      const response = await recordConsent(
+        { json: async () => ({}) } as unknown as NextRequest,
+        params('member-1')
+      )
+
+      expect(response.status).toBe(403)
+      expect(mockRecordConsent).not.toHaveBeenCalled()
     })
   })
 

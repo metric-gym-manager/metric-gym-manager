@@ -153,7 +153,10 @@ const optionalVendorString = z.preprocess(
  * read.
  */
 export const accessWebhookEventSchema = z.object({
-  EmpId: requiredVendorString,
+  // Reader system events (power failure 107, POE down 111, reader online 237)
+  // may carry no person. They are stored with subject 0 so a power-loss signal
+  // can be found (visit 2, RB-1).
+  EmpId: optionalVendorString,
   AttTime: requiredVendorString,
   // The one field whose spelling differs from every request in the collection:
   // requests use `DevSN`, the webhook alone uses `DeviceID`.

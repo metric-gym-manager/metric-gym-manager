@@ -27,6 +27,8 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   clearMemberBiometric,
+  recordMemberBiometricConsent,
+  repairAccessDevice,
   disableAccessDevice,
   enableAccessDevice,
   freeAccessDeviceSpace,
@@ -197,6 +199,14 @@ export function useRebootAccessDevice(): UseMutationResult<
   return useMutation({ mutationFn: rebootAccessDevice })
 }
 
+export function useRepairAccessDevice(): UseMutationResult<
+  { membersQueued: number },
+  Error,
+  string
+> {
+  return useMutation({ mutationFn: repairAccessDevice })
+}
+
 /** Manual capacity reclamation. Changes template counts, so devices refetch. */
 export function useFreeAccessDeviceSpace() {
   return useDeviceMutation<FreeSpaceResult, string>(freeAccessDeviceSpace)
@@ -243,6 +253,22 @@ export function useSyncMemberAccess(): UseMutationResult<
     mutationFn: syncMemberAccess,
     onSuccess: (_result, memberId) => {
       queryClient.invalidateQueries({ queryKey: memberAccessKey(memberId) })
+    },
+  })
+}
+
+export function useRecordMemberBiometricConsent(): UseMutationResult<
+  { consentRecorded: boolean },
+  Error,
+  string
+> {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: recordMemberBiometricConsent,
+    onSuccess: (_result, memberId) => {
+      queryClient.invalidateQueries({ queryKey: memberAccessKey(memberId) })
+      queryClient.invalidateQueries({ queryKey: ACCESS_DEVICES_KEY })
     },
   })
 }

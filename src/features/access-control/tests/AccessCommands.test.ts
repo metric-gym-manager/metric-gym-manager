@@ -258,6 +258,67 @@ describe('deriveAccessCommands', () => {
     })
   })
 
+  describe('settled cancellation (visit 2, CD-4)', () => {
+    // Every reconcile and every trigger used to re-send Block + Delete User to
+    // parked members who were already blocked and on no reader.
+    const settled = () =>
+      subject({ lastSyncedBlocked: true, syncedDeviceSerials: [] })
+
+    it('sends nothing to a cancelled member already blocked and held by no reader', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Cancelled),
+        subject: settled(),
+        deviceSerials: ['DEV-1', 'DEV-2'],
+      })
+
+      expect(commands).toEqual([])
+    })
+
+    it('still re-asserts the block and revoke when forced', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Cancelled),
+        subject: settled(),
+        deviceSerials: ['DEV-1'],
+        force: true,
+      })
+
+      expect(commands.map((c) => c.intent)).toEqual([
+        AccessIntent.Block,
+        AccessIntent.RevokeBiometric,
+      ])
+    })
+
+    it('still blocks and revokes when a reader holds the member', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Cancelled),
+        subject: subject({
+          lastSyncedBlocked: true,
+          syncedDeviceSerials: ['DEV-1'],
+        }),
+        deviceSerials: ['DEV-1', 'DEV-2'],
+      })
+
+      const intents = commands.map((c) => c.intent)
+      expect(intents).toContain(AccessIntent.Block)
+      expect(intents).toContain(AccessIntent.RevokeBiometric)
+    })
+
+    it('blocks and revokes a fresh cancellation that was not yet blocked', () => {
+      const commands = deriveAccessCommands({
+        decision: decisionFor(MemberStatus.Cancelled),
+        subject: subject({
+          lastSyncedBlocked: false,
+          syncedDeviceSerials: [],
+        }),
+        deviceSerials: ['DEV-1'],
+      })
+
+      const intents = commands.map((c) => c.intent)
+      expect(intents).toContain(AccessIntent.Block)
+      expect(intents).toContain(AccessIntent.RevokeBiometric)
+    })
+  })
+
   describe('forced re-assert — the desk override', () => {
     // "Re-send to readers" exists for the moment our record and the reader
     // disagree: a reader reset by its installer, a template that never reached

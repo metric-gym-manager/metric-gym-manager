@@ -31,7 +31,7 @@ import type { Discount } from '@/features/settings/types'
 export default function DiscountsTab() {
   const queryClient = useQueryClient()
   const [addModalOpen, setAddModalOpen] = useState(false)
-  const { confirm, ConfirmDialog } = useConfirmDialog()
+  const { confirm, dialog } = useConfirmDialog()
   const phone = useViewportTier() === 'phone'
 
   const {
@@ -406,7 +406,7 @@ export default function DiscountsTab() {
       </Modal>
 
       {/* Confirmation Dialog */}
-      <ConfirmDialog />
+      {dialog}
     </div>
   )
 }
