@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom'
 import { render, screen } from '@testing-library/react'
 import {
+  ARTICLE_PATHS,
   FEATURE_PATHS,
   HOME_PATH,
   HUB_PATH,
@@ -50,6 +51,14 @@ describe('Homepage', () => {
     }
     // The old navigation was hash anchors, with "Resources" pointing at #platform.
     expect(hrefs.has('#platform')).toBe(false)
+  })
+
+  it('links the testimonial to the Fitness Empire case study (SEO-042)', () => {
+    const { container } = render(<HomePage />)
+    const quote = container.querySelector('#quote-section')
+    expect(
+      quote?.querySelector(`a[href="${ARTICLE_PATHS.fitnessEmpire}"]`)
+    ).not.toBeNull()
   })
 
   it('shows the product’s tier names and prices from the pricing config', () => {

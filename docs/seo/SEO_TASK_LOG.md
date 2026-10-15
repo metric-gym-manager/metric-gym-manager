@@ -7,14 +7,14 @@
 | Measure | Value |
 | --- | --- |
 | Audit date | 2026-10-01 |
-| Last task update | 2026-10-05T09:30:02Z |
+| Last task update | 2026-10-15T18:26:49Z |
 | Total tasks | 65 |
 | P0 remaining (not verified/rejected) | 1 |
 | P1 remaining (not verified/rejected) | 2 |
-| Implemented (awaiting verification) | 4 |
-| Verified | 50 |
+| Implemented (awaiting verification) | 3 |
+| Verified | 52 |
 | In progress | 1 |
-| Open (discovered/planned) | 1 |
+| Open (discovered/planned) | 0 |
 | Blocked | 3 |
 | Rejected | 6 |
 | External action required | 8 |
@@ -25,8 +25,8 @@
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | P0 | 0 | 0 | 1 | 0 | 10 | 0 | 0 |
 | P1 | 0 | 0 | 0 | 2 | 20 | 0 | 1 |
-| P2 | 0 | 1 | 0 | 1 | 13 | 2 | 0 |
-| P3 | 0 | 0 | 0 | 1 | 7 | 1 | 5 |
+| P2 | 0 | 0 | 0 | 1 | 14 | 2 | 0 |
+| P3 | 0 | 0 | 0 | 0 | 8 | 1 | 5 |
 
 ## All tasks
 
@@ -72,7 +72,7 @@
 | [SEO-030](#seo-030) | P2 | verified | schema | BreadcrumbList on subpages and Article on resources | no |
 | [SEO-037](#seo-037) | P2 | blocked | local | Google Business Profile eligibility | yes |
 | [SEO-039](#seo-039) | P2 | blocked | off-site | Software directories and review profiles | yes |
-| [SEO-042](#seo-042) | P2 | planned | content | Real case studies and first-party data content | yes |
+| [SEO-042](#seo-042) | P2 | implemented | content | Real case studies and first-party data content | yes |
 | [SEO-044](#seo-044) | P2 | verified | performance | Lab performance check of public pages | no |
 | [SEO-049](#seo-049) | P2 | verified | technical | Homepage overflowed a 320 px viewport | no |
 | [SEO-050](#seo-050) | P2 | verified | on-page | In-text links relied on colour alone; footer contact links below 24 px | no |
@@ -82,7 +82,7 @@
 | [SEO-061](#seo-061) | P2 | verified | content | Guide: overdue gym memberships — when to expire, when to cancel | no |
 | [SEO-063](#seo-063) | P2 | verified | content | Guide: moving a gym's members off a register book or spreadsheet | no |
 | [SEO-064](#seo-064) | P2 | verified | content | Guide: Excel and WhatsApp vs gym management software, written honestly | no |
-| [SEO-065](#seo-065) | P2 | implemented | content | Guide: choosing gym management software in Sri Lanka | no |
+| [SEO-065](#seo-065) | P2 | verified | content | Guide: choosing gym management software in Sri Lanka | no |
 | [SEO-031](#seo-031) | P3 | rejected | schema | FAQPage structured data | no |
 | [SEO-032](#seo-032) | P3 | rejected | schema | LocalBusiness structured data | no |
 | [SEO-033](#seo-033) | P3 | rejected | technical | llms.txt or AI-specific markup | no |
@@ -94,7 +94,7 @@
 | [SEO-047](#seo-047) | P3 | rejected | content | Sinhala and Tamil content | no |
 | [SEO-051](#seo-051) | P3 | verified | on-page | Decorative dashboard preview on the homepage fails colour contrast | no |
 | [SEO-052](#seo-052) | P3 | verified | trust | Weekly members get their '7 days before' reminder on the day they pay | no |
-| [SEO-053](#seo-053) | P3 | implemented | trust | Automated reminders and receipts do not name the gym | yes |
+| [SEO-053](#seo-053) | P3 | verified | trust | Automated reminders and receipts do not name the gym | yes |
 | [SEO-058](#seo-058) | P3 | verified | internal-linking | Seven related-page cards linked the hub with the same exact-match anchor | no |
 | [SEO-060](#seo-060) | P3 | verified | performance | Public pages still load the signed-in app's providers: Supabase client, react-query, service-worker registration, AuthRecovery | no |
 
@@ -105,9 +105,9 @@
 - **SEO-059** (P1, verified) — GA4 receives one-time auth tokens: the full URL of /reset-password and /verify-email links, token included
 - **SEO-037** (P2, blocked) — Google Business Profile eligibility
 - **SEO-039** (P2, blocked) — Software directories and review profiles
-- **SEO-042** (P2, planned) — Real case studies and first-party data content
+- **SEO-042** (P2, implemented) — Real case studies and first-party data content
 - **SEO-041** (P3, blocked) — Founder and team information
-- **SEO-053** (P3, implemented) — Automated reminders and receipts do not name the gym
+- **SEO-053** (P3, verified) — Automated reminders and receipts do not name the gym
 
 ## Task detail
 
@@ -623,7 +623,7 @@ Partially actioned: the '−95% LATE PAYMENTS' statistic and 'RUNNING NATIONWIDE
 | Intent | none |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-05T03:17:31Z |
+| Updated | 2026-10-15T18:26:49Z |
 | Completed | — |
 | Dependencies | — |
 
@@ -639,6 +639,9 @@ No Search Console verification exists in the repository and this environment has
 
 - No google-site-verification meta tag or file in the repository.
 - Owner set up the Domain property, submitted the sitemap and requested indexing on 2026-10-05. Checked from outside that day: the google-site-verification TXT record is on metricgymos.com; /sitemap.xml answers 200 as application/xml with no X-Robots-Tag (apex and http forms 308 to it); robots.txt names it; all 20 listed URLs answer 200 to a Googlebot user agent with self canonicals and no noindex; the Vercel project has no firewall configuration.
+- 2026-10-15, Search Console Page indexing (owner, data to 2026-10-12): 4 indexed, 22 not indexed, 25 impressions over nine days. Not indexed: 16 Discovered - currently not indexed (Google systems), 3 Page with redirect, 2 Duplicate without user-selected canonical, 1 Blocked due to other 4xx issue. Known URLs rose from 9 to 26 on 2026-10-05, the day the sitemap was submitted; 4 indexed + 16 discovered = the 20 sitemap URLs.
+- 2026-10-15: https://www.metricgymos.com/sitemap.xml answered 200 application/xml with 20 URLs; robots.txt names it.
+- 2026-10-15: the Sitemaps report reads Success (owner). The two "Duplicate without user-selected canonical" URLs are /login?redirect=/privacy and /login?redirect=/terms, last crawled 2026-08-02, before /privacy and /terms were public and before /login had a canonical; live the same day both answer 200 with a /login canonical. The one "Blocked due to other 4xx issue" URL is https://links.updates.metricgymos.com/, Resend click tracking (CNAME links2.resend-dns.com), whose bare root answers 400 by design. Nothing to fix; the baseline is due around 2026-11-02.
 
 **Recommended change**
 
@@ -2058,12 +2061,12 @@ List Metric on relevant software directories with consistent NAP; collect genuin
 | Field | Value |
 | --- | --- |
 | Priority | P2 |
-| Status | planned |
+| Status | implemented |
 | Category | content |
 | Intent | informational |
 | External action | required |
 | Created | 2026-10-01T17:40:00Z |
-| Updated | 2026-10-05T09:30:02Z |
+| Updated | 2026-10-15T18:26:49Z |
 | Completed | — |
 | Dependencies | SEO-022 |
 
@@ -2081,22 +2084,32 @@ Fitconnect's strongest content is original local data. Metric holds anonymisable
 - src/features/sms (sms_logs delivery statuses); revenue and analytics features.
 - Read-only probe of production, 2026-10-05. Customer gyms with data: Fitness Empire (231 members, 847 payments, 1,275 texts), Yomak Health Hub (60/60/7), Titan Fitness (52/83/191, including test members), Royal Fitness World (11 members) and LifeLine Fitness (1). Fitness Empire is about 65% of members and about 85% of payments and texts, so a cross-gym aggregate would be its figures under another name.
 - Fitness Empire, 2026-10-05: on Metric since 2026-02-28; 134 of 231 members active; payments recorded about 90 a month March to July, 148 in August, 166 in September; April to September, after removing 30 same-day duplicate payments, 48.2% of 531 renewals were recorded on or before the due date and 81.5% within a week. No delivery report has ever arrived, so delivery rates cannot be published; there is no pre-Metric baseline.
+- 2026-10-15: the owner approved the recommendation (no cross-gym study until about 10 gyms hold data) and the Fitness Empire figures as of 2026-10-05. Read-only the same day: Fitness Empire runs no door readers and has no QR self-registrations, so the case study claims neither.
+- 2026-10-15: Fitness Empire agreed to the case study (owner); merged through PR #106.
 
 **Recommended change**
 
-Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies. Owner consent, 2026-10-04: one named case study (Fitness Empire only) and an anonymised aggregate study from Metric's own records. Next: a read-only data probe and a plan; the owner approves every published figure. Probe done 2026-10-05: recommend no cross-gym study until about 10 gyms hold data with none above a quarter of it; the Fitness Empire figures listed in HANDOFF §6 await the owner and Fitness Empire.
+Owner approval and customer consent, then publish an aggregate, anonymised study and one or two named case studies. Owner consent, 2026-10-04: one named case study (Fitness Empire only) and an anonymised aggregate study from Metric's own records. Next: a read-only data probe and a plan; the owner approves every published figure. Probe done 2026-10-05: recommend no cross-gym study until about 10 gyms hold data with none above a quarter of it; the Fitness Empire figures listed in HANDOFF §6 await the owner and Fitness Empire. Owner approval 2026-10-15; the case study page is next, published only after Fitness Empire has read it.
 
 **Implementation**
 
-—
+Fitness Empire case study at /resources/fitness-empire-case-study (registry article, PUBLIC_ROUTES, sitemap, Article JSON-LD, no review markup). Every figure and the quote come from FITNESS_EMPIRE in features/marketing/config/caseStudies.ts, the snapshot the owner approved; the homepage testimonial reads its quote from the same object and links to the page. The page states the as-of date and how the figures were counted, and claims nothing the gym does not use (no door readers, no QR sign-up) and no money amounts.
 
 **Files**
 
-- —
+- `src/features/marketing/config/caseStudies.ts`
+- `src/features/marketing/config/pages.ts`
+- `src/app/(marketing)/resources/fitness-empire-case-study/page.tsx`
+- `src/components/landing/LandingPage.tsx`
+- `src/lib/auth-config.ts`
+- `src/app/(marketing)/__tests__/MarketingPages.test.tsx`
+- `src/app/__tests__/HomePage.test.tsx`
 
 **Verification**
 
-- Not yet verified
+- MarketingPages.test.tsx pins every figure to the 2026-10-15 approval, the as-of date, the method section, the owner quote, no door/fingerprint/QR/reader/money claim and no review markup; HomePage.test.tsx pins the testimonial link. Four mutations each fail a test: a changed figure, the route removed from PUBLIC_ROUTES, a door-reader sentence, the homepage link removed.
+- Chromium against next dev --webpack, 2026-10-15: 200, one h1, self canonical, no robots meta; no horizontal overflow at 1366, 390 and 320; lowest text contrast 5.48:1 (the aria-hidden breadcrumb separator, decorative and shared with every guide, excluded); screenshots reviewed. next build --webpack: page prerendered static, built sitemap lists 21 URLs including it.
+- Not yet live: it is merged only after Fitness Empire has read the draft (HANDOFF section 6).
 
 ### SEO-044
 
@@ -2576,13 +2589,13 @@ src/app/(marketing)/resources/excel-whatsapp-vs-gym-software/page.tsx: Article p
 | Field | Value |
 | --- | --- |
 | Priority | P2 |
-| Status | implemented |
+| Status | verified |
 | Category | content |
 | Intent | commercial |
 | External action | no |
 | Created | 2026-10-04T15:48:40Z |
-| Updated | 2026-10-04T17:01:12Z |
-| Completed | — |
+| Updated | 2026-10-15T17:38:43Z |
+| Completed | 2026-10-15T17:38:43Z |
 | Dependencies | — |
 
 **Target queries**
@@ -2622,6 +2635,7 @@ src/app/(marketing)/resources/choosing-gym-management-software-sri-lanka/page.ts
 
 - Five mutations, each caught: the path removed from PUBLIC_ROUTES; the /privacy link removed; the product page's body link removed; the fingerprint-consent sentence weakened; "Metric sends reminders by WhatsApp." added (two patterns).
 - Chromium, local production build, 2026-10-04: 200 for a signed-out visitor, in the sitemap (20 URLs), one h1, no horizontal overflow at seven widths from 1366 to 320.
+- Production 2026-10-15, fetched as Googlebot: 200, one h1, self-referencing canonical, no robots meta, Article JSON-LD, and listed in the live sitemap (20 URLs).
 
 ### SEO-031
 
@@ -3134,13 +3148,13 @@ Owner decision 2026-10-04: weekly plans get no automated reminders of any kind, 
 | Field | Value |
 | --- | --- |
 | Priority | P3 |
-| Status | implemented |
+| Status | verified |
 | Category | trust |
 | Intent | none |
 | External action | required |
 | Created | 2026-10-01T18:24:04Z |
-| Updated | 2026-10-03T17:25:40Z |
-| Completed | — |
+| Updated | 2026-10-15T17:38:43Z |
+| Completed | 2026-10-15T17:38:43Z |
 | Dependencies | — |
 
 **Target queries**
@@ -3189,6 +3203,7 @@ One pure template module, src/features/sms/config/SmsTemplates.ts, builds the we
 - Use-case suites assert the gym name reaches the sent and logged text; the reminders suite asserts one name read per run across two gyms (a per-member read fails it)
 - MarketingPages.test.tsx: the three pages quote the template output verbatim (a hard-coded literal fails it) and no page says the text does not name the gym
 - Not yet verified in production: after deploy, the next registration's sms_logs welcome row names the gym, and the owner reads the new texts on a real phone (HANDOFF.md section 6)
+- Production, read-only SQL 2026-10-15: all 192 automated texts sent outside the E2E gyms from 2026-10-05 to 2026-10-15 name their gym (10 welcome, 68 receipts, 55 three-day reminders, 54 due-today, 5 reactivations). The owner asked for the task to be marked verified on 2026-10-06; the handset reading is not recorded here.
 
 ### SEO-058
 

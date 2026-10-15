@@ -89,6 +89,7 @@ export const PUBLIC_ROUTES = [
   '/resources/excel-whatsapp-vs-gym-software',
   '/resources/billed-vs-collected-revenue',
   '/resources/choosing-gym-management-software-sri-lanka',
+  '/resources/fitness-empire-case-study',
   // Email preferences, reached from a marketing or update email's footer by
   // people who may have no session here (or no account: demo leads). Reads no
   // session and no tenant data; the link's signed token is checked by

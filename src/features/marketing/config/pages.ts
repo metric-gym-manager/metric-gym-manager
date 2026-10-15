@@ -66,6 +66,7 @@ export const ARTICLE_PATHS = {
   compare: '/resources/excel-whatsapp-vs-gym-software',
   revenue: '/resources/billed-vs-collected-revenue',
   choose: '/resources/choosing-gym-management-software-sri-lanka',
+  fitnessEmpire: '/resources/fitness-empire-case-study',
 } as const
 
 const SITE_LAUNCH = '2026-10-01'
@@ -81,6 +82,8 @@ const PARTNER_UNNAMED = '2026-10-04'
 const SOCIAL_LINKED = '2026-10-04'
 /** The buying guide (SEO-065), written once the owner confirmed its facts. */
 const CHOOSE_GUIDE = '2026-10-04'
+/** The Fitness Empire case study (SEO-042, figures approved 2026-10-15). */
+const FITNESS_EMPIRE_STORY = '2026-10-15'
 /**
  * The privacy policy says policy-change notices are emailed to every current
  * gym whatever its email choices, making the old "notify you where
@@ -198,7 +201,7 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
       'Guides for Sri Lankan gyms: choosing software, Excel and WhatsApp vs software, moving off a register book, reminders, overdue members and revenue.',
     label: 'Resources',
     parent: HOME_PATH,
-    lastModified: CHOOSE_GUIDE,
+    lastModified: FITNESS_EMPIRE_STORY,
   },
   {
     path: ARTICLE_PATHS.reminders,
@@ -265,6 +268,17 @@ export const MARKETING_PAGES: readonly MarketingPage[] = [
     parent: RESOURCES_PATH,
     lastModified: SITE_LAUNCH,
     published: SITE_LAUNCH,
+  },
+  {
+    path: ARTICLE_PATHS.fitnessEmpire,
+    kind: 'article',
+    title: 'Fitness Empire, Wattala: 7 Months on Metric | Metric Gym OS',
+    description:
+      'How a Wattala gym runs 134 active members on Metric: the texts it no longer sends by hand, the payments it records, and when its members renew.',
+    label: 'Fitness Empire case study',
+    parent: RESOURCES_PATH,
+    lastModified: FITNESS_EMPIRE_STORY,
+    published: FITNESS_EMPIRE_STORY,
   },
   {
     path: '/privacy',
