@@ -48,6 +48,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - aggressive caching strategy and Lighthouse performance optimization ([e6d7b23](../../commit/e6d7b23))
 
+## [1.5.0] - 2026-10-15
+
+### Added
+
+- After a power cut, use Repair fingerprints on the Door Access page to bring every member's fingerprint back. ([3234972](../../commit/3234972))
+- You can now record a member's consent for a fingerprint that was added at the reader. ([18eedc0](../../commit/18eedc0))
+- Members can now register a second fingerprint, and each finger is kept. ([25a828c](../../commit/25a828c))
+
+### Fixed
+
+- Confirmation boxes no longer occasionally ignore your click while the page refreshes behind them. ([22d231e](../../commit/22d231e))
+
 ## [1.4.0] - 2026-10-10
 
 ### Fixed
