@@ -149,6 +149,16 @@ export function deriveAccessCommands(
   // Block first, then revoke: either one alone shuts the door, so if the
   // second call fails the member is still out.
   if (decision.removeFromDevice) {
+    // Already blocked and on no reader: re-sending Block + Delete User every
+    // night changed nothing and churned the queues (visit 2, CD-4).
+    if (
+      !force &&
+      subject.lastSyncedBlocked === true &&
+      subject.syncedDeviceSerials.length === 0
+    ) {
+      return []
+    }
+
     const commands: AccessCommand[] = []
 
     for (const deviceSerial of deviceSerials) {

@@ -209,6 +209,14 @@ export async function rebootAccessDevice(
   )
 }
 
+export async function repairAccessDevice(
+  deviceId: string
+): Promise<{ membersQueued: number }> {
+  return post<{ membersQueued: number }>(
+    `/api/access-control/devices/${deviceId}/repair`
+  )
+}
+
 export interface FreeSpaceResult {
   freed: number
   /**
@@ -322,6 +330,18 @@ export async function getMemberEnrolment(
   )
 
   return (await unwrap<{ enrolled: boolean }>(response)).data
+}
+
+/**
+ * Record consent for a fingerprint that already exists, e.g. one registered at
+ * the reader's own menu (visit 2, V2-6). Talks to no reader.
+ */
+export async function recordMemberBiometricConsent(
+  memberId: string
+): Promise<{ consentRecorded: boolean }> {
+  return post<{ consentRecorded: boolean }>(
+    `/api/access-control/members/${memberId}/consent`
+  )
 }
 
 /**

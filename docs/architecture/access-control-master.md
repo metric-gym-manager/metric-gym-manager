@@ -315,6 +315,21 @@ reference: `GetEventsbyDevSN` (a pull path for attendance — the only recovery
 route for scans lost while our webhook was down), `EnrollFace`, and
 command-queue deletion.
 
+### 3.12 Measured on the readers (visits 1 and 2, 2026-10-09/10)
+
+- A reader sends **no event when it boots or powers up**.
+- A restart **started from our app** keeps users and drops every fingerprint that reached the reader from VFT's central copy (re-seat, unpark, Re-send); fingers enrolled on that reader survive (PH-15). A **power cut** does the same, and on firmware 3.3.12 also drops fingers enrolled on that reader (PH-26).
+- A finger added at the reader's menu while it is offline uploads on reconnect; a Delete User delivered before that upload destroys it (PH-25).
+- Readers **never report a refusal of a finger they do not recognise**; refusals of known members arrive as event 23 or 29 (PH-03, PH-24).
+- VFT never sends event **8** for a remote door open.
+- `Enroll User` returns **0** when a finger was taken and **6** when the reader's ~10 s window timed out.
+- `GetEventsbyDevSN` re-delivers stored events through the webhook with `AttTime` in **UTC** (live deliveries are reader-local); handled by DEC2-08.
+- VFT's copy holds **several finger slots** per member; slots follow the ZKTeco standard map (`FINGER_SLOTS`).
+- A reader clock set before a member's window start refuses with event **29** "membership expired", not a not-yet-valid code.
+- Readers show **no user ID** during enrolment, only on later scans.
+- The test readers run on **Wi-Fi**; "unplugging the network" means the menu's Wi-Fi switch.
+- **Confirmed known edge (RB-3):** a re-seat queued while a reader is offline deletes fingers added there during the outage.
+
 ---
 
 ## 4. What is built — complete inventory

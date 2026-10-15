@@ -253,6 +253,8 @@ last event (no heartbeat); _Fingerprints_ on a card counts only after an
 eviction run; an enrolment is confirmed only by the first fingerprint scan;
 Door Access needs a reload to show new scans.
 
+Readers show no user ID during enrolment. "Re-send to readers" is a re-seat: Delete User on every reader first, then the re-add. A restart's repair lands 3–8 min after the restart. "Repair fingerprints" on a reader card queues the same re-seat for every member that reader holds, 60 s later.
+
 ---
 
 ## 8. Recording and syncing

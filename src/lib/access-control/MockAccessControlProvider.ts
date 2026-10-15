@@ -265,6 +265,14 @@ export class MockAccessControlProvider implements IAccessControlProvider {
     return { status: 'queued' }
   }
 
+  async requestEventsUpload(
+    _credentials: AccessCredentials,
+    deviceSerial: string
+  ): Promise<CommandOutcome> {
+    this.record({ operation: 'requestEventsUpload', deviceSerial })
+    return { status: 'applied' }
+  }
+
   async listPendingCommands(
     _credentials: AccessCredentials,
     _deviceSerial?: string

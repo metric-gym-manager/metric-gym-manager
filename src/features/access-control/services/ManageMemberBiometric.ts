@@ -281,6 +281,35 @@ export class ManageMemberBiometric {
   }
 
   /**
+   * Record consent for a fingerprint that already exists.
+   *
+   * A finger registered at the reader's own menu arrives with no consent on
+   * file (visit 2, V2-6/CD-3). This writes the timestamp and nothing else: no
+   * reader is contacted, and the repository never restamps a member who has
+   * already consented, so calling it twice keeps the original record.
+   *
+   * @param gymId - Owning gym.
+   * @param memberId - Member whose consent to record.
+   * @returns `dispatched` is true once the record is written.
+   */
+  async recordConsent(
+    gymId: string,
+    memberId: string
+  ): Promise<BiometricOperationResult> {
+    const credentials = await this.repo.getCredentials(gymId)
+    if (!credentials) return { applicable: false, dispatched: false }
+
+    const context = await this.repo.getMemberAccessContext(memberId)
+    if (!context || context.gymId !== gymId) {
+      return { applicable: true, dispatched: false, error: 'Member not found' }
+    }
+
+    await this.repo.recordBiometricConsent(memberId, new Date())
+
+    return { applicable: true, dispatched: true }
+  }
+
+  /**
    * Clear a member's fingerprint, keeping their membership untouched.
    *
    * @param gymId - Owning gym.

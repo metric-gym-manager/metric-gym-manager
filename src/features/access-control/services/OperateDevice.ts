@@ -17,6 +17,7 @@ import type { IAccessControlProvider } from '@/lib/access-control'
 import type { IAccessControlRepository } from './IAccessControlRepository'
 import {
   AccessIntent,
+  MANUAL_REPAIR_DELAY_SECONDS,
   REBOOT_RESEAT_DELAY_SECONDS,
 } from '@/features/access-control/config/AccessControlConfig'
 
@@ -40,6 +41,14 @@ export interface OperateDeviceResult {
   membersQueuedForRepair?: number
 }
 
+export interface RepairReaderResult {
+  /** False when the gym has no access control or the reader is not theirs. */
+  applicable: boolean
+  /** How many members were queued for a re-seat. */
+  membersQueued: number
+  error?: string
+}
+
 export class OperateDevice {
   constructor(
     private readonly repo: IAccessControlRepository,
@@ -56,12 +65,77 @@ export class OperateDevice {
   }
 
   /**
+   * Ask a reader to upload its stored attendance log.
+   *
+   * Recorded as a marker job before the vendor is called, so ingestion knows
+   * the next deliveries from this reader may be a pull and carry UTC stamps
+   * (visit 2, CD-2).
+   *
+   * @param input - Gym, device and the acting user.
+   */
+  async requestEventsUpload(
+    input: OperateDeviceInput
+  ): Promise<OperateDeviceResult> {
+    return this.operate(input, AccessIntent.EventsPull)
+  }
+
+  /**
    * Restart a reader.
    *
    * @param input - Gym, device and the acting user.
    */
   async reboot(input: OperateDeviceInput): Promise<OperateDeviceResult> {
     return this.operate(input, AccessIntent.RebootDevice)
+  }
+
+  /**
+   * Queue a re-seat of every member a reader holds (visit 2, DEC2-09).
+   *
+   * The manual stopgap for a power cut (RB-1): after one, only a re-seat
+   * restored fingers (PH-26). It runs `MANUAL_REPAIR_DELAY_SECONDS` later and
+   * the dialog tells the gym to press it once the reader has been back on for a
+   * minute, because a re-seat delivered while the reader is still offline
+   * destroys a finger added there (PH-25, RB-3). No reader is contacted here.
+   *
+   * @param input - Gym, device and the acting user.
+   */
+  async repairReader(input: OperateDeviceInput): Promise<RepairReaderResult> {
+    const credentials = await this.repo.getCredentials(input.gymId)
+    if (!credentials) return { applicable: false, membersQueued: 0 }
+
+    // Resolved from our own records, like every device operation: this lookup
+    // is the tenant boundary.
+    const devices = await this.repo.listDevices(input.gymId)
+    const device = devices.find((d) => d.id === input.deviceId)
+    if (!device) {
+      return {
+        applicable: false,
+        membersQueued: 0,
+        error: 'Device not found for this gym',
+      }
+    }
+
+    const memberIds = await this.repo.listMemberIdsOnDevice(
+      input.gymId,
+      device.device_serial
+    )
+    const notBefore = new Date(Date.now() + MANUAL_REPAIR_DELAY_SECONDS * 1000)
+    const membersQueued = await this.repo.enqueueMany(
+      input.gymId,
+      memberIds.map((memberId) => ({
+        memberId,
+        intent: AccessIntent.ReconcileMember,
+        payload: {
+          reason: 'reader_repair_requested',
+          reseat: true,
+          deviceSerial: device.device_serial,
+          actorId: input.actorId,
+        },
+        notBefore,
+      }))
+    )
+
+    return { applicable: true, membersQueued }
   }
 
   private async operate(
@@ -100,7 +174,12 @@ export class OperateDevice {
     const outcome =
       intent === AccessIntent.OpenDoor
         ? await this.provider.openDoor(credentials, device.device_serial)
-        : await this.provider.rebootDevice(credentials, device.device_serial)
+        : intent === AccessIntent.EventsPull
+          ? await this.provider.requestEventsUpload(
+              credentials,
+              device.device_serial
+            )
+          : await this.provider.rebootDevice(credentials, device.device_serial)
 
     if (outcome.status === 'failed') {
       return { applicable: true, dispatched: false, error: outcome.error }

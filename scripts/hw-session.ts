@@ -72,20 +72,29 @@
  *   park --member M | --mine           suspend → cancel → push (nobody active overnight)
  *   unpark --member M | --mine         reactivate, due +200 days → push
  *   pay | suspend | cancel | reactivate [--due D] --member M [--no-push]   real use cases, then push
- *   push | resend --member M [--vendor-url U]       sync (resend = forced, as the panel's button)
+ *   push | resend --member M [--vendor-url U]       sync; resend = forced re-seat: Delete User on every reader,
+ *                                                   then re-add from VFT's copy (same as the app's Re-send)
  *   rename --member M --to "HW Test N …"            rename and push the name to the readers
  *   set-dates --member M [--due D] [--start D]      D = YYYY-MM-DD | today | yesterday | tomorrow | +N | -N
  *   vendor validperiod|block|grant|sync --member M --reader A|B [--start YYYYMMDD --end YYYYMMDD]
- *   vendor events-pull --reader A|B
- *   enrol --member M --reader A|B [--consent] [--vendor-url U [--fail-consent-write]]
- *   withdraw --member M                consent withdrawal, as the panel's Remove fingerprint
+ *   vendor events-pull --reader A|B   the product's events pull: records the marker job, then asks the reader
+ *   vendor device-raw --reader A|B    read-only: that reader's raw vendor device row (IsReboot, LastRequestTime,
+ *                                     UserCount, FpCount, *Stamp …) for comparing before and after a restart
+ *   enrol --member M --reader A|B [--finger KEY] [--consent] [--vendor-url U [--fail-consent-write]]
+ *                                      KEY = left-little … left-thumb, right-thumb … right-little
+ *                                      (FINGER_SLOTS keys; default right-index). A different key adds a finger,
+ *                                      the same key replaces it.
+ *   withdraw --member M                as the panel's Remove fingerprint: removes the vendor employee (fingerprints
+ *                                      erased), issues a new subject id, clears consent; a still-active member is
+ *                                      re-added with no finger. The ONLY place removeSubject is allowed through.
  *   race <scenario> --member M [--member2 M] [--reader A|B] [--consent] [--vendor-url U]
  *        consent | enrol-both | enrol-two | enrol-vs-cancel | double-cancel | pay-vs-dates | trio
  *   ambiguous enrol --member M [--reader A|B] [--consent]
  *   ambiguous push --member M --lose <provider method> [--force]
  *
  *   drain [--crash-after N | --crash-on-complete] [--vendor-url U]
- *   reconcile                          the real nightly reconcile for Titan, now
+ *   reconcile [--members N,N,…]        the real nightly reconcile for Titan, now; --members limits it to those
+ *                                      HW members (numbers) and skips capacity eviction
  *   reclaim --older-than S             return stale in_flight jobs to pending
  *   open | reboot --reader A|B
  *   free-space                         refuses if a real member would be evicted
@@ -159,6 +168,7 @@ import {
   AccessIntent,
   AccessSyncStatus,
   DEVICE_OFFLINE_AFTER_SECONDS,
+  FINGER_SLOTS,
 } from '../src/features/access-control/config/AccessControlConfig'
 import { VftAccessControlProvider } from '../src/lib/access-control/VftAccessControlProvider'
 import type {
@@ -490,7 +500,7 @@ function scopeOf(name: string, line: string): Scope {
     case 'withdraw':
       return 'member'
     case 'vendor':
-      return has(/\bevents-pull\b/) ? 'reader' : 'member'
+      return has(/\b(events-pull|device-raw)\b/) ? 'reader' : 'member'
     case 'enrol':
       return has(/--vendor-url/) ? 'member' : 'reader'
     case 'ambiguous':
@@ -651,18 +661,36 @@ const VENDOR_METHODS = new Set([
   'startFingerEnrolment',
   'openDoor',
   'rebootDevice',
+  'requestEventsUpload',
   'listPendingCommands',
 ])
 
 const rawProvider = new VftAccessControlProvider()
 
-/** The real vendor client, paced, and unable to delete a vendor subject. */
+/**
+ * Vendor subject ids `removeSubject` may be called for, right now.
+ *
+ * Empty except for the length of one `withdraw`, which adds the ONE HW member
+ * being withdrawn and removes them again in a `finally` (visit 2, CR-1). The
+ * product's Remove fingerprint deletes the vendor employee, so a console that
+ * cannot do the same cannot exercise it; every other deletion stays refused.
+ */
+const allowedRemovals = new Set<string>()
+
+/**
+ * The real vendor client, paced, and unable to delete a vendor subject except
+ * the one `withdraw` has just named.
+ */
 const provider: IAccessControlProvider = new Proxy(rawProvider, {
   get(target, prop, receiver) {
     const value = Reflect.get(target, prop, receiver)
     if (prop === 'removeSubject') {
-      return async () => {
-        throw new Error('hw-session never deletes a vendor subject')
+      return async (...callArgs: unknown[]) => {
+        if (!allowedRemovals.has(String(callArgs[1]))) {
+          throw new Error('hw-session never deletes a vendor subject')
+        }
+        await pace()
+        return (value as (...a: unknown[]) => unknown).apply(target, callArgs)
       }
     }
     if (typeof value !== 'function') return value
@@ -1036,25 +1064,6 @@ async function vendorGet(path: string): Promise<unknown> {
   )
   if (!response.ok) throw new Error(`GET ${path} → HTTP ${response.status}`)
   return response.json()
-}
-
-async function vendorPost(
-  path: string
-): Promise<{ status: number; text: string }> {
-  if (!vendorToken) vendorToken = await provider.signIn(credentials())
-  await pace()
-  const response = await fetch(
-    new URL(path, credentials().baseUrl).toString(),
-    {
-      method: 'POST',
-      headers: { ApiToken: vendorToken },
-      signal: AbortSignal.timeout(20_000),
-    }
-  )
-  return {
-    status: response.status,
-    text: (await response.text()).slice(0, 300),
-  }
 }
 
 type VendorRow = Record<string, unknown>
@@ -2199,16 +2208,25 @@ async function jobs(): Promise<void> {
 // Member lifecycle — real use cases, texts suppressed
 // ============================================================
 
-/** Push one member now, as the inline provision after a change does. */
+/**
+ * Push one member now, as the inline provision after a change does.
+ *
+ * `force` is the app's Re-send, and the app's Re-send is a re-seat (Delete User
+ * on every reader, then the re-add), so the console's `resend` re-seats too
+ * (visit 2, CR-1): a forced push alone is ignored by a reader that lost its
+ * templates (visit 1, D1).
+ */
 async function pushMember(memberId: string, force = false): Promise<void> {
   const result = await new SyncMemberAccess(
     sessionRepository(),
     provider
   ).execute({
     memberId,
-    ...(force ? { force: true } : {}),
+    ...(force ? { force: true, reseat: true } : {}),
   })
-  console.log(`  push${force ? ' (forced)' : ''}: ${JSON.stringify(result)}`)
+  console.log(
+    `  push${force ? ' (forced re-seat)' : ''}: ${JSON.stringify(result)}`
+  )
 }
 
 async function writeDates(
@@ -2450,7 +2468,7 @@ async function push(): Promise<void> {
   gate()
   const member = await hwMember(arg('member'))
   const force = command === 'resend'
-  const plan = `${force ? 'force a re-send (the panel button)' : 'push'} for ${member.name}${usingStub() ? ' to the STUB vendor' : ''}`
+  const plan = `${force ? 're-seat (the app’s Re-send: Delete User on every reader, then re-add)' : 'push'} for ${member.name}${usingStub() ? ' to the STUB vendor' : ''}`
   console.log(`${plan}.`)
   if (!apply) return dryRun(plan)
   await pushMember(member.id, force)
@@ -2650,6 +2668,27 @@ async function drain(): Promise<void> {
 
 async function reconcile(): Promise<void> {
   gate()
+  // Visit 2, CR-1: `--members 5,6` limits the run to those HW members, so a
+  // supervised test (PH-24) cannot touch anyone else. Each number goes through
+  // the same fence as every other `--member`.
+  const memberArg = arg('members')
+  const chosen = memberArg
+    ? await Promise.all(
+        memberArg
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean)
+          .map((value) => hwMember(value))
+      )
+    : null
+  if (memberArg && (!chosen || chosen.length === 0)) {
+    fail('--members needs HW member numbers, e.g. --members 5,6')
+  }
+  if (chosen) {
+    console.log(
+      `Reconcile limited to: ${chosen.map((member) => member.name).join(', ')} (capacity eviction skipped).`
+    )
+  }
   const real = sessionRepository()
   const enqueued: string[] = []
   const repo = apply
@@ -2671,7 +2710,10 @@ async function reconcile(): Promise<void> {
     new SupabaseGymSubscriptionRepository(supabase),
     new EvictInactiveSubjects(repo, provider),
     provider
-  ).execute({ gymId: TITAN_GYM_ID })
+  ).execute({
+    gymId: TITAN_GYM_ID,
+    ...(chosen ? { memberIds: chosen.map((member) => member.id) } : {}),
+  })
 
   console.log(
     `${apply ? '✓ Reconcile ran' : 'DRY RUN reconcile (nothing enqueued)'}:`,
@@ -2733,13 +2775,38 @@ async function vendor(): Promise<void> {
     console.log(
       `Ask reader ${readerLetter(serial)} to upload its stored attendance log (changes nothing on the reader).`
     )
-    if (!apply) return dryRun(`POST /api/devicecmd/events?DevSN=${serial}`)
-    const result = await vendorPost(
-      `/api/devicecmd/events?DevSN=${encodeURIComponent(serial)}`
-    )
+    // Through the product's own operation (visit 2, CD-2): it records the
+    // marker job first, which is what lets ingestion read the re-delivered
+    // events as UTC. A bare vendor POST would leave them stored five and a
+    // half hours off.
+    if (!apply) {
+      return dryRun(
+        `record an events_pull marker, then POST /api/devicecmd/events?DevSN=${serial}`
+      )
+    }
+    const result = await new OperateDevice(
+      sessionRepository(),
+      provider
+    ).requestEventsUpload({
+      gymId: TITAN_GYM_ID,
+      deviceId: await deviceIdFor(serial),
+      actorId: 'hw-session',
+    })
     console.log(
-      `✓ HTTP ${result.status}  ${result.text}\n  Next: watch-queue and watch-events.\n`
+      `✓ Use case returned: ${JSON.stringify(result)}\n  Next: watch-queue and watch-events.\n`
     )
+    return
+  }
+
+  if (op === 'device-raw') {
+    // Read-only, so no --apply: prints one reader's vendor row as the vendor
+    // sent it, to compare IsReboot, LastRequestTime, UserCount, FpCount and the
+    // *Stamp counters before and after a restart (visit 2, signal hunt).
+    const row = rows(await vendorGet('/api/device')).find(
+      (device) => String(device.DevSN) === serial
+    )
+    if (!row) fail('reader not in the vendor list')
+    console.log(redact(JSON.stringify(row, null, 2)))
     return
   }
 
@@ -2786,7 +2853,7 @@ async function vendor(): Promise<void> {
       break
     default:
       return fail(
-        'vendor needs one of: validperiod, block, grant, sync, events-pull'
+        'vendor needs one of: validperiod, block, grant, sync, events-pull, device-raw'
       )
   }
 
@@ -2813,7 +2880,16 @@ async function enrol(): Promise<void> {
   gate()
   const member = await hwMember(arg('member'))
   const reader = readerSerial(arg('reader'))
-  const plan = `put reader ${readerLetter(reader)}${usingStub() ? ' (STUB vendor — no real reader)' : ''} into enrol mode for ${member.name}${flag('consent') ? ', recording the consent the operator confirmed' : ''}`
+  // Visit 2, CD-1/V2-4: each finger has its own slot, so the operator picks the
+  // finger. A different key adds a finger; the same key replaces it.
+  const fingerKey = arg('finger') ?? 'right-index'
+  const slot = FINGER_SLOTS.find((candidate) => candidate.key === fingerKey)
+  if (!slot) {
+    fail(
+      `--finger must be one of: ${FINGER_SLOTS.map((candidate) => candidate.key).join(', ')}`
+    )
+  }
+  const plan = `put reader ${readerLetter(reader)}${usingStub() ? ' (STUB vendor — no real reader)' : ''} into enrol mode for ${member.name}, finger: ${slot.label} (slot ${slot.id})${flag('consent') ? ', recording the consent the operator confirmed' : ''}`
   // `--fail-consent-write` (stub only): the consent write throws, as a lost
   // database connection would. Nothing may reach a reader after that.
   const failConsent = flag('fail-consent-write')
@@ -2847,6 +2923,7 @@ async function enrol(): Promise<void> {
     gymId: TITAN_GYM_ID,
     memberId: member.id,
     deviceId: await deviceIdFor(reader),
+    fingerId: slot.id,
     ...(flag('consent') ? { consentGranted: true } : {}),
   })
   console.log('✓ Use case returned:', JSON.stringify(result))
@@ -2860,20 +2937,36 @@ async function enrol(): Promise<void> {
 /**
  * The panel offers "Remove fingerprint" only once a finger is registered, so a
  * withdrawal DURING an enrolment cannot be driven from it. This calls the same
- * use case the button does: fromdev revoke, flag cleared, consent cleared.
+ * use case the button does: it removes the vendor employee (fingerprints
+ * erased), issues a new subject id and clears the consent; a still-active
+ * member is re-added with no finger.
+ *
+ * That use case calls `removeSubject`, which the provider proxy refuses for
+ * everything except the one subject id named here for the length of the call
+ * (visit 2, CR-1).
  */
 async function withdraw(): Promise<void> {
   gate()
   const member = await hwMember(arg('member'))
-  const plan = `withdraw ${member.name}'s fingerprint consent (fromdev revoke on every reader, flag and consent cleared)`
+  const plan = `withdraw ${member.name}'s fingerprint (removes the vendor employee, fingerprints erased; issues a new subject id; clears consent; a still-active member is re-added with no finger)`
   console.log(`Withdraw: ${plan}.`)
   if (!apply) return dryRun(plan)
 
-  const result = await new ManageMemberBiometric(
-    sessionRepository(),
-    provider
-  ).clear(TITAN_GYM_ID, member.id)
-  console.log('✓ Use case returned:', JSON.stringify(result))
+  const repo = sessionRepository()
+  const subjectId = (await repo.getMemberAccessContext(member.id))?.subject
+    ?.subject_id
+  if (subjectId === undefined) fail('withdraw: this member has no subject')
+
+  allowedRemovals.add(String(subjectId))
+  try {
+    const result = await new ManageMemberBiometric(repo, provider).clear(
+      TITAN_GYM_ID,
+      member.id
+    )
+    console.log('✓ Use case returned:', JSON.stringify(result))
+  } finally {
+    allowedRemovals.delete(String(subjectId))
+  }
   console.log('  Next: snapshot and watch-queue on both readers.\n')
 }
 
