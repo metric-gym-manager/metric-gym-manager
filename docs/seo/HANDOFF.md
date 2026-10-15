@@ -58,6 +58,12 @@ This file is a snapshot of the branch at `e2db9f7`. When it and `SEO_TASKS.json`
   - every workspace date now reads `27 Aug 2026`;
   - the homepage preview's revenue tile reads 1,164,000 (owner, revised the same day: 312 active members at about LKR 4,000 a month; Fitness Empire's 136 bring in about 600k), with the six-month bars rescaled to match.
 
+- **2026-10-15: the first Search Console data, and SEO-042 approved.**
+  - **Page indexing on 2026-10-12, from the owner:** 4 pages indexed and 22 not, 25 impressions over nine days. Google knows 26 URLs. The 20 sitemap URLs account for the 4 indexed and the 16 "Discovered – currently not indexed": Google has every sitemap page queued but has crawled few. The other 6 are 3 redirects (expected), 2 "duplicate without user-selected canonical" and 1 "blocked due to other 4xx". Those 3 URLs are not known yet (§6).
+  - **The sitemap the same day:** `https://www.metricgymos.com/sitemap.xml` answers 200 `application/xml` with the 20 URLs, and `robots.txt` names it.
+  - **SEO-042:** the owner approved the recommendation (no cross-gym study) and the Fitness Empire figures. The case study page is next.
+  - **SEO-053** is verified: all 192 automated texts sent outside the E2E gyms from 2026-10-05 to 2026-10-15 name their gym. **SEO-065** is verified on production.
+
 - **Everything left for the owner is one open checklist in §6** ("Owner, outside the repository"). Tick an item only when it is done.
 - **SEO-056 implemented.** Registration fires GA4 `sign_up` and no longer puts the address in the `/verify-email` URL. It moves to `verified` once the owner marks `sign_up` as a key event and sees it in DebugView.
 - **SEO-059 implemented (P1).** GA4 was receiving one-time auth tokens: an unspent password-reset `token_hash` was in the page URL GA records. GA now loads only through `gaInitScript()` (`src/lib/analytics/ga-init.ts`). On a URL with `token_hash`, `token`, `code` or `email`, or under `/join/`, nothing is loaded from Google. GA4 query-parameter redaction (step 3 below) is still worth turning on as a second layer.
@@ -178,7 +184,27 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   - URL Inspection's "Sitemaps: No referring sitemaps detected" comes from Google's index, which is updated only when Google recrawls the page after reading the sitemap — usually days, sometimes a couple of weeks for a new property. Requesting indexing does not change that line.
   - The Sitemaps report can show "Couldn't fetch" for a day or two on a new property before it reads "Success". In a Domain property the field takes the **full URL**: if the listed sitemap is anything other than `https://www.metricgymos.com/sitemap.xml`, remove it and submit that URL.
   - Done when the Sitemaps report reads **Success** with **20 discovered pages**. If it still reads "Couldn't fetch" after three days with that exact URL, note the date and the message here.
+  - **2026-10-15:** Search Console's Page indexing report (owner, data to 2026-10-12) shows Google learnt 22 more URLs on 2026-10-05, the day of submission, and all 20 sitemap URLs are known (4 indexed, 16 discovered). The sitemap was evidently read. The live sitemap answered 200 with 20 URLs the same day. To close this item, either the Sitemaps report reads **Success**, or Page indexing filtered to **All submitted pages** shows 20.
 - [ ] **First baseline (SEO-036).** About four weeks after the sitemap reads Success, record the first baseline following `SEO_AUDIT.md` §17.
+  - **Early data, 2026-10-04 to 2026-10-12 (not the baseline):** 4 indexed, 22 not indexed, 25 impressions in nine days.
+
+    | Reason                                    | Pages | Read as                                                                                                  |
+    | ----------------------------------------- | ----: | -------------------------------------------------------------------------------------------------------- |
+    | Discovered – currently not indexed        |    16 | Sitemap pages Google has not crawled yet. Normal for a new domain; no fault on the site                  |
+    | Page with redirect                        |     3 | Expected: the apex and `http://` forms, `/features` and the signed-in paths all redirect by design       |
+    | Duplicate without user-selected canonical |     2 | Unknown URLs; every public page has a canonical, so these are probably URLs outside the site's own pages |
+    | Blocked due to other 4xx issue            |     1 | Unknown URL. Not 404, 401 or 403, which have reasons of their own                                        |
+- [ ] **Send the example URLs (SEO-036).** In Search Console → Pages, open "Duplicate without user-selected canonical", "Blocked due to other 4xx issue" and "Page with redirect", and send the URLs under Examples. The first two decide whether anything needs fixing. The redirects are almost certainly fine.
+- [ ] **Which four pages are indexed (SEO-036).** In Pages, open the indexed view and send the list.
+- [ ] **Request indexing, a few a day (SEO-036).** For each sitemap page that is not indexed, run URL Inspection → Request indexing. Google allows roughly ten requests a day. In this order:
+  1. `/gym-management-software-sri-lanka`
+  2. `/pricing`
+  3. the five `/features/…` pages
+  4. `/resources` and its six guides
+  5. `/about` and `/contact`
+
+  It speeds up the first crawl but guarantees nothing. Links from directory listings (SEO-039) and the Facebook page are what raise crawl priority over time.
+
 - [x] **GA4 stream (SEO-035, SEO-056).** **Decided 2026-10-05:** the site reports to the owner's stream **G-6C0BXYD101**. Until this change it reported to G-D711W4RE25 (since 2026-09-20), which the owner's account did not show, so GA said the tag was not detected. Data already in G-D711W4RE25 stays in that property. The ID changed in `src/lib/analytics/ga-init.ts`; GA still loads only through `gaInitScript()`, so credential URLs stay out of it (SEO-059). The two items below apply to the G-6C0BXYD101 stream. Quick check after the deploy: GA → Reports → Realtime shows a visit within a minute or two; the stream page's "not detected" notice can take up to 48 hours to clear.
 - [x] **GA4 redaction (SEO-056, SEO-059).** **Done by the owner 2026-10-05.** At analytics.google.com: Admin → Data collection and modification → Data streams → the `www.metricgymos.com` web stream (G-6C0BXYD101) → Redact data. Turn on email redaction and query-parameter redaction, add `token_hash`, `token`, `code` and `email`, then save. The code already keeps both out of GA; this is the second layer.
 - [x] **Sign-up and password-reset emails failed: Gmail rejected the SMTP login (P0, found and fixed 2026-10-05).** Every sign-up answered "Error sending confirmation email": Supabase's auth log showed `/signup` → 500 with `535 5.7.8 Username and Password not accepted` at 04:26 and 04:30 UTC.
@@ -229,8 +255,8 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   - Decide which describes Metric. If it qualifies, create the profile with the `site.ts` details and tell the repository session.
 - [x] **Social profiles (SEO-040, P3).** **Confirmed 2026-10-04:** the Facebook page `https://www.facebook.com/people/Metric-Gym-OS/61593409007692/`. It is in the Organization `sameAs` and linked on `/contact` (`3476d69`).
 - [x] **Case studies (SEO-042, P2).** **Consent given 2026-10-04:** one named case study, Fitness Empire only, and an anonymised data study from Metric's own records. Next is a separate round: a read-only data probe and a plan.
-- [ ] **Approve the case-study and data-study figures (SEO-042).** Every figure on either page is shown to you before it is published.
-- [ ] **SEO-042: the anonymised data study (decision).** The read-only probe of 2026-10-05 found little customer data to aggregate:
+- [x] **Approve the case-study and data-study figures (SEO-042).** **Approved by the owner 2026-10-15.** Every figure on the page is shown again in the draft before it is published.
+- [x] **SEO-042: the anonymised data study (decision).** **Agreed 2026-10-15: no cross-gym study for now.** The read-only probe of 2026-10-05 found little customer data to aggregate:
   - Fitness Empire: 231 members, 847 payments, 1,275 texts.
   - Yomak Health Hub: 60, 60, 7.
   - Titan Fitness: 52, 83, 191, including test members.
@@ -240,7 +266,7 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   - **Recommendation:** no cross-gym study for now. Revisit at 10 or more gyms with data, none above about a quarter of it.
   - **Decide:** agree, or say where the 25+ / 7,900+ figures come from if not from this database (an older system?).
 
-- [ ] **SEO-042: Fitness Empire figures to approve.** Each also needs Fitness Empire's agreement. From the database, 2026-10-05:
+- [x] **SEO-042: Fitness Empire figures to approve.** **Approved by the owner 2026-10-15** (figures as of 2026-10-05). Each also needs Fitness Empire's agreement. From the database, 2026-10-05:
   - On Metric since 28 Feb 2026.
   - 231 members registered; 134 active today; all but 2 on monthly plans.
   - Payments recorded: about 90 a month from March to July, 148 in August, 166 in September.
@@ -250,6 +276,7 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
   The data cannot support the testimonial's "80% admin time" (it stays a quote), delivery rates (no delivery report has ever arrived), or any before-and-after comparison (no pre-Metric records). Monthly rupee totals are Fitness Empire's confidential figures; the recommendation is not to publish them.
   - **Optional:** a short interview with Zulfi Ahamath on how the desk ran before Metric (register book? reminders by hand?). That is the story a case study needs, and the database cannot tell it.
 
+- [ ] **Fitness Empire reads the case study before it goes live (SEO-042).** The page names the gym and its owner and publishes its figures. Send Zulfi Ahamath the draft (the repository session produces it) and confirm his agreement. The figures are dated 5 October 2026 on the page. Fitness Empire runs no door readers and no QR sign-ups, so the page does not mention either.
 - [x] **Sinhala and Tamil (SEO-047, P3).** **Decided 2026-10-04: English only.** No Sinhala or Tamil pages; SEO-047 is rejected.
 
 **Product and design decisions**
@@ -273,8 +300,8 @@ Every item below is **open**. It is the owner's to do or decide, and each one st
 **SMS overhaul (`claude/sms-templates`)**
 
 - [ ] **Test members in Titan Fitness.** Remove or keep "Test bulk 1" and "Test bulk 2". Together they carry 1,600 in revenue, and both are on the door readers. Their welcome texts were never logged, and none will be backfilled: whether those texts went out is unknown.
-- [ ] **Welcome text after deploy.** Register one member, confirm the welcome text arrives, and confirm it has an `sms_logs` row that names the gym. The row can be read with `SELECT sent_at, delivery_status, message_body FROM sms_logs WHERE sms_type = 'welcome' ORDER BY sent_at DESC LIMIT 1`.
-- [ ] **New wording on a real phone.** Read the welcome, a receipt and a reminder on a handset. The welcome is deliberately two SMS segments; every other message is one at typical lengths.
+- [x] **Welcome text after deploy.** **Checked 2026-10-15 (read-only SQL):** 10 welcome texts since the deploy, every one naming its gym, as do 182 receipts, reminders and reactivations. Register one member, confirm the welcome text arrives, and confirm it has an `sms_logs` row that names the gym. The row can be read with `SELECT sent_at, delivery_status, message_body FROM sms_logs WHERE sms_type = 'welcome' ORDER BY sent_at DESC LIMIT 1`.
+- [x] **New wording on a real phone.** **The owner asked for SEO-053 to be marked verified (2026-10-06).** The handset reading itself is not recorded here. Read the welcome, a receipt and a reminder on a handset. The welcome is deliberately two SMS segments; every other message is one at typical lengths.
 - [ ] **Delivery reports never arrive** (found 2026-10-04, not changed by this branch).
   - **The data.** No `sms_logs` row has ever been updated by a delivery report: rows are only ever `sent`, or `failed` at the moment of sending. Since 2026-02-14, 1,763 messages carry a real text.lk message id, 648 of them sent after the 2026-09-05 webhook fix, and none is `delivered`. (An earlier note said 2,094 and 979. Those counted 362 `mock_` ids from test runs.)
   - **No report has arrived.** In the 24 hours to 2026-10-04 00:49 UTC, 34 messages went out and Vercel logged no request to any `/api/webhooks/*` path.
@@ -458,7 +485,7 @@ Ready now, in priority order:
 
 1. ~~**SEO-056 (P1)**~~, ~~**SEO-059 (P1)**~~ and ~~**SEO-055 (P2)**~~ were implemented on 2026-10-02 (see the progress note at the top).
 2. **New guides** from `SEO_AUDIT.md` §8. All four are written: overdue memberships (SEO-061), moving off a register book (SEO-063), Excel and WhatsApp vs software (SEO-064), and choosing gym management software in Sri Lanka (SEO-065, 2026-10-04).
-3. **Case study and data study (SEO-042).** Consent given 2026-10-04 (Fitness Empire; anonymised study). Start with a read-only data probe and a plan; the owner approves every figure.
+3. **Fitness Empire case study (SEO-042).** The probe is done (2026-10-05). On 2026-10-15 the owner approved the figures and agreed there is no cross-gym study for now. Next is the page, built from the approved figures and the confirmed testimonial; it goes live only after Fitness Empire has read it (§6).
 4. **P3 items.** ~~SEO-043~~, ~~SEO-051~~, ~~SEO-052~~, ~~SEO-053~~ and ~~SEO-060~~ are done (SEO-060 on `claude/seo-060-app-providers`, 2026-10-05).
 5. **Found by the inverted check of 2026-10-04:**
    - ~~The homepage canonical test checks the metadata object, not the HTML.~~ **Fixed 2026-10-05:** `metadata.test.ts` runs every registry page through Next's own `resolveAlternates` and `resolveOpenGraph`, in the node environment (jsdom lacks `URLSearchParams.size`, which Next's root-path branch reads). A production build's 20 sitemap pages matched it exactly.
@@ -498,20 +525,19 @@ Waiting on owner input:
 
 ## 7. Task log status
 
-65 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes on `claude/site-followups-2026-10-05`. Counts recomputed from the JSON on 2026-10-05.
+65 tasks in `SEO_TASKS.json`; `npm run seo:report -- --check` passes on `claude/seo-gsc-2026-10-15`. Counts recomputed from the JSON on 2026-10-15.
 
-| Status      | Count | Tasks                                                                                                                                            |
-| ----------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Verified    |    50 | See `SEO_TASK_LOG.md`                                                                                                                            |
-| Implemented |     4 | SEO-035 (P1, awaiting the `generate_lead` DebugView check); SEO-026 (P1, awaiting Google's move); SEO-065 (P2); SEO-053 (P3, after-deploy check) |
-| In progress |     1 | SEO-036 (P0, Search Console set up; waiting for the sitemap to read Success, then the baseline)                                                  |
-| Planned     |     1 | SEO-042 (P2, case study and data study)                                                                                                          |
-| Blocked     |     3 | SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                              |
-| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                      |
+| Status      | Count | Tasks                                                                                                                                                                  |
+| ----------- | ----: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Verified    |    52 | See `SEO_TASK_LOG.md`                                                                                                                                                  |
+| Implemented |     2 | SEO-035 (P1, awaiting the `generate_lead` DebugView check); SEO-026 (P1, awaiting Google's move)                                                                       |
+| In progress |     2 | SEO-036 (P0: 4 of 20 sitemap pages indexed; the sitemap status, then the baseline); SEO-042 (P2: figures approved 2026-10-15; the Fitness Empire case study page next) |
+| Blocked     |     3 | SEO-037, SEO-039 (P2); SEO-041 (P3)                                                                                                                                    |
+| Rejected    |     6 | SEO-031, SEO-032, SEO-033, SEO-034; SEO-038 (owner: do not name the partner); SEO-047 (owner: English only)                                                            |
 
 - P0 remaining: 1 (SEO-036), in progress: Search Console is set up; the sitemap status and the first baseline remain.
 - P1 remaining: 2 (SEO-026, awaiting Google's move; SEO-035, awaiting the `generate_lead` DebugView check).
-- External action required: 7 open tasks (SEO-035, SEO-036, SEO-037, SEO-039, SEO-041, SEO-042, SEO-053).
+- External action required: 6 open tasks (SEO-035, SEO-036, SEO-037, SEO-039, SEO-041, SEO-042).
 
 ## 8. Files changed
 
