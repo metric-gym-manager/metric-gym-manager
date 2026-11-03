@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -31,12 +31,31 @@ interface PlanType {
 interface EditMemberModalProps {
   open: boolean
   onClose: () => void
+  /**
+   * Called once a save has gone through, just before `onClose`. Lets the host
+   * refresh everything outside this feature that prints a member's name,
+   * phone or plan, so this component does not have to know those query keys.
+   */
+  onSaved?: () => void
   member: MemberWithDiscount | null
+}
+
+/** The editable slice of a member, in the shape the form holds it. */
+function toFormValues(member: MemberWithDiscount): UpdateMemberInput {
+  return {
+    name: member.name,
+    phoneNumber: member.phone_number,
+    planType: member.plan_type,
+    planAmount: member.plan_amount,
+    discountId: member.discount_id ?? null,
+    recurringDiscount: member.recurring_discount,
+  }
 }
 
 export default function EditMemberModal({
   open,
   onClose,
+  onSaved,
   member,
 }: EditMemberModalProps) {
   const queryClient = useQueryClient()
@@ -47,7 +66,10 @@ export default function EditMemberModal({
     watch,
     setValue,
     reset,
-    formState: { errors },
+    // `dirtyFields` has to be read here: react-hook-form only tracks what the
+    // component subscribes to, and both the re-sync below and the PATCH body
+    // depend on knowing which fields the user actually touched.
+    formState: { errors, dirtyFields },
   } = useForm<UpdateMemberInput>({
     resolver: zodResolver(updateMemberSchema),
   })
@@ -92,18 +114,24 @@ export default function EditMemberModal({
     }
   }, [watchPlanType, planTypesData, member, setValue])
 
-  // Reset form when member changes or modal opens
+  // Load the form when the modal opens on a member, and keep it in step with
+  // the server afterwards.
+  //
+  // This used to `reset()` on every change of the `member` reference, which
+  // threw away whatever the user had typed whenever the detail query handed
+  // back a fresh object — a background refetch after a stale cache hit is
+  // enough. Now only a new session (modal opened, or a different member)
+  // starts from a clean form; a refresh within the same session updates the
+  // fields the user has not touched and leaves the ones they have.
+  const loadedFor = useRef<string | null>(null)
   useEffect(() => {
-    if (member && open) {
-      reset({
-        name: member.name,
-        phoneNumber: member.phone_number,
-        planType: member.plan_type,
-        planAmount: member.plan_amount,
-        discountId: member.discount_id || undefined,
-        recurringDiscount: member.recurring_discount,
-      })
+    if (!open || !member) {
+      loadedFor.current = null
+      return
     }
+    const sameSession = loadedFor.current === member.id
+    loadedFor.current = member.id
+    reset(toFormValues(member), { keepDirtyValues: sameSession })
   }, [member, open, reset])
 
   // Update member mutation
@@ -132,12 +160,28 @@ export default function EditMemberModal({
         })
       }
       toast.success('Member updated successfully')
+      onSaved?.()
       onClose()
     },
   })
 
   const onSubmit = (data: UpdateMemberInput) => {
-    updateMemberMutation.mutate(data)
+    // Send what the user changed, not the whole form. The form was filled from
+    // a copy of the member that may already be out of date (a cached detail
+    // read, a payment collected since), and writing every field back would
+    // silently revert the ones the user never touched.
+    const changes = Object.fromEntries(
+      Object.entries(data).filter(
+        ([field]) => dirtyFields[field as keyof UpdateMemberInput]
+      )
+    ) as UpdateMemberInput
+
+    if (Object.keys(changes).length === 0) {
+      onClose()
+      return
+    }
+
+    updateMemberMutation.mutate(changes)
   }
 
   if (!member) return null
@@ -225,7 +269,8 @@ export default function EditMemberModal({
               onChange={(e) =>
                 setValue(
                   'planType',
-                  e.target.value as UpdateMemberInput['planType']
+                  e.target.value as UpdateMemberInput['planType'],
+                  { shouldDirty: true }
                 )
               }
             >
@@ -278,7 +323,9 @@ export default function EditMemberModal({
               value={watchDiscountId || 'none'}
               onChange={(e) => {
                 const value = e.target.value
-                setValue('discountId', value === 'none' ? null : value)
+                setValue('discountId', value === 'none' ? null : value, {
+                  shouldDirty: true,
+                })
               }}
             >
               <option value="none">No Discount</option>
@@ -300,8 +347,12 @@ export default function EditMemberModal({
           >
             <Checkbox
               id="recurringDiscount"
-              checked={watch('recurringDiscount')}
-              onChange={(e) => setValue('recurringDiscount', e.target.checked)}
+              checked={watch('recurringDiscount') ?? false}
+              onChange={(e) =>
+                setValue('recurringDiscount', e.target.checked, {
+                  shouldDirty: true,
+                })
+              }
             />
             <span>Apply discount to all future payments</span>
           </Label>

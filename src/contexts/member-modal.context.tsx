@@ -38,6 +38,21 @@ const MemberAccessPanel = dynamic(
   { ssr: false }
 )
 
+/**
+ * Queries owned by other features that print a member's name, phone or plan
+ * (the dues and collected lists, the dashboard, the reminder queue). The edit
+ * modal lives in the members feature and cannot name these, so the provider —
+ * which already composes both sides — refreshes them after a save. Without
+ * this they keep showing the old values for the full `staleTime`.
+ */
+const MEMBER_DERIVED_QUERY_KEYS = [
+  ['regular-payments'],
+  ['payment-collection'],
+  ['dashboard'],
+  ['dashboard-metrics'],
+  ['reminder-queue'],
+] as const
+
 interface MemberModalContextValue {
   openMember: (memberId: string) => void
 }
@@ -97,7 +112,20 @@ export function MemberModalProvider({ children }: { children: ReactNode }) {
   const handleEditClose = useCallback(() => {
     setEditOpen(false)
     setMemberId(null)
-  }, [])
+    // Same reason as `handleDetailClose`: left in the cache, the pre-edit copy
+    // is what the detail modal renders the next time this member is opened,
+    // until the refetch lands — which reads as "my change was not saved".
+    // Removing it makes the next open start from the skeleton.
+    if (memberId) {
+      queryClient.removeQueries({ queryKey: ['member-detail', memberId] })
+    }
+  }, [memberId, queryClient])
+
+  const handleEditSaved = useCallback(() => {
+    for (const queryKey of MEMBER_DERIVED_QUERY_KEYS) {
+      queryClient.invalidateQueries({ queryKey })
+    }
+  }, [queryClient])
 
   return (
     <MemberModalContext.Provider value={{ openMember }}>
@@ -117,6 +145,7 @@ export function MemberModalProvider({ children }: { children: ReactNode }) {
       <EditMemberModal
         open={editOpen}
         onClose={handleEditClose}
+        onSaved={handleEditSaved}
         member={memberData?.member ?? null}
       />
     </MemberModalContext.Provider>
