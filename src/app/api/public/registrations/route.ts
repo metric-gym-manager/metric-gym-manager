@@ -10,6 +10,7 @@ import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { ConflictError, ValidationError } from '@/utils/errors'
 import { PlanType, getPlanLabel } from '@/features/members/config/PlanConfig'
 import { RegistrationSource } from '@/features/members/config/RegistrationConfig'
+import { PHOTO_FIELDS } from '@/features/members/config/MemberWriteFields'
 import { publicRegistrationSchema } from '@/features/registration/schemas/registration.schemas'
 import {
   resolveRegistrationToken,
@@ -158,8 +159,11 @@ export async function POST(request: NextRequest) {
       )
       uploadUrl = presign.uploadUrl
 
-      await createMemberRepository(supabase).update(
-        member.updatePhoto(photoPath)
+      // The two photo columns only: the member exists already, and anything
+      // changed on the row since registration returned it must not be undone.
+      await createMemberRepository(supabase).updateFields(
+        member.updatePhoto(photoPath),
+        PHOTO_FIELDS
       )
     }
 

@@ -17,6 +17,8 @@
 import { Member } from '@/features/members/domain/Member'
 import { IMemberRepository } from './IMemberRepository'
 import { MEMBER_CANCELLATION_OVERDUE_DAYS } from '@/features/members/config/StatusConfig'
+import { STATUS_FIELDS } from '@/features/members/config/MemberWriteFields'
+import { ConflictError } from '@/utils/errors'
 
 /**
  * Summary of cancellations
@@ -41,6 +43,13 @@ export interface CancelOverdueMembersSummary {
    * Errors encountered
    */
   errors: string[]
+
+  /**
+   * Members left alone because they changed while this job was running (paid,
+   * reactivated, suspended): their status or due date no longer matched what
+   * this job read, so writing would have reverted the change. Not an error.
+   */
+  skippedChanged: number
 }
 
 /**
@@ -82,6 +91,7 @@ export class CancelOverdueMembers {
       totalCancelled: 0,
       cancelledMembers: [],
       errors: [],
+      skippedChanged: 0,
     }
 
     try {
@@ -121,8 +131,14 @@ export class CancelOverdueMembers {
           // Use state machine to transition to cancelled
           const cancelledMember = member.cancel()
 
-          // Persist update
-          await this.memberRepo.update(cancelledMember)
+          // Persist the status only, and only if the member is still expired
+          // and still due on the date this run read. The list was read once, up
+          // front; a payment recorded since would otherwise be reverted by
+          // writing back what was read.
+          await this.memberRepo.updateFields(cancelledMember, STATUS_FIELDS, {
+            expectedStatus: member.status,
+            expectedNextDueDate: member.nextDueDate,
+          })
 
           // Add to summary
           summary.totalCancelled++
@@ -137,6 +153,11 @@ export class CancelOverdueMembers {
             `  - Cancelled: ${member.name} (was due: ${this.formatDate(member.nextDueDate)}, ${daysOverdue} days overdue)`
           )
         } catch (error) {
+          if (error instanceof ConflictError) {
+            summary.skippedChanged++
+            console.log(`  - Skipped: ${member.name} changed while this ran`)
+            continue
+          }
           const errorMsg = `Failed to cancel member ${member.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
           summary.errors.push(errorMsg)
           console.error(`  ✗ ${errorMsg}`)

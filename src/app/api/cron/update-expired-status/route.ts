@@ -64,6 +64,7 @@ async function runUpdateExpiredStatus(request: NextRequest) {
       totalUpdated: summary.totalUpdated,
       updatedMembers: summary.updatedMembers,
       errors: summary.errors,
+      skippedChanged: summary.skippedChanged,
       duration: `${duration}ms`,
     })
 
@@ -72,6 +73,7 @@ async function runUpdateExpiredStatus(request: NextRequest) {
         totalUpdated: summary.totalUpdated,
         updatedMembers: summary.updatedMembers,
         errors: summary.errors,
+        skippedChanged: summary.skippedChanged,
         duration: `${duration}ms`,
       }),
       { status: 200 }

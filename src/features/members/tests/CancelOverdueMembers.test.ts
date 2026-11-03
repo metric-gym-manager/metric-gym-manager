@@ -51,7 +51,7 @@ function makeMember(
 function mockMemberRepo(expired: Member[]) {
   return {
     findAllExpiredMembers: jest.fn().mockResolvedValue(expired),
-    update: jest.fn(async (m: Member) => m),
+    updateFields: jest.fn(async (m: Member) => m),
   } as unknown as jest.Mocked<IMemberRepository>
 }
 
@@ -68,8 +68,8 @@ describe('CancelOverdueMembers — 14-day cancellation threshold', () => {
     const summary = await new CancelOverdueMembers(memberRepo).execute()
 
     expect(summary.totalCancelled).toBe(1)
-    expect(memberRepo.update).toHaveBeenCalledTimes(1)
-    const persisted = memberRepo.update.mock.calls[0][0]
+    expect(memberRepo.updateFields).toHaveBeenCalledTimes(1)
+    const persisted = memberRepo.updateFields.mock.calls[0][0]
     expect(persisted.status).toBe(MemberStatus.Cancelled)
     expect(summary.cancelledMembers[0].daysOverdue).toBe(
       MEMBER_CANCELLATION_OVERDUE_DAYS
@@ -85,7 +85,7 @@ describe('CancelOverdueMembers — 14-day cancellation threshold', () => {
     const summary = await new CancelOverdueMembers(memberRepo).execute()
 
     expect(summary.totalCancelled).toBe(2)
-    expect(memberRepo.update).toHaveBeenCalledTimes(2)
+    expect(memberRepo.updateFields).toHaveBeenCalledTimes(2)
   })
 
   it('does NOT cancel a member one day short of the threshold (13 days overdue)', async () => {
@@ -100,7 +100,7 @@ describe('CancelOverdueMembers — 14-day cancellation threshold', () => {
     const summary = await new CancelOverdueMembers(memberRepo).execute()
 
     expect(summary.totalCancelled).toBe(0)
-    expect(memberRepo.update).not.toHaveBeenCalled()
+    expect(memberRepo.updateFields).not.toHaveBeenCalled()
   })
 
   it('cancels members the old 45-day rule would have left expired', async () => {
@@ -131,7 +131,7 @@ describe('CancelOverdueMembers — 14-day cancellation threshold', () => {
       makeMember(MemberStatus.Expired, daysAgo(20), 'Broken One'),
       makeMember(MemberStatus.Expired, daysAgo(20), 'Healthy One'),
     ])
-    ;(memberRepo.update as jest.Mock)
+    ;(memberRepo.updateFields as jest.Mock)
       .mockRejectedValueOnce(new Error('db down'))
       .mockImplementationOnce(async (m: Member) => m)
 

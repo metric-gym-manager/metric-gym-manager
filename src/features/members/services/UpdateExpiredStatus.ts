@@ -16,6 +16,8 @@
 
 import { Member } from '@/features/members/domain/Member'
 import { IMemberRepository } from './IMemberRepository'
+import { STATUS_FIELDS } from '@/features/members/config/MemberWriteFields'
+import { ConflictError } from '@/utils/errors'
 
 /**
  * Summary of status updates
@@ -39,6 +41,13 @@ export interface UpdateExpiredStatusSummary {
    * Errors encountered
    */
   errors: string[]
+
+  /**
+   * Members left alone because they changed while this job was running (paid,
+   * reactivated, suspended): their status or due date no longer matched what
+   * this job read, so writing would have reverted the change. Not an error.
+   */
+  skippedChanged: number
 }
 
 /**
@@ -72,6 +81,7 @@ export class UpdateExpiredStatus {
       totalUpdated: 0,
       updatedMembers: [],
       errors: [],
+      skippedChanged: 0,
     }
 
     try {
@@ -103,8 +113,14 @@ export class UpdateExpiredStatus {
           // Use state machine to transition to expired
           const expiredMember = member.expire()
 
-          // Persist update
-          await this.memberRepo.update(expiredMember)
+          // Persist the status only, and only if the member is still active and
+          // still due on the date this run read. The list was read once, up
+          // front; a payment or suspension recorded since would otherwise be
+          // reverted by writing back what was read.
+          await this.memberRepo.updateFields(expiredMember, STATUS_FIELDS, {
+            expectedStatus: member.status,
+            expectedNextDueDate: member.nextDueDate,
+          })
 
           // Add to summary
           summary.totalUpdated++
@@ -118,6 +134,11 @@ export class UpdateExpiredStatus {
             `  - Expired: ${member.name} (was due: ${this.formatDate(member.nextDueDate)})`
           )
         } catch (error) {
+          if (error instanceof ConflictError) {
+            summary.skippedChanged++
+            console.log(`  - Skipped: ${member.name} changed while this ran`)
+            continue
+          }
           const errorMsg = `Failed to expire member ${member.name}: ${error instanceof Error ? error.message : 'Unknown error'}`
           summary.errors.push(errorMsg)
           console.error(`  ✗ ${errorMsg}`)

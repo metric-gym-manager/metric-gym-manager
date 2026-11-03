@@ -2492,7 +2492,7 @@ async function rename(): Promise<void> {
   if (!apply) return dryRun(plan)
   const current = await memberRepo.findById(member.id, TITAN_GYM_ID)
   if (!current) fail('member vanished')
-  await memberRepo.update(current.updateName(to))
+  await memberRepo.updateFields(current.updateName(to), ['name'])
   const pushed = await new PushRename(sessionRepository(), provider).member(
     TITAN_GYM_ID,
     member.id
@@ -3104,7 +3104,9 @@ async function race(): Promise<void> {
         if (!current) throw new Error('member vanished')
         return Promise.all([
           settle('enrol', () => enrolOn(member.id, reader, true)),
-          settle('rename', () => memberRepo.update(current.updateName(to))),
+          settle('rename', () =>
+            memberRepo.updateFields(current.updateName(to), ['name'])
+          ),
           settle('pay', () =>
             new CollectPayment(
               memberRepo,

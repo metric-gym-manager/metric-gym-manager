@@ -60,7 +60,6 @@ function mockMemberRepo(
   return {
     findAllActiveMembers: jest.fn().mockResolvedValue([]),
     findById: jest.fn().mockResolvedValue(null),
-    update: jest.fn(async (m: Member) => m),
     updateFields: jest.fn(async (m: Member) => m),
     ...overrides,
   } as unknown as jest.Mocked<IMemberRepository>
@@ -77,8 +76,8 @@ describe('UpdateExpiredStatus — immediate expiry, NO grace period', () => {
     const summary = await new UpdateExpiredStatus(memberRepo).execute()
 
     expect(summary.totalUpdated).toBe(1)
-    expect(memberRepo.update).toHaveBeenCalledTimes(1)
-    const persisted = memberRepo.update.mock.calls[0][0]
+    expect(memberRepo.updateFields).toHaveBeenCalledTimes(1)
+    const persisted = memberRepo.updateFields.mock.calls[0][0]
     expect(persisted.status).toBe(MemberStatus.Expired)
   })
 
@@ -92,7 +91,7 @@ describe('UpdateExpiredStatus — immediate expiry, NO grace period', () => {
     const summary = await new UpdateExpiredStatus(memberRepo).execute()
 
     expect(summary.totalUpdated).toBe(0)
-    expect(memberRepo.update).not.toHaveBeenCalled()
+    expect(memberRepo.updateFields).not.toHaveBeenCalled()
   })
 
   it('expires members who would previously have sat in the old 7-day grace window', async () => {
@@ -108,7 +107,7 @@ describe('UpdateExpiredStatus — immediate expiry, NO grace period', () => {
     const summary = await new UpdateExpiredStatus(memberRepo).execute()
 
     expect(summary.totalUpdated).toBe(2)
-    expect(memberRepo.update).toHaveBeenCalledTimes(2)
+    expect(memberRepo.updateFields).toHaveBeenCalledTimes(2)
   })
 
   it('does NOT expire members who are not yet due', async () => {

@@ -77,6 +77,7 @@ async function runExpireSuspendedMembers(request: NextRequest) {
       totalExpired: summary.totalExpired,
       expiredMembers: summary.expiredMembers,
       errors: summary.errors,
+      skippedChanged: summary.skippedChanged,
       duration: `${duration}ms`,
     })
 
@@ -85,6 +86,7 @@ async function runExpireSuspendedMembers(request: NextRequest) {
         totalExpired: summary.totalExpired,
         expiredMembers: summary.expiredMembers,
         errors: summary.errors,
+        skippedChanged: summary.skippedChanged,
         duration: `${duration}ms`,
       }),
       { status: 200 }

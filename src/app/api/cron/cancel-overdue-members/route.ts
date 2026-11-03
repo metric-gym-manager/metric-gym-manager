@@ -68,6 +68,7 @@ async function runCancelOverdueMembers(request: NextRequest) {
       totalCancelled: summary.totalCancelled,
       cancelledMembers: summary.cancelledMembers,
       errors: summary.errors,
+      skippedChanged: summary.skippedChanged,
       duration: `${duration}ms`,
     })
 
@@ -76,6 +77,7 @@ async function runCancelOverdueMembers(request: NextRequest) {
         totalCancelled: summary.totalCancelled,
         cancelledMembers: summary.cancelledMembers,
         errors: summary.errors,
+        skippedChanged: summary.skippedChanged,
         duration: `${duration}ms`,
       }),
       { status: 200 }

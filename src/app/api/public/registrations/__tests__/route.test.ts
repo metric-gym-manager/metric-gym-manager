@@ -14,6 +14,9 @@ import { NextRequest } from 'next/server'
 import { Member } from '@/features/members/domain/Member'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { PlanType } from '@/features/members/config/PlanConfig'
+import { PHOTO_FIELDS } from '@/features/members/config/MemberWriteFields'
+import { createMemberRepository } from '@/features/members'
+import { createStorageProvider } from '@/lib/storage/factory'
 
 const execute = jest.fn()
 const resolveRegistrationToken = jest.fn()
@@ -137,5 +140,27 @@ describe('POST /api/public/registrations', () => {
 
     expect(res.status).toBe(400)
     expect(execute).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/public/registrations — selfie path', () => {
+  it('stores the photo path with a write that names only the photo columns', async () => {
+    // The member was just registered, so the whole-row write this used to make
+    // was a copy of the row as registration returned it.
+    const updateFields = jest.fn(async (m: unknown, _fields?: unknown) => m)
+    ;(createMemberRepository as jest.Mock).mockReturnValue({ updateFields })
+    ;(createStorageProvider as jest.Mock).mockReturnValue({
+      getPresignedUploadUrl: jest
+        .fn()
+        .mockResolvedValue({ uploadUrl: 'https://r2.example/upload' }),
+    })
+
+    const res = await post({ ...validBody, photoContentType: 'image/webp' })
+
+    expect(res.status).toBe(201)
+    expect(updateFields).toHaveBeenCalledTimes(1)
+    expect(updateFields.mock.calls[0][1]).toEqual(PHOTO_FIELDS)
+    const json = await res.json()
+    expect(json.data.uploadUrl).toBe('https://r2.example/upload')
   })
 })

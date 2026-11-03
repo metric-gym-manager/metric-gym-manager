@@ -94,7 +94,7 @@ const FIELD_COLUMNS = {
  *
  * const member = await memberRepo.findById('member-123', 'gym-456');
  * const updatedMember = member.activate(new Date());
- * await memberRepo.update(updatedMember);
+ * await memberRepo.updateFields(updatedMember, LIFECYCLE_FIELDS);
  */
 export class SupabaseMemberRepository implements IMemberRepository {
   constructor(private readonly supabase: SupabaseClient) {}
@@ -464,78 +464,6 @@ export class SupabaseMemberRepository implements IMemberRepository {
       throw new DatabaseError('Member created but could not be loaded')
     }
     return created
-  }
-
-  /**
-   * Update an existing member
-   *
-   * Into-active status flips (reactivation, payment collection on an expired
-   * member) are quota-gated by the DB trigger trg_enforce_active_member_quota
-   * (migration 20260708000001) — at the cap it raises MEMBER_LIMIT_REACHED,
-   * surfaced here as MemberLimitError so routes can return the 403 the UI
-   * keys its upgrade prompt on.
-   */
-  async update(
-    member: Member,
-    options?: { expectedNextDueDate?: Date }
-  ): Promise<Member> {
-    const row = this.toDatabase(member)
-
-    // Remove created_at - it should never be updated
-    const { created_at: _createdAt, ...updateData } = row
-
-    // Ensure updated_at is set to now
-    updateData.updated_at = new Date().toISOString()
-
-    let query = this.supabase
-      .from('members')
-      .update(updateData)
-      .eq('id', member.id)
-      .eq('gym_id', member.gymId)
-
-    // Optimistic concurrency. `expectedNextDueDate` is the due date the caller
-    // read before computing this update; if another request has already moved
-    // it, this matches no row and the caller is told rather than silently
-    // overwriting.
-    //
-    // This is what stops duplicate payments. Collecting a payment is
-    // read-member -> compute next due -> update -> insert payment, with nothing
-    // serialising it: two concurrent submissions both read the same due date,
-    // both computed the same next one, both updated (identically), and both
-    // inserted a payment row. Production carries 31 such rows across 22 members
-    // — one member has three identical payments on one day, all advancing the
-    // due date to the same date. A disabled button does not prevent it; a
-    // second tab, a retry, or a double-tap on a slow connection all do.
-    if (options?.expectedNextDueDate) {
-      query = query.eq(
-        'next_due_date',
-        options.expectedNextDueDate.toISOString().split('T')[0]
-      )
-    }
-
-    const { data, error } = await query.select().maybeSingle()
-
-    if (error) {
-      if (error.message.includes('MEMBER_LIMIT_REACHED')) {
-        throw new MemberLimitError()
-      }
-      throw new Error(`Failed to update member: ${error.message}`)
-    }
-
-    if (!data) {
-      // With a guard, no matching row means someone else got there first. That
-      // is a conflict (409), not a missing member (404) — the distinction
-      // matters because the caller should NOT retry blindly: the payment it was
-      // about to record may already exist.
-      if (options?.expectedNextDueDate) {
-        throw new ConflictError(
-          'This member was updated by another request. Reload and try again.'
-        )
-      }
-      throw new NotFoundError(`Member ${member.id}`)
-    }
-
-    return this.toDomain(data)
   }
 
   /**

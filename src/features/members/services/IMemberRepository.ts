@@ -197,27 +197,6 @@ export interface IMemberRepository {
   createGuarded(gymId: string, member: Member): Promise<Member>
 
   /**
-   * Update an existing member
-   *
-   * @param member - Member entity with updates
-   * @returns Updated member
-   */
-  /**
-   * Persist a member.
-   *
-   * @param member - The member to write.
-   * @param options.expectedNextDueDate - Optimistic-concurrency guard. When
-   *   given, the write only applies if the member's stored `next_due_date`
-   *   still equals this, and throws `ConflictError` otherwise. Payment
-   *   collection passes it so two concurrent submissions cannot both advance
-   *   the same member and both record a payment.
-   */
-  update(
-    member: Member,
-    options?: { expectedNextDueDate?: Date }
-  ): Promise<Member>
-
-  /**
    * Write the named fields of a member, and nothing else.
    *
    * There is deliberately no "write the whole member". A writer reads a

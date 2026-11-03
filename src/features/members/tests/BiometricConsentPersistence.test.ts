@@ -1,17 +1,17 @@
 /**
  * The consent column has to survive an ordinary member edit.
  *
- * `update()` writes the *whole* row that `toDatabase()` produces — it is not a
- * patch of changed fields. So the two halves of the mapping are load-bearing
- * together: if `toDatabase` writes `biometric_consent_at` but the read side
- * ever stops populating it, every rename, plan change and payment collection
- * silently overwrites a member's consent record with null.
- *
- * That failure has no symptom anyone would notice. The member keeps their
+ * It used to depend on a round trip: `update()` wrote the *whole* row that
+ * `toDatabase()` produced, so if `toDatabase` wrote `biometric_consent_at` but
+ * the read side ever stopped populating it, every rename, plan change and
+ * payment collection silently overwrote a member's consent record with null.
+ * That failure has no symptom anyone would notice: the member keeps their
  * fingerprint, the door keeps working, and the only thing lost is the proof
- * they ever agreed to it — discovered, if ever, by someone asking.
+ * they ever agreed to it, discovered, if ever, by someone asking.
  *
- * These tests pin both directions of the round trip.
+ * Member writes now name their fields, and none of them names this one, so an
+ * edit cannot touch the consent at all. The consent is written only by the
+ * access-control enrolment path. These tests pin that, and the read side.
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -19,6 +19,11 @@ import { SupabaseMemberRepository } from '@/features/members/services/SupabaseMe
 import { Member } from '@/features/members/domain/Member'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { PlanType } from '@/features/members/config/PlanConfig'
+import {
+  LIFECYCLE_FIELDS,
+  PHOTO_FIELDS,
+  PROFILE_FIELDS,
+} from '@/features/members/config/MemberWriteFields'
 
 const CONSENTED_AT = '2026-02-01T09:00:00.000Z'
 
@@ -50,7 +55,7 @@ function makeRow(overrides: Record<string, unknown> = {}) {
   }
 }
 
-/** Records the payload `update()` sends and echoes a row back. */
+/** Records the payload a write sends and echoes a row back. */
 function makeSupabase(row: Record<string, unknown>) {
   const updates: Record<string, unknown>[] = []
 
@@ -84,16 +89,21 @@ describe('biometric consent persistence', () => {
     expect(member?.biometricConsentAt).toEqual(new Date(CONSENTED_AT))
   })
 
-  it('carries the consent timestamp through an unrelated edit', async () => {
+  it('leaves the consent column out of every member write', async () => {
     const { client, updates } = makeSupabase(makeRow())
     const repo = new SupabaseMemberRepository(client)
 
     const member = await repo.findById('member-1', 'gym-1')
-    // A rename touches nothing to do with biometrics.
-    await repo.update(member!.updateName('Nimal P'))
+    // A rename touches nothing to do with biometrics, so the write must not
+    // carry the consent at all: not the stored value, not a stale one.
+    await repo.updateFields(member!.updateName('Nimal P'), PROFILE_FIELDS)
+    await repo.updateFields(member!, LIFECYCLE_FIELDS)
+    await repo.updateFields(member!, PHOTO_FIELDS)
 
-    expect(updates).toHaveLength(1)
-    expect(updates[0].biometric_consent_at).toBe(CONSENTED_AT)
+    expect(updates).toHaveLength(3)
+    for (const payload of updates) {
+      expect(payload).not.toHaveProperty('biometric_consent_at')
+    }
   })
 
   it('keeps a member without consent at null rather than inventing one', async () => {
@@ -105,8 +115,8 @@ describe('biometric consent persistence', () => {
     const member = await repo.findById('member-1', 'gym-1')
     expect(member?.biometricConsentAt).toBeNull()
 
-    await repo.update(member!.updateName('Nimal P'))
-    expect(updates[0].biometric_consent_at).toBeNull()
+    await repo.updateFields(member!.updateName('Nimal P'), PROFILE_FIELDS)
+    expect(updates[0]).not.toHaveProperty('biometric_consent_at')
   })
 
   it('defaults to null for a member built without the field', () => {

@@ -17,6 +17,7 @@ const mockExecuteReminders = jest.fn();
 const mockExecuteUpdateExpired = jest.fn();
 const mockExecuteCancelOverdue = jest.fn();
 const mockExecuteExpireSuspended = jest.fn();
+const mockLogSuccess = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('@/features/sms', () => ({
   createSendAutomatedReminders: jest.fn(() => ({ execute: mockExecuteReminders })),
@@ -35,7 +36,7 @@ jest.mock('@/lib/supabase/admin', () => ({
 jest.mock('@/lib/cron', () => ({
   CronLogger: jest.fn().mockImplementation(() => ({
     logStart: jest.fn().mockResolvedValue('cron-log-id'),
-    logSuccess: jest.fn().mockResolvedValue(undefined),
+    logSuccess: mockLogSuccess,
     logFailure: jest.fn().mockResolvedValue(undefined),
   })),
 }));
@@ -81,16 +82,19 @@ describe('Cron routes', () => {
       totalUpdated: 1,
       updatedMembers: [],
       errors: [],
+      skippedChanged: 0,
     });
     mockExecuteCancelOverdue.mockResolvedValue({
       totalCancelled: 0,
       cancelledMembers: [],
       errors: [],
+      skippedChanged: 0,
     });
     mockExecuteExpireSuspended.mockResolvedValue({
       totalExpired: 0,
       expiredMembers: [],
       errors: [],
+      skippedChanged: 0,
     });
   });
 
@@ -175,5 +179,39 @@ describe('Cron routes', () => {
       expect(body.success).toBe(true);
       expect(mockExecuteReminders).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+describe('status crons report members skipped because they changed mid-run', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.CRON_SECRET = CRON_SECRET;
+  });
+
+  afterEach(() => {
+    delete process.env.CRON_SECRET;
+  });
+
+  const cases: Array<[string, (req: NextRequest) => Promise<Response>, jest.Mock, Record<string, unknown>]> = [
+    ['update-expired-status', updateExpiredRoute.POST, mockExecuteUpdateExpired, { totalUpdated: 0, updatedMembers: [] }],
+    ['cancel-overdue-members', cancelOverdueRoute.POST, mockExecuteCancelOverdue, { totalCancelled: 0, cancelledMembers: [] }],
+    ['expire-suspended-members', expireSuspendedRoute.POST, mockExecuteExpireSuspended, { totalExpired: 0, expiredMembers: [] }],
+  ];
+
+  // POST: outside production a bare GET skips the logger (a dev shortcut), and
+  // the audit log is the thing under test.
+  it.each(cases)('%s returns and logs skippedChanged', async (_name, handler, executeMock, base) => {
+    executeMock.mockResolvedValue({ ...base, errors: [], skippedChanged: 2 });
+
+    const response = await handler(makeRequest(`Bearer ${CRON_SECRET}`));
+    const body = await response.json();
+
+    expect(body.data.skippedChanged).toBe(2);
+
+    // The audit log (rule 2.6) is where an operator would look for a skip.
+    expect(mockLogSuccess).toHaveBeenCalledWith(
+      'cron-log-id',
+      expect.objectContaining({ skippedChanged: 2 })
+    );
   });
 });

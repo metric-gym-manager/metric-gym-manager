@@ -7,6 +7,7 @@ import {
   VERIFICATION_FIELDS,
   type MemberWritableField,
 } from '../config/MemberWriteFields'
+import { SupabaseMemberRepository } from '../services/SupabaseMemberRepository'
 
 /**
  * The field groups are the contract that stops one writer reverting another.
@@ -67,5 +68,20 @@ describe('member write field groups', () => {
     ]) {
       expect(new Set(group).size).toBe(group.length)
     }
+  })
+})
+
+describe('there is no whole-row member write', () => {
+  // `update(member)` rewrote every column from the entity it was given. That
+  // entity came from an earlier read, so it put back whatever another request
+  // had changed in between: a payment reverted a profile edit, a nightly cron
+  // reverted a payment. Every writer now names its fields via `updateFields`.
+  // This is the barrier against the old shape coming back under its old name.
+  it('the repository does not expose update()', () => {
+    expect(SupabaseMemberRepository.prototype).not.toHaveProperty('update')
+  })
+
+  it('the repository does expose the named-field write', () => {
+    expect(SupabaseMemberRepository.prototype).toHaveProperty('updateFields')
   })
 })
