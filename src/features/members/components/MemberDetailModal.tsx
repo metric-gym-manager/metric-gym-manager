@@ -94,8 +94,7 @@ export default function MemberDetailModal({
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to suspend member')
+        throw new Error(await parseApiError(response))
       }
 
       return response.json()
@@ -170,8 +169,7 @@ export default function MemberDetailModal({
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to cancel member')
+        throw new Error(await parseApiError(response))
       }
 
       return response.json()

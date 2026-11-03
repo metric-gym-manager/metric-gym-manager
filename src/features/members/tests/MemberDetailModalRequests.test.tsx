@@ -1,6 +1,8 @@
 import { screen, fireEvent, waitFor, within } from '@testing-library/react'
 import '@testing-library/jest-dom'
+import { toast } from 'sonner'
 import { renderScreen, mockFetchRoutes } from '@/test-utils/renderScreen'
+import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import type { MemberWithDiscount, Payment } from '../types'
 import MemberDetailModal from '../components/MemberDetailModal'
@@ -165,6 +167,29 @@ describe('MemberDetailModal — suspend', () => {
     expect(req.body).toBeUndefined()
     expect(memberUrls(fetchMock)).toHaveLength(1)
   })
+
+  it('shows the server message when the request is refused', async () => {
+    renderDetail({ status: MemberStatus.Active })
+    // The real envelope: ResponseBuilder nests the text under `error.message`.
+    // Reading `body.error` printed "[object Object]" in the toast.
+    mockFetchRoutes({
+      ...routes(),
+      [`/api/members/${MEMBER_ID}/suspend`]: {
+        status: 400,
+        body: ResponseBuilder.error(
+          'Member is already suspended',
+          'BAD_REQUEST'
+        ),
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Suspend Member' }))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Member is already suspended')
+    )
+    expect(toast.error).not.toHaveBeenCalledWith('[object Object]')
+  })
 })
 
 describe('MemberDetailModal — cancel', () => {
@@ -178,6 +203,24 @@ describe('MemberDetailModal — cancel', () => {
     expect(req.headers).toEqual({ 'Content-Type': 'application/json' })
     expect(req.body).toBeUndefined()
     expect(memberUrls(fetchMock)).toHaveLength(1)
+  })
+
+  it('shows the server message when the request is refused', async () => {
+    renderDetail({ status: MemberStatus.Expired })
+    mockFetchRoutes({
+      ...routes(),
+      [`/api/members/${MEMBER_ID}/cancel`]: {
+        status: 404,
+        body: ResponseBuilder.notFound('Member'),
+      },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Member' }))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Member not found')
+    )
+    expect(toast.error).not.toHaveBeenCalledWith('[object Object]')
   })
 })
 

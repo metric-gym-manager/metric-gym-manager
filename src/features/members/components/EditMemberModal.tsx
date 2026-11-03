@@ -12,6 +12,7 @@ import {
 import type { MemberWithDiscount } from '@/features/members/types'
 import { toast } from 'sonner'
 import { formatDate } from '@/utils/date/date'
+import { parseApiError } from '@/utils/api-error'
 
 interface Discount {
   id: string
@@ -31,20 +32,6 @@ interface PlanType {
 /** "3-months" → "3 months", "monthly" → "Monthly". */
 function planLabel(planType: string): string {
   return planType.charAt(0).toUpperCase() + planType.slice(1).replace('-', ' ')
-}
-
-/**
- * The message a failed request carries, whichever envelope the route used.
- *
- * `ResponseBuilder` nests it (`{ error: { message, code } }`); a few older
- * routes send a bare string. Reading `body.error` directly turned every
- * failure into `new Error({...})`, which prints as "[object Object]".
- */
-function apiErrorMessage(body: unknown, fallback: string): string {
-  const detail = (body as { error?: unknown } | null)?.error
-  if (typeof detail === 'string' && detail) return detail
-  const message = (detail as { message?: unknown } | null)?.message
-  return typeof message === 'string' && message ? message : fallback
 }
 
 interface EditMemberModalProps {
@@ -147,8 +134,7 @@ export default function EditMemberModal({
       })
 
       if (!response.ok) {
-        const body = await response.json().catch(() => null)
-        throw new Error(apiErrorMessage(body, 'Failed to update member'))
+        throw new Error(await parseApiError(response))
       }
 
       return response.json()
