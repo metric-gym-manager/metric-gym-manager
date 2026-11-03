@@ -20,6 +20,8 @@ import { PlanType } from '@/features/members/config/PlanConfig'
 import { SMSDeliveryStatus } from '@/features/sms/services/ISMSRepository'
 import {
   BusinessRuleViolationError,
+  ConflictError,
+  MemberLimitError,
   NotFoundError,
   ValidationError,
 } from '@/utils/errors'
@@ -215,6 +217,38 @@ describe('IssueDayPass', () => {
       // Not the plan: a day pass moves the access window without touching
       // plan_type, and not the profile, which may have been edited meanwhile.
       expect(memberRepo.updateFields.mock.calls[0][1]).toEqual(LIFECYCLE_FIELDS)
+    })
+
+    it('writes only if the member is still due on the date it read', async () => {
+      const member = buildMember()
+      memberRepo.findById.mockResolvedValue(member)
+
+      await buildUseCase().execute(input)
+
+      expect(memberRepo.updateFields.mock.calls[0][2]).toEqual({
+        expectedNextDueDate: member.nextDueDate,
+      })
+    })
+  })
+
+  describe('a refused member write records nothing', () => {
+    it('records no payment when the quota refuses the reactivation', async () => {
+      memberRepo.updateFields.mockRejectedValue(new MemberLimitError())
+
+      await expect(buildUseCase().execute(input)).rejects.toThrow(
+        MemberLimitError
+      )
+      expect(paymentRepo.create).not.toHaveBeenCalled()
+      expect(smsProvider.send).not.toHaveBeenCalled()
+    })
+
+    it('records no payment when another request changed the member first', async () => {
+      memberRepo.updateFields.mockRejectedValue(
+        new ConflictError('This member was updated by another request.')
+      )
+
+      await expect(buildUseCase().execute(input)).rejects.toThrow(ConflictError)
+      expect(paymentRepo.create).not.toHaveBeenCalled()
     })
   })
 

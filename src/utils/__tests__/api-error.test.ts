@@ -1,4 +1,4 @@
-import { parseApiError } from '../api-error'
+import { parseApiError, toApiRequestError, ApiRequestError } from '../api-error'
 import { ResponseBuilder } from '../api/ApiResponse'
 
 /** A failed `Response` carrying `body` as JSON, or an unparseable body. */
@@ -67,5 +67,43 @@ describe('parseApiError', () => {
       failed({ error: 'Invalid password' }, 400, 'Bad Request')
     )
     expect(out).toBe('Request failed with status 400: Bad Request')
+  })
+})
+
+describe('toApiRequestError', () => {
+  it('keeps the status and the machine-readable code beside the message', async () => {
+    const err = await toApiRequestError(
+      failed(
+        ResponseBuilder.error(
+          'Active member limit reached for current plan',
+          'MEMBER_LIMIT_REACHED'
+        ),
+        403,
+        'Forbidden'
+      )
+    )
+
+    expect(err).toBeInstanceOf(ApiRequestError)
+    expect(err).toBeInstanceOf(Error)
+    expect(err.message).toBe('Active member limit reached for current plan')
+    expect(err.status).toBe(403)
+    expect(err.code).toBe('MEMBER_LIMIT_REACHED')
+  })
+
+  it('reads the message exactly as parseApiError does', async () => {
+    const body = ResponseBuilder.validationError({ amount: ['Too small'] })
+
+    const err = await toApiRequestError(failed(body, 400))
+
+    expect(err.message).toBe(await parseApiError(failed(body, 400)))
+    expect(err.code).toBe('VALIDATION_ERROR')
+  })
+
+  it('keeps the status when the body is not JSON, with the default code', async () => {
+    const err = await toApiRequestError(failed(undefined, 502, 'Bad Gateway'))
+
+    expect(err.status).toBe(502)
+    expect(err.code).toBe('INTERNAL_ERROR')
+    expect(err.message).toBe('Request failed with status 502: Bad Gateway')
   })
 })

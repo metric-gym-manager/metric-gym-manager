@@ -121,6 +121,8 @@ export class IssueDayPass {
    * @throws NotFoundError if member doesn't exist in this gym
    * @throws ValidationError if amount is invalid
    * @throws BusinessRuleViolationError if the member is not eligible
+   * @throws ConflictError if the member's due date changed since it was read
+   * @throws MemberLimitError if reactivating would exceed the active-member cap
    */
   async execute(input: IssueDayPassInput): Promise<IssueDayPassOutput> {
     if (input.amount <= 0) {
@@ -162,6 +164,30 @@ export class IssueDayPass {
       deductOverduePeriod: true,
     })
 
+    // Move the member's access window to tomorrow WITHOUT touching plan_type.
+    // Expired members transition back to active (state machine enforced);
+    // overdue-but-still-active members just get the new due date.
+    const processedMember =
+      member.status === MemberStatus.Active
+        ? member.updateNextDueDate(nextDueDate)
+        : member.activate(nextDueDate)
+
+    // ORDER MATTERS, as in CollectPayment: the member is written BEFORE the
+    // payment is recorded, so a refused write leaves no payment behind.
+    // - Bringing an expired member back is a flip into active, which the
+    //   active-member quota refuses at the cap (MemberLimitError -> 403).
+    // - The write applies only if the member is still due on the date this
+    //   request read. A second submission (double-tap, retry, second tab) read
+    //   the same date, so it finds the date already moved and gets a
+    //   ConflictError (409) instead of recording a second day pass.
+    // Status and due date only: the member was read earlier in this request, so
+    // a whole-row write would revert anything edited meanwhile.
+    const updatedMember = await this.memberRepo.updateFields(
+      processedMember,
+      LIFECYCLE_FIELDS,
+      { expectedNextDueDate: member.nextDueDate }
+    )
+
     // Record revenue as a day-pass payment
     const payment = Payment.create({
       memberId: member.id,
@@ -175,21 +201,6 @@ export class IssueDayPass {
     })
 
     const savedPayment = await this.paymentRepo.create(payment)
-
-    // Move the member's access window to tomorrow WITHOUT touching plan_type.
-    // Expired members transition back to active (state machine enforced);
-    // overdue-but-still-active members just get the new due date.
-    const processedMember =
-      member.status === MemberStatus.Active
-        ? member.updateNextDueDate(nextDueDate)
-        : member.activate(nextDueDate)
-
-    // Status and due date only: the member was read earlier in this request, so
-    // a whole-row write would revert anything edited meanwhile.
-    const updatedMember = await this.memberRepo.updateFields(
-      processedMember,
-      LIFECYCLE_FIELDS
-    )
 
     // Send receipt SMS before returning (serverless freeze would drop a
     // fire-and-forget sms_logs write). A failed SMS never fails the day pass.

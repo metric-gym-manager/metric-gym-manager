@@ -6,7 +6,9 @@ import { createIssueDayPass } from '@/features/payments'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import {
   BusinessRuleViolationError,
+  ConflictError,
   InvalidStatusTransitionError,
+  MemberLimitError,
   NotFoundError,
   ValidationError,
 } from '@/utils/errors'
@@ -81,6 +83,24 @@ export async function POST(
       return NextResponse.json(ResponseBuilder.notFound('Member'), {
         status: 404,
       })
+    }
+
+    // A second submission for the same member: the first already moved the
+    // due date this one read. 409, not 500, and nothing was recorded.
+    if (error instanceof ConflictError) {
+      return NextResponse.json(ResponseBuilder.conflict(error.message), {
+        status: 409,
+      })
+    }
+
+    // A day pass on an expired member is a flip into active; at the cap the
+    // quota trigger refuses it before any payment is recorded (IssueDayPass
+    // writes the member first). 403 + code is what the upgrade dialog keys on.
+    if (error instanceof MemberLimitError) {
+      return NextResponse.json(
+        ResponseBuilder.error(error.message, 'MEMBER_LIMIT_REACHED'),
+        { status: 403 }
+      )
     }
 
     if (

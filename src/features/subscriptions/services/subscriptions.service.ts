@@ -12,17 +12,9 @@ import type {
   CheckoutRedirectResponse,
 } from '../types'
 import type { SaasTier } from '@/features/subscriptions/config/SubscriptionConfig'
+import { ApiRequestError } from '@/utils/api-error'
 
-export class ApiRequestError extends Error {
-  constructor(
-    message: string,
-    public readonly code: string = 'INTERNAL_ERROR',
-    public readonly status: number = 500
-  ) {
-    super(message)
-    this.name = 'ApiRequestError'
-  }
-}
+export { ApiRequestError }
 
 async function unwrap<T>(
   response: Response

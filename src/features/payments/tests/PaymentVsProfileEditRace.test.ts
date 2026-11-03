@@ -20,6 +20,7 @@ import { Member, type MemberProps } from '@/features/members/domain/Member'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { createMemberStore } from '@/test-utils/memberStore'
+import { ConflictError } from '@/utils/errors'
 
 const GYM_ID = 'gym-1'
 const MEMBER_ID = 'member-1'
@@ -199,6 +200,32 @@ describe('day pass racing a profile edit', () => {
 
     expect(store.current.name).toBe('Fathima Perera')
     expect(store.current.phoneNumber).toBe(NEW_PHONE)
+    expect(store.current.status).toBe(MemberStatus.Active)
+  })
+})
+
+describe('a day pass submitted twice', () => {
+  it('issues one pass and refuses the second, recording one payment', async () => {
+    // A double-tap, a retry or a second tab: both requests read the member
+    // before either writes. The second must not record a second payment.
+    const { store, dayPass, paymentRepo } = build({
+      status: MemberStatus.Expired,
+      nextDueDate: daysFromToday(-10),
+    })
+    const issue = () =>
+      dayPass.execute({
+        gymId: GYM_ID,
+        gymName: 'Iron House',
+        memberId: MEMBER_ID,
+        amount: 500,
+      })
+
+    store.duringNextRead(async () => {
+      await issue()
+    })
+
+    await expect(issue()).rejects.toBeInstanceOf(ConflictError)
+    expect(paymentRepo.create).toHaveBeenCalledTimes(1)
     expect(store.current.status).toBe(MemberStatus.Active)
   })
 })

@@ -6,6 +6,8 @@ import { toast } from 'sonner'
 import { Modal, Button, Input, Label, Badge, ListRow } from '@/components/ui'
 import MemberAvatar from './MemberAvatar'
 import { formatDate } from '@/utils/date/date'
+import { ApiRequestError, toApiRequestError } from '@/utils/api-error'
+import ReactivationLimitDialog from '@/features/subscriptions/components/ReactivationLimitDialog'
 import type { MemberWithDiscount } from '@/features/members/types'
 import type { PlanType } from '@/features/settings/types'
 
@@ -42,6 +44,9 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selected, setSelected] = useState<MemberWithDiscount | null>(null)
   const [amount, setAmount] = useState<string>('')
+  // Opened when the pass would flip an expired member into active at the
+  // active-member cap (403 MEMBER_LIMIT_REACHED).
+  const [showReactivationLimit, setShowReactivationLimit] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300)
@@ -59,6 +64,7 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
       setDebouncedSearch('')
       setSelected(null)
       setAmount('')
+      setShowReactivationLimit(false)
     }
   }
 
@@ -120,14 +126,10 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ amount: Number(amount) }),
       })
-      const result = await response.json()
-      if (!response.ok || !result.success) {
-        const message =
-          result?.error?.message ||
-          Object.values(result?.error?.details?.errors ?? {}).flat()[0] ||
-          'Failed to issue day pass'
-        throw new Error(String(message))
+      if (!response.ok) {
+        throw await toApiRequestError(response)
       }
+      const result = await response.json()
       return result.data
     },
     onSuccess: (data) => {
@@ -141,9 +143,29 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
       onClose()
     },
     onError: (error) => {
+      if (
+        error instanceof ApiRequestError &&
+        error.code === 'MEMBER_LIMIT_REACHED'
+      ) {
+        setShowReactivationLimit(true)
+        return
+      }
       toast.error(
         error instanceof Error ? error.message : 'Failed to issue day pass'
       )
+      if (error instanceof ApiRequestError && error.status === 409) {
+        // Another request moved this member's due date after it was read (a
+        // pass already issued from another tab or a retry). The card shows the
+        // stale date, so the operator picks the member again from a fresh
+        // search.
+        queryClient.invalidateQueries({ queryKey: ['members'] })
+        queryClient.invalidateQueries({
+          queryKey: ['member-detail', selected?.id],
+        })
+        queryClient.invalidateQueries({ queryKey: ['day-pass-search'] })
+        setSelected(null)
+        setAmount('')
+      }
     },
   })
 
@@ -164,167 +186,176 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
   const amountValid = Number(amount) > 0
 
   return (
-    <Modal
-      open={open}
-      onOpenChange={(next) => {
-        if (!next) onClose()
-      }}
-      size="md"
-      // One decision — pick a member, collect the fee — so §11 puts it on the
-      // bottom edge rather than giving it the screen.
-      placement="sheet"
-      title="Create Day Pass"
-      description="For members whose membership has expired but who visit for a single day. Collect the daily fee and record it here."
-      footer={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="accent"
-            loading={dayPassMutation.isPending}
-            disabled={
-              !selected ||
-              !eligible ||
-              !amountValid ||
-              dayPassMutation.isPending
-            }
-            onClick={() => dayPassMutation.mutate()}
-          >
-            {dayPassMutation.isPending
-              ? 'Issuing...'
-              : amountValid
-                ? `Collect Rs. ${Number(amount).toLocaleString('en-LK')} & Issue`
-                : 'Issue Day Pass'}
-          </Button>
-        </>
-      }
-    >
-      <div className="space-y-4">
-        {/* Member search */}
-        {!selected ? (
-          <div className="space-y-2">
-            <Label htmlFor="day-pass-search">Search Member</Label>
-            <Input
-              id="day-pass-search"
-              placeholder="Search by name or phone..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoComplete="off"
-            />
-
-            {searching && (
-              <p className="text-xs text-ink-muted">Searching...</p>
-            )}
-
-            {searchResults && searchResults.length > 0 && (
-              /*
-               * `ListRow`, not the hand-rolled row this replaces (§8.8,
-               * VERIFY resolved: the markup WAS hand-rolled — its own <ul>,
-               * its own <button>, its own two-line stack). Same content, same
-               * `setSelected` on tap; what it gains is the product's one list
-               * row, a 44 px target, and `aria-labelledby`/`describedby` so a
-               * screen reader announces the name rather than the whole card.
-               */
-              <ul
-                role="list"
-                className="max-h-64 overflow-auto rounded-sm border border-line-1"
-              >
-                {searchResults.map((member) => (
-                  <ListRow
-                    key={member.id}
-                    onClick={() => setSelected(member)}
-                    leading={
-                      <MemberAvatar
-                        name={member.name}
-                        photoPath={member.photo_path}
-                        photoUpdatedAt={member.photo_updated_at}
-                      />
-                    }
-                    primary={member.name}
-                    meta={[
-                      member.phone_number,
-                      `due ${formatDate(member.next_due_date)}`,
-                    ]}
-                    value={<Badge variant="neutral">{member.plan_type}</Badge>}
-                  />
-                ))}
-              </ul>
-            )}
-
-            {searchResults &&
-              searchResults.length === 0 &&
-              debouncedSearch.trim().length >= 1 &&
-              !searching && (
-                <p className="text-xs text-ink-muted">No members found</p>
-              )}
-          </div>
-        ) : (
+    <>
+      <Modal
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) onClose()
+        }}
+        size="md"
+        // One decision — pick a member, collect the fee — so §11 puts it on the
+        // bottom edge rather than giving it the screen.
+        placement="sheet"
+        title="Create Day Pass"
+        description="For members whose membership has expired but who visit for a single day. Collect the daily fee and record it here."
+        footer={
           <>
-            {/* Selected member card */}
-            <div className="rounded-sm border border-line-1 p-4 flex items-center gap-4">
-              <MemberAvatar
-                name={selected.name}
-                photoPath={selected.photo_path}
-                photoUpdatedAt={selected.photo_updated_at}
-                className="h-14 w-14 text-lg"
-              />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium truncate">{selected.name}</p>
-                <p className="text-xs text-ink-muted">
-                  {selected.phone_number}
-                </p>
-                <p className="text-xs text-ink-muted mt-0.5">
-                  Status:{' '}
-                  <span className="font-medium text-ink">
-                    {selected.status}
-                  </span>
-                  {' · '}Due: {formatDate(selected.next_due_date)}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setSelected(null)
-                  setAmount('')
-                }}
-              >
-                Change
-              </Button>
-            </div>
-
-            {ineligibleReason ? (
-              <div className="rounded-sm bg-warning-bg px-4 py-3 text-sm text-warning">
-                {ineligibleReason}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="day-pass-amount">Day Pass Fee (LKR)</Label>
-                <Input
-                  id="day-pass-amount"
-                  type="number"
-                  min="1"
-                  step="any"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder={
-                    dailyPlan
-                      ? String(dailyPlan.default_amount)
-                      : 'Enter amount'
-                  }
-                />
-                {!dailyPlan && (
-                  <p className="text-xs text-ink-muted">
-                    Tip: set a Daily plan in Billing Setup to prefill this
-                    amount.
-                  </p>
-                )}
-              </div>
-            )}
+            <Button variant="secondary" onClick={onClose}>
+              Cancel
+            </Button>
+            <Button
+              variant="accent"
+              loading={dayPassMutation.isPending}
+              disabled={
+                !selected ||
+                !eligible ||
+                !amountValid ||
+                dayPassMutation.isPending
+              }
+              onClick={() => dayPassMutation.mutate()}
+            >
+              {dayPassMutation.isPending
+                ? 'Issuing...'
+                : amountValid
+                  ? `Collect Rs. ${Number(amount).toLocaleString('en-LK')} & Issue`
+                  : 'Issue Day Pass'}
+            </Button>
           </>
-        )}
-      </div>
-    </Modal>
+        }
+      >
+        <div className="space-y-4">
+          {/* Member search */}
+          {!selected ? (
+            <div className="space-y-2">
+              <Label htmlFor="day-pass-search">Search Member</Label>
+              <Input
+                id="day-pass-search"
+                placeholder="Search by name or phone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                autoComplete="off"
+              />
+
+              {searching && (
+                <p className="text-xs text-ink-muted">Searching...</p>
+              )}
+
+              {searchResults && searchResults.length > 0 && (
+                /*
+                 * `ListRow`, not the hand-rolled row this replaces (§8.8,
+                 * VERIFY resolved: the markup WAS hand-rolled — its own <ul>,
+                 * its own <button>, its own two-line stack). Same content, same
+                 * `setSelected` on tap; what it gains is the product's one list
+                 * row, a 44 px target, and `aria-labelledby`/`describedby` so a
+                 * screen reader announces the name rather than the whole card.
+                 */
+                <ul
+                  role="list"
+                  className="max-h-64 overflow-auto rounded-sm border border-line-1"
+                >
+                  {searchResults.map((member) => (
+                    <ListRow
+                      key={member.id}
+                      onClick={() => setSelected(member)}
+                      leading={
+                        <MemberAvatar
+                          name={member.name}
+                          photoPath={member.photo_path}
+                          photoUpdatedAt={member.photo_updated_at}
+                        />
+                      }
+                      primary={member.name}
+                      meta={[
+                        member.phone_number,
+                        `due ${formatDate(member.next_due_date)}`,
+                      ]}
+                      value={
+                        <Badge variant="neutral">{member.plan_type}</Badge>
+                      }
+                    />
+                  ))}
+                </ul>
+              )}
+
+              {searchResults &&
+                searchResults.length === 0 &&
+                debouncedSearch.trim().length >= 1 &&
+                !searching && (
+                  <p className="text-xs text-ink-muted">No members found</p>
+                )}
+            </div>
+          ) : (
+            <>
+              {/* Selected member card */}
+              <div className="rounded-sm border border-line-1 p-4 flex items-center gap-4">
+                <MemberAvatar
+                  name={selected.name}
+                  photoPath={selected.photo_path}
+                  photoUpdatedAt={selected.photo_updated_at}
+                  className="h-14 w-14 text-lg"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{selected.name}</p>
+                  <p className="text-xs text-ink-muted">
+                    {selected.phone_number}
+                  </p>
+                  <p className="text-xs text-ink-muted mt-0.5">
+                    Status:{' '}
+                    <span className="font-medium text-ink">
+                      {selected.status}
+                    </span>
+                    {' · '}Due: {formatDate(selected.next_due_date)}
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setSelected(null)
+                    setAmount('')
+                  }}
+                >
+                  Change
+                </Button>
+              </div>
+
+              {ineligibleReason ? (
+                <div className="rounded-sm bg-warning-bg px-4 py-3 text-sm text-warning">
+                  {ineligibleReason}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="day-pass-amount">Day Pass Fee (LKR)</Label>
+                  <Input
+                    id="day-pass-amount"
+                    type="number"
+                    min="1"
+                    step="any"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder={
+                      dailyPlan
+                        ? String(dailyPlan.default_amount)
+                        : 'Enter amount'
+                    }
+                  />
+                  {!dailyPlan && (
+                    <p className="text-xs text-ink-muted">
+                      Tip: set a Daily plan in Billing Setup to prefill this
+                      amount.
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </Modal>
+
+      <ReactivationLimitDialog
+        open={showReactivationLimit}
+        onOpenChange={setShowReactivationLimit}
+      />
+    </>
   )
 }
