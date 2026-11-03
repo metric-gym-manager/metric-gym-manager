@@ -1,4 +1,8 @@
 import { z } from 'zod'
+import {
+  isValidSriLankanPhone,
+  normalizePhoneNumber,
+} from '@/utils/phone/phone'
 
 // ============================================================
 // GYM INFORMATION SCHEMA
@@ -163,3 +167,20 @@ export const updateEmailSchema = z.object({
 })
 
 export type UpdateEmailInput = z.infer<typeof updateEmailSchema>
+
+// The owner's own number. A Sri Lankan mobile, stored as +94XXXXXXXXX: the
+// form `gyms.valid_phone` checks, and the validator and normaliser the member
+// and registration schemas use.
+export const updateGymPhoneSchema = z.object({
+  phone_number: z
+    .string()
+    .trim()
+    .min(1, 'Phone number is required')
+    .refine(
+      (val) => isValidSriLankanPhone(val),
+      'Invalid Sri Lankan mobile number. Use format: 0771234567'
+    )
+    .transform((val) => `+${normalizePhoneNumber(val)}`),
+})
+
+export type UpdateGymPhoneInput = z.infer<typeof updateGymPhoneSchema>

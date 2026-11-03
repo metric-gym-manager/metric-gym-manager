@@ -456,6 +456,52 @@ export async function updateGymUsername(
   return { status: 'ok', profile: updatedProfile }
 }
 
+export type UpdateGymPhoneResult =
+  | { status: 'taken' }
+  | { status: 'error' }
+  | { status: 'ok'; profile: { id: string; phone_number: string } }
+
+/**
+ * Save the owner's phone number on their own gym row.
+ *
+ * There is no "is it taken?" lookup first. Under RLS a gym session sees only
+ * its own row, so a session-client search for another gym's number finds
+ * nothing whether or not one holds it. The UNIQUE constraint
+ * `gyms_phone_number_key` decides, and its violation (Postgres 23505) is
+ * reported as `taken`.
+ *
+ * @param gymId - The signed-in owner's gym
+ * @param phoneNumber - Already canonical (`+94XXXXXXXXX`), from `updateGymPhoneSchema`
+ * @returns `ok` with the stored number, `taken`, or `error` (a write RLS
+ *   refused matches no row and lands here, never as success)
+ */
+export async function updateGymPhone(
+  gymId: string,
+  phoneNumber: string
+): Promise<UpdateGymPhoneResult> {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from('gyms')
+    .update({
+      phone_number: phoneNumber,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', gymId)
+    .select('id, phone_number')
+    .single()
+
+  if (error) {
+    if (error.code === '23505') {
+      return { status: 'taken' }
+    }
+    console.error('Update gym phone error:', error)
+    return { status: 'error' }
+  }
+
+  return { status: 'ok', profile: data }
+}
+
 /** Active discount presets for the gym, ordered by name. Throws on failure. */
 export async function getActiveDiscounts(
   gymId: string

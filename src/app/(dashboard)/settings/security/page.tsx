@@ -15,9 +15,11 @@ import { SettingsSection, SettingsRow } from '@/components/common/composites'
 import {
   updatePasswordSchema,
   updateEmailSchema,
+  updateGymPhoneSchema,
   type UpdatePasswordInput,
   type UpdateEmailInput,
 } from '@/features/settings/schemas/settings.schemas'
+import { parseApiError } from '@/utils/api-error'
 
 // Username update schema
 const updateUsernameSchema = z.object({
@@ -509,54 +511,29 @@ function PhoneUpdateModal({
   currentPhone: string | null
 }) {
   const queryClient = useQueryClient()
-  const [step, setStep] = useState<'phone' | 'otp'>('phone')
   const [phoneNumber, setPhoneNumber] = useState('')
-  const [otpCode, setOtpCode] = useState('')
   const [phoneError, setPhoneError] = useState<string | null>(null)
-  const [otpError, setOtpError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  const requestOtpMutation = useMutation({
+  // One step: the signed-in session is the proof that this is the owner. The
+  // two-step "send a code, enter the code" flow this replaced called two
+  // endpoints that never existed, so every attempt failed.
+  const updateMutation = useMutation({
     mutationFn: async (phone: string) => {
-      const response = await fetch('/api/settings/security/phone/request-otp', {
+      const response = await fetch('/api/settings/security/phone', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone_number: phone }),
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to send OTP')
+        throw new Error(await parseApiError(response))
       }
 
       return response.json()
     },
     onSuccess: () => {
       setPhoneError(null)
-      setStep('otp')
-    },
-    onError: (error: Error) => {
-      setPhoneError(error.message)
-    },
-  })
-
-  const verifyOtpMutation = useMutation({
-    mutationFn: async ({ phone, otp }: { phone: string; otp: string }) => {
-      const response = await fetch('/api/settings/security/phone/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone_number: phone, otp_code: otp }),
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to verify OTP')
-      }
-
-      return response.json()
-    },
-    onSuccess: () => {
-      setOtpError(null)
       setSuccessMessage('Phone number updated successfully')
       queryClient.invalidateQueries({ queryKey: ['gym-profile'] })
       setTimeout(() => {
@@ -564,51 +541,26 @@ function PhoneUpdateModal({
       }, 2000)
     },
     onError: (error: Error) => {
-      setOtpError(error.message)
+      setPhoneError(error.message)
     },
   })
 
   const handleClose = () => {
-    setStep('phone')
     setPhoneNumber('')
-    setOtpCode('')
     setPhoneError(null)
-    setOtpError(null)
     setSuccessMessage(null)
     onClose()
   }
 
-  const handleSendOtp = () => {
-    // Normalize phone number (convert 0771234567 to +94771234567)
-    let normalizedPhone = phoneNumber.trim()
-
-    // Remove spaces
-    normalizedPhone = normalizedPhone.replace(/\s/g, '')
-
-    // Convert local format to international
-    if (normalizedPhone.startsWith('0')) {
-      normalizedPhone = '+94' + normalizedPhone.substring(1)
-    } else if (!normalizedPhone.startsWith('+')) {
-      normalizedPhone = '+94' + normalizedPhone
-    }
-
-    // Validate format
-    if (!/^\+94[0-9]{9}$/.test(normalizedPhone)) {
-      setPhoneError('Invalid phone number. Use format: 0771234567')
+  const handleSave = () => {
+    // The schema the route validates with, so the number sent is already the
+    // stored +94 form and a malformed one never leaves the browser.
+    const parsed = updateGymPhoneSchema.safeParse({ phone_number: phoneNumber })
+    if (!parsed.success) {
+      setPhoneError(parsed.error.issues[0].message)
       return
     }
-
-    requestOtpMutation.mutate(normalizedPhone)
-  }
-
-  const handleVerifyOtp = () => {
-    // Validate OTP format
-    if (!/^[0-9]{6}$/.test(otpCode)) {
-      setOtpError('OTP must be 6 digits')
-      return
-    }
-
-    verifyOtpMutation.mutate({ phone: phoneNumber, otp: otpCode })
+    updateMutation.mutate(parsed.data.phone_number)
   }
 
   return (
@@ -620,132 +572,65 @@ function PhoneUpdateModal({
       size="md"
       placement="sheet"
       title="Update Phone Number"
-      description={
-        step === 'phone'
-          ? 'Enter your new phone number. We will send you a verification code.'
-          : 'Enter the 6-digit code sent to your phone.'
-      }
-      footerStart={
-        step === 'otp' ? (
+      description="Enter the mobile number you want on your account."
+      footer={
+        <>
           <Button
             type="button"
             variant="secondary"
-            onClick={() => setStep('phone')}
-            disabled={verifyOtpMutation.isPending}
+            onClick={handleClose}
+            disabled={updateMutation.isPending}
           >
-            Back
+            Cancel
           </Button>
-        ) : undefined
-      }
-      footer={
-        step === 'phone' ? (
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={handleClose}
-              disabled={requestOtpMutation.isPending}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="accent"
-              onClick={handleSendOtp}
-              loading={requestOtpMutation.isPending}
-              disabled={requestOtpMutation.isPending || !phoneNumber}
-            >
-              {requestOtpMutation.isPending ? 'Sending...' : 'Send OTP'}
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => requestOtpMutation.mutate(phoneNumber)}
-              disabled={
-                requestOtpMutation.isPending || verifyOtpMutation.isPending
-              }
-            >
-              Resend OTP
-            </Button>
-            <Button
-              variant="accent"
-              onClick={handleVerifyOtp}
-              loading={verifyOtpMutation.isPending}
-              disabled={verifyOtpMutation.isPending || !otpCode}
-            >
-              {verifyOtpMutation.isPending ? 'Verifying...' : 'Verify'}
-            </Button>
-          </>
-        )
+          <Button
+            variant="accent"
+            onClick={handleSave}
+            loading={updateMutation.isPending}
+            disabled={updateMutation.isPending || !phoneNumber}
+          >
+            {updateMutation.isPending ? 'Saving...' : 'Save'}
+          </Button>
+        </>
       }
     >
       <div className="space-y-4">
-        {step === 'phone' ? (
-          <>
-            {/* Current Phone (read-only) */}
-            <div>
-              <Label>Current Phone</Label>
-              <Input
-                value={currentPhone || 'Not set'}
-                disabled
-                className="bg-surface-input"
-              />
-            </div>
+        {/* Current Phone (read-only) */}
+        <div>
+          <Label>Current Phone</Label>
+          <Input
+            value={currentPhone || 'Not set'}
+            disabled
+            className="bg-surface-input"
+          />
+        </div>
 
-            {/* New Phone */}
-            <div>
-              <Label htmlFor="phone_number">New Phone Number *</Label>
-              <Input
-                id="phone_number"
-                type="tel"
-                value={phoneNumber}
-                onChange={(e) => {
-                  setPhoneNumber(e.target.value)
-                  setPhoneError(null)
-                }}
-                placeholder="0771234567"
-              />
-              {phoneError && (
-                <p className="text-sm text-error mt-1">{phoneError}</p>
-              )}
-              <p className="text-xs text-ink-muted mt-1">
-                Enter your Sri Lankan mobile number (e.g., 0771234567)
-              </p>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* OTP Input */}
-            <div>
-              <Label htmlFor="otp_code">Verification Code *</Label>
-              <Input
-                id="otp_code"
-                type="text"
-                value={otpCode}
-                onChange={(e) => {
-                  setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))
-                  setOtpError(null)
-                }}
-                placeholder="Enter 6-digit code"
-                maxLength={6}
-              />
-              {otpError && (
-                <p className="text-sm text-error mt-1">{otpError}</p>
-              )}
-              <p className="text-xs text-ink-muted mt-1">
-                Code expires in 10 minutes
-              </p>
-            </div>
+        {/* New Phone */}
+        <div>
+          <Label htmlFor="phone_number">New Phone Number *</Label>
+          <Input
+            id="phone_number"
+            type="tel"
+            value={phoneNumber}
+            onChange={(e) => {
+              setPhoneNumber(e.target.value)
+              setPhoneError(null)
+            }}
+            placeholder="0771234567"
+          />
+          {phoneError && (
+            <p className="text-sm text-error mt-1">{phoneError}</p>
+          )}
+          <p className="text-xs text-ink-muted mt-1">
+            Enter your Sri Lankan mobile number (e.g., 0771234567)
+          </p>
+        </div>
 
-            {/* Success Message */}
-            {successMessage && (
-              <div className="rounded-sm bg-success-bg p-3">
-                <p className="text-sm text-success">{successMessage}</p>
-              </div>
-            )}
-          </>
+        {/* Success Message */}
+        {successMessage && (
+          <div className="rounded-sm bg-success-bg p-3">
+            <p className="text-sm text-success">{successMessage}</p>
+          </div>
         )}
       </div>
     </Modal>
@@ -935,7 +820,7 @@ export default function AccountSecurityPage() {
 
           <SettingsRow
             label="Phone number"
-            description="Used for OTP login and SMS notifications"
+            description="Used for billing and support"
             control={
               <div className="flex items-center gap-4">
                 <span className="font-mono text-mono-md text-ink-secondary">

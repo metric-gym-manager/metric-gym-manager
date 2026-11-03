@@ -1,5 +1,6 @@
 import {
   updateAdmissionFeeSchema,
+  updateGymPhoneSchema,
   updateGymPoliciesSchema,
 } from '../schemas/settings.schemas'
 
@@ -60,5 +61,27 @@ describe('updateGymPoliciesSchema', () => {
       gym_terms: 'ok',
     })
     expect(result.success).toBe(false)
+  })
+})
+
+describe('updateGymPhoneSchema', () => {
+  it.each([
+    ['0771234567', '+94771234567'],
+    ['077 123 4567', '+94771234567'],
+    ['+94771234567', '+94771234567'],
+    ['94771234567', '+94771234567'],
+  ])('stores %s as %s', (input, stored) => {
+    const result = updateGymPhoneSchema.safeParse({ phone_number: input })
+    expect(result.success && result.data.phone_number).toBe(stored)
+  })
+
+  it.each([
+    ['', 'Phone number is required'],
+    ['0112345678', 'Invalid Sri Lankan mobile number. Use format: 0771234567'],
+    ['07712', 'Invalid Sri Lankan mobile number. Use format: 0771234567'],
+  ])('refuses %j', (input, message) => {
+    const result = updateGymPhoneSchema.safeParse({ phone_number: input })
+    expect(result.success).toBe(false)
+    expect(!result.success && result.error.issues[0].message).toBe(message)
   })
 })
