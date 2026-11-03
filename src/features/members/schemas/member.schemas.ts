@@ -131,8 +131,11 @@ export const updateMemberSchema = z.object({
 
   planType: MemberPlanType.optional(),
 
+  // `invalid_type_error` because a cleared number input is NaN (react-hook-form
+  // `valueAsNumber`), which zod would otherwise report as "Expected number,
+  // received nan" next to the field.
   planAmount: z
-    .number()
+    .number({ invalid_type_error: 'Enter a plan amount' })
     .positive('Plan amount must be greater than 0')
     .max(1000000, 'Plan amount is too large')
     .optional(),

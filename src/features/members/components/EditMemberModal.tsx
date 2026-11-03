@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -26,6 +26,25 @@ interface PlanType {
   plan_type: 'daily' | 'weekly' | 'monthly' | '3-months' | '6-months' | 'annual'
   default_amount: number
   is_active: boolean
+}
+
+/** "3-months" → "3 months", "monthly" → "Monthly". */
+function planLabel(planType: string): string {
+  return planType.charAt(0).toUpperCase() + planType.slice(1).replace('-', ' ')
+}
+
+/**
+ * The message a failed request carries, whichever envelope the route used.
+ *
+ * `ResponseBuilder` nests it (`{ error: { message, code } }`); a few older
+ * routes send a bare string. Reading `body.error` directly turned every
+ * failure into `new Error({...})`, which prints as "[object Object]".
+ */
+function apiErrorMessage(body: unknown, fallback: string): string {
+  const detail = (body as { error?: unknown } | null)?.error
+  if (typeof detail === 'string' && detail) return detail
+  const message = (detail as { message?: unknown } | null)?.message
+  return typeof message === 'string' && message ? message : fallback
 }
 
 interface EditMemberModalProps {
@@ -92,9 +111,19 @@ export default function EditMemberModal({
     }
   }, [watchPlanType, planTypesData, member, setValue])
 
-  // Reset form when member changes or modal opens
+  // Fill the form once per opening of a given member — NOT on every new
+  // `member` object. `member` comes from a query that can refetch while the
+  // form is open (a response to the click that opened the detail view lands
+  // after the owner has started typing); keying this on identity reset the
+  // form to the server's values and silently discarded what had been typed.
+  const filledFor = useRef<string | null>(null)
   useEffect(() => {
-    if (member && open) {
+    if (!open) {
+      filledFor.current = null
+      return
+    }
+    if (member && filledFor.current !== member.id) {
+      filledFor.current = member.id
       reset({
         name: member.name,
         phoneNumber: member.phone_number,
@@ -118,8 +147,8 @@ export default function EditMemberModal({
       })
 
       if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.error || 'Failed to update member')
+        const body = await response.json().catch(() => null)
+        throw new Error(apiErrorMessage(body, 'Failed to update member'))
       }
 
       return response.json()
@@ -127,9 +156,13 @@ export default function EditMemberModal({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] })
       if (member) {
-        queryClient.invalidateQueries({
-          queryKey: ['member-detail', member.id],
-        })
+        // Removed, not invalidated: the detail view is closed while this form
+        // is open, so its query is disabled and an invalidation only marks it
+        // stale without refetching. The next open would then paint the
+        // pre-edit record (it is cached for 10 minutes) until the response
+        // arrived, which reads as "my change was not saved". Removal makes it
+        // show the loading state instead — the same policy as closing detail.
+        queryClient.removeQueries({ queryKey: ['member-detail', member.id] })
       }
       toast.success('Member updated successfully')
       onClose()
@@ -141,6 +174,14 @@ export default function EditMemberModal({
   }
 
   if (!member) return null
+
+  const isPlanOffered =
+    planTypesData?.some(
+      (pt) => pt.is_active && pt.plan_type === member.plan_type
+    ) ?? false
+  const isDiscountOffered = discounts.some(
+    (d) => d.is_active && d.id === member.discount_id
+  )
 
   return (
     <Modal
@@ -236,12 +277,21 @@ export default function EditMemberModal({
                 ?.filter((pt) => pt.is_active)
                 .map((planType) => (
                   <option key={planType.id} value={planType.plan_type}>
-                    {planType.plan_type.charAt(0).toUpperCase() +
-                      planType.plan_type.slice(1).replace('-', ' ')}
+                    {planLabel(planType.plan_type)}
                     {planType.default_amount > 0 &&
                       ` (LKR ${planType.default_amount.toLocaleString()})`}
                   </option>
                 ))}
+              {/* The member's own plan stays selectable after the gym
+                  deactivates it (or while the list is still loading).
+                  Without an option for it a native select shows its first
+                  entry instead — the form would display one plan and save
+                  another. */}
+              {!isPlanOffered && (
+                <option value={member.plan_type}>
+                  {planLabel(member.plan_type)} (no longer offered)
+                </option>
+              )}
               {(!planTypesData ||
                 planTypesData.filter((pt) => pt.is_active).length === 0) && (
                 <option value="__no_plans__" disabled>
@@ -289,6 +339,17 @@ export default function EditMemberModal({
                     {discount.discount_name} ({discount.discount_percentage}%)
                   </option>
                 ))}
+              {/* Same reason as the plan list: a deactivated discount the
+                  member still holds must stay visible, or the form reads
+                  "No Discount" and saves the old one. */}
+              {!isDiscountOffered && member.discount_id && (
+                <option value={member.discount_id}>
+                  {member.discount
+                    ? `${member.discount.discount_name} (${member.discount.discount_percentage}%)`
+                    : 'Current discount'}{' '}
+                  (no longer offered)
+                </option>
+              )}
             </Select>
           </div>
 
