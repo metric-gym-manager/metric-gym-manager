@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { renderScreen, mockFetchRoutes } from '@/test-utils/renderScreen'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
+import { MemberLimitError } from '@/utils/errors'
 import type { MemberWithDiscount, Payment } from '../types'
 import MemberDetailModal from '../components/MemberDetailModal'
 
@@ -337,6 +338,64 @@ describe('MemberDetailModal — reactivate', () => {
       deductOverduePeriod: true,
     })
     expect(req.body).not.toHaveProperty('discountId')
+  })
+})
+
+describe('MemberDetailModal — a payment refused at the active-member cap', () => {
+  /**
+   * The body the payment route returned when run against a live database at a
+   * Lite gym's 100th active member (2026-11-03): the quota trigger raised
+   * MEMBER_LIMIT_REACHED, the repository mapped it to MemberLimitError, the
+   * route to this 403. Built from the same producers so it cannot drift.
+   */
+  const refusal = {
+    status: 403,
+    body: ResponseBuilder.error(
+      new MemberLimitError().message,
+      'MEMBER_LIMIT_REACHED'
+    ),
+  }
+
+  async function expectUpgradeDialog() {
+    expect(
+      await screen.findByRole('dialog', { name: 'Active member limit reached' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Upgrade to/ })).toHaveAttribute(
+      'href',
+      '/settings/billing'
+    )
+    // The refusal is explained by the dialog, not echoed as an error toast.
+    expect(toast.error).not.toHaveBeenCalled()
+  }
+
+  it('opens the upgrade dialog when Mark Paid would reactivate an expired member', async () => {
+    renderDetail({ status: MemberStatus.Expired })
+    mockFetchRoutes({
+      ...routes(),
+      [`/api/members/${MEMBER_ID}/payment`]: refusal,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Paid' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    fireEvent.click(dialog.getByRole('button', { name: 'Confirm Payment' }))
+
+    await expectUpgradeDialog()
+  })
+
+  it('opens the upgrade dialog when reactivating a cancelled member', async () => {
+    renderDetail({ status: MemberStatus.Cancelled })
+    mockFetchRoutes({
+      ...routes(),
+      [`/api/members/${MEMBER_ID}/payment`]: refusal,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Re-activate' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    fireEvent.click(
+      dialog.getByRole('button', { name: /Reactivate & Record Payment/ })
+    )
+
+    await expectUpgradeDialog()
   })
 })
 
