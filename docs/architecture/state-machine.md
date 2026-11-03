@@ -67,7 +67,7 @@ export class SuspendMember {
     if (!member) throw new NotFoundError('Member not found')
 
     const suspended = member.suspend() // State machine enforced here
-    return await this.memberRepo.update(suspended)
+    return await this.memberRepo.updateFields(suspended, STATUS_FIELDS)
   }
 }
 ```

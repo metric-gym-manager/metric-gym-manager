@@ -20,7 +20,7 @@ export class CollectPayment {
     // This throws InvalidStatusTransitionError if member is already Active
     const activatedMember = member.activate(nextDueDate) // ❌ WRONG
 
-    return await this.memberRepo.update(activatedMember)
+    return await this.memberRepo.updateFields(activatedMember, LIFECYCLE_FIELDS)
   }
 }
 ```
@@ -140,7 +140,9 @@ export class CollectPayment {
         ? member.renew(nextDueDate) // Early renewal (no state change)
         : member.activate(nextDueDate) // Reactivation (state transition)
 
-    return await this.memberRepo.update(processedMember)
+    return await this.memberRepo.updateFields(processedMember, LIFECYCLE_FIELDS, {
+      expectedNextDueDate: member.nextDueDate,
+    })
   }
 }
 ```

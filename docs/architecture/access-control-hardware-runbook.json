@@ -4140,7 +4140,7 @@
       "band": null,
       "order": 3,
       "title": "Consent survives a rename, and three updates at once",
-      "why": "CONSENT-07 (trap 12): `update()` writes the whole row, so dropping consent from the read side would silently erase it on every rename. CONSENT-08: enrolment + rename + payment at the same instant must not lose consent.",
+      "why": "CONSENT-07 (trap 12, closed 2026-11): no member write names the consent column, so a rename cannot erase it. CONSENT-08: enrolment + rename + payment at the same instant must not lose consent, the new name or the new due date, because each writes only its own columns.",
       "cases": ["CONSENT-07", "CONSENT-08"],
       "sim": [],
       "members": ["HW Test 7"],
@@ -4194,7 +4194,7 @@
       ],
       "pass": [
         "[CONSENT-07] Consent's timestamp was unchanged by the rename.",
-        "[CONSENT-08] After enrolment + rename + payment at once, consent is still on file. Record which name and due date survived: if the payment's date change was overwritten by the rename's whole-row write, record it as a finding (lost update) — consent surviving is what this case decides."
+        "[CONSENT-08] After enrolment + rename + payment at once, consent is still on file. Record which name and due date survived: the rename writes only the name and the payment only the status and due date, so all three must survive; if the name or the payment's due date was lost, record it as a finding (a regression of the named-fields write) — consent surviving is what this case decides."
       ],
       "fail_if": [
         "Consent null after any of these → fail (trap 12) and report to the lead."

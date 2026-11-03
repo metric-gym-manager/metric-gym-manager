@@ -119,9 +119,9 @@ npx jest src/features/access-control src/lib/access-control \
 
 The last two live with the code they guard, not with the feature, and are easy
 to miss: cron ordering, and the consent round-trip through
-`SupabaseMemberRepository` (trap 12 — `update()` writes the whole row, so
-dropping `biometric_consent_at` from the _read_ side silently erases consent on
-every rename).
+`SupabaseMemberRepository` (trap 12 — closed 2026-11: no member write carries
+`biometric_consent_at` any more, because every write names its fields; the test
+asserts that and that the read side still returns it).
 
 Full gate: `npm run arch:check && npx tsc --noEmit && npm test && npm run lint`.
 

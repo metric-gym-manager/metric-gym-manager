@@ -484,7 +484,7 @@ Notable ones, because they encode decisions rather than behaviour:
 | `BiometricConsent.test.ts`                  | **No enrolment command reaches a reader without a consent record** — and the write happens first            |
 | `AccessEventRetention.test.ts`              | The published 12-month figure is the one actually enforced; batching walks a backlog from the old end       |
 | `RemoteOpenPermission.test.tsx`             | The remote-open decision, so the permissive default is not read as an oversight and "tightened"             |
-| `BiometricConsentPersistence.test.ts`       | (members) Consent survives an ordinary member edit — `update()` writes the whole row, not a patch           |
+| `BiometricConsentPersistence.test.ts`       | (members) No member write carries the consent column, so an ordinary edit cannot erase it; the read side still returns it |
 
 **E2E (Playwright), 15 tests across 3 specs** — 14 passing, 1 skipped by
 design (2026-08-27). Runnable with no hardware and no
@@ -1479,11 +1479,15 @@ Twenty-five things that will bite someone who does not know them.
     caller can bypass it — do not "simplify" it up into the route. A consent
     with no template is harmless; a template with no consent is the failure the
     ordering exists to make impossible.
-12. **`members.update()` writes the whole row, not a patch.** `biometric_consent_at`
-    must stay in _both_ halves of `SupabaseMemberRepository`'s mapping. Drop it
-    from the read side and every rename silently erases a consent record — no
-    error, no symptom, and nobody finds out until someone asks for the proof.
-    `BiometricConsentPersistence.test.ts` is the tripwire.
+12. **No member write may carry `biometric_consent_at`** (closed 2026-11; was
+    "`members.update()` writes the whole row"). `update()` used to rewrite every
+    column from the entity it was given, so dropping consent from the read side
+    would have silently erased a consent record on every rename. There is no
+    whole-row write any more: every member write names its fields
+    (`docs/architecture/member-writes.md`) and none names this column, so only
+    the access-control enrolment path can write it. `BiometricConsentPersistence.test.ts`
+    asserts that no member write includes the column, and that the read side
+    still returns it.
 13. **`ACCESS_EVENT_RETENTION_DAYS` is a published promise, not a tuning knob.**
     It is the figure in the privacy policy. Changing it means changing the
     policy text in `src/app/privacy/page.tsx` _and_ `docs/legal/privacy-policy.txt`.

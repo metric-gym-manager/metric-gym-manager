@@ -305,7 +305,12 @@ graph TD
    for (const member of expiredMembers) {
      try {
        const expiredMember = member.expire()
-       await this.memberRepo.update(expiredMember)
+       // Status only, and only if the member is still as this run read them
+       // (a ConflictError means they paid or changed meanwhile: skip, count it)
+       await this.memberRepo.updateFields(expiredMember, STATUS_FIELDS, {
+         expectedStatus: member.status,
+         expectedNextDueDate: member.nextDueDate,
+       })
        results.totalUpdated++
        results.updatedMemberIds.push(member.id)
      } catch (error) {
@@ -464,7 +469,10 @@ graph TD
    for (const member of overdueLongMembers) {
      try {
        const cancelledMember = member.cancel()
-       await this.memberRepo.update(cancelledMember)
+       await this.memberRepo.updateFields(cancelledMember, STATUS_FIELDS, {
+         expectedStatus: member.status,
+         expectedNextDueDate: member.nextDueDate,
+       })
        results.totalCancelled++
        results.cancelledMemberIds.push(member.id)
      } catch (error) {
@@ -684,7 +692,13 @@ graph TD
 7. **Save Updated Member**
 
    ```typescript
-   const savedMember = await this.memberRepo.update(updatedMember)
+   // Status and due date (plus the plan columns only when this payment
+   // switches the plan), guarded by the due date this payment was computed from
+   const savedMember = await this.memberRepo.updateFields(
+     updatedMember,
+     fields,
+     { expectedNextDueDate: member.nextDueDate }
+   )
    ```
 
 8. **Send Receipt SMS** (awaited and logged)

@@ -297,8 +297,8 @@ A hard gate: no enrolment command reaches a reader without `members.biometric_co
 | `CONSENT-04` | Consent created simultaneously with the enrolment request | B    | One deterministic outcome.                                                                                                                     |
 | `CONSENT-05` | Consent revoked while enrolment is processing             | B    | —                                                                                                                                              |
 | `CONSENT-06` | Consent revoked after successful enrolment                | C    | Clearing consent IS the withdrawal record; the template is removed via `fromdev`.                                                              |
-| `CONSENT-07` | Member rename after consent                               | A    | Consent survives. `update()` writes the whole row, so dropping the field from the READ side silently erases consent on every rename (trap 12). |
-| `CONSENT-08` | Concurrent member updates                                 | A    | Enrolment + rename + membership update at once; consent survives all orderings.                                                                |
+| `CONSENT-07` | Member rename after consent                               | A    | Consent survives. No member write names the consent column (trap 12, closed 2026-11), so a rename cannot touch it. |
+| `CONSENT-08` | Concurrent member updates                                 | A    | Enrolment + rename + membership update at once; consent, the new name and the new due date all survive (each writes only its own columns).                                                                |
 
 ### ENR — Enrolment
 
