@@ -4,6 +4,7 @@ import { renderScreen } from '@/test-utils/renderScreen'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import type { MemberWithDiscount } from '../types'
 import EditMemberModal from '../components/EditMemberModal'
+import { toast } from 'sonner'
 
 /**
  * What the edit form actually sends and what it shows when the server refuses.
@@ -13,7 +14,7 @@ import EditMemberModal from '../components/EditMemberModal'
  * carries the wrong values — which is the symptom reported against this modal.
  */
 jest.mock('sonner', () => ({
-  toast: { success: jest.fn(), error: jest.fn() },
+  toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
 }))
 
 const DISCOUNT_ID = '6f1c1c0e-6a6f-4f3c-9d8e-3b1f6f0a1111'
@@ -125,6 +126,12 @@ async function openForm(
 const submit = () =>
   fireEvent.click(screen.getByRole('button', { name: /update member/i }))
 
+/** An edit that is not nothing: the form sends only what changed. */
+const changeFee = (value = '4200') =>
+  fireEvent.change(screen.getByLabelText(/Plan Amount/), {
+    target: { value },
+  })
+
 describe('EditMemberModal — what is sent', () => {
   it('pre-fills every field from the member', async () => {
     mockApi(ok)
@@ -176,20 +183,71 @@ describe('EditMemberModal — what is sent', () => {
     })
   })
 
-  it('sends the unchanged values when the user edits nothing', async () => {
+  it('sends only the field the user changed', async () => {
+    // The form used to resend all six fields, so a field this user never
+    // touched overwrote whatever another desk device had saved meanwhile.
     const { patches } = mockApi(ok)
     await openForm()
+
+    changeFee('4200')
     submit()
 
     await waitFor(() => expect(patches).toHaveLength(1))
-    expect(patches[0].body).toEqual({
-      name: 'Fathima Herath',
-      phoneNumber: '+94751230428',
-      planType: 'monthly',
-      planAmount: 3500,
-      discountId: DISCOUNT_ID,
-      recurringDiscount: true,
+    expect(patches[0].body).toEqual({ planAmount: 4200 })
+  })
+
+  it('sends nothing, and says so, when the user changed nothing', async () => {
+    const { patches } = mockApi(ok)
+    const onClose = await openForm()
+
+    submit()
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(patches).toHaveLength(0)
+    expect(toast.info).toHaveBeenCalledWith('No changes to save')
+  })
+
+  it('does not count a name that only differs by surrounding spaces as a change', async () => {
+    // 21 stored names carry stray spaces; saving the untouched form must not
+    // quietly rewrite them (and re-push a rename to the readers).
+    const { patches } = mockApi(ok)
+    const onClose = await openForm(jest.fn(), {
+      ...member,
+      name: 'Fathima Herath  ',
     })
+
+    submit()
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1))
+    expect(patches).toHaveLength(0)
+  })
+
+  it('clearing the discount counts as a change and sends null', async () => {
+    const { patches } = mockApi(ok)
+    await openForm()
+
+    fireEvent.change(screen.getByLabelText(/^Discount/), {
+      target: { value: 'none' },
+    })
+    submit()
+
+    await waitFor(() => expect(patches).toHaveLength(1))
+    expect(patches[0].body).toEqual({ discountId: null })
+  })
+
+  it('does not send a member with no discount as a discount change', async () => {
+    const { patches } = mockApi(ok)
+    await openForm(jest.fn(), {
+      ...member,
+      discount_id: null,
+      recurring_discount: false,
+    })
+
+    changeFee()
+    submit()
+
+    await waitFor(() => expect(patches).toHaveLength(1))
+    expect(patches[0].body).toEqual({ planAmount: 4200 })
   })
 })
 
@@ -203,6 +261,12 @@ describe('EditMemberModal — what else must refresh after a save', () => {
     ['the dashboard reminder queue', 'reminder-queue'],
     ['revenue, which bills from the plan amount', 'revenue'],
     ['the members list', 'members'],
+    ['the recent-payments list, which prints the member name', 'dashboard'],
+    [
+      'the collected-payments list, which prints the member name',
+      'payment-collection',
+    ],
+    ['the day-pass search, which prints the name and phone', 'day-pass-search'],
   ])('refreshes %s', async (_label, key) => {
     mockApi(ok)
     const { queryClient } = renderScreen(
@@ -211,6 +275,7 @@ describe('EditMemberModal — what else must refresh after a save', () => {
     await screen.findByRole('option', { name: /Annual/ })
     const invalidate = jest.spyOn(queryClient, 'invalidateQueries')
 
+    changeFee()
     submit()
 
     await waitFor(() => {
@@ -249,10 +314,38 @@ describe('EditMemberModal — when the server refuses', () => {
       },
     })
     await openForm()
+    changeFee()
     submit()
 
     expect(await screen.findByText('Failed to update member')).toBeVisible()
     expect(screen.queryByText(/\[object Object\]/)).toBeNull()
+  })
+
+  it('puts the refusal where it cannot be scrolled out of sight', async () => {
+    // Rendered in a browser, the banner sat at the very bottom of the scrolling
+    // form, below the fold at the default scroll position: a failed save looked
+    // like nothing had happened. It is announced as an alert, ahead of the
+    // first field, and also raised as a toast (visible at any scroll position,
+    // like every other member action's failure).
+    mockApi({
+      status: 500,
+      body: {
+        success: false,
+        error: { message: 'Failed to update member', code: 'UPDATE_ERROR' },
+      },
+    })
+    await openForm()
+    changeFee()
+    submit()
+
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent('Failed to update member')
+    const nameField = screen.getByLabelText(/^Name/)
+    expect(
+      alert.compareDocumentPosition(nameField) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy()
+    expect(toast.error).toHaveBeenCalledWith('Failed to update member')
   })
 
   it('keeps the modal open and the typed values after a failure', async () => {
@@ -309,8 +402,40 @@ describe('EditMemberModal — a value that is no longer on offer', () => {
     const select = screen.getByLabelText(/^Discount/) as HTMLSelectElement
     expect(select.value).toBe(DISCOUNT_ID)
 
+    // Changing only the fee must not drop or rewrite the discount.
+    changeFee()
     submit()
     await waitFor(() => expect(patches).toHaveLength(1))
-    expect(patches[0].body.discountId).toBe(DISCOUNT_ID)
+    expect(patches[0].body).toEqual({ planAmount: 4200 })
+  })
+
+  it('labels a plan that is not in the current plan list without calling it retired', async () => {
+    // Some gyms never configured plan types at all; "no longer offered" would
+    // be wrong for them, so the label says only that it is not in the list.
+    mockApi(ok, { plans })
+    await openForm(jest.fn(), { ...member, plan_type: 'weekly' })
+
+    const select = screen.getByLabelText(/Plan Type/) as HTMLSelectElement
+    expect(select.selectedOptions[0]?.textContent).toBe(
+      'Weekly (not in current plans)'
+    )
+    expect(select.selectedOptions[0]?.textContent).not.toMatch(/no longer/i)
+  })
+
+  it('labels a discount that is not in the current list the same way', async () => {
+    mockApi(ok, { discounts: [] })
+    await openForm(jest.fn(), {
+      ...member,
+      discount: {
+        id: DISCOUNT_ID,
+        discount_name: 'Student',
+        discount_percentage: 10,
+      },
+    })
+
+    const select = screen.getByLabelText(/^Discount/) as HTMLSelectElement
+    expect(select.selectedOptions[0]?.textContent).toBe(
+      'Student (10%) (not in current plans)'
+    )
   })
 })

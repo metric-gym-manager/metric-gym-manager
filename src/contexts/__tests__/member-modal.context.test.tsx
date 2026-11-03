@@ -16,7 +16,7 @@ import {
  * the request can be right while the screen the owner returns to is not.
  */
 jest.mock('sonner', () => ({
-  toast: { success: jest.fn(), error: jest.fn() },
+  toast: { success: jest.fn(), error: jest.fn(), info: jest.fn() },
 }))
 jest.mock('@/features/access-control/components/MemberAccessPanel', () => ({
   __esModule: true,

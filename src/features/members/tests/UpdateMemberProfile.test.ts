@@ -18,7 +18,7 @@ import { UpdateMemberProfile } from '../services/UpdateMemberProfile'
 import { Member } from '@/features/members/domain/Member'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
-import { PROFILE_FIELDS } from '@/features/members/config/MemberWriteFields'
+import { createMemberStore } from '@/test-utils/memberStore'
 import { ConflictError, NotFoundError } from '@/utils/errors'
 
 const GYM_ID = 'gym-1'
@@ -50,7 +50,6 @@ describe('UpdateMemberProfile', () => {
     findById: jest.Mock
     findByPhoneNumber: jest.Mock
     updateFields: jest.Mock
-    update: jest.Mock
   }
   let useCase: UpdateMemberProfile
 
@@ -59,7 +58,6 @@ describe('UpdateMemberProfile', () => {
       findById: jest.fn().mockResolvedValue(memberFixture()),
       findByPhoneNumber: jest.fn().mockResolvedValue(null),
       updateFields: jest.fn(async (m: Member) => m),
-      update: jest.fn(),
     }
     useCase = new UpdateMemberProfile(repo as never)
   })
@@ -78,10 +76,13 @@ describe('UpdateMemberProfile', () => {
 
       expect(repo.updateFields).toHaveBeenCalledTimes(1)
       // Named fields only: a profile edit never writes status or the due date.
-      expect(repo.updateFields).toHaveBeenCalledWith(
-        expect.anything(),
-        PROFILE_FIELDS
-      )
+      expect(repo.updateFields).toHaveBeenCalledWith(expect.anything(), [
+        'name',
+        'planType',
+        'planAmount',
+        'discountId',
+        'recurringDiscount',
+      ])
       expect(saved.name).toBe('Fathima H. Herath')
       expect(saved.planType).toBe(PlanType.Annual)
       expect(saved.planAmount).toBe(30000)
@@ -89,14 +90,38 @@ describe('UpdateMemberProfile', () => {
       expect(saved.recurringDiscount).toBe(true)
     })
 
-    it('never uses the whole-row write', async () => {
+    it('writes only the fields it was given', async () => {
       await useCase.execute({
         memberId: 'member-1',
         gymId: GYM_ID,
-        name: 'New Name',
+        planAmount: 4200,
       })
 
-      expect(repo.update).not.toHaveBeenCalled()
+      expect(repo.updateFields).toHaveBeenCalledWith(expect.anything(), [
+        'planAmount',
+      ])
+    })
+
+    it('writes nothing, and returns the member, when it was given no fields', async () => {
+      const saved = await useCase.execute({
+        memberId: 'member-1',
+        gymId: GYM_ID,
+      })
+
+      expect(repo.updateFields).not.toHaveBeenCalled()
+      expect(saved.id).toBe('member-1')
+    })
+
+    it('counts an explicit null discount as supplied', async () => {
+      await useCase.execute({
+        memberId: 'member-1',
+        gymId: GYM_ID,
+        discountId: null,
+      })
+
+      expect(repo.updateFields).toHaveBeenCalledWith(expect.anything(), [
+        'discountId',
+      ])
     })
 
     it('clears the discount when null is supplied', async () => {
@@ -233,5 +258,29 @@ describe('UpdateMemberProfile', () => {
       expect(repo.findById).toHaveBeenCalledWith('member-1', GYM_ID)
       expect(repo.findByPhoneNumber).toHaveBeenCalledWith(OTHER_PHONE, GYM_ID)
     })
+  })
+})
+
+describe('UpdateMemberProfile — two edits to different fields', () => {
+  // A second desk device that never touched the phone must not rewrite it with
+  // the copy it read before the first device changed it.
+  it('keeps a field changed by another edit that landed after this one read', async () => {
+    const store = createMemberStore(memberFixture())
+    store.duringNextRead(async () => {
+      await new UpdateMemberProfile(store.repo as never).execute({
+        memberId: 'member-1',
+        gymId: GYM_ID,
+        phoneNumber: OTHER_PHONE,
+      })
+    })
+
+    await new UpdateMemberProfile(store.repo as never).execute({
+      memberId: 'member-1',
+      gymId: GYM_ID,
+      planAmount: 4200,
+    })
+
+    expect(store.current.phoneNumber).toBe(OTHER_PHONE)
+    expect(store.current.planAmount).toBe(4200)
   })
 })

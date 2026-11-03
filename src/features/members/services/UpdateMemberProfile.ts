@@ -65,7 +65,10 @@ export class UpdateMemberProfile {
     // Only a CHANGED number is checked. The edit form resends the phone on
     // every save, and numbers that were shared before this check existed must
     // not lock their members out of every other edit.
-    if (input.phoneNumber && input.phoneNumber !== member.phoneNumber) {
+    if (
+      input.phoneNumber !== undefined &&
+      input.phoneNumber !== member.phoneNumber
+    ) {
       const phone = PhoneNumber.create(input.phoneNumber)
       const holder = await this.memberRepo.findByPhoneNumber(
         phone.getValue(),
@@ -79,11 +82,20 @@ export class UpdateMemberProfile {
       }
     }
 
+    // Only the fields this request carries are written. The edit form resends
+    // what it read, so writing every profile column from the copy read here
+    // would overwrite a field another device saved a moment earlier even though
+    // this edit never touched it. `null` counts as supplied: it removes the
+    // discount.
+    const fields = PROFILE_FIELDS.filter((field) => input[field] !== undefined)
+    if (fields.length === 0) return member
+
     let updated = member
-    if (input.name) updated = updated.updateName(input.name)
-    if (input.phoneNumber)
+    if (input.name !== undefined) updated = updated.updateName(input.name)
+    if (input.phoneNumber !== undefined)
       updated = updated.updatePhoneNumber(input.phoneNumber)
-    if (input.planType) updated = updated.updatePlanType(input.planType)
+    if (input.planType !== undefined)
+      updated = updated.updatePlanType(input.planType)
     if (input.planAmount !== undefined) {
       updated = updated.updatePlanAmount(input.planAmount)
     }
@@ -94,6 +106,6 @@ export class UpdateMemberProfile {
       updated = updated.updateDiscountId(input.discountId)
     }
 
-    return this.memberRepo.updateFields(updated, PROFILE_FIELDS)
+    return this.memberRepo.updateFields(updated, fields)
   }
 }

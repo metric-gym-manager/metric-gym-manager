@@ -121,8 +121,12 @@ export const bulkRegisterSchema = z.object({
 // ============================================================
 
 export const updateMemberSchema = z.object({
+  // Trimmed BEFORE the length check: the entity trims a name and refuses one
+  // under two characters afterwards, so " a" used to pass here and fail there as
+  // a plain Error (a 500) instead of a validation message.
   name: z
     .string()
+    .trim()
     .min(2, 'Name must be at least 2 characters')
     .max(100, 'Name must not exceed 100 characters')
     .optional(),

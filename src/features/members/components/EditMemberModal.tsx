@@ -29,6 +29,51 @@ interface PlanType {
   is_active: boolean
 }
 
+/**
+ * The fields of a submitted form that differ from the member it was filled from.
+ *
+ * Compared as the server stores them: the phone arrives already normalised by
+ * the schema, a missing discount is `null`, and a stored name with stray spaces
+ * is the same name once trimmed (the schema trims what it sends).
+ *
+ * @param data - Validated form values
+ * @param member - The member the form was filled from
+ * @returns Only the changed fields; empty when nothing changed
+ */
+function changedFields(
+  data: UpdateMemberInput,
+  member: MemberWithDiscount
+): UpdateMemberInput {
+  const changes: UpdateMemberInput = {}
+
+  if (data.name !== undefined && data.name !== member.name.trim()) {
+    changes.name = data.name
+  }
+  if (
+    data.phoneNumber !== undefined &&
+    data.phoneNumber !== member.phone_number
+  ) {
+    changes.phoneNumber = data.phoneNumber
+  }
+  if (data.planType !== undefined && data.planType !== member.plan_type) {
+    changes.planType = data.planType
+  }
+  if (data.planAmount !== undefined && data.planAmount !== member.plan_amount) {
+    changes.planAmount = data.planAmount
+  }
+  if ((data.discountId ?? null) !== (member.discount_id ?? null)) {
+    changes.discountId = data.discountId ?? null
+  }
+  if (
+    data.recurringDiscount !== undefined &&
+    data.recurringDiscount !== member.recurring_discount
+  ) {
+    changes.recurringDiscount = data.recurringDiscount
+  }
+
+  return changes
+}
+
 /** "3-months" → "3 months", "monthly" → "Monthly". */
 function planLabel(planType: string): string {
   return planType.charAt(0).toUpperCase() + planType.slice(1).replace('-', ' ')
@@ -149,6 +194,10 @@ export default function EditMemberModal({
       queryClient.invalidateQueries({ queryKey: ['regular-payments'] })
       queryClient.invalidateQueries({ queryKey: ['reminder-queue'] })
       queryClient.invalidateQueries({ queryKey: ['revenue'] })
+      // Lists that print the member's name or phone.
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['payment-collection'] })
+      queryClient.invalidateQueries({ queryKey: ['day-pass-search'] })
       if (member) {
         // Removed, not invalidated: the detail view is closed while this form
         // is open, so its query is disabled and an invalidation only marks it
@@ -161,10 +210,26 @@ export default function EditMemberModal({
       toast.success('Member updated successfully')
       onClose()
     },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to update member'
+      )
+    },
   })
 
   const onSubmit = (data: UpdateMemberInput) => {
-    updateMemberMutation.mutate(data)
+    if (!member) return
+
+    // Send only what the user changed. Resending every field made an untouched
+    // one overwrite whatever another desk device had saved since this form was
+    // filled in.
+    const changes = changedFields(data, member)
+    if (Object.keys(changes).length === 0) {
+      toast.info('No changes to save')
+      onClose()
+      return
+    }
+    updateMemberMutation.mutate(changes)
   }
 
   if (!member) return null
@@ -217,6 +282,19 @@ export default function EditMemberModal({
         onSubmit={handleSubmit(onSubmit)}
         className="space-y-6"
       >
+        {/* A refusal is announced and shown FIRST. At the bottom of the
+            scrolling body it sat below the fold, so a failed save looked like
+            nothing had happened. */}
+        {updateMemberMutation.isError && (
+          <div role="alert" className="rounded-sm bg-error-bg p-4">
+            <p className="text-sm text-error">
+              {updateMemberMutation.error instanceof Error
+                ? updateMemberMutation.error.message
+                : 'Failed to update member'}
+            </p>
+          </div>
+        )}
+
         {/* Member Information */}
         <div className="space-y-4">
           <h3 className="text-sm font-semibold">Member Information</h3>
@@ -283,7 +361,7 @@ export default function EditMemberModal({
                   another. */}
               {!isPlanOffered && (
                 <option value={member.plan_type}>
-                  {planLabel(member.plan_type)} (no longer offered)
+                  {planLabel(member.plan_type)} (not in current plans)
                 </option>
               )}
               {(!planTypesData ||
@@ -341,7 +419,7 @@ export default function EditMemberModal({
                   {member.discount
                     ? `${member.discount.discount_name} (${member.discount.discount_percentage}%)`
                     : 'Current discount'}{' '}
-                  (no longer offered)
+                  (not in current plans)
                 </option>
               )}
             </Select>
@@ -385,17 +463,6 @@ export default function EditMemberModal({
             date will be recalculated when you collect a payment.
           </p>
         </div>
-
-        {/* Error Message */}
-        {updateMemberMutation.isError && (
-          <div className="rounded-sm bg-error-bg p-4">
-            <p className="text-sm text-error">
-              {updateMemberMutation.error instanceof Error
-                ? updateMemberMutation.error.message
-                : 'Failed to update member'}
-            </p>
-          </div>
-        )}
       </form>
     </Modal>
   )
