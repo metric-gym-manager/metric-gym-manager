@@ -263,21 +263,6 @@ export interface IMemberRepository {
   delete(id: string, gymId: string): Promise<void>
 
   /**
-   * Update status for multiple members (batch operation)
-   *
-   * Used by cron jobs to expire/cancel members in bulk.
-   *
-   * @param memberIds - Array of member IDs
-   * @param status - New status
-   * @param gymId - Gym ID (for RLS enforcement)
-   */
-  updateStatusBatch(
-    memberIds: string[],
-    status: MemberStatus,
-    gymId: string
-  ): Promise<void>
-
-  /**
    * Count members by status
    *
    * Used for dashboard statistics.

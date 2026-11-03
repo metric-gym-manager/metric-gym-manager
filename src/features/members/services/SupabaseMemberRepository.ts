@@ -570,32 +570,6 @@ export class SupabaseMemberRepository implements IMemberRepository {
   }
 
   /**
-   * Update status for multiple members (batch operation)
-   */
-  async updateStatusBatch(
-    memberIds: string[],
-    status: MemberStatus,
-    gymId: string
-  ): Promise<void> {
-    const { error } = await this.supabase
-      .from('members')
-      .update({
-        status,
-        updated_at: new Date().toISOString(),
-      })
-      .in('id', memberIds)
-      .eq('gym_id', gymId)
-
-    if (error) {
-      // Batch into-active flips hit the same DB quota gate as single updates
-      if (error.message.includes('MEMBER_LIMIT_REACHED')) {
-        throw new MemberLimitError()
-      }
-      throw new Error(`Failed to batch update member status: ${error.message}`)
-    }
-  }
-
-  /**
    * Count members by status
    */
   async countByStatus(gymId: string): Promise<Record<MemberStatus, number>> {

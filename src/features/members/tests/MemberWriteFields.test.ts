@@ -84,4 +84,14 @@ describe('there is no whole-row member write', () => {
   it('the repository does expose the named-field write', () => {
     expect(SupabaseMemberRepository.prototype).toHaveProperty('updateFields')
   })
+
+  // `updateStatusBatch(ids, status, gymId)` set the status of many members at
+  // once with no guard at all: nothing called it, and the first caller would
+  // have had the stale-status problem every single-member writer was fixed
+  // for. A status change goes through `updateFields` with `expectedStatus`.
+  it('the repository has no unguarded batch status write', () => {
+    expect(SupabaseMemberRepository.prototype).not.toHaveProperty(
+      'updateStatusBatch'
+    )
+  })
 })
