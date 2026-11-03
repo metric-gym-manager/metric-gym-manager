@@ -7,7 +7,7 @@
  * @see src/utils/api/ApiResponse.ts - Backend response structure
  */
 
-import { ApiErrorResponse } from '@/utils/api/ApiResponse';
+import { ApiErrorResponse } from '@/utils/api/ApiResponse'
 
 /**
  * Parse API error response and extract human-readable message
@@ -40,35 +40,35 @@ import { ApiErrorResponse } from '@/utils/api/ApiResponse';
  */
 export async function parseApiError(response: Response): Promise<string> {
   try {
-    const data = (await response.json()) as ApiErrorResponse;
+    const data = (await response.json()) as ApiErrorResponse
 
     // Handle validation errors with field-specific details
     if (
       data.error?.code === 'VALIDATION_ERROR' &&
       data.error?.details?.errors
     ) {
-      const fieldErrors = data.error.details.errors as Record<string, string[]>;
+      const fieldErrors = data.error.details.errors as Record<string, string[]>
       const formattedErrors = Object.entries(fieldErrors)
         .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
-        .join('; ');
+        .join('; ')
 
-      return `Validation failed: ${formattedErrors}`;
+      return `Validation failed: ${formattedErrors}`
     }
 
     // Extract message from standardized error response
     if (data.error?.message) {
-      return data.error.message;
+      return data.error.message
     }
 
     // Fallback to top-level message (legacy compatibility)
     if ('message' in data) {
-      return (data as { message: string }).message;
+      return (data as { message: string }).message
     }
 
     // Last resort - use HTTP status text
-    return `Request failed with status ${response.status}: ${response.statusText}`;
+    return `Request failed with status ${response.status}: ${response.statusText}`
   } catch {
     // JSON parsing failed or response body already consumed
-    return `Request failed with status ${response.status}: ${response.statusText}`;
+    return `Request failed with status ${response.status}: ${response.statusText}`
   }
 }
