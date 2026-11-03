@@ -89,6 +89,8 @@ Phone uniqueness is checked only when the phone changes (a number already shared
 3. If a slow read-then-write loop or a duplicate submission is possible, pass `expectedNextDueDate` and/or `expectedStatus` and handle `ConflictError` by skipping and counting, not failing.
 4. Add an interleaving test using `createMemberStore` (`src/test-utils/memberStore.ts`): `duringNextRead(fn)` lands `fn` after your read has taken its snapshot.
 
+- **Inverted check (2026-11-04):** every claim above re-attacked with different instruments (production's PostgREST 14.5, UTC, the real routes with `payments` and `sms_logs`, rolled-back production transactions, a real browser, an exact pixel diff). Findings and the clean list: `member-writes-inverted-check.md`.
+
 ## Tests
 
 `MemberWriteFields.test.ts` (group contract, no `update()`), `SupabaseMemberRepositoryUpdateFields.test.ts` (payloads, guards including the plan guard, errors, phone lookup), `PaymentVsProfileEditRace.test.ts` (also a day pass submitted twice and a plan switch after a plan edit), `IssueDayPass.test.ts`, `MemberTransitionWrites.test.ts` (also the status guard), `CronMemberRaces.test.ts`, `status-routes.test.ts` and the day-pass route test (409 and 403 mapping), `MemberDetailModalRequests.test.tsx` and `DayPassModal.test.tsx` (409 and the upgrade dialog), `photo.route.test.ts`, `UpdateMemberProfile.test.ts`, `EditMemberModal.submit.test.tsx`, `member-modal.context.test.tsx`.
