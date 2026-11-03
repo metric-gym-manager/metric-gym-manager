@@ -419,24 +419,24 @@ export type UpdateUsernameResult =
   | { status: 'error' }
   | { status: 'ok'; profile: Record<string, unknown> }
 
-/** Update the gym's login username after a cross-tenant uniqueness check. */
+/**
+ * Update the gym's login username.
+ *
+ * There is no "is it taken?" lookup first. Under RLS a gym session sees only
+ * its own row, so a session-client search for another gym's username finds
+ * nothing whether or not one holds it, and a taken username used to surface
+ * as a general failure. The UNIQUE constraint `gyms_username_key` decides,
+ * and its violation (Postgres 23505) is reported as `taken`.
+ *
+ * @param gymId - The signed-in owner's gym
+ * @param username - Already validated by the route's schema
+ * @returns `ok` with the stored row, `taken`, or `error`
+ */
 export async function updateGymUsername(
   gymId: string,
   username: string
 ): Promise<UpdateUsernameResult> {
   const supabase = await createClient()
-
-  // Check if username is already taken by another gym
-  const { data: existingGym } = await supabase
-    .from('gyms')
-    .select('id')
-    .eq('username', username)
-    .neq('id', gymId)
-    .single()
-
-  if (existingGym) {
-    return { status: 'taken' }
-  }
 
   const { data: updatedProfile, error: updateError } = await supabase
     .from('gyms')
@@ -449,6 +449,9 @@ export async function updateGymUsername(
     .single()
 
   if (updateError) {
+    if (updateError.code === '23505') {
+      return { status: 'taken' }
+    }
     console.error('Update username error:', updateError)
     return { status: 'error' }
   }
