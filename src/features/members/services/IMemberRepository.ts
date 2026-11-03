@@ -12,6 +12,7 @@
 import { Member } from '@/features/members/domain/Member'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
+import type { MemberWritableField } from '@/features/members/config/MemberWriteFields'
 
 /**
  * Member query filters
@@ -217,22 +218,36 @@ export interface IMemberRepository {
   ): Promise<Member>
 
   /**
-   * Persist an edit to a member's profile: name, phone, plan, plan amount,
-   * discount and recurring-discount flag, and nothing else.
+   * Write the named fields of a member, and nothing else.
    *
-   * Unlike `update()`, which rewrites every column from the entity it is
-   * given, this touches only those columns. The entity of a profile edit comes
-   * from an earlier read, so a whole-row write puts back anything another
-   * request changed in between: a payment's new `next_due_date`, a status
-   * flip, a fingerprint consent.
+   * There is deliberately no "write the whole member". A writer reads a
+   * member, changes one to three columns and used to write all ~22 back, so
+   * anything another request changed in between was put back: a payment
+   * reverted a profile edit, and a nightly cron reverted a payment recorded
+   * while it ran. Name the fields from `MemberWriteFields` instead.
    *
-   * @param member - Member carrying the edited profile fields.
+   * @param member - Member carrying the new values for `fields`. Its other
+   *   values may be stale and are never written.
+   * @param fields - The fields to write, e.g. `LIFECYCLE_FIELDS`.
+   * @param options.expectedNextDueDate - Apply only if the stored
+   *   `next_due_date` still equals this. Payment collection passes it so two
+   *   concurrent submissions cannot both advance the same member; the crons
+   *   pass it so a member paid mid-run is skipped, not reverted.
+   * @param options.expectedStatus - Apply only if the stored `status` still
+   *   equals this. The crons pass it so a status change made mid-run wins.
    * @returns The member as stored after the write (live values for every
-   *   column this method does not write).
-   * @throws NotFoundError if no row matched (also what an RLS-refused write
-   *   looks like, so it is never reported as success).
+   *   column this call did not write).
+   * @throws ConflictError if a guard was given and no row matched.
+   * @throws NotFoundError if no guard was given and no row matched (also what
+   *   an RLS-refused write looks like, so it is never reported as success).
+   * @throws MemberLimitError if the write is an into-active flip the gym's
+   *   plan does not allow.
    */
-  updateProfile(member: Member): Promise<Member>
+  updateFields(
+    member: Member,
+    fields: readonly MemberWritableField[],
+    options?: { expectedNextDueDate?: Date; expectedStatus?: MemberStatus }
+  ): Promise<Member>
 
   /**
    * Delete a member

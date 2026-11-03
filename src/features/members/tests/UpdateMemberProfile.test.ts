@@ -18,6 +18,7 @@ import { UpdateMemberProfile } from '../services/UpdateMemberProfile'
 import { Member } from '@/features/members/domain/Member'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
+import { PROFILE_FIELDS } from '@/features/members/config/MemberWriteFields'
 import { ConflictError, NotFoundError } from '@/utils/errors'
 
 const GYM_ID = 'gym-1'
@@ -48,7 +49,7 @@ describe('UpdateMemberProfile', () => {
   let repo: {
     findById: jest.Mock
     findByPhoneNumber: jest.Mock
-    updateProfile: jest.Mock
+    updateFields: jest.Mock
     update: jest.Mock
   }
   let useCase: UpdateMemberProfile
@@ -57,7 +58,7 @@ describe('UpdateMemberProfile', () => {
     repo = {
       findById: jest.fn().mockResolvedValue(memberFixture()),
       findByPhoneNumber: jest.fn().mockResolvedValue(null),
-      updateProfile: jest.fn(async (m: Member) => m),
+      updateFields: jest.fn(async (m: Member) => m),
       update: jest.fn(),
     }
     useCase = new UpdateMemberProfile(repo as never)
@@ -75,7 +76,12 @@ describe('UpdateMemberProfile', () => {
         recurringDiscount: true,
       })
 
-      expect(repo.updateProfile).toHaveBeenCalledTimes(1)
+      expect(repo.updateFields).toHaveBeenCalledTimes(1)
+      // Named fields only: a profile edit never writes status or the due date.
+      expect(repo.updateFields).toHaveBeenCalledWith(
+        expect.anything(),
+        PROFILE_FIELDS
+      )
       expect(saved.name).toBe('Fathima H. Herath')
       expect(saved.planType).toBe(PlanType.Annual)
       expect(saved.planAmount).toBe(30000)
@@ -147,7 +153,7 @@ describe('UpdateMemberProfile', () => {
           phoneNumber: OTHER_PHONE,
         })
       ).rejects.toBeInstanceOf(ConflictError)
-      expect(repo.updateProfile).not.toHaveBeenCalled()
+      expect(repo.updateFields).not.toHaveBeenCalled()
     })
 
     it('names the number in the refusal, in the same display form as registration', async () => {
@@ -176,7 +182,7 @@ describe('UpdateMemberProfile', () => {
       })
 
       expect(repo.findByPhoneNumber).not.toHaveBeenCalled()
-      expect(repo.updateProfile).toHaveBeenCalledTimes(1)
+      expect(repo.updateFields).toHaveBeenCalledTimes(1)
     })
 
     it('does not look the phone up when none is supplied', async () => {
@@ -212,7 +218,7 @@ describe('UpdateMemberProfile', () => {
       await expect(
         useCase.execute({ memberId: 'ghost', gymId: GYM_ID, name: 'X Y' })
       ).rejects.toBeInstanceOf(NotFoundError)
-      expect(repo.updateProfile).not.toHaveBeenCalled()
+      expect(repo.updateFields).not.toHaveBeenCalled()
     })
   })
 

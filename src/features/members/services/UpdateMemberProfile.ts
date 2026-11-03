@@ -15,6 +15,7 @@
 
 import type { Member } from '@/features/members/domain/Member'
 import type { PlanType } from '@/features/members/config/PlanConfig'
+import { PROFILE_FIELDS } from '@/features/members/config/MemberWriteFields'
 import { PhoneNumber } from '@/utils/phone/PhoneNumber'
 import { ConflictError, NotFoundError } from '@/utils/errors'
 import type { IMemberRepository } from './IMemberRepository'
@@ -93,6 +94,6 @@ export class UpdateMemberProfile {
       updated = updated.updateDiscountId(input.discountId)
     }
 
-    return this.memberRepo.updateProfile(updated)
+    return this.memberRepo.updateFields(updated, PROFILE_FIELDS)
   }
 }

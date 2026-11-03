@@ -23,6 +23,7 @@ import {
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { RegistrationSource } from '@/features/members/config/RegistrationConfig'
+import type { MemberWritableField } from '@/features/members/config/MemberWriteFields'
 import {
   NotFoundError,
   MemberLimitError,
@@ -65,6 +66,24 @@ interface MemberRow {
     discount_percentage: number
   } | null
 }
+
+/**
+ * The column each writable field lives in. `satisfies` makes a field added to
+ * `MemberWritableField` without a column here a compile error.
+ */
+const FIELD_COLUMNS = {
+  name: 'name',
+  phoneNumber: 'phone_number',
+  planType: 'plan_type',
+  planAmount: 'plan_amount',
+  discountId: 'discount_id',
+  recurringDiscount: 'recurring_discount',
+  status: 'status',
+  nextDueDate: 'next_due_date',
+  photoPath: 'photo_path',
+  photoUpdatedAt: 'photo_updated_at',
+  verifiedAt: 'verified_at',
+} as const satisfies Record<MemberWritableField, keyof MemberRow>
 
 /**
  * Supabase Member Repository
@@ -535,35 +554,78 @@ export class SupabaseMemberRepository implements IMemberRepository {
   }
 
   /**
-   * Write a profile edit — the six columns the edit form owns — and nothing
-   * else. See `IMemberRepository.updateProfile` for why this is not `update()`.
+   * Write the named fields of a member and nothing else. See
+   * `IMemberRepository.updateFields` for why there is no whole-row write.
+   *
+   * Status changes that put a member INTO active are gated by the
+   * active-member quota trigger (migration 20260708000001): at the cap it
+   * raises MEMBER_LIMIT_REACHED, surfaced here as MemberLimitError so routes
+   * can return the 403 the UI keys its upgrade prompt on. Every group that
+   * changes status lists `status`, so that trigger fires exactly as before.
    */
-  async updateProfile(member: Member): Promise<Member> {
+  async updateFields(
+    member: Member,
+    fields: readonly MemberWritableField[],
+    options?: { expectedNextDueDate?: Date; expectedStatus?: MemberStatus }
+  ): Promise<Member> {
     const row = this.toDatabase(member)
 
-    const { data, error } = await this.supabase
+    const payload: Record<string, unknown> = {}
+    for (const field of fields) {
+      const column = FIELD_COLUMNS[field]
+      payload[column] = row[column]
+    }
+    payload.updated_at = new Date().toISOString()
+
+    let query = this.supabase
       .from('members')
-      .update({
-        name: row.name,
-        phone_number: row.phone_number,
-        plan_type: row.plan_type,
-        plan_amount: row.plan_amount,
-        discount_id: row.discount_id,
-        recurring_discount: row.recurring_discount,
-        updated_at: new Date().toISOString(),
-      })
+      .update(payload)
       .eq('id', member.id)
       .eq('gym_id', member.gymId)
-      .select()
-      .maybeSingle()
 
-    if (error) {
-      throw new Error(`Failed to update member profile: ${error.message}`)
+    // Optimistic concurrency: apply only if the member is still as the caller
+    // read it. A guard that matches nothing is reported as a conflict, not
+    // silently ignored.
+    //
+    // `expectedNextDueDate` is what stops duplicate payments. Collecting a
+    // payment is read-member -> compute next due -> write -> insert payment,
+    // with nothing serialising it: two concurrent submissions both read the
+    // same due date, both computed the same next one, both wrote (identically),
+    // and both inserted a payment row. Production carries 31 such rows across
+    // 22 members — one member has three identical payments on one day, all
+    // advancing the due date to the same date. A disabled button does not
+    // prevent it; a second tab, a retry, or a double-tap on a slow connection
+    // all do.
+    if (options?.expectedNextDueDate) {
+      query = query.eq(
+        'next_due_date',
+        options.expectedNextDueDate.toISOString().split('T')[0]
+      )
+    }
+    if (options?.expectedStatus) {
+      query = query.eq('status', options.expectedStatus)
     }
 
     // `.select()` is what makes a refused write visible: without it Supabase
     // reports success when RLS matched no row.
+    const { data, error } = await query.select().maybeSingle()
+
+    if (error) {
+      if (error.message.includes('MEMBER_LIMIT_REACHED')) {
+        throw new MemberLimitError()
+      }
+      throw new Error(`Failed to update member: ${error.message}`)
+    }
+
     if (!data) {
+      // With a guard, no matching row means someone else got there first. That
+      // is a conflict (409), not a missing member (404) — the caller should NOT
+      // retry blindly: the payment it was about to record may already exist.
+      if (options?.expectedNextDueDate || options?.expectedStatus) {
+        throw new ConflictError(
+          'This member was updated by another request. Reload and try again.'
+        )
+      }
       throw new NotFoundError(`Member ${member.id}`)
     }
 

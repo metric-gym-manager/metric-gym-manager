@@ -13,7 +13,8 @@
 
 import { UpdateMemberProfile } from '@/features/members/services/UpdateMemberProfile'
 import { SendAutomatedReminders } from '@/features/sms/services/SendAutomatedReminders'
-import { Member } from '@/features/members/domain/Member'
+import { Member, type MemberProps } from '@/features/members/domain/Member'
+import type { MemberWritableField } from '@/features/members/config/MemberWriteFields'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import type { IMemberRepository } from '@/features/members/services/IMemberRepository'
@@ -52,19 +53,20 @@ function createMemberStore(initial: Member) {
       findByPhoneNumber: jest.fn(async (phone: string) =>
         stored.phoneNumber === phone ? stored : null
       ),
-      // Mirrors the real method: profile columns only, the rest stays live.
-      updateProfile: jest.fn(async (edited: Member) => {
-        stored = Member.fromDatabase({
-          ...stored.toDatabase(),
-          name: edited.name,
-          phoneNumber: edited.phoneNumber,
-          planType: edited.planType,
-          planAmount: edited.planAmount,
-          discountId: edited.discountId,
-          recurringDiscount: edited.recurringDiscount,
-        })
-        return stored
-      }),
+      // Mirrors the real method: only the named fields are written, the rest
+      // of the stored row stays live.
+      updateFields: jest.fn(
+        async (edited: Member, fields: readonly MemberWritableField[]) => {
+          const next = { ...stored.toDatabase() } as Record<string, unknown>
+          const incoming = edited.toDatabase() as unknown as Record<
+            string,
+            unknown
+          >
+          for (const field of fields) next[field] = incoming[field]
+          stored = Member.fromDatabase(next as unknown as MemberProps)
+          return stored
+        }
+      ),
       findAllActiveMembers: jest.fn(async () => [stored]),
       findActiveMembers: jest.fn(async () => [stored]),
     } as unknown as jest.Mocked<IMemberRepository>,
