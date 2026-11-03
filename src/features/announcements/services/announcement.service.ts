@@ -359,6 +359,53 @@ async function sendAnnouncementSmsInBackground(
 // RETRY FAILED ANNOUNCEMENTS (MAX 3 ATTEMPTS)
 // ============================================================
 
+/** Members per lookup; `.in()` travels in the URL of a GET. */
+const PHONE_LOOKUP_BATCH = 50
+
+/**
+ * Each member's phone number as it is NOW, keyed by member id.
+ *
+ * A failure record holds the number the send was attempted with. That is
+ * usually why it failed, and the desk's natural next step is to correct the
+ * number on the member and press Retry — so the record must never be the
+ * source of the number to retry.
+ *
+ * Scoped to the announcement's gym: the client here is the service role.
+ *
+ * @param supabase - Service-role client
+ * @param gymId - The announcement's gym
+ * @param memberIds - Members to look up
+ * @returns Map of member id to current phone number; a member that no longer
+ *   exists is absent
+ * @throws Error if any lookup fails, so nothing is sent on a guess
+ */
+async function currentPhoneNumbers(
+  supabase: ReturnType<typeof createAdminClient>,
+  gymId: string,
+  memberIds: string[]
+): Promise<Map<string, string>> {
+  const phones = new Map<string, string>()
+
+  for (let i = 0; i < memberIds.length; i += PHONE_LOOKUP_BATCH) {
+    const { data, error } = await supabase
+      .from('members')
+      .select('id, phone_number')
+      .eq('gym_id', gymId)
+      .in('id', memberIds.slice(i, i + PHONE_LOOKUP_BATCH))
+
+    if (error) {
+      throw new Error(
+        `Failed to look up member phone numbers: ${error.message}`
+      )
+    }
+    for (const row of data ?? []) {
+      phones.set(row.id as string, row.phone_number as string)
+    }
+  }
+
+  return phones
+}
+
 export async function retryFailedAnnouncements(
   announcementId: string
 ): Promise<{
@@ -420,6 +467,13 @@ export async function retryFailedAnnouncements(
     }
   }
 
+  // The numbers as they are now, not as they were when the send failed.
+  const phones = await currentPhoneNumbers(
+    supabase,
+    announcement.gym_id,
+    failures.map((f) => f.member_id)
+  )
+
   console.log(
     `🔄 [RETRY] Retrying ${failures.length} failed SMS for announcement ${announcementId}`
   )
@@ -435,10 +489,17 @@ export async function retryFailedAnnouncements(
     const results = await Promise.allSettled(
       batch.map(async (failure) => {
         try {
+          const phone = phones.get(failure.member_id)
+          if (!phone) {
+            // Deleted since the send failed: there is nobody to text, and a
+            // log row would break the member foreign key.
+            throw new Error('Member no longer exists')
+          }
+
           if (useRealSms) {
             const result = await sendSmsViaTextLk({
               gymId: announcement.gym_id,
-              to: failure.phone_number,
+              to: phone,
               message: messageBody,
             })
 
@@ -448,7 +509,7 @@ export async function retryFailedAnnouncements(
             await logAnnouncementSms(smsRepo, {
               memberId: failure.member_id,
               gymId: announcement.gym_id,
-              phoneNumber: failure.phone_number,
+              phoneNumber: phone,
               messageBody,
               deliveryStatus: result.success
                 ? SMSDeliveryStatus.Sent
@@ -467,7 +528,7 @@ export async function retryFailedAnnouncements(
             await logAnnouncementSms(smsRepo, {
               memberId: failure.member_id,
               gymId: announcement.gym_id,
-              phoneNumber: failure.phone_number,
+              phoneNumber: phone,
               messageBody,
               deliveryStatus: SMSDeliveryStatus.Sent,
             })
@@ -503,6 +564,7 @@ export async function retryFailedAnnouncements(
           const newRetryCount = (failure.retry_count || 0) + 1
           updatedFailures.push({
             ...failure,
+            phone_number: phones.get(failure.member_id) ?? failure.phone_number,
             retry_count: newRetryCount,
             last_error: error instanceof Error ? error.message : String(error),
             last_attempt_at: new Date().toISOString(),
