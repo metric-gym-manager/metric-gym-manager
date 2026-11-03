@@ -205,7 +205,12 @@ export class ResponseBuilder {
    * @returns Error response object
    */
   static notFound(resource: string): ApiErrorResponse {
-    return this.error(`${resource} not found`, 'NOT_FOUND');
+    // Callers pass a noun ("Member"), a finished sentence ("Member not found")
+    // or a NotFoundError message, which already ends in " not found" because
+    // that class appends it too. Strip any trailing suffix so the last two do
+    // not print "Member not found not found".
+    const noun = resource.replace(/(?:\s*\bnot found\b)+\s*$/i, '').trim() || 'Resource';
+    return this.error(`${noun} not found`, 'NOT_FOUND');
   }
 
   /**

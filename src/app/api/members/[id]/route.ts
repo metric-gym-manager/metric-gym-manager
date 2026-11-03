@@ -34,7 +34,7 @@ export async function GET(
     const member = await memberRepo.findById(id, gymProfile!.id)
 
     if (!member) {
-      return NextResponse.json(ResponseBuilder.notFound('Member not found'), {
+      return NextResponse.json(ResponseBuilder.notFound('Member'), {
         status: 404,
       })
     }

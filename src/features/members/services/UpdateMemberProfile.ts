@@ -58,7 +58,7 @@ export class UpdateMemberProfile {
 
     const member = await this.memberRepo.findById(memberId, gymId)
     if (!member) {
-      throw new NotFoundError(`Member with ID ${memberId} not found`)
+      throw new NotFoundError(`Member ${memberId}`)
     }
 
     // Only a CHANGED number is checked. The edit form resends the phone on
