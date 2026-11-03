@@ -198,7 +198,15 @@ export function Modal({
             )}
           >
             {description && (
-              <Dialog.Description className="text-body text-ink-secondary">
+              <Dialog.Description
+                className={cn(
+                  'text-body text-ink-secondary',
+                  // Body content sits in the same scroller, directly below:
+                  // without this gap a dialog's first field touched the
+                  // description. None when the description is the whole body.
+                  React.Children.toArray(children).length > 0 && 'mb-4'
+                )}
+              >
                 {description}
               </Dialog.Description>
             )}
