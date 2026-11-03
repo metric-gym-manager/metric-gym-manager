@@ -5,6 +5,7 @@ import { createReactivateMember } from '@/features/members'
 import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import {
+  ConflictError,
   NotFoundError,
   InvalidStatusTransitionError,
   MemberLimitError,
@@ -78,6 +79,14 @@ export async function POST(
         ResponseBuilder.error(error.message, 'MEMBER_LIMIT_REACHED'),
         { status: 403 }
       )
+    }
+
+    // The member changed after this request read it (the expiry cron, a
+    // payment on another device). 409 with the reason, not a 500.
+    if (error instanceof ConflictError) {
+      return NextResponse.json(ResponseBuilder.conflict(error.message), {
+        status: 409,
+      })
     }
 
     if (error instanceof InvalidStatusTransitionError) {

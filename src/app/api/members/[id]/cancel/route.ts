@@ -4,7 +4,11 @@ import { createClient } from '@/lib/supabase/server'
 import { createCancelMember } from '@/features/members'
 import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
-import { NotFoundError, InvalidStatusTransitionError } from '@/utils/errors'
+import {
+  ConflictError,
+  NotFoundError,
+  InvalidStatusTransitionError,
+} from '@/utils/errors'
 
 // ============================================================
 // POST /api/members/[id]/cancel - Cancel member
@@ -52,6 +56,14 @@ export async function POST(
     if (error instanceof NotFoundError) {
       return NextResponse.json(ResponseBuilder.notFound(error.message), {
         status: 404,
+      })
+    }
+
+    // The member changed after this request read it (the expiry cron, a
+    // payment on another device). 409 with the reason, not a 500.
+    if (error instanceof ConflictError) {
+      return NextResponse.json(ResponseBuilder.conflict(error.message), {
+        status: 409,
       })
     }
 

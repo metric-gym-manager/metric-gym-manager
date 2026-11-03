@@ -36,7 +36,11 @@ import ReactivationLimitDialog from '@/features/subscriptions/components/Reactiv
 import MemberPhotoSection from './MemberPhotoSection'
 import { useViewportTier } from '@/hooks/useViewportTier'
 import type { MemberWithDiscount, Payment } from '@/features/members/types'
-import { parseApiError } from '@/utils/api-error'
+import {
+  ApiRequestError,
+  parseApiError,
+  toApiRequestError,
+} from '@/utils/api-error'
 import { formatMemberNumber } from '@/features/members/utils/formatMemberNumber'
 import { formatDate } from '@/utils/date/date'
 
@@ -85,6 +89,21 @@ export default function MemberDetailModal({
   const [showReactivationLimit, setShowReactivationLimit] = useState(false)
   const [activateNewDueDate, setActivateNewDueDate] = useState<string>('')
 
+  // Every action below is computed from the member as this screen read it.
+  // When another request changed the member first (the expiry cron, a payment
+  // on another device) the server refuses with 409. Say so and fetch the member
+  // again; otherwise a retry is made against the same stale copy and refused
+  // again. Returns true when it handled the error.
+  const handledConflict = (error: unknown): boolean => {
+    if (!(error instanceof ApiRequestError && error.status === 409)) {
+      return false
+    }
+    toast.error(error.message)
+    queryClient.invalidateQueries({ queryKey: ['members'] })
+    queryClient.invalidateQueries({ queryKey: ['member-detail', member?.id] })
+    return true
+  }
+
   // Suspend member mutation
   const suspendMemberMutation = useMutation({
     mutationFn: async (memberId: string) => {
@@ -94,7 +113,7 @@ export default function MemberDetailModal({
       })
 
       if (!response.ok) {
-        throw new Error(await parseApiError(response))
+        throw await toApiRequestError(response)
       }
 
       return response.json()
@@ -105,6 +124,7 @@ export default function MemberDetailModal({
       toast.success('Member suspended successfully')
     },
     onError: (error) => {
+      if (handledConflict(error)) return
       toast.error(
         error instanceof Error ? error.message : 'Failed to suspend member'
       )
@@ -127,13 +147,7 @@ export default function MemberDetailModal({
       })
 
       if (!response.ok) {
-        // ApiResponse envelope: {success:false, error:{message, code}}
-        const body = await response.json().catch(() => null)
-        const err = new Error(
-          body?.error?.message || body?.error || 'Failed to activate member'
-        ) as Error & { code?: string }
-        err.code = body?.error?.code
-        throw err
+        throw await toApiRequestError(response)
       }
 
       return response.json()
@@ -146,9 +160,14 @@ export default function MemberDetailModal({
       setActivateNewDueDate('')
     },
     onError: (error) => {
+      if (handledConflict(error)) {
+        setShowActivateDialog(false)
+        return
+      }
       // Active-member quota exhausted -> upgrade pop-up instead of a toast
       if (
-        (error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED'
+        error instanceof ApiRequestError &&
+        error.code === 'MEMBER_LIMIT_REACHED'
       ) {
         setShowActivateDialog(false)
         setShowReactivationLimit(true)
@@ -169,7 +188,7 @@ export default function MemberDetailModal({
       })
 
       if (!response.ok) {
-        throw new Error(await parseApiError(response))
+        throw await toApiRequestError(response)
       }
 
       return response.json()
@@ -180,6 +199,7 @@ export default function MemberDetailModal({
       toast.success('Member cancelled successfully')
     },
     onError: (error) => {
+      if (handledConflict(error)) return
       toast.error(
         error instanceof Error ? error.message : 'Failed to cancel member'
       )
@@ -223,12 +243,7 @@ export default function MemberDetailModal({
         }),
       })
       if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        const err = new Error(
-          body?.error?.message || 'Failed to collect payment'
-        ) as Error & { code?: string }
-        err.code = body?.error?.code
-        throw err
+        throw await toApiRequestError(res)
       }
       return res.json()
     },
@@ -244,10 +259,12 @@ export default function MemberDetailModal({
     },
     onError: (error) => {
       setIsMarkingRegularPaid(false)
+      if (handledConflict(error)) return
       // Paying to reactivate an expired member can hit the active-member quota;
       // the flip is blocked before anything is charged (see CollectPayment).
       if (
-        (error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED'
+        error instanceof ApiRequestError &&
+        error.code === 'MEMBER_LIMIT_REACHED'
       ) {
         setShowReactivationLimit(true)
         return
@@ -283,12 +300,7 @@ export default function MemberDetailModal({
         }),
       })
       if (!res.ok) {
-        const body = await res.json().catch(() => null)
-        const err = new Error(
-          body?.error?.message || 'Failed to reactivate member'
-        ) as Error & { code?: string }
-        err.code = body?.error?.code
-        throw err
+        throw await toApiRequestError(res)
       }
       return res.json()
     },
@@ -300,10 +312,15 @@ export default function MemberDetailModal({
       toast.success('Member reactivated — confirmation SMS sent')
     },
     onError: (error) => {
+      if (handledConflict(error)) {
+        setShowReactivateDialog(false)
+        return
+      }
       // Reactivation flips into active and can hit the active-member quota;
       // the flip is blocked before anything is charged (see CollectPayment).
       if (
-        (error as Error & { code?: string }).code === 'MEMBER_LIMIT_REACHED'
+        error instanceof ApiRequestError &&
+        error.code === 'MEMBER_LIMIT_REACHED'
       ) {
         setShowReactivateDialog(false)
         setShowReactivationLimit(true)

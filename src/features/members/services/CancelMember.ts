@@ -62,6 +62,7 @@ export class CancelMember {
    * @returns Cancelled member
    * @throws NotFoundError if member not found
    * @throws InvalidStatusTransitionError if transition not allowed
+   * @throws ConflictError if the member's status changed since it was read
    */
   async execute(input: CancelMemberInput): Promise<Member> {
     const { memberId, gymId } = input
@@ -79,9 +80,14 @@ export class CancelMember {
     // Persist the update
     // Status only: the member was read above, so writing the whole row would
     // revert anything edited meanwhile.
+    // Only if the member still has the status read above: the action was
+    // chosen against it, and a change landing in between (the expiry cron, a
+    // payment on another device) means it no longer applies — ConflictError
+    // (409), and the operator decides again on the current member.
     const saved = await this.memberRepo.updateFields(
       cancelledMember,
-      STATUS_FIELDS
+      STATUS_FIELDS,
+      { expectedStatus: member.status }
     )
 
     return saved

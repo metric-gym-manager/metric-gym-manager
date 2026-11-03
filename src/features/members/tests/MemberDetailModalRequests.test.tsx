@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { renderScreen, mockFetchRoutes } from '@/test-utils/renderScreen'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
-import { MemberLimitError } from '@/utils/errors'
+import { ConflictError, MemberLimitError } from '@/utils/errors'
 import type { MemberWithDiscount, Payment } from '../types'
 import MemberDetailModal from '../components/MemberDetailModal'
 
@@ -396,6 +396,97 @@ describe('MemberDetailModal — a payment refused at the active-member cap', () 
     )
 
     await expectUpgradeDialog()
+  })
+})
+
+describe('MemberDetailModal — an action refused because the member changed', () => {
+  /**
+   * Every member action is computed from the member as this screen read it.
+   * When another request changed the member first (the expiry cron, a payment
+   * on another device) the server refuses with 409; the screen must say so and
+   * fetch the member again, or the operator retries against the same stale
+   * copy and is refused again.
+   */
+  const message = new ConflictError(
+    'This member was updated by another request. Reload and try again.'
+  ).message
+  const conflict = { status: 409, body: ResponseBuilder.conflict(message) }
+
+  function refusing(path: string, overrides: Partial<MemberWithDiscount>) {
+    const { queryClient } = renderDetail(overrides)
+    mockFetchRoutes({
+      ...routes(),
+      [`/api/members/${MEMBER_ID}/${path}`]: conflict,
+    })
+    return jest.spyOn(queryClient, 'invalidateQueries')
+  }
+
+  async function expectRefusedAndRefreshed(invalidate: jest.SpyInstance) {
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(message))
+    expect(invalidate).toHaveBeenCalledWith({
+      queryKey: ['member-detail', MEMBER_ID],
+    })
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['members'] })
+    expect(toast.success).not.toHaveBeenCalled()
+  }
+
+  it('suspend', async () => {
+    const invalidate = refusing('suspend', { status: MemberStatus.Active })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Suspend Member' }))
+
+    await expectRefusedAndRefreshed(invalidate)
+  })
+
+  it('cancel', async () => {
+    const invalidate = refusing('cancel', { status: MemberStatus.Expired })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Member' }))
+
+    await expectRefusedAndRefreshed(invalidate)
+  })
+
+  it('activate, closing its dialog', async () => {
+    const invalidate = refusing('activate', { status: MemberStatus.Expired })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Activate Member' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    fireEvent.change(screen.getByLabelText('New Due Date'), {
+      target: { value: '2026-12-01' },
+    })
+    fireEvent.click(dialog.getByRole('button', { name: 'Activate Member' }))
+
+    await expectRefusedAndRefreshed(invalidate)
+    await waitFor(() =>
+      expect(screen.queryByLabelText('New Due Date')).not.toBeInTheDocument()
+    )
+  })
+
+  it('mark paid', async () => {
+    const invalidate = refusing('payment', { status: MemberStatus.Active })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Paid' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    fireEvent.click(dialog.getByRole('button', { name: 'Confirm Payment' }))
+
+    await expectRefusedAndRefreshed(invalidate)
+  })
+
+  it('reactivate, closing its dialog', async () => {
+    const invalidate = refusing('payment', { status: MemberStatus.Cancelled })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Re-activate' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    fireEvent.click(
+      dialog.getByRole('button', { name: /Reactivate & Record Payment/ })
+    )
+
+    await expectRefusedAndRefreshed(invalidate)
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', { name: /Reactivate & Record Payment/ })
+      ).not.toBeInTheDocument()
+    )
   })
 })
 

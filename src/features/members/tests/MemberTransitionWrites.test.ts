@@ -24,6 +24,7 @@ import {
   VERIFICATION_FIELDS,
 } from '@/features/members/config/MemberWriteFields'
 import { createMemberStore } from '@/test-utils/memberStore'
+import { ConflictError } from '@/utils/errors'
 
 const GYM_ID = 'gym-1'
 const MEMBER_ID = 'member-1'
@@ -165,5 +166,102 @@ describe('a manual action racing a profile edit keeps both', () => {
     expect(store.current.verifiedAt).toBeInstanceOf(Date)
     expect(store.current.name).toBe('Fathima Perera')
     expect(store.current.phoneNumber).toBe(NEW_PHONE)
+  })
+})
+
+/**
+ * A manual action is computed from the status it read. If another request
+ * changed that status in the moment between the read and the write — the
+ * expiry cron, a payment on another device — the action no longer means what
+ * the operator chose, so it is refused (409) instead of applied on top.
+ */
+describe('a manual action is refused when the status it read has changed', () => {
+  it('passes the status it read as the guard', async () => {
+    const cases: [() => Promise<unknown>, MemberStatus][] = []
+    const repo = {
+      findById: jest.fn(),
+      updateFields: jest.fn().mockImplementation(async (m: Member) => m),
+    }
+
+    repo.findById.mockResolvedValueOnce(member({ status: MemberStatus.Active }))
+    cases.push([
+      () => new SuspendMember(repo as never).execute(input),
+      MemberStatus.Active,
+    ])
+    repo.findById.mockResolvedValueOnce(
+      member({ status: MemberStatus.Expired })
+    )
+    cases.push([
+      () => new CancelMember(repo as never).execute(input),
+      MemberStatus.Expired,
+    ])
+    repo.findById.mockResolvedValueOnce(
+      member({ status: MemberStatus.Cancelled })
+    )
+    cases.push([
+      () =>
+        new ReactivateMember(repo as never).execute({
+          ...input,
+          newDueDate: daysFromToday(30),
+        }),
+      MemberStatus.Cancelled,
+    ])
+
+    for (const [run, read] of cases) {
+      repo.updateFields.mockClear()
+      await run()
+      expect(repo.updateFields.mock.calls[0][2]).toEqual({
+        expectedStatus: read,
+      })
+    }
+  })
+
+  it('suspend, after the expiry cron moved the member to expired', async () => {
+    const store = createMemberStore(member({ status: MemberStatus.Active }))
+    store.duringNextRead(async () => {
+      await store.repo.updateFields(store.current.expire(), STATUS_FIELDS)
+    })
+
+    await expect(
+      new SuspendMember(store.repo as never).execute(input)
+    ).rejects.toBeInstanceOf(ConflictError)
+    expect(store.current.status).toBe(MemberStatus.Expired)
+  })
+
+  it('cancel, after a payment brought the member back', async () => {
+    const store = createMemberStore(member({ status: MemberStatus.Expired }))
+    const paidThrough = daysFromToday(30)
+    store.duringNextRead(async () => {
+      await store.repo.updateFields(
+        store.current.activate(paidThrough),
+        LIFECYCLE_FIELDS
+      )
+    })
+
+    await expect(
+      new CancelMember(store.repo as never).execute(input)
+    ).rejects.toBeInstanceOf(ConflictError)
+    expect(store.current.status).toBe(MemberStatus.Active)
+    expect(store.current.nextDueDate.getTime()).toBe(paidThrough.getTime())
+  })
+
+  it('reactivate, after a payment already reactivated the member', async () => {
+    const store = createMemberStore(member({ status: MemberStatus.Cancelled }))
+    const paidThrough = daysFromToday(30)
+    store.duringNextRead(async () => {
+      await store.repo.updateFields(
+        store.current.activate(paidThrough),
+        LIFECYCLE_FIELDS
+      )
+    })
+
+    await expect(
+      new ReactivateMember(store.repo as never).execute({
+        ...input,
+        newDueDate: daysFromToday(7),
+      })
+    ).rejects.toBeInstanceOf(ConflictError)
+    // The paid-through date stands; the hand-picked one is not written over it.
+    expect(store.current.nextDueDate.getTime()).toBe(paidThrough.getTime())
   })
 })
