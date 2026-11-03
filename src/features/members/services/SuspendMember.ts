@@ -13,10 +13,10 @@
  * - Active → Suspended
  */
 
-import { Member } from '@/features/members/domain/Member';
-import { IMemberRepository } from './IMemberRepository';
-import { NotFoundError } from '@/utils/errors';
-import { STATUS_FIELDS } from '@/features/members/config/MemberWriteFields';
+import { Member } from '@/features/members/domain/Member'
+import { IMemberRepository } from './IMemberRepository'
+import { NotFoundError } from '@/utils/errors'
+import { STATUS_FIELDS } from '@/features/members/config/MemberWriteFields'
 
 /**
  * Input for suspending a member
@@ -25,12 +25,12 @@ export interface SuspendMemberInput {
   /**
    * Member ID to suspend
    */
-  memberId: string;
+  memberId: string
 
   /**
    * Gym ID (for multi-tenant isolation)
    */
-  gymId: string;
+  gymId: string
 }
 
 /**
@@ -57,17 +57,17 @@ export class SuspendMember {
    * @throws InvalidStatusTransitionError if transition not allowed
    */
   async execute(input: SuspendMemberInput): Promise<Member> {
-    const { memberId, gymId } = input;
+    const { memberId, gymId } = input
 
     // Find the member
-    const member = await this.memberRepo.findById(memberId, gymId);
+    const member = await this.memberRepo.findById(memberId, gymId)
 
     if (!member) {
-      throw new NotFoundError(`Member with ID ${memberId} not found`);
+      throw new NotFoundError(`Member with ID ${memberId} not found`)
     }
 
     // Suspend the member (state machine validates the transition)
-    const suspendedMember = member.suspend();
+    const suspendedMember = member.suspend()
 
     // Persist the update
     // Status only: the member was read above, so writing the whole row would
@@ -75,8 +75,8 @@ export class SuspendMember {
     const saved = await this.memberRepo.updateFields(
       suspendedMember,
       STATUS_FIELDS
-    );
+    )
 
-    return saved;
+    return saved
   }
 }

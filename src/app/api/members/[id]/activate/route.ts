@@ -1,11 +1,15 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentGymProfile } from '@/lib/middleware/auth';
-import { createClient } from '@/lib/supabase/server';
-import { createReactivateMember } from '@/features/members';
-import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI';
-import { ResponseBuilder } from '@/utils/api/ApiResponse';
-import { NotFoundError, InvalidStatusTransitionError, MemberLimitError } from '@/utils/errors';
-import { z } from 'zod';
+import { NextRequest, NextResponse } from 'next/server'
+import { getCurrentGymProfile } from '@/lib/middleware/auth'
+import { createClient } from '@/lib/supabase/server'
+import { createReactivateMember } from '@/features/members'
+import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI'
+import { ResponseBuilder } from '@/utils/api/ApiResponse'
+import {
+  NotFoundError,
+  InvalidStatusTransitionError,
+  MemberLimitError,
+} from '@/utils/errors'
+import { z } from 'zod'
 
 // ============================================================
 // POST /api/members/[id]/activate - Activate/Reactivate member
@@ -18,7 +22,7 @@ const activateMemberSchema = z.object({
   newDueDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format'),
-});
+})
 
 /**
  * Activate Member Endpoint
@@ -36,37 +40,35 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const gymProfile = await getCurrentGymProfile();
-    const body = await request.json();
+    const { id } = await params
+    const gymProfile = await getCurrentGymProfile()
+    const body = await request.json()
 
     // Validate input
-    const validatedData = activateMemberSchema.parse(body);
+    const validatedData = activateMemberSchema.parse(body)
 
     // Execute activate via use case
-    const reactivateMember = createReactivateMember(await createClient());
+    const reactivateMember = createReactivateMember(await createClient())
 
     const activatedMember = await reactivateMember.execute({
       memberId: id,
       gymId: gymProfile.id,
       newDueDate: new Date(validatedData.newDueDate),
-    });
+    })
 
     return NextResponse.json(
-      ResponseBuilder.success(
-        serializeMemberForAPI(activatedMember),
-        { message: 'Member activated successfully' }
-      ),
+      ResponseBuilder.success(serializeMemberForAPI(activatedMember), {
+        message: 'Member activated successfully',
+      }),
       { status: 200 }
-    );
+    )
   } catch (error) {
-    console.error('Activate member API error:', error);
+    console.error('Activate member API error:', error)
 
     if (error instanceof NotFoundError) {
-      return NextResponse.json(
-        ResponseBuilder.notFound(error.message),
-        { status: 404 }
-      );
+      return NextResponse.json(ResponseBuilder.notFound(error.message), {
+        status: 404,
+      })
     }
 
     if (error instanceof MemberLimitError) {
@@ -75,35 +77,32 @@ export async function POST(
       return NextResponse.json(
         ResponseBuilder.error(error.message, 'MEMBER_LIMIT_REACHED'),
         { status: 403 }
-      );
+      )
     }
 
     if (error instanceof InvalidStatusTransitionError) {
       return NextResponse.json(
         ResponseBuilder.validationError({
-          general: [error.message]
+          general: [error.message],
         }),
         { status: 400 }
-      );
+      )
     }
 
     if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        ResponseBuilder.unauthorized(),
-        { status: 401 }
-      );
+      return NextResponse.json(ResponseBuilder.unauthorized(), { status: 401 })
     }
 
     if (error instanceof Error && error.name === 'ZodError') {
       return NextResponse.json(
         ResponseBuilder.validationError({ general: ['Invalid input data'] }),
         { status: 400 }
-      );
+      )
     }
 
     return NextResponse.json(
       ResponseBuilder.error('Failed to activate member', 'ACTIVATE_ERROR'),
       { status: 500 }
-    );
+    )
   }
 }

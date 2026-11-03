@@ -14,10 +14,10 @@
  * - Suspended → Active
  */
 
-import { Member } from '@/features/members/domain/Member';
-import { IMemberRepository } from './IMemberRepository';
-import { NotFoundError } from '@/utils/errors';
-import { LIFECYCLE_FIELDS } from '@/features/members/config/MemberWriteFields';
+import { Member } from '@/features/members/domain/Member'
+import { IMemberRepository } from './IMemberRepository'
+import { NotFoundError } from '@/utils/errors'
+import { LIFECYCLE_FIELDS } from '@/features/members/config/MemberWriteFields'
 
 /**
  * Input for reactivating a member
@@ -26,17 +26,17 @@ export interface ReactivateMemberInput {
   /**
    * Member ID to reactivate
    */
-  memberId: string;
+  memberId: string
 
   /**
    * Gym ID (for multi-tenant isolation)
    */
-  gymId: string;
+  gymId: string
 
   /**
    * New due date for the reactivated membership
    */
-  newDueDate: Date;
+  newDueDate: Date
 }
 
 /**
@@ -64,17 +64,17 @@ export class ReactivateMember {
    * @throws InvalidStatusTransitionError if transition not allowed
    */
   async execute(input: ReactivateMemberInput): Promise<Member> {
-    const { memberId, gymId, newDueDate } = input;
+    const { memberId, gymId, newDueDate } = input
 
     // Find the member
-    const member = await this.memberRepo.findById(memberId, gymId);
+    const member = await this.memberRepo.findById(memberId, gymId)
 
     if (!member) {
-      throw new NotFoundError(`Member with ID ${memberId} not found`);
+      throw new NotFoundError(`Member with ID ${memberId} not found`)
     }
 
     // Activate the member (state machine validates the transition)
-    const activatedMember = member.activate(newDueDate);
+    const activatedMember = member.activate(newDueDate)
 
     // Persist the update
     // Status and due date only: the member was read above, so writing the whole
@@ -82,8 +82,8 @@ export class ReactivateMember {
     const saved = await this.memberRepo.updateFields(
       activatedMember,
       LIFECYCLE_FIELDS
-    );
+    )
 
-    return saved;
+    return saved
   }
 }
