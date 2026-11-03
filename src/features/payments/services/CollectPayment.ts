@@ -24,6 +24,10 @@ import { Payment } from '@/features/payments/domain/Payment'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { IMemberRepository } from '@/features/members/services/IMemberRepository'
 import { IPaymentRepository } from './IPaymentRepository'
+import {
+  LIFECYCLE_FIELDS,
+  PLAN_FIELDS,
+} from '@/features/members/config/MemberWriteFields'
 import { ISMSRepository } from '@/features/sms/services/ISMSRepository'
 import { ISMSProvider } from '@/features/sms/services/ISMSProvider'
 import {
@@ -201,7 +205,7 @@ export class CollectPayment {
 
     // 3. Apply an optional plan change (reactivation may switch the plan).
     // Done first so the new plan's duration drives the next due date and the
-    // updated plan is carried through the single memberRepo.update() below.
+    // updated plan is carried through the single memberRepo.updateFields() below.
     const planChangedMember =
       input.planType !== undefined
         ? member.updatePlan(
@@ -244,9 +248,20 @@ export class CollectPayment {
     //
     // Ordered before the payment insert for the same reason the quota check is:
     // a rejected flip must leave no payment behind.
-    const updatedMember = await this.memberRepo.update(processedMember, {
-      expectedNextDueDate: member.nextDueDate,
-    })
+    //
+    // Only the columns a payment changes are written: status and the due date,
+    // plus the plan columns when this payment switches the plan. The member was
+    // read earlier in this request, so writing the whole row would put back
+    // anything edited meanwhile (a new phone number, a changed fee).
+    const fields =
+      input.planType !== undefined
+        ? [...LIFECYCLE_FIELDS, ...PLAN_FIELDS]
+        : LIFECYCLE_FIELDS
+    const updatedMember = await this.memberRepo.updateFields(
+      processedMember,
+      fields,
+      { expectedNextDueDate: member.nextDueDate }
+    )
 
     // 6. Create payment record
     const payment = Payment.create({

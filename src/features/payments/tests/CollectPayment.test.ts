@@ -7,6 +7,10 @@
  * insert (and sometimes the send) mid-flight.
  */
 
+import {
+  LIFECYCLE_FIELDS,
+  PLAN_FIELDS,
+} from '@/features/members/config/MemberWriteFields'
 import { CollectPayment } from '../services/CollectPayment'
 import { Member, MemberStatus } from '@/features/members/domain/Member'
 import { PlanType } from '@/features/members/config/PlanConfig'
@@ -49,7 +53,7 @@ function buildMember(
 describe('CollectPayment', () => {
   let memberRepo: {
     findById: jest.Mock
-    update: jest.Mock
+    updateFields: jest.Mock
   }
   let paymentRepo: { create: jest.Mock }
   let smsProvider: {
@@ -83,7 +87,9 @@ describe('CollectPayment', () => {
 
     memberRepo = {
       findById: jest.fn().mockResolvedValue(member),
-      update: jest.fn().mockImplementation((m: Member) => Promise.resolve(m)),
+      updateFields: jest
+        .fn()
+        .mockImplementation((m: Member) => Promise.resolve(m)),
     }
     paymentRepo = {
       create: jest.fn().mockImplementation((p) => Promise.resolve(p)),
@@ -113,11 +119,43 @@ describe('CollectPayment', () => {
     }
   })
 
+  describe('which columns a payment writes', () => {
+    it('writes the status and the due date, and nothing else', async () => {
+      await buildUseCase().execute(input)
+
+      expect(memberRepo.updateFields.mock.calls[0][1]).toEqual(LIFECYCLE_FIELDS)
+    })
+
+    it('adds the plan columns only when the payment switches the plan', async () => {
+      member = buildMember({ status: MemberStatus.Cancelled })
+      memberRepo.findById.mockResolvedValue(member)
+
+      await buildUseCase().execute({
+        ...input,
+        planType: PlanType.Annual,
+        planAmount: 40000,
+      })
+
+      expect(memberRepo.updateFields.mock.calls[0][1]).toEqual([
+        ...LIFECYCLE_FIELDS,
+        ...PLAN_FIELDS,
+      ])
+    })
+
+    it('guards the write with the due date it computed against', async () => {
+      await buildUseCase().execute(input)
+
+      expect(memberRepo.updateFields.mock.calls[0][2]).toEqual({
+        expectedNextDueDate: member.nextDueDate,
+      })
+    })
+  })
+
   it('collects payment and returns updated member and payment record', async () => {
     const result = await buildUseCase().execute(input)
 
     expect(paymentRepo.create).toHaveBeenCalledTimes(1)
-    expect(memberRepo.update).toHaveBeenCalledTimes(1)
+    expect(memberRepo.updateFields).toHaveBeenCalledTimes(1)
     expect(result.member).toBeDefined()
     expect(result.payment).toBeDefined()
   })
@@ -130,7 +168,7 @@ describe('CollectPayment', () => {
    */
   describe('next due date', () => {
     function persistedDueDate(): string {
-      const persisted = memberRepo.update.mock.calls[0][0] as Member
+      const persisted = memberRepo.updateFields.mock.calls[0][0] as Member
       return persisted.nextDueDate.toDateString()
     }
 
@@ -331,7 +369,7 @@ describe('CollectPayment', () => {
         planAmount: 40000,
       })
 
-      const persisted = memberRepo.update.mock.calls[0][0] as Member
+      const persisted = memberRepo.updateFields.mock.calls[0][0] as Member
       expect(persisted.planType).toBe(PlanType.Annual)
       expect(persisted.planAmount).toBe(40000)
       expect(persisted.status).toBe(MemberStatus.Active)
@@ -348,7 +386,7 @@ describe('CollectPayment', () => {
 
       await buildUseCase().execute(input)
 
-      const persisted = memberRepo.update.mock.calls[0][0] as Member
+      const persisted = memberRepo.updateFields.mock.calls[0][0] as Member
       expect(persisted.planType).toBe(PlanType.Monthly)
       expect(persisted.planAmount).toBe(3500)
     })

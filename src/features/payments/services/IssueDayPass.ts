@@ -34,6 +34,7 @@ import { formatDateForDisplay } from '@/utils/date/date'
 import { getDaysUntilDue } from '@/features/members/utils/getDaysUntilDue'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
+import { LIFECYCLE_FIELDS } from '@/features/members/config/MemberWriteFields'
 import {
   BusinessRuleViolationError,
   NotFoundError,
@@ -183,7 +184,12 @@ export class IssueDayPass {
         ? member.updateNextDueDate(nextDueDate)
         : member.activate(nextDueDate)
 
-    const updatedMember = await this.memberRepo.update(processedMember)
+    // Status and due date only: the member was read earlier in this request, so
+    // a whole-row write would revert anything edited meanwhile.
+    const updatedMember = await this.memberRepo.updateFields(
+      processedMember,
+      LIFECYCLE_FIELDS
+    )
 
     // Send receipt SMS before returning (serverless freeze would drop a
     // fire-and-forget sms_logs write). A failed SMS never fails the day pass.

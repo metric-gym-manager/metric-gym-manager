@@ -2,6 +2,7 @@ import { CollectPayment } from '../services/CollectPayment'
 import { Member } from '@/features/members/domain/Member'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
+import { LIFECYCLE_FIELDS } from '@/features/members/config/MemberWriteFields'
 import { ConflictError } from '@/utils/errors'
 
 /**
@@ -22,7 +23,20 @@ import { ConflictError } from '@/utils/errors'
  * the due date the payment was computed against.
  */
 
-const DUE = new Date('2026-09-15')
+// Relative to today. This was a fixed 2026-09-15, so once that date passed every
+// renewal it computed landed in the past and "newDueDate must be in the future"
+// failed all five tests for a reason that had nothing to do with concurrency.
+const DUE = (() => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() + 5)
+  return d
+})()
+const TODAY = (() => {
+  const d = new Date()
+  d.setHours(0, 0, 0, 0)
+  return d
+})()
 
 const makeMember = () =>
   Member.create({
@@ -34,8 +48,8 @@ const makeMember = () =>
     discountId: null,
     recurringDiscount: false,
     status: MemberStatus.Active,
-    registeredDate: new Date('2026-01-15'),
-    membershipStartDate: new Date('2026-01-15'),
+    registeredDate: new Date('2025-01-15'),
+    membershipStartDate: new Date('2025-01-15'),
     nextDueDate: DUE,
   })
 
@@ -44,7 +58,7 @@ function harness(updateImpl?: jest.Mock) {
   const paymentRepo = { create: jest.fn(async (p) => p) }
   const memberRepo = {
     findById: jest.fn(async () => member),
-    update: updateImpl ?? jest.fn(async (m) => m),
+    updateFields: updateImpl ?? jest.fn(async (m) => m),
   }
   const smsProvider = { send: jest.fn(async () => ({ success: true })) }
   const smsRepo = { create: jest.fn(async () => ({})) }
@@ -62,7 +76,7 @@ const input = {
   gymId: 'g-1',
   gymName: 'Titan Fitness',
   memberId: 'm-1',
-  paymentDate: DUE,
+  paymentDate: TODAY,
   paymentAmount: 5000,
   discountId: null,
   discount: null,
@@ -73,8 +87,10 @@ describe('CollectPayment concurrency', () => {
     const { useCase, memberRepo } = harness()
     await useCase.execute(input as never)
 
-    expect(memberRepo.update).toHaveBeenCalledWith(
+    expect(memberRepo.updateFields).toHaveBeenCalledWith(
       expect.anything(),
+      // A payment writes the status and the due date, nothing else.
+      LIFECYCLE_FIELDS,
       // Without this the write is unconditional and two racing requests both win.
       { expectedNextDueDate: DUE }
     )

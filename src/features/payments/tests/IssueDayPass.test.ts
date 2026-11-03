@@ -12,6 +12,7 @@
  * after payment, plan_type untouched, receipt SMS sent and logged.
  */
 
+import { LIFECYCLE_FIELDS } from '@/features/members/config/MemberWriteFields'
 import { IssueDayPass } from '../services/IssueDayPass'
 import { Member, MemberStatus } from '@/features/members/domain/Member'
 import { Payment, PaymentType } from '@/features/payments/domain/Payment'
@@ -55,7 +56,7 @@ function buildMember(
 }
 
 describe('IssueDayPass', () => {
-  let memberRepo: { findById: jest.Mock; update: jest.Mock }
+  let memberRepo: { findById: jest.Mock; updateFields: jest.Mock }
   let paymentRepo: { create: jest.Mock }
   let smsProvider: {
     send: jest.Mock
@@ -84,7 +85,9 @@ describe('IssueDayPass', () => {
   beforeEach(() => {
     memberRepo = {
       findById: jest.fn().mockResolvedValue(buildMember()),
-      update: jest.fn().mockImplementation((m: Member) => Promise.resolve(m)),
+      updateFields: jest
+        .fn()
+        .mockImplementation((m: Member) => Promise.resolve(m)),
     }
     paymentRepo = {
       create: jest.fn().mockImplementation((p: Payment) => Promise.resolve(p)),
@@ -204,6 +207,17 @@ describe('IssueDayPass', () => {
     })
   })
 
+  describe('which columns a day pass writes', () => {
+    it('writes the status and the due date, and nothing else', async () => {
+      await buildUseCase().execute(input)
+
+      expect(memberRepo.updateFields).toHaveBeenCalledTimes(1)
+      // Not the plan: a day pass moves the access window without touching
+      // plan_type, and not the profile, which may have been edited meanwhile.
+      expect(memberRepo.updateFields.mock.calls[0][1]).toEqual(LIFECYCLE_FIELDS)
+    })
+  })
+
   describe('eligibility rules', () => {
     it('rejects a member still within their membership period', async () => {
       memberRepo.findById.mockResolvedValue(
@@ -217,7 +231,7 @@ describe('IssueDayPass', () => {
         BusinessRuleViolationError
       )
       expect(paymentRepo.create).not.toHaveBeenCalled()
-      expect(memberRepo.update).not.toHaveBeenCalled()
+      expect(memberRepo.updateFields).not.toHaveBeenCalled()
     })
 
     it('rejects a suspended member', async () => {

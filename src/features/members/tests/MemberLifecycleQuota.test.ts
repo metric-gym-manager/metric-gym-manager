@@ -61,6 +61,7 @@ function mockMemberRepo(
     findAllActiveMembers: jest.fn().mockResolvedValue([]),
     findById: jest.fn().mockResolvedValue(null),
     update: jest.fn(async (m: Member) => m),
+    updateFields: jest.fn(async (m: Member) => m),
     ...overrides,
   } as unknown as jest.Mocked<IMemberRepository>
 }
@@ -145,7 +146,7 @@ describe('CollectPayment — quota block records nothing', () => {
   function build(member: Member, updateImpl?: jest.Mock) {
     const memberRepo = mockMemberRepo({
       findById: jest.fn().mockResolvedValue(member),
-      ...(updateImpl ? { update: updateImpl } : {}),
+      ...(updateImpl ? { updateFields: updateImpl } : {}),
     } as Partial<jest.Mocked<IMemberRepository>>)
 
     const paymentRepo = {
@@ -196,11 +197,11 @@ describe('CollectPayment — quota block records nothing', () => {
 
     const memberRepo = mockMemberRepo({
       findById: jest.fn().mockResolvedValue(expired),
-      update: jest.fn(async (m: Member) => {
+      updateFields: jest.fn(async (m: Member) => {
         calls.push('member.update')
         return m
       }),
-    } as Partial<jest.Mocked<IMemberRepository>>)
+    } as unknown as Partial<jest.Mocked<IMemberRepository>>)
     const paymentRepo = {
       create: jest.fn(async (p: unknown) => {
         calls.push('payment.create')
