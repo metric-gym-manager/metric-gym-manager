@@ -28,14 +28,16 @@ function buildMember(overrides: Partial<Parameters<typeof Member.create>[0]> = {
 }
 
 describe('VerifyMember', () => {
-  let memberRepo: { findById: jest.Mock; update: jest.Mock };
+  let memberRepo: { findById: jest.Mock; updateFields: jest.Mock };
 
   const input = { memberId: 'member-1', gymId: 'gym-1' };
 
   beforeEach(() => {
     memberRepo = {
       findById: jest.fn(),
-      update: jest.fn().mockImplementation((m: Member) => Promise.resolve(m)),
+      updateFields: jest
+        .fn()
+        .mockImplementation((m: Member) => Promise.resolve(m)),
     };
   });
 
@@ -46,7 +48,7 @@ describe('VerifyMember', () => {
 
     const result = await new VerifyMember(memberRepo as never).execute(input);
 
-    expect(memberRepo.update).toHaveBeenCalledTimes(1);
+    expect(memberRepo.updateFields).toHaveBeenCalledTimes(1);
     expect(result.verifiedAt).toBeInstanceOf(Date);
     expect(result.needsVerification()).toBe(false);
   });
@@ -61,7 +63,7 @@ describe('VerifyMember', () => {
 
     const result = await new VerifyMember(memberRepo as never).execute(input);
 
-    expect(memberRepo.update).not.toHaveBeenCalled();
+    expect(memberRepo.updateFields).not.toHaveBeenCalled();
     expect(result.needsVerification()).toBe(false);
   });
 
@@ -70,7 +72,7 @@ describe('VerifyMember', () => {
 
     const result = await new VerifyMember(memberRepo as never).execute(input);
 
-    expect(memberRepo.update).not.toHaveBeenCalled();
+    expect(memberRepo.updateFields).not.toHaveBeenCalled();
     expect(result.registrationSource).toBe(RegistrationSource.Manual);
   });
 

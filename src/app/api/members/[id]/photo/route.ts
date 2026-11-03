@@ -7,6 +7,7 @@ import { createStorageProvider } from '@/lib/storage/factory';
 import { ResponseBuilder } from '@/utils/api/ApiResponse';
 import { ValidationError } from '@/utils/errors';
 import { isPhotoPathForMember } from '@/utils/member-photo';
+import { PHOTO_FIELDS } from '@/features/members/config/MemberWriteFields';
 
 // ============================================================
 // POST   /api/members/[id]/photo - Confirm uploaded photo
@@ -58,7 +59,13 @@ export async function POST(
     }
 
     const previousPath = member.photoPath;
-    const updated = await memberRepo.update(member.updatePhoto(path));
+    // The two photo columns only. `storage.exists` above is a network call, so
+    // the member was read well before this write; a whole-row write would put
+    // back anything edited in that gap.
+    const updated = await memberRepo.updateFields(
+      member.updatePhoto(path),
+      PHOTO_FIELDS
+    );
 
     // A format switch (webp <-> jpg) leaves the old object orphaned — clean it up
     if (previousPath && previousPath !== path) {
@@ -124,7 +131,7 @@ export async function DELETE(
 
     const photoPath = member.photoPath;
     if (photoPath) {
-      await memberRepo.update(member.removePhoto());
+      await memberRepo.updateFields(member.removePhoto(), PHOTO_FIELDS);
       // Best-effort object cleanup after the reference is gone
       await createStorageProvider().delete(photoPath);
     }

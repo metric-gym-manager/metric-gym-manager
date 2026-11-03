@@ -17,6 +17,7 @@
 import { Member } from '@/features/members/domain/Member';
 import { IMemberRepository } from './IMemberRepository';
 import { NotFoundError } from '@/utils/errors';
+import { LIFECYCLE_FIELDS } from '@/features/members/config/MemberWriteFields';
 
 /**
  * Input for reactivating a member
@@ -76,7 +77,12 @@ export class ReactivateMember {
     const activatedMember = member.activate(newDueDate);
 
     // Persist the update
-    const saved = await this.memberRepo.update(activatedMember);
+    // Status and due date only: the member was read above, so writing the whole
+    // row would revert anything edited meanwhile.
+    const saved = await this.memberRepo.updateFields(
+      activatedMember,
+      LIFECYCLE_FIELDS
+    );
 
     return saved;
   }

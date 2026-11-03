@@ -23,6 +23,7 @@
 import { Member } from '@/features/members/domain/Member'
 import { IMemberRepository } from './IMemberRepository'
 import { NotFoundError } from '@/utils/errors'
+import { STATUS_FIELDS } from '@/features/members/config/MemberWriteFields'
 
 /**
  * Input for cancelling a member
@@ -76,7 +77,12 @@ export class CancelMember {
     const cancelledMember = member.cancel()
 
     // Persist the update
-    const saved = await this.memberRepo.update(cancelledMember)
+    // Status only: the member was read above, so writing the whole row would
+    // revert anything edited meanwhile.
+    const saved = await this.memberRepo.updateFields(
+      cancelledMember,
+      STATUS_FIELDS
+    )
 
     return saved
   }

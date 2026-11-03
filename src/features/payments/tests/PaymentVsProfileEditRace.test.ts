@@ -19,8 +19,7 @@ import { UpdateMemberProfile } from '@/features/members/services/UpdateMemberPro
 import { Member, type MemberProps } from '@/features/members/domain/Member'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
-import type { MemberWritableField } from '@/features/members/config/MemberWriteFields'
-import { ConflictError } from '@/utils/errors'
+import { createMemberStore } from '@/test-utils/memberStore'
 
 const GYM_ID = 'gym-1'
 const MEMBER_ID = 'member-1'
@@ -33,8 +32,6 @@ const daysFromToday = (days: number) => {
   d.setDate(d.getDate() + days)
   return d
 }
-
-const isoDay = (d: Date) => d.toISOString().split('T')[0]
 
 function memberFixture(overrides: Partial<MemberProps> = {}) {
   return Member.fromDatabase({
@@ -57,65 +54,8 @@ function memberFixture(overrides: Partial<MemberProps> = {}) {
   })
 }
 
-/**
- * An in-memory `members` table. `findById` hands the caller a snapshot, then
- * lets a queued "other request" run before returning — which is exactly the
- * state of a request that has read a member and not yet written it.
- */
-function createStore(initial: Member) {
-  let stored = initial
-  let interleave: (() => Promise<void>) | null = null
-
-  const store = {
-    get current() {
-      return stored
-    },
-    /** Run `fn` the next time someone reads the member, after the snapshot. */
-    duringNextRead(fn: () => Promise<void>) {
-      interleave = fn
-    },
-    repo: {
-      findById: jest.fn(async () => {
-        const snapshot = stored
-        if (interleave) {
-          const run = interleave
-          interleave = null
-          await run()
-        }
-        return snapshot
-      }),
-      findByPhoneNumber: jest.fn(async () => null),
-      updateFields: jest.fn(
-        async (
-          edited: Member,
-          fields: readonly MemberWritableField[],
-          options?: { expectedNextDueDate?: Date }
-        ) => {
-          if (
-            options?.expectedNextDueDate &&
-            isoDay(options.expectedNextDueDate) !== isoDay(stored.nextDueDate)
-          ) {
-            throw new ConflictError(
-              'This member was updated by another request.'
-            )
-          }
-          const next = { ...stored.toDatabase() } as Record<string, unknown>
-          const incoming = edited.toDatabase() as unknown as Record<
-            string,
-            unknown
-          >
-          for (const field of fields) next[field] = incoming[field]
-          stored = Member.fromDatabase(next as unknown as MemberProps)
-          return stored
-        }
-      ),
-    },
-  }
-  return store
-}
-
 function build(memberOverrides: Partial<MemberProps> = {}) {
-  const store = createStore(memberFixture(memberOverrides))
+  const store = createMemberStore(memberFixture(memberOverrides))
   const paymentRepo = { create: jest.fn(async (p: unknown) => p) }
   const smsProvider = {
     send: jest.fn(async () => ({ success: true, messageId: 'msg-1' })),

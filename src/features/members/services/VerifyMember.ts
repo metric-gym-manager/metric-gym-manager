@@ -15,6 +15,7 @@
 import { Member } from '@/features/members/domain/Member';
 import { IMemberRepository } from './IMemberRepository';
 import { NotFoundError } from '@/utils/errors';
+import { VERIFICATION_FIELDS } from '@/features/members/config/MemberWriteFields';
 
 /**
  * Input for verifying a member
@@ -67,6 +68,8 @@ export class VerifyMember {
 
     const verifiedMember = member.verify();
 
-    return this.memberRepo.update(verifiedMember);
+    // The verification time only: the member was read above, so writing the
+    // whole row would revert anything edited meanwhile.
+    return this.memberRepo.updateFields(verifiedMember, VERIFICATION_FIELDS);
   }
 }

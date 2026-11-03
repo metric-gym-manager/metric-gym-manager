@@ -129,7 +129,7 @@ describe('ReactivateMember — active-member quota', () => {
     const expired = makeMember(MemberStatus.Expired, daysAgo(30))
     const memberRepo = mockMemberRepo({
       findById: jest.fn().mockResolvedValue(expired),
-      update: jest.fn().mockRejectedValue(new MemberLimitError()),
+      updateFields: jest.fn().mockRejectedValue(new MemberLimitError()),
     } as Partial<jest.Mocked<IMemberRepository>>)
 
     await expect(

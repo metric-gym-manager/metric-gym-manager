@@ -16,6 +16,7 @@
 import { Member } from '@/features/members/domain/Member';
 import { IMemberRepository } from './IMemberRepository';
 import { NotFoundError } from '@/utils/errors';
+import { STATUS_FIELDS } from '@/features/members/config/MemberWriteFields';
 
 /**
  * Input for suspending a member
@@ -69,7 +70,12 @@ export class SuspendMember {
     const suspendedMember = member.suspend();
 
     // Persist the update
-    const saved = await this.memberRepo.update(suspendedMember);
+    // Status only: the member was read above, so writing the whole row would
+    // revert anything edited meanwhile.
+    const saved = await this.memberRepo.updateFields(
+      suspendedMember,
+      STATUS_FIELDS
+    );
 
     return saved;
   }
