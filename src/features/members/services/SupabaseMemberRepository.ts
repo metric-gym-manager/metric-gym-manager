@@ -535,6 +535,42 @@ export class SupabaseMemberRepository implements IMemberRepository {
   }
 
   /**
+   * Write a profile edit — the six columns the edit form owns — and nothing
+   * else. See `IMemberRepository.updateProfile` for why this is not `update()`.
+   */
+  async updateProfile(member: Member): Promise<Member> {
+    const row = this.toDatabase(member)
+
+    const { data, error } = await this.supabase
+      .from('members')
+      .update({
+        name: row.name,
+        phone_number: row.phone_number,
+        plan_type: row.plan_type,
+        plan_amount: row.plan_amount,
+        discount_id: row.discount_id,
+        recurring_discount: row.recurring_discount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', member.id)
+      .eq('gym_id', member.gymId)
+      .select()
+      .maybeSingle()
+
+    if (error) {
+      throw new Error(`Failed to update member profile: ${error.message}`)
+    }
+
+    // `.select()` is what makes a refused write visible: without it Supabase
+    // reports success when RLS matched no row.
+    if (!data) {
+      throw new NotFoundError(`Member ${member.id}`)
+    }
+
+    return this.toDomain(data)
+  }
+
+  /**
    * Update status for multiple members (batch operation)
    */
   async updateStatusBatch(
@@ -634,18 +670,18 @@ export class SupabaseMemberRepository implements IMemberRepository {
     phoneNumber: string,
     gymId: string
   ): Promise<Member | null> {
+    // `.limit(1).maybeSingle()`, not `.single()`: `.single()` reports PGRST116
+    // for zero rows AND for several, and treating that as "not found" made the
+    // duplicate check pass for exactly the numbers that were already shared.
     const { data, error } = await this.supabase
       .from('members')
       .select('*')
       .eq('gym_id', gymId)
       .eq('phone_number', phoneNumber)
-      .single()
+      .limit(1)
+      .maybeSingle()
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        // Not found
-        return null
-      }
       throw new Error(`Failed to find member by phone number: ${error.message}`)
     }
 

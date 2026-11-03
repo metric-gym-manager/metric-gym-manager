@@ -48,6 +48,7 @@ export {
   createRegisterMember,
   createVerifyMember,
   createSuspendMember,
+  createUpdateMemberProfile,
   createReactivateMember,
   createCancelMember,
   createUpdateExpiredStatus,

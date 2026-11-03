@@ -2,12 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getApiGymProfile } from '@/lib/middleware/api-auth'
 import { updateMemberSchema } from '@/features/members/schemas/member.schemas'
 import { createClient } from '@/lib/supabase/server'
-import { createMemberRepository } from '@/features/members'
+import {
+  createMemberRepository,
+  createUpdateMemberProfile,
+} from '@/features/members'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { createPushRename } from '@/features/access-control'
 import { serializeMemberForAPI } from '@/features/members/utils/serializeMemberForAPI'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
-import { NotFoundError } from '@/utils/errors'
+import { ConflictError, NotFoundError, ValidationError } from '@/utils/errors'
 import { PlanType } from '@/features/members/config/PlanConfig'
 
 // ============================================================
@@ -71,46 +74,25 @@ export async function PATCH(
     // Validate input
     const validatedData = updateMemberSchema.parse(body)
 
-    // Get member and update via repository
-    const memberRepo = createMemberRepository(await createClient())
-    const member = await memberRepo.findById(id, gymProfile!.id)
-
-    if (!member) {
-      return NextResponse.json(ResponseBuilder.notFound('Member not found'), {
-        status: 404,
-      })
-    }
-
-    // Apply updates to member entity
     // NOTE: Status transitions must use dedicated endpoints:
     // POST /api/members/[id]/suspend
     // POST /api/members/[id]/activate
     // POST /api/members/[id]/cancel
-    let updatedMember = member
-    if (validatedData.name) {
-      updatedMember = updatedMember.updateName(validatedData.name)
-    }
-    if (validatedData.phoneNumber) {
-      updatedMember = updatedMember.updatePhoneNumber(validatedData.phoneNumber)
-    }
-    if (validatedData.planType) {
-      updatedMember = updatedMember.updatePlanType(
-        validatedData.planType as PlanType
-      )
-    }
-    if (validatedData.planAmount !== undefined) {
-      updatedMember = updatedMember.updatePlanAmount(validatedData.planAmount)
-    }
-    if (validatedData.recurringDiscount !== undefined) {
-      updatedMember = updatedMember.updateRecurringDiscount(
-        validatedData.recurringDiscount
-      )
-    }
-    if (validatedData.discountId !== undefined) {
-      updatedMember = updatedMember.updateDiscountId(validatedData.discountId)
-    }
-
-    const saved = await memberRepo.update(updatedMember)
+    //
+    // Profile edits write ONLY the profile columns and refuse a phone number
+    // another member already holds (see UpdateMemberProfile).
+    const saved = await createUpdateMemberProfile(await createClient()).execute(
+      {
+        ...validatedData,
+        // The schema validates against its own string union; the entity takes
+        // the PlanType enum (same members, nominally different types).
+        planType: validatedData.planType as PlanType | undefined,
+        // After the spread: identity and tenant come from the path and the
+        // session, never from the body.
+        memberId: id,
+        gymId: gymProfile!.id,
+      }
+    )
 
     // A renamed member keeps their old name on the reader and in every VFT
     // report until we say otherwise. Best-effort and non-fatal — a stale label
@@ -133,9 +115,22 @@ export async function PATCH(
     console.error('Update member API error:', error)
 
     if (error instanceof NotFoundError) {
-      return NextResponse.json(ResponseBuilder.notFound('Member not found'), {
+      return NextResponse.json(ResponseBuilder.notFound('Member'), {
         status: 404,
       })
+    }
+
+    if (error instanceof ConflictError) {
+      return NextResponse.json(ResponseBuilder.conflict(error.message), {
+        status: 409,
+      })
+    }
+
+    if (error instanceof ValidationError) {
+      return NextResponse.json(
+        ResponseBuilder.validationError({ general: [error.message] }),
+        { status: 400 }
+      )
     }
 
     if (error instanceof Error && error.name === 'ZodError') {

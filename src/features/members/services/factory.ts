@@ -12,6 +12,7 @@ import { SupabaseMemberRepository } from './SupabaseMemberRepository';
 import { RegisterMember } from './RegisterMember';
 import { VerifyMember } from './VerifyMember';
 import { SuspendMember } from './SuspendMember';
+import { UpdateMemberProfile } from './UpdateMemberProfile';
 import { ReactivateMember } from './ReactivateMember';
 import { CancelMember } from './CancelMember';
 import { UpdateExpiredStatus } from './UpdateExpiredStatus';
@@ -39,6 +40,10 @@ export function createVerifyMember(supabase: SupabaseClient): VerifyMember {
 
 export function createSuspendMember(supabase: SupabaseClient): SuspendMember {
   return new SuspendMember(createMemberRepository(supabase));
+}
+
+export function createUpdateMemberProfile(supabase: SupabaseClient): UpdateMemberProfile {
+  return new UpdateMemberProfile(createMemberRepository(supabase));
 }
 
 export function createReactivateMember(supabase: SupabaseClient): ReactivateMember {

@@ -217,6 +217,24 @@ export interface IMemberRepository {
   ): Promise<Member>
 
   /**
+   * Persist an edit to a member's profile: name, phone, plan, plan amount,
+   * discount and recurring-discount flag, and nothing else.
+   *
+   * Unlike `update()`, which rewrites every column from the entity it is
+   * given, this touches only those columns. The entity of a profile edit comes
+   * from an earlier read, so a whole-row write puts back anything another
+   * request changed in between: a payment's new `next_due_date`, a status
+   * flip, a fingerprint consent.
+   *
+   * @param member - Member carrying the edited profile fields.
+   * @returns The member as stored after the write (live values for every
+   *   column this method does not write).
+   * @throws NotFoundError if no row matched (also what an RLS-refused write
+   *   looks like, so it is never reported as success).
+   */
+  updateProfile(member: Member): Promise<Member>
+
+  /**
    * Delete a member
    *
    * @param id - Member ID
