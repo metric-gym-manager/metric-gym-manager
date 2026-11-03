@@ -556,7 +556,8 @@ Expired → Cancelled
 constructor(
   private readonly memberRepo: IMemberRepository,
   private readonly paymentRepo: IPaymentRepository,
-  private readonly smsProvider: ISMSProvider
+  private readonly smsProvider: ISMSProvider,
+  private readonly smsRepo: ISMSRepository
 )
 ```
 
@@ -565,12 +566,15 @@ constructor(
 ```typescript
 interface CollectPaymentInput {
   gymId: string
+  gymName: string // printed in the receipt SMS
   memberId: string
   paymentDate: Date
   paymentAmount: number
-  planAmount?: number // Optional: If different from member's plan amount
   discountId?: string | null
+  discount?: DiscountInfo | null
   deductOverduePeriod?: boolean // Default: true
+  planType?: PlanType // a reactivation that switches the plan
+  planAmount?: number // the new plan's amount, with planType
 }
 ```
 
@@ -595,12 +599,13 @@ graph TD
     E -->|false| G[Base Date = Current Due Date]
     F --> H[Calculate Next Due Date]
     G --> H
-    H --> I[Create Payment Record]
-    I --> J[Save Payment]
-    J --> K[Activate Member]
-    K --> L[Reset Reminder Flags]
-    L --> M[Save Updated Member]
-    M --> N[Send Receipt SMS]
+    H --> I[Renew or Activate Member]
+    I --> J[Write status + due date, plan on a switch, under the guards]
+    J --> K{Written?}
+    K -->|Due date or plan changed| X[ConflictError 409, nothing recorded]
+    K -->|Quota refused the flip| Y[MemberLimitError 403, nothing recorded]
+    K -->|Yes| L[Create Payment Record]
+    L --> N[Send Receipt SMS]
     N --> O[Return Result]
 ```
 
@@ -653,55 +658,59 @@ graph TD
    })
    ```
 
-4. **Create Payment Record**
+4. **Renew or Activate Member** (state machine enforced)
+
+   ```typescript
+   const processedMember =
+     planChangedMember.status === MemberStatus.Active
+       ? planChangedMember.renew(nextDueDate)
+       : planChangedMember.activate(nextDueDate)
+   ```
+
+   An active member is renewed; an expired, suspended or cancelled one is
+   activated (a reactivation, which may switch the plan first).
+
+5. **Write the Member First** (guarded; see `docs/architecture/member-writes.md`)
+
+   ```typescript
+   const updatedMember = await this.memberRepo.updateFields(
+     processedMember,
+     fields, // LIFECYCLE_FIELDS, plus PLAN_FIELDS on a plan switch
+     input.planType !== undefined
+       ? {
+           expectedNextDueDate: member.nextDueDate,
+           expectedPlan: {
+             planType: member.planType,
+             planAmount: member.planAmount,
+           },
+         }
+       : { expectedNextDueDate: member.nextDueDate }
+   )
+   ```
+
+   Written before the payment so a refused write leaves no payment behind: a
+   second submission finds the due date moved (`ConflictError`, 409), a plan
+   edited since the read refuses a plan switch (409), and a flip into active
+   at the plan's member cap is refused by the database (`MemberLimitError`,
+   403).
+
+6. **Create Payment Record**
 
    ```typescript
    const payment = Payment.create({
-     memberId: member.id,
+     memberId: input.memberId,
      gymId: input.gymId,
      paymentDate: input.paymentDate,
-     paymentAmount: input.paymentAmount,
-     planAmount: input.planAmount ?? member.planAmount,
-     discountId: input.discountId ?? member.discountId,
-     nextDueDate,
+     amountPaid: input.paymentAmount,
+     discountApplied: input.discount?.discountId || null,
+     discountPercentage: input.discount?.discountPercentage || null,
+     nextDueDateCalculated: nextDueDate,
    })
 
    const savedPayment = await this.paymentRepo.create(payment)
    ```
 
-5. **Activate Member** (state machine enforced)
-
-   ```typescript
-   let updatedMember = member.activate(nextDueDate)
-   ```
-
-   **State Transitions**:
-   - Expired → Active ✅
-   - Frozen → Active ✅
-   - Suspended → Active ✅
-   - Cancelled → Active ❌ (throws InvalidStatusTransitionError)
-
-6. **Reset Reminder Flags** for new billing period
-
-   ```typescript
-   updatedMember = updatedMember.resetReminderFlags()
-   ```
-
-   This ensures reminders are sent again in the new billing cycle.
-
-7. **Save Updated Member**
-
-   ```typescript
-   // Status and due date (plus the plan columns only when this payment
-   // switches the plan), guarded by the due date this payment was computed from
-   const savedMember = await this.memberRepo.updateFields(
-     updatedMember,
-     fields,
-     { expectedNextDueDate: member.nextDueDate }
-   )
-   ```
-
-8. **Send Receipt SMS** (awaited and logged)
+7. **Send Receipt SMS** (awaited and logged)
 
    ```typescript
    try {
@@ -846,8 +855,7 @@ graph TD
     K -->|Yes| I
     K -->|No| L[Send SMS]
     L --> M[Log SMS Record]
-    M --> N[Update Reminder Flag]
-    N --> I
+    M --> I
     I -->|Yes| F
     I -->|No| O[Return Summary]
 ```
@@ -920,6 +928,12 @@ graph TD
    }
    ```
 
+   The `sms_logs` row written in step 7 is the only record that a reminder
+   went out; nothing is stored on the member. `existsForToday`
+   (`SupabaseSMSRepository`) looks for a row of this type for this member since
+   local midnight and ignores failed sends, so a same-day re-run retries a
+   member whose text failed.
+
 6. **Send SMS**
 
    ```typescript
@@ -947,21 +961,6 @@ graph TD
      deliveryStatus: result.success ? 'sent' : 'failed',
      externalId: result.messageId,
    })
-   ```
-
-8. **Update Reminder Flag** (prevent duplicate sends)
-
-   ```typescript
-   let updatedMember = member
-   if (smsType === '7-day-reminder') {
-     updatedMember = member.markSevenDayReminderSent()
-   } else if (smsType === '3-day-reminder') {
-     updatedMember = member.markThreeDayReminderSent()
-   } else if (smsType === 'due-today-reminder') {
-     updatedMember = member.markDueTodayReminderSent()
-   }
-
-   await this.memberRepo.update(updatedMember)
    ```
 
 #### Usage Example (Cron Job)

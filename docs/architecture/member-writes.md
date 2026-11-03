@@ -14,14 +14,14 @@ A writer read a member, changed one to three columns, and `SupabaseMemberReposit
 | Nightly status cron (reads every member once, writes for minutes) | A payment or reactivation       | Paid member put back to expired with the old due date |
 | Profile edit                                                      | Payment                         | Payment's status and due date reverted                |
 
-None of this was reproduced against a live database; it follows from reading the writes. It was demonstrated by deterministic interleaving tests (see below).
+It follows from reading the writes and was first demonstrated by deterministic interleaving tests; the fixes were then checked against a database (see Verification).
 
 ## The rule
 
 There is no whole-row member write. `IMemberRepository` has one write:
 
 ```ts
-updateFields(member, fields, { expectedNextDueDate?, expectedStatus? })
+updateFields(member, fields, { expectedNextDueDate?, expectedStatus?, expectedPlan? })
 ```
 
 It writes the named fields plus `updated_at`, returns the row **as stored after the write**, and can be conditional on the due date and/or status the caller read. A missed guard throws `ConflictError`; an unmatched row without a guard throws `NotFoundError`; the quota trigger maps to `MemberLimitError`.
@@ -39,13 +39,25 @@ It writes the named fields plus `updated_at`, returns the row **as stored after 
 | `PHOTO_FIELDS`        | photoPath, photoUpdatedAt                                              | member photo route, public QR registration                         |
 | `VERIFICATION_FIELDS` | verifiedAt                                                             | `VerifyMember`                                                     |
 
-Two writers are safe to interleave exactly when their groups do not overlap. `PROFILE_FIELDS` and `LIFECYCLE_FIELDS` are disjoint, which is the guarantee behind "a payment cannot revert an edit and an edit cannot revert a payment". The only deliberate overlap is the plan columns on a reactivation that switches the plan: last writer wins.
+Two writers are safe to interleave exactly when their groups do not overlap. `PROFILE_FIELDS` and `LIFECYCLE_FIELDS` are disjoint, which is the guarantee behind "a payment cannot revert an edit and an edit cannot revert a payment". The one overlap is the plan columns on a reactivation that switches the plan, and that payment carries a plan guard (below).
 
 ## Guards: who uses which
 
-- **Payments** pass `expectedNextDueDate` (stops duplicate payments) and **no** status guard: payment wins on status. A payment on an expired member must activate it even if a cron flipped the status a moment earlier.
-- **The three status crons** (`update-expired-status`, `expire-suspended-members`, `cancel-overdue-members`) pass **both** `expectedStatus` and `expectedNextDueDate`. A targeted write alone does not fix them: a member paid while the cron runs would be left `expired` with a future due date. A member who changed meanwhile is **skipped and counted** as `skippedChanged` in the summary, the audit-log entry (`cron_logs.summary`, jsonb) and the response; it is not an error.
-- **Manual transitions** (suspend, cancel, reactivate, verify, photo, day pass) write only their columns and carry no guard. Their window is milliseconds and a guard would add a 409 their routes do not map. They can still apply a transition computed from a stale status; they can no longer destroy data.
+The options type is `MemberWriteGuard` (`IMemberRepository.ts`). Every guard names a value the caller read; a write whose guard no longer matches throws `ConflictError`, which the request routes answer with 409 and the crons count as skipped.
+
+| Writer                                              | Guard                                                                | On a conflict                                 |
+| --------------------------------------------------- | -------------------------------------------------------------------- | --------------------------------------------- |
+| `CollectPayment`                                    | `expectedNextDueDate`; plus `expectedPlan` when it switches the plan | 409, no payment recorded                      |
+| `IssueDayPass`                                      | `expectedNextDueDate`                                                | 409, no payment recorded                      |
+| `SuspendMember`, `CancelMember`, `ReactivateMember` | `expectedStatus`                                                     | 409; the member screen says why and refetches |
+| The three status crons                              | `expectedStatus` and `expectedNextDueDate`                           | skipped and counted as `skippedChanged`       |
+| `UpdateMemberProfile`, `VerifyMember`, photo save   | none                                                                 | n/a                                           |
+
+- **Payments and day passes write the member FIRST, then record the payment**, so a refused write (a conflict, or the quota trigger's `MemberLimitError` at the cap) leaves no payment behind. The due-date guard stops a second submission (double-tap, retry, second tab). There is **no** status guard on a payment: payment wins on status, so a payment on a member the cron expired a moment earlier still activates them.
+- **A payment that switches the plan** also passes `expectedPlan`, because a profile edit writes the same two columns: a plan edit saved after the payment read refuses the switch instead of being overwritten. A plan edit saved after the payment still wins.
+- **The three status crons** pass both `expectedStatus` and `expectedNextDueDate`. A targeted write alone does not fix them: a member paid while the cron runs would be left `expired` with a future due date. A member who changed meanwhile is **skipped and counted** as `skippedChanged` in the summary, the audit-log entry (`cron_logs.summary`, jsonb) and the response; it is not an error.
+- **Suspend, cancel and reactivate** pass the status they read: each was chosen against it, and a change landing in between (the cron, a payment on another device) means it no longer applies. Unguarded, a cancel released behind a payment left the paying member cancelled.
+- **Profile edits, verify and photo** carry no guard. Their writes do not depend on the status, and their groups do not overlap a guarded writer's except the plan columns above.
 
 ## Why `status` is always listed when it can change
 
@@ -63,8 +75,12 @@ Phone uniqueness is checked only when the phone changes (a number already shared
 
 - Two profile edits to the **same** field are last-writer-wins.
 - The duplicate-phone check is check-then-write, so two simultaneous edits can both pass it. A unique index on `(gym_id, phone_number)` would close that, but cannot be created while duplicates exist: as of 2026-11-03 the database holds 4 groups covering 49 members, 45 of them in one test gym and 4 in a customer gym (two shared-number pairs). They need a data decision first.
-- `IssueDayPass` has no duplicate-submission guard.
-- Nothing here has been exercised against a live write. The RLS policy and privileges make a column-limited UPDATE valid on paper; the E2E suite and a staging replay are what would show it.
+- A profile edit to the plan saved after a plan-switching payment overwrites the payment's plan (the latest decision stands; the due date stays the payment's).
+
+## Verification
+
+- **Production, read-only plus one rolled-back write run (2026-11-03):** the policy, privileges and triggers listed above; a `DO` block as the E2E gym owner, ending in an unconditional exception, showed a profile write surviving a later payment, stale due-date and status guards writing 0 rows, a stale cron write after a payment writing 0 rows, and cross-gym writes writing 0 rows.
+- **Concurrent writers (2026-11-03):** a local Postgres 17 + PostgREST 13 copy of production's member schema (columns, constraints, the six triggers, RLS policies and grants, transcribed from the live catalog) ran the real repository and use cases through supabase-js. Writers were released together from a held row lock after `pg_stat_activity` showed each one blocked. Under READ COMMITTED a blocked guarded `UPDATE` re-evaluates its `WHERE` against the row the other transaction committed: with A holding its open transaction, B (blocked on A's transaction id) wrote 0 rows when A committed and applied when A rolled back. Two payments gave one payment and one 409; a payment and a profile edit both survived in either order; the expiry cron behind a payment counted `skippedChanged`; two reactivations at 99/100 on a Lite gym serialised on the gym row and stopped the count at exactly 100; a renewal at 100/100 applied; the real payment and day-pass routes answered 403 `MEMBER_LIMIT_REACHED` at the cap with nothing written. Removing the due-date guard, restoring the whole-row write, or dropping the limit mapping each failed the run.
 
 ## Adding a writer
 
@@ -75,4 +91,4 @@ Phone uniqueness is checked only when the phone changes (a number already shared
 
 ## Tests
 
-`MemberWriteFields.test.ts` (group contract, no `update()`), `SupabaseMemberRepositoryUpdateFields.test.ts` (payloads, guards, errors, phone lookup), `PaymentVsProfileEditRace.test.ts`, `MemberTransitionWrites.test.ts`, `CronMemberRaces.test.ts`, `photo.route.test.ts`, `UpdateMemberProfile.test.ts`, `EditMemberModal.submit.test.tsx`, `member-modal.context.test.tsx`.
+`MemberWriteFields.test.ts` (group contract, no `update()`), `SupabaseMemberRepositoryUpdateFields.test.ts` (payloads, guards including the plan guard, errors, phone lookup), `PaymentVsProfileEditRace.test.ts` (also a day pass submitted twice and a plan switch after a plan edit), `IssueDayPass.test.ts`, `MemberTransitionWrites.test.ts` (also the status guard), `CronMemberRaces.test.ts`, `status-routes.test.ts` and the day-pass route test (409 and 403 mapping), `MemberDetailModalRequests.test.tsx` and `DayPassModal.test.tsx` (409 and the upgrade dialog), `photo.route.test.ts`, `UpdateMemberProfile.test.ts`, `EditMemberModal.submit.test.tsx`, `member-modal.context.test.tsx`.
