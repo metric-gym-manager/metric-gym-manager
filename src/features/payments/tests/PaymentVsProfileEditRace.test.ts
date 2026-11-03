@@ -173,6 +173,36 @@ describe('payment collection racing a profile edit', () => {
     expect(store.current.planAmount).toBe(40000)
     expect(store.current.status).toBe(MemberStatus.Active)
   })
+
+  it('refuses a plan switch when the plan was edited after it was read', async () => {
+    // Both write the plan columns. Without a guard the payment would put back
+    // the plan it chose over the one the edit saved a moment earlier.
+    const { store, collect, edit, paymentRepo } = build({
+      status: MemberStatus.Expired,
+      nextDueDate: daysFromToday(-20),
+    })
+
+    store.duringNextRead(async () => {
+      await edit.execute({
+        memberId: MEMBER_ID,
+        gymId: GYM_ID,
+        planType: PlanType.ThreeMonths,
+        planAmount: 9500,
+      })
+    })
+
+    await expect(
+      collect.execute({
+        ...payment,
+        planType: PlanType.Annual,
+        planAmount: 40000,
+      })
+    ).rejects.toBeInstanceOf(ConflictError)
+    expect(paymentRepo.create).not.toHaveBeenCalled()
+    expect(store.current.planType).toBe(PlanType.ThreeMonths)
+    expect(store.current.planAmount).toBe(9500)
+    expect(store.current.status).toBe(MemberStatus.Expired)
+  })
 })
 
 describe('day pass racing a profile edit', () => {

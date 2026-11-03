@@ -257,10 +257,23 @@ export class CollectPayment {
       input.planType !== undefined
         ? [...LIFECYCLE_FIELDS, ...PLAN_FIELDS]
         : LIFECYCLE_FIELDS
+
+    // A payment that switches the plan writes the plan columns too, which a
+    // profile edit also writes. It applies only while the member is still on
+    // the plan it read, so it cannot put its choice back over a plan edit saved
+    // a moment earlier; that is a ConflictError (409) like the due date.
     const updatedMember = await this.memberRepo.updateFields(
       processedMember,
       fields,
-      { expectedNextDueDate: member.nextDueDate }
+      input.planType !== undefined
+        ? {
+            expectedNextDueDate: member.nextDueDate,
+            expectedPlan: {
+              planType: member.planType,
+              planAmount: member.planAmount,
+            },
+          }
+        : { expectedNextDueDate: member.nextDueDate }
     )
 
     // 6. Create payment record

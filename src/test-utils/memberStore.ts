@@ -1,6 +1,7 @@
 import { Member, type MemberProps } from '@/features/members/domain/Member'
 import type { MemberWritableField } from '@/features/members/config/MemberWriteFields'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
+import type { MemberWriteGuard } from '@/features/members/services/IMemberRepository'
 import { ConflictError, NotFoundError } from '@/utils/errors'
 
 /**
@@ -77,10 +78,7 @@ export function createMemberStore(initial: Member | Member[]) {
         async (
           edited: Member,
           fields: readonly MemberWritableField[],
-          options?: {
-            expectedNextDueDate?: Date
-            expectedStatus?: MemberStatus
-          }
+          options?: MemberWriteGuard
         ) => {
           const stored = rows.get(edited.id)
           if (!stored) throw new NotFoundError(`Member ${edited.id}`)
@@ -90,7 +88,10 @@ export function createMemberStore(initial: Member | Member[]) {
               isoDay(options.expectedNextDueDate) !==
                 isoDay(stored.nextDueDate)) ||
             (options?.expectedStatus &&
-              options.expectedStatus !== stored.status)
+              options.expectedStatus !== stored.status) ||
+            (options?.expectedPlan &&
+              (options.expectedPlan.planType !== stored.planType ||
+                options.expectedPlan.planAmount !== stored.planAmount))
           ) {
             throw new ConflictError(
               'This member was updated by another request. Reload and try again.'

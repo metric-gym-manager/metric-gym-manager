@@ -149,6 +149,25 @@ describe('CollectPayment', () => {
         expectedNextDueDate: member.nextDueDate,
       })
     })
+
+    it('a payment that switches the plan also guards on the plan it read', async () => {
+      member = buildMember({ status: MemberStatus.Cancelled })
+      memberRepo.findById.mockResolvedValue(member)
+
+      await buildUseCase().execute({
+        ...input,
+        planType: PlanType.Annual,
+        planAmount: 40000,
+      })
+
+      expect(memberRepo.updateFields.mock.calls[0][2]).toEqual({
+        expectedNextDueDate: member.nextDueDate,
+        expectedPlan: {
+          planType: member.planType,
+          planAmount: member.planAmount,
+        },
+      })
+    })
   })
 
   it('collects payment and returns updated member and payment record', async () => {

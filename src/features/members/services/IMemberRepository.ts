@@ -15,6 +15,19 @@ import { MemberStatus } from '@/features/members/config/StatusConfig'
 import type { MemberWritableField } from '@/features/members/config/MemberWriteFields'
 
 /**
+ * Conditions a member write applies under: each names a value the caller read,
+ * and the write lands only if the stored member still has it.
+ */
+export interface MemberWriteGuard {
+  /** Stored `next_due_date` must still equal this. */
+  expectedNextDueDate?: Date
+  /** Stored `status` must still equal this. */
+  expectedStatus?: MemberStatus
+  /** Stored `plan_type` and `plan_amount` must still equal these. */
+  expectedPlan?: { planType: PlanType; planAmount: number }
+}
+
+/**
  * Member query filters
  */
 export interface MemberFilters {
@@ -213,7 +226,12 @@ export interface IMemberRepository {
    *   concurrent submissions cannot both advance the same member; the crons
    *   pass it so a member paid mid-run is skipped, not reverted.
    * @param options.expectedStatus - Apply only if the stored `status` still
-   *   equals this. The crons pass it so a status change made mid-run wins.
+   *   equals this. The crons pass it so a status change made mid-run wins;
+   *   suspend, cancel and reactivate pass it because each was chosen against
+   *   the status the operator saw.
+   * @param options.expectedPlan - Apply only if the stored plan type and
+   *   amount still equal these. A payment that switches the plan passes it, so
+   *   it cannot put its plan back over a plan edit saved after it read.
    * @returns The member as stored after the write (live values for every
    *   column this call did not write).
    * @throws ConflictError if a guard was given and no row matched.
@@ -225,7 +243,7 @@ export interface IMemberRepository {
   updateFields(
     member: Member,
     fields: readonly MemberWritableField[],
-    options?: { expectedNextDueDate?: Date; expectedStatus?: MemberStatus }
+    options?: MemberWriteGuard
   ): Promise<Member>
 
   /**

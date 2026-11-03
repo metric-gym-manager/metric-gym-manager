@@ -365,6 +365,45 @@ describe('SupabaseMemberRepository.updateFields — guards', () => {
     ).rejects.toBeInstanceOf(ConflictError)
   })
 
+  it('applies only while the member is still on the plan the caller read', async () => {
+    const { client, calls } = makeClient([dbRow()])
+    const repo = new SupabaseMemberRepository(client)
+
+    await repo.updateFields(
+      staleMember(),
+      [...LIFECYCLE_FIELDS, ...PLAN_FIELDS],
+      {
+        expectedPlan: { planType: PlanType.Monthly, planAmount: 3500 },
+      }
+    )
+
+    expect(calls.eq).toContainEqual(['plan_type', 'monthly'])
+    expect(calls.eq).toContainEqual(['plan_amount', 3500])
+  })
+
+  it('throws ConflictError when the plan has changed since it was read', async () => {
+    const { client } = makeClient([dbRow()])
+    const repo = new SupabaseMemberRepository(client)
+
+    await expect(
+      repo.updateFields(staleMember(), [...LIFECYCLE_FIELDS, ...PLAN_FIELDS], {
+        expectedPlan: { planType: PlanType.Monthly, planAmount: 3000 },
+      })
+    ).rejects.toBeInstanceOf(ConflictError)
+  })
+
+  it('asks nothing about the plan without a plan guard', async () => {
+    const { client, calls } = makeClient([dbRow()])
+    const repo = new SupabaseMemberRepository(client)
+
+    await repo.updateFields(staleMember(), LIFECYCLE_FIELDS, {
+      expectedNextDueDate: new Date('2026-12-16'),
+    })
+
+    expect(calls.eq.map(([col]) => col)).not.toContain('plan_type')
+    expect(calls.eq.map(([col]) => col)).not.toContain('plan_amount')
+  })
+
   it('throws NotFoundError for a missing member when no guard was given', async () => {
     const { client } = makeClient([])
     const repo = new SupabaseMemberRepository(client)

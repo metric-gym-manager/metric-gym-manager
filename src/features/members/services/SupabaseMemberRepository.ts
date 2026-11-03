@@ -18,6 +18,7 @@ import { Member } from '@/features/members/domain/Member'
 import {
   IMemberRepository,
   type MemberFilters,
+  type MemberWriteGuard,
   type PaginatedResult,
 } from '@/features/members/services/IMemberRepository'
 import { PlanType } from '@/features/members/config/PlanConfig'
@@ -494,7 +495,7 @@ export class SupabaseMemberRepository implements IMemberRepository {
   async updateFields(
     member: Member,
     fields: readonly MemberWritableField[],
-    options?: { expectedNextDueDate?: Date; expectedStatus?: MemberStatus }
+    options?: MemberWriteGuard
   ): Promise<Member> {
     const row = this.toDatabase(member)
 
@@ -533,6 +534,11 @@ export class SupabaseMemberRepository implements IMemberRepository {
     if (options?.expectedStatus) {
       query = query.eq('status', options.expectedStatus)
     }
+    if (options?.expectedPlan) {
+      query = query
+        .eq('plan_type', options.expectedPlan.planType)
+        .eq('plan_amount', options.expectedPlan.planAmount)
+    }
 
     // `.select()` is what makes a refused write visible: without it Supabase
     // reports success when RLS matched no row.
@@ -549,7 +555,11 @@ export class SupabaseMemberRepository implements IMemberRepository {
       // With a guard, no matching row means someone else got there first. That
       // is a conflict (409), not a missing member (404) — the caller should NOT
       // retry blindly: the payment it was about to record may already exist.
-      if (options?.expectedNextDueDate || options?.expectedStatus) {
+      if (
+        options?.expectedNextDueDate ||
+        options?.expectedStatus ||
+        options?.expectedPlan
+      ) {
         throw new ConflictError(
           'This member was updated by another request. Reload and try again.'
         )
