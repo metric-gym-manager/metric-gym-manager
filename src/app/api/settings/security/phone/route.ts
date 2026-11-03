@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rejectCrossSiteRequest } from '@/lib/middleware/sameOrigin'
 import { z } from 'zod'
 import { getCurrentGymProfile } from '@/lib/middleware/auth'
 import { updateGymPhone } from '@/features/settings/services/settings.service'
@@ -14,6 +15,11 @@ import { ResponseBuilder } from '@/utils/api/ApiResponse'
  * the proof of ownership; there is no one-time code.
  */
 export async function POST(request: NextRequest) {
+  // Account changes: another site must not be able to make this browser send
+  // one (a text/plain form post parses as JSON).
+  const crossSite = rejectCrossSiteRequest(request)
+  if (crossSite) return crossSite
+
   try {
     const gymProfile = await getCurrentGymProfile()
     const body = await request.json()

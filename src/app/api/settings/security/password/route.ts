@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rejectCrossSiteRequest } from '@/lib/middleware/sameOrigin'
 import { updatePassword } from '@/features/auth/services/auth.service'
 import { updatePasswordSchema } from '@/features/settings/schemas/settings.schemas'
 
@@ -7,6 +8,11 @@ import { updatePasswordSchema } from '@/features/settings/schemas/settings.schem
 // ============================================================
 
 export async function POST(request: NextRequest) {
+  // Account changes: another site must not be able to make this browser send
+  // one (a text/plain form post parses as JSON).
+  const crossSite = rejectCrossSiteRequest(request)
+  if (crossSite) return crossSite
+
   try {
     const body = await request.json()
 

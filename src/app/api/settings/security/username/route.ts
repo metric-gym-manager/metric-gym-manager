@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rejectCrossSiteRequest } from '@/lib/middleware/sameOrigin'
 import { getCurrentGymProfile } from '@/lib/middleware/auth'
 import { updateGymUsername } from '@/features/settings/services/settings.service'
 import { z } from 'zod'
@@ -19,6 +20,11 @@ const updateUsernameSchema = z.object({
 })
 
 export async function POST(request: NextRequest) {
+  // Account changes: another site must not be able to make this browser send
+  // one (a text/plain form post parses as JSON).
+  const crossSite = rejectCrossSiteRequest(request)
+  if (crossSite) return crossSite
+
   try {
     const gymProfile = await getCurrentGymProfile()
     const body = await request.json()
