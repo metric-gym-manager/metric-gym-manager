@@ -149,6 +149,15 @@ async function openAndEdit() {
   await screen.findByLabelText(/^Name/)
 }
 
+// Both modals are `next/dynamic` imports of the whole `@/features/members`
+// barrel. Left to the first test, loading that barrel happened inside its 1 s
+// `findBy` wait, and under a busy run (the pre-commit hook runs twenty suites
+// at once) it took longer: the first test failed 3 of 3 times at 12 workers.
+// Loaded here, the dynamic import resolves from the module cache.
+beforeAll(async () => {
+  await import('@/features/members')
+}, 60_000)
+
 describe('member modal — open → edit → save → reopen', () => {
   it('edit form opens pre-filled with the stored values', async () => {
     createServer('Original Name')
