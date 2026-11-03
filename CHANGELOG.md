@@ -47,6 +47,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - aggressive caching strategy and Lighthouse performance optimization ([e6d7b23](../../commit/e6d7b23))
 
+## [1.6.1] - 2026-11-03
+
+### Fixed
+
+- If saving a member fails you now see the reason at the top of the form, and an edit changes only the details you actually changed, so it can no longer overwrite a change made on another device. ([35b44f7](../../commit/35b44f7))
+- Members who pay or are reactivated while the nightly status job is running are no longer put back to expired. ([a65020f](../../commit/a65020f))
+- Recording a payment can no longer undo a phone number or fee change made to the same member at the same moment. ([34a261c](../../commit/34a261c))
+- After changing a member's fee, the renewals list and dashboard now show the new amount straight away. ([27dc01a](../../commit/27dc01a))
+- Retrying a failed announcement now texts the member's corrected phone number instead of the old one. ([912e639](../../commit/912e639))
+- Editing a member can no longer undo a payment recorded at the same moment, and a phone number already used by another member is refused with a clear message. ([a0b337a](../../commit/a0b337a))
+- If suspending or cancelling a member fails, you now see why instead of an unreadable message. ([452dfc6](../../commit/452dfc6))
+- Editing a member now shows exactly what you entered, keeps the new details when you reopen the member, and shows a readable message if the save fails. ([0a98d7c](../../commit/0a98d7c))
+
 ## [1.6.0] - 2026-10-16
 
 _Behind-the-scenes improvements only: nothing changes in how you use Metric Gym OS._
