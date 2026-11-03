@@ -63,6 +63,9 @@ export class ApiRequestError extends Error {
  * Build an `ApiRequestError` from a failed response.
  *
  * @param response - Fetch Response object (must not be ok)
+ * @param fallback - The caller's plain sentence ("Failed to collect payment")
+ *   for a body that carries no message, such as a gateway timeout page.
+ *   Without one, the status line is used.
  * @returns The error for a mutation to throw
  *
  * @example
@@ -71,11 +74,16 @@ export class ApiRequestError extends Error {
  * if (error instanceof ApiRequestError && error.code === 'MEMBER_LIMIT_REACHED') …
  */
 export async function toApiRequestError(
-  response: Response
+  response: Response,
+  fallback?: string
 ): Promise<ApiRequestError> {
   const data = await readBody(response)
   const code = isObject(data) ? data.error?.code : undefined
-  return new ApiRequestError(messageFrom(data, response), code, response.status)
+  return new ApiRequestError(
+    messageFrom(data, response, fallback),
+    code,
+    response.status
+  )
 }
 
 /** The parsed body, or null when it is not JSON or was already read. */
@@ -91,8 +99,14 @@ function isObject(data: unknown): data is ApiErrorResponse {
   return typeof data === 'object' && data !== null
 }
 
-function messageFrom(data: unknown, response: Response): string {
-  const statusLine = `Request failed with status ${response.status}: ${response.statusText}`
+function messageFrom(
+  data: unknown,
+  response: Response,
+  fallback?: string
+): string {
+  const statusLine =
+    fallback ??
+    `Request failed with status ${response.status}: ${response.statusText}`
 
   // JSON parsing failed, the body was already consumed, or it is not an object
   if (!isObject(data)) {

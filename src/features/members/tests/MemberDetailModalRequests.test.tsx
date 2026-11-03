@@ -5,6 +5,7 @@ import { renderScreen, mockFetchRoutes } from '@/test-utils/renderScreen'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { ConflictError, MemberLimitError } from '@/utils/errors'
+import { MEMBER_CHANGED_MESSAGE } from '@/features/members/services/IMemberRepository'
 import type { MemberWithDiscount, Payment } from '../types'
 import MemberDetailModal from '../components/MemberDetailModal'
 
@@ -407,9 +408,7 @@ describe('MemberDetailModal — an action refused because the member changed', (
    * fetch the member again, or the operator retries against the same stale
    * copy and is refused again.
    */
-  const message = new ConflictError(
-    'This member was updated by another request. Reload and try again.'
-  ).message
+  const message = new ConflictError(MEMBER_CHANGED_MESSAGE).message
   const conflict = { status: 409, body: ResponseBuilder.conflict(message) }
 
   function refusing(path: string, overrides: Partial<MemberWithDiscount>) {
@@ -486,6 +485,65 @@ describe('MemberDetailModal — an action refused because the member changed', (
       expect(
         screen.queryByRole('button', { name: /Reactivate & Record Payment/ })
       ).not.toBeInTheDocument()
+    )
+  })
+})
+
+describe('MemberDetailModal — a failure with no readable reason', () => {
+  // A gateway timeout or an edge error page has no JSON body. The screen says
+  // what failed in plain words, not "Request failed with status 504".
+  const gatewayDown = { status: 504, body: undefined }
+
+  it('mark paid', async () => {
+    renderDetail({ status: MemberStatus.Active })
+    mockFetchRoutes({
+      ...routes(),
+      [`/api/members/${MEMBER_ID}/payment`]: gatewayDown,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mark Paid' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    fireEvent.click(dialog.getByRole('button', { name: 'Confirm Payment' }))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Failed to collect payment')
+    )
+  })
+
+  it('activate', async () => {
+    renderDetail({ status: MemberStatus.Expired })
+    mockFetchRoutes({
+      ...routes(),
+      [`/api/members/${MEMBER_ID}/activate`]: gatewayDown,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Activate Member' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    fireEvent.change(screen.getByLabelText('New Due Date'), {
+      target: { value: '2026-12-01' },
+    })
+    fireEvent.click(dialog.getByRole('button', { name: 'Activate Member' }))
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Failed to activate member')
+    )
+  })
+
+  it('reactivate', async () => {
+    renderDetail({ status: MemberStatus.Cancelled })
+    mockFetchRoutes({
+      ...routes(),
+      [`/api/members/${MEMBER_ID}/payment`]: gatewayDown,
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Re-activate' }))
+    const dialog = within(await screen.findByRole('dialog'))
+    fireEvent.click(
+      dialog.getByRole('button', { name: /Reactivate & Record Payment/ })
+    )
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Failed to reactivate member')
     )
   })
 })

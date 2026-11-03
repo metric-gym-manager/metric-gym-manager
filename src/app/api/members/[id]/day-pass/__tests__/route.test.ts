@@ -14,6 +14,7 @@ import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { PlanType } from '@/features/members/config/PlanConfig'
 import { Payment, PaymentType } from '@/features/payments/domain/Payment'
 import { ConflictError, MemberLimitError } from '@/utils/errors'
+import { MEMBER_CHANGED_MESSAGE } from '@/features/members/services/IMemberRepository'
 
 const execute = jest.fn()
 const getCurrentGymProfile = jest.fn()
@@ -104,20 +105,14 @@ describe('POST /api/members/[id]/day-pass', () => {
   })
 
   it('answers 409 when another request changed the member first', async () => {
-    execute.mockRejectedValue(
-      new ConflictError(
-        'This member was updated by another request. Reload and try again.'
-      )
-    )
+    execute.mockRejectedValue(new ConflictError(MEMBER_CHANGED_MESSAGE))
 
     const res = await post({ amount: 500 })
     const body = await res.json()
 
     expect(res.status).toBe(409)
     expect(body.error.code).toBe('CONFLICT')
-    expect(body.error.message).toBe(
-      'This member was updated by another request. Reload and try again.'
-    )
+    expect(body.error.message).toBe(MEMBER_CHANGED_MESSAGE)
   })
 
   it('answers 403 MEMBER_LIMIT_REACHED at the active-member cap', async () => {

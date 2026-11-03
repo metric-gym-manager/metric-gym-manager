@@ -18,6 +18,7 @@ import { Member } from '@/features/members/domain/Member'
 import {
   IMemberRepository,
   type MemberFilters,
+  MEMBER_CHANGED_MESSAGE,
   type MemberWriteGuard,
   type PaginatedResult,
 } from '@/features/members/services/IMemberRepository'
@@ -560,9 +561,7 @@ export class SupabaseMemberRepository implements IMemberRepository {
         options?.expectedStatus ||
         options?.expectedPlan
       ) {
-        throw new ConflictError(
-          'This member was updated by another request. Reload and try again.'
-        )
+        throw new ConflictError(MEMBER_CHANGED_MESSAGE)
       }
       throw new NotFoundError(`Member ${member.id}`)
     }

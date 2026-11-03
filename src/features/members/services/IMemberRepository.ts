@@ -15,6 +15,14 @@ import { MemberStatus } from '@/features/members/config/StatusConfig'
 import type { MemberWritableField } from '@/features/members/config/MemberWriteFields'
 
 /**
+ * What a gym owner reads when a guarded write is refused (409). The screens
+ * that show it reload the member themselves, so it asks for a check, not a
+ * reload, and it names no machinery.
+ */
+export const MEMBER_CHANGED_MESSAGE =
+  'Someone else changed this member just now. Check their details and try again.'
+
+/**
  * Conditions a member write applies under: each names a value the caller read,
  * and the write lands only if the stored member still has it.
  */

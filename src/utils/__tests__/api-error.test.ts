@@ -107,3 +107,24 @@ describe('toApiRequestError', () => {
     expect(err.message).toBe('Request failed with status 502: Bad Gateway')
   })
 })
+
+describe('toApiRequestError — the caller’s plain sentence', () => {
+  it('uses the fallback when the body carries no message (a gateway page)', async () => {
+    const err = await toApiRequestError(
+      failed(undefined, 504, 'Gateway Timeout'),
+      'Failed to collect payment'
+    )
+
+    expect(err.message).toBe('Failed to collect payment')
+    expect(err.status).toBe(504)
+  })
+
+  it('prefers the server’s own message over the fallback', async () => {
+    const err = await toApiRequestError(
+      failed(ResponseBuilder.conflict('Someone else changed this.'), 409),
+      'Failed to collect payment'
+    )
+
+    expect(err.message).toBe('Someone else changed this.')
+  })
+})

@@ -1,10 +1,11 @@
-import { screen, fireEvent } from '@testing-library/react'
+import { screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import { toast } from 'sonner'
 import { renderScreen, mockFetchRoutes } from '@/test-utils/renderScreen'
 import { ResponseBuilder } from '@/utils/api/ApiResponse'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
 import { ConflictError, MemberLimitError } from '@/utils/errors'
+import { MEMBER_CHANGED_MESSAGE } from '@/features/members/services/IMemberRepository'
 import type { MemberWithDiscount } from '../types'
 import DayPassModal from '../components/DayPassModal'
 
@@ -96,8 +97,7 @@ describe('DayPassModal — a refused day pass', () => {
   })
 
   it('says another request got there first and returns to the search', async () => {
-    const message =
-      'This member was updated by another request. Reload and try again.'
+    const message = MEMBER_CHANGED_MESSAGE
     await issueFor({
       status: 409,
       body: ResponseBuilder.conflict(new ConflictError(message).message),
@@ -113,5 +113,13 @@ describe('DayPassModal — a refused day pass', () => {
     expect(
       screen.queryByRole('dialog', { name: 'Active member limit reached' })
     ).not.toBeInTheDocument()
+  })
+
+  it('says plainly that the pass failed when the server sends no reason', async () => {
+    await issueFor({ status: 504, body: undefined })
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('Failed to issue day pass')
+    )
   })
 })

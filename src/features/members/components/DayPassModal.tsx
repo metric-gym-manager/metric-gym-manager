@@ -127,7 +127,7 @@ export default function DayPassModal({ open, onClose }: DayPassModalProps) {
         body: JSON.stringify({ amount: Number(amount) }),
       })
       if (!response.ok) {
-        throw await toApiRequestError(response)
+        throw await toApiRequestError(response, 'Failed to issue day pass')
       }
       const result = await response.json()
       return result.data

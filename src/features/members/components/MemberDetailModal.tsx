@@ -113,7 +113,7 @@ export default function MemberDetailModal({
       })
 
       if (!response.ok) {
-        throw await toApiRequestError(response)
+        throw await toApiRequestError(response, 'Failed to suspend member')
       }
 
       return response.json()
@@ -147,7 +147,7 @@ export default function MemberDetailModal({
       })
 
       if (!response.ok) {
-        throw await toApiRequestError(response)
+        throw await toApiRequestError(response, 'Failed to activate member')
       }
 
       return response.json()
@@ -188,7 +188,7 @@ export default function MemberDetailModal({
       })
 
       if (!response.ok) {
-        throw await toApiRequestError(response)
+        throw await toApiRequestError(response, 'Failed to cancel member')
       }
 
       return response.json()
@@ -243,7 +243,7 @@ export default function MemberDetailModal({
         }),
       })
       if (!res.ok) {
-        throw await toApiRequestError(res)
+        throw await toApiRequestError(res, 'Failed to collect payment')
       }
       return res.json()
     },
@@ -300,7 +300,7 @@ export default function MemberDetailModal({
         }),
       })
       if (!res.ok) {
-        throw await toApiRequestError(res)
+        throw await toApiRequestError(res, 'Failed to reactivate member')
       }
       return res.json()
     },

@@ -15,6 +15,7 @@ import {
   InvalidStatusTransitionError,
   NotFoundError,
 } from '@/utils/errors'
+import { MEMBER_CHANGED_MESSAGE } from '@/features/members/services/IMemberRepository'
 
 const execute = jest.fn()
 
@@ -36,8 +37,7 @@ import { POST as cancel } from '../cancel/route'
 import { POST as activate } from '../activate/route'
 
 const MEMBER_ID = '11111111-1111-4111-8111-111111111111'
-const CONFLICT =
-  'This member was updated by another request. Reload and try again.'
+const CONFLICT = MEMBER_CHANGED_MESSAGE
 
 type Handler = typeof suspend
 

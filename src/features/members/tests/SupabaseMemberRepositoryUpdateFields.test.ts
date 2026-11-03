@@ -28,6 +28,7 @@ import {
   VERIFICATION_FIELDS,
 } from '@/features/members/config/MemberWriteFields'
 import { ConflictError, MemberLimitError, NotFoundError } from '@/utils/errors'
+import { MEMBER_CHANGED_MESSAGE } from '@/features/members/services/IMemberRepository'
 
 type Row = Record<string, unknown>
 
@@ -352,6 +353,18 @@ describe('SupabaseMemberRepository.updateFields — guards', () => {
         expectedNextDueDate: new Date('2026-11-01'),
       })
     ).rejects.toBeInstanceOf(ConflictError)
+  })
+
+  it('explains a conflict in plain words, the same everywhere', async () => {
+    const { client } = makeClient([dbRow()])
+    const repo = new SupabaseMemberRepository(client)
+
+    await expect(
+      repo.updateFields(staleMember(), STATUS_FIELDS, {
+        expectedStatus: MemberStatus.Suspended,
+      })
+    ).rejects.toThrow(MEMBER_CHANGED_MESSAGE)
+    expect(MEMBER_CHANGED_MESSAGE).not.toMatch(/request|reload/i)
   })
 
   it('throws ConflictError when the status has changed since it was read', async () => {

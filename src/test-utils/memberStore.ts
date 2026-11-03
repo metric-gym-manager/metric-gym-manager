@@ -1,7 +1,10 @@
 import { Member, type MemberProps } from '@/features/members/domain/Member'
 import type { MemberWritableField } from '@/features/members/config/MemberWriteFields'
 import { MemberStatus } from '@/features/members/config/StatusConfig'
-import type { MemberWriteGuard } from '@/features/members/services/IMemberRepository'
+import {
+  MEMBER_CHANGED_MESSAGE,
+  type MemberWriteGuard,
+} from '@/features/members/services/IMemberRepository'
 import { ConflictError, NotFoundError } from '@/utils/errors'
 
 /**
@@ -93,9 +96,7 @@ export function createMemberStore(initial: Member | Member[]) {
               (options.expectedPlan.planType !== stored.planType ||
                 options.expectedPlan.planAmount !== stored.planAmount))
           ) {
-            throw new ConflictError(
-              'This member was updated by another request. Reload and try again.'
-            )
+            throw new ConflictError(MEMBER_CHANGED_MESSAGE)
           }
 
           const next = { ...stored.toDatabase() } as Record<string, unknown>
