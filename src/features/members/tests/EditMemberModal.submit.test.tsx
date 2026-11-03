@@ -193,6 +193,35 @@ describe('EditMemberModal — what is sent', () => {
   })
 })
 
+describe('EditMemberModal — what else must refresh after a save', () => {
+  // The renewals list is where the desk collects the fee, and the dashboard
+  // queue previews the reminder text. Both quote the member's amount, name and
+  // plan, and both are cached for 1–5 minutes: without an invalidation they
+  // keep showing — and the desk keeps charging — the fee as it was.
+  it.each([
+    ['the renewals list the desk collects from', 'regular-payments'],
+    ['the dashboard reminder queue', 'reminder-queue'],
+    ['revenue, which bills from the plan amount', 'revenue'],
+    ['the members list', 'members'],
+  ])('refreshes %s', async (_label, key) => {
+    mockApi(ok)
+    const { queryClient } = renderScreen(
+      <EditMemberModal open onClose={jest.fn()} member={member} />
+    )
+    await screen.findByRole('option', { name: /Annual/ })
+    const invalidate = jest.spyOn(queryClient, 'invalidateQueries')
+
+    submit()
+
+    await waitFor(() => {
+      const keys = invalidate.mock.calls.map(
+        ([filters]) => (filters as { queryKey: unknown[] }).queryKey[0]
+      )
+      expect(keys).toContain(key)
+    })
+  })
+})
+
 describe('EditMemberModal — validation', () => {
   it('asks for an amount instead of printing zod internals when it is cleared', async () => {
     const { patches } = mockApi(ok)

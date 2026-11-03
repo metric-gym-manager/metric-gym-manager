@@ -141,6 +141,14 @@ export default function EditMemberModal({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['members'] })
+      // Everything that quotes this member's fee, plan, name or phone. The
+      // renewals list is where the desk collects the amount, the dashboard
+      // queue previews the reminder text and revenue bills from the plan
+      // amount; each is cached for 1-5 minutes, so without this they keep
+      // showing (and the desk keeps charging) the old fee.
+      queryClient.invalidateQueries({ queryKey: ['regular-payments'] })
+      queryClient.invalidateQueries({ queryKey: ['reminder-queue'] })
+      queryClient.invalidateQueries({ queryKey: ['revenue'] })
       if (member) {
         // Removed, not invalidated: the detail view is closed while this form
         // is open, so its query is disabled and an invalidation only marks it
