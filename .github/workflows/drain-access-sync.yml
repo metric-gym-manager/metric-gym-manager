@@ -18,9 +18,9 @@
 #   day (hw-session's `jobs --wait` waits for production's drain).
 # - To re-enable: on Vercel Pro, rebase da75912 (branch
 #   fix/drain-back-to-vercel-cron) onto master and push it; it moves the
-#   five-minute cron back into vercel.json and deletes this workflow, and it
-#   predates the commit that disabled the schedule, so it conflicts until
-#   rebased. On Hobby, schedule it with Supabase pg_cron + pg_net, with the
+#   five-minute cron back into vercel.json and deletes this workflow. It
+#   predates the commit that disabled the schedule and conflicts with master
+#   in 7 files until rebased; access-control-master.md §4.5 lists them. On Hobby, schedule it with Supabase pg_cron + pg_net, with the
 #   secret in Vault. Not a GitHub schedule: it never fired.
 # - This repository is public, so its Actions logs are too. Print the HTTP
 #   status only, never the response body: it carries counts and vendor error

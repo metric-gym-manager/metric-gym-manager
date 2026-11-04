@@ -457,7 +457,13 @@ The Vercel team is on the **Hobby** plan. Two of its cron limits shape this tabl
 
 **Re-enabling.** Two ways, and not a GitHub schedule, which never fired:
 
-- **On Vercel Pro:** rebase da75912 (`fix/drain-back-to-vercel-cron`, kept local) onto master and push it — it predates the disabling commit and conflicts with it in this section, rule 2.20, `CRON_JOBS.md`, the workflow and its test. It puts `{ "path": "/api/cron/drain-access-sync", "schedule": "*/5 * * * *" }` back into `vercel.json`, deletes the workflow in the same change (never run both: the claim serializes a member only within one claim, so two overlapping drains can each take a job for the same member, and one that read the old state can undo a block the other just sent — release-1.6.2-inverted-check.md R3), drops the daily-only guard, and updates rule 2.20. Check first that `get_git_deployment_context` shows `plan: pro`; on Hobby it fails every deploy.
+- **On Vercel Pro:** rebase da75912 (`fix/drain-back-to-vercel-cron`, kept local) onto master before pushing it. It predates the disabling, and `git merge-tree` against master 2c50c21 (2026-11-05) shows **7 conflicting files**:
+  - textual, in five: rule 2.20 in `.claude/rules/architecture.md`, this section, `docs/ops/CRON_JOBS.md`, `src/app/api/cron/__tests__/access-control-crons.test.ts` and the header of `src/app/api/cron/drain-access-sync/route.ts`;
+  - modify/delete, in two: `.github/workflows/drain-access-sync.yml` and `src/app/api/cron/__tests__/vercel-cron-plan.test.ts`, edited on master and deleted by the branch. Delete both, as the branch intends.
+  - Resolve each textual conflict to the branch's intent (the drain scheduled from `vercel.json`) while keeping master's later corrections: only registration and the Door Access desk's actions dispatch inline, and two drains must never overlap (R3 of `release-1.6.2-inverted-check.md`). Every "disabled" note goes in the same change, including the hardware-session doc and `provisionMemberAccessBestEffort.ts`, which the branch never touched.
+
+  The branch then puts `{ "path": "/api/cron/drain-access-sync", "schedule": "*/5 * * * *" }` back into `vercel.json`, deletes the workflow in the same change (never run both: the claim serializes a member only within one claim, so two overlapping drains can each take a job for the same member, and one that read the old state can undo a block the other just sent — release-1.6.2-inverted-check.md R3), drops the daily-only guard, and updates rule 2.20. Check first that `get_git_deployment_context` shows `plan: pro`; on Hobby it fails every deploy.
+
 - **On Hobby:** Supabase `pg_cron` + `pg_net` (both available in the project, neither installed), POSTing to the endpoint every five minutes with `CRON_SECRET` held in Vault. Update this section, rule 2.20, `docs/ops/CRON_JOBS.md` and the workflow test in the same change.
 
 ### 4.6 The tuned constants — and why each number is what it is
