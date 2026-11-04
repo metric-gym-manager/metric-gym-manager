@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { rejectCrossSiteRequest } from '@/lib/middleware/sameOrigin'
 import { z } from 'zod'
 
 const resendSchema = z.object({
@@ -15,6 +16,10 @@ const resendSchema = z.object({
  * - Email went to spam
  */
 export async function POST(request: NextRequest) {
+  // Another site must not be able to send confirmation emails from this browser.
+  const crossSite = rejectCrossSiteRequest(request)
+  if (crossSite) return crossSite
+
   try {
     const body = await request.json()
 

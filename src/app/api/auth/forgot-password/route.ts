@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { forgotPasswordSchema } from '@/features/auth/schemas/auth.schemas'
 import { sendPasswordResetEmail } from '@/features/auth/services/auth.service'
+import { rejectCrossSiteRequest } from '@/lib/middleware/sameOrigin'
 
 export async function POST(request: NextRequest) {
+  // Another site must not be able to send reset emails from this browser.
+  const crossSite = rejectCrossSiteRequest(request)
+  if (crossSite) return crossSite
+
   try {
     const body = await request.json()
 

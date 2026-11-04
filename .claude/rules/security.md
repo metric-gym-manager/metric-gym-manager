@@ -4,6 +4,7 @@
 
 - Layer 1 — Row Level Security: every table has RLS enabled, with policies scoped to the owning gym. Policy patterns and the service-role write rules are in the Pattern Index (2.7, 2.18, 2.20).
 - Layer 2 — Authorization: check the caller (session, `saas_admins`, plan capability) in the route BEFORE any query. A gym is one Supabase user, so there is no per-user role inside a gym.
+- Cross-site requests: every mutating route under `api/auth` and `api/settings/security` calls `rejectCrossSiteRequest` (`lib/middleware/sameOrigin.ts`) first, pinned by `src/app/api/__tests__/account-cross-site.test.ts`, which discovers both folders. Sign-in needs no session, so `SameSite=Lax` cookies do not protect it (login CSRF was open in production until 2026-11-04).
 - Layer 3 — Input validation: every API route validates its input with a Zod schema before doing anything else.
 
 4.2 Secrets Management Checklist

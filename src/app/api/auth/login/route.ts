@@ -4,6 +4,7 @@ import { loginSchema } from '@/features/auth/schemas/auth.schemas'
 import { loginWithPassword } from '@/features/auth/services/auth.service'
 import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from '@/lib/auth-config'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { rejectCrossSiteRequest } from '@/lib/middleware/sameOrigin'
 
 /**
  * Sign-in attempts allowed per window (remote day F-09).
@@ -29,6 +30,10 @@ function rateLimited() {
 }
 
 export async function POST(request: NextRequest) {
+  // Login CSRF: another site must not be able to sign this browser in.
+  const crossSite = rejectCrossSiteRequest(request)
+  if (crossSite) return crossSite
+
   try {
     // Before the body is even read: a flood from one address costs nothing.
     const ip =

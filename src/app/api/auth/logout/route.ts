@@ -1,9 +1,14 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { logout } from '@/features/auth/services/auth.service'
 import { REMEMBER_ME_COOKIE } from '@/lib/auth-config'
+import { rejectCrossSiteRequest } from '@/lib/middleware/sameOrigin'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  // Another site must not be able to sign this browser out.
+  const crossSite = rejectCrossSiteRequest(request)
+  if (crossSite) return crossSite
+
   try {
     const result = await logout()
 

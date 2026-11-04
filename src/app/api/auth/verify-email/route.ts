@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { verifyEmailChange } from '@/features/auth/services/email-confirmation.service'
+import { rejectCrossSiteRequest } from '@/lib/middleware/sameOrigin'
 
 export async function POST(request: NextRequest) {
+  // Another site must not be able to confirm an email change from this browser.
+  const crossSite = rejectCrossSiteRequest(request)
+  if (crossSite) return crossSite
+
   try {
     const { token } = await request.json()
 
