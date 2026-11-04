@@ -16,6 +16,11 @@
  * or the server errors. Exit 0 when the expected version ran and nothing
  * failed; 1 otherwise. Every call is safe to repeat: nothing is announced
  * twice.
+ *
+ * The repository is public, and so is this run's log. It prints the HTTP
+ * status and each entry's kind, ref and outcome, never the body: an entry's
+ * `detail` is vendor error text. The cron writes every entry, detail
+ * included, to cron_logs (send-announcements), which /system-health shows.
  */
 
 const ANNOUNCE_URL = 'https://www.metricgymos.com/api/cron/send-announcements'
@@ -50,12 +55,7 @@ function assess(status, body, expectedVersion) {
   if (failed.length > 0) {
     return {
       state: 'failed',
-      reason: failed
-        .map(
-          (e) =>
-            `${e.kind} ${e.ref}: ${e.outcome}${e.detail ? ` — ${e.detail}` : ''}`
-        )
-        .join('; '),
+      reason: failed.map(describeEntry).join('; '),
     }
   }
 
@@ -67,6 +67,32 @@ function assess(status, body, expectedVersion) {
     }
   }
   return { state: 'ok' }
+}
+
+/** A word from the answer, or "?" when it is not one we expect to print. */
+function token(value) {
+  return typeof value === 'string' && /^[\w.@:-]{1,64}$/.test(value)
+    ? value
+    : '?'
+}
+
+/** `release 1.6.3: skipped` — the entry, without its detail. */
+function describeEntry(entry) {
+  return `${token(entry.kind)} ${token(entry.ref)}: ${token(entry.outcome)}`
+}
+
+/**
+ * The one line the log may show for an answer.
+ *
+ * @param {number} status - HTTP status
+ * @param {unknown} body - Parsed JSON, or null
+ * @returns {string} e.g. `HTTP 200 · release 1.6.3: skipped`
+ */
+function describeAnswer(status, body) {
+  if (!body || typeof body !== 'object') return `HTTP ${status}, no JSON body`
+  const entries = body.data && body.data.entries
+  if (!Array.isArray(entries)) return `HTTP ${status}, no entries`
+  return [`HTTP ${status}`, ...entries.map(describeEntry)].join(' · ')
 }
 
 async function main() {
@@ -86,10 +112,12 @@ async function main() {
       body = null
     }
     const result = assess(response.status, body, expectedVersion)
-    console.log(`Attempt ${attempt}: HTTP ${response.status} ${text}`)
+    console.log(`Attempt ${attempt}: ${describeAnswer(response.status, body)}`)
     if (result.state === 'ok') return 0
     if (result.state === 'failed') {
-      console.log(`::error::Announcements failed: ${result.reason}`)
+      console.log(
+        `::error::Announcements failed: ${result.reason}. The detail is in cron_logs (send-announcements) and /system-health.`
+      )
       return 1
     }
     console.log(`Not yet: ${result.reason}. Asking again in 20 s.`)
@@ -111,4 +139,4 @@ if (require.main === module) {
   )
 }
 
-module.exports = { assess, ANNOUNCE_URL }
+module.exports = { assess, describeAnswer, main, ANNOUNCE_URL }

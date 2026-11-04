@@ -27,6 +27,8 @@ interface Trigger {
     body: unknown,
     expectedVersion: string | null
   ): { state: 'ok' | 'stale' | 'failed'; reason?: string }
+  describeAnswer(status: number, body: unknown): string
+  main(): Promise<number>
   ANNOUNCE_URL: string
 }
 const trigger =
@@ -196,7 +198,10 @@ describe('assess — what the announcement cron answered', () => {
         '1.1.1'
       )
       expect(result.state).toBe('failed')
-      expect(result.reason).toContain(`release 1.1.1: ${outcome} — HEADLINE`)
+      expect(result.reason).toContain(`release 1.1.1: ${outcome}`)
+      // The detail is vendor error text, and this reason is printed into the
+      // public Release log. It stays in cron_logs.
+      expect(result.reason).not.toContain('HEADLINE')
     }
   })
 
@@ -213,5 +218,112 @@ describe('assess — what the announcement cron answered', () => {
         null
       ).state
     ).toBe('ok')
+  })
+})
+
+/**
+ * The repository is public, so its Actions logs are too. The Release run used
+ * to print the cron's whole answer ("Attempt 1: HTTP 200 {...}"), and a failed
+ * entry's vendor error text with it (release-1.6.2-inverted-check.md). It now
+ * prints the status and each entry's kind, ref and outcome; the rest is in
+ * cron_logs.
+ */
+describe('what the Release log shows of the cron answer', () => {
+  const answer = (entries: object[]) => ({
+    success: true,
+    data: { counts: { 'release:skipped': 1 }, entries },
+  })
+
+  it('names the status and each outcome, and nothing else', () => {
+    const line = trigger.describeAnswer(
+      200,
+      answer([
+        {
+          kind: 'release',
+          ref: '1.6.3',
+          outcome: 'send_failed',
+          detail: 'Resend said: owner@example.com is not allowed',
+          scheduledFor: '2026-11-06T04:00:00Z',
+        },
+        {
+          kind: 'policy',
+          ref: 'privacy@2026-10-06',
+          outcome: 'already_announced',
+        },
+      ])
+    )
+
+    expect(line).toBe(
+      'HTTP 200 · release 1.6.3: send_failed · policy privacy@2026-10-06: already_announced'
+    )
+  })
+
+  it('prints a token it does not recognise as "?"', () => {
+    expect(
+      trigger.describeAnswer(
+        200,
+        answer([{ kind: 'release', ref: '1.6.3', outcome: 'failed: a@b.c' }])
+      )
+    ).toBe('HTTP 200 · release 1.6.3: ?')
+  })
+
+  it('says so when the body is not the cron answer', () => {
+    expect(trigger.describeAnswer(502, null)).toBe('HTTP 502, no JSON body')
+    expect(trigger.describeAnswer(401, { success: false })).toBe(
+      'HTTP 401, no entries'
+    )
+  })
+
+  describe('main', () => {
+    const original = { fetch: global.fetch, secret: process.env.CRON_SECRET }
+    let lines: string[]
+
+    beforeEach(() => {
+      lines = []
+      process.env.CRON_SECRET = 'test-secret'
+      jest
+        .spyOn(console, 'log')
+        .mockImplementation((...args: unknown[]) => lines.push(args.join(' ')))
+    })
+    afterEach(() => {
+      global.fetch = original.fetch
+      process.env.CRON_SECRET = original.secret
+      jest.restoreAllMocks()
+    })
+
+    const respond = (body: object) => {
+      const text = JSON.stringify(body)
+      global.fetch = jest.fn(async () => new Response(text, { status: 200 }))
+      return text
+    }
+
+    it('never prints the body or an entry detail of a failed answer', async () => {
+      const text = respond(
+        answer([
+          {
+            kind: 'release',
+            ref: '1.6.3',
+            outcome: 'preview_failed',
+            detail: 'VENDOR-DETAIL owner@example.com',
+          },
+        ])
+      )
+
+      expect(await trigger.main()).toBe(1)
+      const log = lines.join('\n')
+      expect(log).toContain('release 1.6.3: preview_failed')
+      expect(log).not.toContain('VENDOR-DETAIL')
+      expect(log).not.toContain(text)
+    })
+
+    it('never prints the body of a good answer', async () => {
+      const text = respond(
+        answer([{ kind: 'release', ref: '1.6.3', outcome: 'skipped' }])
+      )
+
+      expect(await trigger.main()).toBe(0)
+      expect(lines.join('\n')).not.toContain(text)
+      expect(lines.join('\n')).not.toContain('"counts"')
+    })
   })
 })

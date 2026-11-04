@@ -208,6 +208,7 @@ Text values are HTML-escaped, braces included, so nothing from the changelog can
 
 - an answer from an older deployment (the release entry names the version that ran) or a 5xx is asked again every 20 s, for up to 3 minutes;
 - any failed email fails the run.
+- the log shows the HTTP status and each entry's kind, ref and outcome, never the body or an entry's `detail` (vendor error text): the repository is public, and so are its Actions logs. The detail is in `cron_logs` (send-announcements) and `/system-health`.
 
 The run checks out the newest master. If master moves while a release is cut, it warns and steps aside, and the queued run releases everything.
 
