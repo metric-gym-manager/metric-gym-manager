@@ -17,10 +17,12 @@ import type { MemberWritableField } from '@/features/members/config/MemberWriteF
 /**
  * What a gym owner reads when a guarded write is refused (409). The screens
  * that show it reload the member themselves, so it asks for a check, not a
- * reload, and it names no machinery.
+ * reload, and it names no machinery. Nor does it name a person: the usual
+ * cause is the same desk (a second tab, a retry, a double tap), and a gym is a
+ * single login.
  */
 export const MEMBER_CHANGED_MESSAGE =
-  'Someone else changed this member just now. Check their details and try again.'
+  'This member was updated just now. Check their details and try again.'
 
 /**
  * Conditions a member write applies under: each names a value the caller read,

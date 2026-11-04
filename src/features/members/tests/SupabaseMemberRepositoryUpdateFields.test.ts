@@ -365,6 +365,11 @@ describe('SupabaseMemberRepository.updateFields — guards', () => {
       })
     ).rejects.toThrow(MEMBER_CHANGED_MESSAGE)
     expect(MEMBER_CHANGED_MESSAGE).not.toMatch(/request|reload/i)
+    // Nor does it blame a person: the usual cause is the same desk — a second
+    // tab, a retry, a double tap — and a gym is a single login.
+    expect(MEMBER_CHANGED_MESSAGE).not.toMatch(
+      /someone|somebody|another (person|user)/i
+    )
   })
 
   it('throws ConflictError when the status has changed since it was read', async () => {
