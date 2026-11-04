@@ -21,21 +21,28 @@ are documented in `docs/reference/SAAS_SUBSCRIPTION_IMPLEMENTATION.md`.
 **Vercel evaluates cron expressions in UTC.** The schedule column is the source
 of truth; Sri Lanka local time (UTC+5:30) is shown for convenience only.
 
-| Job                      | Schedule      | Time (UTC)  | Time (Sri Lanka) | Frequency  |
-| ------------------------ | ------------- | ----------- | ---------------- | ---------- |
-| Update Expired Status    | `0 0 * * *`   | 00:00       | 5:30 AM          | Daily      |
-| Expire Suspended Members | `15 0 * * *`  | 00:15       | 5:45 AM          | Daily      |
-| Cancel Overdue Members   | `30 0 * * *`  | 00:30       | 6:00 AM          | Daily      |
-| Charge Renewals          | `30 0 * * *`  | 00:30       | 6:00 AM          | Daily      |
-| Process Dunning          | `45 0 * * *`  | 00:45       | 6:15 AM          | Daily      |
-| Process Trial Expiry     | `50 0 * * *`  | 00:50       | 6:20 AM          | Daily      |
-| Send Reminders           | `30 3 * * *`  | 03:30       | 9:00 AM          | Daily      |
-| Reconcile Access         | `30 18 * * *` | 18:30       | 12:00 AM (next)  | Daily      |
-| Drain Access Sync        | `*/5 * * * *` | every 5 min | every 5 min      | 5-minutely |
-| Sync Marketing Contacts  | `0 1 * * *`   | 01:00       | 6:30 AM          | Daily      |
-| Purge Access Events      | `0 2 * * *`   | 02:00       | 7:30 AM          | Daily      |
-| Send Announcements       | `0 4 * * *`   | 04:00       | 9:30 AM          | Daily      |
-| Send Outreach            | `30 4 * * *`  | 04:30       | 10:00 AM         | Daily      |
+**The Vercel team is on the Hobby plan (2026-11-04).** Hobby fails any deploy
+whose `vercel.json` has a cron running more than once a day, and fires each
+daily cron anywhere within its hour (±59 min), so the minutes below are
+targets, not times. The one sub-daily job, Drain Access Sync, runs from GitHub
+Actions (`.github/workflows/drain-access-sync.yml`). See
+`docs/architecture/access-control-master.md` §4.5.
+
+| Job                      | Schedule      | Time (UTC)  | Time (Sri Lanka) | Frequency                   |
+| ------------------------ | ------------- | ----------- | ---------------- | --------------------------- |
+| Update Expired Status    | `0 0 * * *`   | 00:00       | 5:30 AM          | Daily                       |
+| Expire Suspended Members | `15 0 * * *`  | 00:15       | 5:45 AM          | Daily                       |
+| Cancel Overdue Members   | `30 0 * * *`  | 00:30       | 6:00 AM          | Daily                       |
+| Charge Renewals          | `30 0 * * *`  | 00:30       | 6:00 AM          | Daily                       |
+| Process Dunning          | `45 0 * * *`  | 00:45       | 6:15 AM          | Daily                       |
+| Process Trial Expiry     | `50 0 * * *`  | 00:50       | 6:20 AM          | Daily                       |
+| Send Reminders           | `30 3 * * *`  | 03:30       | 9:00 AM          | Daily                       |
+| Reconcile Access         | `30 18 * * *` | 18:30       | 12:00 AM (next)  | Daily                       |
+| Drain Access Sync        | `*/5 * * * *` | every 5 min | every 5 min      | 5-minutely (GitHub Actions) |
+| Sync Marketing Contacts  | `0 1 * * *`   | 01:00       | 6:30 AM          | Daily                       |
+| Purge Access Events      | `0 2 * * *`   | 02:00       | 7:30 AM          | Daily                       |
+| Send Announcements       | `0 4 * * *`   | 04:00       | 9:30 AM          | Daily                       |
+| Send Outreach            | `30 4 * * *`  | 04:30       | 10:00 AM         | Daily                       |
 
 ### Member-status chain — ORDER MATTERS
 
@@ -279,7 +286,8 @@ clock. A gym's billing dispute must not lock out members who paid.
 ## 5. Drain Access Sync
 
 **Endpoint:** `GET|POST /api/cron/drain-access-sync`
-**Schedule:** `*/5 * * * *`
+**Schedule:** `*/5 * * * *`, from GitHub Actions (`.github/workflows/drain-access-sync.yml`), not
+`vercel.json`: Vercel Hobby refuses to deploy a sub-daily cron.
 
 ### What It Does
 

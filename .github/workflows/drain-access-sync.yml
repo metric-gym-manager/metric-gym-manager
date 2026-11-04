@@ -1,0 +1,64 @@
+# Door-access outbox drain, every five minutes.
+#
+# This used to be a Vercel cron. The Vercel team is on the Hobby plan, which
+# refuses to deploy any cron that runs more than once a day, so the one
+# sub-daily job runs from here instead. It calls the same endpoint with the
+# same CRON_SECRET bearer that Vercel Cron used; the route logs every run to
+# cron_logs (rule 2.6), which /system-health reads.
+#
+# Read docs/architecture/access-control-master.md §4.5 before changing it:
+# - GitHub may delay a scheduled run under load, or drop one. The drain is the
+#   catch-up path (registrations and payments dispatch inline), so a late run
+#   delays a retry; it does not lock anyone out.
+# - Scheduled workflows run only on the default branch, and GitHub disables
+#   them after 60 days without activity in a public repository.
+# - To pause the drain (a door-hardware exclusive phase):
+#   gh workflow disable drain-access-sync.yml   (and `enable` afterwards).
+# - This repository is public, so its Actions logs are too. Print the HTTP
+#   status only, never the response body: it carries counts and vendor error
+#   text.
+# - On a Vercel plan that allows it (Pro), the cron can move back into
+#   vercel.json; delete this workflow in the same change, never run both.
+
+name: Drain access sync
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: drain-access-sync
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  drain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Call the drain
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          DRAIN_URL: https://www.metricgymos.com/api/cron/drain-access-sync
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_SECRET is not set in Actions secrets"
+            exit 1
+          fi
+          code=000
+          for attempt in 1 2; do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 75 \
+              -X POST -H "Authorization: Bearer $CRON_SECRET" "$DRAIN_URL") || code=000
+            echo "Attempt $attempt: HTTP $code"
+            if [ "$code" = 200 ]; then exit 0; fi
+            # Retry once on a server error or no answer; anything else (401,
+            # 403, 404) will not change in 20 seconds.
+            case "$code" in
+              5*|000) [ "$attempt" = 1 ] && sleep 20 ;;
+              *) break ;;
+            esac
+          done
+          echo "::error::drain-access-sync answered HTTP $code"
+          exit 1

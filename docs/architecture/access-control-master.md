@@ -432,11 +432,29 @@ effect of an edit nobody reviewed as a state change.
 
 | Schedule      | Path                            | Job                                                                                                                                                 |
 | ------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `*/5 * * * *` | `/api/cron/drain-access-sync`   | Drain the outbox; refresh device presence; proactive capacity sweep                                                                                 |
+| `*/5 * * * *` | `/api/cron/drain-access-sync`   | Drain the outbox; refresh device presence; proactive capacity sweep. **Scheduled by GitHub Actions, not `vercel.json`** (below)                     |
 | `30 18 * * *` | `/api/cron/reconcile-access`    | Nightly diff at 00:00 SLT — the real lockout boundary                                                                                               |
 | `0 2 * * *`   | `/api/cron/purge-access-events` | Delete scans past `ACCESS_EVENT_RETENTION_DAYS`. Daily, because a monthly sweep would let data reach 13 months and make the published figure untrue |
 
 Both log to the cron audit table (rule 2.6).
+
+#### Scheduling on Vercel Hobby (2026-11-04)
+
+The Vercel team is on the **Hobby** plan. Two of its cron limits shape this table (Vercel docs, "Usage & Pricing for Cron Jobs", read 2026-11-04):
+
+- **Once per day at most.** A `vercel.json` cron that runs more often does not just misfire: it **fails the deployment**. "Hobby accounts are limited to daily cron jobs. This cron expression (\*/5 \* \* \* \*) would run more than once per day." Every deploy failed with exactly that until the drain moved.
+- **Per-hour precision (±59 min).** "A cron job configured as `0 1 * * *` will trigger anywhere between 1:00 am and 1:59 am." So `reconcile-access` (`30 18 * * *`) can run from 18:00 UTC, before SLT midnight. That costs a day's delay in the nightly clean-up, not a lockout or a late lockout: the readers enforce each member's window from their own clocks. The member-status chain (`cron-schedule-order.test.ts`) can also run out of order within its hour. The owner chose on 2026-11-04 to document these, not reschedule them.
+
+**So the drain runs from `.github/workflows/drain-access-sync.yml`**: every five minutes, it POSTs to the production endpoint with the `CRON_SECRET` Actions secret, the same call Vercel Cron made. What that changes:
+
+- **Timing is best-effort.** GitHub "can delay" a scheduled run under load, and may drop one. The drain is the catch-up path (registrations and payments dispatch inline), so a late run delays a retry; it locks no one out. `cron_logs` and `/system-health` show the last run.
+- **It runs only on the default branch.** GitHub disables a public repository's scheduled workflows after 60 days without activity.
+- **To pause it** (a door-hardware exclusive phase that needs the queue still): `gh workflow disable drain-access-sync.yml`, then `gh workflow enable drain-access-sync.yml`. A run already in flight finishes.
+- **The repository is public, so its Actions logs are too.** The workflow prints the HTTP status only, never the body, which carries counts and vendor error text.
+- **Failure notices** go to whoever last changed the workflow's cron line.
+- **Guards:** `vercel-cron-plan.test.ts` fails if any `vercel.json` cron runs more than daily. `access-control-crons.test.ts` pins the workflow's schedule, its POST with the bearer, and that it never prints the body.
+
+**Moving back on Pro:** put `{ "path": "/api/cron/drain-access-sync", "schedule": "*/5 * * * *" }` back into `vercel.json`, delete the workflow in the same change (never run both, though two drains at once are safe), drop the daily-only guard, and update rule 2.20.
 
 ### 4.6 The tuned constants — and why each number is what it is
 
@@ -472,18 +490,18 @@ has the command that runs exactly this set.
 
 Notable ones, because they encode decisions rather than behaviour:
 
-| Suite                                       | Guards                                                                                                      |
-| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `DoorAgreement.reverse.test.ts`             | Our idea of access still matches what a terminal would actually do. **Must stay green through any change.** |
-| `InvertedAssumptions.reverse.test.ts`       | The five D-defects (§6)                                                                                     |
-| `InvertedAssumptionsTwo.reverse.test.ts`    | The four N-defects (§6)                                                                                     |
-| `vendorTables.test.ts`                      | Return/event code classification                                                                            |
-| `useEnrolmentPoll.test.tsx`                 | Timeout ≠ failure, unmount stops polling                                                                    |
-| `RegistrationAndLog.test.ts`                | Inline provision never throws; kind sets disjoint                                                           |
-| `BillingLapseNeverLocksOut.reverse.test.ts` | A gym's unpaid invoice never reaches its members' door access — the drain stays billing-blind               |
-| `BiometricConsent.test.ts`                  | **No enrolment command reaches a reader without a consent record** — and the write happens first            |
-| `AccessEventRetention.test.ts`              | The published 12-month figure is the one actually enforced; batching walks a backlog from the old end       |
-| `RemoteOpenPermission.test.tsx`             | The remote-open decision, so the permissive default is not read as an oversight and "tightened"             |
+| Suite                                       | Guards                                                                                                                    |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `DoorAgreement.reverse.test.ts`             | Our idea of access still matches what a terminal would actually do. **Must stay green through any change.**               |
+| `InvertedAssumptions.reverse.test.ts`       | The five D-defects (§6)                                                                                                   |
+| `InvertedAssumptionsTwo.reverse.test.ts`    | The four N-defects (§6)                                                                                                   |
+| `vendorTables.test.ts`                      | Return/event code classification                                                                                          |
+| `useEnrolmentPoll.test.tsx`                 | Timeout ≠ failure, unmount stops polling                                                                                  |
+| `RegistrationAndLog.test.ts`                | Inline provision never throws; kind sets disjoint                                                                         |
+| `BillingLapseNeverLocksOut.reverse.test.ts` | A gym's unpaid invoice never reaches its members' door access — the drain stays billing-blind                             |
+| `BiometricConsent.test.ts`                  | **No enrolment command reaches a reader without a consent record** — and the write happens first                          |
+| `AccessEventRetention.test.ts`              | The published 12-month figure is the one actually enforced; batching walks a backlog from the old end                     |
+| `RemoteOpenPermission.test.tsx`             | The remote-open decision, so the permissive default is not read as an oversight and "tightened"                           |
 | `BiometricConsentPersistence.test.ts`       | (members) No member write carries the consent column, so an ordinary edit cannot erase it; the read side still returns it |
 
 **E2E (Playwright), 15 tests across 3 specs** — 14 passing, 1 skipped by

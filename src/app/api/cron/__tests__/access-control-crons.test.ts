@@ -47,6 +47,8 @@ import * as drainRoute from '../drain-access-sync/route'
 import * as reconcileRoute from '../reconcile-access/route'
 import * as purgeRoute from '../purge-access-events/route'
 import vercelConfig from '../../../../../vercel.json'
+import { readFileSync } from 'fs'
+import { join } from 'path'
 
 const CRON_SECRET = 'test-cron-secret'
 
@@ -274,8 +276,45 @@ describe('Access-control cron schedules', () => {
     expect(scheduleFor('/api/cron/reconcile-access')).toBe('30 18 * * *')
   })
 
-  it('drains the outbox frequently enough to be a catch-up path', () => {
-    expect(scheduleFor('/api/cron/drain-access-sync')).toBe('*/5 * * * *')
+  /**
+   * The drain runs every five minutes from GitHub Actions, not from
+   * vercel.json: the Vercel team is on Hobby, which refuses to deploy any cron
+   * that runs more than once a day (access-control-master.md §4.5).
+   */
+  describe('the outbox drain, scheduled from GitHub Actions', () => {
+    const workflow = readFileSync(
+      join(process.cwd(), '.github/workflows/drain-access-sync.yml'),
+      'utf8'
+    )
+
+    it('is not a Vercel cron', () => {
+      expect(
+        crons.find((c) => c.path === '/api/cron/drain-access-sync')
+      ).toBeUndefined()
+    })
+
+    it('drains the outbox frequently enough to be a catch-up path', () => {
+      const schedules = [...workflow.matchAll(/cron:\s*'([^']+)'/g)].map(
+        (m) => m[1]
+      )
+      expect(schedules).toEqual(['*/5 * * * *'])
+    })
+
+    it('calls the production drain with the cron secret', () => {
+      expect(workflow).toContain(
+        'https://www.metricgymos.com/api/cron/drain-access-sync'
+      )
+      expect(workflow).toMatch(/-X POST/)
+      expect(workflow).toContain('Authorization: Bearer $CRON_SECRET')
+      expect(workflow).toContain('CRON_SECRET: ${{ secrets.CRON_SECRET }}')
+    })
+
+    it('never prints the response body: the repository is public', () => {
+      // The body carries counts and vendor error text; Actions logs of a
+      // public repository are readable by anyone.
+      expect(workflow).toMatch(/-o \/dev\/null/)
+      expect(workflow).not.toMatch(/cat |jq |--include|-i /)
+    })
   })
 
   it('purges expired scans daily, so the published figure stays true', () => {

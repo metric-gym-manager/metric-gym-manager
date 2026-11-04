@@ -16,6 +16,12 @@
  * This is a silent failure mode — nothing errors, members simply linger in
  * Expired — so the ordering is pinned here against vercel.json rather than
  * left to a comment.
+ *
+ * On Vercel Hobby (since 2026-11-04) this pins the TARGET order only: Hobby
+ * fires each daily cron anywhere within its hour (±59 min), and all three sit
+ * in hour 00, so on a given night the consumer can run first and those members
+ * wait one more day. The owner chose to document this rather than move the
+ * consumer to a later hour (access-control-master.md §4.5).
  */
 
 import vercelConfig from '../../../../../vercel.json'

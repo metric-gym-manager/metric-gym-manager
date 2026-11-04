@@ -11,8 +11,11 @@
  * not hours, and the reader is not hammered on a tighter loop for the sake of
  * a case that mostly does not arise.
  *
- * Vercel Cron issues a GET, so the job runs on GET as well as POST, both
- * behind the `CRON_SECRET` bearer token.
+ * Scheduled by GitHub Actions (`.github/workflows/drain-access-sync.yml`),
+ * not by vercel.json: the Vercel team is on Hobby, which refuses to deploy any
+ * cron that runs more than once a day (access-control-master.md §4.5). The
+ * workflow POSTs; GET stays for Vercel Cron should the job move back on Pro.
+ * Both sit behind the `CRON_SECRET` bearer token.
  */
 
 import { NextRequest, NextResponse } from 'next/server'
