@@ -1,6 +1,6 @@
 {
   "name": "gym-management-saas",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "description": "Production-grade, multi-tenant SaaS platform for gym and fitness center management",
   "private": true,
   "engines": {
