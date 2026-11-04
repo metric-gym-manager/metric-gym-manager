@@ -64,6 +64,31 @@ describe('RevenuePageClient', () => {
   })
 
   /**
+   * The average is a total divided by a head count, so it is almost never a
+   * whole number, and `toLocaleString` keeps three decimals: production showed
+   * "146,276.471" (release-1.6.2-inverted-check.md R7). Every fixture here
+   * used 1,560, which is why no test saw it.
+   */
+  it('shows the average per member in whole rupees', async () => {
+    mockFetchRoutes(
+      routes({
+        '/api/revenue/monthly': apiOk(
+          monthly({
+            metrics: {
+              totalActiveMembers: 17,
+              averageRevenuePerMember: 146276.4705882353,
+            },
+          })
+        ),
+      })
+    )
+    renderScreen(<RevenuePageClient />)
+
+    expect(await screen.findByText('146,276')).toBeInTheDocument()
+    expect(screen.queryByText(/146,276\./)).not.toBeInTheDocument()
+  })
+
+  /**
    * The rate compares like with like: plan cash against plan billings. Using
    * TOTAL cash as the numerator is what produced "127.7% of billed" on a real
    * gym — one-off money measured against a subscription denominator.

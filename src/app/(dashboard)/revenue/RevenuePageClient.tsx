@@ -186,7 +186,9 @@ export default function RevenuePageClient() {
     },
     {
       label: 'Avg / member',
-      value: metrics ? fmt(metrics.averageRevenuePerMember) : '—',
+      // An average of rupee totals is a readout, not a price: whole rupees.
+      // Unrounded, `fmt` printed "146,276.471".
+      value: metrics ? fmt(Math.round(metrics.averageRevenuePerMember)) : '—',
       sub: 'Lifetime value',
     },
   ]
