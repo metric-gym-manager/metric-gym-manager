@@ -47,6 +47,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - aggressive caching strategy and Lighthouse performance optimization ([e6d7b23](../../commit/e6d7b23))
 
+## [1.6.2] - 2026-11-04
+
+### Fixed
+
+- Choosing a username another gym already uses now tells you it is taken, instead of showing a general error. ([d140cd1](../../commit/d140cd1))
+- When someone else changes a member at the same moment as you, the message now says so in plain words. ([c0a889b](../../commit/c0a889b))
+- Dialogs no longer crowd their first field against the line of text above it. ([8c7900a](../../commit/8c7900a))
+- You can change your account phone number from Settings, Security again; it saves in one step. ([d7cb490](../../commit/d7cb490))
+- If someone changes a member's plan while you are reactivating them on a different plan, the reactivation stops and asks you to check the plan instead of overwriting it. ([03056b3](../../commit/03056b3))
+- If a member's status changes while you are suspending, cancelling or reactivating them, the action is stopped and the member's current details are shown instead. ([9c097fe](../../commit/9c097fe))
+- A day pass that cannot be issued no longer records a payment, and pressing the button twice issues one pass. ([d2c29a2](../../commit/d2c29a2))
+
 ## [1.6.1] - 2026-11-03
 
 ### Fixed
