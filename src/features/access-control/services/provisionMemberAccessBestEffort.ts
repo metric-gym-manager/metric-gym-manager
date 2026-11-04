@@ -4,10 +4,11 @@
  * ## Why this exists when the outbox already covers it
  *
  * The members trigger enqueues a sync job the moment a member is inserted, and
- * `drain-access-sync` sends it within five minutes. That is a correct
- * guarantee and it stays the guarantee — but five minutes is wrong for the
- * workflow that actually happens at a desk: staff register someone and walk
- * them straight to the reader to enrol a finger.
+ * `drain-access-sync` sends it on its next run — every five minutes when it is
+ * scheduled, which it is not while the drain is disabled (2026-11-04,
+ * access-control-master.md §4.5). That is the guarantee — but five minutes is
+ * wrong for the workflow that actually happens at a desk: staff register
+ * someone and walk them straight to the reader to enrol a finger.
  *
  * So this is the fast path, not the reliable one. It races the drain, and
  * whichever gets there first is fine: `SyncMemberAccess` re-derives everything

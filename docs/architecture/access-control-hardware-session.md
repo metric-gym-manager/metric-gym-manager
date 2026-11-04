@@ -151,7 +151,10 @@ remote track, the physical session for its own).
 - **Desk agents never call the vendor**; the api agent reaches only
   `http://localhost:3100` and refuses Titan's reader serials in any webhook.
 - **Production's own drain** runs every 5 minutes and processes every
-  agent's jobs — the system working, not interference. Where a task queues a
+  agent's jobs — the system working, not interference. **Since 2026-11-04 it
+  is disabled** (no schedule; access-control-master.md §4.5): re-enable a
+  scheduled drain before a session, or every `jobs --wait` blocks until it
+  times out. Where a task queues a
   job and then processes it itself (a crash, a lost reply, a reader restart
   with a command in flight), both happen in one step, and `set-dates` and
   `--no-push` changes first wait until production's next drain is at least

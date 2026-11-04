@@ -1,21 +1,23 @@
 /**
  * /api/cron/drain-access-sync — the outbox worker.
  *
- * Schedule: every five minutes. This is the only thing that moves queued
- * changes onto the hardware, so without it the `access_sync_jobs` rows the
- * members trigger writes simply accumulate.
+ * Schedule: NONE at present — designed for every five minutes, disabled by
+ * the owner on 2026-11-04. This is the only thing that moves queued changes
+ * onto the hardware, so without it the `access_sync_jobs` rows the members
+ * trigger writes simply accumulate.
  *
- * Five minutes is a deliberate compromise. Registrations and payments already
- * dispatch inline, so this is the retry and catch-up path rather than the
- * happy path; a member whose change missed the inline attempt waits minutes,
- * not hours, and the reader is not hammered on a tighter loop for the sake of
- * a case that mostly does not arise.
+ * Five minutes is a deliberate compromise. Registration already dispatches
+ * inline, so for a new member this is the retry path; payments, day passes,
+ * status changes and the nightly reconcile reach a reader ONLY through here.
+ * A member whose change is queued waits minutes, not hours, and the reader is
+ * not hammered on a tighter loop.
  *
- * Scheduled by GitHub Actions (`.github/workflows/drain-access-sync.yml`),
- * not by vercel.json: the Vercel team is on Hobby, which refuses to deploy any
- * cron that runs more than once a day (access-control-master.md §4.5). The
- * workflow POSTs; GET stays for Vercel Cron should the job move back on Pro.
- * Both sit behind the `CRON_SECRET` bearer token.
+ * Why nothing schedules it: the Vercel team is on Hobby, which refuses to
+ * deploy any cron that runs more than once a day, and the GitHub Actions
+ * schedule that stood in for it never fired. It runs only by hand, through
+ * `.github/workflows/drain-access-sync.yml` (workflow_dispatch, which POSTs).
+ * GET stays for Vercel Cron should the job move back on Pro. Both sit behind
+ * the `CRON_SECRET` bearer token. Re-enabling: access-control-master.md §4.5.
  */
 
 import { NextRequest, NextResponse } from 'next/server'

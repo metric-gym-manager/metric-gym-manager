@@ -277,15 +277,28 @@ describe('Access-control cron schedules', () => {
   })
 
   /**
-   * The drain runs every five minutes from GitHub Actions, not from
-   * vercel.json: the Vercel team is on Hobby, which refuses to deploy any cron
-   * that runs more than once a day (access-control-master.md §4.5).
+   * Nothing schedules the drain. The Vercel team is on Hobby, which refuses to
+   * deploy any cron that runs more than once a day, and the GitHub Actions
+   * schedule that stood in for it never fired (0 runs in 4 h). The owner chose
+   * on 2026-11-04 to drain by hand until a scheduler that works is in place
+   * (access-control-master.md §4.5). The workflow stays as that manual
+   * dispatch, so what it calls is still pinned.
    */
-  describe('the outbox drain, scheduled from GitHub Actions', () => {
+  describe('the outbox drain, disabled: manual dispatch only', () => {
     const workflow = readFileSync(
       join(process.cwd(), '.github/workflows/drain-access-sync.yml'),
       'utf8'
     )
+
+    /** The workflow's top-level `on:` block, without comment lines. */
+    function triggers(): string {
+      const lines = workflow.split('\n').filter((line) => !/^\s*#/.test(line))
+      const start = lines.findIndex((line) => /^on:\s*$/.test(line))
+      if (start === -1) return ''
+      const rest = lines.slice(start + 1)
+      const end = rest.findIndex((line) => /^\S/.test(line))
+      return rest.slice(0, end === -1 ? undefined : end).join('\n')
+    }
 
     it('is not a Vercel cron', () => {
       expect(
@@ -293,11 +306,14 @@ describe('Access-control cron schedules', () => {
       ).toBeUndefined()
     })
 
-    it('drains the outbox frequently enough to be a catch-up path', () => {
-      const schedules = [...workflow.matchAll(/cron:\s*'([^']+)'/g)].map(
-        (m) => m[1]
-      )
-      expect(schedules).toEqual(['*/5 * * * *'])
+    it('has no schedule, only a manual dispatch (owner decision 2026-11-04)', () => {
+      const on = triggers()
+
+      // The positive check comes first, so a block that was not found cannot
+      // pass the two negative ones.
+      expect(on).toMatch(/^\s+workflow_dispatch:/m)
+      expect(on).not.toMatch(/schedule/)
+      expect(workflow.replace(/^\s*#.*$/gm, '')).not.toMatch(/\bcron\s*:/)
     })
 
     it('calls the production drain with the cron secret', () => {

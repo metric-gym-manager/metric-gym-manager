@@ -56,7 +56,7 @@ reader as a **validity period**; the reader admits them from its own clock until
 that date. When a member is cancelled we **block** them and **revoke the
 template from the device** while leaving the vendor's central copy intact, so
 eviction and return are reversible without re-enrolment. All hardware traffic
-goes through a database outbox drained every five minutes; scans come back on a
+goes through a database outbox, designed to drain every five minutes (the drain is **disabled** since 2026-11-04 and runs only by hand, §4.5); scans come back on a
 webhook. The gym sees three screens: setup, a daily operations dashboard, and a
 per-member panel. **Nothing we do gates a door in real time.**
 
@@ -432,7 +432,7 @@ effect of an edit nobody reviewed as a state change.
 
 | Schedule      | Path                            | Job                                                                                                                                                 |
 | ------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `*/5 * * * *` | `/api/cron/drain-access-sync`   | Drain the outbox; refresh device presence; proactive capacity sweep. **Scheduled by GitHub Actions, not `vercel.json`** (below)                     |
+| none (manual) | `/api/cron/drain-access-sync`   | Drain the outbox; refresh device presence; proactive capacity sweep. Designed for `*/5`; **disabled since 2026-11-04, manual only** (below)         |
 | `30 18 * * *` | `/api/cron/reconcile-access`    | Nightly diff at 00:00 SLT — the real lockout boundary                                                                                               |
 | `0 2 * * *`   | `/api/cron/purge-access-events` | Delete scans past `ACCESS_EVENT_RETENTION_DAYS`. Daily, because a monthly sweep would let data reach 13 months and make the published figure untrue |
 
@@ -445,16 +445,20 @@ The Vercel team is on the **Hobby** plan. Two of its cron limits shape this tabl
 - **Once per day at most.** A `vercel.json` cron that runs more often does not just misfire: it **fails the deployment**. "Hobby accounts are limited to daily cron jobs. This cron expression (\*/5 \* \* \* \*) would run more than once per day." Every deploy failed with exactly that until the drain moved.
 - **Per-hour precision (±59 min).** "A cron job configured as `0 1 * * *` will trigger anywhere between 1:00 am and 1:59 am." So `reconcile-access` (`30 18 * * *`) can run from 18:00 UTC, before SLT midnight. That costs a day's delay in the nightly clean-up, not a lockout or a late lockout: the readers enforce each member's window from their own clocks. The member-status chain (`cron-schedule-order.test.ts`) can also run out of order within its hour. The owner chose on 2026-11-04 to document these, not reschedule them.
 
-**So the drain runs from `.github/workflows/drain-access-sync.yml`**: every five minutes, it POSTs to the production endpoint with the `CRON_SECRET` Actions secret, the same call Vercel Cron made. What that changes:
+**The drain is disabled (owner decision, 2026-11-04).** It moved from `vercel.json` to a five-minute GitHub Actions schedule in `.github/workflows/drain-access-sync.yml`, and that schedule **never fired**: 0 scheduled runs in more than 4 hours, through and after a GitHub incident and a disable/enable, while every `workflow_dispatch` answered 200. The team stays on Hobby for now, so nothing schedules the drain; the workflow keeps only `workflow_dispatch`. What that means:
 
-- **Timing is best-effort.** GitHub "can delay" a scheduled run under load, and may drop one. The drain is the catch-up path (registrations and payments dispatch inline), so a late run delays a retry; it locks no one out. `cron_logs` and `/system-health` show the last run.
-- **It runs only on the default branch.** GitHub disables a public repository's scheduled workflows after 60 days without activity.
-- **To pause it** (a door-hardware exclusive phase that needs the queue still): `gh workflow disable drain-access-sync.yml`, then `gh workflow enable drain-access-sync.yml`. A run already in flight finishes.
+- **Queued changes do not reach the readers.** Registration pushes a new member inline (`provisionMemberAccessBestEffort`), and the Door Access desk's own actions (Re-send to readers, enrol, open, restart) dispatch at request time. A change to a member's record otherwise reaches a reader **only** through the outbox — payments, day passes, status changes (a cancellation's block and revoke), the nightly reconcile, and retries of a failed inline push. At a gym with readers, a renewal would never extend the member's validity period, and the reader would refuse them from their old paid-through date. On 2026-11-04 only Titan Fitness (a test tenant) has readers.
+- **Presence goes stale.** Presence refresh and the capacity sweep ride on the drain, so the Door Access screen shows readers offline unless a scan arrives.
+- **`reconcile-access` keeps running** (daily, so Hobby allows it) and keeps queueing jobs nothing drains — 3 a night on 2026-11-04, all for E2E Enterprise Gym, which has no readers. They pile up harmlessly: a later drain takes one job per member per run, and the older ones are no-ops.
+- **Draining by hand:** Actions → "Drain access sync" → Run workflow, or `gh workflow run drain-access-sync.yml`. One run drains one batch (at most `DRAIN_BATCH_SIZE`, 25, and one job per member), so a backlog needs several runs. `cron_logs` and `/system-health` show each run.
+- **Before a real gym connects readers, and before a hardware day, re-enable a scheduled drain.** `scripts/hw-session.ts` (`jobs --wait`, and the wait until production's next drain is 75 s away) assumes production drains every five minutes.
 - **The repository is public, so its Actions logs are too.** The workflow prints the HTTP status only, never the body, which carries counts and vendor error text.
-- **Failure notices** go to whoever last changed the workflow's cron line.
-- **Guards:** `vercel-cron-plan.test.ts` fails if any `vercel.json` cron runs more than daily. `access-control-crons.test.ts` pins the workflow's schedule, its POST with the bearer, and that it never prints the body.
+- **Guards:** `vercel-cron-plan.test.ts` fails if any `vercel.json` cron runs more than daily. `access-control-crons.test.ts` pins that the drain is not a Vercel cron, that the workflow has no schedule and keeps `workflow_dispatch`, its POST with the bearer, and that it never prints the body.
 
-**Moving back on Pro:** put `{ "path": "/api/cron/drain-access-sync", "schedule": "*/5 * * * *" }` back into `vercel.json`, delete the workflow in the same change (never run both, though two drains at once are safe), drop the daily-only guard, and update rule 2.20.
+**Re-enabling.** Two ways, and not a GitHub schedule, which never fired:
+
+- **On Vercel Pro:** rebase da75912 (`fix/drain-back-to-vercel-cron`, kept local) onto master and push it — it predates the disabling commit and conflicts with it in this section, rule 2.20, `CRON_JOBS.md`, the workflow and its test. It puts `{ "path": "/api/cron/drain-access-sync", "schedule": "*/5 * * * *" }` back into `vercel.json`, deletes the workflow in the same change (never run both, though two drains at once are safe), drops the daily-only guard, and updates rule 2.20. Check first that `get_git_deployment_context` shows `plan: pro`; on Hobby it fails every deploy.
+- **On Hobby:** Supabase `pg_cron` + `pg_net` (both available in the project, neither installed), POSTing to the endpoint every five minutes with `CRON_SECRET` held in Vault. Update this section, rule 2.20, `docs/ops/CRON_JOBS.md` and the workflow test in the same change.
 
 ### 4.6 The tuned constants — and why each number is what it is
 

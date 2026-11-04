@@ -24,9 +24,10 @@ of truth; Sri Lanka local time (UTC+5:30) is shown for convenience only.
 **The Vercel team is on the Hobby plan (2026-11-04).** Hobby fails any deploy
 whose `vercel.json` has a cron running more than once a day, and fires each
 daily cron anywhere within its hour (±59 min), so the minutes below are
-targets, not times. The one sub-daily job, Drain Access Sync, runs from GitHub
-Actions (`.github/workflows/drain-access-sync.yml`). See
-`docs/architecture/access-control-master.md` §4.5.
+targets, not times. The one sub-daily job, Drain Access Sync, is **disabled**
+(owner decision, 2026-11-04): its GitHub Actions schedule never fired, so
+nothing schedules it and it runs only by hand (`gh workflow run
+drain-access-sync.yml`). See `docs/architecture/access-control-master.md` §4.5.
 
 | Job                      | Schedule      | Time (UTC)  | Time (Sri Lanka) | Frequency                   |
 | ------------------------ | ------------- | ----------- | ---------------- | --------------------------- |
@@ -38,7 +39,7 @@ Actions (`.github/workflows/drain-access-sync.yml`). See
 | Process Trial Expiry     | `50 0 * * *`  | 00:50       | 6:20 AM          | Daily                       |
 | Send Reminders           | `30 3 * * *`  | 03:30       | 9:00 AM          | Daily                       |
 | Reconcile Access         | `30 18 * * *` | 18:30       | 12:00 AM (next)  | Daily                       |
-| Drain Access Sync        | `*/5 * * * *` | every 5 min | every 5 min      | 5-minutely (GitHub Actions) |
+| Drain Access Sync        | none          | manual only | manual only      | Disabled (manual runs only) |
 | Sync Marketing Contacts  | `0 1 * * *`   | 01:00       | 6:30 AM          | Daily                       |
 | Purge Access Events      | `0 2 * * *`   | 02:00       | 7:30 AM          | Daily                       |
 | Send Announcements       | `0 4 * * *`   | 04:00       | 9:30 AM          | Daily                       |
@@ -286,21 +287,32 @@ clock. A gym's billing dispute must not lock out members who paid.
 ## 5. Drain Access Sync
 
 **Endpoint:** `GET|POST /api/cron/drain-access-sync`
-**Schedule:** `*/5 * * * *`, from GitHub Actions (`.github/workflows/drain-access-sync.yml`), not
-`vercel.json`: Vercel Hobby refuses to deploy a sub-daily cron.
+**Schedule:** **none — disabled by the owner on 2026-11-04.** Designed for
+`*/5 * * * *`. Vercel Hobby refuses to deploy a sub-daily cron, and the GitHub
+Actions schedule that replaced it never fired, so the workflow
+(`.github/workflows/drain-access-sync.yml`) keeps only `workflow_dispatch`.
+
+**To drain by hand:** Actions → "Drain access sync" → Run workflow, or
+`gh workflow run drain-access-sync.yml`. One run drains one batch (at most 25
+jobs, one per member), so a backlog needs several runs. **Re-enable a schedule
+before a real gym connects readers, and before a hardware day.** How to
+re-enable (Vercel Pro, or Supabase `pg_cron` + `pg_net` on Hobby — not a
+GitHub schedule): `docs/architecture/access-control-master.md` §4.5.
 
 ### What It Does
 
 Drains the `access_sync_jobs` outbox onto the hardware. **This is the only
 thing that moves queued changes to the readers** — without it the rows the
-members trigger writes simply accumulate.
+members trigger writes simply accumulate. While it is disabled, a payment or a
+day pass never extends a member's validity period on a reader, and the Door
+Access screen shows readers offline unless a scan arrives.
 
-### Why every five minutes
+### Why every five minutes (when scheduled)
 
-Registrations and payments dispatch inline, so this is the retry and catch-up
-path rather than the happy path. Five minutes means a member whose change
-missed the inline attempt waits minutes rather than hours, without hammering
-the vendor on a tighter loop for a case that mostly does not arise.
+Registration dispatches inline (as do the Door Access desk's own actions), so
+for a new member this is the retry path; payments, day passes, status changes
+and the nightly reconcile reach a reader only through here. Five minutes means a queued change waits minutes
+rather than hours, without hammering the vendor on a tighter loop.
 
 ### Process Flow
 

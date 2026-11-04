@@ -1,30 +1,34 @@
-# Door-access outbox drain, every five minutes.
+# Door-access outbox drain: MANUAL ONLY. Nothing schedules it.
 #
-# This used to be a Vercel cron. The Vercel team is on the Hobby plan, which
-# refuses to deploy any cron that runs more than once a day, so the one
-# sub-daily job runs from here instead. It calls the same endpoint with the
-# same CRON_SECRET bearer that Vercel Cron used; the route logs every run to
-# cron_logs (rule 2.6), which /system-health reads.
+# Disabled by the owner on 2026-11-04. The Vercel team is on the Hobby plan,
+# which refuses to deploy any cron that runs more than once a day, and the
+# five-minute schedule this workflow carried instead never fired: 0 scheduled
+# runs in more than 4 hours, while workflow_dispatch worked every time. Until a
+# scheduler that works is in place, the drain runs only when someone runs it.
 #
-# Read docs/architecture/access-control-master.md §4.5 before changing it:
-# - GitHub may delay a scheduled run under load, or drop one. The drain is the
-#   catch-up path (registrations and payments dispatch inline), so a late run
-#   delays a retry; it does not lock anyone out.
-# - Scheduled workflows run only on the default branch, and GitHub disables
-#   them after 60 days without activity in a public repository.
-# - To pause the drain (a door-hardware exclusive phase):
-#   gh workflow disable drain-access-sync.yml   (and `enable` afterwards).
+# Read docs/architecture/access-control-master.md §4.5 before changing it.
+#
+# - To drain by hand: Actions -> "Drain access sync" -> Run workflow, or
+#   `gh workflow run drain-access-sync.yml`. One run drains one batch (at most
+#   DRAIN_BATCH_SIZE jobs, one per member), so a backlog needs several runs.
+# - While it is off, queued changes do not reach the readers. Registration
+#   pushes a new member inline; payments, day passes, status changes and the
+#   nightly reconcile reach a reader only through the outbox. Re-enable a
+#   scheduled drain before a real gym connects readers, and before a hardware
+#   day (hw-session's `jobs --wait` waits for production's drain).
+# - To re-enable: on Vercel Pro, rebase da75912 (branch
+#   fix/drain-back-to-vercel-cron) onto master and push it; it moves the
+#   five-minute cron back into vercel.json and deletes this workflow, and it
+#   predates the commit that disabled the schedule, so it conflicts until
+#   rebased. On Hobby, schedule it with Supabase pg_cron + pg_net, with the
+#   secret in Vault. Not a GitHub schedule: it never fired.
 # - This repository is public, so its Actions logs are too. Print the HTTP
 #   status only, never the response body: it carries counts and vendor error
 #   text.
-# - On a Vercel plan that allows it (Pro), the cron can move back into
-#   vercel.json; delete this workflow in the same change, never run both.
 
 name: Drain access sync
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 concurrency:
