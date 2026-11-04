@@ -36,6 +36,30 @@ function Overlay({
 
 const state = () => screen.getByTestId('state').textContent
 
+function Armed({ open, onClose }: { open: boolean; onClose: () => void }) {
+  useHistoryBack(open, onClose)
+  return null
+}
+
+/** Two overlays, the first closing as the second opens: one state update. */
+function Swap({ onSecondClosed }: { onSecondClosed: () => void }) {
+  const [which, setWhich] = useState<'first' | 'second' | 'none'>('first')
+  return (
+    <>
+      <Armed open={which === 'first'} onClose={() => setWhich('none')} />
+      <Armed
+        open={which === 'second'}
+        onClose={() => {
+          setWhich('none')
+          onSecondClosed()
+        }}
+      />
+      <button onClick={() => setWhich('second')}>swap</button>
+      <output data-testid="which">{which}</output>
+    </>
+  )
+}
+
 /** Let the cleanup's deferred `history.back()` run. */
 async function flushDrop() {
   await act(async () => {
@@ -60,6 +84,9 @@ describe('useHistoryBack', () => {
     cleanup()
     jest.clearAllTimers()
     jest.useRealTimers()
+    // A test that fails before its own `mockRestore()` would otherwise hand
+    // its spy, calls and all, to the next test's `spyOn`.
+    jest.restoreAllMocks()
   })
 
   it('pushes exactly one marked entry when the overlay opens', () => {
@@ -130,6 +157,55 @@ describe('useHistoryBack', () => {
       )
     })
     expect(onClosed).toHaveBeenCalledTimes(1)
+  })
+
+  /**
+   * Member Details closing as Edit Member opens, in one commit, both fullscreen
+   * on a phone. The opener adopted the detail's entry, then the detail's
+   * deferred drop went back, and the opener took that popstate for the Back
+   * button and closed too: Edit closed the member instead of editing it.
+   */
+  it('hands its entry to an overlay that opens as it closes', async () => {
+    const back = jest.spyOn(window.history, 'back').mockImplementation(() => {})
+    const onSecondClosed = jest.fn()
+    render(<Swap onSecondClosed={onSecondClosed} />)
+    expect(window.history.state).toMatchObject({ [OVERLAY_HISTORY_MARK]: true })
+
+    act(() => {
+      screen.getByText('swap').click()
+    })
+    await flushDrop()
+
+    expect(back).not.toHaveBeenCalled()
+    expect(screen.getByTestId('which').textContent).toBe('second')
+    expect(window.history.state).toMatchObject({ [OVERLAY_HISTORY_MARK]: true })
+
+    // The entry is the second overlay's now: Back closes it, once.
+    act(() => {
+      window.history.replaceState({ page: 'list' }, '')
+      window.dispatchEvent(new PopStateEvent('popstate', { state: null }))
+    })
+    await flushDrop()
+    expect(onSecondClosed).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('which').textContent).toBe('none')
+    expect(back).not.toHaveBeenCalled()
+    back.mockRestore()
+  })
+
+  it('goes back once when two overlays sharing the entry close together', async () => {
+    const back = jest.spyOn(window.history, 'back').mockImplementation(() => {})
+    const { rerender } = render(
+      <>
+        <Armed open onClose={() => {}} />
+        <Armed open onClose={() => {}} />
+      </>
+    )
+
+    // One entry for both (the second adopts it), so one step back for both.
+    rerender(<></>)
+    await flushDrop()
+
+    expect(back).toHaveBeenCalledTimes(1)
   })
 
   it('does nothing at all when disabled — center and sheet placements', async () => {

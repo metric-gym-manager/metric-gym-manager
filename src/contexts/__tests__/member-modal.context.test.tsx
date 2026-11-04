@@ -117,7 +117,7 @@ function Opener() {
  * the very stale copy these tests exist to catch. Production keeps unused
  * entries for 10 minutes and treats data as fresh for 5.
  */
-function mount() {
+function mount(tier: 'desktop' | 'phone' = 'desktop') {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -131,7 +131,7 @@ function mount() {
   })
   const result = render(
     <QueryClientProvider client={queryClient}>
-      <ViewportTierProvider tier="desktop">
+      <ViewportTierProvider tier={tier}>
         <MemberModalProvider>
           <Opener />
         </MemberModalProvider>
@@ -159,6 +159,25 @@ beforeAll(async () => {
 }, 60_000)
 
 describe('member modal — open → edit → save → reopen', () => {
+  /**
+   * On a phone both modals are fullscreen, and each claims the Back button
+   * with a history entry. The detail closing as the edit form opened used to
+   * go back a step a tick later, and the edit form took that for the Back
+   * button: tapping Edit closed the member instead.
+   */
+  it('on a phone, Edit opens the edit form and it stays open', async () => {
+    createServer('Original Name')
+    mount('phone')
+    await openAndEdit()
+
+    // The detail's deferred history step, and the popstate jsdom fires for it.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    })
+
+    expect(screen.getByLabelText(/^Name/)).toHaveValue('Original Name')
+  })
+
   it('edit form opens pre-filled with the stored values', async () => {
     createServer('Original Name')
     mount()
