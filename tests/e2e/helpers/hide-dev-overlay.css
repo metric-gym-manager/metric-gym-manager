@@ -1,0 +1,13 @@
+/*
+ * Next's dev-tools badge, hidden while desktop-regression screenshots.
+ *
+ * It sits in a shadow root under a <nextjs-portal> host that has no box of
+ * its own, so a screenshot `mask` on the host covered nothing and the badge's
+ * issue count was part of every baseline. The fixed browser clock makes that
+ * count non-zero by construction: the dev server renders today's date, the
+ * browser renders 15 October 2026, and React regenerates each such tree on
+ * the client (helpers/desktop-fixtures.ts).
+ */
+nextjs-portal {
+  display: none !important;
+}
